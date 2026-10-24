@@ -31,7 +31,7 @@ jobs:
           archive,=Path('downloaded').glob('*.tar.gz')
           with tarfile.open(archive) as package: package.extractall(out,filter='data')
           driver,=out.glob('kalandra-native-*/bin/kalandra.exe')
-          clang,=out.glob('kalandra-native-*/lib/kalandra/toolchain/bin/clang.exe')
+          clang,=out.glob('kalandra-native-*/lib/kalandra/toolchain/bin/clang++.exe')
           source='fn gcd(a:int,b:int)->int:\n  if b==0:a\n  else:gcd(b,a%b)\nfn main()->int:\n  gcd(987654321,123456789)\n'
           records=[]
           for label,extra in [('scalar',''),('array','array')]:
