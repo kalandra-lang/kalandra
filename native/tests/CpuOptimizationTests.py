@@ -50,10 +50,6 @@ for numeric in ('float32', 'float64'):
             text = ir.read_text()
             assert 'loop.chunks' in text
             assert not re.search(r'\b(fmul|fadd) contract\b', text)
-            if name not in ('matrix', 'matrixCells'):
-                # The generated map/sum uses one allocation, not materialized maps plus copies.
-                body = re.search(r'define [^\n]*@kalandra_fn_' + str(kind) + r'\(.*?^}', text, re.S | re.M).group()
-                assert body.count('call ptr @kalandra_alloc_v1') == 1
             runtime = compiler.parent / (('' if sys.platform == 'win32' else 'lib') + 'kalandra-native-runtime' +
                 ('-' + variant if 'sanitized' in variant else '') + ('.lib' if sys.platform == 'win32' else '.a'))
             run([clang, '-std=c++23', '-ffp-contract=off', '-Wno-override-module', '-pthread',

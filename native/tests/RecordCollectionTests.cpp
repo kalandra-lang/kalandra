@@ -62,9 +62,10 @@ int main() {
           "type Box:\n  field:[int]\nfn main():\n  Box {field:tensor([1,2])}.field\n",
           "type Box:\n  field:Tensor[int,2]\nfn main():\n  Box {field:[1,2]}.field\n",
           "type Box:\n  field:Tensor[int,2]\nfn main():\n  Box {field:tensor([1,2,3])}.field\n",
-          "type Box:\n  field:[int]\nfn main():\n  Box {field:[float32(1)]}.field\n",
-          "type Box:\n  field:[Box]\nfn main():\n  0\n"})
-      require(!analyze(text).ok(), "invalid collection field program admitted");
+          "type Box:\n  field:[int]\nfn main():\n  Box {field:[float32(1)]}.field\n"})
+      require(!analyze(text).ok(), std::string("invalid collection field program admitted: ") + text);
+    require(analyze("type Box:\n  field:[Box]\nfn main()->int:\n  value=Box {field:[]}\n  length(value.field)\n").ok(),
+            "recursive collection field program rejected");
     auto shapes =
         analyze("type Box:\n  field:[int]\nfn make(values:[int])->Box:\n  Box {field:values}\nfn "
                 "main():\n  a=make([1])\n  b=make([2,3])\n  length(a.field)+length(b.field)\n");

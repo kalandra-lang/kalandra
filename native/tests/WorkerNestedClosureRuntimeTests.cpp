@@ -164,13 +164,13 @@ int main() {
       balanced(destination);
     }
     Invocation admitted;
-    for (unsigned n = 0; n < 127; ++n)
+    for (unsigned n = 0; n < 4096; ++n)
       require(admitted.enterCall(0, 0), "test admission failed");
     Callable denied;
-    require(!layout.copy(admitted, &denied, source, &valid) && admitted.status() == 6 &&
-                admitted.callDepth() == 127,
-            "nested admission unwound caller frames");
-    for (unsigned n = 0; n < 127; ++n)
+    require(layout.copy(admitted, &denied, source, &valid) && admitted.status() == 0 &&
+                admitted.callDepth() == 4096,
+            "nested copy retained a logical call cap or unwound caller frames");
+    for (unsigned n = 0; n < 4096; ++n)
       admitted.leaveCall();
     balanced(admitted);
 

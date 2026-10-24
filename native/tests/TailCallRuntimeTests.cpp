@@ -127,18 +127,10 @@ int main() {
               check(ctx.status() == 0 && result == 0);
             else {
 #ifdef FLOAT_TAIL
-              if (manual <= 1 && n <= 16)
-                check(ctx.status() == 0);
-              if (n >= Invocation::maxCallDepth)
-                check(ctx.status() == 6);
+              check(ctx.status() == 0);
 #else
-              if (manual <= 1 && (n <= 16 || kind == 0))
-                check(ctx.status() == (kind == 4 && b == 0 ? 4 : 0));
-              if (kind != 0 && n >= Invocation::maxCallDepth)
-                check(ctx.status() == 6);
+              check(ctx.status() == (kind == 4 && b == 0 ? 4 : 0));
 #endif
-              if (manual == 127)
-                check(ctx.status() == 6);
             }
             if (mode == 2 || mode == 3)
               check(polls > 0);

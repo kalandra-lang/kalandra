@@ -2,6 +2,7 @@
 #include "ErrorFamilies.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
+#include "NativeCallFoundation.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
 #include "TaskCallableOps.h"
@@ -2154,7 +2155,7 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
     if (!planned)
       return std::unexpected(planned.error());
     auto &planner = *planned;
-    auto kernels = lowerNative(planner.kernels, {}, {}, arithmetic);
+    auto kernels = lowerNative(planner.kernels, {}, {}, arithmetic, true);
     if (!kernels)
       return kernels;
     llvm::LLVMContext context;
@@ -2163,6 +2164,7 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
     if (!module)
       return std::unexpected("cannot read verified kernel LLVM module");
     Emitter(planner, *module).run(testEntry);
+    optimizeNativeCalls(module);
     std::string errors;
     llvm::raw_string_ostream stream(errors);
     if (llvm::verifyModule(*module, &stream))

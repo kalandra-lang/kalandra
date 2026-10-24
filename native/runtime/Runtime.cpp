@@ -1,5 +1,16 @@
-#if defined(__APPLE__)
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+#if defined(__APPLE__) || defined(__linux__)
 #include <pthread.h>
+#elif defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #endif
 #include "../include/kalandra/NumericType.h"
 #include "Runtime.h"
@@ -35,7 +46,76 @@ void kalandra_stack_bounds_init_v1() noexcept {
 }
 #endif
 
+#if !defined(__APPLE__)
+namespace {
+thread_local std::uintptr_t portableStackBounds[2]{};
+void initializePortableStackBounds() noexcept {
+  std::uintptr_t low = 0, high = 0;
+#if defined(__linux__)
+  pthread_attr_t attributes;
+  if (pthread_getattr_np(pthread_self(), &attributes) == 0) {
+    void *base = nullptr;
+    std::size_t size = 0;
+    if (pthread_attr_getstack(&attributes, &base, &size) == 0) {
+      low = reinterpret_cast<std::uintptr_t>(base);
+      high = low + size;
+    }
+    pthread_attr_destroy(&attributes);
+  }
+#elif defined(_WIN32)
+  ULONG_PTR bottom = 0, top = 0;
+  GetCurrentThreadStackLimits(&bottom, &top);
+  MEMORY_BASIC_INFORMATION region{};
+  // AllocationBase includes the reserved stack, not just its current commit.
+  // Windows probes grow committed pages as native frames descend.
+  if (VirtualQuery(__builtin_frame_address(0), &region, sizeof(region))) {
+    low = reinterpret_cast<std::uintptr_t>(region.AllocationBase);
+    high = top;
+  }
+#endif
+  constexpr std::uintptr_t reserve = 128 * 1024;
+  portableStackBounds[0] = high > low && high - low > reserve ? low + reserve : high;
+  portableStackBounds[1] = high;
+}
+} // namespace
+#endif
+
 namespace kalandra::runtime {
+void InvocationABI::cacheStackBounds(Invocation &invocation) noexcept {
+#if defined(__APPLE__)
+  if (!kalandra_stack_bounds_v1[1])
+    kalandra_stack_bounds_init_v1();
+  const auto *bounds = kalandra_stack_bounds_v1;
+#else
+  if (!portableStackBounds[1])
+    initializePortableStackBounds();
+  const auto *bounds = portableStackBounds;
+#endif
+  invocation.stackLow_ = bounds[0];
+  invocation.stackHigh_ = bounds[1];
+}
+namespace {
+// Private native control transfer, never a source-level application exception.
+// Generated frames contain no C++ owners: the invocation ledger owns their
+// backing, and the runtime boundary balances its admission on both paths.
+struct SourceAbort {};
+}
+extern "C" [[noreturn]] void kalandra_source_abort_v2() {
+  throw SourceAbort{};
+}
+extern "C" bool kalandra_source_run_v3(Invocation *invocation, bool (*body)(void *),
+                                        void *arguments) noexcept {
+  if (!invocation->enterCall(0, 0))
+    return false;
+  bool complete = false;
+  try {
+    complete = body(arguments) && invocation->poll() == 0;
+  } catch (const SourceAbort &) {
+    // A cancellation remains a stopped execution, without becoming a fault.
+  }
+  invocation->leaveCall();
+  return complete;
+}
 struct Backing;
 struct Owner {
   Owner *next = nullptr;
@@ -658,16 +738,10 @@ void Invocation::settle() noexcept {
 bool Invocation::enterCall(std::int64_t line, std::int64_t column) noexcept {
   if (poll())
     return false;
-  bool exhausted = callDepth_ >= maxCallDepth;
-#if defined(__APPLE__)
-  // TLS belongs to the executing pthread, so migration and thread reuse cannot
-  // retain another worker's stack bounds. Alternate stacks still fail admission.
-  if (!kalandra_stack_bounds_v1[1])
-    kalandra_stack_bounds_init_v1();
+  InvocationABI::cacheStackBounds(*this);
   const auto position = reinterpret_cast<std::uintptr_t>(__builtin_frame_address(0));
-  exhausted = exhausted || position <= kalandra_stack_bounds_v1[0] ||
-              position > kalandra_stack_bounds_v1[1];
-#endif
+  const bool exhausted = position <= stackLow_ || position > stackHigh_ ||
+                         callDepth_ == std::numeric_limits<std::uint64_t>::max();
   if (exhausted) {
     fault(6, line, column);
     return false;
@@ -703,7 +777,7 @@ void Invocation::expectedApplicationError(const char *family, const char *varian
                      : code_ == 2 ? "AllocationFault"
                      : code_ == 4 ? "ArithmeticFault"
                      : code_ == 5 ? "BoundsFault"
-                     : code_ == 6 ? "CallLimitFault"
+                     : code_ == 6 ? "StackExhaustionFault"
                                   : "RuntimeFault";
   if (taskError_)
     name = taskError_ == 1   ? "TaskError.Fault"

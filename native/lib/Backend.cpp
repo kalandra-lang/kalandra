@@ -1,6 +1,8 @@
 #include "kalandra/Backend.h"
 #include "CollectionMetadata.h"
 #include "NativeLayout.h"
+#include "NativeStack.h"
+#include "NativeCallFoundation.h"
 #include "RecordLLVMTypes.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
@@ -27,6 +29,8 @@
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <functional>
 #include <limits>
 #include <map>
@@ -37,6 +41,84 @@ namespace kalandra {
 std::expected<BackendOutput, std::string>
 lowerTaskNative(const TypedModule &, std::optional<std::string>, ArithmeticMode);
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool functionValues);
+void optimizeNativeCalls(std::unique_ptr<llvm::Module> &module) {
+  // Fault exits are already explicit: optimizing unchecked fault helpers could
+  // execute operations after failure. Optimize the complete internal call graph
+  // now, before sealing the final physical-frame boundaries for code generation.
+  finalizeNativeCallResolvers(*module);
+  auto candidate = llvm::CloneModule(*module);
+  llvm::LoopAnalysisManager loops;
+  llvm::FunctionAnalysisManager functions;
+  llvm::CGSCCAnalysisManager calls;
+  llvm::ModuleAnalysisManager modules;
+  llvm::PassBuilder passes;
+  passes.registerLoopAnalyses(loops);
+  passes.registerFunctionAnalyses(functions);
+  passes.registerCGSCCAnalyses(calls);
+  passes.registerModuleAnalyses(modules);
+  passes.crossRegisterProxies(loops, functions, calls, modules);
+  auto pipeline = passes.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+  pipeline.run(*candidate, modules);
+  outlineNativeLeafPaths(*candidate, [](llvm::Function &fn, bool) {
+    llvm::LoopAnalysisManager loops;
+    llvm::FunctionAnalysisManager functions;
+    llvm::CGSCCAnalysisManager calls;
+    llvm::ModuleAnalysisManager modules;
+    llvm::PassBuilder passes;
+    passes.registerLoopAnalyses(loops);
+    passes.registerFunctionAnalyses(functions);
+    passes.registerCGSCCAnalyses(calls);
+    passes.registerModuleAnalyses(modules);
+    passes.crossRegisterProxies(loops, functions, calls, modules);
+    auto simplify = passes.buildFunctionSimplificationPipeline(llvm::OptimizationLevel::O2,
+                                                               llvm::ThinOrFullLTOPhase::None);
+    simplify.run(fn, functions);
+  });
+  modules.clear();
+  auto finish = passes.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+  finish.run(*candidate, modules);
+  // At the outermost callback there is no source caller left to unwind.
+  // Return an explicit boundary failure instead. Keep the bit even if a host
+  // resets its cancellation token before the runtime checks final readiness.
+  for (auto &fn : *candidate) {
+    if (!fn.hasFnAttribute("kalandra.boundary")) continue;
+    llvm::SmallVector<llvm::CallInst *, 4> aborts;
+    for (auto &block : fn)
+      for (auto &instruction : block)
+        if (auto *call = llvm::dyn_cast<llvm::CallInst>(&instruction);
+            call && call->getCalledFunction() &&
+            call->getCalledFunction()->getName() == "kalandra_source_abort_v2" &&
+            llvm::isa<llvm::UnreachableInst>(block.getTerminator())) {
+          aborts.push_back(call);
+          break;
+        }
+    for (auto *call : aborts) {
+      auto *block = call->getParent();
+      auto erase = call->getIterator();
+      while (erase != block->end()) erase = erase->eraseFromParent();
+      llvm::IRBuilder<> finish(block);
+      finish.CreateRet(finish.getFalse());
+    }
+    if (!aborts.empty()) fn.removeFnAttr(llvm::Attribute::NoReturn);
+  }
+  bool fits = !llvm::verifyModule(*candidate);
+  for (auto &fn : *candidate) {
+    if (fn.isDeclaration()) continue;
+    const auto name = fn.getName();
+    // The numerical leaf allowance belongs to the computation worker, not
+    // its checked entry, callback packet or mode dispatcher.
+    const bool numericalWorker = name.starts_with("kalandra_fn_matmul_wide_") &&
+        (name.contains(".body.clear") || name.contains(".body.token") ||
+         name.contains(".body.observed"));
+    fits &= !nativeStackBudgetError(fn, candidate->getDataLayout(), numericalWorker);
+  }
+  // Optimization must not reject a previously admissible source program.
+  if (fits)
+    module = std::move(candidate);
+  for (auto &fn : *module)
+    if (!fn.isDeclaration() && !fn.hasFnAttribute(llvm::Attribute::AlwaysInline))
+      fn.addFnAttr(llvm::Attribute::NoInline);
+}
 namespace {
 using namespace mlir;
 struct LoweringFailure {
@@ -2580,7 +2662,8 @@ private:
 std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
                                                       std::optional<std::string> testEntry,
                                                       const std::vector<std::string> &exports,
-                                                      ArithmeticMode arithmetic) {
+                                                      ArithmeticMode arithmetic,
+                                                      bool deferCallFinalization) {
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   const auto storage = planRecordStorage(input);
@@ -2678,6 +2761,33 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
     auto native = translateModuleToLLVMIR(*module, llvmContext);
     if (!native)
       return std::unexpected("LLVM translation failed");
+    // LLVM's signless i8/i16 type does not describe the platform C return
+    // extension. Packet loads naturally zero-extend, so preserve signedness
+    // explicitly at checked/foreign entries instead of relying on arithmetic
+    // accidentally leaving the upper register bits in the expected state.
+    auto resultABI = [&](const std::string &symbol, const ValueType &value) {
+      if (value.tensor) return;
+      const bool boolean = value.builtin == BuiltinValue::Bool;
+      if (!boolean && (value.builtin != BuiltinValue::Numeric ||
+                       !isNarrowInteger(value.element))) return;
+      const unsigned width = boolean ? 1 : describeNumeric(value.element)->bits;
+      for (const auto &name : {symbol, "_mlir_ciface_" + symbol})
+        if (auto *fn = native->getFunction(name);
+            fn && fn->getReturnType()->isIntegerTy(width))
+          fn->addRetAttr(boolean || isUnsigned(value.element) ? llvm::Attribute::ZExt :
+                                                               llvm::Attribute::SExt);
+    };
+    for (FunctionId id = 0; id != input.functions.size(); ++id) {
+      const auto &fn = input.functions[id];
+      const auto value = fn.declaredResult.value_or(fn.resultType);
+      resultABI("kalandra_fn_" + std::to_string(id), value);
+      resultABI("kalandra_callable_" + std::to_string(id), value);
+      if (testEntry && fn.name == *testEntry)
+        resultABI("kalandra_test_entry", value);
+      if (fn.name == "main") resultABI("kalandra_bool_entry", value);
+      for (std::size_t n = 0; n != exports.size(); ++n)
+        if (exports[n] == fn.name) resultABI("kalandra_cpu_" + std::to_string(n), value);
+    }
     const bool functionValues = std::ranges::any_of(input.expressions, [](const auto &value) {
       return std::holds_alternative<FunctionReference>(value.operation) ||
              std::holds_alternative<FunctionInvoke>(value.operation);
@@ -2689,9 +2799,7 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
         if (function.name == "main" && function.resultType.tensor)
           collectionMetadata(*native, function.resultType);
     native->setTargetTriple(llvm::Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE));
-    for (auto &function : *native)
-      if (function.getName().starts_with("kalandra_fn_"))
-        function.addFnAttr(llvm::Attribute::NoInline);
+    if (!deferCallFinalization) optimizeNativeCalls(native);
     std::string errors;
     llvm::raw_string_ostream errorStream(errors);
     if (llvm::verifyModule(*native, &errorStream))

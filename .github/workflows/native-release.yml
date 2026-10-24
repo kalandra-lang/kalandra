@@ -92,7 +92,7 @@ jobs:
         run: |
           cmake --build build/native --target kalandra-checked-inlining-tests -j2
           ctest --test-dir build/native --output-on-failure -j2 \
-            -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
+            -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|call-foundation-source|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
       - name: Remove archive staging copies before the independent build
         run: |
           python3 - <<'PY'

@@ -34,8 +34,8 @@ template <class T> static bool twice(T &value) {
 }
 static void test(Scalar input) {
   for (int mode = 0; mode != 6; ++mode)
-    for (int manual : {0, 1, 120})
-      for (int n : {0, 1, 2, 3, 5, 7, 128, 129}) {
+    for (int manual : {0, 1, 4096})
+      for (int n : {0, 1, 2, 3, 5, 7, 9, 10}) {
         Invocation ctx;
         for (int j = 0; j < manual; ++j) check(ctx.enterCall(0, 0));
         std::atomic<bool> token{mode == 5};
@@ -49,8 +49,6 @@ static void test(Scalar input) {
           check(result == Scalar(0) && ctx.status() == 5 && ctx.line() == 19 && ctx.column() == 23);
         else if (mode == 5)
           check(result == Scalar(0) && ctx.status() == 0 && ctx.poll() == -1);
-        else if (manual + n + 2 > 128)
-          check(result == Scalar(0) && ctx.status() == 6);
         else {
           Scalar expected = input;
           bool valid = true;

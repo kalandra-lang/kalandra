@@ -244,7 +244,15 @@ int main(int argc, char **argv) {
     auto group = core->openRoot();
     PacketData packet{runtime.get(), argv[1]};
     auto task = core->submit(group, entry, {entry.packetLayout, &packet, sizeof(packet)});
-    CHECK(task && core->drain() && core->failure(task).kind == TaskFailure::AdmissionRejected);
+    CHECK(task && core->drain());
+    const auto failure = core->failure(task);
+    if (scenario == 2) {
+      // The task itself fits. Its first CPU-owned tensor allocation exhausts
+      // the byte budget during execution, which is an allocation fault.
+      CHECK(failure.kind == TaskFailure::Fault && failure.code == 2);
+    } else {
+      CHECK(failure.kind == TaskFailure::AdmissionRejected);
+    }
     retire(*core, group);
     empty(*runtime);
   }

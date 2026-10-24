@@ -75,11 +75,11 @@ foreach(KIND IN ITEMS binary ll mlir)
 endforeach()
 
 file(READ "${SOURCE_DIR}/tests/fixtures/recursive-callables/self.k" DEEP)
-string(REPLACE "callback(20)" "callback(10000)" DEEP "${DEEP}")
+string(REPLACE "callback(20)" "callback(1000000)" DEEP "${DEEP}")
 COMPILE(deep "${DEEP}")
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_REPORT_CLEANUP=1 "${OUTPUT_DIR}/deep"
   RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
-if(NOT "${STATUS}" STREQUAL "86" OR NOT OUT STREQUAL "" OR NOT ERR MATCHES "CallLimitFault" OR NOT ERR MATCHES "cleanup: live=0 allocations=([0-9]+) releases=([0-9]+)")
+if(NOT "${STATUS}" STREQUAL "86" OR NOT OUT STREQUAL "" OR NOT ERR MATCHES "StackExhaustionFault" OR NOT ERR MATCHES "cleanup: live=0 allocations=([0-9]+) releases=([0-9]+)")
   message(FATAL_ERROR "Deep recursion did not fail cleanly: ${STATUS}: ${OUT}${ERR}")
 endif()
 if(NOT CMAKE_MATCH_1 STREQUAL CMAKE_MATCH_2)

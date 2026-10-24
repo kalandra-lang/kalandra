@@ -144,12 +144,12 @@ int main() {
       balanced(destination);
     }
     require(succeeded, "task tree allocation sweep never completed");
-    for (unsigned depth : {128u, 129u}) {
+    for (unsigned depth : {128u, 512u}) {
       Invocation source, destination;
       auto input = fixture(source, depth);
       ArrayValue output{};
       const bool ok = task_copy_tree_array(&destination, &output, &source, &input);
-      require(ok == (depth == 128), "task tree call nesting limit ignored");
+      require(ok && !destination.status(), "valid deep task tree retained a call cap");
       if (ok) {
         source.settle();
         verify(output, depth);

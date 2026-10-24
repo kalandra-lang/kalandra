@@ -17,15 +17,13 @@ int main() {
       kalandra_call_leave_v1(&balanced);
     }
     require(balanced.callDepth() == 0 && balanced.status() == 0, "admission counter leaked");
-    for (unsigned i = 0; i < Invocation::maxCallDepth; ++i)
-      require(kalandra_call_enter_v1(&balanced, 1, 2), "manual call budget exhausted early");
-    require(!kalandra_call_enter_v1(&balanced, 7, 9) && balanced.status() == 6 &&
-                balanced.line() == 7 && balanced.column() == 9 &&
-                balanced.callDepth() == Invocation::maxCallDepth,
-            "over-budget admission lost its fault or consumed a slot");
-    for (unsigned i = 0; i < Invocation::maxCallDepth; ++i)
+    for (unsigned i = 0; i < 10000; ++i)
+      require(kalandra_call_enter_v1(&balanced, 1, 2), "manual entries retained a call cap");
+    require(balanced.callDepth() == 10000 && balanced.status() == 0,
+            "manual admission introduced an arbitrary recursion cap");
+    for (unsigned i = 0; i < 10000; ++i)
       kalandra_call_leave_v1(&balanced);
-    require(balanced.callDepth() == 0, "failed admission did not unwind");
+    require(balanced.callDepth() == 0, "manual admission did not unwind");
     unsigned probes = 0;
     std::uint64_t allocations = 0;
     for (unsigned attempt = 0; attempt <= allocations + 1; ++attempt) {
@@ -55,7 +53,7 @@ int main() {
     require(repeated.live() == 0 && repeated.allocations() == repeated.releases(),
             "repeated recursive calls leaked storage");
     Invocation deep;
-    require(kalandra_callable_test_entry(10000, &deep) == 0 && deep.status() == 6 &&
+    require(kalandra_callable_test_entry(1000000, &deep) == 0 && deep.status() == 6 &&
                 deep.callDepth() == 0,
             "runaway recursion did not fail and unwind safely");
     deep.settle();

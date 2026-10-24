@@ -39,7 +39,7 @@ def main():
                 print('GPU counters',trial,kind,n,transfers,flush=True)
     result['gpu_profile']=gpu
     result['contract']='Same final Kalandra LLVM/runtime and source traversal; bound uses a non-cancelled atomic token via normal bindCancellation. Binding, invocation lifecycle and acquire-load checks included. Independent correctness tests cancel the fast token path; this control measures its cost without diagnostic poll counters. Not a cross-language ranking.'
-    sources=[Path(__file__),original,driver,*[p.ROOT/name for name in ('native/runtime/Runtime.h','native/runtime/Runtime.cpp','native/lib/CheckedABI.cpp','native/lib/NativeFastABI.h','native/lib/NativeTailCalls.h','native/lib/NativeStack.h','native/lib/NumericConversion.cpp','native/include/kalandra/HardwareConversion.h')]]
+    sources=[Path(__file__),original,driver,*[p.ROOT/name for name in ('native/runtime/Runtime.h','native/runtime/Runtime.cpp','native/lib/CheckedABI.cpp','native/lib/NativeFastABI.h','native/lib/NativeCallFoundation.h','native/lib/NativeStack.h','native/lib/NumericConversion.cpp','native/include/kalandra/HardwareConversion.h')]]
     binaries=[runtime,*[directory/name for name in source.NAMES],*[p.BUILD/'source'/('kalandra-'+name) for name in source.NAMES]]
     if not args.cpu_only:
         result['contract']+=' GPU counters are separate instrumented float32 runs including complete task wall time, command-buffer device duration, host encoding and dispatch/submission counts.'

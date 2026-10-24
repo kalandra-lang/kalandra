@@ -8,7 +8,7 @@ fn worker(n:int)->int:
   callback(n) catch fn(error):0
 fn attempt()->int ! TaskError:
   try parallel:
-    try await spawn worker(10000)
+    try await spawn worker(1000000)
 fn main()->int:
   attempt() catch fn(error):
     match error:

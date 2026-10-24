@@ -113,8 +113,7 @@ int main() {
         children = {cell, cell, 0, 1, 1};
       }
       auto *root = tree_array_box(&children, &context);
-      require(depth == 8 ? root && !context.status() : !root && context.status() == 6,
-              "array callback checked depth admission failed");
+      require(root && !context.status(), "valid deep array retained a logical call cap");
       require(!context.callDepth(), "array callbacks leaked call slots");
       context.settle();
       require(!context.live() && context.allocations() == context.releases(),

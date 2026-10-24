@@ -303,7 +303,7 @@ int main() {
     }
     // Array-mediated callable type recursion stays finite during emission and bounded during
     // copying.
-    for (unsigned depth : {4u, 80u}) {
+    for (unsigned depth : {4u, 160u}) {
       Invocation source, destination;
       StringArrayDescriptor children{};
       Tree current{};
@@ -320,7 +320,7 @@ int main() {
       }
       Result<Tree> input{{}, current}, output{};
       const bool ok = task_copy_callable_tree(&destination, &output, &source, &input);
-      require(ok == (depth == 4), "callable tree nesting was not checked");
+      require(ok && !destination.status(), "valid deep callable tree retained a call cap");
       if (!ok)
         require(destination.status() == 6 && !output.value.tag,
                 "deep callable aggregate fault changed");

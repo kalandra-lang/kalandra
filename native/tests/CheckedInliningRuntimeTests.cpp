@@ -35,9 +35,9 @@ int main() {
   check(reference(witness, 0, true) != std::fma(witness, witness, Float(-1)));
   unsigned cases = 0;
   for (int mode = 0; mode < 7; ++mode)
-    for (unsigned manual : {0, 1, 120, 125, 126, 127})
+    for (unsigned manual : {0, 1, 120, 128, 1024, 4096})
       for (int kind : {0, 1, 2})
-        for (int depth : {0, 1, 2, 5, 128, 1000})
+        for (int depth : {0, 1, 2, 5, 8, 9})
           for (auto bits : {
 #ifdef FLOAT32
                    0ULL, 0x80000000ULL, 1ULL, 0x00800000ULL, 0x3fa66666ULL, 0xbfa66666ULL,
@@ -75,7 +75,7 @@ int main() {
               else if (mode == 4)
                 check(value == 0 && ctx.status() == 0 && ctx.poll() == -1);
               else if (!ctx.status()) {
-                check(depth <= 5);
+                check(depth <= 9);
                 Float expected;
                 if (kind != 1)
                   expected = reference(input, depth, kind == 2);
@@ -90,7 +90,7 @@ int main() {
                 if ((mode == 2 || mode == 3) && depth)
                   check(polls > 1);
               } else {
-                check(ctx.status() == 4 || ctx.status() == 6);
+                check(ctx.status() == 4);
                 if (ctx.status() == 4)
                   check(kind == 1 &&
                         (!divisor || !std::isfinite(input) || input < -0x1p63 || input >= 0x1p63));

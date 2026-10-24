@@ -22,7 +22,8 @@ int main() {
     Invocation kept;
     std::atomic<std::uint64_t> polls = 0;
     kept.watchPolls(&polls);
-    require(kalandra_bool_array_retain_v1(&kept, &source, &value) && polls == 17,
+    // Seventeen validation chunks plus the checked ownership retain.
+    require(kalandra_bool_array_retain_v1(&kept, &source, &value) && polls == 18,
             "Bool retain did not validate/poll all lanes");
     for (unsigned mode = 0; mode < 12; ++mode) {
       auto forged = value;

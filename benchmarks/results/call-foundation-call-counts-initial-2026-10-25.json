@@ -1,0 +1,274 @@
+{
+  "scope": "Diagnostic only: volatile counters at physical polynomial-worker entries. Two warmups and one measured invocation, divided by three. Checksums match independent references. Instrumented times are discarded.",
+  "original_ir_sha256": "b7eedeef2a17a6d3c5cfa7299a66c73576d00fa79e2e04d436475e5aa9ebe595",
+  "instrumented_ir_sha256": "dd444318e7e42ad2b225265447d4acf90ec58df1db7748e6b0194e0a3508f38e",
+  "records": [
+    {
+      "depth": 9,
+      "private_frame_entries": 511,
+      "base_case_frame_entries": 0,
+      "entries_by_remaining_depth": [
+        0,
+        256,
+        128,
+        64,
+        32,
+        16,
+        8,
+        4,
+        2,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/profile",
+        "0",
+        "9",
+        "1",
+        "1",
+        "17"
+      ]
+    },
+    {
+      "depth": 10,
+      "private_frame_entries": 1023,
+      "base_case_frame_entries": 0,
+      "entries_by_remaining_depth": [
+        0,
+        512,
+        256,
+        128,
+        64,
+        32,
+        16,
+        8,
+        4,
+        2,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/profile",
+        "0",
+        "10",
+        "1",
+        "1",
+        "17"
+      ]
+    },
+    {
+      "depth": 11,
+      "private_frame_entries": 2047,
+      "base_case_frame_entries": 0,
+      "entries_by_remaining_depth": [
+        0,
+        1024,
+        512,
+        256,
+        128,
+        64,
+        32,
+        16,
+        8,
+        4,
+        2,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/profile",
+        "0",
+        "11",
+        "1",
+        "1",
+        "17"
+      ]
+    },
+    {
+      "depth": 12,
+      "private_frame_entries": 4095,
+      "base_case_frame_entries": 0,
+      "entries_by_remaining_depth": [
+        0,
+        2048,
+        1024,
+        512,
+        256,
+        128,
+        64,
+        32,
+        16,
+        8,
+        4,
+        2,
+        1,
+        0,
+        0,
+        0
+      ],
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/profile",
+        "0",
+        "12",
+        "1",
+        "1",
+        "17"
+      ]
+    },
+    {
+      "depth": 13,
+      "private_frame_entries": 8191,
+      "base_case_frame_entries": 0,
+      "entries_by_remaining_depth": [
+        0,
+        4096,
+        2048,
+        1024,
+        512,
+        256,
+        128,
+        64,
+        32,
+        16,
+        8,
+        4,
+        2,
+        1,
+        0,
+        0
+      ],
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/profile",
+        "0",
+        "13",
+        "1",
+        "1",
+        "17"
+      ]
+    },
+    {
+      "depth": 14,
+      "private_frame_entries": 16383,
+      "base_case_frame_entries": 0,
+      "entries_by_remaining_depth": [
+        0,
+        8192,
+        4096,
+        2048,
+        1024,
+        512,
+        256,
+        128,
+        64,
+        32,
+        16,
+        8,
+        4,
+        2,
+        1,
+        0
+      ],
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/profile",
+        "0",
+        "14",
+        "1",
+        "1",
+        "17"
+      ]
+    }
+  ],
+  "schema": 1,
+  "timestamp": "2026-10-24T23:22:14.842547+00:00",
+  "compiler_sha256": "fea039011793426790a4a8e772ee0239593341a983d3c0b0b8b16b4017d761b8",
+  "source_sha256": {
+    "native/benchmarks/recursive_call_counts.py": "0f79af6664ce5663e30590ed939d8d431aa72a615e2bda6e82e96ceeeef565c2",
+    "native/benchmarks/fair/source.k": "1e1bedddb1648d05712cfa5d83974ac74789b35246b8a58af11a4b7c1b00eff9",
+    "native/benchmarks/fair/SourceDriver.cpp": "1f7209ceb9a5e5322153388b0b44ace4c7da6e40990c7b2c162f41bbd4b0865c",
+    "native/benchmarks/fair/source_run.py": "1089ca1e538afcd9163fa67be24e5d670fb9d688621a641b1e0c4fcd36883662",
+    "native/benchmarks/fair/protocol.py": "5e84d1585ea9b9f9282a72d5d47e70ac7442ab3b09b5858cfc27d1ce984570dd"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/recursive-call-counts/profile": "fce6b5b5ff84d9a7459e7bce61ab29a84aa66fc06ad38f14e85e5d9f8ff0f885",
+    "build/native/native/kalandra": "fea039011793426790a4a8e772ee0239593341a983d3c0b0b8b16b4017d761b8",
+    "build/native/native/libkalandra-task-core-optimized.a": "ea649e5814766285f7f5071b895c7185be0051698b07baa59902ab71ad6b78e6"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/source.k",
+      "--test-entry",
+      "polynomial",
+      "--emit-llvm",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/polynomial.ll",
+      "-O2",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/standalone"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/SourceDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/counters.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/instrumented.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/recursive-call-counts/profile"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "6c36b1cbbeb0edcaaf53109a1caf9f561bdfd5a8",
+  "worktree_status": " M .github/workflows/native-linux.yml\n M .github/workflows/native-release.yml\n M .github/workflows/native-windows.yml\n M docs/design/checked-call-optimization.md\n M docs/design/native-recursive-callables.md\n M docs/design/native-recursive-storage.md\n M docs/design/native-stack-admission.md\n M docs/design/native-worker-nested-closures.md\n M docs/roadmap.md\n M native/CMakeLists.txt\n M native/benchmarks/checked_inlining.py\n M native/benchmarks/fair/libraries_run.py\n M native/benchmarks/fair/source_run.py\n M native/benchmarks/optimization_controls.py\n M native/benchmarks/recursive_call_counts.py\n M native/cmake/VerifyFallibleFunctions.cmake\n M native/cmake/VerifyRecursiveCallables.cmake\n M native/cmake/VerifyRecursiveContinuations.cmake\n M native/cmake/VerifyRecursiveSource.cmake\n M native/lib/Backend.cpp\n M native/lib/CheckedABI.cpp\n M native/lib/NativeFastABI.h\n D native/lib/NativeRecursiveContext.h\n D native/lib/NativeRecursiveDepth.h\n M native/lib/NativeStack.h\n D native/lib/NativeTailCalls.h\n M native/runtime/Runtime.cpp\n M native/runtime/Runtime.h\n M native/tests/CheckedInliningRuntimeTests.cpp\n M native/tests/CheckedInliningTests.cpp\n M native/tests/CpuOptimizationRuntimeTests.cpp\n M native/tests/CpuOptimizationTests.py\n M native/tests/FastCallRuntimeTests.cpp\n M native/tests/FastCallTests.py\n M native/tests/RecursiveCallableRuntimeTests.cpp\n M native/tests/RecursiveRecordArrayBridgeTests.cpp\n M native/tests/RecursiveScalarRuntimeTests.cpp\n M native/tests/RecursiveScalarTests.py\n M native/tests/RecursiveTaskArrayTests.cpp\n M native/tests/RecursiveTaskCallableAggregateTests.cpp\n M native/tests/TailCallRuntimeTests.cpp\n M native/tests/TailCallTests.py\n M native/tests/WorkerNestedClosureRuntimeTests.cpp\n M native/tests/fixtures/recursive-callables/limit-recovery.k\n?? benchmarks/results/call-foundation-paired-initial-2026-10-24.json\n?? benchmarks/results/call-foundation-paired-initial-2026-10-24.md\n?? native/benchmarks/call_foundation.py\n?? native/benchmarks/call_frame_audit.py\n?? native/lib/NativeCallFoundation.h\n?? native/tests/CallFoundationRuntimeTests.cpp\n?? native/tests/CallFoundationTests.py\n?? native/tests/NarrowBoundaryRuntimeTests.cpp\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

@@ -54,6 +54,30 @@ for numeric,ctype in types.items():
                                 cases=int(output.split()[0]),state_sha256=hashlib.sha256(output.encode()).hexdigest(),
                                 ir_sha256=sha(ir),result=output.strip()))
         assert len(set(outputs))==1,(numeric,name,outputs)
-    print(numeric+': all build modes match independent references and baseline state',flush=True)
+    print(numeric+': all build modes match independent references' + (' and baseline state' if a.baseline else ''),flush=True)
+# A bit-pattern oracle can miss a C return-extension bug: its own narrowing
+# truncates the incorrect high register bits. Independently promote every
+# narrow value immediately at the foreign call site, in every build mode.
+for numeric in ('int8', 'uint8', 'int16', 'uint16', 'Bool'):
+    source = a.output / (numeric + '-abi.k')
+    source.write_text(f'fn identity(value:{numeric})->{numeric}:\n  value\nfn main()->int:\n  0\n')
+    for name, flag, flags in variants:
+        binary = a.output / (numeric + '-abi-' + name + '-current' + ('.exe' if sys.platform == 'win32' else ''))
+        ir = binary.with_suffix('.ll')
+        run([a.compiler, source, '--test-entry', 'identity', '--emit-llvm', ir, flag,
+             '-o', binary.with_name(binary.stem + '-standalone' + binary.suffix)])
+        attribute = 'signext' if numeric.startswith('int') else 'zeroext'
+        assert f'define {attribute} i' in ir.read_text(), 'missing narrow C return attribute'
+        runtime = a.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
+            'kalandra-native-runtime' + ('-' + name if 'sanitized' in name else '') +
+            ('.lib' if sys.platform == 'win32' else '.a'))
+        run([a.clang, '-std=c++23', '-Wno-override-module', '-ffp-contract=off', '-pthread', *flags,
+             '-DTEST_SCALAR=' + types[numeric], *(['-fms-runtime-lib=static'] if sys.platform == 'win32' else []),
+             root / 'native/tests/NarrowBoundaryRuntimeTests.cpp', ir, runtime, '-o', binary])
+        output = run([binary])
+        records.append(dict(numeric=numeric, variant=name + '-abi', compiler='current',
+            compiler_sha256=frozen[str(a.compiler)], cases=int(output.split()[0]),
+            state_sha256=hashlib.sha256(output.encode()).hexdigest(), ir_sha256=sha(ir), result=output.strip()))
+    print(numeric + ': raw C return extension and promoted values passed', flush=True)
 assert all(sha(Path(c))==h for c,h in frozen.items()), 'compiler changed during qualification'
 (a.output/'qualification.json').write_text(json.dumps(records,indent=2)+'\n')

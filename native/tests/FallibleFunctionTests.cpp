@@ -4,7 +4,7 @@
 #include <stdexcept>
 using namespace kalandra;
 namespace {
-void require(bool value, const char *message) {
+void require(bool value, const std::string &message) {
   if (!value)
     throw std::runtime_error(message);
 }
@@ -91,6 +91,17 @@ void negative() {
           "fn main()->int ! (E | TaskError):\n  try forward(checked)\n")
           .ok(),
       "fallible callable parameter forwarding rejected");
+  // Coordinating callees may now flow through a synchronous catch wrapper;
+  // the continuation planner tracks that effect through the function value.
+  auto coordinating = analyze(base +
+      "fn worker(value:int)->int ! (E | TaskError):\n  try parallel:\n    try await spawn other(value)\n"
+      "fn hidden(value:int)->int:\n  worker(value) catch fn(error):0\n"
+      "fn main()->int:\n  f=hidden\n  f(1)\n");
+  require(coordinating.ok(), "coordinating catch wrapper rejected");
+  require(bool(continuation::plan(*coordinating.module)), "coordinating catch wrapper was not planned");
+#ifndef KALANDRA_FUNCTION_FRONTEND_ONLY
+  require(bool(lowerNative(*coordinating.module)), "coordinating catch wrapper was not lowered");
+#endif
   for (const auto *source :
        {"fn main()->int:\n  f=checked\n  f(1)+1\n",
         "fn main()->int:\n  f:fn(int)->int=checked\n  0\n",
@@ -99,15 +110,12 @@ void negative() {
         "fn main()->int:\n  f=checked\n  f() catch fn(error):0\n",
         "fn use(f:fn(int)->int ! Missing)->int:\n  0\nfn main()->int:\n  0\n",
         "fn main()->int:\n  f=checked\n  result=map([1],f)\n  result[0]\n",
-        "fn worker(value:int)->int ! (E | TaskError):\n  try parallel:\n    try await spawn "
-        "other(value)\nfn hidden(value:int)->int:\n  worker(value) catch fn(error):0\nfn "
-        "main()->int:\n  f=hidden\n  f(1)\n",
         "fn create()->(fn(int)->int ! E) ! E:\n  fail E.Bad {value:42}\nfn main()->int:\n  "
         "f=create()\n  f(1) catch fn(error):0\n",
         "fn use(f:fn(int)->int ! E)->int ! E:\n  try f(1)\nfn main()->int:\n  use(1) catch "
         "fn(error):0\n"}) {
     auto result = analyze(base + source);
-    require(!result.ok(), "invalid channel, call or execution boundary accepted");
+    require(!result.ok(), std::string("invalid channel, call or execution boundary accepted: ") + source);
   }
 }
 void forged() {

@@ -18,8 +18,7 @@ layout as storage and stack admission. This removes redundant tensor descriptor
 construction and extraction. Applying the passes after checked ABI conversion
 keeps failure exits and cancellation observable during simplification. Function
 pointers and closure entries are remapped to their final checked signatures
-before these passes run. No
-fast-math, arithmetic reassociation or interprocedural inlining is enabled.
+before these passes run. Strict arithmetic order is retained. The current [native call optimizer](checked-call-optimization.md) may inline source calls within the same checked frame budget; this historical repair did not depend on that optimization.
 
 Functions containing at least sixteen float32 tensor unary/binary operations
 lower those operations through compiler-generated helpers. This threshold is an
@@ -37,11 +36,11 @@ registers or stack slots. The estimator still counts the instructions actually
 emitted, arguments, outgoing argument copies and fixed allocations. Dynamic or
 scalable stack storage remains rejected. Oversized ordinary functions still
 reject without replacing existing output; deep recursion retains checked
-`CallLimitFault` and invocation cleanup.
+`StackExhaustionFault` and invocation cleanup.
 
 This increment outlines float32 elementwise operations. It does not claim general
 large-function acceptance for every numeric type or arbitrarily large argument
-packets. Memory budgets and checked call limits remain applicable. Extra helper
+packets. Memory budgets and physical stack admission remain applicable. Extra helper
 calls and function-boundary ownership lowering may affect performance and
 allocation counts; no speedup claim is made.
 

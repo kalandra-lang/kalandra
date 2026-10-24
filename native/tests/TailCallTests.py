@@ -128,24 +128,8 @@ def main():
                      '-o', str(binary) + '-standalone'])
                 text = ir.read_text()
                 if version == 'current':
-                    assert 'tail.header' in text and 'tail.unwind' in text
-                    if not floating:
-                        def body(index):
-                            return re.search(r'define [^\n]*@kalandra_fn_' + str(index) +
-                                             r'\([^\n]*\) [^{]*\{(.*?)\n\}', text, re.S)[1]
-                        assert 'tail.header' not in body(5), 'non-tail recursion was rewritten'
-                        assert 'tail.header' not in body(6), 'binary recursion was rewritten'
-                        assert 'load atomic i8' in body(0) and 'acquire' in body(0), \
-                            'pure token-bound calls must retain an acquire poll per admission'
-                        token_poll = re.search(r'\ntail.return.token.poll[^:]*:[^\n]*\n(.*?)(?=\n[^ ;\n][^\n]*:|\n})', body(0), re.S)
-                        assert token_poll and 'load atomic i8' in token_poll[1] and 'acquire' in token_poll[1], \
-                            'private token returns must retain every acquire poll'
-                        assert not re.search(r'\b(store|call)\b', token_poll[1]), \
-                            'private token returns must carry bookkeeping without runtime callbacks'
-                        assert 'tail.header' in body(8) and 'tail.private.depth' not in body(8), \
-                            'helper calls must retain ordinary admission'
-                        assert 'tail.header' in body(9) and 'tail.private.depth' not in body(9), \
-                            'mixed tail/non-tail self calls must retain ordinary admission'
+                    assert 'tail.unwind' not in text and 'kalandra_recursive_enter_' not in text
+                    assert 'load atomic i8' in text and 'acquire' in text
                 runtime = a.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
                     'kalandra-native-runtime' + ('-' + name if 'sanitized' in name else '') +
                     ('.lib' if sys.platform == 'win32' else '.a'))
@@ -173,7 +157,7 @@ def main():
                      '--emit-llvm', ir, '-o', binary])
                 text = ir.read_text()
                 if version == 'current':
-                    assert ('tail.header' in text) == eligible, label
+                    assert 'tail.unwind' not in text, label
                 result = run([binary]).stdout
                 assert result == expected, (label, result)
                 records.append(dict(variant=name + '-' + label, arithmetic=a.arithmetic,

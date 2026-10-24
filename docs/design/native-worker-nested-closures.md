@@ -30,7 +30,7 @@ Generated copy entries are registered before their bodies. Nested captures with 
 
 Only a fully copied callable is published. Failed nested copies leave the external output untouched, and partially constructed environments remain in the destination allocation ledger until settlement. Distinct captures of the same immutable closure may receive separate environment copies; sharing entire environments is a later optimization.
 
-Copy entries use the existing checked call admission, including the 128-active-entry limit and Apple stack headroom checks. They unwind only the admission they acquired. This bounds recursive traversal, including forged cycles in private metadata, and preserves existing faults and cancellation. Generated copy functions also receive conservative native stack-size validation. Exceeding call admission produces `CallLimitFault`; failed storage reservation produces the existing checked allocation fault.
+Copy entries use the existing checked call admission, using physical stack headroom checks on the executing thread. They unwind only the admission they acquired. This bounds recursive traversal, including forged cycles in private metadata, and preserves existing faults and cancellation. Generated copy functions also receive conservative native stack-size validation. Exceeding call admission produces `StackExhaustionFault`; failed storage reservation produces the existing checked allocation fault.
 
 The existing cumulative 1 MiB copied-environment limit and shared scheduler byte reservations apply to the complete copied graph. Retained leaf payloads and allocator overhead are not a global heap bound. Limits are private resource guards, not a source-level nesting or parameter-arity guarantee.
 

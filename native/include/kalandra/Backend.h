@@ -18,5 +18,6 @@ struct BackendOutput {
 [[nodiscard]] std::expected<BackendOutput, std::string>
 lowerNative(const TypedModule &module, std::optional<std::string> testEntry = {},
             const std::vector<std::string> &exports = {},
-            ArithmeticMode arithmetic = ArithmeticMode::Hardware);
+            ArithmeticMode arithmetic = ArithmeticMode::Hardware,
+            bool deferCallFinalization = false);
 } // namespace kalandra

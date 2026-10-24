@@ -39,7 +39,7 @@ def main():
     modes = ('unbound', 'bound', 'observed') if args.observed else ('unbound', 'bound')
     inputs = [Path(__file__), original, driver, original.parent / 'source.k', baseline, compiler, runtime,
               *[p.ROOT / n for n in ('native/lib/Lexer.cpp', 'native/lib/Parser.cpp', 'native/lib/Backend.cpp', 'native/lib/CheckedABI.cpp',
-                'native/lib/NativeFastABI.h', 'native/lib/NativeTailCalls.h', 'native/lib/NativeRecursiveContext.h', 'native/lib/NativeRecursiveDepth.h', 'native/lib/NativeStack.h',
+                'native/lib/NativeFastABI.h', 'native/lib/NativeCallFoundation.h', 'native/lib/NativeStack.h',
                 'native/runtime/Runtime.h', 'native/runtime/Runtime.cpp')]]
     inputs += [original.parent / 'protocol.py', original.parent / 'source_run.py']
     frozen = {str(x): p.sha(x) for x in inputs}

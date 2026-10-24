@@ -48,6 +48,12 @@ jobs:
           --compiler build/windows/native/kalandra.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/recursive-scalars
+      - name: Verify deep internal calls and physical stack safety
+        run: >-
+          python native/tests/CallFoundationTests.py
+          --compiler build/windows/native/kalandra.exe
+          --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          --output build/windows/call-foundation
       - name: Verify documented PowerShell starter commands
         shell: pwsh
         run: |

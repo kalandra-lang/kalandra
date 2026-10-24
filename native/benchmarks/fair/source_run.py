@@ -30,7 +30,7 @@ def main():
         p.run([compiler,src/'source.k','--test-entry',name,'--emit-llvm',ir,'-O2','-o',build/(name+'-standalone')])
         text=ir.read_text();assert 'fmul contract' not in text and 'kalandra_test_entry' in text
         p.run([p.CLANG,*flags,'-DKALANDRA_KERNEL',src/'SourceDriver.cpp',ir,compiler.parent/'libkalandra-task-core-optimized.a','-o',build/('kalandra-'+name)])
-    dependencies=[p.ROOT/name for name in ('native/lib/Lexer.cpp','native/lib/Parser.cpp','native/lib/Backend.cpp','native/lib/CheckedABI.cpp','native/lib/NativeFastABI.h','native/lib/NativeTailCalls.h','native/lib/NativeRecursiveContext.h', 'native/lib/NativeRecursiveDepth.h','native/lib/NumericConversion.cpp','native/include/kalandra/HardwareConversion.h','native/lib/NativeStack.h','native/runtime/Runtime.cpp','native/runtime/Runtime.h')]
+    dependencies=[p.ROOT/name for name in ('native/lib/Lexer.cpp','native/lib/Parser.cpp','native/lib/Backend.cpp','native/lib/CheckedABI.cpp','native/lib/NativeFastABI.h','native/lib/NativeCallFoundation.h','native/lib/NumericConversion.cpp','native/include/kalandra/HardwareConversion.h','native/lib/NativeStack.h','native/runtime/Runtime.cpp','native/runtime/Runtime.h')]
     frozen={str(x):p.sha(x) for x in [compiler,compiler.parent/'libkalandra-task-core-optimized.a',*dependencies,*[x for x in src.iterdir() if x.is_file()]]}
     languages=('kalandra','cpp','go','rust','python')
     def invoke(cell,count,rounds,seed=17):
@@ -46,7 +46,7 @@ def main():
     cells=[[lang,k,d] for lang in languages for k in range(3) for d in args.depths]
     result=p.measure(cells,invoke,lambda cell:expected(cell[1],cell[2]))
     result.update(suite='source algorithms',verification_workloads=checked,
-        contract='Same binary recursive traversal and leaf computation; all actual inputs fit int64 and dyadic results are exact float64. No tensor/reduction/matrix built-ins or numerical libraries. Kalandra includes checked arithmetic, invocation admission/cancellation and call-depth checks; other runtimes retain their default semantics. C++/Rust/Go may optimize recursion normally. No GPU general recursion support; GPU entries are unsupported, not replaced by built-ins.')
+        contract='Same binary recursive traversal and leaf computation; all actual inputs fit int64 and dyadic results are exact float64. No tensor/reduction/matrix built-ins or numerical libraries. Kalandra includes checked arithmetic, runtime entry/cancellation and physical stack checks; other runtimes retain their default semantics. C++/Rust/Go may optimize recursion normally. No GPU general recursion support; GPU entries are unsupported, not replaced by built-ins.')
     sources=list(src.glob('*'));sources=[x for x in sources if x.is_file()]+dependencies
     binaries=[x for x in build.iterdir() if x.is_file()]+[compiler.parent/'libkalandra-task-core-optimized.a',Path(sys.executable)]
     assert all(p.sha(x)==h for x,h in frozen.items()),'benchmark sources changed during measurement'

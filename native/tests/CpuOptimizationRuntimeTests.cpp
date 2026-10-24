@@ -119,6 +119,7 @@ void vectors(std::size_t n, std::int64_t step, unsigned corpus, std::size_t phas
   Invocation context;
   const auto actual = _mlir_ciface_kalandra_test_entry(&left, &right, &context);
   CHECK(!context.status() && same(actual, tree(values.data(), n)));
+  CHECK(n ? context.allocations() == 1 : context.allocations() <= 1);
   CHECK(std::memcmp(a.data(), oldA.data(), a.size() * sizeof(Float)) == 0);
   CHECK(std::memcmp(b.data(), oldB.data(), b.size() * sizeof(Float)) == 0);
   context.settle();

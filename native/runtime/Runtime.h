@@ -54,8 +54,8 @@ public:
     const auto code = executionStatus();
     return code ? code : cancellation_ && cancellation_->load(std::memory_order_acquire) ? -1 : 0;
   }
-  // Checked native call admission is invocation-local, including indirect calls.
-  static constexpr std::uint64_t maxCallDepth = 128;
+  // Runtime-boundary nesting is diagnostic accounting, not a recursion budget.
+  // Actual stack bounds protect native frames; tail calls reuse their frame.
   bool enterCall(std::int64_t line, std::int64_t column) noexcept;
   void leaveCall() noexcept;
   std::uint64_t callDepth() const noexcept { return callDepth_; }
@@ -166,6 +166,7 @@ private:
 // Native compiler and runtime are built for the same pinned host ABI. Keep the
 // field access used by checked fast paths explicit and mechanically verified.
 struct InvocationABI {
+  static void cacheStackBounds(Invocation &) noexcept;
   static constexpr std::size_t pollMode = offsetof(Invocation, pollMode_);
   static constexpr std::size_t cancellation = offsetof(Invocation, cancellation_);
   static constexpr std::size_t leaseDepth = offsetof(Invocation, stackLeaseDepth_);

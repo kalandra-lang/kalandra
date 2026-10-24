@@ -97,12 +97,14 @@ fn main()->int:
 ]=])
 EXPECT(function-array 42)
 COMPILE(fault "${PREFIX}fn bad(x:int)->int:\n  1/x\nfn main()->int:\n  item=List.Cons {head:1,tail:List.Nil}\n  match item:\n    List.Nil:0\n    List.Cons:bad(0)\n")
-COMPILE(call-limit "${PREFIX}fn loop(n:int)->int:\n  loop(n+1)\nfn main()->int:\n  loop(0)\n")
+COMPILE(call-limit "${PREFIX}fn loop(n:int)->int:\n  loop(n+1)+n\nfn main()->int:\n  loop(0)\n")
 foreach(NAME IN ITEMS fault call-limit)
   if(NAME STREQUAL "fault")
     set(EXPECTED_FAULT ArithmeticFault)
   else()
-    set(EXPECTED_FAULT CallLimitFault)
+    # Continuation frames are heap-owned; their allocation budget may stop
+    # growth before a native stack reserve is reached. Both paths must settle.
+    set(EXPECTED_FAULT "(StackExhaustionFault|AllocationFault)")
   endif()
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_REPORT_CLEANUP=1
     "${OUTPUT_DIR}/${NAME}" RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)

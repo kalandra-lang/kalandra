@@ -3,9 +3,29 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Module.h"
 #include <optional>
 #include <string>
 namespace kalandra {
+// Read SP without llvm.stacksave's dynamic-stack semantics. The read remains
+// at the guard. Call-free leaf paths can be outlined before this physical
+// check. Targets are the native architectures qualified by CMake.
+inline llvm::Value *nativeStackPointer(llvm::IRBuilder<> &builder) {
+#if defined(__aarch64__)
+  const char *name = "sp";
+#elif defined(__x86_64__) || defined(_M_X64)
+  const char *name = "rsp";
+#else
+#error Unsupported native stack-pointer target
+#endif
+  auto &context = builder.getContext();
+  auto *read = llvm::Intrinsic::getOrInsertDeclaration(builder.GetInsertBlock()->getModule(),
+      llvm::Intrinsic::read_volatile_register, {builder.getInt64Ty()});
+  auto *reg = llvm::MDNode::get(context, llvm::MDString::get(context, name));
+  return builder.CreateCall(read, {llvm::MetadataAsValue::get(context, reg)});
+}
 // Conservative admission for the pinned CPU backend: count all SSA values,
 // arguments, outgoing argument copies and fixed allocas, rather than assuming
 // register allocation or stack-slot reuse. Keep margin below runtime headroom.
@@ -46,10 +66,16 @@ inline std::optional<std::string> nativeStackBudgetError(const llvm::Function &f
               valid && target &&
               (target->isIntrinsic() || target->getName() == "kalandra_alloc_v1" ||
                target->getName() == "kalandra_free_v1" ||
-               target->getName() == "kalandra_fault_v1" || target->getName() == "kalandra_poll_v1");
+               target->getName() == "kalandra_source_abort_v2" ||
+               target->getName() == "kalandra_fault_v1" ||
+               target->getName() == "kalandra_poll_slow_v1" ||
+               target->getName() == "kalandra_poll_v1");
         }
         for (const auto &argument : call->args())
-          valid = valid && account(argument->getType());
+          // Intrinsic metadata describes a register or alias scope; it has no
+          // representation in the physical outgoing call frame.
+          if (!argument->getType()->isMetadataTy())
+            valid = valid && account(argument->getType());
       }
     }
   if (!valid)

@@ -1069,6 +1069,11 @@ if(WIN32)
 endif()
 
 if(BUILD_TESTING)
+  add_test(NAME native-call-foundation-source
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CallFoundationTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/call-foundation")
+  set_tests_properties(native-call-foundation-source PROPERTIES TIMEOUT 900)
   add_test(NAME native-arithmetic-policy
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ArithmeticPolicyTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/arithmetic-policy")

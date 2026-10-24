@@ -110,11 +110,11 @@ int main() {
   }
   {
     Invocation limited;
-    for (unsigned i = 0; i < Invocation::maxCallDepth - 1; ++i)
+    for (unsigned i = 0; i < 4096; ++i)
       CHECK(limited.enterCall(1, 2));
-    CHECK(call(limited) == 0 && limited.status() == 6);
-    CHECK(limited.callDepth() == Invocation::maxCallDepth - 1);
-    for (unsigned i = 0; i < Invocation::maxCallDepth - 1; ++i)
+    CHECK(call(limited) == expected(5) && limited.status() == 0);
+    CHECK(limited.callDepth() == 4096);
+    for (unsigned i = 0; i < 4096; ++i)
       limited.leaveCall();
     CHECK(limited.callDepth() == 0);
   }
