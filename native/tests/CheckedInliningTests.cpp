@@ -170,10 +170,11 @@ int main() {
             depthWorker->hasFnAttribute(Attribute::NoInline));
       check(calls(*worker, depthWorker->getName()) == 1);
       check(calls(*depthWorker, depthWorker->getName()) == 16);
-            check(calls(*depthWorker, std::string("kalandra_recursive_poll_") + mode) == 5);
+      check(calls(*depthWorker, std::string("kalandra_recursive_poll_") + mode) == 0);
+      check(calls(*worker, std::string("kalandra_recursive_poll_") + mode) == 1);
       check(depthWorker->getReturnType()->isStructTy());
       check(calls(*depthWorker, "kalandra_recursive_leave_v1") == 0);
-      check(depthWorker->arg_size() == worker->arg_size() + 1);
+      check(depthWorker->arg_size() == worker->arg_size() + 2);
       for (auto &block : *depthWorker)
         for (auto &instruction : block) {
           check(!isa<AllocaInst>(instruction));
@@ -184,8 +185,10 @@ int main() {
             address = store->getPointerOperand();
           if (auto *gep = dyn_cast_or_null<GetElementPtrInst>(address);
               gep && gep->getNumIndices() == 1)
-            if (auto *offset = dyn_cast<ConstantInt>(gep->getOperand(1)))
+            if (auto *offset = dyn_cast<ConstantInt>(gep->getOperand(1))) {
               check(offset->getZExtValue() != kalandra::runtime::InvocationABI::depth);
+              check(offset->getZExtValue() != kalandra::runtime::InvocationABI::pollMode);
+            }
         }
 #if defined(__APPLE__)
       check(calls(*depthWorker, "llvm.stacksave.p0") == 5);

@@ -39,6 +39,7 @@ inline void specializeRecursiveDepth(llvm::Function &worker, llvm::Function *pol
   auto *i64 = Type::getInt64Ty(context);
   SmallVector<Type *, 12> parameters(worker.getFunctionType()->params());
   parameters.push_back(i64);
+  parameters.push_back(i64);
   auto *resultType = StructType::get(worker.getReturnType(), Type::getInt1Ty(context));
   auto *candidate = Function::Create(
       FunctionType::get(resultType, parameters, false),
@@ -51,7 +52,8 @@ inline void specializeRecursiveDepth(llvm::Function &worker, llvm::Function *pol
   CloneFunctionInto(candidate, &worker, values, CloneFunctionChangeType::LocalChangesOnly, returns);
   candidate->setLinkage(GlobalValue::InternalLinkage);
   candidate->addFnAttr(Attribute::NoInline);
-  candidate->getArg(candidate->arg_size() - 1)->setName("recursive.depth");
+  candidate->getArg(worker.arg_size())->setName("recursive.depth");
+  candidate->getArg(worker.arg_size() + 1)->setName("recursive.status");
   SmallVector<CallInst *, 16> inlineCalls;
   for (auto &block : *candidate)
     for (auto &instruction : block)
@@ -88,7 +90,7 @@ inline void specializeRecursiveDepth(llvm::Function &worker, llvm::Function *pol
                    (!call->mayReadOrWriteMemory() || callee->getIntrinsicID() == Intrinsic::stacksave));
       }
     }
-  // The first poll observes any already-faulted entry. Thereafter the only
+  // The bridge observes any already-faulted entry. Thereafter the only
   // status changes are explicit local faults and self-call status results.
   // Unbound, exclusive ownership excludes asynchronous cancellation/observers.
   CallInst *entryPoll = nullptr;
@@ -118,10 +120,12 @@ inline void specializeRecursiveDepth(llvm::Function &worker, llvm::Function *pol
     IRBuilder<> b(&*candidate->getEntryBlock().getFirstInsertionPt());
     auto *slot = b.CreateAlloca(i64, nullptr, "recursive.depth.slot");
     auto *ok = b.CreateAlloca(b.getInt1Ty(), nullptr, "recursive.status.slot");
-    b.CreateStore(candidate->getArg(candidate->arg_size() - 1), slot);
+    b.CreateStore(candidate->getArg(worker.arg_size()), slot);
     b.CreateStore(b.getTrue(), ok);
     IRBuilder<> afterEntry(entryPoll->getNextNode());
     afterEntry.CreateStore(afterEntry.CreateICmpEQ(entryPoll, afterEntry.getInt64(0)), ok);
+    entryPoll->replaceAllUsesWith(candidate->getArg(worker.arg_size() + 1));
+    entryPoll->eraseFromParent();
     for (auto &block : *candidate)
       for (auto &instruction : block)
         if (auto *call = dyn_cast<CallInst>(&instruction); call && call->getCalledFunction() == fault) {
@@ -137,6 +141,8 @@ inline void specializeRecursiveDepth(llvm::Function &worker, llvm::Function *pol
       IRBuilder<> at(call);
       SmallVector<Value *, 12> arguments(call->args());
       arguments.push_back(at.CreateLoad(i64, slot));
+      arguments.push_back(at.CreateSelect(at.CreateLoad(at.getInt1Ty(), ok), at.getInt64(0),
+                                         at.getInt64(1)));
       auto *replacement = at.CreateCall(candidate, arguments);
       replacement->setCallingConv(call->getCallingConv());
       auto *value = at.CreateExtractValue(replacement, 0);
@@ -214,6 +220,7 @@ inline void specializeRecursiveDepth(llvm::Function &worker, llvm::Function *pol
     for (auto &argument : bridge->args())
       arguments.push_back(&argument);
     arguments.push_back(depth);
+    arguments.push_back(bridgeBuilder.CreateCall(poll, {outer, bridge->getArg(bridge->arg_size() - 1)}));
     auto *result = bridgeBuilder.CreateCall(candidate, arguments);
     bridgeBuilder.CreateStore(depth, depthAddress);
     bridgeBuilder.CreateRet(bridgeBuilder.CreateExtractValue(result, 0));
