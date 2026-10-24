@@ -70,8 +70,8 @@ int main() {
     require(dumpTypedIR(*task.module).find("u64 18446744073709551615") != std::string::npos,
             "unsigned literal lost full-range typed identity");
 #endif
-    require(bool(numericCapabilityError(*task.module, NumericTarget::AppleGpu)),
-            "uint64 GPU arithmetic enabled");
+    require(!numericCapabilityError(*task.module, NumericTarget::AppleGpu),
+            "supported uint64 GPU numeric capability rejected");
     std::cout << "Checked uint64 literals/constants, uint alias, full-range bindings, scalar task "
                  "identity and strict width/tensor/target gates passed\n";
   } catch (const std::exception &error) {

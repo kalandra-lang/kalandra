@@ -88,6 +88,11 @@ jobs:
           cmake --build build/native --target kalandra native-cpu-package native-editor-tools-package
           native-cpu-standalone-package native-editor-tools-standalone-package
           native-metal-package native-metal-standalone-package -j2
+      - name: Qualify checked recursive calls and signed remainder
+        run: |
+          cmake --build build/native --target kalandra-checked-inlining-tests -j2
+          ctest --test-dir build/native --output-on-failure -j2 \
+            -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|signed-remainder|tail-calls(-software)?|fast-calls)$'
       - name: Remove archive staging copies before the independent build
         run: |
           python3 - <<'PY'

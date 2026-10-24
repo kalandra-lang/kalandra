@@ -83,6 +83,14 @@ fn main()->int ! TaskError:
     result=spawn work()
     try await result
 """, "42")]
+        cases.append(("recursive signed remainder", """fn rem(a:int,b:int)->int:
+  a%b
+fn gcd(a:int,b:int)->int:
+  if b==0:a
+  else:gcd(b,a%b)
+fn main()->[int]:
+  [rem(-9223372036854775808,-1),rem(-9223372036854775808,3),rem(9223372036854775807,-1),rem(-37,7),rem(37,-7),gcd(987654321,123456789)]
+""", "[0, -2, 0, -2, 2, 9]"))
         for numeric in ("float32", "float64"):
             cases += [(f"{numeric} static matrix product", f"""fn main()->{numeric}:
   a:Tensor[{numeric},1,2]=tensor([[2,3]])

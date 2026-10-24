@@ -1,0 +1,2109 @@
+{
+  "schema": 1,
+  "baseline_source_commit": "2585de041135c2456610b6d450642cb4af0fc196",
+  "baseline_compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+  "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+  "runtime_sha256": "f2dd346cf1c65fd7fd30ca16e25527896d843895717d843e591c569bcedce7f2",
+  "source_sha256": {
+    "native/lib/Backend.cpp": "13e3a42e90ce3c97850817f214fb98fe2cf7826d22ac4ce9624ec2c481526705",
+    "native/lib/CheckedABI.cpp": "c05532781b2cecc873ed9858cc69507c4a1bd4f5237b522aa90c697d659c579b",
+    "native/lib/NativeTailCalls.h": "b7e394dbf56cabec87928ae2d2e506168ad46fd9a95502ab92d322f20c098343",
+    "native/lib/NativeRecursiveContext.h": "0268a1a3499c67fa1930d10c9b5308debd580f646ef58f7a27c4c86f315eb62e",
+    "native/lib/NativeFastABI.h": "95b7d4e4c0fbc6c67b905db35325f4eed4d6e24315e2e4f609f6eb00bfd7f1a2",
+    "native/lib/NativeStack.h": "ff8d66097092c3e285e0953b3509d61658a7faaa9118ec14edf9ca959dd41417",
+    "native/runtime/Runtime.h": "3a3397381414255a5a8475628fc55c18b03ea011b34b634717ac6eb5ca301bdf",
+    "native/runtime/Runtime.cpp": "73537bf4495d5cbe97d48ab019ab16c29de01109f5e98590b01221da289e4aa7",
+    "native/lib/Semantics.cpp": "d60b4df3dcc3992eb81b9e21192e067f902b1f87db6a7ca3c1110f90b50a3932",
+    "native/CMakeLists.txt": "ee3344968297970199788befb960a208f97fc5fdc5272380b78d16247eabd44b",
+    "native/tests/TailCallTests.py": "ea3ff382a83b8021ce745336725c99f115fa590b1ed417cc4c4fcfec74ba0fb6",
+    "native/tests/TailCallRuntimeTests.cpp": "17c8df181fbf53e4b985b6a375258aa3c3fff9bf79d1551bb5cdd6f0a7ca554c",
+    "native/tests/SignedRemainderTests.py": "2aa3326fa94062145bd5c37929a2b7c70004da21c081ba83eb7f238850e5b23d",
+    "native/tests/SignedRemainderRuntimeTests.cpp": "0b9e61f4856749d730ab74d54d9cf39cac9632d32600f6ce3236cc4248bc7962",
+    "native/tests/Int64Tests.cpp": "13878a67733991c2deb9ffa43ab2a9cc61ef3b0b90e015e0e4bd697731f1af8f",
+    "native/tests/UInt32Tests.cpp": "9f4b49636ccec50b280a2def48bb7501b5e0802e20fa2354086d3497d39a610f",
+    "native/tests/UInt64Tests.cpp": "88c51f099f37784fe2aad2fc3766a338445e248986026e9090fe044c1cf05011",
+    "native/benchmarks/checked_inlining.py": "5103e924a1da55b4980840827f598f4c0aa269d5c06d83909c4f293645fb3bfa",
+    "native/benchmarks/fair/protocol.py": "5e84d1585ea9b9f9282a72d5d47e70ac7442ab3b09b5858cfc27d1ce984570dd",
+    "native/packaging/PortableCPUAcceptance.py": "c0edc31ecf973e6006e47c292169dd6e0e5116d4139b4fa1a4767f4aa7103a7a",
+    ".github/workflows/native-linux.yml": "28ddb93ce7e2cc366b64305749ac4554d4de3d5fe2d8a89c208a257551f069aa",
+    ".github/workflows/native-release.yml": "bfcd94207292eb90150bf5283823857e5321b42c774a313eab55b861308d4b73"
+  },
+  "differential": {
+    "cases": 3084456,
+    "records": {
+      "hardware-tail": [
+        {
+          "variant": "debug-int",
+          "arithmetic": "hardware",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "58a6562a0f9c893c6f6010f58e7cb86533b862b59c35aca97b5395c22f122881",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "debug-int",
+          "arithmetic": "hardware",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "c28a218a9a3d802f4eed43ff687b1fe0a1f20b177e6bd368aba978b6a8d71f14",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "debug-float",
+          "arithmetic": "hardware",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 5096,
+          "state_sha256": "c34c0e444fc9da9c09f9f34ff545f50f611faf52c0c7fe6244aa1418fcdabf16",
+          "ir_sha256": "2e74206d7433f9f346c17113b4838cd4bcabf0da2cf8bef28e1607118c502be9",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "debug-float",
+          "arithmetic": "hardware",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 5096,
+          "state_sha256": "c34c0e444fc9da9c09f9f34ff545f50f611faf52c0c7fe6244aa1418fcdabf16",
+          "ir_sha256": "8cdf0d4ae85ebd48ab17de10c5253967cbb2b5514dfa7a26aec04d273f1be60c",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "debug-large-signature",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "2b659f2290d48062ea0aa3a53b96d8bfd158749ae657c6c001b9ac4f5e333888",
+          "result": "42"
+        },
+        {
+          "variant": "debug-large-signature",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "2b659f2290d48062ea0aa3a53b96d8bfd158749ae657c6c001b9ac4f5e333888",
+          "result": "42"
+        },
+        {
+          "variant": "debug-owned-tensor",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "8b450de429bd025dec2a1b62d3c1bb90d338dd287a89551b9511db2ffa07ed2c",
+          "result": "42"
+        },
+        {
+          "variant": "debug-owned-tensor",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "8b450de429bd025dec2a1b62d3c1bb90d338dd287a89551b9511db2ffa07ed2c",
+          "result": "42"
+        },
+        {
+          "variant": "debug-float-recurrence",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "adcfcac0a063a9857283dc6c2085b912fba0f65024931f8b677527743a7fcee0",
+          "result": "0.359375"
+        },
+        {
+          "variant": "debug-float-recurrence",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "cd642ec13b915545153b8b57f0f23a9dab872bc1da5ec9117e942b7154b5486e",
+          "result": "0.359375"
+        },
+        {
+          "variant": "optimized-int",
+          "arithmetic": "hardware",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "58a6562a0f9c893c6f6010f58e7cb86533b862b59c35aca97b5395c22f122881",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "optimized-int",
+          "arithmetic": "hardware",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "c28a218a9a3d802f4eed43ff687b1fe0a1f20b177e6bd368aba978b6a8d71f14",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "optimized-float",
+          "arithmetic": "hardware",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 5096,
+          "state_sha256": "c34c0e444fc9da9c09f9f34ff545f50f611faf52c0c7fe6244aa1418fcdabf16",
+          "ir_sha256": "2e74206d7433f9f346c17113b4838cd4bcabf0da2cf8bef28e1607118c502be9",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "optimized-float",
+          "arithmetic": "hardware",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 5096,
+          "state_sha256": "c34c0e444fc9da9c09f9f34ff545f50f611faf52c0c7fe6244aa1418fcdabf16",
+          "ir_sha256": "8cdf0d4ae85ebd48ab17de10c5253967cbb2b5514dfa7a26aec04d273f1be60c",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "optimized-large-signature",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "2b659f2290d48062ea0aa3a53b96d8bfd158749ae657c6c001b9ac4f5e333888",
+          "result": "42"
+        },
+        {
+          "variant": "optimized-large-signature",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "2b659f2290d48062ea0aa3a53b96d8bfd158749ae657c6c001b9ac4f5e333888",
+          "result": "42"
+        },
+        {
+          "variant": "optimized-owned-tensor",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "8b450de429bd025dec2a1b62d3c1bb90d338dd287a89551b9511db2ffa07ed2c",
+          "result": "42"
+        },
+        {
+          "variant": "optimized-owned-tensor",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "8b450de429bd025dec2a1b62d3c1bb90d338dd287a89551b9511db2ffa07ed2c",
+          "result": "42"
+        },
+        {
+          "variant": "optimized-float-recurrence",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "adcfcac0a063a9857283dc6c2085b912fba0f65024931f8b677527743a7fcee0",
+          "result": "0.359375"
+        },
+        {
+          "variant": "optimized-float-recurrence",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "cd642ec13b915545153b8b57f0f23a9dab872bc1da5ec9117e942b7154b5486e",
+          "result": "0.359375"
+        },
+        {
+          "variant": "sanitized-int",
+          "arithmetic": "hardware",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "a7959e243bbbb998dffed762faa2c9e3cf6d2a35a10cd0b69b48d586d652f59f",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "sanitized-int",
+          "arithmetic": "hardware",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "0e173fae770e42f1e46f812693ed44c34490f26e596e81d1d8e4b9841702a67e",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "sanitized-float",
+          "arithmetic": "hardware",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 5096,
+          "state_sha256": "c34c0e444fc9da9c09f9f34ff545f50f611faf52c0c7fe6244aa1418fcdabf16",
+          "ir_sha256": "cc9470c57189f1171d64de0567e2c7c7613d9fb67d81de3c81847b97aedec051",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "sanitized-float",
+          "arithmetic": "hardware",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 5096,
+          "state_sha256": "c34c0e444fc9da9c09f9f34ff545f50f611faf52c0c7fe6244aa1418fcdabf16",
+          "ir_sha256": "c8d04864f9d43a864763412e3cf9043b6c1d70e166e7a244badc9203cfb91886",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "sanitized-large-signature",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "0007205ae999c2533ca80cd62ecd85deb479e22fc9310eedfe45eb04728ff221",
+          "result": "42"
+        },
+        {
+          "variant": "sanitized-large-signature",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "0007205ae999c2533ca80cd62ecd85deb479e22fc9310eedfe45eb04728ff221",
+          "result": "42"
+        },
+        {
+          "variant": "sanitized-owned-tensor",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "15500db43bd71cd82812f7e21f300f742da6aabaa998f13ff84f53a3038a5be9",
+          "result": "42"
+        },
+        {
+          "variant": "sanitized-owned-tensor",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "15500db43bd71cd82812f7e21f300f742da6aabaa998f13ff84f53a3038a5be9",
+          "result": "42"
+        },
+        {
+          "variant": "sanitized-float-recurrence",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "094ced34a1000b897696be78581df9e6a1d7ef692cbf1add9fee7aef06a45ab6",
+          "result": "0.359375"
+        },
+        {
+          "variant": "sanitized-float-recurrence",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "fa1b3b2758e111513197567954feabafedd2f55d884330575f16d52bf5262430",
+          "result": "0.359375"
+        },
+        {
+          "variant": "thread-sanitized-int",
+          "arithmetic": "hardware",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "66eba2828bc35b7884c770dda7b1ea738bea64b1625379d9454c14c7edc0a59c",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "thread-sanitized-int",
+          "arithmetic": "hardware",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "c73e54ae0c2b12387f518b080296fb17000ba73fda6a368855ad9b0b6cc8ddad",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "thread-sanitized-float",
+          "arithmetic": "hardware",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 5096,
+          "state_sha256": "c34c0e444fc9da9c09f9f34ff545f50f611faf52c0c7fe6244aa1418fcdabf16",
+          "ir_sha256": "24038e531dd0fe86826eb9597d65d9c8398c63e45dc081c1fc4356e3743b444f",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "thread-sanitized-float",
+          "arithmetic": "hardware",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 5096,
+          "state_sha256": "c34c0e444fc9da9c09f9f34ff545f50f611faf52c0c7fe6244aa1418fcdabf16",
+          "ir_sha256": "626ebf6f490cbf32ed442655ea5dc9d91dbc35ef157b4058b6ee14941ece3703",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "thread-sanitized-large-signature",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "9ba2985893f98a7504b4a08fbe898c4fbeed535fa3f31823b85b32fe90fb4bff",
+          "result": "42"
+        },
+        {
+          "variant": "thread-sanitized-large-signature",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "9ba2985893f98a7504b4a08fbe898c4fbeed535fa3f31823b85b32fe90fb4bff",
+          "result": "42"
+        },
+        {
+          "variant": "thread-sanitized-owned-tensor",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "69ad49d453f441ed5c808a93f96af1d0445f6db74493454944166323c762b590",
+          "result": "42"
+        },
+        {
+          "variant": "thread-sanitized-owned-tensor",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "69ad49d453f441ed5c808a93f96af1d0445f6db74493454944166323c762b590",
+          "result": "42"
+        },
+        {
+          "variant": "thread-sanitized-float-recurrence",
+          "arithmetic": "hardware",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "a5c09772c2760418583025ffe9c0fe994741e80ee449e32c26f698515aaf63af",
+          "result": "0.359375"
+        },
+        {
+          "variant": "thread-sanitized-float-recurrence",
+          "arithmetic": "hardware",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "eb2f49129e33675223f0c3a684f6dad388029f148a85a0d88363ff119a461706",
+          "result": "0.359375"
+        }
+      ],
+      "hardware-float64": [
+        {
+          "variant": "debug",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "618e3a7944d746634e40ba104a1584c5f84c643dd1e8f26c781bac5bd8a4d189",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "debug",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "618e3a7944d746634e40ba104a1584c5f84c643dd1e8f26c781bac5bd8a4d189",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "optimized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "618e3a7944d746634e40ba104a1584c5f84c643dd1e8f26c781bac5bd8a4d189",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "optimized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "618e3a7944d746634e40ba104a1584c5f84c643dd1e8f26c781bac5bd8a4d189",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "sanitized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "c261949c46fe7f84bd63a64c2634b271fad064c8863d706afed0faa0a22c39fe",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "sanitized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "c261949c46fe7f84bd63a64c2634b271fad064c8863d706afed0faa0a22c39fe",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "thread-sanitized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "f0dddeba84d1cbac662a28bb31a81f1e0acb4d2569ffb075a685483c59e5cfb1",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "thread-sanitized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "f0dddeba84d1cbac662a28bb31a81f1e0acb4d2569ffb075a685483c59e5cfb1",
+          "result": "29484 independent floating/state checks passed"
+        }
+      ],
+      "hardware-float32": [
+        {
+          "variant": "debug",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "618e3a7944d746634e40ba104a1584c5f84c643dd1e8f26c781bac5bd8a4d189",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "debug",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "618e3a7944d746634e40ba104a1584c5f84c643dd1e8f26c781bac5bd8a4d189",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "optimized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "618e3a7944d746634e40ba104a1584c5f84c643dd1e8f26c781bac5bd8a4d189",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "optimized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "618e3a7944d746634e40ba104a1584c5f84c643dd1e8f26c781bac5bd8a4d189",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "sanitized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "c261949c46fe7f84bd63a64c2634b271fad064c8863d706afed0faa0a22c39fe",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "sanitized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "c261949c46fe7f84bd63a64c2634b271fad064c8863d706afed0faa0a22c39fe",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "thread-sanitized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "f0dddeba84d1cbac662a28bb31a81f1e0acb4d2569ffb075a685483c59e5cfb1",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "thread-sanitized",
+          "arithmetic": "hardware",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "c1e0ba753997f4d76c7a3247cef8a9d374b19f79afa249363bc9b30ad93b155f",
+          "ir_sha256": "f0dddeba84d1cbac662a28bb31a81f1e0acb4d2569ffb075a685483c59e5cfb1",
+          "result": "29484 independent floating/state checks passed"
+        }
+      ],
+      "hardware-remainder": [
+        {
+          "variant": "debug",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 591990,
+          "state_sha256": "b9a68a3f067c41d5c52fbbde03ed123859678059b081dd8d2e156cb83512ffdd",
+          "ir_sha256": "859469584ca5c7f62a74cd43021ca48658322f46edeb817a7bf824e1747dd63c",
+          "result": "591990 signed remainder/state cases; digest 11200756720510978038"
+        },
+        {
+          "variant": "debug",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 591990,
+          "state_sha256": "b9a68a3f067c41d5c52fbbde03ed123859678059b081dd8d2e156cb83512ffdd",
+          "ir_sha256": "1a4be5d261f5744702826cfbedf3160bfa433d0d6b6b25e08635b966f80e8a89",
+          "result": "591990 signed remainder/state cases; digest 11200756720510978038"
+        },
+        {
+          "variant": "optimized",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 591990,
+          "state_sha256": "b9a68a3f067c41d5c52fbbde03ed123859678059b081dd8d2e156cb83512ffdd",
+          "ir_sha256": "859469584ca5c7f62a74cd43021ca48658322f46edeb817a7bf824e1747dd63c",
+          "result": "591990 signed remainder/state cases; digest 11200756720510978038"
+        },
+        {
+          "variant": "optimized",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 591990,
+          "state_sha256": "b9a68a3f067c41d5c52fbbde03ed123859678059b081dd8d2e156cb83512ffdd",
+          "ir_sha256": "1a4be5d261f5744702826cfbedf3160bfa433d0d6b6b25e08635b966f80e8a89",
+          "result": "591990 signed remainder/state cases; digest 11200756720510978038"
+        },
+        {
+          "variant": "sanitized",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 591990,
+          "state_sha256": "b9a68a3f067c41d5c52fbbde03ed123859678059b081dd8d2e156cb83512ffdd",
+          "ir_sha256": "a974c283aa3c4bfa5d6c3cf266c2ddb13b90a6eec617d74c76243ae009f88ace",
+          "result": "591990 signed remainder/state cases; digest 11200756720510978038"
+        },
+        {
+          "variant": "sanitized",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 591990,
+          "state_sha256": "b9a68a3f067c41d5c52fbbde03ed123859678059b081dd8d2e156cb83512ffdd",
+          "ir_sha256": "ea5b90f06efec9f726341c729eacfa63574501adceb8a27d4a98b7158a04b7db",
+          "result": "591990 signed remainder/state cases; digest 11200756720510978038"
+        },
+        {
+          "variant": "thread-sanitized",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 591990,
+          "state_sha256": "b9a68a3f067c41d5c52fbbde03ed123859678059b081dd8d2e156cb83512ffdd",
+          "ir_sha256": "04feabf707c9a0711a2e2f5c05e3c27635416584959631f05858fda5a9e29da8",
+          "result": "591990 signed remainder/state cases; digest 11200756720510978038"
+        },
+        {
+          "variant": "thread-sanitized",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 591990,
+          "state_sha256": "b9a68a3f067c41d5c52fbbde03ed123859678059b081dd8d2e156cb83512ffdd",
+          "ir_sha256": "91000ea09d45c8680d185ff4b076aeb8fbc1810e10c557ea52992e4a4566b34a",
+          "result": "591990 signed remainder/state cases; digest 11200756720510978038"
+        }
+      ],
+      "software-tail": [
+        {
+          "variant": "debug-int",
+          "arithmetic": "software",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "58a6562a0f9c893c6f6010f58e7cb86533b862b59c35aca97b5395c22f122881",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "debug-int",
+          "arithmetic": "software",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "c28a218a9a3d802f4eed43ff687b1fe0a1f20b177e6bd368aba978b6a8d71f14",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "debug-float",
+          "arithmetic": "software",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 5096,
+          "state_sha256": "e58c0b293f0be0988e959f1639078d1eaa110a6009a37148087625a29529ec2d",
+          "ir_sha256": "97f569350a6452e2d98b0f0d550d3f842710cc593e42f1660e0e4fc20cc4c2ec",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "debug-float",
+          "arithmetic": "software",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 5096,
+          "state_sha256": "e58c0b293f0be0988e959f1639078d1eaa110a6009a37148087625a29529ec2d",
+          "ir_sha256": "97f569350a6452e2d98b0f0d550d3f842710cc593e42f1660e0e4fc20cc4c2ec",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "debug-large-signature",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "2b659f2290d48062ea0aa3a53b96d8bfd158749ae657c6c001b9ac4f5e333888",
+          "result": "42"
+        },
+        {
+          "variant": "debug-large-signature",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "2b659f2290d48062ea0aa3a53b96d8bfd158749ae657c6c001b9ac4f5e333888",
+          "result": "42"
+        },
+        {
+          "variant": "debug-owned-tensor",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "8b450de429bd025dec2a1b62d3c1bb90d338dd287a89551b9511db2ffa07ed2c",
+          "result": "42"
+        },
+        {
+          "variant": "debug-owned-tensor",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "8b450de429bd025dec2a1b62d3c1bb90d338dd287a89551b9511db2ffa07ed2c",
+          "result": "42"
+        },
+        {
+          "variant": "debug-float-recurrence",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "c3d2bd9a76d38f47ae925ce1c697d40f99bffa168b018f4130ab47b07783f57f",
+          "result": "0.359375"
+        },
+        {
+          "variant": "debug-float-recurrence",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "c3d2bd9a76d38f47ae925ce1c697d40f99bffa168b018f4130ab47b07783f57f",
+          "result": "0.359375"
+        },
+        {
+          "variant": "optimized-int",
+          "arithmetic": "software",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "58a6562a0f9c893c6f6010f58e7cb86533b862b59c35aca97b5395c22f122881",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "optimized-int",
+          "arithmetic": "software",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "c28a218a9a3d802f4eed43ff687b1fe0a1f20b177e6bd368aba978b6a8d71f14",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "optimized-float",
+          "arithmetic": "software",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 5096,
+          "state_sha256": "e58c0b293f0be0988e959f1639078d1eaa110a6009a37148087625a29529ec2d",
+          "ir_sha256": "97f569350a6452e2d98b0f0d550d3f842710cc593e42f1660e0e4fc20cc4c2ec",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "optimized-float",
+          "arithmetic": "software",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 5096,
+          "state_sha256": "e58c0b293f0be0988e959f1639078d1eaa110a6009a37148087625a29529ec2d",
+          "ir_sha256": "97f569350a6452e2d98b0f0d550d3f842710cc593e42f1660e0e4fc20cc4c2ec",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "optimized-large-signature",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "2b659f2290d48062ea0aa3a53b96d8bfd158749ae657c6c001b9ac4f5e333888",
+          "result": "42"
+        },
+        {
+          "variant": "optimized-large-signature",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "2b659f2290d48062ea0aa3a53b96d8bfd158749ae657c6c001b9ac4f5e333888",
+          "result": "42"
+        },
+        {
+          "variant": "optimized-owned-tensor",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "8b450de429bd025dec2a1b62d3c1bb90d338dd287a89551b9511db2ffa07ed2c",
+          "result": "42"
+        },
+        {
+          "variant": "optimized-owned-tensor",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "8b450de429bd025dec2a1b62d3c1bb90d338dd287a89551b9511db2ffa07ed2c",
+          "result": "42"
+        },
+        {
+          "variant": "optimized-float-recurrence",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "c3d2bd9a76d38f47ae925ce1c697d40f99bffa168b018f4130ab47b07783f57f",
+          "result": "0.359375"
+        },
+        {
+          "variant": "optimized-float-recurrence",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "c3d2bd9a76d38f47ae925ce1c697d40f99bffa168b018f4130ab47b07783f57f",
+          "result": "0.359375"
+        },
+        {
+          "variant": "sanitized-int",
+          "arithmetic": "software",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "a7959e243bbbb998dffed762faa2c9e3cf6d2a35a10cd0b69b48d586d652f59f",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "sanitized-int",
+          "arithmetic": "software",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "0e173fae770e42f1e46f812693ed44c34490f26e596e81d1d8e4b9841702a67e",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "sanitized-float",
+          "arithmetic": "software",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 5096,
+          "state_sha256": "e58c0b293f0be0988e959f1639078d1eaa110a6009a37148087625a29529ec2d",
+          "ir_sha256": "23224fa00f9a16e0e09b2f529c07aa536c58e31351f727736d25f25afa7364d3",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "sanitized-float",
+          "arithmetic": "software",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 5096,
+          "state_sha256": "e58c0b293f0be0988e959f1639078d1eaa110a6009a37148087625a29529ec2d",
+          "ir_sha256": "23224fa00f9a16e0e09b2f529c07aa536c58e31351f727736d25f25afa7364d3",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "sanitized-large-signature",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "0007205ae999c2533ca80cd62ecd85deb479e22fc9310eedfe45eb04728ff221",
+          "result": "42"
+        },
+        {
+          "variant": "sanitized-large-signature",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "0007205ae999c2533ca80cd62ecd85deb479e22fc9310eedfe45eb04728ff221",
+          "result": "42"
+        },
+        {
+          "variant": "sanitized-owned-tensor",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "15500db43bd71cd82812f7e21f300f742da6aabaa998f13ff84f53a3038a5be9",
+          "result": "42"
+        },
+        {
+          "variant": "sanitized-owned-tensor",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "15500db43bd71cd82812f7e21f300f742da6aabaa998f13ff84f53a3038a5be9",
+          "result": "42"
+        },
+        {
+          "variant": "sanitized-float-recurrence",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "8b20a74ca170d5657c8681a84ecfda259c938513e700f6d147bbd68114b1b0c6",
+          "result": "0.359375"
+        },
+        {
+          "variant": "sanitized-float-recurrence",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "8b20a74ca170d5657c8681a84ecfda259c938513e700f6d147bbd68114b1b0c6",
+          "result": "0.359375"
+        },
+        {
+          "variant": "thread-sanitized-int",
+          "arithmetic": "software",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "66eba2828bc35b7884c770dda7b1ea738bea64b1625379d9454c14c7edc0a59c",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "thread-sanitized-int",
+          "arithmetic": "software",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 25495,
+          "state_sha256": "0d3fdd8d989c9c1e23b204949dec3b3a14e1b208f8a82aed1ba3f5cad327eb13",
+          "ir_sha256": "c73e54ae0c2b12387f518b080296fb17000ba73fda6a368855ad9b0b6cc8ddad",
+          "result": "25495 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "thread-sanitized-float",
+          "arithmetic": "software",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 5096,
+          "state_sha256": "e58c0b293f0be0988e959f1639078d1eaa110a6009a37148087625a29529ec2d",
+          "ir_sha256": "c2e50470c81fc3958668f42270b9bf2517c1825e34051868c68c36e8d05edbb2",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "thread-sanitized-float",
+          "arithmetic": "software",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 5096,
+          "state_sha256": "e58c0b293f0be0988e959f1639078d1eaa110a6009a37148087625a29529ec2d",
+          "ir_sha256": "c2e50470c81fc3958668f42270b9bf2517c1825e34051868c68c36e8d05edbb2",
+          "result": "5096 independent-reference and logical-state cases passed"
+        },
+        {
+          "variant": "thread-sanitized-large-signature",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "9ba2985893f98a7504b4a08fbe898c4fbeed535fa3f31823b85b32fe90fb4bff",
+          "result": "42"
+        },
+        {
+          "variant": "thread-sanitized-large-signature",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "9ba2985893f98a7504b4a08fbe898c4fbeed535fa3f31823b85b32fe90fb4bff",
+          "result": "42"
+        },
+        {
+          "variant": "thread-sanitized-owned-tensor",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "69ad49d453f441ed5c808a93f96af1d0445f6db74493454944166323c762b590",
+          "result": "42"
+        },
+        {
+          "variant": "thread-sanitized-owned-tensor",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+          "ir_sha256": "69ad49d453f441ed5c808a93f96af1d0445f6db74493454944166323c762b590",
+          "result": "42"
+        },
+        {
+          "variant": "thread-sanitized-float-recurrence",
+          "arithmetic": "software",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "compiler": "baseline",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "2b208064e9b762da5cff02fcd5a25308eebd4afbc6f63a857fef19802da2b1e2",
+          "result": "0.359375"
+        },
+        {
+          "variant": "thread-sanitized-float-recurrence",
+          "arithmetic": "software",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "compiler": "current",
+          "cases": 1,
+          "state_sha256": "17e0b2ee80fa45c40e4061d6d9377fc0d35c0b6408d166042e136a4e94bcffc4",
+          "ir_sha256": "2b208064e9b762da5cff02fcd5a25308eebd4afbc6f63a857fef19802da2b1e2",
+          "result": "0.359375"
+        }
+      ],
+      "software-float64": [
+        {
+          "variant": "debug",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3a7328000585632d9032f688c1e647b61dc014258366fc7c6af60e6ee4225e48",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "debug",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3a7328000585632d9032f688c1e647b61dc014258366fc7c6af60e6ee4225e48",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "optimized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3a7328000585632d9032f688c1e647b61dc014258366fc7c6af60e6ee4225e48",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "optimized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3a7328000585632d9032f688c1e647b61dc014258366fc7c6af60e6ee4225e48",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "sanitized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3fa93fb7bdf3ef418040052fb714f028980103c66e9daad435a9117eb32fde50",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "sanitized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3fa93fb7bdf3ef418040052fb714f028980103c66e9daad435a9117eb32fde50",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "thread-sanitized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "cfcd9fcf1858582f13876ac731efc8a7c7222ee129cb7f1c0621645a02952084",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "thread-sanitized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "cfcd9fcf1858582f13876ac731efc8a7c7222ee129cb7f1c0621645a02952084",
+          "result": "29484 independent floating/state checks passed"
+        }
+      ],
+      "software-float32": [
+        {
+          "variant": "debug",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3a7328000585632d9032f688c1e647b61dc014258366fc7c6af60e6ee4225e48",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "debug",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3a7328000585632d9032f688c1e647b61dc014258366fc7c6af60e6ee4225e48",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "optimized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3a7328000585632d9032f688c1e647b61dc014258366fc7c6af60e6ee4225e48",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "optimized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3a7328000585632d9032f688c1e647b61dc014258366fc7c6af60e6ee4225e48",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "sanitized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3fa93fb7bdf3ef418040052fb714f028980103c66e9daad435a9117eb32fde50",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "sanitized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "3fa93fb7bdf3ef418040052fb714f028980103c66e9daad435a9117eb32fde50",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "thread-sanitized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "baseline",
+          "compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "cfcd9fcf1858582f13876ac731efc8a7c7222ee129cb7f1c0621645a02952084",
+          "result": "29484 independent floating/state checks passed"
+        },
+        {
+          "variant": "thread-sanitized",
+          "arithmetic": "software",
+          "numeric": "float64",
+          "compiler": "current",
+          "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+          "cases": 29484,
+          "state_sha256": "cca4af503dd0d8584a836cfec8854f7aad9cd94927c56f2ff8cd2934421b4cba",
+          "ir_sha256": "cfcd9fcf1858582f13876ac731efc8a7c7222ee129cb7f1c0621645a02952084",
+          "result": "29484 independent floating/state checks passed"
+        }
+      ]
+    }
+  },
+  "documentation": {
+    "host": "macOS-27.2-arm64-arm-64bit-Mach-O",
+    "toolsSHA256": {
+      "kalandra": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+      "kalandra-check": "cbfed2921877b004774abc1c4faf5f89a422e85efae523c245f6760f1120f8b4",
+      "kalandra-fmt": "c7eb0d3e895a77b3c021e069165e49b80986a4cb90c24fd4082f2b7981b24b9f"
+    },
+    "pages": 20,
+    "nativeExamples": 39,
+    "renderedBlocks": 63,
+    "cpuPrograms": 32,
+    "gpuPrograms": 2,
+    "results": [
+      {
+        "page": "arrays",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "23",
+        "outputs": {
+          "-O0": "23",
+          "-O2": "23"
+        },
+        "sourceSHA256": "2b10fb5f9ed463f4a3d4a1b35c43b975dc64f4cb23c8098a1d1884a70a7c3a44"
+      },
+      {
+        "page": "arrays",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "[2, 4, 6]",
+        "outputs": {
+          "-O0": "[2, 4, 6]",
+          "-O2": "[2, 4, 6]"
+        },
+        "sourceSHA256": "5d4cad6c7f577889f66833818908407a7e790f95a87862a3bdad296e173b46b7"
+      },
+      {
+        "page": "arrays",
+        "block": 2,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "[1, 2, 9]",
+        "outputs": {
+          "-O0": "[1, 2, 9]",
+          "-O2": "[1, 2, 9]"
+        },
+        "sourceSHA256": "eaac3463425bdf5f9505d44b0306b1b0c69b2790da2cf01b6cff49f6dd15ea3c"
+      },
+      {
+        "page": "control-flow",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "1de63ef9f13e52dcaecd8abd0e3604ae39c2083cfdc643a3ae9c114d8d2c4b02"
+      },
+      {
+        "page": "control-flow",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "7ff6c4d49c9368715618ef257d5af176bbad69ec0e86b4b11a6723268fadff8d"
+      },
+      {
+        "page": "errors",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "1",
+        "outputs": {
+          "-O0": "1",
+          "-O2": "1"
+        },
+        "sourceSHA256": "b41b7e477fbe2015a6673d59a3e42dcbdf6c12c54f740a22488961594acf9db2"
+      },
+      {
+        "page": "errors",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "af26d73f38ecbe37b5f6c7d45236ea6cd8dad85327cf661094f329d6691a125b"
+      },
+      {
+        "page": "functions",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "67a43a1e4a399cc481664cb6014ef5e5d615a33dbe1c0ff5b5e08da67d11f311"
+      },
+      {
+        "page": "functions",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "0de60d0d2d133e634af5db839e7703a3ef34f44b3d45f22e21c33b6c19e51f39"
+      },
+      {
+        "page": "functions",
+        "block": 2,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "120",
+        "outputs": {
+          "-O0": "120",
+          "-O2": "120"
+        },
+        "sourceSHA256": "acce4b8b3ac2ff527c8324d3054f5a1bebc61948ee27e86fe936fb511569bb6b"
+      },
+      {
+        "page": "getting-started",
+        "block": 2,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "[2, 4, 6]",
+        "outputs": {
+          "-O0": "[2, 4, 6]",
+          "-O2": "[2, 4, 6]"
+        },
+        "sourceSHA256": "4d0085d66b583184acecbc1ac0178593848bfd42228d4471553a7f28b6e348c7"
+      },
+      {
+        "page": "getting-started",
+        "block": 3,
+        "kind": "companion-module",
+        "status": "passed",
+        "sourceSHA256": "20d16a84ea734c4f28c0b76649f4dc6c89c8ac42fd1b793ff3dc5b588ab131ab"
+      },
+      {
+        "page": "gpu-numerics",
+        "block": 0,
+        "kind": "gpu",
+        "status": "passed",
+        "expected": "[42d40000,431c0000,43710000,43b10000]",
+        "outputs": {
+          "-O2": "[42d40000,431c0000,43710000,43b10000]"
+        },
+        "sourceSHA256": "baebd8891cdb46db0f0e1392def8654029d220deb277fe2bf30cf86989f79805"
+      },
+      {
+        "page": "gpu",
+        "block": 0,
+        "kind": "gpu",
+        "status": "passed",
+        "expected": "41b80000",
+        "outputs": {
+          "-O2": "41b80000"
+        },
+        "sourceSHA256": "f793af628556cd931936d9ef64e734ffaad8f5f629b2f4282f46204596d6f9f9"
+      },
+      {
+        "page": "index",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "68d628e2f6419d71ffbbe9184fe50560d014467b325b328fe164c1955959e21a"
+      },
+      {
+        "page": "modules",
+        "block": 0,
+        "kind": "companion-module",
+        "status": "passed",
+        "sourceSHA256": "20d16a84ea734c4f28c0b76649f4dc6c89c8ac42fd1b793ff3dc5b588ab131ab"
+      },
+      {
+        "page": "modules",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "92d1ecc6cdd47ad59a90eb980ba2ac88f06125d92d8b0975020d521c80faae63"
+      },
+      {
+        "page": "numbers",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "e7e4916beb33c7fe1636a8f14594fbc6c6d99115bc758bca7c07eefeec639deb"
+      },
+      {
+        "page": "numbers",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "f88cc0e8514a65974fd49029b6bd8874bb107643f80ae629c31893cd3e0c8955"
+      },
+      {
+        "page": "parallelism",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "163f3a6cdcd1e331772fc3b2c7ed9f738c2c23d5cc82f979d69890c4cb706f01"
+      },
+      {
+        "page": "parallelism",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "[2, 4, 6]",
+        "outputs": {
+          "-O0": "[2, 4, 6]",
+          "-O2": "[2, 4, 6]"
+        },
+        "sourceSHA256": "103acab34ad1a6e1ea2e8b43f374a10e7a419d7be8e410f56568f6cf57a6f7a7"
+      },
+      {
+        "page": "records-enums",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "17",
+        "outputs": {
+          "-O0": "17",
+          "-O2": "17"
+        },
+        "sourceSHA256": "0306fd2aaf864d1c8f9c7fc205b1aeb5771bf807eedfd2f16e212a5fbc62ebab"
+      },
+      {
+        "page": "records-enums",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "447ea010c052a21f8dac5f98f62113d7b60c86edda26b4262dcb25adde2ccebf"
+      },
+      {
+        "page": "strings",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "Hello, Kalandra",
+        "outputs": {
+          "-O0": "Hello, Kalandra",
+          "-O2": "Hello, Kalandra"
+        },
+        "sourceSHA256": "30ea9fe1155af14e1924b811ceefbb7a0aade780f983f97872517faf484cbc97"
+      },
+      {
+        "page": "strings",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "12",
+        "outputs": {
+          "-O0": "12",
+          "-O2": "12"
+        },
+        "sourceSHA256": "8990f19226f179bb9fdff83cc217d322a086f28775b08890c54735fdfb10cdd1"
+      },
+      {
+        "page": "strings",
+        "block": 2,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "Kala",
+        "outputs": {
+          "-O0": "Kala",
+          "-O2": "Kala"
+        },
+        "sourceSHA256": "6b217ae2c2de0f624e0f06f574b4bae5e3159c755d0567997fa1265fe0d96e9d"
+      },
+      {
+        "page": "syntax",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "e4e2dd5dfd3ef5ba7b164d2a46890ff129a0f7f29406bc790814f3a0c6bd817f"
+      },
+      {
+        "page": "syntax",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "e82279279f25e8db68014f96d55492c70d623bb1252b2f76e979088117229be9"
+      },
+      {
+        "page": "syntax",
+        "block": 2,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "e51311a27b1172cf41e002643b2e081b86b0620d3955813d231adbf08349a027"
+      },
+      {
+        "page": "tensors",
+        "block": 0,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "20",
+        "outputs": {
+          "-O0": "20",
+          "-O2": "20"
+        },
+        "sourceSHA256": "5f4197c7a9378be5bd5aebb9a8f75441e9604cc31ab6bc485d62e129fad146a8"
+      },
+      {
+        "page": "tensors",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "3",
+        "outputs": {
+          "-O0": "3",
+          "-O2": "3"
+        },
+        "sourceSHA256": "33202a8e0406532b146e6da9718c02afeefa577d42794af1c19ce5c350206c8f"
+      },
+      {
+        "page": "tensors",
+        "block": 2,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "23",
+        "outputs": {
+          "-O0": "23",
+          "-O2": "23"
+        },
+        "sourceSHA256": "2719e8a03e0ae291ae7fcea2617c8932bbbce9f0b7a951b91fa50840788843f6"
+      },
+      {
+        "page": "troubleshooting",
+        "block": 0,
+        "kind": "expected-diagnostic",
+        "status": "passed",
+        "sourceSHA256": "0677de7e4eb5e30832637a281d4052a63ac8841f1c4d5b3502bbbd19edd310ca"
+      },
+      {
+        "page": "troubleshooting",
+        "block": 1,
+        "kind": "cpu",
+        "status": "passed",
+        "expected": "42",
+        "outputs": {
+          "-O0": "42",
+          "-O2": "42"
+        },
+        "sourceSHA256": "582e39648605331ca0340b75d30c74996dfe71a2b534d8a12e3c96384b111f9d"
+      },
+      {
+        "page": "index",
+        "block": 1,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "42",
+        "output": "Checked 1 functions, 3 typed values (no code generation)\n42",
+        "sourceSHA256": "0fc41173c9458ee8d676e630d16e27382f73e3e525361e35ba1b17b34361642a"
+      },
+      {
+        "page": "modules",
+        "block": 2,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "42",
+        "output": "Checked 2 functions, 5 typed values (no code generation)\n42",
+        "sourceSHA256": "0fc41173c9458ee8d676e630d16e27382f73e3e525361e35ba1b17b34361642a"
+      },
+      {
+        "page": "parallelism",
+        "block": 2,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "[2, 4, 6]",
+        "output": "[2, 4, 6]",
+        "sourceSHA256": "e2bd4d39817aa04de418d449323818ac95214b8428cdfdc7a4e8df512545d6fb"
+      },
+      {
+        "page": "gpu",
+        "block": 1,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "41b80000",
+        "output": "41b80000",
+        "sourceSHA256": "f9c5a71277209133245ce1ad81e08b09ffe56f191ebc062710ea81954a2ccc23"
+      },
+      {
+        "page": "gpu-numerics",
+        "block": 1,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "[42d40000,431c0000,43710000,43b10000]",
+        "output": "[42d40000,431c0000,43710000,43b10000]",
+        "sourceSHA256": "f9c5a71277209133245ce1ad81e08b09ffe56f191ebc062710ea81954a2ccc23"
+      },
+      {
+        "page": "getting-started",
+        "block": 0,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "[2, 4, 6]",
+        "output": "Created native project at my-app\nCheck and build its kalandra.toml with --project.\nChecked 2 functions, 9 typed values (no code generation)\n[2, 4, 6]",
+        "sourceSHA256": "75abfdafc11bbbf13cac9cb66b92199c76c374a9875bd2da39325fc58dc2b7a1"
+      },
+      {
+        "page": "getting-started",
+        "block": 4,
+        "kind": "shell",
+        "status": "passed",
+        "expected": null,
+        "output": "",
+        "sourceSHA256": "547ec5763688d7ae3944e64f1f14cb5e7b7d51e0bcca39668e0106c0d8c26370"
+      },
+      {
+        "page": "projects",
+        "block": 2,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "42",
+        "output": "Checked 1 functions, 3 typed values (no code generation)\n42",
+        "sourceSHA256": "8c0519a0c8ad3c9af85518f4fe4b8ca271e72e3d16db40af8b7d8e08b4fc0412"
+      },
+      {
+        "page": "projects",
+        "block": 2,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "42",
+        "output": "Checked 2 functions, 6 typed values (no code generation)\n42",
+        "sourceSHA256": "8c0519a0c8ad3c9af85518f4fe4b8ca271e72e3d16db40af8b7d8e08b4fc0412"
+      },
+      {
+        "page": "projects",
+        "block": 7,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "42",
+        "output": "42",
+        "sourceSHA256": "90e5f805d2967cca8dab07a825464b68b19e263ca6f9e1f4a20237d3dcee8dff"
+      },
+      {
+        "page": "packages",
+        "block": 0,
+        "kind": "shell",
+        "status": "passed",
+        "expected": null,
+        "output": "",
+        "sourceSHA256": "ce3deced922a7d9b6d0d61cdb4911c5eca434162c5d375521ba110e9861f9ba4"
+      },
+      {
+        "page": "packages",
+        "block": 4,
+        "kind": "shell",
+        "status": "passed",
+        "expected": null,
+        "output": "Initialized empty Git repository in /private/var/folders/wn/3x6vwbfj65v18jx_q9xky1340000gn/T/kalandra-docs-gufnhy5z/packages-workflow/geometry/.git/\n[main (root-commit) e5d6595] Initial library\n 2 files changed, 8 insertions(+)\n create mode 100644 kalandra.toml\n create mode 100644 src/public.k",
+        "sourceSHA256": "b9146840f646924b48d680144449fd9091915bcc6ef8b6a11a1c8ac9cedc5467"
+      },
+      {
+        "page": "packages",
+        "block": 5,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "42",
+        "output": "Installed native dependency graph.\nChecked 2 functions, 5 typed values (no code generation)\n42",
+        "sourceSHA256": "dad29f7f437b1fea6fba48c716677083bbbb9d95a9ee8149ed6a0d3a519730d0"
+      },
+      {
+        "page": "packages",
+        "block": 6,
+        "kind": "shell",
+        "status": "passed",
+        "expected": null,
+        "output": "Installed native dependency graph.\nInstalled native dependency graph.",
+        "sourceSHA256": "ffbabeafa15dca995de27b718f9969682a95f395bbd9bd91b249a8cc40e42983"
+      },
+      {
+        "page": "packages",
+        "block": 7,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "63",
+        "output": "[main e8c8e44] Update multiplier\n 1 file changed, 1 insertion(+), 1 deletion(-)\nUpdated native dependency graph.\nChecked 2 functions, 5 typed values (no code generation)\n63",
+        "sourceSHA256": "87476fdf2842da543ea65fb9f86509f1a72086b615d3176307de1d0d1058c56c"
+      },
+      {
+        "page": "projects",
+        "block": 0,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "68d628e2f6419d71ffbbe9184fe50560d014467b325b328fe164c1955959e21a"
+      },
+      {
+        "page": "projects",
+        "block": 3,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "4de0f1c62a82efbdff7ffa26ac2e7ac94e91b826a79211af2995429d14fb7634"
+      },
+      {
+        "page": "projects",
+        "block": 4,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "e73b58eca8de2a74ad3815767d7c27e4020eda6a7e40bdafed9daa50ce122f67"
+      },
+      {
+        "page": "projects",
+        "block": 1,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "b468c5f942ebce6346eb4907b9cb2d765e676858106e5fafce3e7cba8d6270ee"
+      },
+      {
+        "page": "projects",
+        "block": 5,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "fc43660f052ecaebe98a120e1dbade16acae27201674ddb5b72063b983de980d"
+      },
+      {
+        "page": "projects",
+        "block": 6,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "c4a4ebdd762711f884600d159cdf747dc91c877d89222bf2b25e9580e8f55a7a"
+      },
+      {
+        "page": "packages",
+        "block": 2,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "20d16a84ea734c4f28c0b76649f4dc6c89c8ac42fd1b793ff3dc5b588ab131ab"
+      },
+      {
+        "page": "packages",
+        "block": 3,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "40479cf16030e7195b9fb95ceefe9c741866b5cb9bda041372239075793e2274"
+      },
+      {
+        "page": "packages",
+        "block": 1,
+        "kind": "project-file",
+        "status": "passed",
+        "sourceSHA256": "c90bc15c0f038b3b9bbf92b6f3f9dcf82cb80bfbf35381869f71b3c22d987bb9"
+      },
+      {
+        "page": "tooling",
+        "block": 0,
+        "kind": "shell",
+        "status": "passed",
+        "expected": null,
+        "output": "Checked 1 functions, 3 typed values (no code generation)\nChecked 2 functions, 9 typed values (no code generation)\n{\"formatVersion\":1,\"positionEncoding\":\"utf-16\",\"ok\":true,\"diagnostics\":[],\"summary\":{\"functions\":1,\"values\":3}}",
+        "sourceSHA256": "8e8c6fd7bb51ea2b36d1d90a7d34ad71e3f4b3745cb7dde9ef5cff4e7709e4d2"
+      },
+      {
+        "page": "tooling",
+        "block": 1,
+        "kind": "shell",
+        "status": "passed",
+        "expected": "fn main() -> int:\n  6 * 7",
+        "output": "fn main() -> int:\n  6 * 7",
+        "sourceSHA256": "817d7b88036d57383d5cedefd5b4f7b703b10015885443dc80cbfd62a14a4406"
+      },
+      {
+        "page": "tooling",
+        "block": 2,
+        "kind": "shell",
+        "status": "passed",
+        "expected": null,
+        "output": "",
+        "sourceSHA256": "fff3886f9da8164e312a9d1ff741c152a8dbbf2b234e07b01f09610902312198"
+      },
+      {
+        "page": "getting-started",
+        "block": 1,
+        "kind": "powershell",
+        "status": "prerequisite-recipe",
+        "reason": "Windows-only invocation; not executed on this POSIX host",
+        "sourceSHA256": "1641c9f97f2f21bdf1868c0d2744e8b57ef37bbf18586b4b4e8f4c454a59cd30"
+      },
+      {
+        "page": "installation",
+        "block": 0,
+        "kind": "bash",
+        "status": "prerequisite-recipe",
+        "reason": "Environment/source-build recipe; syntax checked, native build qualified separately",
+        "sourceSHA256": "f059381e3b2ec57e7c97cef3bb0fe06b3f72832d15e949ca9b4a46c7b4dc32f0"
+      },
+      {
+        "page": "installation",
+        "block": 1,
+        "kind": "bash",
+        "status": "prerequisite-recipe",
+        "reason": "Environment/source-build recipe; syntax checked, native build qualified separately",
+        "sourceSHA256": "3f603247b4ee626eca8e93d819b3005db14b59634627b8d4ea1dc74fafba0e53"
+      }
+    ]
+  },
+  "stack_audit_sha256": "9d9a8055418bc96192743a5c32317f483681df57dc7acd146eaad940c61400c8",
+  "regressions": {
+    "unique_passed": [
+      {
+        "name": "native-arithmetic-policy",
+        "seconds": 11.24
+      },
+      {
+        "name": "native-checked-inlining",
+        "seconds": 0.23
+      },
+      {
+        "name": "native-cpu-benchmark-cells",
+        "seconds": 7.1
+      },
+      {
+        "name": "native-cpu-optimization",
+        "seconds": 262.06
+      },
+      {
+        "name": "native-fast-calls",
+        "seconds": 7.97
+      },
+      {
+        "name": "native-int64-frontend-debug",
+        "seconds": 0.88
+      },
+      {
+        "name": "native-int64-frontend-sanitized",
+        "seconds": 0.57
+      },
+      {
+        "name": "native-int64-matmul-debug",
+        "seconds": 11.58
+      },
+      {
+        "name": "native-int64-matmul-optimized",
+        "seconds": 13.76
+      },
+      {
+        "name": "native-int64-matmul-sanitized",
+        "seconds": 23.63
+      },
+      {
+        "name": "native-int64-matmul-thread-sanitized",
+        "seconds": 58.34
+      },
+      {
+        "name": "native-int64-reductions-debug",
+        "seconds": 14.25
+      },
+      {
+        "name": "native-int64-reductions-optimized",
+        "seconds": 15.56
+      },
+      {
+        "name": "native-int64-reductions-sanitized",
+        "seconds": 25.65
+      },
+      {
+        "name": "native-int64-reductions-thread-sanitized",
+        "seconds": 54.9
+      },
+      {
+        "name": "native-int64-runtime-debug",
+        "seconds": 13.39
+      },
+      {
+        "name": "native-int64-runtime-optimized",
+        "seconds": 13.77
+      },
+      {
+        "name": "native-int64-runtime-sanitized",
+        "seconds": 16.35
+      },
+      {
+        "name": "native-int64-runtime-thread-sanitized",
+        "seconds": 19.62
+      },
+      {
+        "name": "native-int64-tasks-debug",
+        "seconds": 11.02
+      },
+      {
+        "name": "native-int64-tasks-optimized",
+        "seconds": 11.79
+      },
+      {
+        "name": "native-int64-tasks-sanitized",
+        "seconds": 18.18
+      },
+      {
+        "name": "native-int64-tasks-thread-sanitized",
+        "seconds": 47.14
+      },
+      {
+        "name": "native-int64-tensor-tasks-debug",
+        "seconds": 41.26
+      },
+      {
+        "name": "native-int64-tensor-tasks-optimized",
+        "seconds": 49.02
+      },
+      {
+        "name": "native-int64-tensor-tasks-sanitized",
+        "seconds": 76.18
+      },
+      {
+        "name": "native-int64-tensor-tasks-thread-sanitized",
+        "seconds": 128.19
+      },
+      {
+        "name": "native-int64-tensors-debug",
+        "seconds": 53.64
+      },
+      {
+        "name": "native-int64-tensors-optimized",
+        "seconds": 67.69
+      },
+      {
+        "name": "native-int64-tensors-sanitized",
+        "seconds": 87.7
+      },
+      {
+        "name": "native-int64-tensors-thread-sanitized",
+        "seconds": 82.81
+      },
+      {
+        "name": "native-signed-remainder",
+        "seconds": 12.02
+      },
+      {
+        "name": "native-tail-calls",
+        "seconds": 24.43
+      },
+      {
+        "name": "native-tail-calls-software",
+        "seconds": 24.62
+      },
+      {
+        "name": "native-uint32-frontend-debug",
+        "seconds": 0.77
+      },
+      {
+        "name": "native-uint32-frontend-sanitized",
+        "seconds": 0.54
+      },
+      {
+        "name": "native-uint64-frontend-debug",
+        "seconds": 0.87
+      },
+      {
+        "name": "native-uint64-frontend-sanitized",
+        "seconds": 0.5
+      }
+    ],
+    "initial_log": "Test project /Users/pouya/Projects/kalandra.dev/build/native\n      Start 132: native-int64-tensor-tasks-thread-sanitized\n      Start 880: native-cpu-optimization\n      Start 180: native-int64-matmul-thread-sanitized\n      Start 156: native-int64-reductions-thread-sanitized\n 1/32 Test #156: native-int64-reductions-thread-sanitized .....   Passed   54.90 sec\n      Start 131: native-int64-tensor-tasks-sanitized\n 2/32 Test #180: native-int64-matmul-thread-sanitized .........   Passed   58.34 sec\n      Start 124: native-int64-tensors-thread-sanitized\n 3/32 Test #132: native-int64-tensor-tasks-thread-sanitized ...   Passed  128.19 sec\n      Start 123: native-int64-tensors-sanitized\n 4/32 Test #131: native-int64-tensor-tasks-sanitized ..........   Passed   76.18 sec\n      Start 114: native-int64-tasks-thread-sanitized\n 5/32 Test #124: native-int64-tensors-thread-sanitized ........   Passed   82.81 sec\n      Start 122: native-int64-tensors-optimized\n 6/32 Test #114: native-int64-tasks-thread-sanitized ..........   Passed   47.14 sec\n      Start 130: native-int64-tensor-tasks-optimized\n 7/32 Test #122: native-int64-tensors-optimized ...............   Passed   67.69 sec\n      Start 129: native-int64-tensor-tasks-debug\n 8/32 Test #123: native-int64-tensors-sanitized ...............   Passed   87.70 sec\n      Start 121: native-int64-tensors-debug\n 9/32 Test #130: native-int64-tensor-tasks-optimized ..........   Passed   49.02 sec\n      Start 877: native-tail-calls-software\n10/32 Test #129: native-int64-tensor-tasks-debug ..............   Passed   41.26 sec\n      Start 876: native-tail-calls\n11/32 Test #877: native-tail-calls-software ...................   Passed   24.62 sec\n      Start 110: native-int64-runtime-thread-sanitized\n12/32 Test #880: native-cpu-optimization ......................   Passed  262.06 sec\n      Start 179: native-int64-matmul-sanitized\n13/32 Test #121: native-int64-tensors-debug ...................   Passed   53.64 sec\n      Start 113: native-int64-tasks-sanitized\n14/32 Test #110: native-int64-runtime-thread-sanitized ........   Passed   19.62 sec\n      Start 155: native-int64-reductions-sanitized\n15/32 Test #876: native-tail-calls ............................   Passed   24.43 sec\n      Start 112: native-int64-tasks-optimized\n16/32 Test #179: native-int64-matmul-sanitized ................   Passed   23.63 sec\n      Start 111: native-int64-tasks-debug\n17/32 Test #112: native-int64-tasks-optimized .................   Passed   11.79 sec\n      Start 109: native-int64-runtime-sanitized\n18/32 Test #113: native-int64-tasks-sanitized .................   Passed   18.18 sec\n      Start 108: native-int64-runtime-optimized\n19/32 Test #111: native-int64-tasks-debug .....................   Passed   11.02 sec\n      Start 107: native-int64-runtime-debug\n20/32 Test #155: native-int64-reductions-sanitized ............   Passed   25.65 sec\n      Start 178: native-int64-matmul-optimized\n21/32 Test #108: native-int64-runtime-optimized ...............   Passed   13.77 sec\n      Start 154: native-int64-reductions-optimized\n22/32 Test #109: native-int64-runtime-sanitized ...............   Passed   16.35 sec\n      Start 153: native-int64-reductions-debug\n23/32 Test #107: native-int64-runtime-debug ...................   Passed   13.39 sec\n      Start 177: native-int64-matmul-debug\n24/32 Test #178: native-int64-matmul-optimized ................   Passed   13.76 sec\n      Start 868: native-arithmetic-policy\n25/32 Test #153: native-int64-reductions-debug ................   Passed   14.25 sec\n      Start 869: native-cpu-benchmark-cells\n26/32 Test #154: native-int64-reductions-optimized ............   Passed   15.56 sec\n      Start 105: native-int64-frontend-debug\n27/32 Test #105: native-int64-frontend-debug ..................***Failed    0.99 sec\nint64 GPU arithmetic enabled\n\n      Start 106: native-int64-frontend-sanitized\n28/32 Test #106: native-int64-frontend-sanitized ..............***Failed    0.65 sec\nint64 GPU arithmetic enabled\n\n      Start 870: native-signed-remainder\n29/32 Test #177: native-int64-matmul-debug ....................   Passed   11.58 sec\n30/32 Test #868: native-arithmetic-policy .....................   Passed   11.24 sec\n31/32 Test #869: native-cpu-benchmark-cells ...................   Passed    7.10 sec\n32/32 Test #870: native-signed-remainder ......................   Passed   12.02 sec\n\n94% tests passed, 2 tests failed out of 32\n\nTotal Test time (real) = 330.74 sec\n\nThe following tests FAILED:\n\t105 - native-int64-frontend-debug (Failed)\n\t106 - native-int64-frontend-sanitized (Failed)\nErrors while running CTest\n",
+    "affected_frontend_log": "Test project /Users/pouya/Projects/kalandra.dev/build/native\n    Start 105: native-int64-frontend-debug\n    Start 106: native-int64-frontend-sanitized\n1/6 Test #106: native-int64-frontend-sanitized ....   Passed    0.57 sec\n    Start 115: native-uint64-frontend-debug\n2/6 Test #105: native-int64-frontend-debug ........   Passed    0.88 sec\n    Start 116: native-uint64-frontend-sanitized\n3/6 Test #116: native-uint64-frontend-sanitized ...   Passed    0.50 sec\n    Start  92: native-uint32-frontend-sanitized\n4/6 Test #115: native-uint64-frontend-debug .......   Passed    0.87 sec\n    Start  91: native-uint32-frontend-debug\n5/6 Test  #92: native-uint32-frontend-sanitized ...   Passed    0.54 sec\n6/6 Test  #91: native-uint32-frontend-debug .......   Passed    0.77 sec\n\n100% tests passed out of 6\n\nTotal Test time (real) =   2.24 sec\n",
+    "fast_log": "Test project /Users/pouya/Projects/kalandra.dev/build/native\n    Start 871: native-fast-calls\n    Start  11: native-checked-inlining\n1/2 Test  #11: native-checked-inlining ..........   Passed    0.23 sec\n2/2 Test #871: native-fast-calls ................   Passed    7.97 sec\n\n100% tests passed out of 2\n\nTotal Test time (real) =   8.02 sec\n",
+    "explanation": "30/32 initial CTests passed. The two failures were stale int64 frontend assertions expecting the already-supported GPU numeric capability to be rejected. Semantics.cpp is unchanged; all three stale int64/uint64/uint32 assertions now require support. All six affected frontend variants pass. Union with fast-call/structural tests: 38 unique CTest groups; floating differential configurations are recorded separately."
+  },
+  "build_log": "[0/1] Re-running CMake...\n-- Configuring done (1.7s)\n-- Generating done (1.1s)\n-- Build files have been written to: /Users/pouya/Projects/kalandra.dev/build/native\n[1/172] Generating CXX dyndep file native/CMakeFiles/kalandra-strict-float.dir/CXX.dd\n[2/170] Generating CXX dyndep file native/CMakeFiles/kalandra-syntax.dir/CXX.dd\n[3/163] Generating CXX dyndep file native/metal-proof/CMakeFiles/kalandra-metal-strict64.dir/CXX.dd\n[4/161] Generating CXX dyndep file native/metal-proof/CMakeFiles/kalandra-metal-extract.dir/CXX.dd\n[5/159] Generating CXX dyndep file native/CMakeFiles/kalandra-project.dir/CXX.dd\n[6/156] Generating CXX dyndep file native/metal-proof/CMakeFiles/kalandra-metal-strict.dir/CXX.dd\n[7/154] Generating CXX dyndep file native/CMakeFiles/kalandra-git-snapshots.dir/CXX.dd\n[8/152] Generating CXX dyndep file native/CMakeFiles/kalandra-semantics.dir/CXX.dd\n[9/147] Generating CXX dyndep file native/CMakeFiles/kalandra-native-runtime.dir/CXX.dd\n[10/140] Generating CXX dyndep file native/CMakeFiles/kalandra-native-runtime-sanitized.dir/CXX.dd\n[11/133] Generating CXX dyndep file native/CMakeFiles/kalandra-native-runtime-thread-sanitized.dir/CXX.dd\n[12/126] Generating CXX dyndep file native/CMakeFiles/kalandra-task-core-optimized.dir/CXX.dd\n[13/121] Generating CXX dyndep file native/CMakeFiles/kalandra-gpu-numeric.dir/CXX.dd\n[14/118] Generating CXX dyndep file native/CMakeFiles/kalandra-backend.dir/CXX.dd\n[15/112] Generating CXX dyndep file native/CMakeFiles/kalandra-packages.dir/CXX.dd\n[16/109] Generating CXX dyndep file native/CMakeFiles/kalandra-int32-entry-debug.dir/CXX.dd\n[17/107] Generating CXX dyndep file native/CMakeFiles/kalandra-int32-entry-sanitized.dir/CXX.dd\n[18/105] Generating CXX dyndep file native/CMakeFiles/kalandra-int32-entry-thread-sanitized.dir/CXX.dd\n[19/103] Generating CXX dyndep file native/CMakeFiles/kalandra-uint32-entry-debug.dir/CXX.dd\n[20/101] Generating CXX dyndep file native/CMakeFiles/kalandra-uint32-entry-sanitized.dir/CXX.dd\n[21/99] Generating CXX dyndep file native/CMakeFiles/kalandra-uint32-entry-thread-sanitized.dir/CXX.dd\n[22/97] Generating CXX dyndep file native/CMakeFiles/kalandra-int64-entry-debug.dir/CXX.dd\n[23/95] Generating CXX dyndep file native/CMakeFiles/kalandra-int64-entry-sanitized.dir/CXX.dd\n[24/93] Generating CXX dyndep file native/CMakeFiles/kalandra-int64-entry-thread-sanitized.dir/CXX.dd\n[25/91] Generating CXX dyndep file native/CMakeFiles/kalandra-uint64-entry-debug.dir/CXX.dd\n[26/89] Generating CXX dyndep file native/CMakeFiles/kalandra-uint64-entry-sanitized.dir/CXX.dd\n[27/87] Generating CXX dyndep file native/CMakeFiles/kalandra-float64-entry-sanitized.dir/CXX.dd\n[28/85] Generating CXX dyndep file native/CMakeFiles/kalandra-uint64-entry-thread-sanitized.dir/CXX.dd\n[29/83] Generating CXX dyndep file native/CMakeFiles/kalandra-float64-entry-debug.dir/CXX.dd\n[30/81] Generating CXX dyndep file native/CMakeFiles/kalandra-float64-entry-thread-sanitized.dir/CXX.dd\n[31/79] Generating CXX dyndep file native/CMakeFiles/kalandra-bool-entry-debug.dir/CXX.dd\n[32/77] Generating CXX dyndep file native/CMakeFiles/kalandra-bool-entry-sanitized.dir/CXX.dd\n[33/75] Generating CXX dyndep file native/CMakeFiles/kalandra-string-entry-debug.dir/CXX.dd\n[34/73] Generating CXX dyndep file native/CMakeFiles/kalandra-bool-entry-thread-sanitized.dir/CXX.dd\n[35/71] Generating CXX dyndep file native/CMakeFiles/kalandra-string-entry-sanitized.dir/CXX.dd\n[36/69] Generating CXX dyndep file native/CMakeFiles/kalandra-string-entry-thread-sanitized.dir/CXX.dd\n[37/67] Generating CXX dyndep file native/CMakeFiles/kalandra-collection-entry-debug.dir/CXX.dd\n[38/65] Generating CXX dyndep file native/CMakeFiles/kalandra-collection-entry-sanitized.dir/CXX.dd\n[39/63] Generating CXX dyndep file native/CMakeFiles/kalandra-collection-entry-thread-sanitized.dir/CXX.dd\n[40/61] Generating CXX dyndep file native/CMakeFiles/kalandra-string-array-entry-debug.dir/CXX.dd\n[41/59] Generating CXX dyndep file native/CMakeFiles/kalandra-string-array-entry-sanitized.dir/CXX.dd\n[42/57] Generating CXX dyndep file native/CMakeFiles/kalandra-string-array-entry-thread-sanitized.dir/CXX.dd\n[43/55] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-backend.dir/CXX.dd\n[44/50] Generating CXX dyndep file native/CMakeFiles/kalandra-checked-inlining-tests.dir/CXX.dd\n[45/48] Generating CXX dyndep file native/CMakeFiles/kalandra.dir/CXX.dd\n",
+  "frontend_build_log": "[1/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Lexer.cpp for CXX dependencies\n[2/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Diagnostics.cpp for CXX dependencies\n[3/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Parser.cpp for CXX dependencies\n[4/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Source.cpp for CXX dependencies\n[5/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Formatter.cpp for CXX dependencies\n[6/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/IRDump.cpp for CXX dependencies\n[7/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Modules.cpp for CXX dependencies\n[8/48] Generating CXX dyndep file native/CMakeFiles/kalandra-syntax-sanitized.dir/CXX.dd\n[9/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Semantics.cpp for CXX dependencies\n[10/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/FunctionValues.cpp for CXX dependencies\n[11/48] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Continuation.cpp for CXX dependencies\n[12/48] Building CXX object native/CMakeFiles/kalandra-syntax-sanitized.dir/lib/Diagnostics.cpp.o\n[13/48] Building CXX object native/CMakeFiles/kalandra-syntax-sanitized.dir/lib/Lexer.cpp.o\n[14/48] Building CXX object native/CMakeFiles/kalandra-syntax-sanitized.dir/lib/Source.cpp.o\n[15/48] Generating CXX dyndep file native/CMakeFiles/kalandra-semantics-sanitized.dir/CXX.dd\n[16/48] Scanning /Users/pouya/Projects/kalandra.dev/native/tests/UInt32Tests.cpp for CXX dependencies\n[17/48] Scanning /Users/pouya/Projects/kalandra.dev/native/tests/UInt32Tests.cpp for CXX dependencies\n[18/48] Scanning /Users/pouya/Projects/kalandra.dev/native/tests/Int64Tests.cpp for CXX dependencies\n[19/48] Scanning /Users/pouya/Projects/kalandra.dev/native/tests/Int64Tests.cpp for CXX dependencies\n[20/48] Scanning /Users/pouya/Projects/kalandra.dev/native/tests/UInt64Tests.cpp for CXX dependencies\n[21/48] Scanning /Users/pouya/Projects/kalandra.dev/native/tests/UInt64Tests.cpp for CXX dependencies\n[22/48] Building CXX object native/CMakeFiles/kalandra-syntax-sanitized.dir/lib/Formatter.cpp.o\n[23/48] Building CXX object native/CMakeFiles/kalandra-syntax-sanitized.dir/lib/Parser.cpp.o\n[24/48] Building CXX object native/CMakeFiles/kalandra-syntax-sanitized.dir/lib/Modules.cpp.o\n[25/48] Linking CXX static library native/libkalandra-syntax-sanitized.a\n[26/48] Building CXX object native/CMakeFiles/kalandra-semantics-sanitized.dir/lib/FunctionValues.cpp.o\n[27/48] Generating CXX dyndep file native/CMakeFiles/kalandra-uint32-tests-debug.dir/CXX.dd\n[28/48] Generating CXX dyndep file native/CMakeFiles/kalandra-uint32-tests-sanitized.dir/CXX.dd\n[29/48] Generating CXX dyndep file native/CMakeFiles/kalandra-int64-tests-debug.dir/CXX.dd\n[30/48] Generating CXX dyndep file native/CMakeFiles/kalandra-int64-tests-sanitized.dir/CXX.dd\n[31/48] Generating CXX dyndep file native/CMakeFiles/kalandra-uint64-tests-debug.dir/CXX.dd\n[32/48] Generating CXX dyndep file native/CMakeFiles/kalandra-uint64-tests-sanitized.dir/CXX.dd\n[33/48] Building CXX object native/CMakeFiles/kalandra-semantics-sanitized.dir/lib/IRDump.cpp.o\n[34/48] Building CXX object native/CMakeFiles/kalandra-uint32-tests-debug.dir/tests/UInt32Tests.cpp.o\n[35/48] Building CXX object native/CMakeFiles/kalandra-uint32-tests-sanitized.dir/tests/UInt32Tests.cpp.o\n[36/48] Building CXX object native/CMakeFiles/kalandra-semantics-sanitized.dir/lib/Continuation.cpp.o\n[37/48] Building CXX object native/CMakeFiles/kalandra-int64-tests-debug.dir/tests/Int64Tests.cpp.o\n[38/48] Building CXX object native/CMakeFiles/kalandra-int64-tests-sanitized.dir/tests/Int64Tests.cpp.o\n[39/48] Linking CXX executable native/kalandra-uint32-tests-debug\n[40/48] Building CXX object native/CMakeFiles/kalandra-uint64-tests-debug.dir/tests/UInt64Tests.cpp.o\n[41/48] Linking CXX executable native/kalandra-int64-tests-debug\n[42/48] Linking CXX executable native/kalandra-uint64-tests-debug\n[43/48] Building CXX object native/CMakeFiles/kalandra-semantics-sanitized.dir/lib/Semantics.cpp.o\n[44/48] Linking CXX static library native/libkalandra-semantics-sanitized.a\n[45/48] Linking CXX executable native/kalandra-int64-tests-sanitized\n[46/48] Linking CXX executable native/kalandra-uint32-tests-sanitized\n[47/48] Building CXX object native/CMakeFiles/kalandra-uint64-tests-sanitized.dir/tests/UInt64Tests.cpp.o\n[48/48] Linking CXX executable native/kalandra-uint64-tests-sanitized\n",
+  "workflow_tests": "[{\"platform\": \"linux\", \"commit\": \"commit\", \"run\": \"https://github.com/example/project/actions/runs/linux\", \"artifactId\": 10}, {\"platform\": \"windows\", \"commit\": \"commit\", \"run\": \"https://github.com/example/project/actions/runs/windows\", \"artifactId\": 20}]\n..[{\"platform\": \"linux\", \"commit\": \"commit\", \"run\": \"https://github.com/example/project/actions/runs/linux\", \"artifactId\": 10}, {\"platform\": \"windows\", \"commit\": \"commit\", \"run\": \"https://github.com/example/project/actions/runs/windows\", \"artifactId\": 20}]\n..Waiting for same-commit linux qualification before creating a release\n[{\"platform\": \"linux\", \"commit\": \"commit\", \"run\": \"https://github.com/example/project/actions/runs/linux\", \"artifactId\": 10}, {\"platform\": \"windows\", \"commit\": \"commit\", \"run\": \"https://github.com/example/project/actions/runs/windows\", \"artifactId\": 20}]\n........................\n----------------------------------------------------------------------\nRan 28 tests in 0.107s\n\nOK\n",
+  "workflow_format": "Checking formatting...\nAll matched files use Prettier code style!\n",
+  "linux_build_fix": {
+    "previous_run": "https://github.com/kalandra-lang/kalandra/actions/runs/40114583468",
+    "failure": "undefined reference to typeinfo for llvm::CallbackVH",
+    "repair": "Match kalandra-backend RTTI to LLVM_ENABLE_RTTI; no-RTTI CheckedABI compiled locally and llvm-nm confirms no undefined CallbackVH typeinfo. Hosted Linux rerun pending."
+  },
+  "portable_remainder": {
+    "expected": "[0, -2, 0, -2, 2, 9]",
+    "local_modes": [
+      "debug",
+      "optimized",
+      "address-undefined",
+      "thread-sanitized"
+    ],
+    "scope": "Exact new PortableCPUAcceptance fixture extracted from its AST and compiled/executed locally. Full downloaded Linux/Windows acceptance awaits hosted runs."
+  }
+}

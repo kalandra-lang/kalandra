@@ -137,6 +137,11 @@ def main():
                         assert 'tail.header' not in body(6), 'binary recursion was rewritten'
                         assert 'load atomic i8' in body(0) and 'acquire' in body(0), \
                             'pure token-bound calls must retain an acquire poll per admission'
+                        token_poll = re.search(r'\ntail.return.token.poll[^:]*:[^\n]*\n(.*?)(?=\n[^ ;\n][^\n]*:|\n})', body(0), re.S)
+                        assert token_poll and 'load atomic i8' in token_poll[1] and 'acquire' in token_poll[1], \
+                            'private token returns must retain every acquire poll'
+                        assert not re.search(r'\b(store|call)\b', token_poll[1]), \
+                            'private token returns must carry bookkeeping without runtime callbacks'
                         assert 'tail.header' in body(8) and 'tail.private.depth' not in body(8), \
                             'helper calls must retain ordinary admission'
                         assert 'tail.header' in body(9) and 'tail.private.depth' not in body(9), \

@@ -173,6 +173,12 @@ add_library(kalandra-backend STATIC lib/Backend.cpp lib/CheckedABI.cpp lib/TaskB
 target_include_directories(kalandra-backend SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 target_link_libraries(kalandra-backend PUBLIC kalandra-semantics PRIVATE kalandra-strict-float MLIR LLVM)
 target_compile_options(kalandra-backend PRIVATE -Wall -Wextra -Werror)
+# LLVM's ValueMap callback templates inherit from an out-of-line LLVM base.
+# Official Linux archives omit its RTTI; match that ABI instead of generating
+# references to typeinfo that the installed libraries do not provide.
+if(NOT LLVM_ENABLE_RTTI)
+  target_compile_options(kalandra-backend PRIVATE -fno-rtti)
+endif()
 if(BUILD_TESTING)
   add_executable(kalandra-checked-inlining-tests tests/CheckedInliningTests.cpp)
   target_include_directories(kalandra-checked-inlining-tests SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
@@ -1072,6 +1078,11 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/benchmark-cells")
   set_tests_properties(native-cpu-benchmark-cells PROPERTIES TIMEOUT 180)
+  add_test(NAME native-signed-remainder
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/SignedRemainderTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/signed-remainder")
+  set_tests_properties(native-signed-remainder PROPERTIES TIMEOUT 900)
   add_test(NAME native-fast-calls
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/FastCallTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

@@ -850,8 +850,11 @@ private:
               4);
         return arith::DivSIOp::create(builder_, loc, a, b);
       }
-      // LLVM srem(INT64_MIN,-1) is poison even though the mathematical remainder is zero.
-      auto safe = arith::SelectOp::create(builder_, loc, exceptional, integer(loc, 1), b);
+      // x % -1 is zero for every x, including INT64_MIN. Normalizing every
+      // -1 divisor to 1 avoids LLVM's exceptional poison pair with one compare,
+      // without changing division overflow or the zero-divisor fault above.
+      auto minusOne = compare(loc, arith::CmpIPredicate::eq, b, integer(loc, -1));
+      auto safe = arith::SelectOp::create(builder_, loc, minusOne, integer(loc, 1), b);
       return arith::RemSIOp::create(builder_, loc, a, safe);
     }
     auto wideType = builder_.getIntegerType(bits * 2);

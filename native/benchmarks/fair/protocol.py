@@ -46,6 +46,47 @@ def measure(cells,invoke,reference,processes=3,rounds=7,target_ms=50):
         summary.append(dict(cell=cell,expected=reference(cell),median_ns=statistics.median(medians),process_medians_ns=medians))
     return dict(protocol=dict(processes=processes,rounds=rounds,warmups=2,target_ms=target_ms,max_iterations=20000,seed=20261024),observations=records,summary=summary)
 
+def measure_paired(cells,invoke,reference,blocks=9,rounds=3,target_ms=10):
+    """Adjacent ABBA processes reduce drift; retain every sample and paired ratio."""
+    groups={}
+    for cell in cells:
+        assert cell[0] in ('baseline','current')
+        groups.setdefault(tuple(cell[1:]),{})[cell[0]]=cell
+    assert all(set(g)=={'baseline','current'} for g in groups.values())
+    counts={}
+    for key,group in groups.items():
+        costs=[]
+        for cell in group.values():
+            rows=invoke(cell,1,3)
+            costs.append(statistics.median(r['ns'] for r in rows if r['round']>=0))
+        counts[key]=max(1,min(20000,math.ceil(target_ms*1e6/max(1,max(costs)))))
+    records=[];pairs=[];rng=random.Random(20261024)
+    for block in range(blocks):
+        order=list(groups);rng.shuffle(order)
+        for key in order:
+            group=groups[key];count=counts[key];medians={'baseline':[],'current':[]}
+            versions=('baseline','current','current','baseline')
+            if block%2:versions=('current','baseline','baseline','current')
+            for slot,version in enumerate(versions):
+                cell=group[version];samples=invoke(cell,count,rounds)
+                assert all(s['ns']>0 for s in samples if s['round']>=0)
+                median=statistics.median(s['ns']/count for s in samples if s['round']>=0)
+                medians[version].append(median)
+                records.append(dict(cell=cell,process=block,slot=slot,iterations=count,samples=samples))
+            before=statistics.mean(medians['baseline']);after=statistics.mean(medians['current'])
+            pairs.append(dict(group=list(key),block=block,baseline_ns=before,current_ns=after,
+                              speedup=before/after,time_reduction=1-after/before))
+            print(f'{block+1}/{blocks} {key}: {before/1000:.3f} -> {after/1000:.3f} us',flush=True)
+    summary=[]
+    for cell in cells:
+        medians=[statistics.median(s['ns']/r['iterations'] for s in r['samples'] if s['round']>=0)
+                 for r in records if r['cell']==cell]
+        summary.append(dict(cell=cell,expected=reference(cell),median_ns=statistics.median(medians),
+                            process_medians_ns=medians))
+    return dict(protocol=dict(blocks=blocks,rounds=rounds,warmups=2,target_ms=target_ms,
+        max_iterations=20000,seed=20261024,ordering='Adjacent ABBA/BAAB fresh processes; identical iterations per pair'),
+        observations=records,summary=summary,pairs=pairs)
+
 def evidence(output,data,sources,binaries,compiler):
     assert not output.exists() and not output.with_suffix('.md').exists(),'choose new output paths'
     data.update(schema=1,timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),

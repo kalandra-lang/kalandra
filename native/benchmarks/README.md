@@ -275,3 +275,6 @@ python3 native/benchmarks/checked_inlining.py \
 ```
 
 `--observed` adds diagnostic poll-counter cells to the clear/bound-token control. This is a compiler comparison using one current runtime archive on both sides. Differential drivers now freeze and record each compiler checksum. Floating controls support `--numeric float32` or `float64`, with rounding/FMA witnesses. The fast-call test additionally exercises deep recursion with about 1 KiB left above the native stack reserve.
+
+
+Use `checked_inlining.py --paired --observed` with a frozen `--baseline-compiler` for adjacent ABBA/BAAB controls when longer runs show scheduling drift. Nine blocks per algorithm/mode retain all fresh-process samples and per-block ratios, with identical iteration counts within each pair. Two warmups and three measured batches run per process. Review the spread and observed controls; competing compilation can still invalidate a precise speed claim. See the [tail-return report](../../benchmarks/results/tail-return-2026-10-24.md).

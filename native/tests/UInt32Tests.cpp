@@ -114,8 +114,8 @@ int main() {
     }
 
 #endif
-    require(bool(numericCapabilityError(*task.module, NumericTarget::AppleGpu)),
-            "unsigned GPU arithmetic enabled");
+    require(!numericCapabilityError(*task.module, NumericTarget::AppleGpu),
+            "supported unsigned GPU numeric capability rejected");
     std::cout << "Checked uint32 literals, constants, unsigned task identity and strict "
                  "type/target gates passed\n";
   } catch (const std::exception &e) {

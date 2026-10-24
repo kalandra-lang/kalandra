@@ -1,0 +1,3738 @@
+{
+  "protocol": {
+    "processes": 3,
+    "rounds": 5,
+    "warmups": 2,
+    "target_ms": 50,
+    "max_iterations": 20000,
+    "seed": 20261024
+  },
+  "observations": [
+    {
+      "cell": [
+        "current",
+        "branches",
+        "unbound"
+      ],
+      "process": 0,
+      "iterations": 647,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 56469792,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": -1,
+          "ns": 86503791,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 0,
+          "ns": 75398250,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 1,
+          "ns": 113231542,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 2,
+          "ns": 111865584,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 3,
+          "ns": 99814458,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 4,
+          "ns": 132709333,
+          "checksum": 1266505308788.75
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "observed"
+      ],
+      "process": 0,
+      "iterations": 142,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24394250,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": -1,
+          "ns": 34472416,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 0,
+          "ns": 24076166,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 1,
+          "ns": 34710083,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 2,
+          "ns": 26321125,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 3,
+          "ns": 26886125,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 4,
+          "ns": 24071208,
+          "checksum": 277965616457.5
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "unbound"
+      ],
+      "process": 0,
+      "iterations": 120,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 68021625,
+          "checksum": 5836080
+        },
+        {
+          "round": -1,
+          "ns": 49777458,
+          "checksum": 5836080
+        },
+        {
+          "round": 0,
+          "ns": 59998583,
+          "checksum": 5836080
+        },
+        {
+          "round": 1,
+          "ns": 54580458,
+          "checksum": 5836080
+        },
+        {
+          "round": 2,
+          "ns": 91916584,
+          "checksum": 5836080
+        },
+        {
+          "round": 3,
+          "ns": 93006500,
+          "checksum": 5836080
+        },
+        {
+          "round": 4,
+          "ns": 97403958,
+          "checksum": 5836080
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "bound"
+      ],
+      "process": 0,
+      "iterations": 88,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 54183709,
+          "checksum": 4279792
+        },
+        {
+          "round": -1,
+          "ns": 58922209,
+          "checksum": 4279792
+        },
+        {
+          "round": 0,
+          "ns": 53873000,
+          "checksum": 4279792
+        },
+        {
+          "round": 1,
+          "ns": 49430417,
+          "checksum": 4279792
+        },
+        {
+          "round": 2,
+          "ns": 75460458,
+          "checksum": 4279792
+        },
+        {
+          "round": 3,
+          "ns": 119914542,
+          "checksum": 4279792
+        },
+        {
+          "round": 4,
+          "ns": 87001250,
+          "checksum": 4279792
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "unbound"
+      ],
+      "process": 0,
+      "iterations": 113,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 53258500,
+          "checksum": 5495642
+        },
+        {
+          "round": -1,
+          "ns": 48731500,
+          "checksum": 5495642
+        },
+        {
+          "round": 0,
+          "ns": 48549375,
+          "checksum": 5495642
+        },
+        {
+          "round": 1,
+          "ns": 50524125,
+          "checksum": 5495642
+        },
+        {
+          "round": 2,
+          "ns": 65915625,
+          "checksum": 5495642
+        },
+        {
+          "round": 3,
+          "ns": 49093834,
+          "checksum": 5495642
+        },
+        {
+          "round": 4,
+          "ns": 108090792,
+          "checksum": 5495642
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "bound"
+      ],
+      "process": 0,
+      "iterations": 71,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 58155084,
+          "checksum": 3453014
+        },
+        {
+          "round": -1,
+          "ns": 50239416,
+          "checksum": 3453014
+        },
+        {
+          "round": 0,
+          "ns": 63654083,
+          "checksum": 3453014
+        },
+        {
+          "round": 1,
+          "ns": 50664792,
+          "checksum": 3453014
+        },
+        {
+          "round": 2,
+          "ns": 105833584,
+          "checksum": 3453014
+        },
+        {
+          "round": 3,
+          "ns": 75070500,
+          "checksum": 3453014
+        },
+        {
+          "round": 4,
+          "ns": 108855167,
+          "checksum": 3453014
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "bound"
+      ],
+      "process": 0,
+      "iterations": 496,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 44744292,
+          "checksum": 970922153260
+        },
+        {
+          "round": -1,
+          "ns": 38613292,
+          "checksum": 970922153260
+        },
+        {
+          "round": 0,
+          "ns": 38488875,
+          "checksum": 970922153260
+        },
+        {
+          "round": 1,
+          "ns": 38350917,
+          "checksum": 970922153260
+        },
+        {
+          "round": 2,
+          "ns": 38332000,
+          "checksum": 970922153260
+        },
+        {
+          "round": 3,
+          "ns": 38329208,
+          "checksum": 970922153260
+        },
+        {
+          "round": 4,
+          "ns": 86371375,
+          "checksum": 970922153260
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "observed"
+      ],
+      "process": 0,
+      "iterations": 37,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 63538125,
+          "checksum": 1799458
+        },
+        {
+          "round": -1,
+          "ns": 68363459,
+          "checksum": 1799458
+        },
+        {
+          "round": 0,
+          "ns": 66553958,
+          "checksum": 1799458
+        },
+        {
+          "round": 1,
+          "ns": 118978750,
+          "checksum": 1799458
+        },
+        {
+          "round": 2,
+          "ns": 93836833,
+          "checksum": 1799458
+        },
+        {
+          "round": 3,
+          "ns": 127475583,
+          "checksum": 1799458
+        },
+        {
+          "round": 4,
+          "ns": 112037209,
+          "checksum": 1799458
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "bound"
+      ],
+      "process": 0,
+      "iterations": 689,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 50394625,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": -1,
+          "ns": 49907375,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 0,
+          "ns": 49855666,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 1,
+          "ns": 100821083,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 2,
+          "ns": 104427458,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 3,
+          "ns": 122821334,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 4,
+          "ns": 98672709,
+          "checksum": 1.1603388242626253e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "observed"
+      ],
+      "process": 0,
+      "iterations": 305,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 50294792,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": -1,
+          "ns": 50103167,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 0,
+          "ns": 50102417,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 1,
+          "ns": 50117208,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 2,
+          "ns": 50107875,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 3,
+          "ns": 76341875,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 4,
+          "ns": 71181000,
+          "checksum": 51364781045007360
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "bound"
+      ],
+      "process": 0,
+      "iterations": 260,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25522833,
+          "checksum": 508951128725
+        },
+        {
+          "round": -1,
+          "ns": 19702125,
+          "checksum": 508951128725
+        },
+        {
+          "round": 0,
+          "ns": 19680666,
+          "checksum": 508951128725
+        },
+        {
+          "round": 1,
+          "ns": 19683375,
+          "checksum": 508951128725
+        },
+        {
+          "round": 2,
+          "ns": 19678417,
+          "checksum": 508951128725
+        },
+        {
+          "round": 3,
+          "ns": 19676000,
+          "checksum": 508951128725
+        },
+        {
+          "round": 4,
+          "ns": 19664584,
+          "checksum": 508951128725
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "observed"
+      ],
+      "process": 0,
+      "iterations": 38,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 58565125,
+          "checksum": 1848092
+        },
+        {
+          "round": -1,
+          "ns": 54510084,
+          "checksum": 1848092
+        },
+        {
+          "round": 0,
+          "ns": 51277333,
+          "checksum": 1848092
+        },
+        {
+          "round": 1,
+          "ns": 51102833,
+          "checksum": 1848092
+        },
+        {
+          "round": 2,
+          "ns": 54499708,
+          "checksum": 1848092
+        },
+        {
+          "round": 3,
+          "ns": 101951333,
+          "checksum": 1848092
+        },
+        {
+          "round": 4,
+          "ns": 112447125,
+          "checksum": 1848092
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "unbound"
+      ],
+      "process": 0,
+      "iterations": 399,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 31959667,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": -1,
+          "ns": 34578375,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 0,
+          "ns": 39418333,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 1,
+          "ns": 32856084,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 2,
+          "ns": 30843042,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 3,
+          "ns": 30856292,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 4,
+          "ns": 30825834,
+          "checksum": 781044232158.75
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "unbound"
+      ],
+      "process": 0,
+      "iterations": 693,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 56886458,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": -1,
+          "ns": 50261917,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 0,
+          "ns": 60892875,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 1,
+          "ns": 69658833,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 2,
+          "ns": 120408083,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 3,
+          "ns": 108629292,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 4,
+          "ns": 129107625,
+          "checksum": 1.1670751889898394e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "bound"
+      ],
+      "process": 0,
+      "iterations": 691,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 50270250,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": -1,
+          "ns": 55199750,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 0,
+          "ns": 63223250,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 1,
+          "ns": 89922416,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 2,
+          "ns": 120292667,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 3,
+          "ns": 75290666,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 4,
+          "ns": 132996583,
+          "checksum": 1.1637070066262323e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "unbound"
+      ],
+      "process": 0,
+      "iterations": 352,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 33364875,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": -1,
+          "ns": 35425459,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 0,
+          "ns": 25916250,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 1,
+          "ns": 33798042,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 2,
+          "ns": 25540500,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 3,
+          "ns": 25477958,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 4,
+          "ns": 25489667,
+          "checksum": 59280009599483904
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "observed"
+      ],
+      "process": 0,
+      "iterations": 305,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 60542375,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": -1,
+          "ns": 52224917,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 0,
+          "ns": 50113709,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 1,
+          "ns": 50110833,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 2,
+          "ns": 52845542,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 3,
+          "ns": 69913209,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 4,
+          "ns": 95251208,
+          "checksum": 51364781045007360
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "observed"
+      ],
+      "process": 0,
+      "iterations": 134,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25644667,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": -1,
+          "ns": 22032167,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 0,
+          "ns": 22033416,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 1,
+          "ns": 22054792,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 2,
+          "ns": 22016542,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 3,
+          "ns": 22011167,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 4,
+          "ns": 22016208,
+          "checksum": 262305581727.5
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "observed"
+      ],
+      "process": 1,
+      "iterations": 305,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 53756250,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": -1,
+          "ns": 55728333,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 0,
+          "ns": 53083041,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 1,
+          "ns": 50131042,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 2,
+          "ns": 66757042,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 3,
+          "ns": 62620750,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 4,
+          "ns": 107032917,
+          "checksum": 51364781045007360
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "bound"
+      ],
+      "process": 1,
+      "iterations": 689,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 53849125,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": -1,
+          "ns": 49981125,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 0,
+          "ns": 57860041,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 1,
+          "ns": 63534417,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 2,
+          "ns": 50062208,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 3,
+          "ns": 49954000,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 4,
+          "ns": 128056417,
+          "checksum": 1.1603388242626253e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "bound"
+      ],
+      "process": 1,
+      "iterations": 88,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 53120542,
+          "checksum": 4279792
+        },
+        {
+          "round": -1,
+          "ns": 49623667,
+          "checksum": 4279792
+        },
+        {
+          "round": 0,
+          "ns": 49359416,
+          "checksum": 4279792
+        },
+        {
+          "round": 1,
+          "ns": 49339209,
+          "checksum": 4279792
+        },
+        {
+          "round": 2,
+          "ns": 49139333,
+          "checksum": 4279792
+        },
+        {
+          "round": 3,
+          "ns": 70344083,
+          "checksum": 4279792
+        },
+        {
+          "round": 4,
+          "ns": 101081334,
+          "checksum": 4279792
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "observed"
+      ],
+      "process": 1,
+      "iterations": 38,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 56786000,
+          "checksum": 1848092
+        },
+        {
+          "round": -1,
+          "ns": 51773500,
+          "checksum": 1848092
+        },
+        {
+          "round": 0,
+          "ns": 51272375,
+          "checksum": 1848092
+        },
+        {
+          "round": 1,
+          "ns": 51281084,
+          "checksum": 1848092
+        },
+        {
+          "round": 2,
+          "ns": 51246625,
+          "checksum": 1848092
+        },
+        {
+          "round": 3,
+          "ns": 73917083,
+          "checksum": 1848092
+        },
+        {
+          "round": 4,
+          "ns": 93026792,
+          "checksum": 1848092
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "unbound"
+      ],
+      "process": 1,
+      "iterations": 399,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 34202625,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": -1,
+          "ns": 30883875,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 0,
+          "ns": 36231291,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 1,
+          "ns": 30808375,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 2,
+          "ns": 30797125,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 3,
+          "ns": 36161083,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 4,
+          "ns": 30801417,
+          "checksum": 781044232158.75
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "unbound"
+      ],
+      "process": 1,
+      "iterations": 113,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 60490667,
+          "checksum": 5495642
+        },
+        {
+          "round": -1,
+          "ns": 50443083,
+          "checksum": 5495642
+        },
+        {
+          "round": 0,
+          "ns": 49597833,
+          "checksum": 5495642
+        },
+        {
+          "round": 1,
+          "ns": 49328625,
+          "checksum": 5495642
+        },
+        {
+          "round": 2,
+          "ns": 49112125,
+          "checksum": 5495642
+        },
+        {
+          "round": 3,
+          "ns": 48997334,
+          "checksum": 5495642
+        },
+        {
+          "round": 4,
+          "ns": 94448625,
+          "checksum": 5495642
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "unbound"
+      ],
+      "process": 1,
+      "iterations": 693,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 62389917,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": -1,
+          "ns": 52104333,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 0,
+          "ns": 51745417,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 1,
+          "ns": 52391000,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 2,
+          "ns": 91549125,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 3,
+          "ns": 105028666,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 4,
+          "ns": 102122375,
+          "checksum": 1.1670751889898394e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "bound"
+      ],
+      "process": 1,
+      "iterations": 691,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 50193709,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": -1,
+          "ns": 50016542,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 0,
+          "ns": 50020875,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 1,
+          "ns": 51047042,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 2,
+          "ns": 51547542,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 3,
+          "ns": 78942500,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 4,
+          "ns": 101905791,
+          "checksum": 1.1637070066262323e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "unbound"
+      ],
+      "process": 1,
+      "iterations": 647,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 53907666,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": -1,
+          "ns": 50060958,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 0,
+          "ns": 50085750,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 1,
+          "ns": 57102167,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 2,
+          "ns": 66017125,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 3,
+          "ns": 49998500,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 4,
+          "ns": 120511750,
+          "checksum": 1266505308788.75
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "observed"
+      ],
+      "process": 1,
+      "iterations": 37,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 54175291,
+          "checksum": 1799458
+        },
+        {
+          "round": -1,
+          "ns": 50476875,
+          "checksum": 1799458
+        },
+        {
+          "round": 0,
+          "ns": 49583750,
+          "checksum": 1799458
+        },
+        {
+          "round": 1,
+          "ns": 49502792,
+          "checksum": 1799458
+        },
+        {
+          "round": 2,
+          "ns": 49489042,
+          "checksum": 1799458
+        },
+        {
+          "round": 3,
+          "ns": 70291000,
+          "checksum": 1799458
+        },
+        {
+          "round": 4,
+          "ns": 124377541,
+          "checksum": 1799458
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "observed"
+      ],
+      "process": 1,
+      "iterations": 305,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 54319250,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": -1,
+          "ns": 50545958,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 0,
+          "ns": 50296375,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 1,
+          "ns": 50178208,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 2,
+          "ns": 50156833,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 3,
+          "ns": 84766125,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 4,
+          "ns": 84049417,
+          "checksum": 51364781045007360
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "bound"
+      ],
+      "process": 1,
+      "iterations": 496,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 48846000,
+          "checksum": 970922153260
+        },
+        {
+          "round": -1,
+          "ns": 45375875,
+          "checksum": 970922153260
+        },
+        {
+          "round": 0,
+          "ns": 38563375,
+          "checksum": 970922153260
+        },
+        {
+          "round": 1,
+          "ns": 38572959,
+          "checksum": 970922153260
+        },
+        {
+          "round": 2,
+          "ns": 38426666,
+          "checksum": 970922153260
+        },
+        {
+          "round": 3,
+          "ns": 38365167,
+          "checksum": 970922153260
+        },
+        {
+          "round": 4,
+          "ns": 38353041,
+          "checksum": 970922153260
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "unbound"
+      ],
+      "process": 1,
+      "iterations": 352,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 36185208,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": -1,
+          "ns": 44704791,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 0,
+          "ns": 30100209,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 1,
+          "ns": 25474875,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 2,
+          "ns": 25449125,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 3,
+          "ns": 25427292,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 4,
+          "ns": 25525459,
+          "checksum": 59280009599483904
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "bound"
+      ],
+      "process": 1,
+      "iterations": 71,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 54966750,
+          "checksum": 3453014
+        },
+        {
+          "round": -1,
+          "ns": 49383583,
+          "checksum": 3453014
+        },
+        {
+          "round": 0,
+          "ns": 49534583,
+          "checksum": 3453014
+        },
+        {
+          "round": 1,
+          "ns": 49244125,
+          "checksum": 3453014
+        },
+        {
+          "round": 2,
+          "ns": 49434167,
+          "checksum": 3453014
+        },
+        {
+          "round": 3,
+          "ns": 64932958,
+          "checksum": 3453014
+        },
+        {
+          "round": 4,
+          "ns": 83703292,
+          "checksum": 3453014
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "observed"
+      ],
+      "process": 1,
+      "iterations": 142,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 33705416,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": -1,
+          "ns": 23610334,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 0,
+          "ns": 23473042,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 1,
+          "ns": 23428834,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 2,
+          "ns": 23371333,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 3,
+          "ns": 23358417,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 4,
+          "ns": 23359625,
+          "checksum": 277965616457.5
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "bound"
+      ],
+      "process": 1,
+      "iterations": 260,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23624417,
+          "checksum": 508951128725
+        },
+        {
+          "round": -1,
+          "ns": 23618500,
+          "checksum": 508951128725
+        },
+        {
+          "round": 0,
+          "ns": 19673083,
+          "checksum": 508951128725
+        },
+        {
+          "round": 1,
+          "ns": 19664625,
+          "checksum": 508951128725
+        },
+        {
+          "round": 2,
+          "ns": 19661250,
+          "checksum": 508951128725
+        },
+        {
+          "round": 3,
+          "ns": 19672791,
+          "checksum": 508951128725
+        },
+        {
+          "round": 4,
+          "ns": 19672959,
+          "checksum": 508951128725
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "unbound"
+      ],
+      "process": 1,
+      "iterations": 120,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 54260625,
+          "checksum": 5836080
+        },
+        {
+          "round": -1,
+          "ns": 49657417,
+          "checksum": 5836080
+        },
+        {
+          "round": 0,
+          "ns": 49928333,
+          "checksum": 5836080
+        },
+        {
+          "round": 1,
+          "ns": 49643750,
+          "checksum": 5836080
+        },
+        {
+          "round": 2,
+          "ns": 49913000,
+          "checksum": 5836080
+        },
+        {
+          "round": 3,
+          "ns": 102662375,
+          "checksum": 5836080
+        },
+        {
+          "round": 4,
+          "ns": 103555000,
+          "checksum": 5836080
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "observed"
+      ],
+      "process": 1,
+      "iterations": 134,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22112208,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": -1,
+          "ns": 24632542,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 0,
+          "ns": 22013417,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 1,
+          "ns": 22023500,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 2,
+          "ns": 22011666,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 3,
+          "ns": 22026583,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 4,
+          "ns": 22017500,
+          "checksum": 262305581727.5
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "unbound"
+      ],
+      "process": 2,
+      "iterations": 113,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 59826292,
+          "checksum": 5495642
+        },
+        {
+          "round": -1,
+          "ns": 49152375,
+          "checksum": 5495642
+        },
+        {
+          "round": 0,
+          "ns": 48795334,
+          "checksum": 5495642
+        },
+        {
+          "round": 1,
+          "ns": 48669792,
+          "checksum": 5495642
+        },
+        {
+          "round": 2,
+          "ns": 48334584,
+          "checksum": 5495642
+        },
+        {
+          "round": 3,
+          "ns": 63774917,
+          "checksum": 5495642
+        },
+        {
+          "round": 4,
+          "ns": 78670083,
+          "checksum": 5495642
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "unbound"
+      ],
+      "process": 2,
+      "iterations": 647,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 59828292,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": -1,
+          "ns": 50003917,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 0,
+          "ns": 49979792,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 1,
+          "ns": 50007334,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 2,
+          "ns": 50349583,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 3,
+          "ns": 70582583,
+          "checksum": 1266505308788.75
+        },
+        {
+          "round": 4,
+          "ns": 86687875,
+          "checksum": 1266505308788.75
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "bound"
+      ],
+      "process": 2,
+      "iterations": 260,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19690208,
+          "checksum": 508951128725
+        },
+        {
+          "round": -1,
+          "ns": 19747750,
+          "checksum": 508951128725
+        },
+        {
+          "round": 0,
+          "ns": 23659000,
+          "checksum": 508951128725
+        },
+        {
+          "round": 1,
+          "ns": 19648584,
+          "checksum": 508951128725
+        },
+        {
+          "round": 2,
+          "ns": 19757292,
+          "checksum": 508951128725
+        },
+        {
+          "round": 3,
+          "ns": 21014583,
+          "checksum": 508951128725
+        },
+        {
+          "round": 4,
+          "ns": 19650125,
+          "checksum": 508951128725
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "bound"
+      ],
+      "process": 2,
+      "iterations": 71,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 53437292,
+          "checksum": 3453014
+        },
+        {
+          "round": -1,
+          "ns": 49869708,
+          "checksum": 3453014
+        },
+        {
+          "round": 0,
+          "ns": 49399833,
+          "checksum": 3453014
+        },
+        {
+          "round": 1,
+          "ns": 49265541,
+          "checksum": 3453014
+        },
+        {
+          "round": 2,
+          "ns": 49124958,
+          "checksum": 3453014
+        },
+        {
+          "round": 3,
+          "ns": 59523584,
+          "checksum": 3453014
+        },
+        {
+          "round": 4,
+          "ns": 89421375,
+          "checksum": 3453014
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "observed"
+      ],
+      "process": 2,
+      "iterations": 38,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 56897667,
+          "checksum": 1848092
+        },
+        {
+          "round": -1,
+          "ns": 51243583,
+          "checksum": 1848092
+        },
+        {
+          "round": 0,
+          "ns": 54081000,
+          "checksum": 1848092
+        },
+        {
+          "round": 1,
+          "ns": 53454833,
+          "checksum": 1848092
+        },
+        {
+          "round": 2,
+          "ns": 51067875,
+          "checksum": 1848092
+        },
+        {
+          "round": 3,
+          "ns": 81432666,
+          "checksum": 1848092
+        },
+        {
+          "round": 4,
+          "ns": 107244166,
+          "checksum": 1848092
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "observed"
+      ],
+      "process": 2,
+      "iterations": 305,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 64750125,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": -1,
+          "ns": 50161875,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 0,
+          "ns": 50144750,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 1,
+          "ns": 50123625,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 2,
+          "ns": 50125083,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 3,
+          "ns": 94441541,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 4,
+          "ns": 85802667,
+          "checksum": 51364781045007360
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "observed"
+      ],
+      "process": 2,
+      "iterations": 305,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 54585708,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": -1,
+          "ns": 50093292,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 0,
+          "ns": 50211000,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 1,
+          "ns": 50195875,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 2,
+          "ns": 61889333,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 3,
+          "ns": 102607792,
+          "checksum": 51364781045007360
+        },
+        {
+          "round": 4,
+          "ns": 70239583,
+          "checksum": 51364781045007360
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "observed"
+      ],
+      "process": 2,
+      "iterations": 142,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 27115000,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": -1,
+          "ns": 27683417,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 0,
+          "ns": 23342417,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 1,
+          "ns": 29495209,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 2,
+          "ns": 23325083,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 3,
+          "ns": 23326291,
+          "checksum": 277965616457.5
+        },
+        {
+          "round": 4,
+          "ns": 23324333,
+          "checksum": 277965616457.5
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "unbound"
+      ],
+      "process": 2,
+      "iterations": 693,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 62915625,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": -1,
+          "ns": 50022291,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 0,
+          "ns": 50054000,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 1,
+          "ns": 50036917,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 2,
+          "ns": 50017708,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 3,
+          "ns": 62369792,
+          "checksum": 1.1670751889898394e+17
+        },
+        {
+          "round": 4,
+          "ns": 66787458,
+          "checksum": 1.1670751889898394e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "unbound"
+      ],
+      "process": 2,
+      "iterations": 352,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 30018041,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": -1,
+          "ns": 28053167,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 0,
+          "ns": 25408666,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 1,
+          "ns": 25405625,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 2,
+          "ns": 25411750,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 3,
+          "ns": 25434209,
+          "checksum": 59280009599483904
+        },
+        {
+          "round": 4,
+          "ns": 25486000,
+          "checksum": 59280009599483904
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "bound"
+      ],
+      "process": 2,
+      "iterations": 691,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 54854417,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": -1,
+          "ns": 57015708,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 0,
+          "ns": 50131083,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 1,
+          "ns": 50311750,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 2,
+          "ns": 50539292,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 3,
+          "ns": 83366958,
+          "checksum": 1.1637070066262323e+17
+        },
+        {
+          "round": 4,
+          "ns": 102831792,
+          "checksum": 1.1637070066262323e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "unbound"
+      ],
+      "process": 2,
+      "iterations": 399,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 44322250,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": -1,
+          "ns": 30950917,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 0,
+          "ns": 30891292,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 1,
+          "ns": 31039917,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 2,
+          "ns": 31163584,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 3,
+          "ns": 31051875,
+          "checksum": 781044232158.75
+        },
+        {
+          "round": 4,
+          "ns": 31029917,
+          "checksum": 781044232158.75
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "observed"
+      ],
+      "process": 2,
+      "iterations": 37,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 53227167,
+          "checksum": 1799458
+        },
+        {
+          "round": -1,
+          "ns": 63650208,
+          "checksum": 1799458
+        },
+        {
+          "round": 0,
+          "ns": 56491417,
+          "checksum": 1799458
+        },
+        {
+          "round": 1,
+          "ns": 85409625,
+          "checksum": 1799458
+        },
+        {
+          "round": 2,
+          "ns": 132482541,
+          "checksum": 1799458
+        },
+        {
+          "round": 3,
+          "ns": 99593417,
+          "checksum": 1799458
+        },
+        {
+          "round": 4,
+          "ns": 89675708,
+          "checksum": 1799458
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "bound"
+      ],
+      "process": 2,
+      "iterations": 689,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 75201375,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": -1,
+          "ns": 66489042,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 0,
+          "ns": 66574083,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 1,
+          "ns": 119202792,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 2,
+          "ns": 89452750,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 3,
+          "ns": 118718625,
+          "checksum": 1.1603388242626253e+17
+        },
+        {
+          "round": 4,
+          "ns": 101840166,
+          "checksum": 1.1603388242626253e+17
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "unbound"
+      ],
+      "process": 2,
+      "iterations": 120,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 66156125,
+          "checksum": 5836080
+        },
+        {
+          "round": -1,
+          "ns": 76485167,
+          "checksum": 5836080
+        },
+        {
+          "round": 0,
+          "ns": 66589375,
+          "checksum": 5836080
+        },
+        {
+          "round": 1,
+          "ns": 114074125,
+          "checksum": 5836080
+        },
+        {
+          "round": 2,
+          "ns": 97980125,
+          "checksum": 5836080
+        },
+        {
+          "round": 3,
+          "ns": 125297292,
+          "checksum": 5836080
+        },
+        {
+          "round": 4,
+          "ns": 76429167,
+          "checksum": 5836080
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "bound"
+      ],
+      "process": 2,
+      "iterations": 496,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 51111708,
+          "checksum": 970922153260
+        },
+        {
+          "round": -1,
+          "ns": 38457208,
+          "checksum": 970922153260
+        },
+        {
+          "round": 0,
+          "ns": 38433250,
+          "checksum": 970922153260
+        },
+        {
+          "round": 1,
+          "ns": 38397625,
+          "checksum": 970922153260
+        },
+        {
+          "round": 2,
+          "ns": 38483917,
+          "checksum": 970922153260
+        },
+        {
+          "round": 3,
+          "ns": 38498625,
+          "checksum": 970922153260
+        },
+        {
+          "round": 4,
+          "ns": 44835375,
+          "checksum": 970922153260
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "observed"
+      ],
+      "process": 2,
+      "iterations": 134,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 26306542,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": -1,
+          "ns": 24118667,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 0,
+          "ns": 28366834,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 1,
+          "ns": 23099375,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 2,
+          "ns": 22033291,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 3,
+          "ns": 22336083,
+          "checksum": 262305581727.5
+        },
+        {
+          "round": 4,
+          "ns": 23282792,
+          "checksum": 262305581727.5
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "bound"
+      ],
+      "process": 2,
+      "iterations": 88,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 57526167,
+          "checksum": 4279792
+        },
+        {
+          "round": -1,
+          "ns": 55661750,
+          "checksum": 4279792
+        },
+        {
+          "round": 0,
+          "ns": 49595375,
+          "checksum": 4279792
+        },
+        {
+          "round": 1,
+          "ns": 49618000,
+          "checksum": 4279792
+        },
+        {
+          "round": 2,
+          "ns": 49579417,
+          "checksum": 4279792
+        },
+        {
+          "round": 3,
+          "ns": 114588291,
+          "checksum": 4279792
+        },
+        {
+          "round": 4,
+          "ns": 76984166,
+          "checksum": 4279792
+        }
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "unbound"
+      ],
+      "expected": 168409118180352.0,
+      "median_ns": 132105.5194805195,
+      "process_medians_ns": [
+        156752.2251082251,
+        132105.5194805195,
+        72227.99422799423
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "bound"
+      ],
+      "expected": 168409118180352.0,
+      "median_ns": 146329.58345428156,
+      "process_medians_ns": [
+        146329.58345428156,
+        83976.8374455733,
+        147808.6589259797
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "polynomial",
+        "observed"
+      ],
+      "expected": 168409118180352.0,
+      "median_ns": 202915.84590163935,
+      "process_medians_ns": [
+        173264.07213114755,
+        205313.9344262295,
+        202915.84590163935
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "unbound"
+      ],
+      "expected": 1957504341.25,
+      "median_ns": 77334.06516290727,
+      "process_medians_ns": [
+        77334.06516290727,
+        77213.9724310777,
+        77794.27819548872
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "bound"
+      ],
+      "expected": 1957504341.25,
+      "median_ns": 77473.11693548386,
+      "process_medians_ns": [
+        77320.39717741935,
+        77473.11693548386,
+        77588.54233870968
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "branches",
+        "observed"
+      ],
+      "expected": 1957504341.25,
+      "median_ns": 164309.7014925373,
+      "process_medians_ns": [
+        164302.55223880598,
+        164309.7014925373,
+        172383.39552238805
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "unbound"
+      ],
+      "expected": 48634.0,
+      "median_ns": 436536.50442477874,
+      "process_medians_ns": [
+        447116.1504424779,
+        436536.50442477874,
+        431817.11504424777
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "bound"
+      ],
+      "expected": 48634.0,
+      "median_ns": 697670.1830985915,
+      "process_medians_ns": [
+        1057330.985915493,
+        697670.1830985915,
+        695772.2957746478
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        "euclid",
+        "observed"
+      ],
+      "expected": 48634.0,
+      "median_ns": 1423184.2105263157,
+      "process_medians_ns": [
+        1434202.8421052631,
+        1349502.2105263157,
+        1423184.2105263157
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "unbound"
+      ],
+      "expected": 168409118180352.0,
+      "median_ns": 72371.80397727272,
+      "process_medians_ns": [
+        72558.23863636363,
+        72371.80397727272,
+        72192.47159090909
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "bound"
+      ],
+      "expected": 168409118180352.0,
+      "median_ns": 74598.46888567293,
+      "process_medians_ns": [
+        130133.74240231549,
+        74598.46888567293,
+        73139.3516642547
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "polynomial",
+        "observed"
+      ],
+      "expected": 168409118180352.0,
+      "median_ns": 164409.0163934426,
+      "process_medians_ns": [
+        164318.71475409836,
+        164906.1475409836,
+        164409.0163934426
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "unbound"
+      ],
+      "expected": 1957504341.25,
+      "median_ns": 88256.82689335394,
+      "process_medians_ns": [
+        172898.89335394127,
+        88256.82689335394,
+        77820.06646058733
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "bound"
+      ],
+      "expected": 1957504341.25,
+      "median_ns": 75686.21923076923,
+      "process_medians_ns": [
+        75686.21923076923,
+        75664.58076923077,
+        75989.58461538462
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "branches",
+        "observed"
+      ],
+      "expected": 1957504341.25,
+      "median_ns": 164586.85211267605,
+      "process_medians_ns": [
+        185360.03521126762,
+        164586.85211267605,
+        164269.65492957746
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "unbound"
+      ],
+      "expected": 48634.0,
+      "median_ns": 765971.5333333333,
+      "process_medians_ns": [
+        765971.5333333333,
+        416069.44166666665,
+        816501.0416666666
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "bound"
+      ],
+      "expected": 48634.0,
+      "median_ns": 563840.9090909091,
+      "process_medians_ns": [
+        857505.2045454546,
+        560902.4545454546,
+        563840.9090909091
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        "euclid",
+        "observed"
+      ],
+      "expected": 48634.0,
+      "median_ns": 2423667.7837837837,
+      "process_medians_ns": [
+        3028032.6756756757,
+        1340101.3513513512,
+        2423667.7837837837
+      ]
+    }
+  ],
+  "baseline_compiler_sha256": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+  "observed_control": true,
+  "contract": "Identical recursive source algorithms, optimized runtime archive, Clang flags and input depth 14/seed 17. Baseline/current and unbound/bound-token cells are interleaved across three fresh processes and five measured plus two warmup batches. Binding, invocation lifecycle, arithmetic checks, logical admission and cancellation acquire loads remain enabled. All checksums must match independent Fraction/integer/GCD references exactly. This isolates a compiler change; it is not a cross-language ranking or GPU benchmark. Observed cells bind an atomic diagnostic poll counter; allocation/binding/reset are included and the ordinary observed execution path remains enabled.",
+  "schema": 1,
+  "timestamp": "2026-10-24T17:19:55.845553+00:00",
+  "compiler_sha256": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+  "source_sha256": {
+    "native/benchmarks/checked_inlining.py": "bf04b3f436c82ec584cf0b0345ed558d04a2d5a3a07d02adef099ff7ff6c55cd",
+    "native/benchmarks/fair/SourceDriver.cpp": "1f7209ceb9a5e5322153388b0b44ace4c7da6e40990c7b2c162f41bbd4b0865c",
+    "benchmarks/.build/checked-inlining/BoundDriver.cpp": "66650480d28abd59ff1b787249c5d0fc616daa967d409c5103d61dca94d915b7",
+    "native/benchmarks/fair/source.k": "1e1bedddb1648d05712cfa5d83974ac74789b35246b8a58af11a4b7c1b00eff9",
+    "benchmarks/.build/tail-calls-baseline/kalandra-pre-depth-cache": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+    "build/native/native/kalandra": "4767fc6514d9ae5df14f3d78decbf7079a601a1159aab2cb8cd8c9fbd4c0dabc",
+    "build/native/native/libkalandra-task-core-optimized.a": "f2dd346cf1c65fd7fd30ca16e25527896d843895717d843e591c569bcedce7f2",
+    "native/lib/Backend.cpp": "13e3a42e90ce3c97850817f214fb98fe2cf7826d22ac4ce9624ec2c481526705",
+    "native/lib/CheckedABI.cpp": "c05532781b2cecc873ed9858cc69507c4a1bd4f5237b522aa90c697d659c579b",
+    "native/lib/NativeFastABI.h": "95b7d4e4c0fbc6c67b905db35325f4eed4d6e24315e2e4f609f6eb00bfd7f1a2",
+    "native/lib/NativeTailCalls.h": "b7e394dbf56cabec87928ae2d2e506168ad46fd9a95502ab92d322f20c098343",
+    "native/lib/NativeRecursiveContext.h": "0268a1a3499c67fa1930d10c9b5308debd580f646ef58f7a27c4c86f315eb62e",
+    "native/lib/NativeStack.h": "ff8d66097092c3e285e0953b3509d61658a7faaa9118ec14edf9ca959dd41417",
+    "native/runtime/Runtime.h": "3a3397381414255a5a8475628fc55c18b03ea011b34b634717ac6eb5ca301bdf",
+    "native/runtime/Runtime.cpp": "73537bf4495d5cbe97d48ab019ab16c29de01109f5e98590b01221da289e4aa7",
+    "benchmarks/.build/checked-inlining/ObservedDriver.cpp": "5c592206a024cc451ff0ea4936d1af7ccb11672fab5af2702412bc34f7589e99",
+    "native/benchmarks/fair/protocol.py": "a650a395d6b75202b2e47f906d6ecbff6dbf24dbd189ff065f2505f4dd49a329",
+    "native/benchmarks/fair/source_run.py": "e05c0c1ddf6a7dda4c869ce762f642ae2cf7b73a0b40f7dc046da2450618948b"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/checked-inlining/baseline-polynomial-unbound": "4f5152a187525d81663c8a3200a3af81126e2af1148187fa018bc22336981e66",
+    "benchmarks/.build/checked-inlining/baseline-polynomial-bound": "6163039e342fe11eb4b01093e708cf12dbf614004b6accced802778fed19a14f",
+    "benchmarks/.build/checked-inlining/baseline-polynomial-observed": "4d9e39ababaa794e61a24354a003a4f0b9e5094c4206de7098d82acb2c4b6323",
+    "benchmarks/.build/checked-inlining/baseline-polynomial.ll": "968984ebcb582b47125ba3898a5e5c1c85a4cf109c6bf867b18da2b5adb3b626",
+    "benchmarks/.build/checked-inlining/baseline-branches-unbound": "5cc69328008e942dd130722520c91f43d03384661aaa6610085a8dd7bf03562e",
+    "benchmarks/.build/checked-inlining/baseline-branches-bound": "1a176565761f94d9ddbcd014eb98da0204b163131513c14b438d0c351e1e0bdd",
+    "benchmarks/.build/checked-inlining/baseline-branches-observed": "36e7565beb875dc43e4ff73d2e7963ff691efdb04f0d956ed333e76b7a341b4e",
+    "benchmarks/.build/checked-inlining/baseline-branches.ll": "4d3b4f8ad30ca6332d2d02b7d5335d25fd679385c45eb7562310b137a3fe1cee",
+    "benchmarks/.build/checked-inlining/baseline-euclid-unbound": "6aa036520b64b1ae6178c05049933d8e970fbf9496305596019c8fbdf383fdaa",
+    "benchmarks/.build/checked-inlining/baseline-euclid-bound": "01b87f577d121f38005d5fbe133e2f3097a83ae8eef677e24c311f2a7b4e1c27",
+    "benchmarks/.build/checked-inlining/baseline-euclid-observed": "ff333a79b54566c8053ba85a9011751d462a687567cb22b628fd8c8711f541a1",
+    "benchmarks/.build/checked-inlining/baseline-euclid.ll": "81b649937af526c89870d7fe69b302457019ac648eab0a69a84f0324dab5786e",
+    "benchmarks/.build/checked-inlining/current-polynomial-unbound": "24250853e972e86c8770d5e3c8343ab71775ad9590f7d2858b37dc80dc0aa6be",
+    "benchmarks/.build/checked-inlining/current-polynomial-bound": "c0385c1b0a76ce66883d0c4fb6d389fa9c677dbf5661d091498abbfe8635b410",
+    "benchmarks/.build/checked-inlining/current-polynomial-observed": "38b6fe24b858c236e8462b62522236a7714c8c40df885f7145733a231cc049f9",
+    "benchmarks/.build/checked-inlining/current-polynomial.ll": "55c1fc95c7dc16ec003bd7217a212e9ddf2b5b634ea1d0fd4655c87e64f846f1",
+    "benchmarks/.build/checked-inlining/current-branches-unbound": "93c0f7f4ddcaff819acd1c38f830d9a0379890279ad2fe0e82a622875694dff0",
+    "benchmarks/.build/checked-inlining/current-branches-bound": "203fa71a1e202910adc3487f93fec0794a416bd567102c3fa8f4c70344cd29e1",
+    "benchmarks/.build/checked-inlining/current-branches-observed": "85c974440fb9e24ee21399acffd764c71173802ea11e1472bbea1901b12acf85",
+    "benchmarks/.build/checked-inlining/current-branches.ll": "65464469b5c73858e6a026932528e222ea2c269186c064b9560b5dd409fc8ce0",
+    "benchmarks/.build/checked-inlining/current-euclid-unbound": "e77fa4cca2eff1f25a20b1fd7a4755ad7f2a3154019c5fc0484ef95f79b37072",
+    "benchmarks/.build/checked-inlining/current-euclid-bound": "adecfbc4ab4d02d579509fa841cd27458a83306b7b26e51d4a6a1042b86be7ad",
+    "benchmarks/.build/checked-inlining/current-euclid-observed": "5a73e8173527aa64c81330691da5a38f4d4fa056fdffff409c9ca3693299a84c",
+    "benchmarks/.build/checked-inlining/current-euclid.ll": "68682f0b5049098d9eac0f6da02e1f0a8b7753503ea3c43c1975ea55a4f7a35f",
+    "benchmarks/.build/tail-calls-baseline/kalandra-pre-depth-cache": "3517d48bcef66dd8b4cc5f4a88901b1eac27231be7753525fbbc7f8052d4345d",
+    "build/native/native/libkalandra-task-core-optimized.a": "f2dd346cf1c65fd7fd30ca16e25527896d843895717d843e591c569bcedce7f2"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/tail-calls-baseline/kalandra-pre-depth-cache",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/source.k",
+      "--test-entry",
+      "polynomial",
+      "--emit-llvm",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial.ll",
+      "-O2",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial.standalone"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/SourceDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-unbound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/BoundDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-bound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/ObservedDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-observed"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/tail-calls-baseline/kalandra-pre-depth-cache",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/source.k",
+      "--test-entry",
+      "branches",
+      "--emit-llvm",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches.ll",
+      "-O2",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches.standalone"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/SourceDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-unbound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/BoundDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-bound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/ObservedDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-observed"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/tail-calls-baseline/kalandra-pre-depth-cache",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/source.k",
+      "--test-entry",
+      "euclid",
+      "--emit-llvm",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid.ll",
+      "-O2",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid.standalone"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/SourceDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-unbound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/BoundDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-bound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/ObservedDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-observed"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/source.k",
+      "--test-entry",
+      "polynomial",
+      "--emit-llvm",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial.ll",
+      "-O2",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial.standalone"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/SourceDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-unbound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/BoundDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-bound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/ObservedDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-observed"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/source.k",
+      "--test-entry",
+      "branches",
+      "--emit-llvm",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches.ll",
+      "-O2",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches.standalone"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/SourceDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-unbound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/BoundDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-bound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/ObservedDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-observed"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/source.k",
+      "--test-entry",
+      "euclid",
+      "--emit-llvm",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid.ll",
+      "-O2",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid.standalone"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/SourceDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-unbound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/BoundDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-bound"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-Wno-override-module",
+      "-pthread",
+      "-DKALANDRA_KERNEL",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/ObservedDriver.cpp",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid.ll",
+      "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-task-core-optimized.a",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-observed"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-unbound",
+      "0",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-bound",
+      "0",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-observed",
+      "0",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-unbound",
+      "1",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-bound",
+      "1",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-observed",
+      "1",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-unbound",
+      "2",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-bound",
+      "2",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-observed",
+      "2",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-unbound",
+      "0",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-bound",
+      "0",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-observed",
+      "0",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-unbound",
+      "1",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-bound",
+      "1",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-observed",
+      "1",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-unbound",
+      "2",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-bound",
+      "2",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-observed",
+      "2",
+      "14",
+      "1",
+      "3",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-unbound",
+      "1",
+      "14",
+      "647",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-observed",
+      "1",
+      "14",
+      "142",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-unbound",
+      "2",
+      "14",
+      "120",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-bound",
+      "2",
+      "14",
+      "88",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-unbound",
+      "2",
+      "14",
+      "113",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-bound",
+      "2",
+      "14",
+      "71",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-bound",
+      "1",
+      "14",
+      "496",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-observed",
+      "2",
+      "14",
+      "37",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-bound",
+      "0",
+      "14",
+      "689",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-observed",
+      "0",
+      "14",
+      "305",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-bound",
+      "1",
+      "14",
+      "260",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-observed",
+      "2",
+      "14",
+      "38",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-unbound",
+      "1",
+      "14",
+      "399",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-unbound",
+      "0",
+      "14",
+      "693",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-bound",
+      "0",
+      "14",
+      "691",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-unbound",
+      "0",
+      "14",
+      "352",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-observed",
+      "0",
+      "14",
+      "305",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-observed",
+      "1",
+      "14",
+      "134",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-observed",
+      "0",
+      "14",
+      "305",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-bound",
+      "0",
+      "14",
+      "689",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-bound",
+      "2",
+      "14",
+      "88",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-observed",
+      "2",
+      "14",
+      "38",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-unbound",
+      "1",
+      "14",
+      "399",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-unbound",
+      "2",
+      "14",
+      "113",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-unbound",
+      "0",
+      "14",
+      "693",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-bound",
+      "0",
+      "14",
+      "691",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-unbound",
+      "1",
+      "14",
+      "647",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-observed",
+      "2",
+      "14",
+      "37",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-observed",
+      "0",
+      "14",
+      "305",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-bound",
+      "1",
+      "14",
+      "496",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-unbound",
+      "0",
+      "14",
+      "352",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-bound",
+      "2",
+      "14",
+      "71",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-observed",
+      "1",
+      "14",
+      "142",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-bound",
+      "1",
+      "14",
+      "260",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-unbound",
+      "2",
+      "14",
+      "120",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-observed",
+      "1",
+      "14",
+      "134",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-unbound",
+      "2",
+      "14",
+      "113",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-unbound",
+      "1",
+      "14",
+      "647",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-bound",
+      "1",
+      "14",
+      "260",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-bound",
+      "2",
+      "14",
+      "71",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-euclid-observed",
+      "2",
+      "14",
+      "38",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-observed",
+      "0",
+      "14",
+      "305",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-observed",
+      "0",
+      "14",
+      "305",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-branches-observed",
+      "1",
+      "14",
+      "142",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-unbound",
+      "0",
+      "14",
+      "693",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-unbound",
+      "0",
+      "14",
+      "352",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-polynomial-bound",
+      "0",
+      "14",
+      "691",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-unbound",
+      "1",
+      "14",
+      "399",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-observed",
+      "2",
+      "14",
+      "37",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-polynomial-bound",
+      "0",
+      "14",
+      "689",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-unbound",
+      "2",
+      "14",
+      "120",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-bound",
+      "1",
+      "14",
+      "496",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/baseline-branches-observed",
+      "1",
+      "14",
+      "134",
+      "5",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/checked-inlining/current-euclid-bound",
+      "2",
+      "14",
+      "88",
+      "5",
+      "17"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "2585de041135c2456610b6d450642cb4af0fc196",
+  "worktree_status": " M native/CMakeLists.txt\n M native/lib/Backend.cpp\n M native/lib/NativeTailCalls.h\n M native/tests/TailCallTests.py\n?? native/tests/SignedRemainderRuntimeTests.cpp\n?? native/tests/SignedRemainderTests.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

@@ -13,6 +13,7 @@ def main():
     parser.add_argument('--baseline-compiler', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--observed', action='store_true', help='Also measure diagnostic poll observers')
+    parser.add_argument('--paired', action='store_true', help='Use adjacent ABBA/BAAB process pairs to limit timing drift')
     args = parser.parse_args()
     assert not args.output.exists()
     baseline = args.baseline_compiler.resolve()
@@ -64,7 +65,8 @@ def main():
                                     kind, 14, count, rounds, 17]), source.expected(kind, 14), count, rounds)
     cells = [[version, name, mode] for version in ('baseline', 'current')
              for name in source.NAMES for mode in modes]
-    result = p.measure(cells, invoke, lambda c: source.expected(source.NAMES.index(c[1]), 14), rounds=5)
+    reference = lambda c: source.expected(source.NAMES.index(c[1]), 14)
+    result = p.measure_paired(cells, invoke, reference) if args.paired else p.measure(cells, invoke, reference, rounds=5)
     result['baseline_compiler_sha256'] = p.sha(baseline)
     result['observed_control'] = args.observed
     result['contract'] = ('Identical recursive source algorithms, optimized runtime archive, Clang flags and input '
@@ -73,6 +75,10 @@ def main():
         'checks, logical admission and cancellation acquire loads remain enabled. All checksums must match '
         'independent Fraction/integer/GCD references exactly. This isolates a compiler change; it is not '
         'a cross-language ranking or GPU benchmark.')
+    if args.paired:
+        result['contract'] = result['contract'].replace(
+            'interleaved across three fresh processes and five measured plus two warmup batches',
+            'measured in nine adjacent ABBA/BAAB blocks per algorithm/mode, with equal iterations and three measured plus two warmup batches per fresh process')
     if args.observed:
         result['contract'] += ' Observed cells bind an atomic diagnostic poll counter; allocation/binding/reset are included and the ordinary observed execution path remains enabled.'
     assert all(p.sha(x) == h for x, h in frozen.items()), 'benchmark inputs changed'

@@ -1,5 +1,6 @@
 #pragma once
 #include "../runtime/Runtime.h"
+#include "NativeStack.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -236,6 +237,44 @@ inline void lowerCheckedTailCalls(llvm::Function &function,
     builder.CreateCondBr(admitted, accepted, continuation);
     call->replaceAllUsesWith(null);
     call->eraseFromParent();
+  }
+  // The same closed scalar proof that permits SSA admission depth permits
+  // batched return bookkeeping when only a token is bound. No observer,
+  // callback or fault can run inside this loop: preserve every acquire poll,
+  // keep cancellation sticky in the result, and publish balanced depth/lease
+  // once at its exit. Faulted/observed modes retain the original unwind.
+  // This optional expansion never changes source acceptance near the budget.
+  if (pureScalarBody &&
+      !nativeStackBudgetError(function, function.getParent()->getDataLayout(), false, 1024)) {
+    auto *check = BasicBlock::Create(context, "tail.return.token.check", &function, ordinary);
+    auto *loop = BasicBlock::Create(context, "tail.return.token", &function, batch);
+    auto *pollToken = BasicBlock::Create(context, "tail.return.token.poll", &function, batch);
+    cast<CondBrInst>(unwind->getTerminator())->setSuccessor(1, check);
+    builder.SetInsertPoint(check);
+    auto *privateToken = builder.CreateAnd(builder.CreateICmpEQ(mode, builder.getInt8(1)),
+                                           builder.CreateICmpUGE(depth, slots));
+    builder.CreateCondBr(privateToken, loop, ordinary);
+    builder.SetInsertPoint(loop);
+    auto *tokenRemaining = builder.CreatePHI(i64, 2, "tail.token.remaining");
+    auto *tokenResult = builder.CreatePHI(function.getReturnType(), 2, "tail.token.result");
+    tokenRemaining->addIncoming(remaining, check);
+    tokenResult->addIncoming(result, check);
+    builder.CreateCondBr(builder.CreateICmpEQ(tokenRemaining, zero), batch, pollToken);
+    builder.SetInsertPoint(pollToken);
+    auto *cancelled = builder.CreateLoad(builder.getInt8Ty(), token);
+    cancelled->setAtomic(AtomicOrdering::Acquire);
+    cancelled->setAlignment(Align(1));
+    auto *nextResult = builder.CreateSelect(builder.CreateICmpNE(cancelled, builder.getInt8(0)),
+                                            null, tokenResult);
+    auto *nextRemaining = builder.CreateSub(tokenRemaining, one);
+    builder.CreateBr(loop);
+    tokenRemaining->addIncoming(nextRemaining, pollToken);
+    tokenResult->addIncoming(nextResult, pollToken);
+    builder.SetInsertPoint(&*batch->getFirstInsertionPt());
+    auto *batchResult = builder.CreatePHI(function.getReturnType(), 2, "tail.batch.result");
+    batchResult->addIncoming(result, unwind);
+    batchResult->addIncoming(tokenResult, loop);
+    finished->setIncomingValueForBlock(batch, batchResult);
   }
 }
 } // namespace kalandra

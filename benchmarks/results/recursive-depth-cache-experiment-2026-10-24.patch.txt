@@ -1,0 +1,146 @@
+diff --git a/native/lib/NativeRecursiveContext.h b/native/lib/NativeRecursiveContext.h
+index 3781a260..46559867 100644
+--- a/native/lib/NativeRecursiveContext.h
++++ b/native/lib/NativeRecursiveContext.h
+@@ -7,6 +7,7 @@
+ #include "llvm/IR/IRBuilder.h"
+ #include "llvm/IR/Module.h"
+ #include "llvm/Transforms/Utils/Cloning.h"
++#include "llvm/Transforms/Utils/PromoteMemToReg.h"
+ #include <array>
+ #include <unordered_map>
+
+@@ -320,5 +321,91 @@ inline void specializeRecursiveContexts(llvm::Module &module,
+         call->eraseFromParent();
+       }
+     }
++  // Private scalar callees balance logical depth on every return, including
++  // denied admission and faults. Cache only this field locally; publish before
++  // every potentially observing call and every return. No observer or callback
++  // can enter this closed graph. Cancellation remains an acquire load at each
++  // original poll. Tail loops have a separate depth proof and are excluded.
++  for (auto &[original, workers] : versions) {
++    if (pureTails.contains(original))
++      continue;
++    for (unsigned bound = 0; bound != 2; ++bound) {
++      auto *worker = workers[bound];
++      ValueToValueMapTy values;
++      auto *candidate = CloneFunction(worker, values);
++      SmallVector<CallInst *, 16> inlineCalls;
++      for (auto &block : *candidate)
++        for (auto &instruction : block)
++          if (auto *call = dyn_cast<CallInst>(&instruction))
++            if (auto *callee = call->getCalledFunction(); callee &&
++                (callee == leave || callee == enters[bound][0] || callee == enters[bound][1]))
++              inlineCalls.push_back(call);
++      for (auto *call : inlineCalls) {
++        InlineFunctionInfo info;
++        (void)InlineFunction(*call, info);
++      }
++      auto *invocation = candidate->getArg(candidate->arg_size() - 2);
++      SmallVector<Instruction *, 16> accesses;
++      SmallVector<Instruction *, 16> boundaries;
++      bool safe = true;
++      for (auto &block : *candidate)
++        for (auto &instruction : block) {
++          Value *address = nullptr;
++          if (auto *load = dyn_cast<LoadInst>(&instruction))
++            address = load->getPointerOperand();
++          if (auto *store = dyn_cast<StoreInst>(&instruction))
++            address = store->getPointerOperand();
++          if (auto *gep = dyn_cast_or_null<GetElementPtrInst>(address);
++              gep && gep->getPointerOperand() == invocation && gep->getNumIndices() == 1)
++            if (auto *offset = dyn_cast<ConstantInt>(gep->getOperand(1));
++                offset && offset->getZExtValue() == Layout::depth)
++              accesses.push_back(&instruction);
++          if (auto *call = dyn_cast<CallInst>(&instruction)) {
++            auto *callee = call->getCalledFunction();
++            if (callee && callee->isIntrinsic() &&
++                (!call->mayReadOrWriteMemory() || callee->getIntrinsicID() == Intrinsic::stacksave))
++              continue;
++            bool balanced = callee && (callee == polls[bound] ||
++                callee->getName() == "kalandra_poll_slow_v1" ||
++                callee->getName() == "kalandra_fault_v1");
++            for (auto *publicFunction : publicFunctions)
++              balanced |= callee == publicFunction;
++            for (auto &[source, variants] : versions)
++              balanced |= callee == variants[bound];
++            safe &= balanced;
++            boundaries.push_back(call);
++          } else if (isa<ReturnInst>(instruction))
++            boundaries.push_back(&instruction);
++        }
++      if (safe && !accesses.empty()) {
++        IRBuilder<> b(&*candidate->getEntryBlock().getFirstInsertionPt());
++        auto *slot = b.CreateAlloca(i64, nullptr, "recursive.depth.cache");
++        auto *address = field(b, invocation, Layout::depth);
++        b.CreateStore(b.CreateLoad(i64, address), slot);
++        for (auto *access : accesses) {
++          if (auto *load = dyn_cast<LoadInst>(access))
++            load->setOperand(0, slot);
++          else
++            cast<StoreInst>(access)->setOperand(1, slot);
++        }
++        for (auto *boundary : boundaries) {
++          IRBuilder<> publish(boundary);
++          publish.CreateStore(publish.CreateLoad(i64, slot), address);
++        }
++        DominatorTree dominators(*candidate);
++        PromoteMemToReg({slot}, dominators);
++        simplify(*candidate);
++        if (!nativeStackBudgetError(*candidate, module.getDataLayout())) {
++          const auto linkage = worker->getLinkage();
++          worker->deleteBody();
++          worker->setLinkage(linkage);
++          for (auto &argument : candidate->args())
++            argument.replaceAllUsesWith(worker->getArg(argument.getArgNo()));
++          worker->splice(worker->begin(), candidate);
++        }
++      }
++      candidate->eraseFromParent();
++    }
++  }
+ }
+ } // namespace kalandra
+diff --git a/native/tests/CheckedInliningTests.cpp b/native/tests/CheckedInliningTests.cpp
+index deac0891..7ca10bae 100644
+--- a/native/tests/CheckedInliningTests.cpp
++++ b/native/tests/CheckedInliningTests.cpp
+@@ -1,4 +1,5 @@
+ #include "../lib/NativeStack.h"
++#include "../runtime/Runtime.h"
+ #include "llvm/IR/IRBuilder.h"
+ #include "llvm/IR/Module.h"
+ #include "llvm/IR/Verifier.h"
+@@ -121,10 +122,27 @@ int main() {
+       auto *worker = module.getFunction(name);
+       check(worker && worker->hasLocalLinkage() && worker->hasFnAttribute(Attribute::NoInline));
+       check(calls(*worker, name) == 4);
+-      check(calls(*worker, std::string("kalandra_recursive_enter_") + mode) == 1);
+-      check(calls(*worker, std::string("kalandra_recursive_inline_enter_") + mode) == 2);
+-      check(calls(*worker, std::string("kalandra_recursive_poll_") + mode) == 6);
+-      check(calls(*worker, "kalandra_recursive_leave_v1") >= 3);
++      // Entry/leave helpers are expanded so logical depth can stay in SSA.
++      // All three entry polls and six return polls remain; only the executing
++      // physical frame reads SP. Depth is reloaded once, never after a callee.
++      check(calls(*worker, std::string("kalandra_recursive_enter_") + mode) == 0);
++      check(calls(*worker, std::string("kalandra_recursive_inline_enter_") + mode) == 0);
++      check(calls(*worker, std::string("kalandra_recursive_poll_") + mode) == 9);
++      check(calls(*worker, "kalandra_recursive_leave_v1") == 0);
++      unsigned depthLoads = 0;
++      for (auto &block : *worker)
++        for (auto &instruction : block) {
++          check(!isa<AllocaInst>(instruction));
++          if (auto *load = dyn_cast<LoadInst>(&instruction))
++            if (auto *gep = dyn_cast<GetElementPtrInst>(load->getPointerOperand());
++                gep && gep->getNumIndices() == 1)
++              if (auto *offset = dyn_cast<ConstantInt>(gep->getOperand(1)))
++                depthLoads += offset->getZExtValue() == kalandra::runtime::InvocationABI::depth;
++        }
++      check(depthLoads == 1);
++#if defined(__APPLE__)
++      check(calls(*worker, "llvm.stacksave.p0") == 1);
++#endif
+       check(!kalandra::nativeStackBudgetError(*worker, module.getDataLayout()));
+     }
+     check(calls(*module.getFunction("kalandra_recursive_dispatch_kalandra_fn_tree"),

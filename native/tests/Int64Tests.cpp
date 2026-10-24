@@ -63,8 +63,8 @@ int main() {
     require(bool(lowered) && lowered->llvm.find("value.layout.scalar.int64") != std::string::npos,
             "int64 task layout lost");
 #endif
-    require(bool(numericCapabilityError(*task.module, NumericTarget::AppleGpu)),
-            "int64 GPU arithmetic enabled");
+    require(!numericCapabilityError(*task.module, NumericTarget::AppleGpu),
+            "supported int64 GPU numeric capability rejected");
     std::cout << "Checked int64 literals/constants, int alias/default inference, scalar task "
                  "identity and strict tensor/type/target gates passed\n";
   } catch (const std::exception &error) {

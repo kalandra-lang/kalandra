@@ -30,3 +30,5 @@ Latest CPU source/runtime follow-up: [scalar tail calls and cancellation](result
 Latest source-call optimization: [bounded checked-call inlining](results/checked-inlining-2026-10-24.md), with interleaved before/after token controls, a fresh five-language comparison, differential safety/numerical qualification and the static tensor-shape correction caught by hosted documentation checks.
 
 Latest recursive-call results: [proven call-chain contexts](results/recursive-context-2026-10-24.md), with clear/bound/observed controls, another fair source comparison, exact differential qualification, frame audits and retained validation repairs. The source-performance target remains unmet.
+
+The [tail-return follow-up](results/tail-return-2026-10-24.md) records pure scalar token-return bookkeeping, safe signed remainder, exact baseline qualification and adjacent paired timing controls.
