@@ -165,7 +165,11 @@ fn main()->float64 ! TaskError:
             for mode, flags in (("normal", []), ("optimized", ["-O2"]),
                                 ("sanitized", ["--sanitize"]), ("thread-sanitized", ["--thread-sanitize"])):
                 app = runtime / f"{numeric} {mode} application"
-                execute([compiler, source, "--target", "metal", "-o", app, *flags])
+                # Every numeric case intentionally returns float64, including
+                # integer/float32 inputs. Metal requires an explicit fallback
+                # for that conversion/result; float32 arithmetic stays hardware.
+                execute([compiler, source, "--target", "metal", "--arithmetic",
+                         "hardware-with-software-fallback", "-o", app, *flags])
                 assert list(app.glob("*.metallib"))
                 if not flags or flags == ["-O2"]:
                     assert all(system(dep) for dep in inspect(app / "program")[0])

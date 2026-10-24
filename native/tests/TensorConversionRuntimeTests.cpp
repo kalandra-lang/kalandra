@@ -1,6 +1,7 @@
 #include "../metal-proof/Float64Oracle.h"
 #include "../runtime/Tensor.h"
 #include "llvm/ADT/APSInt.h"
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstring>
@@ -119,8 +120,8 @@ static void metadata(std::int64_t extent, int code, unsigned fail = 0) {
   ++cases;
   ++faults;
 }
-template <std::size_t Rank = TENSOR_RANK> static void cancellation(bool active) {
-  const std::size_t size = Rank == 0 ? 1 : active ? 1048576 : 1;
+template <std::size_t Rank = TENSOR_RANK> static bool tryCancellation(bool active, unsigned attempt) {
+  const std::size_t size = Rank == 0 ? 1 : active ? (1048576u << std::min(attempt, 3u)) : 1;
   std::vector<Input> cells(size);
   CpuTensor<source, Rank> input{};
   CpuTensor<destination, Rank> result{};
@@ -154,6 +155,17 @@ template <std::size_t Rank = TENSOR_RANK> static void cancellation(bool active) 
   done.store(true);
   if (active)
     sender.join();
+  if (active && !token.load()) {
+    // A descheduled sender can miss the entire kernel. No cancellation was
+    // requested in that attempt, so verify ordinary completion/cleanup and
+    // retry a larger workload. Never excuse publication after a real request.
+    require(!context.status() && result.allocated, "unsignalled conversion failed");
+    context.settle();
+    require(!context.live() && context.allocations() == context.releases(),
+            "unsignalled conversion owners leaked");
+    std::cout << "Cancellation sender missed completed kernel; retrying active control\n";
+    return false;
+  }
   if (!(token.load() && context.poll() == -1 && !context.status() && !result.allocated))
     std::cerr << "cancellation active=" << active << " requested=" << token.load()
               << " polls=" << polls.load() << " status=" << context.status()
@@ -163,6 +175,13 @@ template <std::size_t Rank = TENSOR_RANK> static void cancellation(bool active) 
   context.settle();
   require(!context.live() && context.allocations() == context.releases(),
           "cancelled owners leaked");
+  return true;
+}
+template <std::size_t Rank = TENSOR_RANK> static void cancellation(bool active) {
+  for (unsigned attempt = 0; attempt != 8; ++attempt)
+    if (tryCancellation<Rank>(active, attempt))
+      return;
+  require(false, "sender never requested active cancellation");
 }
 int main() {
   try {

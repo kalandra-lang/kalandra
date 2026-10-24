@@ -54,11 +54,12 @@ if(BUILD_TESTING)
   add_test(NAME native-standalone-metal-install COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/StandaloneTests.py" --kind metal
     --build "${PROJECT_BINARY_DIR}" --cmake "${CMAKE_COMMAND}" --config "$<CONFIG>")
-  set_tests_properties(native-standalone-metal-install PROPERTIES TIMEOUT 1200 LABELS distribution)
+  set_tests_properties(native-standalone-metal-install PROPERTIES TIMEOUT 1200 LABELS distribution
+    ENVIRONMENT "KALANDRA_METAL_COMPILER=${KALANDRA_METAL_COMPILER}")
   add_test(NAME native-metal-install COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/MetalInstallTests.py" "${CMAKE_COMMAND}"
     "${PROJECT_BINARY_DIR}" "$<CONFIG>" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PackageEditorTools.cmake"
     "${CMAKE_CURRENT_SOURCE_DIR}/metal-source")
   set_tests_properties(native-metal-install PROPERTIES TIMEOUT 1200 RESOURCE_LOCK apple-metal-gpu
-    ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    ENVIRONMENT "MTL_DEBUG_LAYER=1;KALANDRA_METAL_COMPILER=${KALANDRA_METAL_COMPILER}")
 endif()
