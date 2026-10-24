@@ -28,3 +28,5 @@ Latest verified follow-up: [checked-call and matrix optimization](results/optimi
 Latest CPU source/runtime follow-up: [scalar tail calls and cancellation](results/tail-calls-2026-10-24.md), with all fair source results, token-bound controls, numerical qualification and retained regressions. The Rust/C++ 10% target remains unmet.
 
 Latest source-call optimization: [bounded checked-call inlining](results/checked-inlining-2026-10-24.md), with interleaved before/after token controls, a fresh five-language comparison, differential safety/numerical qualification and the static tensor-shape correction caught by hosted documentation checks.
+
+Latest recursive-call results: [proven call-chain contexts](results/recursive-context-2026-10-24.md), with clear/bound/observed controls, another fair source comparison, exact differential qualification, frame audits and retained validation repairs. The source-performance target remains unmet.

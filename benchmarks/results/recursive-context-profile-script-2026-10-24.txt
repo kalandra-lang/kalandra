@@ -1,0 +1,47 @@
+from pathlib import Path
+import sys,re
+root=Path('/Users/pouya/Projects/kalandra.dev');sys.path.insert(0,str(root/'native/benchmarks/fair'))
+import protocol as p,source_run as source
+build=p.BUILD.parent/'recursive-profile';build.mkdir(exist_ok=True)
+flags=['-std=c++23','-O2','-ffp-contract=off','-Wno-override-module','-pthread','-DKALANDRA_KERNEL']
+archive=root/'build/native/native/libkalandra-task-core-optimized.a'
+for name in source.NAMES:
+ original=(p.BUILD/'source'/(name+'.ll')).read_text()
+ for mode in ('baseline','no-native-stack','no-polls','no-call-guards'):
+  text=original
+  if mode=='no-native-stack':
+   body='''define internal i1 @kalandra_call_enter_v1(ptr %ctx, i64 %line, i64 %column) #0 {
+entry:
+ %status = call i64 @kalandra_poll_v1(ptr %ctx)
+ %clear = icmp eq i64 %status, 0
+ br i1 %clear, label %depth, label %denied
+depth:
+ %address = getelementptr i8, ptr %ctx, i64 32
+ %current = load i64, ptr %address
+ %fits = icmp ult i64 %current, 128
+ br i1 %fits, label %accept, label %exhausted
+accept:
+ %next = add i64 %current, 1
+ store i64 %next, ptr %address
+ ret i1 true
+exhausted:
+ call void @kalandra_fault_v1(ptr %ctx, i64 6, i64 %line, i64 %column)
+ br label %denied
+denied:
+ ret i1 false
+}'''
+   text,n=re.subn(r'^define internal i1 @kalandra_call_enter_v1\([^\n]*\{.*?^}',body,text,flags=re.M|re.S);assert n==1
+  elif mode=='no-polls':
+   text=re.sub(r'^(  %[\w.]+ = )call i64 @kalandra_poll_v1\([^\n]+',r'\1add i64 0, 0',text,flags=re.M)
+  elif mode=='no-call-guards':
+   text=re.sub(r'^(  %[\w.]+ = )call i1 @kalandra_call_enter_v1\([^\n]+',r'\1icmp eq i64 0, 0',text,flags=re.M)
+   text=re.sub(r'^  call void @kalandra_call_leave_v1\([^\n]+\n','',text,flags=re.M)
+   text=re.sub(r'^(  %[\w.]+ = )call i64 @kalandra_poll_v1\([^\n]+',r'\1add i64 0, 0',text,flags=re.M)
+  path=build/(name+'-'+mode+'.ll');path.write_text(text)
+  p.run([p.CLANG,*flags,root/'native/benchmarks/fair/SourceDriver.cpp',path,archive,'-o',path.with_suffix('')])
+def invoke(cell,count,rounds):
+ name,mode=cell;kind=source.NAMES.index(name)
+ return p.observations(p.run([build/(name+'-'+mode),kind,14,count,rounds,17]),source.expected(kind,14),count,rounds)
+result=p.measure([[name,mode] for name in source.NAMES for mode in ('baseline','no-native-stack','no-polls','no-call-guards')],invoke,lambda c:source.expected(source.NAMES.index(c[0]),14),rounds=5)
+result['warning']='Diagnostic only: modified ignored LLVM disables safety checks and is not a valid language implementation or performance-parity claim. No production source or fair-suite artifacts modified. AArch64 invocation depth offset 32 matches current mechanically derived ABI; observed contexts and GPU not profiled.'
+p.evidence(root/'benchmarks/results/recursive-context-profile-2026-10-24.json',result,[Path(__file__),root/'native/lib/NativeFastABI.h',root/'native/lib/CheckedABI.cpp'],list(build.iterdir())+[archive],root/'build/native/native/kalandra')

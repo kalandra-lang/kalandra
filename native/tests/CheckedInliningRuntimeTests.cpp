@@ -6,29 +6,50 @@
 #include <limits>
 #include <stdexcept>
 using kalandra::runtime::Invocation;
-extern "C" double _mlir_ciface_kalandra_test_entry(double, std::int64_t, std::int64_t, std::int64_t,
-                                                   Invocation *);
+#ifdef FLOAT32
+using Float = float;
+using Bits = std::uint32_t;
+#else
+using Float = double;
+using Bits = std::uint64_t;
+#endif
+extern "C" Float _mlir_ciface_kalandra_test_entry(Float, std::int64_t, std::int64_t, std::int64_t,
+                                                  Invocation *);
 static void check(bool value) {
   if (!value)
     throw std::runtime_error("checked floating call regression");
 }
-static double reference(double value, unsigned depth) {
-  if (!depth)
-    return value;
-  const auto left = reference(value * 0.5, depth - 1);
-  const auto right = reference(value * -0.25, depth - 1);
+static Float reference(Float value, unsigned depth, bool rounded = false) {
+  if (!depth) {
+    if (!rounded)
+      return value;
+    const Float product = value * value;
+    return product - Float(1);
+  }
+  const auto left = reference(value * Float(0.5), depth - 1, rounded);
+  const auto right = reference(value * Float(-0.25), depth - 1, rounded);
   return left + right;
 }
 int main() {
+  const Float witness = Float(1) + Float(3) * std::numeric_limits<Float>::epsilon();
+  check(reference(witness, 0, true) != std::fma(witness, witness, Float(-1)));
   unsigned cases = 0;
   for (int mode = 0; mode < 7; ++mode)
     for (unsigned manual : {0, 1, 120, 125, 126, 127})
-      for (int kind : {0, 1})
+      for (int kind : {0, 1, 2})
         for (int depth : {0, 1, 2, 5, 128, 1000})
-          for (auto bits : {0ULL, 0x8000000000000000ULL, 1ULL, 0x0010000000000000ULL,
-                            0x3ff4cccccccccccdULL, 0xbff4cccccccccccdULL, 0x7ff0000000000000ULL,
-                            0xfff0000000000000ULL, 0x7ff8000000000042ULL, 0x7fefffffffffffffULL,
-                            0xc3e0000000000000ULL, 0x43e0000000000000ULL})
+          for (auto bits : {
+#ifdef FLOAT32
+                   0ULL, 0x80000000ULL, 1ULL, 0x00800000ULL, 0x3fa66666ULL, 0xbfa66666ULL,
+                   0x7f800000ULL, 0xff800000ULL, 0x7fc00042ULL, 0x7f7fffffULL, 0xdf000000ULL,
+                   0x5f000000ULL, 0x3f800003ULL
+#else
+                   0ULL, 0x8000000000000000ULL, 1ULL, 0x0010000000000000ULL, 0x3ff4cccccccccccdULL,
+                   0xbff4cccccccccccdULL, 0x7ff0000000000000ULL, 0xfff0000000000000ULL,
+                   0x7ff8000000000042ULL, 0x7fefffffffffffffULL, 0xc3e0000000000000ULL,
+                   0x43e0000000000000ULL, 0x3ff0000000000003ULL
+#endif
+               })
             for (int divisor : {0, 1, 7}) {
               Invocation ctx;
               std::atomic<bool> token = mode == 4;
@@ -43,7 +64,7 @@ int main() {
                 ctx.fault(5, 19, 23);
               if (mode == 6)
                 ctx.settle();
-              const auto input = std::bit_cast<double>(std::uint64_t(bits));
+              const auto input = std::bit_cast<Float>(Bits(bits));
               const auto value =
                   _mlir_ciface_kalandra_test_entry(input, depth, kind, divisor, &ctx);
               check(ctx.callDepth() == manual && ctx.live() == 0);
@@ -55,33 +76,31 @@ int main() {
                 check(value == 0 && ctx.status() == 0 && ctx.poll() == -1);
               else if (!ctx.status()) {
                 check(depth <= 5);
-                double expected;
-                if (!kind)
-                  expected = reference(input, depth);
+                Float expected;
+                if (kind != 1)
+                  expected = reference(input, depth, kind == 2);
                 else {
                   check(std::isfinite(input) && input >= -0x1p63 && input < 0x1p63 && divisor);
-                  expected = double(std::int64_t(input) / divisor);
+                  expected = Float(std::int64_t(input) / divisor);
                   if (depth && expected == 0)
                     expected = 0.0;
                 }
                 check((std::isnan(expected) && std::isnan(value)) ||
-                      std::bit_cast<std::uint64_t>(expected) ==
-                          std::bit_cast<std::uint64_t>(value));
+                      std::bit_cast<Bits>(expected) == std::bit_cast<Bits>(value));
                 if ((mode == 2 || mode == 3) && depth)
                   check(polls > 1);
               } else {
                 check(ctx.status() == 4 || ctx.status() == 6);
                 if (ctx.status() == 4)
-                  check(kind &&
+                  check(kind == 1 &&
                         (!divisor || !std::isfinite(input) || input < -0x1p63 || input >= 0x1p63));
               }
-              std::printf("%d %u %d %d %llu %d %016llx %lld %llu %llu %llu %zu\n", mode, manual,
-                          kind, depth, bits, divisor,
-                          static_cast<unsigned long long>(std::bit_cast<std::uint64_t>(value)),
-                          static_cast<long long>(ctx.status()),
-                          static_cast<unsigned long long>(ctx.line()),
-                          static_cast<unsigned long long>(ctx.column()),
-                          static_cast<unsigned long long>(polls.load()), ctx.callDepth());
+              std::printf(
+                  "%d %u %d %d %llu %d %016llx %lld %llu %llu %llu %zu\n", mode, manual, kind,
+                  depth, bits, divisor, static_cast<unsigned long long>(std::bit_cast<Bits>(value)),
+                  static_cast<long long>(ctx.status()), static_cast<unsigned long long>(ctx.line()),
+                  static_cast<unsigned long long>(ctx.column()),
+                  static_cast<unsigned long long>(polls.load()), ctx.callDepth());
               while (ctx.callDepth())
                 ctx.leaveCall();
               ++cases;

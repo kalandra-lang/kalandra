@@ -2,6 +2,7 @@
 #include "NativeStack.h"
 #include "NativeFastABI.h"
 #include "NativeTailCalls.h"
+#include "NativeRecursiveContext.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -100,7 +101,7 @@ bool chunkCheckedLoop(llvm::Loop &loop, llvm::Function &function, llvm::Function
     phi.replaceIncomingBlockWith(header, complete);
   return true;
 }
-void simplifyCheckedStackIR(llvm::Function &function) {
+void simplifyCheckedStackIR(llvm::Function &function, bool prune = false) {
   using namespace llvm;
   // Simplify only after checked allocation/fault/poll calls are installed, so
   // optimizations cannot assume an unchecked fault path continues to execute.
@@ -118,6 +119,11 @@ void simplifyCheckedStackIR(llvm::Function &function) {
   simplify.addPass(InstCombinePass());
   simplify.addPass(EarlyCSEPass());
   simplify.addPass(DCEPass());
+  if (prune) {
+    simplify.addPass(SimplifyCFGPass());
+    simplify.addPass(InstCombinePass());
+    simplify.addPass(DCEPass());
+  }
   simplify.run(function, functionAnalyses);
 }
 void versionCheckedTailLoop(llvm::Function &function) {
@@ -250,6 +256,57 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
     if (!function.isDeclaration())
       originals.push_back(&function);
   std::unordered_map<Function *, Function *> checked;
+  SmallPtrSet<Function *, 16> closedScalars, recursiveScalars;
+  for (auto *function : originals) {
+    const auto scalar = [](Type *type) {
+      return (type->isIntegerTy() && type->getIntegerBitWidth() <= 64) || type->isFloatTy() || type->isDoubleTy();
+    };
+    bool pure = scalar(function->getReturnType()) && function->arg_size() <= 8;
+    for (auto &argument : function->args())
+      pure &= scalar(argument.getType());
+    for (auto &block : *function)
+      for (auto &instruction : block) {
+        if (auto *call = dyn_cast<CallInst>(&instruction)) {
+          auto *callee = call->getCalledFunction();
+          if (callee && ((!callee->isDeclaration() && !callee->isIntrinsic()) ||
+                         callee->getName() == "kalandra_fault"))
+            continue;
+          pure &= callee && callee->isIntrinsic() && !call->mayHaveSideEffects() &&
+                  !call->mayReadOrWriteMemory();
+        } else
+          pure &= !instruction.mayReadOrWriteMemory() && !isa<AllocaInst>(instruction);
+      }
+    if (pure)
+      closedScalars.insert(function);
+  }
+  // A pure-looking caller may reach a callback/owned value through a helper.
+  // Remove it transitively rather than assuming a scalar signature is enough.
+  bool changed;
+  do {
+    changed = false;
+    for (auto *function : originals) {
+      if (!closedScalars.contains(function))
+        continue;
+      bool closed = true;
+      for (auto &block : *function)
+        for (auto &instruction : block)
+          if (auto *call = dyn_cast<CallInst>(&instruction)) {
+            auto *callee = call->getCalledFunction();
+            closed &= callee && (callee->isIntrinsic() || callee->getName() == "kalandra_fault" ||
+                                  closedScalars.contains(callee));
+          }
+      if (!closed) {
+        closedScalars.erase(function);
+        changed = true;
+      }
+    }
+  } while (changed);
+  for (auto *function : originals)
+    if (closedScalars.contains(function))
+      for (auto &block : *function)
+        for (auto &instruction : block)
+          if (auto *call = dyn_cast<CallInst>(&instruction); call && call->getCalledFunction() == function)
+            recursiveScalars.insert(function);
   SmallPtrSet<CallInst *, 16> scalarTails;
   SmallPtrSet<Function *, 16> pureScalarBodies;
   std::unordered_map<Function *, std::vector<CallInst *>> checkedTails;
@@ -290,6 +347,8 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
       argument.replaceAllUsesWith(function->getArg(argument.getArgNo()));
     function->getArg(function->arg_size() - 1)->setName("invocation");
     checked.emplace(old, function);
+    if (recursiveScalars.erase(old))
+      recursiveScalars.insert(function);
     if (pureScalarBodies.contains(old))
       pureScalarBodies.insert(function);
   }
@@ -526,6 +585,8 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
     if (auto *old = module.getFunction(name); old && old->use_empty())
       old->eraseFromParent();
   inlineCheckedScalarCalls(module);
+  specializeRecursiveContexts(module, recursiveScalars, pureScalarBodies,
+                               [](llvm::Function &fn) { simplifyCheckedStackIR(fn, true); });
   defineNativeFastABI(module);
   return std::nullopt;
 }

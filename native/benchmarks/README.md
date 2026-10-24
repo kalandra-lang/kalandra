@@ -254,7 +254,7 @@ The [fair optimization report](../../benchmarks/results/optimization-2026-10-24.
 
 The [scalar tail-call follow-up](../../benchmarks/results/tail-calls-2026-10-24.md) qualifies logical depth, cancellation and stack-budgeted loop specialization. Run `optimization_controls.py --cpu-only` after the fair source suite to measure token-bound calls without reusing GPU artifacts. `native-tail-calls`, `native-tail-calls-software` and `native-total-hardware-casts` retain independent semantic/numerical assertions; the tail driver optionally accepts a frozen `--baseline` compiler for exact differential qualification.
 
-The [bounded inlining follow-up](../../benchmarks/results/checked-inlining-2026-10-24.md) measures one checked recursive expansion level, preserving the same source algorithms. To reproduce its interleaved before/after control, provide a compiler built from the pre-inlining `23c30fcb` source:
+The [bounded inlining follow-up](../../benchmarks/results/checked-inlining-2026-10-24.md) measures one checked recursive expansion level, preserving the same source algorithms. To reproduce that historical control, build `bd41ea8e` as the current compiler and provide a compiler from the pre-inlining `23c30fcb` source:
 
 ```sh
 python3 native/benchmarks/checked_inlining.py \
@@ -263,3 +263,15 @@ python3 native/benchmarks/checked_inlining.py \
 ```
 
 Both compilers link the current optimized runtime archive. Each compiler/runtime/source/binary hash is recorded; verify that runtime and baseline source match the intended comparison. `native-checked-inlining`, the hardware/software `native-checked-inlining-source-*` tests and `native-static-numerical-shapes` qualify bounded growth, logical state, floating recursion and static tensor paths. The floating source driver also accepts an optional `--baseline` for differential qualification.
+
+The [recursive context follow-up](../../benchmarks/results/recursive-context-2026-10-24.md) compares the current compiler against `bd41ea8e`, retaining all source algorithms and arithmetic. Run measurements after tests/builds have stopped, using fresh output paths:
+
+```sh
+python3 native/benchmarks/fair/source_run.py \
+  --output benchmarks/results/recursive-source-reproduction.json
+python3 native/benchmarks/checked_inlining.py \
+  --baseline-compiler /path/to/bd41ea8e/kalandra --observed \
+  --output benchmarks/results/recursive-context-reproduction.json
+```
+
+`--observed` adds diagnostic poll-counter cells to the clear/bound-token control. This is a compiler comparison using one current runtime archive on both sides. Differential drivers now freeze and record each compiler checksum. Floating controls support `--numeric float32` or `float64`, with rounding/FMA witnesses. The fast-call test additionally exercises deep recursion with about 1 KiB left above the native stack reserve.

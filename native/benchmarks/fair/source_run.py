@@ -29,7 +29,7 @@ def main():
         p.run([compiler,src/'source.k','--test-entry',name,'--emit-llvm',ir,'-O2','-o',build/(name+'-standalone')])
         text=ir.read_text();assert 'fmul contract' not in text and 'kalandra_test_entry' in text
         p.run([p.CLANG,*flags,'-DKALANDRA_KERNEL',src/'SourceDriver.cpp',ir,compiler.parent/'libkalandra-task-core-optimized.a','-o',build/('kalandra-'+name)])
-    dependencies=[p.ROOT/name for name in ('native/lib/Backend.cpp','native/lib/CheckedABI.cpp','native/lib/NativeFastABI.h','native/lib/NativeTailCalls.h','native/lib/NumericConversion.cpp','native/include/kalandra/HardwareConversion.h','native/lib/NativeStack.h','native/runtime/Runtime.cpp','native/runtime/Runtime.h')]
+    dependencies=[p.ROOT/name for name in ('native/lib/Backend.cpp','native/lib/CheckedABI.cpp','native/lib/NativeFastABI.h','native/lib/NativeTailCalls.h','native/lib/NativeRecursiveContext.h','native/lib/NumericConversion.cpp','native/include/kalandra/HardwareConversion.h','native/lib/NativeStack.h','native/runtime/Runtime.cpp','native/runtime/Runtime.h')]
     frozen={str(x):p.sha(x) for x in [compiler,compiler.parent/'libkalandra-task-core-optimized.a',*dependencies,*[x for x in src.iterdir() if x.is_file()]]}
     languages=('kalandra','cpp','go','rust','python')
     def invoke(cell,count,rounds,seed=17):

@@ -35,6 +35,36 @@ int main() {
                                    GlobalValue::ExternalLinkage, "kalandra_fn_large", module);
     auto *caller = Function::Create(FunctionType::get(wide, {wide}, false),
                                     GlobalValue::ExternalLinkage, "kalandra_fn_caller", module);
+    auto *memory = new GlobalVariable(module, i64, false, GlobalValue::InternalLinkage,
+                                      ConstantInt::get(i64, 7), "observed_memory");
+    auto *impure = Function::Create(FunctionType::get(i64, {i64}, false),
+                                    GlobalValue::InternalLinkage, "memory_leaf", module);
+    auto *unsafe = Function::Create(FunctionType::get(i64, {i64}, false),
+                                    GlobalValue::ExternalLinkage, "kalandra_fn_unsafe", module);
+    auto *dense = Function::Create(FunctionType::get(i64, {i64}, false),
+                                   GlobalValue::ExternalLinkage, "kalandra_fn_dense", module);
+    {
+      IRBuilder<> b(BasicBlock::Create(context, "entry", dense));
+      Value *value = dense->getArg(0);
+      for (unsigned i = 0; i < 50; ++i)
+        value = b.CreateCall(tree, {value});
+      b.CreateRet(value);
+    }
+    {
+      IRBuilder<> b(BasicBlock::Create(context, "entry", impure));
+      b.CreateRet(b.CreateAdd(b.CreateLoad(i64, memory), impure->getArg(0)));
+    }
+    {
+      IRBuilder<> b(BasicBlock::Create(context, "entry", unsafe));
+      auto *done = BasicBlock::Create(context, "done", unsafe);
+      auto *recurse = BasicBlock::Create(context, "recurse", unsafe);
+      b.CreateCondBr(b.CreateICmpEQ(unsafe->getArg(0), b.getInt64(0)), done, recurse);
+      b.SetInsertPoint(done);
+      b.CreateRet(b.CreateCall(impure, {unsafe->getArg(0)}));
+      b.SetInsertPoint(recurse);
+      b.CreateRet(b.CreateAdd(b.CreateCall(unsafe, {b.CreateSub(unsafe->getArg(0), b.getInt64(1))}),
+                              b.getInt64(1)));
+    }
     {
       IRBuilder<> b(BasicBlock::Create(context, "entry", tree));
       auto *done = BasicBlock::Create(context, "done", tree);
@@ -75,16 +105,53 @@ int main() {
       auto &functions = module.getFunctionList();
       functions.splice(tree->getIterator(), functions, large->getIterator());
       functions.splice(large->getIterator(), functions, caller->getIterator());
+      functions.splice(module.begin(), functions, unsafe->getIterator());
     }
     check(!kalandra::addCheckedInvocationABI(module, false));
     check(!verifyModule(module, &errs()));
     auto &inlined = *module.getFunction("kalandra_fn_tree");
     // Exactly one frozen recursive level: four physical recursive calls, but
     // all three logical admission/return paths and six post-call polls remain.
-    check(calls(inlined, "kalandra_fn_tree") == 4);
+    check(calls(inlined, "kalandra_recursive_dispatch_kalandra_fn_tree") == 4);
     check(calls(inlined, "kalandra_call_enter_v1") == 3);
     check(calls(inlined, "kalandra_call_leave_v1") >= 3);
     check(calls(inlined, "kalandra_poll_v1") == 6);
+    for (const auto *mode : {"clear", "token"}) {
+      const auto name = std::string("kalandra_fn_tree.recursive.") + mode;
+      auto *worker = module.getFunction(name);
+      check(worker && worker->hasLocalLinkage() && worker->hasFnAttribute(Attribute::NoInline));
+      check(calls(*worker, name) == 4);
+      check(calls(*worker, std::string("kalandra_recursive_enter_") + mode) == 1);
+      check(calls(*worker, std::string("kalandra_recursive_inline_enter_") + mode) == 2);
+      check(calls(*worker, std::string("kalandra_recursive_poll_") + mode) == 6);
+      check(calls(*worker, "kalandra_recursive_leave_v1") >= 3);
+      check(!kalandra::nativeStackBudgetError(*worker, module.getDataLayout()));
+    }
+    check(calls(*module.getFunction("kalandra_recursive_dispatch_kalandra_fn_tree"),
+                "kalandra_fn_tree.recursive.observed") == 1);
+    check(!kalandra::nativeStackBudgetError(
+        *module.getFunction("kalandra_recursive_dispatch_kalandra_fn_tree"), module.getDataLayout(),
+        false, 16 * 1024 - 512));
+    auto *observed = module.getFunction("kalandra_fn_tree.recursive.observed");
+    check(observed && calls(*observed, observed->getName()) == 4);
+    check(calls(*observed, "kalandra_call_enter_v1") == 3);
+    check(calls(*observed, "kalandra_poll_v1") == 6);
+    auto *largeDispatch = module.getFunction("kalandra_fn_dense");
+    check(largeDispatch && calls(*largeDispatch, "kalandra_fn_tree") >= 50);
+    check(calls(*largeDispatch, "kalandra_recursive_dispatch_kalandra_fn_tree") == 0);
+    check(!module.getFunction("kalandra_fn_unsafe.recursive.clear"));
+    auto &poll = *module.getFunction("kalandra_recursive_poll_token");
+    bool acquire = false;
+    for (auto &block : poll)
+      for (auto &instruction : block)
+        if (auto *load = dyn_cast<LoadInst>(&instruction))
+          acquire |= load->getOrdering() == AtomicOrdering::Acquire;
+    check(acquire);
+    check(calls(*module.getFunction("kalandra_recursive_inline_enter_clear"),
+                "llvm.stacksave.p0") == 0);
+#if defined(__APPLE__)
+    check(calls(*module.getFunction("kalandra_recursive_enter_clear"), "llvm.stacksave.p0") == 1);
+#endif
     // This candidate fits before inlining, but its four large callees would
     // exceed 16 KiB. Keep the original accepted source body, with four calls.
     auto &bounded = *module.getFunction("kalandra_fn_caller");
@@ -100,7 +167,7 @@ int main() {
     unsigned sources = 0;
     for (auto &function : module)
       sources += function.getName().starts_with("kalandra_fn_");
-    check(sources == 3);
+    check(sources == 8);
   }
   std::cout << "Checked inlining: preserved admissions/polls, bounded growth, budget fallback and "
                "module order passed\n";

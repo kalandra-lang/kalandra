@@ -1083,6 +1083,11 @@ if(BUILD_TESTING)
         --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
         --arithmetic "${POLICY}" --output "${CMAKE_CURRENT_BINARY_DIR}/checked-inlining-${POLICY}")
     set_tests_properties(native-checked-inlining-source-${POLICY} PROPERTIES TIMEOUT 900)
+    add_test(NAME native-checked-inlining-source-float32-${POLICY}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CheckedInliningSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --arithmetic "${POLICY}" --numeric float32 --output "${CMAKE_CURRENT_BINARY_DIR}/checked-inlining-float32-${POLICY}")
+    set_tests_properties(native-checked-inlining-source-float32-${POLICY} PROPERTIES TIMEOUT 900)
   endforeach()
   add_test(NAME native-tail-calls
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TailCallTests.py"

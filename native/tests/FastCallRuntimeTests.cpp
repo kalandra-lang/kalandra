@@ -52,6 +52,30 @@ static void *worker(void *argument) {
   }
   return nullptr;
 }
+#if defined(__aarch64__)
+static void *boundedWorker(void *argument) {
+  auto &test = *static_cast<Worker *>(argument);
+  try {
+    const auto high = reinterpret_cast<std::uintptr_t>(pthread_get_stackaddr_np(pthread_self()));
+    const auto low = high - pthread_get_stacksize_np(pthread_self()) + 128 * 1024;
+    std::uintptr_t position;
+    asm volatile("mov %0, sp" : "=r"(position));
+    CHECK(position > low + 2048);
+    const auto bytes = position - low - 1024;
+    auto *memory = static_cast<volatile char *>(__builtin_alloca(bytes));
+    for (std::size_t i = 0; i < bytes; i += 4096)
+      memory[i] = char(i);
+    // The outer entry has room, but deeper physical frames must still stop
+    // before the reserve, even on the private context/cached-token paths.
+    CHECK(call(*test.context, 1000) == 0 && test.context->status() == 6 &&
+          test.context->callDepth() == 0);
+    CHECK(memory[0] == 0);
+    test.ok = true;
+  } catch (...) {
+  }
+  return nullptr;
+}
+#endif
 #endif
 int main() {
   Invocation context;
@@ -122,6 +146,26 @@ int main() {
     CHECK(interrupted.poll() == -1 && interrupted.callDepth() == 0 && interrupted.live() == 0);
   }
 #if defined(__APPLE__)
+#if defined(__aarch64__)
+  for (int mode : {0, 1, 2}) {
+    Invocation bounded;
+    std::atomic<bool> token = false;
+    std::atomic<std::uint64_t> polls = 0;
+    if (mode == 1)
+      bounded.bindCancellation(&token);
+    if (mode == 2)
+      bounded.watchPolls(&polls);
+    pthread_attr_t attributes;
+    CHECK(!pthread_attr_init(&attributes));
+    CHECK(!pthread_attr_setstacksize(&attributes, 256 * 1024));
+    Worker test{&bounded, false};
+    pthread_t thread;
+    CHECK(!pthread_create(&thread, &attributes, boundedWorker, &test));
+    CHECK(!pthread_join(thread, nullptr));
+    CHECK(!pthread_attr_destroy(&attributes));
+    CHECK(test.ok && bounded.status() == 6 && bounded.callDepth() == 0);
+  }
+#endif
   // Same Invocation, with an existing manual admission, migrates between stacks.
   // Generated chain leases must be released independently of logical depth zero.
   Invocation migrating;

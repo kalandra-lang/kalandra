@@ -99,6 +99,8 @@ def main():
     a.output.mkdir(parents=True, exist_ok=True)
     root = Path(__file__).resolve().parents[2]
     records = []
+    frozen_compilers = {str(c): hashlib.sha256(c.read_bytes()).hexdigest()
+                        for c in (a.compiler, *([a.baseline] if a.baseline else []))}
     def run(args):
         r = subprocess.run(list(map(str, args)), capture_output=True, text=True, timeout=240)
         assert r.returncode == 0, (args, r.returncode, r.stdout[-2000:], r.stderr[-5000:])
@@ -149,6 +151,7 @@ def main():
                 r = run([binary])
                 outputs.append(r.stdout)
                 records.append(dict(variant=label, arithmetic=a.arithmetic, compiler=version,
+                    compiler_sha256=frozen_compilers[str(compiler)],
                     cases=len(r.stdout.splitlines()),
                     state_sha256=hashlib.sha256(r.stdout.encode()).hexdigest(),
                     ir_sha256=hashlib.sha256(ir.read_bytes()).hexdigest(), result=r.stderr.strip()))
@@ -169,8 +172,10 @@ def main():
                 result = run([binary]).stdout
                 assert result == expected, (label, result)
                 records.append(dict(variant=name + '-' + label, arithmetic=a.arithmetic,
+                    compiler_sha256=frozen_compilers[str(compiler)],
                     compiler=version, cases=1, state_sha256=hashlib.sha256(result.encode()).hexdigest(),
                     ir_sha256=hashlib.sha256(ir.read_bytes()).hexdigest(), result=result.strip()))
+    assert all(hashlib.sha256(Path(c).read_bytes()).hexdigest() == h for c, h in frozen_compilers.items()), 'compiler changed during qualification'
     (a.output / 'qualification.json').write_text(json.dumps(records, indent=2) + '\n')
 
 if __name__ == '__main__':
