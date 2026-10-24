@@ -45,7 +45,12 @@ def qualify(compiler):
                        f"fn main()->{numeric} ! TaskError:\n  try parallel:\n"
                        f"    work=spawn echo({value})\n    first=try await work\n    again=try await work\n"
                        "    if first==again:again\n    else:0\n", value)]
-        cases += [("Bool", "fn main()->Bool:\n  true\n", "true"),
+            cases.append((f"{numeric} recursive scalar", f"fn tree(v:{numeric},n:int)->{numeric}:\n"
+                          "  if n==0:v\n  else:tree(v,n-1)+tree(v,n-1)\n"
+                          f"fn main()->{numeric}:\n  tree(1,3)\n", "8"))
+        cases += [("recursive Bool", "fn tree(v:Bool,n:int)->Bool:\n  if n==0:v\n"
+                   "  else:tree(v,n-1)==tree(v,n-1)\nfn main()->Bool:\n  tree(false,7)\n", "true"),
+                  ("Bool", "fn main()->Bool:\n  true\n", "true"),
                   ("String", 'fn main()->String:\n  "é"+"🙂"\n', "é🙂"),
                   ("String array", 'fn main()->[String]:\n  ["é"+"🙂","retained"]\n', '["é🙂", "retained"]'),
                   ("record/enum ownership", """type Row:

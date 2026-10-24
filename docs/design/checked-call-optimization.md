@@ -73,3 +73,14 @@ The structural unit checks private and observed edges, acquire token loads, phys
 The [qualified results](../../benchmarks/results/recursive-context-2026-10-24.md) retain 716,496 differential cases, 532 frame audit records, clear/bound/observed timings, fresh source comparisons and all validation repairs. Further optimization is still needed for the Rust/C++ 10% target.
 
 The [tail-return follow-up](../../benchmarks/results/tail-return-2026-10-24.md) records the signed-remainder/token-return changes, 3,084,456 differential/reference cases, final machine-frame audit and timing limitations under competing builds.
+
+
+## Private recursive state and a second bounded expansion
+
+Closed unbound, loop-free workers qualify for register-carried depth/status only when they contain direct self calls, the known depth-free poll/fault helpers and memory-free intrinsics. Other helpers exclude this form. The private signature adds depth and returns the scalar result with a success bit; the public source signature and runtime ABI remain unchanged. An existing-signature bridge captures/restores outer published depth without acquiring a logical slot or releasing the outer lease.
+
+Entry polling and all 128-slot admission checks remain. Explicit terminal faults are recorded in the runtime and clear local success; recursive results propagate success through the original failure branches. Subsequent status calls may use that SSA state only when entry dominates and the status is used exclusively in zero equality tests. Exclusive unbound invocation ownership excludes asynchronous observers/tokens. Bound and observed bodies retain their preceding implementation.
+
+At most four calls are expanded from one frozen private snapshot, preserving copied SP checks, logical admission, fault paths and arithmetic order. Stable source order preserves reproducibility. The complete expanded body must fit the existing 16 KiB model and its bridge 512 bytes; failed/oversized expansion discards the entire candidate, retaining the previous worker. Structural tests include helper exclusion and large-body fallback. The native 128 KiB reserve is unchanged.
+
+The [qualified report](../../benchmarks/results/recursive-register-2026-10-24.md) includes 761,424 differential/reference cases, all ten numeric types plus Bool, 828 audited frame records and a six-depth fair source comparison. It records the remaining depth-12 expansion cliff, GCD gap and small control regressions rather than claiming the Rust/C++ target is complete. It also records the separately fixed Windows compound-operator span bug and its hosted qualification.

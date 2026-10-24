@@ -32,3 +32,5 @@ Latest source-call optimization: [bounded checked-call inlining](results/checked
 Latest recursive-call results: [proven call-chain contexts](results/recursive-context-2026-10-24.md), with clear/bound/observed controls, another fair source comparison, exact differential qualification, frame audits and retained validation repairs. The source-performance target remains unmet.
 
 The [tail-return follow-up](results/tail-return-2026-10-24.md) records pure scalar token-return bookkeeping, safe signed remainder, exact baseline qualification and adjacent paired timing controls.
+
+The [private recursive-state follow-up](results/recursive-register-2026-10-24.md) records the new default-path gains, six-depth comparison, typed correctness qualification and remaining phase/GCD gaps.

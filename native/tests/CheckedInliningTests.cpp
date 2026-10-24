@@ -1,4 +1,5 @@
 #include "../lib/NativeStack.h"
+#include "../runtime/Runtime.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -35,6 +36,42 @@ int main() {
                                    GlobalValue::ExternalLinkage, "kalandra_fn_large", module);
     auto *caller = Function::Create(FunctionType::get(wide, {wide}, false),
                                     GlobalValue::ExternalLinkage, "kalandra_fn_caller", module);
+    auto *closedHelper = Function::Create(FunctionType::get(i64, {i64}, false),
+                                           GlobalValue::InternalLinkage, "closed_helper", module);
+    auto *helperTree = Function::Create(FunctionType::get(i64, {i64}, false),
+                                        GlobalValue::ExternalLinkage, "kalandra_fn_helper_tree", module);
+    {
+      IRBuilder<> b(BasicBlock::Create(context, "entry", closedHelper));
+      b.CreateRet(b.CreateAdd(closedHelper->getArg(0), b.getInt64(1)));
+      b.SetInsertPoint(BasicBlock::Create(context, "entry", helperTree));
+      auto *done = BasicBlock::Create(context, "done", helperTree);
+      auto *recurse = BasicBlock::Create(context, "recurse", helperTree);
+      b.CreateCondBr(b.CreateICmpEQ(helperTree->getArg(0), b.getInt64(0)), done, recurse);
+      b.SetInsertPoint(done);
+      b.CreateRet(b.CreateCall(closedHelper, {helperTree->getArg(0)}));
+      b.SetInsertPoint(recurse);
+      b.CreateRet(b.CreateAdd(b.CreateCall(helperTree,
+          {b.CreateSub(helperTree->getArg(0), b.getInt64(1))}), b.getInt64(1)));
+    }
+    auto *f64 = Type::getDoubleTy(context);
+    auto *wideTree = Function::Create(FunctionType::get(f64, {f64, i64}, false),
+                                      GlobalValue::ExternalLinkage, "kalandra_fn_wide_tree", module);
+    {
+      IRBuilder<> b(BasicBlock::Create(context, "entry", wideTree));
+      auto *done = BasicBlock::Create(context, "done", wideTree);
+      auto *recurse = BasicBlock::Create(context, "recurse", wideTree);
+      b.CreateCondBr(b.CreateICmpEQ(wideTree->getArg(1), b.getInt64(0)), done, recurse);
+      b.SetInsertPoint(done);
+      Value *value = wideTree->getArg(0);
+      for (unsigned i = 0; i < 200; ++i)
+        value = b.CreateFMul(value, ConstantFP::get(f64, 1.001));
+      b.CreateRet(value);
+      b.SetInsertPoint(recurse);
+      auto *n = b.CreateSub(wideTree->getArg(1), b.getInt64(1));
+      auto *a = b.CreateCall(wideTree, {wideTree->getArg(0), n});
+      auto *c = b.CreateCall(wideTree, {wideTree->getArg(0), n});
+      b.CreateRet(b.CreateFAdd(a, c));
+    }
     auto *memory = new GlobalVariable(module, i64, false, GlobalValue::InternalLinkage,
                                       ConstantInt::get(i64, 7), "observed_memory");
     auto *impure = Function::Create(FunctionType::get(i64, {i64}, false),
@@ -120,12 +157,41 @@ int main() {
       const auto name = std::string("kalandra_fn_tree.recursive.") + mode;
       auto *worker = module.getFunction(name);
       check(worker && worker->hasLocalLinkage() && worker->hasFnAttribute(Attribute::NoInline));
-      check(calls(*worker, name) == 4);
-      check(calls(*worker, std::string("kalandra_recursive_enter_") + mode) == 1);
-      check(calls(*worker, std::string("kalandra_recursive_inline_enter_") + mode) == 2);
-      check(calls(*worker, std::string("kalandra_recursive_poll_") + mode) == 6);
-      check(calls(*worker, "kalandra_recursive_leave_v1") >= 3);
-      check(!kalandra::nativeStackBudgetError(*worker, module.getDataLayout()));
+      if (std::string(mode) == "token") {
+        check(!module.getFunction(name + ".depth"));
+        check(calls(*worker, name) == 4);
+        check(calls(*worker, "kalandra_recursive_enter_token") == 1);
+        check(calls(*worker, "kalandra_recursive_inline_enter_token") == 2);
+        check(calls(*worker, "kalandra_recursive_poll_token") == 6);
+        continue;
+      }
+      auto *depthWorker = module.getFunction(name + ".depth");
+      check(depthWorker && depthWorker->hasLocalLinkage() &&
+            depthWorker->hasFnAttribute(Attribute::NoInline));
+      check(calls(*worker, depthWorker->getName()) == 1);
+      check(calls(*depthWorker, depthWorker->getName()) == 16);
+            check(calls(*depthWorker, std::string("kalandra_recursive_poll_") + mode) == 5);
+      check(depthWorker->getReturnType()->isStructTy());
+      check(calls(*depthWorker, "kalandra_recursive_leave_v1") == 0);
+      check(depthWorker->arg_size() == worker->arg_size() + 1);
+      for (auto &block : *depthWorker)
+        for (auto &instruction : block) {
+          check(!isa<AllocaInst>(instruction));
+          Value *address = nullptr;
+          if (auto *load = dyn_cast<LoadInst>(&instruction))
+            address = load->getPointerOperand();
+          if (auto *store = dyn_cast<StoreInst>(&instruction))
+            address = store->getPointerOperand();
+          if (auto *gep = dyn_cast_or_null<GetElementPtrInst>(address);
+              gep && gep->getNumIndices() == 1)
+            if (auto *offset = dyn_cast<ConstantInt>(gep->getOperand(1)))
+              check(offset->getZExtValue() != kalandra::runtime::InvocationABI::depth);
+        }
+#if defined(__APPLE__)
+      check(calls(*depthWorker, "llvm.stacksave.p0") == 5);
+#endif
+      check(!kalandra::nativeStackBudgetError(*depthWorker, module.getDataLayout()));
+      check(!kalandra::nativeStackBudgetError(*worker, module.getDataLayout(), false, 16 * 1024 - 512));
     }
     check(calls(*module.getFunction("kalandra_recursive_dispatch_kalandra_fn_tree"),
                 "kalandra_fn_tree.recursive.observed") == 1);
@@ -140,6 +206,20 @@ int main() {
     check(largeDispatch && calls(*largeDispatch, "kalandra_fn_tree") >= 50);
     check(calls(*largeDispatch, "kalandra_recursive_dispatch_kalandra_fn_tree") == 0);
     check(!module.getFunction("kalandra_fn_unsafe.recursive.clear"));
+    // A closed helper can observe the published logical depth at its own
+    // checked entry. Retain the memory-based context worker in this case.
+    for (const auto *mode : {"clear", "token"}) {
+      const auto name = std::string("kalandra_fn_helper_tree.recursive.") + mode;
+      check(module.getFunction(name));
+      check(!module.getFunction(name + ".depth"));
+      check(calls(*module.getFunction(name), "closed_helper") > 0);
+    }
+    // The expanded private body would exceed the original 16 KiB model.
+    // Keep the already accepted memory-based worker, including its identity.
+    auto *boundedWorker = module.getFunction("kalandra_fn_wide_tree.recursive.clear");
+    check(boundedWorker && calls(*boundedWorker, boundedWorker->getName()) == 4);
+    check(!module.getFunction("kalandra_fn_wide_tree.recursive.clear.depth"));
+    check(!kalandra::nativeStackBudgetError(*boundedWorker, module.getDataLayout()));
     auto &poll = *module.getFunction("kalandra_recursive_poll_token");
     bool acquire = false;
     for (auto &block : poll)
@@ -167,7 +247,7 @@ int main() {
     unsigned sources = 0;
     for (auto &function : module)
       sources += function.getName().starts_with("kalandra_fn_");
-    check(sources == 8);
+    check(sources == 17);
   }
   std::cout << "Checked inlining: preserved admissions/polls, bounded growth, budget fallback and "
                "module order passed\n";

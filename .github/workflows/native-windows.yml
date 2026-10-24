@@ -42,6 +42,12 @@ jobs:
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build native CPU toolchain
         run: cmake --build build/windows --target native-cpu-toolchain kalandra -j2 -- -k 0
+      - name: Verify recursive scalar values and checked state
+        run: >-
+          python native/tests/RecursiveScalarTests.py
+          --compiler build/windows/native/kalandra.exe
+          --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          --output build/windows/recursive-scalars
       - name: Verify documented PowerShell starter commands
         shell: pwsh
         run: |

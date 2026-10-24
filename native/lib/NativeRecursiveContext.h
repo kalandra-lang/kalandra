@@ -1,6 +1,7 @@
 #pragma once
 #include "../runtime/Runtime.h"
 #include "NativeStack.h"
+#include "NativeRecursiveDepth.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -320,5 +321,11 @@ inline void specializeRecursiveContexts(llvm::Module &module,
         call->eraseFromParent();
       }
     }
+  // Stable source order is part of reproducible module/package generation.
+  // Token workers retain their acquire-based status path.
+  for (auto *original : functions)
+    if (auto found = versions.find(original); found != versions.end())
+      specializeRecursiveDepth(*found->second[0], polls[0],
+                               {leave, enters[0][0], enters[0][1]}, simplify);
 }
 } // namespace kalandra

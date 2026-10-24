@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "failure_run": "https://github.com/kalandra-lang/kalandra/actions/runs/40116595760",
+  "diagnostic_run": "https://github.com/kalandra-lang/kalandra/actions/runs/40118572800",
+  "fixed_frontend_run": "https://github.com/kalandra-lang/kalandra/actions/runs/40119074712",
+  "fixed_full_qualification_run": "https://github.com/kalandra-lang/kalandra/actions/runs/40119074682",
+  "fix_commit": "d5cdded6dc9b2da5b0a7fa80a48cfb47dff09d0c",
+  "full_qualification_conclusion": "success",
+  "source": "fn gcd(a:int,b:int)->int:\n  if b==0:a\n  else:gcd(b,a%b)\nfn main()->int:\n  gcd(987654321,123456789)\n",
+  "original_results": [
+    {
+      "label": "scalar",
+      "mode": "debug",
+      "compile": 0,
+      "stderr": "",
+      "stdout": "987654321\n",
+      "status": 0
+    },
+    {
+      "label": "scalar",
+      "mode": "optimized",
+      "compile": 0,
+      "stderr": "",
+      "stdout": "987654321\n",
+      "status": 0
+    },
+    {
+      "label": "array",
+      "mode": "debug",
+      "compile": 0,
+      "stderr": "",
+      "stdout": "[987654321]\n",
+      "status": 0
+    },
+    {
+      "label": "array",
+      "mode": "optimized",
+      "compile": 0,
+      "stderr": "",
+      "stdout": "[987654321]\n",
+      "status": 0
+    }
+  ],
+  "original_ir_sha256": "76fff7e57eed9e3b85e563076e9c9a25ab38f763cd41109dad82e5f3ae5ce1ba",
+  "original_ir_predicates": [
+    "%11 = icmp sgt i64 %tail.argument2.us.us, -1",
+    "%19 = icmp sgt i64 %tail.argument2.us, -1",
+    "%26 = icmp sgt i64 %tail.argument2, -1",
+    "%7 = icmp sgt i64 %tail.argument2.us, -1",
+    "%7 = icmp sgt i64 %tail.argument2.us.us, -1",
+    "%11 = icmp sgt i64 %tail.argument2.us.us, -1",
+    "%19 = icmp sgt i64 %tail.argument2.us, -1",
+    "%26 = icmp sgt i64 %tail.argument2, -1"
+  ],
+  "fixed_frontend": {
+    "compile": 0,
+    "stderr": "",
+    "status": 0,
+    "stdout": "PASS lexer lines\nPASS lexer failures\nPASS operator spans and meaning\nPASS precedence and spans\nPASS types and bindings\nPASS anonymous functions\nPASS arrays after blocks\nPASS recovery\nPASS limits and source ownership\nPASS placement grouping\nPASS malformed corpus\nPASS canonical projection fixture\n",
+    "test_stderr": ""
+  },
+  "cause": "take() mutated position_ in one emit() argument while another read it. Windows evaluated the end position first, producing a one-character == span; Parser.cpp selected its >= fallback. The fixed lexer computes the token kind before reading the final position for ->, =>, == and !=. This is a pre-existing frontend sequencing bug, not a division-arithmetic or tail-return bug.",
+  "coverage": "Exact token spans and comparison AST kinds, adjacent/spaced operators, LF/CRLF; full native Windows downloaded-package acceptance includes signed remainder/GCD and all six integer/floating comparison predicates. The temporary diagnostic workflow is removed after qualification."
+}

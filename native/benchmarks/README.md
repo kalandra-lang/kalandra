@@ -278,3 +278,6 @@ python3 native/benchmarks/checked_inlining.py \
 
 
 Use `checked_inlining.py --paired --observed` with a frozen `--baseline-compiler` for adjacent ABBA/BAAB controls when longer runs show scheduling drift. Nine blocks per algorithm/mode retain all fresh-process samples and per-block ratios, with identical iteration counts within each pair. Two warmups and three measured batches run per process. Review the spread and observed controls; competing compilation can still invalidate a precise speed claim. See the [tail-return report](../../benchmarks/results/tail-return-2026-10-24.md).
+
+
+The [private recursive state report](../../benchmarks/results/recursive-register-2026-10-24.md) combines a matched unbound control with six depth phases. `source_run.py --depths 9 10 11 12 13 14 --output PATH` retains the original source algorithms and input guard (maximum depth 14), while recording the phase cliff. `native-recursive-scalars` qualifies numeric/Bool recursive results against independent references; `RecursiveScalarTests.py` additionally accepts `--baseline` for exact state comparison.

@@ -1078,6 +1078,11 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/benchmark-cells")
   set_tests_properties(native-cpu-benchmark-cells PROPERTIES TIMEOUT 180)
+  add_test(NAME native-recursive-scalars
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/RecursiveScalarTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/recursive-scalars")
+  set_tests_properties(native-recursive-scalars PROPERTIES TIMEOUT 900)
   add_test(NAME native-signed-remainder
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/SignedRemainderTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
