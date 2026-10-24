@@ -123,9 +123,11 @@ public:
       case '+':
         emit(TokenKind::Plus, begin, position_);
         break;
-      case '-':
-        emit(take('>') ? TokenKind::Arrow : TokenKind::Minus, begin, position_);
+      case '-': {
+        const auto kind = take('>') ? TokenKind::Arrow : TokenKind::Minus;
+        emit(kind, begin, position_);
         break;
+      }
       case '*':
         emit(TokenKind::Star, begin, position_);
         break;
@@ -138,18 +140,23 @@ public:
       case '.':
         emit(TokenKind::Dot, begin, position_);
         break;
-      case '=':
-        emit(take('>')   ? TokenKind::FatArrow
-             : take('=') ? TokenKind::Comparison
-                         : TokenKind::Equal,
-             begin, position_);
+      case '=': {
+        // Consume first: function argument evaluation order differs between
+        // native ABIs, so emit must read the updated end after take().
+        const auto kind = take('>')   ? TokenKind::FatArrow
+                          : take('=') ? TokenKind::Comparison
+                                      : TokenKind::Equal;
+        emit(kind, begin, position_);
         break;
+      }
       case '|':
         emit(TokenKind::Pipe, begin, position_);
         break;
-      case '!':
-        emit(take('=') ? TokenKind::Comparison : TokenKind::Bang, begin, position_);
+      case '!': {
+        const auto kind = take('=') ? TokenKind::Comparison : TokenKind::Bang;
+        emit(kind, begin, position_);
         break;
+      }
       case '<':
       case '>':
         take('=');

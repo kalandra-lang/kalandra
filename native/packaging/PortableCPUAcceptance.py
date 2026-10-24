@@ -91,6 +91,16 @@ fn gcd(a:int,b:int)->int:
 fn main()->[int]:
   [rem(-9223372036854775808,-1),rem(-9223372036854775808,3),rem(9223372036854775807,-1),rem(-37,7),rem(37,-7),gcd(987654321,123456789)]
 """, "[0, -2, 0, -2, 2, 9]"))
+        # Pass values through parameters: the frontend must preserve every
+        # comparison predicate rather than fold only literal expressions.
+        for numeric in ("int64", "float64"):
+            for a, b in ((-1, 0), (0, 0), (1, 0)):
+                expected = "[" + ", ".join(str(v).lower() for v in
+                    (a == b, a != b, a < b, a <= b, a > b, a >= b)) + "]"
+                text = (f"fn compare(a:{numeric},b:{numeric})->[Bool]:\n"
+                        "  [a==b,a!=b,a<b,a<=b,a>b,a>=b]\n"
+                        f"fn main()->[Bool]:\n  compare({a},{b})\n")
+                cases.append((f"{numeric} comparisons {a}/{b}", text, expected))
         for numeric in ("float32", "float64"):
             cases += [(f"{numeric} static matrix product", f"""fn main()->{numeric}:
   a:Tensor[{numeric},1,2]=tensor([[2,3]])

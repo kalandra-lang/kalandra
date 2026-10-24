@@ -32,6 +32,17 @@ jobs:
           with tarfile.open(archive) as package: package.extractall(out,filter='data')
           driver,=out.glob('kalandra-native-*/bin/kalandra.exe')
           clang,=out.glob('kalandra-native-*/libexec/kalandra/clang++.exe')
+          syntax=out/'syntax.exe'
+          sources=['Source','Diagnostics','Lexer','Parser','Modules','Formatter']
+          command=[clang,'-std=c++23','-fms-runtime-lib=static','-I','native/include',
+                   '-resource-dir',driver.parent.parent/'lib/kalandra/toolchain/clang',
+                   *[Path('native/lib')/(name+'.cpp') for name in sources],
+                   Path('native/tests/SyntaxTests.cpp'),'-o',syntax]
+          compiled=subprocess.run(command,capture_output=True,text=True)
+          tested=subprocess.run([syntax,Path('docs/design/fixtures/cpu-projection.k')],capture_output=True,text=True) if compiled.returncode==0 else None
+          frontend=dict(compile=compiled.returncode,stderr=compiled.stderr,status=tested.returncode if tested else None,stdout=tested.stdout if tested else '',test_stderr=tested.stderr if tested else '')
+          (out/'frontend.json').write_text(json.dumps(frontend,indent=2));print(json.dumps(frontend,indent=2))
+          assert compiled.returncode==0 and tested.returncode==0
           source='fn gcd(a:int,b:int)->int:\n  if b==0:a\n  else:gcd(b,a%b)\nfn main()->int:\n  gcd(987654321,123456789)\n'
           records=[]
           for label,extra in [('scalar',''),('array','array')]:

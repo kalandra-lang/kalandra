@@ -132,6 +132,36 @@ void lexerLines() {
           "wrong byte location");
   require(syntax(input->text()).ok(), "valid continuation did not parse");
 }
+void operatorSpans() {
+  const std::vector<std::pair<std::string, TokenKind>> operators{
+      {"->", TokenKind::Arrow}, {"=>", TokenKind::FatArrow},
+      {"==", TokenKind::Comparison}, {"!=", TokenKind::Comparison},
+      {"<=", TokenKind::Comparison}, {">=", TokenKind::Comparison},
+      {"<", TokenKind::Comparison}, {">", TokenKind::Comparison},
+      {"-", TokenKind::Minus}, {"=", TokenKind::Equal}, {"!", TokenKind::Bang}};
+  for (const auto &[spelling, kind] : operators) {
+    auto input = source(spelling);
+    auto result = lex(input);
+    require(result.diagnostics.empty() && result.tokens[0].kind == kind,
+            "operator token kind lost: " + spelling);
+    require(input->slice(result.tokens[0].span) == spelling,
+            "operator span lost a consumed character: " + spelling);
+  }
+  const std::vector<std::pair<std::string, ComparisonKind>> comparisons{
+      {"==", ComparisonKind::Equal}, {"!=", ComparisonKind::NotEqual},
+      {"<", ComparisonKind::Less}, {"<=", ComparisonKind::LessEqual},
+      {">", ComparisonKind::Greater}, {">=", ComparisonKind::GreaterEqual}};
+  for (const auto &[spelling, kind] : comparisons)
+    for (const auto *space : {"", " "})
+      for (const auto *newline : {"\n", "\r\n"}) {
+        auto result = syntax(std::string("fn f(a:int,b:int)->Bool:") + newline +
+                             "  a" + space + spelling + space + "b" + newline);
+        require(result.ok(), "comparison syntax rejected: " + spelling);
+        const auto id = result.module.functions[0].body[0].expression;
+        require(std::get<ComparisonExpr>(result.module.expressions[id].value).operation == kind,
+                "comparison changed meaning: " + spelling);
+      }
+}
 void lexerFailures() {
   const std::vector<std::pair<std::string, std::string>> examples{
       {"fn f():\n\tx\n", "L003"},
@@ -386,6 +416,7 @@ int main(int argc, char **argv) {
     const std::vector<std::pair<std::string, std::function<void()>>> tests{
         {"lexer lines", lexerLines},
         {"lexer failures", lexerFailures},
+        {"operator spans and meaning", operatorSpans},
         {"precedence and spans", precedenceAndSpans},
         {"types and bindings", typesAndBindings},
         {"anonymous functions", anonymousFunctions},
