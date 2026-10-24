@@ -1,0 +1,55 @@
+name: Native Windows recursion diagnostic
+on:
+  push:
+    branches: [native]
+    paths: [.github/workflows/native-windows-diagnostic.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnostic:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows-assets
+          run-id: 40116595760
+          github-token: ${{ github.token }}
+          path: downloaded
+      - name: Capture generated recursion code from the failing compiler
+        shell: python
+        run: |
+          from pathlib import Path
+          import json, subprocess, tarfile
+          out=Path('diagnostic');out.mkdir()
+          archive,=Path('downloaded').glob('*.tar.gz')
+          with tarfile.open(archive) as package: package.extractall(out,filter='data')
+          driver,=out.glob('kalandra-native-*/bin/kalandra.exe')
+          clang,=out.glob('kalandra-native-*/lib/kalandra/toolchain/bin/clang.exe')
+          source='fn gcd(a:int,b:int)->int:\n  if b==0:a\n  else:gcd(b,a%b)\nfn main()->int:\n  gcd(987654321,123456789)\n'
+          records=[]
+          for label,extra in [('scalar',''),('array','array')]:
+            text=source if not extra else source.replace('fn main()->int:\n  gcd(987654321,123456789)','fn main()->[int]:\n  [gcd(987654321,123456789)]')
+            path=out/(label+'.k');path.write_text(text)
+            for mode,flags in [('debug',['-O0']),('optimized',['-O2'])]:
+              base=out/(label+'-'+mode);ir=base.with_suffix('.ll');binary=base.with_suffix('.exe')
+              compiled=subprocess.run([driver,path,*flags,'--emit-llvm',ir,'-o',binary],capture_output=True,text=True)
+              run=subprocess.run([binary],capture_output=True,text=True) if compiled.returncode==0 else None
+              records.append(dict(label=label,mode=mode,compile=compiled.returncode,stderr=compiled.stderr,stdout=run.stdout if run else '',status=run.returncode if run else None))
+              if ir.exists():subprocess.run([clang,'-S','-O2',ir,'-o',base.with_suffix('.s')],capture_output=True,text=True)
+          (out/'results.json').write_text(json.dumps(records,indent=2));print(json.dumps(records,indent=2))
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-recursion-diagnostic
+          path: |
+            diagnostic/*.json
+            diagnostic/*.ll
+            diagnostic/*.s
+            diagnostic/*.k
