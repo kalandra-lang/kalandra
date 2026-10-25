@@ -297,12 +297,13 @@ int main() {
   singleton(std::nextafter(Float(1), Float(2)), Float(-3));
   cancellation();
 #else
-  for (auto k : {0, 1, 3, 7, 8, 9, 15, 16, 17, 31, 32, 33, 255, 256, 257, 513})
+  for (auto k :
+       {0, 1, 3, 7, 8, 9, 15, 16, 17, 31, 32, 33, 63, 64, 65, 95, 96, 97, 255, 256, 257, 513})
     for (auto rows : {0, 1, 3, 4, 5})
       for (auto columns : {0, 1, 2, 3, 4, 15, 16, 17})
         for (auto stride : {1, 2})
           matrix(rows, k, columns, stride, 0);
-  for (auto k : {127, 128, 129, 255, 256, 257, 511, 512, 513})
+  for (auto k : {127, 128, 129, 159, 160, 161, 255, 256, 257, 511, 512, 513})
     for (unsigned corpus : {0, 2, 3})
       matrix(33, k, 35, 1, corpus, 17);
   matrix(33, 129, 35, 1, 2, 17, true);

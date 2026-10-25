@@ -277,15 +277,16 @@ int main(int argc, char **argv) {
                   (b + 11 - (5 + a) % 11) % 11);
   // 3*nextafter(1,2)-3 distinguishes separate rounding from fused multiply/add.
   reduction(r, *core, *axpy, *reduce, 1, 3, 1, 0, 2);
-  for (auto k : {0, 1, 7, 8, 9, 15, 16, 17, 127, 128, 129, 255, 256, 257, 288, 320, 513, 544})
-    for (auto rows : {0, 1, 7, 8, 9, 17})
+  for (auto k : {0,   1,   7,   8,   9,   15,  16,  17,  127, 128, 129, 255, 256, 257, 288,
+                 319, 320, 321, 383, 384, 385, 511, 512, 513, 544, 575, 576, 577, 640})
+    for (auto rows : {0, 1, 7, 8, 9, 15, 16, 17, 31, 32, 33})
       for (auto cols : {0, 1, 7, 8, 9, 17})
         matrix(r, *core, *mul, *reduce, rows, k, cols, 0);
-  for (auto k : {1, 7, 8, 9, 17, 127, 128, 129, 256, 257, 288, 320})
+  for (auto k : {1, 7, 8, 9, 17, 127, 128, 129, 256, 257, 288, 320, 384, 512, 576, 640})
     for (unsigned pattern : {1, 2})
       matrix(r, *core, *mul, *reduce, 9, k, 17, pattern);
   matrix(r, *core, *mul, *reduce, 65, 129, 67, 0);
-  for (auto n : {128, 256, 512, 1024})
+  for (auto n : {128, 256, 512, 1024, 2048})
     benchmarkMatrix(r, *core, *mul, n);
   lifetime(r, *core, *dot, *reduce);
   lifetime(r, *core, *mul, *reduce, true);

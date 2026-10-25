@@ -10,6 +10,7 @@ parser.add_argument('--compiler', required=True, type=Path)
 parser.add_argument('--clang', required=True, type=Path)
 parser.add_argument('--output', required=True, type=Path)
 parser.add_argument('--quick', action='store_true')
+parser.add_argument('--matrices-only', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
 compiler, clang = args.compiler.resolve(), args.clang.absolute()
@@ -44,6 +45,8 @@ for numeric in ('float32', 'float64'):
     path.write_text(source.replace('NUM', numeric))
     for variant, flag, flags in variants:
         for kind, name in enumerate(('dot', 'axpy', 'matrix', 'divide', 'matrixCells')):
+            if args.matrices_only and kind not in (2, 4):
+                continue
             output = args.output / f'{numeric}-{variant}-{name}'
             ir = output.with_suffix('.ll')
             run([compiler, path, '--test-entry', name, '--emit-llvm', ir, flag, '-o', str(output) + '-standalone'])
@@ -57,8 +60,8 @@ for numeric in ('float32', 'float64'):
                  root / 'native/tests/CpuOptimizationRuntimeTests.cpp', ir, runtime, '-o', output])
             run([output])
             print(f'{numeric} {variant} {name}: passed', flush=True)
-print('Optimized CPU loops: exact recursive tree reference, dense/positive/negative strides, exceptional floats, zero/odd/chunk tails, per-cell SIMD matrix results, seeded finite mantissas/exponents, rounding/FMA witnesses, isolated exceptional operands, allocation/shape faults and mid-loop cancellation passed')
-for numeric in ('float32', 'float64'):
+print('Optimized CPU matrices: exact tree, per-cell/aggregate outputs, tails, strides, exceptional floats, allocation faults, cancellation and cleanup passed' if args.matrices_only else 'Optimized CPU loops: exact recursive tree reference, dense/positive/negative strides, exceptional floats, zero/odd/chunk tails, per-cell SIMD matrix results, seeded finite mantissas/exponents, rounding/FMA witnesses, isolated exceptional operands, allocation/shape faults and mid-loop cancellation passed')
+for numeric in (() if args.matrices_only else ('float32', 'float64')):
     controls = [
         ('rank3', '?,?,?', 'tensor([1,2,3,4,5,6],[2,1,3])', '69'),
         ('empty-rank3', '?,?,?', 'tensor([],[2,0,3])', '0'),
@@ -74,4 +77,5 @@ for numeric in ('float32', 'float64'):
     path.write_text(f'fn f(a:Tensor[{numeric},?])->{numeric}:\n  reduceSum(a' + '+1'*40 + f')\nfn main()->{numeric}:\n  f(tensor([1,2,3]))\n')
     run([compiler, path, '-O2', '-o', path.with_suffix('')])
     assert run([path.with_suffix('')]).strip() == '126'
-print('Higher-rank fused maps, empty interior dimensions and long expression chains: passed')
+if not args.matrices_only:
+    print('Higher-rank fused maps, empty interior dimensions and long expression chains: passed')

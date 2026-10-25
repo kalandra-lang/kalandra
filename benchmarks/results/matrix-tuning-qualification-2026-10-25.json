@@ -1,0 +1,3337 @@
+{
+  "scope": "Local Apple M2 Max, macOS 27.2; selected tests, not the full repository suite.",
+  "compiler_sha256": "25bfe4e289b015448cbb194f1a64377a790e7e5a34ab9240c8e78cebd572d19b",
+  "baseline_compiler_sha256": "425f65be60172454a49c573ec74e322fa8d34393a2f9b7118f8f65fc9d8ad9b6",
+  "sources": {
+    "native/lib/Backend.cpp": "ac491552669d02c1db981739b0159f6caa8f875da67c16e5fb953d27d20ca366",
+    "native/metal/Metal.mm": "3db3237f50c4a4e2da02ee8eead02439386a83dfb893eeeab45392837c32a9b2",
+    "native/metal-source/HardwareShaders.h": "11a9be2f811e0897113ef1afb33ede3e3aefae5a6b6aed369f003a21fdfea9d3",
+    "native/tests/CpuOptimizationTests.py": "18896d15f7717e5a67739c571e943442ac695cb30ce0e8c7842456520715e647",
+    "native/tests/CpuOptimizationRuntimeTests.cpp": "2bdf022a631782bb7a4fe499f062feb568da37352fac977e74f2126bb8dea852",
+    "native/tests/GpuOptimizationTests.py": "180526175678e02c9fb1edc76e99011b6241ae17762e8d723bdb8da36755d198",
+    "native/tests/GpuOptimizationRuntimeTests.cpp": "42e7538cbc561dcb09924765a39b801ca8fb047b393cf9cc651d513816a3fcaf",
+    "native/tests/MatrixAllocationProbe.cpp": "0d1c1c12fefc2d70cb6f59762feb91664ae5feb21b77bf031c0e86b59f9b6710",
+    "native/cmake/VerifyStackOutline.cmake": "9df66a5bb087989bd501113e52cc47d6a882e845847b25c7e6d8a6618917d3e1",
+    "native/tests/CpuBenchmarkCells.py": "dde928b3bde7ea4f970d2ae89085d693b68f33c94b5f4fc268b5e0fbf355f946",
+    "native/benchmarks/matrix_run.py": "6febe9dc53f4ac517c42eb100fa594abc8671421051915ff388667484029631f"
+  },
+  "logs": {
+    "cpu": "Test project /Users/pouya/Projects/kalandra.dev/build/native\n    Start 887: native-cpu-benchmark-cells\n1/3 Test #887: native-cpu-benchmark-cells .......   Passed   15.52 sec\n    Start 899: native-cpu-optimization\n2/3 Test #899: native-cpu-optimization ..........   Passed  456.53 sec\n    Start 900: native-static-numerical-shapes\n3/3 Test #900: native-static-numerical-shapes ...   Passed   29.08 sec\n\n100% tests passed out of 3\n\nTotal Test time (real) = 501.16 sec\n",
+    "matrix_source_regressions": "Test project /Users/pouya/Projects/kalandra.dev/build/native\n      Start   12: native-source-debug\n      Start   14: native-source-sanitized\n      Start 1001: native-metal-matrix-elementwise-thread-sanitized\n 1/23 Test #1001: native-metal-matrix-elementwise-thread-sanitized ........   Passed    4.01 sec\n      Start   13: native-source-optimized\n 2/23 Test   #13: native-source-optimized .................................   Passed   77.81 sec\n      Start 1097: native-metal-matrix-graph-arithmetic-thread-sanitized\n 3/23 Test #1097: native-metal-matrix-graph-arithmetic-thread-sanitized ...   Passed    3.82 sec\n      Start 1065: native-metal-matmul-thread-sanitized\n 4/23 Test   #12: native-source-debug .....................................   Passed  101.53 sec\n 5/23 Test   #14: native-source-sanitized .................................   Passed  107.06 sec\n 6/23 Test #1065: native-metal-matmul-thread-sanitized ....................   Passed   28.46 sec\n      Start 1089: native-metal-matrix-graph-thread-sanitized\n 7/23 Test #1089: native-metal-matrix-graph-thread-sanitized ..............   Passed    2.65 sec\n      Start 1093: native-metal-matrix-graph-reduction-thread-sanitized\n 8/23 Test #1093: native-metal-matrix-graph-reduction-thread-sanitized ....   Passed    2.97 sec\n      Start 1062: native-metal-matmul-debug\n 9/23 Test #1062: native-metal-matmul-debug ...............................   Passed   25.26 sec\n      Start 1095: native-metal-matrix-graph-arithmetic-optimized\n10/23 Test #1095: native-metal-matrix-graph-arithmetic-optimized ..........   Passed    0.81 sec\n      Start  998: native-metal-matrix-elementwise-debug\n11/23 Test  #998: native-metal-matrix-elementwise-debug ...................   Passed    1.19 sec\n      Start 1000: native-metal-matrix-elementwise-sanitized\n12/23 Test #1000: native-metal-matrix-elementwise-sanitized ...............   Passed    0.94 sec\n      Start 1094: native-metal-matrix-graph-arithmetic-debug\n13/23 Test #1094: native-metal-matrix-graph-arithmetic-debug ..............   Passed    1.01 sec\n      Start 1064: native-metal-matmul-sanitized\n14/23 Test #1064: native-metal-matmul-sanitized ...........................   Passed   12.37 sec\n      Start  999: native-metal-matrix-elementwise-optimized\n15/23 Test  #999: native-metal-matrix-elementwise-optimized ...............   Passed    0.59 sec\n      Start 1063: native-metal-matmul-optimized\n16/23 Test #1063: native-metal-matmul-optimized ...........................   Passed   10.47 sec\n      Start 1087: native-metal-matrix-graph-optimized\n17/23 Test #1087: native-metal-matrix-graph-optimized .....................   Passed    0.14 sec\n      Start 1091: native-metal-matrix-graph-reduction-optimized\n18/23 Test #1091: native-metal-matrix-graph-reduction-optimized ...........   Passed    0.33 sec\n      Start 1088: native-metal-matrix-graph-sanitized\n19/23 Test #1088: native-metal-matrix-graph-sanitized .....................   Passed    0.29 sec\n      Start 1090: native-metal-matrix-graph-reduction-debug\n20/23 Test #1090: native-metal-matrix-graph-reduction-debug ...............   Passed    0.39 sec\n      Start 1086: native-metal-matrix-graph-debug\n21/23 Test #1086: native-metal-matrix-graph-debug .........................   Passed    0.17 sec\n      Start 1096: native-metal-matrix-graph-arithmetic-sanitized\n22/23 Test #1096: native-metal-matrix-graph-arithmetic-sanitized ..........   Passed    1.16 sec\n      Start 1092: native-metal-matrix-graph-reduction-sanitized\n23/23 Test #1092: native-metal-matrix-graph-reduction-sanitized ...........   Passed    0.55 sec\n\n100% tests passed out of 23\n\nTotal Test time (real) = 175.42 sec\n",
+    "stack_initial": "Test project /Users/pouya/Projects/kalandra.dev/build/native\n    Start 831: native-stack-outline-thread-sanitized\n    Start 830: native-stack-outline-sanitized\n    Start 829: native-stack-outline-optimized\n1/6 Test #830: native-stack-outline-sanitized ..........***Failed    1.00 sec\n-- \n-- 6\n\nCMake Error at /Users/pouya/Projects/kalandra.dev/native/cmake/VerifyStackOutline.cmake:15 (message):\n  Long tensor body lost its bounded checked helpers (40)\n\n\n\n    Start 828: native-stack-outline-debug\n2/6 Test #829: native-stack-outline-optimized ..........***Failed    1.11 sec\n-- \n-- 6\n\nCMake Error at /Users/pouya/Projects/kalandra.dev/native/cmake/VerifyStackOutline.cmake:15 (message):\n  Long tensor body lost its bounded checked helpers (40)\n\n\n\n    Start 883: native-windows-tail-codegen\n3/6 Test #831: native-stack-outline-thread-sanitized ...***Failed    1.16 sec\n-- \n-- 6\n\nCMake Error at /Users/pouya/Projects/kalandra.dev/native/cmake/VerifyStackOutline.cmake:15 (message):\n  Long tensor body lost its bounded checked helpers (40)\n\n\n\n    Start  11: native-checked-inlining\n4/6 Test  #11: native-checked-inlining .................   Passed    0.05 sec\n5/6 Test #883: native-windows-tail-codegen .............   Passed    0.25 sec\n6/6 Test #828: native-stack-outline-debug ..............***Failed    0.82 sec\n-- \n-- 6\n\nCMake Error at /Users/pouya/Projects/kalandra.dev/native/cmake/VerifyStackOutline.cmake:15 (message):\n  Long tensor body lost its bounded checked helpers (40)\n\n\n\n\n33% tests passed, 4 tests failed out of 6\n\nTotal Test time (real) =   1.85 sec\n\nThe following tests FAILED:\n\t828 - native-stack-outline-debug (Failed)\n\t829 - native-stack-outline-optimized (Failed)\n\t830 - native-stack-outline-sanitized (Failed)\n\t831 - native-stack-outline-thread-sanitized (Failed)\nErrors while running CTest\n",
+    "stack_baseline_reproduction": "-- \n-- 6\n\nCMake Error at native/cmake/VerifyStackOutline.cmake:15 (message):\n  Long tensor body lost its bounded checked helpers (40)\n\n\n",
+    "stack_corrected": "Test project /Users/pouya/Projects/kalandra.dev/build/native\n    Start 831: native-stack-outline-thread-sanitized\n    Start 830: native-stack-outline-sanitized\n    Start 829: native-stack-outline-optimized\n1/4 Test #830: native-stack-outline-sanitized ..........   Passed    2.53 sec\n    Start 828: native-stack-outline-debug\n2/4 Test #829: native-stack-outline-optimized ..........   Passed    2.68 sec\n3/4 Test #831: native-stack-outline-thread-sanitized ...   Passed    3.08 sec\n4/4 Test #828: native-stack-outline-debug ..............   Passed    2.05 sec\n\n100% tests passed out of 4\n\nTotal Test time (real) =   4.60 sec\n",
+    "gpu_final": "optimized: GPU hardware numerical qualification: 2399 cases, 5804431 exact output comparisons (APFloat + integer matrix oracle); per-cell matrices, balanced reductions, tails, rounding, signed zeros, nonfinite values and FTZ passed\ndebug: GPU hardware numerical qualification: 2399 cases, 5804431 exact output comparisons (APFloat + integer matrix oracle); per-cell matrices, balanced reductions, tails, rounding, signed zeros, nonfinite values and FTZ passed\nsanitized: GPU hardware numerical qualification: 2399 cases, 5804431 exact output comparisons (APFloat + integer matrix oracle); per-cell matrices, balanced reductions, tails, rounding, signed zeros, nonfinite values and FTZ passed\nthread-sanitized: GPU hardware numerical qualification: 2399 cases, 5804431 exact output comparisons (APFloat + integer matrix oracle); per-cell matrices, balanced reductions, tails, rounding, signed zeros, nonfinite values and FTZ passed\n",
+    "final_cpu_typed": "float32 optimized matrix: passed\nfloat32 optimized matrixCells: passed\nfloat32 debug matrix: passed\nfloat32 debug matrixCells: passed\nfloat32 sanitized matrix: passed\nfloat32 sanitized matrixCells: passed\nfloat32 thread-sanitized matrix: passed\nfloat32 thread-sanitized matrixCells: passed\nfloat64 optimized matrix: passed\nfloat64 optimized matrixCells: passed\nfloat64 debug matrix: passed\nfloat64 debug matrixCells: passed\nfloat64 sanitized matrix: passed\nfloat64 sanitized matrixCells: passed\nfloat64 thread-sanitized matrix: passed\nfloat64 thread-sanitized matrixCells: passed\nOptimized CPU matrices: exact tree, per-cell/aggregate outputs, tails, strides, exceptional floats, allocation faults, cancellation and cleanup passed\n",
+    "final_cpu_benchmark_cells": "float32: 256x256: 65536 exact benchmark-input cells passed\nfloat32: 512x512: 262144 exact benchmark-input cells passed\nfloat32: 1024x1024: 1048576 exact benchmark-input cells passed\nfloat64: 256x256: 65536 exact benchmark-input cells passed\nfloat64: 512x512: 262144 exact benchmark-input cells passed\nfloat64: 1024x1024: 1048576 exact benchmark-input cells passed\n"
+  },
+  "selected_ctest_gates_passed": 32,
+  "cpu_optimization_kernel_type_build_variants": 40,
+  "cpu_actual_benchmark_per_cell_integer_checks": 1703936,
+  "gpu_build_variants": 4,
+  "gpu_cases_per_variant": 2399,
+  "gpu_exact_comparisons_per_variant": 5804431,
+  "frame_audit": "matrix-tuning-stack-2026-10-25.json",
+  "benchmark_protocol_unit_tests": 5,
+  "stale_test_correction": "Four stack-outline gates still required v3 after the preceding production v4 migration. Saved 48b812aa compiler reproduces the same failure; assertion updated to v4, preserving 40 outlined helpers and noinline boundary checks. All four reruns pass.",
+  "cpu_sample": {
+    "command": "sample PID 2 -file baseline-sample.txt while baseline 2 1024 30 2 runs",
+    "binary_sha256": "807946ebb2acf1f1b6ba3cce61aa0a5266459e3d2d7a855fcac07381862d84db",
+    "transcript": "Analysis of sampling baseline (pid 38879) every 1 millisecond\nProcess:         baseline [38879]\nPath:            /Users/USER/*/baseline\nLoad Address:    0x104160000\nIdentifier:      baseline\nVersion:         0\nCode Type:       ARM64\nPlatform:        macOS\nParent Process:  Python [38878]\nTarget Type:     live task\n\nDate/Time:       2026-10-25 18:07:05.258 +0100\nLaunch Time:     2026-10-25 18:07:05.212 +0100\nOS Version:      macOS 27.2 (26B118)\nReport Version:  7\nAnalysis Tool:   /usr/bin/sample\n\nPhysical footprint:         17.4M\nPhysical footprint (peak):  17.4M\nIdle exit:                  untracked\n----\n\nCall graph:\n    1704 Thread_14777689   DispatchQueue_1: com.apple.main-thread  (serial)\n      1704 start  (in dyld) + 6652  [0x19dfb4d7c]\n        1704 main  (in baseline) + 884  [0x104160b74]\n          1704 _mlir_ciface_kalandra_test_entry  (in baseline) + 48  [0x104161244]\n            1704 kalandra_source_run_v4  (in baseline) + 204  [0x104161878]\n              1704 kalandra_native_enter_v1  (in baseline) + 28  [0x1041612e8]\n                1704 _mlir_ciface_kalandra_test_entry.boundary  (in baseline) + 224  [0x10416a790]\n                  1675 kalandra_fn_2.body.clear  (in baseline) + 156  [0x10416af04]\n                  + 1457 ???  (in <unknown binary>)  [0x40]\n                  + ! 1457 kalandra_fn_matmul_wide_0.body.clear  (in baseline) + 13884,14284,...  [0x104173b50,0x104173ce0,...]\n                  + 198 ???  (in <unknown binary>)  [0x1]\n                  + ! 198 kalandra_fn_matmul_wide_0.body.clear  (in baseline) + 14756,14732,...  [0x104173eb8,0x104173ea0,...]\n                  + 20 ???  (in <unknown binary>)  [0x400]\n                  +   20 kalandra_fn_matmul_wide_0.body.clear  (in baseline) + 13112,13096,...  [0x10417384c,0x10417383c,...]\n                  29 kalandra_fn_2.body.clear  (in baseline) + 5136,5148,...  [0x10416c278,0x10416c284,...]\n\nTotal number in stack (recursive counted multiple, when >=5):\n\nSort by top of stack, same collapsed (when >= 5):\n        kalandra_fn_matmul_wide_0.body.clear  (in baseline)        1675\n        kalandra_fn_2.body.clear  (in baseline)        29\n\n"
+  },
+  "exploratory_trials": {
+    "pilot-all.json": {
+      "baseline-128": [
+        [
+          {
+            "round": -2,
+            "ns": 281333,
+            "checksum": 18.125
+          },
+          {
+            "round": -1,
+            "ns": 252917,
+            "checksum": 18.125
+          },
+          {
+            "round": 0,
+            "ns": 260209,
+            "checksum": 18.125
+          },
+          {
+            "round": 1,
+            "ns": 251958,
+            "checksum": 18.125
+          },
+          {
+            "round": 2,
+            "ns": 263417,
+            "checksum": 18.125
+          },
+          {
+            "round": 3,
+            "ns": 268083,
+            "checksum": 18.125
+          },
+          {
+            "round": 4,
+            "ns": 251042,
+            "checksum": 18.125
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 286709,
+            "checksum": 18.125
+          },
+          {
+            "round": -1,
+            "ns": 260750,
+            "checksum": 18.125
+          },
+          {
+            "round": 0,
+            "ns": 261167,
+            "checksum": 18.125
+          },
+          {
+            "round": 1,
+            "ns": 260167,
+            "checksum": 18.125
+          },
+          {
+            "round": 2,
+            "ns": 258584,
+            "checksum": 18.125
+          },
+          {
+            "round": 3,
+            "ns": 258542,
+            "checksum": 18.125
+          },
+          {
+            "round": 4,
+            "ns": 258667,
+            "checksum": 18.125
+          }
+        ]
+      ],
+      "rows4-128": [
+        [
+          {
+            "round": -2,
+            "ns": 289167,
+            "checksum": 18.125
+          },
+          {
+            "round": -1,
+            "ns": 248750,
+            "checksum": 18.125
+          },
+          {
+            "round": 0,
+            "ns": 249083,
+            "checksum": 18.125
+          },
+          {
+            "round": 1,
+            "ns": 247166,
+            "checksum": 18.125
+          },
+          {
+            "round": 2,
+            "ns": 247666,
+            "checksum": 18.125
+          },
+          {
+            "round": 3,
+            "ns": 247125,
+            "checksum": 18.125
+          },
+          {
+            "round": 4,
+            "ns": 247292,
+            "checksum": 18.125
+          }
+        ]
+      ],
+      "block32-128": [
+        [
+          {
+            "round": -2,
+            "ns": 373541,
+            "checksum": 18.125
+          },
+          {
+            "round": -1,
+            "ns": 274083,
+            "checksum": 18.125
+          },
+          {
+            "round": 0,
+            "ns": 256375,
+            "checksum": 18.125
+          },
+          {
+            "round": 1,
+            "ns": 253291,
+            "checksum": 18.125
+          },
+          {
+            "round": 2,
+            "ns": 253333,
+            "checksum": 18.125
+          },
+          {
+            "round": 3,
+            "ns": 252792,
+            "checksum": 18.125
+          },
+          {
+            "round": 4,
+            "ns": 253250,
+            "checksum": 18.125
+          }
+        ]
+      ],
+      "block64-128": [
+        [
+          {
+            "round": -2,
+            "ns": 292416,
+            "checksum": 18.125
+          },
+          {
+            "round": -1,
+            "ns": 263709,
+            "checksum": 18.125
+          },
+          {
+            "round": 0,
+            "ns": 269917,
+            "checksum": 18.125
+          },
+          {
+            "round": 1,
+            "ns": 262833,
+            "checksum": 18.125
+          },
+          {
+            "round": 2,
+            "ns": 268500,
+            "checksum": 18.125
+          },
+          {
+            "round": 3,
+            "ns": 270583,
+            "checksum": 18.125
+          },
+          {
+            "round": 4,
+            "ns": 262625,
+            "checksum": 18.125
+          }
+        ]
+      ],
+      "baseline-256": [
+        [
+          {
+            "round": -2,
+            "ns": 1971125,
+            "checksum": -0.15625
+          },
+          {
+            "round": -1,
+            "ns": 1917833,
+            "checksum": -0.15625
+          },
+          {
+            "round": 0,
+            "ns": 1924417,
+            "checksum": -0.15625
+          },
+          {
+            "round": 1,
+            "ns": 1902875,
+            "checksum": -0.15625
+          },
+          {
+            "round": 2,
+            "ns": 1994542,
+            "checksum": -0.15625
+          },
+          {
+            "round": 3,
+            "ns": 1860459,
+            "checksum": -0.15625
+          },
+          {
+            "round": 4,
+            "ns": 1853917,
+            "checksum": -0.15625
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 1909750,
+            "checksum": -0.15625
+          },
+          {
+            "round": -1,
+            "ns": 1868875,
+            "checksum": -0.15625
+          },
+          {
+            "round": 0,
+            "ns": 1869208,
+            "checksum": -0.15625
+          },
+          {
+            "round": 1,
+            "ns": 1860792,
+            "checksum": -0.15625
+          },
+          {
+            "round": 2,
+            "ns": 1964334,
+            "checksum": -0.15625
+          },
+          {
+            "round": 3,
+            "ns": 1940208,
+            "checksum": -0.15625
+          },
+          {
+            "round": 4,
+            "ns": 1932791,
+            "checksum": -0.15625
+          }
+        ]
+      ],
+      "rows4-256": [
+        [
+          {
+            "round": -2,
+            "ns": 2064750,
+            "checksum": -0.15625
+          },
+          {
+            "round": -1,
+            "ns": 1880417,
+            "checksum": -0.15625
+          },
+          {
+            "round": 0,
+            "ns": 1852750,
+            "checksum": -0.15625
+          },
+          {
+            "round": 1,
+            "ns": 1943500,
+            "checksum": -0.15625
+          },
+          {
+            "round": 2,
+            "ns": 1985250,
+            "checksum": -0.15625
+          },
+          {
+            "round": 3,
+            "ns": 1979583,
+            "checksum": -0.15625
+          },
+          {
+            "round": 4,
+            "ns": 1939083,
+            "checksum": -0.15625
+          }
+        ]
+      ],
+      "block32-256": [
+        [
+          {
+            "round": -2,
+            "ns": 1946541,
+            "checksum": -0.15625
+          },
+          {
+            "round": -1,
+            "ns": 1842000,
+            "checksum": -0.15625
+          },
+          {
+            "round": 0,
+            "ns": 1819458,
+            "checksum": -0.15625
+          },
+          {
+            "round": 1,
+            "ns": 1813584,
+            "checksum": -0.15625
+          },
+          {
+            "round": 2,
+            "ns": 1866541,
+            "checksum": -0.15625
+          },
+          {
+            "round": 3,
+            "ns": 1905208,
+            "checksum": -0.15625
+          },
+          {
+            "round": 4,
+            "ns": 1921083,
+            "checksum": -0.15625
+          }
+        ]
+      ],
+      "block64-256": [
+        [
+          {
+            "round": -2,
+            "ns": 1991209,
+            "checksum": -0.15625
+          },
+          {
+            "round": -1,
+            "ns": 2039208,
+            "checksum": -0.15625
+          },
+          {
+            "round": 0,
+            "ns": 1916834,
+            "checksum": -0.15625
+          },
+          {
+            "round": 1,
+            "ns": 1864208,
+            "checksum": -0.15625
+          },
+          {
+            "round": 2,
+            "ns": 1914166,
+            "checksum": -0.15625
+          },
+          {
+            "round": 3,
+            "ns": 1903375,
+            "checksum": -0.15625
+          },
+          {
+            "round": 4,
+            "ns": 1900458,
+            "checksum": -0.15625
+          }
+        ]
+      ],
+      "baseline-512": [
+        [
+          {
+            "round": -2,
+            "ns": 15334750,
+            "checksum": -1.5
+          },
+          {
+            "round": -1,
+            "ns": 15169833,
+            "checksum": -1.5
+          },
+          {
+            "round": 0,
+            "ns": 15164875,
+            "checksum": -1.5
+          },
+          {
+            "round": 1,
+            "ns": 14979750,
+            "checksum": -1.5
+          },
+          {
+            "round": 2,
+            "ns": 15025625,
+            "checksum": -1.5
+          },
+          {
+            "round": 3,
+            "ns": 15106125,
+            "checksum": -1.5
+          },
+          {
+            "round": 4,
+            "ns": 14927208,
+            "checksum": -1.5
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 14947459,
+            "checksum": -1.5
+          },
+          {
+            "round": -1,
+            "ns": 15086959,
+            "checksum": -1.5
+          },
+          {
+            "round": 0,
+            "ns": 15338917,
+            "checksum": -1.5
+          },
+          {
+            "round": 1,
+            "ns": 14883917,
+            "checksum": -1.5
+          },
+          {
+            "round": 2,
+            "ns": 15079583,
+            "checksum": -1.5
+          },
+          {
+            "round": 3,
+            "ns": 15466125,
+            "checksum": -1.5
+          },
+          {
+            "round": 4,
+            "ns": 15654667,
+            "checksum": -1.5
+          }
+        ]
+      ],
+      "rows4-512": [
+        [
+          {
+            "round": -2,
+            "ns": 15180542,
+            "checksum": -1.5
+          },
+          {
+            "round": -1,
+            "ns": 15235375,
+            "checksum": -1.5
+          },
+          {
+            "round": 0,
+            "ns": 14744791,
+            "checksum": -1.5
+          },
+          {
+            "round": 1,
+            "ns": 14769791,
+            "checksum": -1.5
+          },
+          {
+            "round": 2,
+            "ns": 14759750,
+            "checksum": -1.5
+          },
+          {
+            "round": 3,
+            "ns": 14733083,
+            "checksum": -1.5
+          },
+          {
+            "round": 4,
+            "ns": 14786209,
+            "checksum": -1.5
+          }
+        ]
+      ],
+      "block32-512": [
+        [
+          {
+            "round": -2,
+            "ns": 14404041,
+            "checksum": -1.5
+          },
+          {
+            "round": -1,
+            "ns": 13959833,
+            "checksum": -1.5
+          },
+          {
+            "round": 0,
+            "ns": 14124125,
+            "checksum": -1.5
+          },
+          {
+            "round": 1,
+            "ns": 14023750,
+            "checksum": -1.5
+          },
+          {
+            "round": 2,
+            "ns": 15978000,
+            "checksum": -1.5
+          },
+          {
+            "round": 3,
+            "ns": 14137833,
+            "checksum": -1.5
+          },
+          {
+            "round": 4,
+            "ns": 14937209,
+            "checksum": -1.5
+          }
+        ]
+      ],
+      "block64-512": [
+        [
+          {
+            "round": -2,
+            "ns": 14454125,
+            "checksum": -1.5
+          },
+          {
+            "round": -1,
+            "ns": 14174209,
+            "checksum": -1.5
+          },
+          {
+            "round": 0,
+            "ns": 14918583,
+            "checksum": -1.5
+          },
+          {
+            "round": 1,
+            "ns": 14085625,
+            "checksum": -1.5
+          },
+          {
+            "round": 2,
+            "ns": 14194875,
+            "checksum": -1.5
+          },
+          {
+            "round": 3,
+            "ns": 17785083,
+            "checksum": -1.5
+          },
+          {
+            "round": 4,
+            "ns": 14623375,
+            "checksum": -1.5
+          }
+        ]
+      ],
+      "baseline-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 120790000,
+            "checksum": 13.875
+          },
+          {
+            "round": -1,
+            "ns": 117218667,
+            "checksum": 13.875
+          },
+          {
+            "round": 0,
+            "ns": 119881417,
+            "checksum": 13.875
+          },
+          {
+            "round": 1,
+            "ns": 118319167,
+            "checksum": 13.875
+          },
+          {
+            "round": 2,
+            "ns": 119962959,
+            "checksum": 13.875
+          },
+          {
+            "round": 3,
+            "ns": 121550000,
+            "checksum": 13.875
+          },
+          {
+            "round": 4,
+            "ns": 118715791,
+            "checksum": 13.875
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 118388208,
+            "checksum": 13.875
+          },
+          {
+            "round": -1,
+            "ns": 116942958,
+            "checksum": 13.875
+          },
+          {
+            "round": 0,
+            "ns": 116980709,
+            "checksum": 13.875
+          },
+          {
+            "round": 1,
+            "ns": 117154083,
+            "checksum": 13.875
+          },
+          {
+            "round": 2,
+            "ns": 118077125,
+            "checksum": 13.875
+          },
+          {
+            "round": 3,
+            "ns": 116238625,
+            "checksum": 13.875
+          },
+          {
+            "round": 4,
+            "ns": 114529083,
+            "checksum": 13.875
+          }
+        ]
+      ],
+      "rows4-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 119831584,
+            "checksum": 13.875
+          },
+          {
+            "round": -1,
+            "ns": 209691000,
+            "checksum": 13.875
+          },
+          {
+            "round": 0,
+            "ns": 194825666,
+            "checksum": 13.875
+          },
+          {
+            "round": 1,
+            "ns": 129932084,
+            "checksum": 13.875
+          },
+          {
+            "round": 2,
+            "ns": 117468791,
+            "checksum": 13.875
+          },
+          {
+            "round": 3,
+            "ns": 115551000,
+            "checksum": 13.875
+          },
+          {
+            "round": 4,
+            "ns": 117732417,
+            "checksum": 13.875
+          }
+        ]
+      ],
+      "block32-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 113308542,
+            "checksum": 13.875
+          },
+          {
+            "round": -1,
+            "ns": 110336291,
+            "checksum": 13.875
+          },
+          {
+            "round": 0,
+            "ns": 110104750,
+            "checksum": 13.875
+          },
+          {
+            "round": 1,
+            "ns": 109903458,
+            "checksum": 13.875
+          },
+          {
+            "round": 2,
+            "ns": 110353583,
+            "checksum": 13.875
+          },
+          {
+            "round": 3,
+            "ns": 112470292,
+            "checksum": 13.875
+          },
+          {
+            "round": 4,
+            "ns": 110787292,
+            "checksum": 13.875
+          }
+        ]
+      ],
+      "block64-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 109547583,
+            "checksum": 13.875
+          },
+          {
+            "round": -1,
+            "ns": 110550000,
+            "checksum": 13.875
+          },
+          {
+            "round": 0,
+            "ns": 110449542,
+            "checksum": 13.875
+          },
+          {
+            "round": 1,
+            "ns": 119552209,
+            "checksum": 13.875
+          },
+          {
+            "round": 2,
+            "ns": 110647209,
+            "checksum": 13.875
+          },
+          {
+            "round": 3,
+            "ns": 110250792,
+            "checksum": 13.875
+          },
+          {
+            "round": 4,
+            "ns": 111402667,
+            "checksum": 13.875
+          }
+        ]
+      ]
+    },
+    "pilot-vector.json": {
+      "gpu-baseline-256": [
+        [
+          {
+            "round": -2,
+            "ns": 10817417,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 9258833,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 6331625,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 5775125,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 5705375,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 5672542,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 5913042,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 6735166,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 4997208,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 5228250,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 4750292,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 4717958,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 4797708,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 4549666,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu64-256": [
+        [
+          {
+            "round": -2,
+            "ns": 9520584,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 6064042,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 6239166,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 5964584,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 5881792,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 6066500,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 5529416,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu128-256": [
+        [
+          {
+            "round": -2,
+            "ns": 12613458,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 8471417,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 7117041,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 6462292,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 6485542,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 6477583,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 5866667,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu-baseline-512": [
+        [
+          {
+            "round": -2,
+            "ns": 19429542,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15507333,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15152500,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15038541,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15043167,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 15044875,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 15372917,
+            "checksum": -9,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 18086458,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15283500,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15311375,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15340417,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15215333,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 15170292,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 15140042,
+            "checksum": -9,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu64-512": [
+        [
+          {
+            "round": -2,
+            "ns": 25653125,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15112292,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15403666,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15096375,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15276333,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 15247583,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 14966000,
+            "checksum": -9,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu128-512": [
+        [
+          {
+            "round": -2,
+            "ns": 17964167,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15187875,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14931375,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15330208,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15203375,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 15046500,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 15146083,
+            "checksum": -9,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu-baseline-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 32740334,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 30676958,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 31386917,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 30875041,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 31421333,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 31570500,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 31777792,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 31543625,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 30536167,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 29995958,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 30680833,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 30655542,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 30796375,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 31004334,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu64-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 36817709,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 30168250,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 30092042,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 30470333,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 30246959,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 30200834,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 30303167,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu128-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 51132375,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 48420958,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 48249375,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 47287000,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 46251833,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 46660208,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 46445792,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "block32-128": [
+        {
+          "round": -2,
+          "ns": 271958,
+          "checksum": 18.125
+        },
+        {
+          "round": -1,
+          "ns": 254875,
+          "checksum": 18.125
+        },
+        {
+          "round": 0,
+          "ns": 252833,
+          "checksum": 18.125
+        },
+        {
+          "round": 1,
+          "ns": 252166,
+          "checksum": 18.125
+        },
+        {
+          "round": 2,
+          "ns": 251709,
+          "checksum": 18.125
+        },
+        {
+          "round": 3,
+          "ns": 251333,
+          "checksum": 18.125
+        },
+        {
+          "round": 4,
+          "ns": 275042,
+          "checksum": 18.125
+        }
+      ],
+      "vector32-128": [
+        {
+          "round": -2,
+          "ns": 1750084,
+          "checksum": 18.125
+        },
+        {
+          "round": -1,
+          "ns": 1832291,
+          "checksum": 18.125
+        },
+        {
+          "round": 0,
+          "ns": 2207875,
+          "checksum": 18.125
+        },
+        {
+          "round": 1,
+          "ns": 2075834,
+          "checksum": 18.125
+        },
+        {
+          "round": 2,
+          "ns": 1664125,
+          "checksum": 18.125
+        },
+        {
+          "round": 3,
+          "ns": 1106250,
+          "checksum": 18.125
+        },
+        {
+          "round": 4,
+          "ns": 999417,
+          "checksum": 18.125
+        }
+      ],
+      "block32-256": [
+        {
+          "round": -2,
+          "ns": 4483125,
+          "checksum": -0.15625
+        },
+        {
+          "round": -1,
+          "ns": 1871708,
+          "checksum": -0.15625
+        },
+        {
+          "round": 0,
+          "ns": 1827084,
+          "checksum": -0.15625
+        },
+        {
+          "round": 1,
+          "ns": 1824833,
+          "checksum": -0.15625
+        },
+        {
+          "round": 2,
+          "ns": 1812875,
+          "checksum": -0.15625
+        },
+        {
+          "round": 3,
+          "ns": 1824375,
+          "checksum": -0.15625
+        },
+        {
+          "round": 4,
+          "ns": 1888250,
+          "checksum": -0.15625
+        }
+      ],
+      "vector32-256": [
+        {
+          "round": -2,
+          "ns": 1846083,
+          "checksum": -0.15625
+        },
+        {
+          "round": -1,
+          "ns": 2314917,
+          "checksum": -0.15625
+        },
+        {
+          "round": 0,
+          "ns": 3410166,
+          "checksum": -0.15625
+        },
+        {
+          "round": 1,
+          "ns": 1845583,
+          "checksum": -0.15625
+        },
+        {
+          "round": 2,
+          "ns": 1857209,
+          "checksum": -0.15625
+        },
+        {
+          "round": 3,
+          "ns": 1828417,
+          "checksum": -0.15625
+        },
+        {
+          "round": 4,
+          "ns": 1809209,
+          "checksum": -0.15625
+        }
+      ],
+      "block32-512": [
+        {
+          "round": -2,
+          "ns": 14137667,
+          "checksum": -1.5
+        },
+        {
+          "round": -1,
+          "ns": 14053708,
+          "checksum": -1.5
+        },
+        {
+          "round": 0,
+          "ns": 13664250,
+          "checksum": -1.5
+        },
+        {
+          "round": 1,
+          "ns": 13922958,
+          "checksum": -1.5
+        },
+        {
+          "round": 2,
+          "ns": 14031125,
+          "checksum": -1.5
+        },
+        {
+          "round": 3,
+          "ns": 13841292,
+          "checksum": -1.5
+        },
+        {
+          "round": 4,
+          "ns": 13990208,
+          "checksum": -1.5
+        }
+      ],
+      "vector32-512": [
+        {
+          "round": -2,
+          "ns": 19178333,
+          "checksum": -1.5
+        },
+        {
+          "round": -1,
+          "ns": 15046500,
+          "checksum": -1.5
+        },
+        {
+          "round": 0,
+          "ns": 13526375,
+          "checksum": -1.5
+        },
+        {
+          "round": 1,
+          "ns": 14067916,
+          "checksum": -1.5
+        },
+        {
+          "round": 2,
+          "ns": 14103833,
+          "checksum": -1.5
+        },
+        {
+          "round": 3,
+          "ns": 14214250,
+          "checksum": -1.5
+        },
+        {
+          "round": 4,
+          "ns": 14052583,
+          "checksum": -1.5
+        }
+      ],
+      "block32-1024": [
+        {
+          "round": -2,
+          "ns": 111342208,
+          "checksum": 13.875
+        },
+        {
+          "round": -1,
+          "ns": 110762959,
+          "checksum": 13.875
+        },
+        {
+          "round": 0,
+          "ns": 110398917,
+          "checksum": 13.875
+        },
+        {
+          "round": 1,
+          "ns": 110780958,
+          "checksum": 13.875
+        },
+        {
+          "round": 2,
+          "ns": 108596292,
+          "checksum": 13.875
+        },
+        {
+          "round": 3,
+          "ns": 108260000,
+          "checksum": 13.875
+        },
+        {
+          "round": 4,
+          "ns": 108218750,
+          "checksum": 13.875
+        }
+      ],
+      "vector32-1024": [
+        {
+          "round": -2,
+          "ns": 109033416,
+          "checksum": 13.875
+        },
+        {
+          "round": -1,
+          "ns": 107554958,
+          "checksum": 13.875
+        },
+        {
+          "round": 0,
+          "ns": 109356167,
+          "checksum": 13.875
+        },
+        {
+          "round": 1,
+          "ns": 108888958,
+          "checksum": 13.875
+        },
+        {
+          "round": 2,
+          "ns": 108116000,
+          "checksum": 13.875
+        },
+        {
+          "round": 3,
+          "ns": 108071083,
+          "checksum": 13.875
+        },
+        {
+          "round": 4,
+          "ns": 108078084,
+          "checksum": 13.875
+        }
+      ]
+    },
+    "pilot.json": {
+      "baseline-128": [
+        {
+          "round": -2,
+          "ns": 288125,
+          "checksum": 18.125
+        },
+        {
+          "round": -1,
+          "ns": 259375,
+          "checksum": 18.125
+        },
+        {
+          "round": 0,
+          "ns": 265333,
+          "checksum": 18.125
+        },
+        {
+          "round": 1,
+          "ns": 258958,
+          "checksum": 18.125
+        },
+        {
+          "round": 2,
+          "ns": 258750,
+          "checksum": 18.125
+        },
+        {
+          "round": 3,
+          "ns": 258333,
+          "checksum": 18.125
+        },
+        {
+          "round": 4,
+          "ns": 257958,
+          "checksum": 18.125
+        }
+      ],
+      "block64-128": [
+        {
+          "round": -2,
+          "ns": 300000,
+          "checksum": 18.125
+        },
+        {
+          "round": -1,
+          "ns": 290166,
+          "checksum": 18.125
+        },
+        {
+          "round": 0,
+          "ns": 293959,
+          "checksum": 18.125
+        },
+        {
+          "round": 1,
+          "ns": 332625,
+          "checksum": 18.125
+        },
+        {
+          "round": 2,
+          "ns": 274000,
+          "checksum": 18.125
+        },
+        {
+          "round": 3,
+          "ns": 273125,
+          "checksum": 18.125
+        },
+        {
+          "round": 4,
+          "ns": 274166,
+          "checksum": 18.125
+        }
+      ],
+      "baseline-256": [
+        {
+          "round": -2,
+          "ns": 2270709,
+          "checksum": -0.15625
+        },
+        {
+          "round": -1,
+          "ns": 1921417,
+          "checksum": -0.15625
+        },
+        {
+          "round": 0,
+          "ns": 2042625,
+          "checksum": -0.15625
+        },
+        {
+          "round": 1,
+          "ns": 1928125,
+          "checksum": -0.15625
+        },
+        {
+          "round": 2,
+          "ns": 1974292,
+          "checksum": -0.15625
+        },
+        {
+          "round": 3,
+          "ns": 2005166,
+          "checksum": -0.15625
+        },
+        {
+          "round": 4,
+          "ns": 1924459,
+          "checksum": -0.15625
+        }
+      ],
+      "block64-256": [
+        {
+          "round": -2,
+          "ns": 2035333,
+          "checksum": -0.15625
+        },
+        {
+          "round": -1,
+          "ns": 1932084,
+          "checksum": -0.15625
+        },
+        {
+          "round": 0,
+          "ns": 1947542,
+          "checksum": -0.15625
+        },
+        {
+          "round": 1,
+          "ns": 1978250,
+          "checksum": -0.15625
+        },
+        {
+          "round": 2,
+          "ns": 2044041,
+          "checksum": -0.15625
+        },
+        {
+          "round": 3,
+          "ns": 1933375,
+          "checksum": -0.15625
+        },
+        {
+          "round": 4,
+          "ns": 1987791,
+          "checksum": -0.15625
+        }
+      ],
+      "baseline-512": [
+        {
+          "round": -2,
+          "ns": 15539708,
+          "checksum": -1.5
+        },
+        {
+          "round": -1,
+          "ns": 15401417,
+          "checksum": -1.5
+        },
+        {
+          "round": 0,
+          "ns": 15762334,
+          "checksum": -1.5
+        },
+        {
+          "round": 1,
+          "ns": 15151334,
+          "checksum": -1.5
+        },
+        {
+          "round": 2,
+          "ns": 15133041,
+          "checksum": -1.5
+        },
+        {
+          "round": 3,
+          "ns": 14958458,
+          "checksum": -1.5
+        },
+        {
+          "round": 4,
+          "ns": 14939916,
+          "checksum": -1.5
+        }
+      ],
+      "block64-512": [
+        {
+          "round": -2,
+          "ns": 14560958,
+          "checksum": -1.5
+        },
+        {
+          "round": -1,
+          "ns": 14000541,
+          "checksum": -1.5
+        },
+        {
+          "round": 0,
+          "ns": 14301375,
+          "checksum": -1.5
+        },
+        {
+          "round": 1,
+          "ns": 14078333,
+          "checksum": -1.5
+        },
+        {
+          "round": 2,
+          "ns": 14232542,
+          "checksum": -1.5
+        },
+        {
+          "round": 3,
+          "ns": 14063750,
+          "checksum": -1.5
+        },
+        {
+          "round": 4,
+          "ns": 14264334,
+          "checksum": -1.5
+        }
+      ],
+      "baseline-1024": [
+        {
+          "round": -2,
+          "ns": 118570375,
+          "checksum": 13.875
+        },
+        {
+          "round": -1,
+          "ns": 117460708,
+          "checksum": 13.875
+        },
+        {
+          "round": 0,
+          "ns": 117867792,
+          "checksum": 13.875
+        },
+        {
+          "round": 1,
+          "ns": 116703083,
+          "checksum": 13.875
+        },
+        {
+          "round": 2,
+          "ns": 119890709,
+          "checksum": 13.875
+        },
+        {
+          "round": 3,
+          "ns": 118807041,
+          "checksum": 13.875
+        },
+        {
+          "round": 4,
+          "ns": 135976917,
+          "checksum": 13.875
+        }
+      ],
+      "block64-1024": [
+        {
+          "round": -2,
+          "ns": 203497917,
+          "checksum": 13.875
+        },
+        {
+          "round": -1,
+          "ns": 241710292,
+          "checksum": 13.875
+        },
+        {
+          "round": 0,
+          "ns": 128754917,
+          "checksum": 13.875
+        },
+        {
+          "round": 1,
+          "ns": 116409792,
+          "checksum": 13.875
+        },
+        {
+          "round": 2,
+          "ns": 115121959,
+          "checksum": 13.875
+        },
+        {
+          "round": 3,
+          "ns": 116153792,
+          "checksum": 13.875
+        },
+        {
+          "round": 4,
+          "ns": 112236333,
+          "checksum": 13.875
+        }
+      ]
+    },
+    "gpu-pilot-16x8.json": {
+      "gpu-baseline-256": [
+        [
+          {
+            "round": -2,
+            "ns": 4344833,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 3048292,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 3732583,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 2828750,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 2849542,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 2493458,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 2511292,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 4160416,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 3242875,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 2656584,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 2872541,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 2595916,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 2796000,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 2592625,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu16x8-256": [
+        [
+          {
+            "round": -2,
+            "ns": 7047834,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 3968750,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 3629375,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 3991208,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 3491292,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 2617417,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 3168875,
+            "checksum": -0.390625,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu-baseline-512": [
+        [
+          {
+            "round": -2,
+            "ns": 15637875,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 8009000,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 7871666,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 7545208,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 7427875,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 7154625,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 7061083,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 9902042,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 6986375,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 6915375,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 6765583,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 6938292,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 6390917,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 6367250,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu16x8-512": [
+        [
+          {
+            "round": -2,
+            "ns": 10475917,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 7460333,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 7769250,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 6948666,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 6897417,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 6984375,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 6954084,
+            "checksum": -3.75,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu-baseline-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 14765125,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13251583,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12574833,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 12530167,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 12549042,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 12634041,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 12851792,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 13962542,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12482083,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12656000,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 12478000,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 12500417,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 12687917,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 12587166,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu16x8-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 16185084,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13504958,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12926084,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 12814917,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11386000,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 11332125,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 11303833,
+            "checksum": 34.6875,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu-baseline-2048": [
+        [
+          {
+            "round": -2,
+            "ns": 105976750,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 105150291,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 107007875,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 104485792,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 107180083,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 105704375,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 104155500,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 105632375,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 106369583,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 106031709,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 100759250,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 105020667,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 105764625,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 102303375,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu16x8-2048": [
+        [
+          {
+            "round": -2,
+            "ns": 94818375,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 93097334,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 90078250,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 97482541,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 99057584,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 101660416,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 98081583,
+            "checksum": 2.421875,
+            "device_id": 4294968381
+          }
+        ]
+      ]
+    },
+    "gpu-pilot-all.json": {
+      "gpu-baseline-256": [
+        [
+          {
+            "round": -2,
+            "ns": 10817417,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 9258833,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 6331625,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 5775125,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 5705375,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 5672542,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 5913042,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 6735166,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 4997208,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 5228250,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 4750292,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 4717958,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 4797708,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 4549666,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu64-256": [
+        [
+          {
+            "round": -2,
+            "ns": 9520584,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 6064042,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 6239166,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 5964584,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 5881792,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 6066500,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 5529416,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu128-256": [
+        [
+          {
+            "round": -2,
+            "ns": 12613458,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 8471417,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 7117041,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 6462292,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 6485542,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 6477583,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 5866667,
+            "checksum": -0.9375,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu-baseline-512": [
+        [
+          {
+            "round": -2,
+            "ns": 19429542,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15507333,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15152500,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15038541,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15043167,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 15044875,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 15372917,
+            "checksum": -9,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 18086458,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15283500,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15311375,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15340417,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15215333,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 15170292,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 15140042,
+            "checksum": -9,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu64-512": [
+        [
+          {
+            "round": -2,
+            "ns": 25653125,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15112292,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15403666,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15096375,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15276333,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 15247583,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 14966000,
+            "checksum": -9,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu128-512": [
+        [
+          {
+            "round": -2,
+            "ns": 17964167,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15187875,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14931375,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15330208,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15203375,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 15046500,
+            "checksum": -9,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 15146083,
+            "checksum": -9,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu-baseline-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 32740334,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 30676958,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 31386917,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 30875041,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 31421333,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 31570500,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 31777792,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          }
+        ],
+        [
+          {
+            "round": -2,
+            "ns": 31543625,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 30536167,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 29995958,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 30680833,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 30655542,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 30796375,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 31004334,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu64-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 36817709,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 30168250,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 30092042,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 30470333,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 30246959,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 30200834,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 30303167,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          }
+        ]
+      ],
+      "gpu128-1024": [
+        [
+          {
+            "round": -2,
+            "ns": 51132375,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 48420958,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 48249375,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 47287000,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 46251833,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 3,
+            "ns": 46660208,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          },
+          {
+            "round": 4,
+            "ns": 46445792,
+            "checksum": 83.25,
+            "device_id": 4294968381
+          }
+        ]
+      ]
+    },
+    "gpu-pilot.json": {
+      "gpu-baseline-256": [
+        {
+          "round": -2,
+          "ns": 7888167,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": -1,
+          "ns": 6329000,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 0,
+          "ns": 5912083,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 1,
+          "ns": 6328584,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 2,
+          "ns": 4196209,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 3,
+          "ns": 4823542,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 4,
+          "ns": 4752584,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        }
+      ],
+      "gpu64-256": [
+        {
+          "round": -2,
+          "ns": 9329292,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": -1,
+          "ns": 6139125,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 0,
+          "ns": 6462500,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 1,
+          "ns": 4265000,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 2,
+          "ns": 3507041,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 3,
+          "ns": 3898833,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        },
+        {
+          "round": 4,
+          "ns": 3650459,
+          "checksum": -0.625,
+          "device_id": 4294968381
+        }
+      ],
+      "gpu-baseline-512": [
+        {
+          "round": -2,
+          "ns": 20580875,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": -1,
+          "ns": 14726708,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 0,
+          "ns": 12754417,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 1,
+          "ns": 11323250,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 2,
+          "ns": 10690083,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 3,
+          "ns": 10135167,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 4,
+          "ns": 10122000,
+          "checksum": -6,
+          "device_id": 4294968381
+        }
+      ],
+      "gpu64-512": [
+        {
+          "round": -2,
+          "ns": 17477000,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": -1,
+          "ns": 11405000,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 0,
+          "ns": 10432250,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 1,
+          "ns": 10039208,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 2,
+          "ns": 9955167,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 3,
+          "ns": 10083625,
+          "checksum": -6,
+          "device_id": 4294968381
+        },
+        {
+          "round": 4,
+          "ns": 10349041,
+          "checksum": -6,
+          "device_id": 4294968381
+        }
+      ],
+      "gpu-baseline-1024": [
+        {
+          "round": -2,
+          "ns": 21551834,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": -1,
+          "ns": 20323167,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 0,
+          "ns": 20267917,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 1,
+          "ns": 20056625,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 2,
+          "ns": 20581542,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 3,
+          "ns": 20966666,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 4,
+          "ns": 20603125,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        }
+      ],
+      "gpu64-1024": [
+        {
+          "round": -2,
+          "ns": 25648333,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": -1,
+          "ns": 20255917,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 0,
+          "ns": 19892375,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 1,
+          "ns": 20108958,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 2,
+          "ns": 19955542,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 3,
+          "ns": 20088125,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        },
+        {
+          "round": 4,
+          "ns": 19907334,
+          "checksum": 55.5,
+          "device_id": 4294968381
+        }
+      ]
+    }
+  },
+  "paired_trial": "matrix-tuning-trial-2026-10-25.json",
+  "paired_trial_disposition": "Rejected float64 32-leaf subtree due measured regressions; final retains float64 16-leaf path. Float32 uses 32 leaves.",
+  "broad_run_compiler_sha256": "5925ea1cbabbc855ad12aa9de7526cf02eeb257d1108ecbc2f329a535b0f205b",
+  "final_cpu_matrix_type_build_variants": 16,
+  "final_cpu_actual_benchmark_per_cell_integer_checks": 2752512,
+  "final_float64_benchmark_ir_identical_to_baseline": true,
+  "final_float64_benchmark_ir_sha256": "bb5f6c0eed71830e0fc3cdba0be1a0489c70fc1427ffbbb4cb8dbab4ee4684f8",
+  "final_gpu_matrix_shader_tokens_match_qualified_shader": true,
+  "qualified_gpu_matrix_library_sha256": "d6002fb8e1d0bd7017d269e010667eea138be23b56321eccf242a74eb93296a1",
+  "final_gpu_matrix_library_sha256": "d6002fb8e1d0bd7017d269e010667eea138be23b56321eccf242a74eb93296a1",
+  "timing_source_and_artifact_hashes_verified": true,
+  "acceptance_samples_uninstrumented_verified": true,
+  "performance_environment": {
+    "KALANDRA_GPU_PROFILE": null,
+    "KALANDRA_FAIR_PATTERN": null
+  },
+  "baseline_and_current_gpu_driver_text_identical": true
+}

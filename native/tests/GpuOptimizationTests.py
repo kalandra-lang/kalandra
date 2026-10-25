@@ -25,6 +25,7 @@ source.write_text((root / 'native/benchmarks/languages/gpu.k').read_text().repla
 bundle = args.output / 'bundle'
 run([compiler, source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', bundle])
 assert 'kalandra_matmul_hardware_tiled' in (bundle / 'kernel2.metal').read_text()
+assert 'kalandra_matmul_hardware_block64' in (bundle / 'kernel2.metal').read_text()
 assert 'kalandra_reduce_sum_hardware_block' in (bundle / 'kernel0-reduce.metal').read_text()
 variants = [('optimized', ['-O2'], 'libkalandra-task-core-optimized.a')]
 if not args.quick:

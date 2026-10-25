@@ -158,4 +158,77 @@ kernel void kalandra_matmul_hardware_block32(
     output.values[row*n+col]=value;
   }
 }
+
+// A 16x8 output tile reuses each RHS panel across sixteen rows. Its 128
+// lanes reduce exact 64-leaf subtrees with two barriers per block. Missing
+// output lanes participate in both barriers but never enter the arithmetic.
+inline float kalandra_hardware_eight64(threadgroup float* a, threadgroup float* b,
+                                      uint row, uint col, uint first) {
+  float p0=a[row*64+first+0]*b[(first+0)*8+col];
+  float p1=a[row*64+first+1]*b[(first+1)*8+col];
+  float p2=a[row*64+first+2]*b[(first+2)*8+col];
+  float p3=a[row*64+first+3]*b[(first+3)*8+col];
+  float p4=a[row*64+first+4]*b[(first+4)*8+col];
+  float p5=a[row*64+first+5]*b[(first+5)*8+col];
+  float p6=a[row*64+first+6]*b[(first+6)*8+col];
+  float p7=a[row*64+first+7]*b[(first+7)*8+col];
+  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));
+}
+kernel void kalandra_matmul_hardware_block64(
+    device KalandraHardwareMatrix& a [[buffer(0)]],
+    device KalandraHardwareMatrix& b [[buffer(1)]],
+    device KalandraHardwareMatrix& output [[buffer(2)]],
+    device KalandraHardwareShape& parameters [[buffer(3)]],
+    uint lane [[thread_position_in_threadgroup]],
+    uint group [[threadgroup_position_in_grid]]) {
+  threadgroup float av[1024];
+  threadgroup float bv[512];
+  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];
+  const uint tileColumns=n/8+uint(n%8!=0);
+  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*8;
+  const uint row=rowBase+lane/8, col=colBase+lane%8;
+  float stack[27];
+  const uint blocks=k/64; // Runtime admits only nonzero multiples of 64.
+  for (uint block=0; block<blocks; ++block) {
+    const uint first=block*64;
+    for (uint at=lane; at<1024; at+=128) {
+      const uint r=rowBase+at/64;
+      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;
+    }
+    for (uint at=lane; at<512; at+=128) {
+      const uint c=colBase+at%8;
+      bv[at]=c<n ? b.values[(first+at/8)*n+c] : 0.0f;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if (row<m && col<n) {
+      float r0=kalandra_hardware_eight64(av,bv,lane/8,lane%8,0);
+      float r1=kalandra_hardware_eight64(av,bv,lane/8,lane%8,8);
+      float r2=kalandra_hardware_eight64(av,bv,lane/8,lane%8,16);
+      float r3=kalandra_hardware_eight64(av,bv,lane/8,lane%8,24);
+      float r4=kalandra_hardware_eight64(av,bv,lane/8,lane%8,32);
+      float r5=kalandra_hardware_eight64(av,bv,lane/8,lane%8,40);
+      float r6=kalandra_hardware_eight64(av,bv,lane/8,lane%8,48);
+      float r7=kalandra_hardware_eight64(av,bv,lane/8,lane%8,56);
+      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));
+      uint occupied=block, level=0;
+      while (occupied&1) {
+        value=stack[level]+value;
+        ++level; occupied>>=1;
+      }
+      stack[level]=value;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+  }
+  if (row<m && col<n) {
+    bool used=false;
+    float value=0.0f;
+    for (uint level=0, occupied=blocks; occupied; ++level, occupied>>=1) {
+      if (occupied&1) {
+        value=used ? stack[level]+value : stack[level];
+        used=true;
+      }
+    }
+    output.values[row*n+col]=value;
+  }
+}
 )MSL";

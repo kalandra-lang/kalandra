@@ -13,5 +13,5 @@ for dtype in ('float32','float64'):
  ir=source.with_suffix('.ll');binary=source.with_suffix('')
  run([a.compiler,source,'--arithmetic','hardware','--test-entry','cells','--emit-llvm',ir,'-O2','-o',str(binary)+'-standalone'])
  run([a.clang,'-std=c++23','-O2','-ffp-contract=off','-pthread','-Wno-override-module',*(['-DFLOAT32'] if dtype=='float32' else []),*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),root/'native/tests/CpuBenchmarkCells.cpp',ir,a.compiler.parent/('kalandra-native-runtime.lib' if sys.platform=='win32' else 'libkalandra-native-runtime.a'),'-o',binary])
- for n in ((256,512,1024) if dtype=='float32' else (256,512)):
+ for n in (256,512,1024):
   print(dtype+': '+run([binary,n]).strip(),flush=True)

@@ -1163,15 +1163,21 @@ private:
                        });
     return scratchReduction(loc, count, scratch, width, {}, unsignedValue);
   }
+  // A power-of-two block preserves the exact adjacent-pair reduction tree.
+  // Keep the allocation bound and register subtree size coupled.
+  static unsigned matmulReductionBlock(Type element) { return element.isF64() ? 16 : 32; }
   template <class Callback>
   Value registerBlockReduction(Location loc, Value count, Value scratch, Callback element,
                                unsigned width) {
-    const auto z = index(loc, 0), one = index(loc, 1), block = index(loc, 16);
+    const auto blockSize =
+        matmulReductionBlock(cast<MemRefType>(scratch.getType()).getElementType());
+    const auto z = index(loc, 0), one = index(loc, 1), block = index(loc, blockSize);
     auto groups = arith::DivUIOp::create(builder_, loc, count, block);
     auto tail = arith::RemUIOp::create(builder_, loc, count, block);
-    const auto base = index(loc, 16 * width);
-    // Sixteen consecutive leaves form one exact subtree. Build its four pairwise
-    // levels in SSA/registers, writing only the root rather than every product.
+    const auto base = index(loc, blockSize * width);
+    // Consecutive power-of-two leaves form one exact subtree in SSA/registers,
+    // writing only the root rather than every product. Float64 retains sixteen
+    // leaves: larger subtrees regress its measured kernel throughput.
     const auto tree = [&](auto &&self, Value first, unsigned start, unsigned length) -> Value {
       if (length == 1)
         return element(arith::AddIOp::create(builder_, loc, first, index(loc, start)));
@@ -1180,11 +1186,12 @@ private:
       return arith::AddFOp::create(builder_, loc, left, right);
     };
     scf::ForOp::create(builder_, loc, z, groups, one, ValueRange{},
-                      [&](OpBuilder &, Location, Value i, ValueRange) {
-                        auto first = arith::MulIOp::create(builder_, loc, i, block);
-                        scratchStore(loc, tree(tree, first, 0, 16), scratch, i, width, base);
-                        scf::YieldOp::create(builder_, loc);
-                      });
+                       [&](OpBuilder &, Location, Value i, ValueRange) {
+                         auto first = arith::MulIOp::create(builder_, loc, i, block);
+                         scratchStore(loc, tree(tree, first, 0, blockSize), scratch, i, width,
+                                      base);
+                         scf::YieldOp::create(builder_, loc);
+                       });
     auto hasTail = compare(loc, arith::CmpIPredicate::ne, tail, z);
     auto partial = scf::IfOp::create(builder_, loc, hasTail, false);
     {
@@ -1241,8 +1248,9 @@ private:
     Value width = smallWidth, count = left[1];
     if (wide) {
       width = index(loc, tileRows * 8);
-      auto groups = arith::DivUIOp::create(builder_, loc, left[1], index(loc, 16));
-      count = arith::AddIOp::create(builder_, loc, groups, index(loc, 17));
+      const auto blockSize = matmulReductionBlock(output.getElementType());
+      auto groups = arith::DivUIOp::create(builder_, loc, left[1], index(loc, blockSize));
+      count = arith::AddIOp::create(builder_, loc, groups, index(loc, blockSize + 1));
     }
     // Empty output must never size scratch from an unused, potentially enormous
     // contraction dimension. All paths/edge kernels reuse this one allocation.

@@ -37,3 +37,11 @@ Hardware float32 matrix bundles also include a 32-leaf contraction-block entry w
 The new entry is selected for contraction lengths at least 256 and divisible by 32 where the generic hardware tile would otherwise run. Existing quad-profile selection is retained; non-multiple contractions keep the admitted eight-leaf implementation. Per-cell APFloat qualification includes 256/288/320/544 contractions, row/column edges, non-power-of-two root counts, exceptional values and the actual benchmark matrices through 1024². All debug/optimized/sanitizer variants remain covered.
 
 The [fair optimization follow-up](../../benchmarks/results/optimization-2026-10-24.md) compares complete CPU/resident/upload-inclusive tasks with optimized library APIs. It preserves the earlier benchmark-methodology correction and makes no general language ranking from GPU tensor performance.
+
+## Larger output tiles
+
+The [matrix tuning follow-up](../../benchmarks/results/matrix-tuning-2026-10-25.md) adds an optional 16×8 output tile with 128 lanes. It stages 1,024 left and 512 right float32 values, reusing each RHS panel across sixteen rows. Two barriers cover each exact 64-leaf contraction subtree. All lanes reach both barriers; out-of-range output lanes do not perform arithmetic. The ordered carry stack preserves non-power-of-two root counts.
+
+This entry requires at least sixteen rows, eight columns, and a contraction length of at least 512 divisible by 64. The existing quad profile takes precedence. Pipelines supporting fewer than 128 threads, older bundles, smaller shapes, and other contraction tails retain the previous admitted paths. Dispatch sizing now follows the selected layout; the quad entry no longer launches the larger 8×8 hardware tile's work-item count. Allocation, cancellation, submitted-buffer ownership, scalar readback and arithmetic policy retain their contracts.
+
+Qualification includes 511/512/513, 575/576/577 and 640 contractions, 15/16/17 and 31/32/33 row boundaries, APFloat exceptional/rounding checks, and every cell of the timed square matrices through 2048² in all four runtime build modes.
