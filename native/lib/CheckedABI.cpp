@@ -688,7 +688,8 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
         // Entry checked the executing thread's full bounds. A synchronous
         // source chain cannot migrate or switch stacks; only downward growth
         // can exhaust it. Fixed frames keep admission across returned calls.
-        at.CreateCondBr(at.CreateICmpUGT(sp, low), accepted, exhausted);
+        auto *guard = at.CreateCondBr(at.CreateICmpUGT(sp, low), accepted, exhausted);
+        guard->setMetadata("kalandra.physical.guard", MDNode::get(context, {}));
       }
       if (admitted) {
         DominatorTree dominators(*body);

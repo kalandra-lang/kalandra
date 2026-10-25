@@ -1,6 +1,7 @@
 #pragma once
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <array>
@@ -266,6 +267,97 @@ inline std::optional<std::string> normalizeWindowsTailPackets(llvm::Module &modu
 // This is partial inlining by control flow, independent of source numeric type,
 // recursion depth or benchmark input. The slow region keeps its original body
 // and guards; the wrapper is a native leaf or a guaranteed tail transfer.
+// AArch64 SDIV/MSUB defines INT_MIN % -1 as zero. LLVM srem cannot express
+// that case, so lowering otherwise selects a replacement divisor on every
+// iteration. Keep source zero-divisor guards and use the actual hardware
+// remainder where its overflow behavior already matches the language.
+inline void lowerAArch64CheckedRemainders(llvm::Module &module) {
+  using namespace llvm;
+  if (!module.getTargetTriple().isAArch64()) return;
+  SmallVector<BinaryOperator *, 16> remainders;
+  for (auto &fn : module)
+    for (auto &block : fn)
+      for (auto &instruction : block)
+        if (auto *op = dyn_cast<BinaryOperator>(&instruction);
+            op && op->getOpcode() == Instruction::SRem && op->getType()->isIntegerTy(64))
+          remainders.push_back(op);
+  for (auto *op : remainders) {
+    auto *choice = dyn_cast<SelectInst>(op->getOperand(1));
+    if (!choice) continue;
+    auto *condition = dyn_cast<ICmpInst>(choice->getCondition());
+    if (!condition || !condition->isEquality()) continue;
+    auto *divisor = condition->getOperand(0);
+    auto *minusOne = dyn_cast<ConstantInt>(condition->getOperand(1));
+    if (!minusOne || !minusOne->isMinusOne()) continue;
+    auto *selected = condition->getPredicate() == ICmpInst::ICMP_EQ
+                         ? choice->getTrueValue() : choice->getFalseValue();
+    auto *other = condition->getPredicate() == ICmpInst::ICMP_EQ
+                      ? choice->getFalseValue() : choice->getTrueValue();
+    auto *one = dyn_cast<ConstantInt>(selected);
+    if (!one || !one->isOne() || other != divisor) continue;
+    IRBuilder<> ir(op);
+    auto *type = FunctionType::get(op->getType(), {op->getType(), op->getType()}, false);
+    auto *hardware = InlineAsm::get(type, "sdiv $0, $1, $2\n\tmsub $0, $0, $2, $1",
+                                    "=&r,r,r", false);
+    auto *value = ir.CreateCall(type, hardware, {op->getOperand(0), divisor}, "hardware.remainder");
+    op->replaceAllUsesWith(value);
+    op->eraseFromParent();
+    // The old divisor select is pure; the next code-generation cleanup removes it.
+  }
+}
+
+// Inlining can remove the very call a physical guard was protecting. Retain
+// every guard whose accepted path can still grow a source frame. A call-free
+// path (including loops and terminal fault reporting) consumes only its already
+// admitted fixed frame, so its obsolete check and volatile SP read can go.
+inline bool removeInlinedNativeStackGuards(llvm::Module &module) {
+  using namespace llvm;
+  SmallVector<CondBrInst *, 16> removable;
+  for (auto &fn : module)
+    for (auto &block : fn) {
+      auto *branch = dyn_cast<CondBrInst>(block.getTerminator());
+      if (!branch ||
+          !branch->getMetadata("kalandra.physical.guard")) continue;
+      auto *condition = dyn_cast<ICmpInst>(branch->getCondition());
+      if (!condition || condition->getPredicate() != ICmpInst::ICMP_UGT) continue;
+      auto *sp = dyn_cast<CallInst>(condition->getOperand(0));
+      if (!sp || !sp->getCalledFunction() ||
+          sp->getCalledFunction()->getIntrinsicID() != Intrinsic::read_volatile_register) continue;
+      SmallPtrSet<BasicBlock *, 32> visited;
+      SmallVector<BasicBlock *, 16> pending{branch->getSuccessor(0)};
+      bool leaf = true;
+      while (leaf && !pending.empty()) {
+        auto *next = pending.pop_back_val();
+        if (!visited.insert(next).second) continue;
+        for (auto &instruction : *next) {
+          if (isa<AllocaInst>(instruction)) { leaf = false; break; }
+          if (auto *call = dyn_cast<CallBase>(&instruction)) {
+            auto *target = call->getCalledFunction();
+            if (!target || (!target->isIntrinsic() &&
+                target->getName() != "kalandra_fault_v1" &&
+                target->getName() != "kalandra_source_abort_v2")) { leaf = false; break; }
+            if (target->isIntrinsic() &&
+                (target->getIntrinsicID() == Intrinsic::stacksave ||
+                 target->getIntrinsicID() == Intrinsic::stackrestore)) { leaf = false; break; }
+          }
+        }
+        for (auto *successor : successors(next)) pending.push_back(successor);
+      }
+      if (leaf) removable.push_back(branch);
+    }
+  for (auto *branch : removable) {
+    auto *condition = cast<ICmpInst>(branch->getCondition());
+    auto *sp = cast<CallInst>(condition->getOperand(0));
+    auto *accepted = branch->getSuccessor(0);
+    branch->getSuccessor(1)->removePredecessor(branch->getParent());
+    UncondBrInst::Create(accepted, branch->getIterator());
+    branch->eraseFromParent();
+    if (condition->use_empty()) condition->eraseFromParent();
+    if (sp->use_empty()) sp->eraseFromParent();
+  }
+  return !removable.empty();
+}
+
 inline void outlineNativeLeafPaths(llvm::Module &module,
                                    void (*simplify)(llvm::Function &, bool)) {
   using namespace llvm;
@@ -287,8 +379,12 @@ inline void outlineNativeLeafPaths(llvm::Module &module,
       }
     if (!fixed || !recursive) continue;
     auto pure = [](Instruction &instruction) {
-      return !instruction.mayReadOrWriteMemory() && !isa<CallBase>(instruction) &&
-             !isa<AllocaInst>(instruction);
+      if (auto *call = dyn_cast<CallBase>(&instruction)) {
+        auto *target = call->getCalledFunction();
+        return target && (target->getName() == "kalandra_fault_v1" ||
+                          target->getName() == "kalandra_source_abort_v2");
+      }
+      return !instruction.mayReadOrWriteMemory() && !isa<AllocaInst>(instruction);
     };
     bool entryPure = true;
     for (auto &instruction : *entry)
@@ -300,14 +396,16 @@ inline void outlineNativeLeafPaths(llvm::Module &module,
       region.clear();
       SmallPtrSet<BasicBlock *, 32> active;
       auto visit = [&](auto &&self, BasicBlock *block) -> bool {
-        if (block == entry || active.contains(block)) return false;
+        if (block == entry) return false;
+        if (active.contains(block)) return true;
         if (region.contains(block)) return true;
         active.insert(block);
         for (auto &instruction : *block)
           if (!instruction.isTerminator() && !pure(instruction)) return false;
         auto *term = block->getTerminator();
         if (!isa<ReturnInst>(term) && !isa<CondBrInst>(term) &&
-            !isa<UncondBrInst>(term) && !isa<SwitchInst>(term)) return false;
+            !isa<UncondBrInst>(term) && !isa<SwitchInst>(term) &&
+            !isa<UnreachableInst>(term)) return false;
         for (auto *next : successors(block))
           if (!self(self, next)) return false;
         active.erase(block);

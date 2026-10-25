@@ -288,6 +288,86 @@ int main(int argc, char **argv) {
   }
   {
     LLVMContext context;
+    Module module("post-inline-stack-guards", context);
+    auto *i64 = Type::getInt64Ty(context);
+    auto *signature = FunctionType::get(i64, {i64}, false);
+    auto *growing = Function::Create(signature, GlobalValue::ExternalLinkage, "growing", module);
+    for (bool call : {false, true}) {
+      auto *fn = Function::Create(signature, GlobalValue::ExternalLinkage,
+                                  call ? "retained" : "removed", module);
+      IRBuilder<> ir(BasicBlock::Create(context, "entry", fn));
+      auto *accepted = BasicBlock::Create(context, "accepted", fn);
+      auto *failed = BasicBlock::Create(context, "failed", fn);
+      auto *condition = ir.CreateICmpUGT(kalandra::nativeStackPointer(ir), fn->getArg(0));
+      auto *guard = ir.CreateCondBr(condition, accepted, failed);
+      guard->setMetadata("kalandra.physical.guard", MDNode::get(context, {}));
+      ir.SetInsertPoint(accepted);
+      ir.CreateRet(call ? static_cast<Value *>(ir.CreateCall(growing, {fn->getArg(0)})) : fn->getArg(0));
+      ir.SetInsertPoint(failed);
+      ir.CreateRet(ir.getInt64(0));
+    }
+    check(kalandra::removeInlinedNativeStackGuards(module));
+    check(!isa<CondBrInst>(module.getFunction("removed")->getEntryBlock().getTerminator()));
+    check(isa<CondBrInst>(module.getFunction("retained")->getEntryBlock().getTerminator()));
+    check(calls(*module.getFunction("removed"), "llvm.read_volatile_register.i64") == 0);
+    check(calls(*module.getFunction("retained"), "llvm.read_volatile_register.i64") == 1);
+    check(!verifyModule(module, &errs()));
+
+    auto *fn = Function::Create(signature, GlobalValue::InternalLinkage,
+                                "loop.body.clear", module);
+    IRBuilder<> ir(BasicBlock::Create(context, "entry", fn));
+    auto *leaf = BasicBlock::Create(context, "leaf", fn);
+    auto *loop = BasicBlock::Create(context, "loop", fn);
+    auto *done = BasicBlock::Create(context, "done", fn);
+    auto *failed = BasicBlock::Create(context, "failed", fn);
+    auto *slow = BasicBlock::Create(context, "slow", fn);
+    ir.CreateCondBr(ir.CreateICmpEQ(fn->getArg(0), ir.getInt64(0)), leaf, slow);
+    ir.SetInsertPoint(leaf);
+    ir.CreateCondBr(ir.CreateICmpSLT(fn->getArg(0), ir.getInt64(-1)), failed, loop);
+    ir.SetInsertPoint(loop);
+    auto *index = ir.CreatePHI(i64, 2);
+    index->addIncoming(fn->getArg(0), leaf);
+    auto *next = ir.CreateAdd(index, ir.getInt64(1));
+    index->addIncoming(next, loop);
+    ir.CreateCondBr(ir.CreateICmpSLT(next, ir.getInt64(4)), loop, done);
+    ir.SetInsertPoint(done);
+    ir.CreateRet(next);
+    ir.SetInsertPoint(failed);
+    auto fault = module.getOrInsertFunction("kalandra_fault_v1", ir.getVoidTy(), i64);
+    auto abort = module.getOrInsertFunction("kalandra_source_abort_v2", ir.getVoidTy());
+    ir.CreateCall(fault, {ir.getInt64(4)});
+    ir.CreateCall(abort);
+    ir.CreateUnreachable();
+    ir.SetInsertPoint(slow);
+    auto *child = ir.CreateCall(fn, {ir.CreateSub(fn->getArg(0), ir.getInt64(1))});
+    ir.CreateRet(ir.CreateAdd(child, ir.getInt64(1)));
+    kalandra::outlineNativeLeafPaths(module, [](llvm::Function &, bool) {});
+    check(fn->hasFnAttribute(Attribute::AlwaysInline));
+    check(module.getFunction("loop.body.clear.branch"));
+    check(!verifyModule(module, &errs()));
+  }
+  {
+    LLVMContext context;
+    Module module("arm64-checked-remainder", context);
+    module.setTargetTriple(Triple("aarch64-apple-darwin"));
+    auto *i64 = Type::getInt64Ty(context);
+    auto *fn = Function::Create(FunctionType::get(i64, {i64, i64}, false),
+                                GlobalValue::ExternalLinkage, "remainder", module);
+    IRBuilder<> ir(BasicBlock::Create(context, "entry", fn));
+    auto *divisor = ir.CreateSelect(ir.CreateICmpEQ(fn->getArg(1), ir.getInt64(-1)),
+                                    ir.getInt64(1), fn->getArg(1));
+    ir.CreateRet(ir.CreateSRem(fn->getArg(0), divisor));
+    module.setTargetTriple(Triple("x86_64-pc-windows-msvc"));
+    kalandra::lowerAArch64CheckedRemainders(module);
+    check(isa<BinaryOperator>(cast<ReturnInst>(fn->back().getTerminator())->getReturnValue()));
+    module.setTargetTriple(Triple("aarch64-apple-darwin"));
+    kalandra::lowerAArch64CheckedRemainders(module);
+    auto *value = dyn_cast<CallInst>(cast<ReturnInst>(fn->back().getTerminator())->getReturnValue());
+    check(value && value->isInlineAsm() && value->getArgOperand(1) == fn->getArg(1));
+    check(!verifyModule(module, &errs()));
+  }
+  {
+    LLVMContext context;
     auto module = windowsTailFixture(context);
     check(argc == 1 || argc == 2);
     if (argc == 2) {

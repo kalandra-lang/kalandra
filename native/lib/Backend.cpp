@@ -80,7 +80,7 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   passes.crossRegisterProxies(loops, functions, calls, modules);
   auto pipeline = passes.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
   pipeline.run(*candidate, modules);
-  outlineNativeLeafPaths(*candidate, [](llvm::Function &fn, bool) {
+  auto simplifyLeaf = [](llvm::Function &fn, bool) {
     llvm::LoopAnalysisManager loops;
     llvm::FunctionAnalysisManager functions;
     llvm::CGSCCAnalysisManager calls;
@@ -94,7 +94,12 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
     auto simplify = passes.buildFunctionSimplificationPipeline(llvm::OptimizationLevel::O2,
                                                                llvm::ThinOrFullLTOPhase::None);
     simplify.run(fn, functions);
-  });
+  };
+  if (removeInlinedNativeStackGuards(*candidate))
+    for (auto &fn : *candidate)
+      if (!fn.isDeclaration() && !fn.hasFnAttribute("kalandra.task.frame"))
+        simplifyLeaf(fn, true);
+  outlineNativeLeafPaths(*candidate, simplifyLeaf);
   modules.clear();
   auto finish = passes.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
   finish.run(*candidate, modules);
@@ -122,6 +127,7 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
     }
     if (!aborts.empty()) fn.removeFnAttr(llvm::Attribute::NoReturn);
   }
+  lowerAArch64CheckedRemainders(*candidate);
   if (auto error = normalizeWindowsTailPackets(*candidate)) return error;
   bool fits = !llvm::verifyModule(*candidate);
   for (auto &fn : *candidate) {

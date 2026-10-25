@@ -18,6 +18,7 @@ inline void padThreadSanitizerFrames(llvm::Module &module) {
     for (auto &block : fn)
       for (auto &instruction : block)
         if (auto *call = dyn_cast<CallInst>(&instruction); call && !call->isMustTailCall()) {
+          if (call->isInlineAsm()) continue;
           auto *target = call->getCalledFunction();
           growing |= !target || !target->isDeclaration();
         }
