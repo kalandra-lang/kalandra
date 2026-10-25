@@ -352,6 +352,32 @@ endif()
 add_library(kalandra-task-core-optimized STATIC EXCLUDE_FROM_ALL runtime/Runtime.cpp runtime/Tasks.cpp)
 target_compile_options(kalandra-task-core-optimized PRIVATE -Wall -Wextra -Werror -O2)
 target_link_libraries(kalandra-task-core-optimized PUBLIC Threads::Threads)
+if(BUILD_TESTING AND APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
+  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    set(CANCEL_FLAGS -O0)
+    set(CANCEL_RUNTIME kalandra-native-runtime)
+    if(VARIANT STREQUAL "optimized")
+      set(CANCEL_FLAGS -O2)
+      set(CANCEL_RUNTIME kalandra-task-core-optimized)
+    elseif(VARIANT STREQUAL "sanitized")
+      set(CANCEL_FLAGS -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all)
+      set(CANCEL_RUNTIME kalandra-native-runtime-sanitized)
+    elseif(VARIANT STREQUAL "thread-sanitized")
+      set(CANCEL_FLAGS -O1 -g -fsanitize=thread)
+      set(CANCEL_RUNTIME kalandra-native-runtime-thread-sanitized)
+    endif()
+    add_executable(kalandra-native-cancellation-${VARIANT} tests/NativeCancellationTests.cpp)
+    target_compile_options(kalandra-native-cancellation-${VARIANT} PRIVATE
+      -Wall -Wextra -Werror -ffixed-x28 ${CANCEL_FLAGS})
+    target_link_options(kalandra-native-cancellation-${VARIANT} PRIVATE ${CANCEL_FLAGS})
+    target_link_libraries(kalandra-native-cancellation-${VARIANT} PRIVATE ${CANCEL_RUNTIME})
+    foreach(MODE IN ITEMS native occupied blocked)
+      add_test(NAME native-cancellation-${VARIANT}-${MODE}
+        COMMAND kalandra-native-cancellation-${VARIANT} ${MODE})
+      set_tests_properties(native-cancellation-${VARIANT}-${MODE} PROPERTIES TIMEOUT 60)
+    endforeach()
+  endforeach()
+endif()
 
 if(BUILD_TESTING)
   foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
@@ -1085,6 +1111,11 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/call-foundation")
   set_tests_properties(native-call-foundation-source PROPERTIES TIMEOUT 900)
+  add_test(NAME native-cancellation-source
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeCancellationSourceTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/native-cancellation-source")
+  set_tests_properties(native-cancellation-source PROPERTIES TIMEOUT 900)
   add_test(NAME native-arithmetic-policy
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ArithmeticPolicyTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/arithmetic-policy")

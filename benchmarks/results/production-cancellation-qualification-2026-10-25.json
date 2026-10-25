@@ -1,0 +1,280 @@
+{
+  "timestamp": "2026-10-25T15:58:03.925258+00:00",
+  "abi": {
+    "size": 248,
+    "alignment": 8,
+    "pollMode": 216,
+    "cancellation": 16,
+    "leaseDepth": 224,
+    "stackLow": 232,
+    "stackHigh": 240,
+    "depth": 32
+  },
+  "regression_gates": 101,
+  "boundary_recheck": [
+    {
+      "test": "native-cancellation-thread-sanitized-occupied",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-thread-sanitized-native",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-thread-sanitized-blocked",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-optimized-native",
+      "async_enabled": true,
+      "redirects": 200,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-debug-native",
+      "async_enabled": true,
+      "redirects": 200,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-sanitized-native",
+      "async_enabled": true,
+      "redirects": 200,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-sanitized-blocked",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-sanitized-occupied",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-optimized-blocked",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-debug-blocked",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-debug-occupied",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    },
+    {
+      "test": "native-cancellation-optimized-occupied",
+      "async_enabled": false,
+      "redirects": 0,
+      "result": "nested foreign cleanup, worker reuse/migration, deadlines, faults and late interrupts pass",
+      "passed": true
+    }
+  ],
+  "generated_source": [
+    {
+      "variant": "debug",
+      "result": "Generated source: 54 exact numerical cases, 120 scheduler cancellations; async=1 redirects=80",
+      "compiler_sha256": "425f65be60172454a49c573ec74e322fa8d34393a2f9b7118f8f65fc9d8ad9b6",
+      "ir_sha256": "4c406271288245744eae17b097a06cd2114d67db4f6299c30ac583c5d2395af7",
+      "binary_sha256": "6d13050caa074a0a6add5aa9c41f6038c0f7b3ce7d6c2689fa1ce89aa5222315",
+      "runtime_sha256": "02b03aebc1cf683082cf19d40cd5ecda2650aaea9a98828f31f3b137f8bc1e6c"
+    },
+    {
+      "variant": "optimized",
+      "result": "Generated source: 54 exact numerical cases, 120 scheduler cancellations; async=1 redirects=80",
+      "compiler_sha256": "425f65be60172454a49c573ec74e322fa8d34393a2f9b7118f8f65fc9d8ad9b6",
+      "ir_sha256": "4c406271288245744eae17b097a06cd2114d67db4f6299c30ac583c5d2395af7",
+      "binary_sha256": "63329b5da9739aeae55fedbc7862d39f6005a9fdf4e6a54795422457736d7f2a",
+      "runtime_sha256": "02b03aebc1cf683082cf19d40cd5ecda2650aaea9a98828f31f3b137f8bc1e6c"
+    },
+    {
+      "variant": "sanitized",
+      "result": "Generated source: 54 exact numerical cases, 120 scheduler cancellations; async=1 redirects=80",
+      "compiler_sha256": "425f65be60172454a49c573ec74e322fa8d34393a2f9b7118f8f65fc9d8ad9b6",
+      "ir_sha256": "0bacec91256eb4131660d66fdfbf0cc9aa982bfe27aa0455680bb3c3a57e55bc",
+      "binary_sha256": "7822a464da0fe2b75f3b435447bdb83eb1025ab44a197f1d9ee0a9169109c03e",
+      "runtime_sha256": "7c7192205cffb10d9e5b1797c0a4b0a5a3ccaea543d3f9d283f95b10b1b7f196"
+    },
+    {
+      "variant": "thread-sanitized",
+      "result": "Generated source: 54 exact numerical cases, 120 scheduler cancellations; async=0 redirects=0",
+      "compiler_sha256": "425f65be60172454a49c573ec74e322fa8d34393a2f9b7118f8f65fc9d8ad9b6",
+      "ir_sha256": "cf085b160376c115ec667541d232c21043f74f7641f796a2fbf80d752a44179c",
+      "binary_sha256": "66a2b41ac71a7ce55aae96293647f6df2bf098c7db2bb2d3d54679b8e509d9a6",
+      "runtime_sha256": "2f182bf3007c90f87bde610102ac7df5eebe492bb65e47a5671424dbbdfdd1ea"
+    }
+  ],
+  "physical_metal": {
+    "physical_metal_borrows": 100,
+    "exact_values": 409600,
+    "cpu_hybrid": true,
+    "redirects": 100,
+    "device": "Apple M2 Max"
+  },
+  "failed_attempts": [
+    {
+      "name": "forced asynchronous cancellation under ThreadSanitizer",
+      "outcome": "60 second timeout in pure compute",
+      "qualified_as_async": false,
+      "resolution": "Cooperative cancellation for TSan: its interceptor defers handlers and copies ucontext. No interceptor bypass. Debug, optimized and ASan prove actual redirects separately."
+    },
+    {
+      "name": "over-broad helper inline barrier",
+      "outcome": "source-debug exceeded 600 second limit",
+      "resolution": "Restrict the barrier to task/ownership helpers; preserve fast polling helper inlining. Final source-debug passes in 92.79 seconds and all 101 distinct gates pass.",
+      "counted_as_pass": false
+    }
+  ],
+  "source_hashes": {
+    "native/runtime/NativeCancellation.h": "a4c57db38aed86af180857c94b351c9ec36c6dfdafcbb72ef7f47bd7ac20a887",
+    "native/runtime/NativeCancellation.inc": "f88472b24bcce477c6c79a11e52d3ca17604f950e08310fd1f78ffafc32ff378",
+    "native/runtime/Runtime.cpp": "935f1b74bfd39baa4a060d75c69f2e2d1d763ca045cb0a89f3a0b1251a98267e",
+    "native/runtime/Runtime.h": "af737ee6cbbfa6b58b741acd4789d1606ae547fdcc032c1676f908d6c2d84771",
+    "native/runtime/Tasks.cpp": "017321984530f5b83d4688449388be838c4ee1f017c95e2b7b23703b3d5f264e",
+    "native/lib/Backend.cpp": "39bb2cf0c222e150b146782869d04aea72b2abe0acfa518f7bf3166b7cee75cb",
+    "native/lib/CheckedABI.cpp": "e51c774e394efdf618caaeda20590f18f8676d6c7f50a349f0cfb161d51d49a7",
+    "native/lib/NativeCallFoundation.h": "a3ff5bc184659eb660a2c0b8aafded6fcfae870bfcbc5444c5a69f52b8243638",
+    "native/tests/NativeCancellationTests.cpp": "88ac1479329dcbf7b4bc9d16d70df618ce51c92bff70eb03f3245af6a997cd29",
+    "native/tests/NativeCancellationSource.cpp": "42c561ffae8a342412a338a15f2ef8f2680d8104479b521cdf0e0cf7d207cf46",
+    "native/tests/NativeCancellationSourceTests.py": "433d120c1be95229808d6f38ed336118adc6a6172e4632b905a3b27265ba62c5",
+    "native/experiments/cancellation/GpuLease.mm": "bf78edf8622cf7da449524293c19b229d0c845975e81deb9f50819677b403da7",
+    "native/tests/CheckedInliningTests.cpp": "8acc101b8c1e32551e799bd7d3dc98f1cf7d4090bde5930a577769df21ddd657"
+  },
+  "commands": [
+    "cmake --build build/native --target kalandra kalandra-native-cancellation-debug kalandra-native-cancellation-optimized kalandra-native-cancellation-sanitized kalandra-native-cancellation-thread-sanitized",
+    "ctest --test-dir build/native -R ^native-cancellation- --output-on-failure",
+    "python3 native/experiments/cancellation/production_entry.py OUTPUT.json",
+    "/opt/homebrew/opt/llvm/bin/clang++ -std=c++20 -O2 -ffixed-x28 -fobjc-arc native/experiments/cancellation/GpuLease.mm build/native/native/libkalandra-task-core-optimized.a -framework Metal -framework Foundation -o /tmp/kalandra-hybrid-gpu-lease"
+  ],
+  "regression_tests": [
+    "native-allocation-lease-debug",
+    "native-allocation-lease-optimized",
+    "native-allocation-lease-sanitized",
+    "native-allocation-lease-thread-sanitized",
+    "native-anonymous-errors-debug",
+    "native-anonymous-errors-optimized",
+    "native-anonymous-errors-sanitized",
+    "native-anonymous-errors-thread-sanitized",
+    "native-application-errors-debug",
+    "native-application-errors-optimized",
+    "native-application-errors-sanitized",
+    "native-application-errors-thread-sanitized",
+    "native-arithmetic-policy",
+    "native-call-foundation-source",
+    "native-cancellation-debug-blocked",
+    "native-cancellation-debug-native",
+    "native-cancellation-debug-occupied",
+    "native-cancellation-optimized-blocked",
+    "native-cancellation-optimized-native",
+    "native-cancellation-optimized-occupied",
+    "native-cancellation-sanitized-blocked",
+    "native-cancellation-sanitized-native",
+    "native-cancellation-sanitized-occupied",
+    "native-cancellation-source",
+    "native-cancellation-thread-sanitized-blocked",
+    "native-cancellation-thread-sanitized-native",
+    "native-cancellation-thread-sanitized-occupied",
+    "native-checked-inlining",
+    "native-checked-inlining-source-float32-hardware",
+    "native-checked-inlining-source-float32-software",
+    "native-checked-inlining-source-hardware",
+    "native-checked-inlining-source-software",
+    "native-closures-debug",
+    "native-closures-frontend-debug",
+    "native-closures-frontend-sanitized",
+    "native-closures-optimized",
+    "native-closures-sanitized",
+    "native-closures-thread-sanitized",
+    "native-cpu-benchmark-cells",
+    "native-cpu-optimization",
+    "native-fast-calls",
+    "native-invocation-debug",
+    "native-invocation-environment-debug",
+    "native-invocation-environment-optimized",
+    "native-invocation-environment-sanitized",
+    "native-invocation-optimized",
+    "native-invocation-sanitized",
+    "native-records-debug",
+    "native-records-frontend-debug",
+    "native-records-frontend-sanitized",
+    "native-records-optimized",
+    "native-records-sanitized",
+    "native-records-thread-sanitized",
+    "native-recursive-scalars",
+    "native-recursive-source-debug",
+    "native-recursive-source-frontend-debug",
+    "native-recursive-source-frontend-sanitized",
+    "native-recursive-source-optimized",
+    "native-recursive-source-sanitized",
+    "native-recursive-source-thread-sanitized",
+    "native-recursive-value-runtime-debug",
+    "native-recursive-value-runtime-optimized",
+    "native-recursive-value-runtime-sanitized",
+    "native-recursive-value-runtime-thread-sanitized",
+    "native-signed-remainder",
+    "native-source-debug",
+    "native-source-extension-debug",
+    "native-source-extension-optimized",
+    "native-source-extension-sanitized",
+    "native-source-extension-thread-sanitized",
+    "native-source-optimized",
+    "native-source-sanitized",
+    "native-source-tasks-debug",
+    "native-source-tasks-optimized",
+    "native-source-tasks-sanitized",
+    "native-source-tasks-thread-sanitized",
+    "native-strings-debug",
+    "native-strings-frontend-debug",
+    "native-strings-frontend-sanitized",
+    "native-strings-optimized",
+    "native-strings-runtime-debug",
+    "native-strings-runtime-optimized",
+    "native-strings-runtime-sanitized",
+    "native-strings-runtime-thread-sanitized",
+    "native-strings-sanitized",
+    "native-strings-thread-sanitized",
+    "native-tail-calls",
+    "native-tail-calls-software",
+    "native-task-recovery-debug",
+    "native-task-recovery-optimized",
+    "native-task-recovery-sanitized",
+    "native-task-recovery-thread-sanitized",
+    "native-tasks-debug",
+    "native-tasks-optimized",
+    "native-tasks-sanitized",
+    "native-total-hardware-casts",
+    "native-windows-tail-codegen",
+    "native-worker-errors-debug",
+    "native-worker-errors-optimized",
+    "native-worker-errors-sanitized",
+    "native-worker-errors-thread-sanitized"
+  ],
+  "physical_metal_binary_sha256": "1310471087349aabee306f08336c883852c767c93cb8b7f1e6dc01c792ed5b3f"
+}

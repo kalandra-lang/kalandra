@@ -23,7 +23,7 @@ for name,flag,flags in variants:
  binary=a.output/name;ir=binary.with_suffix('.ll')
  run([a.compiler,source,'--test-entry','tree','--emit-llvm',ir,flag,'-o',str(binary)+'-standalone'])
  text=ir.read_text()
- assert 'kalandra_source_run_v3' in text
+ assert 'kalandra_source_run_v4' in text
  assert 'llvm.read_volatile_register' in text and 'tail.unwind' not in text
  runtime=a.compiler.parent/(('' if sys.platform=='win32' else 'lib')+'kalandra-native-runtime'+('-'+name if 'sanitized' in name else '')+('.lib' if sys.platform=='win32' else '.a'))
  run([a.clang,'-std=c++23','-Wno-override-module','-pthread',*flags,*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),root/'native/tests/FastCallRuntimeTests.cpp',ir,runtime,'-o',binary])

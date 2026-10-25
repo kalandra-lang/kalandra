@@ -558,6 +558,11 @@ inline void specializeInternalCallModes(
                                                              mode == 0 ? "clear" : "token", body);
       if (mode != 2)
         dispatch->addCase(b.getInt64(mode), block);
+      // Only the v4 runtime boundary can arm mode 3. Pure generated work then
+      // uses clear workers; runtime helper returns still check the bound token.
+      if (mode == 0 && module.getTargetTriple().isOSDarwin() &&
+          module.getTargetTriple().isAArch64())
+        dispatch->addCase(b.getInt64(3), block);
       b.SetInsertPoint(block);
       SmallVector<Value *, 12> args;
       for (auto &arg : body->args())

@@ -14,6 +14,7 @@
 #endif
 #include "../include/kalandra/NumericType.h"
 #include "Runtime.h"
+#include "NativeCancellation.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -116,6 +117,9 @@ extern "C" bool kalandra_source_run_v3(Invocation *invocation, bool (*body)(void
   invocation->leaveCall();
   return complete;
 }
+} // namespace kalandra::runtime
+#include "NativeCancellation.inc"
+namespace kalandra::runtime {
 struct Backing;
 struct Owner {
   Owner *next = nullptr;

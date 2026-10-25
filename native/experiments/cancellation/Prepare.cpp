@@ -36,9 +36,12 @@ int main(int argc, char **argv) {
   const bool page = mode == "page";
   const bool guard = mode == "guard";
   const bool budget = mode == "budget";
-  if (!plain)
-    if (auto *boundary = module->getFunction("kalandra_source_run_v3"))
+  if (!plain) {
+    if (auto *boundary = module->getFunction("kalandra_source_run_v4"))
       boundary->setName("kalandra_cancel_source_run_v3");
+    else if (auto *legacy = module->getFunction("kalandra_source_run_v3"))
+      legacy->setName("kalandra_cancel_source_run_v3");
+  }
   if (!plain && !asynchronous && !page && !budget && !guard && mode != "entry" &&
       mode != "cycles" && mode != "unwind-poll")
     throw std::runtime_error("unknown experiment");

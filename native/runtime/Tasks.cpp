@@ -1,8 +1,10 @@
 #include "Tasks.h"
+#include "NativeCancellation.h"
 #include <algorithm>
 #include <atomic>
 #include <bit>
 #include <condition_variable>
+#include <chrono>
 #ifdef KALANDRA_TASK_PROFILE
 #include <chrono>
 #define TASK_PROBE(field, amount) profile.field += (amount)
@@ -45,6 +47,7 @@ struct Record {
   std::uint64_t externalEpoch = 0;
   std::atomic<bool> cancel{false};
   std::thread::id runner{}, lastRunner{};
+  std::uintptr_t interruptThread = 0;
   Invocation execution, outcome;
   Failure failure;
   TaskHandle dependency;
@@ -156,6 +159,9 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   std::mutex mutex;
   std::condition_variable workerChanged, controllerChanged;
   std::vector<std::jthread> workers;
+  std::jthread interruptWorker;
+  std::condition_variable interruptChanged;
+  bool nativeInterrupts = false;
   std::uint64_t revision = 0;
   std::size_t remaining = 0;
   std::uint32_t running = 0, pumping = 0, preparing = 0;
@@ -198,13 +204,39 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       std::lock_guard lock(mutex);
       stopping = true;
       signal();
+      interruptChanged.notify_all();
     }
     workers.clear();
+    if (interruptWorker.joinable()) interruptWorker.join();
   }
   bool start() noexcept {
-    if (limits.workers == 1)
-      return true;
     try {
+      nativeInterrupts = initializeNativeCancellation();
+      if (nativeInterrupts)
+        interruptWorker = std::jthread([this] {
+          std::unique_lock lock(mutex);
+          auto pending = [&] {
+            for (auto i = unfinishedTasks.next(0); i < unfinishedTasks.size();
+                 i = unfinishedTasks.next(i + 1))
+              if (tasks[i].executing && tasks[i].interruptThread && tasks[i].cancel.load())
+                return true;
+            return false;
+          };
+          while (!stopping) {
+            interruptChanged.wait(lock, [&] { return stopping || pending(); });
+            if (stopping) break;
+            // Execution leases and pthread identities remain protected by the
+            // core mutex. Late delivery reads the CURRENT boundary/token, never
+            // a recycled task slot or a pointer supplied by the cancelling host.
+            for (auto i = unfinishedTasks.next(0); i < unfinishedTasks.size();
+                 i = unfinishedTasks.next(i + 1))
+              if (tasks[i].executing && tasks[i].cancel.load())
+                interruptNativeCancellation(tasks[i].interruptThread);
+            interruptChanged.wait_for(lock, std::chrono::microseconds(100), [&] { return stopping; });
+          }
+        });
+      if (limits.workers == 1)
+        return true;
       workers.reserve(limits.workers);
       for (std::uint32_t i = 0; i < limits.workers; ++i)
         workers.emplace_back([this] {
@@ -443,6 +475,10 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
         if (task.state != State::Free && task.state != State::Settled && parent &&
             parent->failure.kind != TaskFailure::None && !task.cancel) {
           task.cancel = true;
+          if (nativeInterrupts) {
+            if (task.executing) interruptNativeCancellation(task.interruptThread);
+            interruptChanged.notify_one();
+          }
           wake(i);
           changed = true;
         }
@@ -786,6 +822,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
     else {
       record->executing = true;
       record->runner = std::this_thread::get_id();
+      record->interruptThread = nativeInterrupts ? nativeCancellationThread() : 0;
+      record->execution.allowNativeInterrupts(record->interruptThread != 0);
       if (record->lastRunner != std::thread::id{} && record->lastRunner != record->runner)
         ++stats.migrations;
       record->lastRunner = record->runner;
@@ -802,6 +840,7 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       acquire(lock);
       record->executing = false;
       record->runner = {};
+      record->interruptThread = 0;
       --running;
       if (record->execution.status())
         finish(h.slot, invocationFailure(record->execution));

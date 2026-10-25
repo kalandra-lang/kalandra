@@ -24,6 +24,59 @@ Task-planned continuations and recursive ownership/transport helpers retain thei
 
 ## Cancellation and optimization
 
+On Darwin ARM64 (excluding ARM64e), scheduler-owned invocations can select the
+hybrid native boundary automatically. The v4 checked entry captures a cleanup
+return point, installs its state in reserved x28, and selects the clear worker
+for pure computation. Helper returns still check status and the cancellation
+token. Arithmetic and physical-stack checks remain. Source faults still use
+the private C++ abort marker; the direct jump is only for cancellation.
+
+Only compiler-marked resource-free source frames and their callback wrappers
+occupy `__TEXT,__kalandra`. Its linker-defined limits include final machine-code
+prologues/epilogues; runtime helpers and task-controller frames are excluded.
+The signal handler examines PC before reading x28, uses lock-free loads, and
+redirects normal signal return to a small assembly jump bridge. It never frees,
+allocates, unwinds C++ frames or takes a scheduler lock. Landing returns a
+stopped callback and balances admission. Scheduler settlement then releases
+the invocation ledger under the existing descendant/external-borrow rules.
+
+Every callback entry establishes its own boundary and reinstalls x28, even
+when a foreign helper has borrowed that callee-saved register. Cancellation
+therefore stops above C++ owners in the helper below the callback. Unbound and
+cooperative callbacks also install a valid state with no interrupt token, so
+a late signal cannot read a previous invocation's dead boundary. Compiler-owned
+native code cannot retain stack argument/result packets after synchronous return.
+Runtime/source composition uses separate object files without cross-runtime LTO;
+foreign C++ frames must never be inlined into the certified source section.
+Final call-site barriers prevent task/ownership helper bodies from being inlined
+into source frames by downstream optimization, while preserving optimization
+among task helpers outside that section and ordinary fast-ABI helper inlining.
+
+Each capable task core owns an interrupt service that sleeps until a cancelled
+execution lease exists, then retries targeted pthread interrupts at 100 us
+intervals. The core mutex protects physical runner identities and record reuse.
+Handlers receive no task-slot pointers: they inspect the current native boundary
+and its current token. Execution leases finish before records can be recycled;
+migrating invocations reacquire both physical stack bounds and interrupt capability.
+Retries are not a real-time latency guarantee and cannot interrupt an arbitrary
+blocking foreign helper. A submitted GPU borrow retains storage until completion.
+
+`SIGUSR2` is private process-wide runtime infrastructure on this path. Initialization
+claims it only if its disposition is default, and never replaces another owner.
+After acquisition it remains owned through process exit; runtime modules cannot
+be unloaded, nor can foreign code replace its disposition or block it inside an
+active native lease. A worker already blocking it uses cooperative cancellation.
+Existing signal owners, unsupported platforms and ARM64e also use that fallback.
+This is a private standalone-runtime contract, not a new public embedding ABI.
+
+ThreadSanitizer builds deliberately use cooperative cancellation. The sanitizer
+defers asynchronous signal callbacks and supplies a copied context: editing it
+does not redirect the live machine, and its saved boundary pointer can outlive
+the original frame. This was exposed by a forced pure-compute cancellation
+timeout; it is retained as a failed qualification attempt, not an async pass.
+See [LLVM's interceptor implementation](https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/tsan/rtl/tsan_interceptors_posix.cpp).
+Debug, optimized and ASan/UBSan builds qualify actual redirects separately.
+
 The compiler specializes the internal call graph for clear, token-bound and observed execution. Clear progress checkpoints require no runtime state read. Token-bound checkpoints load the token with acquire ordering. Observed checkpoints retain the runtime probe/fault logic. Checked allocation, validation and other runtime-helper boundaries still inspect their result status. A bottom-up bounded-total proof permits omitting redundant progress checks only for finite, memory-free call DAGs with bounded work; recursive cycles and runtime effects cannot satisfy that proof.
 
 Normal LLVM optimization runs on a private module clone. A control-flow transformation keeps pure, call-free base-case regions outside a non-tail recursive worker's physical frame. It handles branching return regions and preserves arithmetic order; it does not expand recursion to a fixed depth. Thin wrappers remain eligible for inlining and transfer to the nonleaf worker with `musttail`. Optimized functions must still satisfy the conservative 16 KiB stack model, including outgoing arguments and fixed allocations. Intrinsic metadata has no physical argument storage. If optimization exceeds the budget, the checked original module is retained. Final physical frame boundaries are sealed before downstream code generation. Task-controller frames retain their separately defined downstream optimization policy and trusted descriptor identities. Leaf-region cloning follows source block order so compiler instrumentation does not change emitted artifacts. After inlining, a tagged physical guard is removed only when its accepted continuation contains no frame-growing calls or allocations. Pure leaf loops and terminal fault paths can then remain outside recursive worker frames; surviving source calls keep their guards.

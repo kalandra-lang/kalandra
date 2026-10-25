@@ -155,6 +155,20 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
     if (!fn.isDeclaration() && !fn.hasFnAttribute("kalandra.task.frame") &&
         !fn.hasFnAttribute(llvm::Attribute::AlwaysInline))
       fn.addFnAttr(llvm::Attribute::NoInline);
+  // The next Clang pipeline may optimize task helpers under their own policy.
+  // Keep their lifetime/admission/TLS bookkeeping OUTSIDE abandonable frames,
+  // even when an internal adapter was inlined during this module's pipeline.
+  // Call-site barriers preserve inlining among non-source task helpers.
+  if (module->getTargetTriple().isOSDarwin() && module->getTargetTriple().isAArch64())
+    for (auto &fn : *module)
+      if (!fn.isDeclaration() &&
+          (fn.hasFnAttribute("kalandra.native.pure-frame") || fn.hasFnAttribute("kalandra.boundary")))
+        for (auto &block : fn)
+          for (auto &instruction : block)
+            if (auto *call = llvm::dyn_cast<llvm::CallBase>(&instruction))
+              if (auto *callee = call->getCalledFunction(); callee && !callee->isDeclaration() &&
+                  callee->hasFnAttribute("kalandra.task.frame"))
+                call->addFnAttr(llvm::Attribute::NoInline);
   for (auto &fn : *module) {
     if (fn.hasFnAttribute("kalandra.task.preserve")) {
       unsigned original = 0;
@@ -165,6 +179,19 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
       fn.removeFnAttr("kalandra.task.preserve");
     }
     fn.removeFnAttr("kalandra.task.frame");
+    if (!fn.isDeclaration() && module->getTargetTriple().isOSDarwin() &&
+        module->getTargetTriple().isAArch64() &&
+        (fn.hasFnAttribute("kalandra.native.pure-frame") ||
+         fn.hasFnAttribute("kalandra.boundary"))) {
+      // The linker supplies exact section limits, including final prologues,
+      // epilogues and optimizer-created fragments. Never whitelist runtime or
+      // task-controller frames by a symbol-name approximation.
+      fn.setSection("__TEXT,__kalandra,regular,pure_instructions");
+      auto features = fn.getFnAttribute("target-features").getValueAsString().str();
+      if (!features.empty()) features += ',';
+      fn.addFnAttr("target-features", features + "+reserve-x28");
+      fn.addFnAttr(llvm::Attribute::NoRedZone);
+    }
   }
   return {};
 }

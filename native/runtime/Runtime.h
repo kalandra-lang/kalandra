@@ -46,6 +46,8 @@ public:
     cancellation_ = token;
     if (pollMode_ < 2) pollMode_ = token ? 1 : 0;
   }
+  // Private scheduler capability; never grants interruption of foreign frames.
+  void allowNativeInterrupts(bool available) noexcept { nativeInterrupts_ = available; }
   // Private test probe; its atomic counter must outlive this invocation.
   void watchPolls(std::atomic<std::uint64_t> *counter) noexcept { pollCounter_ = counter; pollMode_ = 2; }
   std::int64_t poll() noexcept {
@@ -155,9 +157,11 @@ private:
   // Resolve the process test hook only when this invocation reserves a resource.
   // An explicit failAllocationAt(), including zero, overrides that hook.
   bool allocationFailureConfigured_ = false;
+  bool nativeInterrupts_ = false;
   std::int64_t taskError_ = 0, expectedCode_ = 0, expectedLine_ = 0, expectedColumn_ = 0;
   const char *applicationFamily_ = nullptr, *applicationVariant_ = nullptr;
-  // 0: clear; 1: acquire-load the bound cancellation token; 2: observed/faulted/settled.
+  // 0: clear; 1: bound token; 2: observed/faulted/settled;
+  // 3: token bound, generated execution protected by the v4 native boundary.
   std::uint8_t pollMode_ = 0;
   // A lease lasts only while a synchronous generated native call chain is live.
   // All exits clear it at its logical entry depth, before worker migration.
@@ -172,6 +176,20 @@ private:
 // Native compiler and runtime are built for the same pinned host ABI. Keep the
 // field access used by checked fast paths explicit and mechanically verified.
 struct InvocationABI {
+  static std::uint8_t armNativeCancellation(Invocation &invocation) noexcept {
+    const auto previous = invocation.pollMode_;
+    if (previous == 1 && invocation.nativeInterrupts_) invocation.pollMode_ = 3;
+    return previous;
+  }
+  static bool nativeCancellationArmed(const Invocation &invocation) noexcept {
+    return invocation.pollMode_ == 3;
+  }
+  static const std::atomic<bool> *cancellationToken(const Invocation &invocation) noexcept {
+    return invocation.cancellation_;
+  }
+  static void restoreNativeCancellation(Invocation &invocation, std::uint8_t mode) noexcept {
+    if (invocation.pollMode_ == 3) invocation.pollMode_ = mode;
+  }
   static void cacheStackBounds(Invocation &) noexcept;
   static constexpr std::size_t pollMode = offsetof(Invocation, pollMode_);
   static constexpr std::size_t cancellation = offsetof(Invocation, cancellation_);

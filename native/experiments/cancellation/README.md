@@ -1,7 +1,9 @@
 # Cancellation mechanism experiments
 
-These are isolated Darwin ARM64 experiments, not a new language ABI or a
-production scheduler implementation. Production cancellation is unchanged.
+These are isolated Darwin ARM64 mechanism experiments. The production compiler
+and scheduler now have a separately implemented hybrid path, described in the
+[native call contract](../../../docs/design/checked-call-optimization.md).
+Historical measurements below retain their original compiler/runtime hashes.
 The source programs are compiled by the existing compiler; a small LLVM tool
 then prepares candidate mechanisms in the generated native code.
 
@@ -99,7 +101,7 @@ in the initial 512 KiB stress runs are described in the results report.
 For the physical Metal check (requires access to the GPU):
 
 ```sh
-/opt/homebrew/opt/llvm/bin/clang++ -std=c++20 -O2 -fobjc-arc \
+/opt/homebrew/opt/llvm/bin/clang++ -std=c++20 -O2 -ffixed-x28 -fobjc-arc \
   native/experiments/cancellation/GpuLease.mm \
   build/native/native/libkalandra-task-core-optimized.a \
   -framework Metal -framework Foundation -o /tmp/cancellation-gpu

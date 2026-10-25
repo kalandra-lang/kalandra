@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
     check(!verifyModule(module, &errs()));
     auto *entry = module.getFunction("kalandra_fn_tree");
     check(entry && entry->arg_size() == 3 && entry->getReturnType() == i64);
-    check(calls(*entry, "kalandra_source_run_v3") == 1 &&
+    check(calls(*entry, "kalandra_source_run_v4") == 1 &&
           calls(*entry, "kalandra_call_enter_v1") == 0 &&
           calls(*entry, "kalandra_call_leave_v1") == 0);
     check(module.getFunction("kalandra_fn_tree.boundary")->hasUWTable());
@@ -376,6 +376,34 @@ int main(int argc, char **argv) {
       check(!error);
       module->print(output, nullptr);
     }
+  }
+  {
+    LLVMContext context;
+    auto module = std::make_unique<Module>("native-helper-lifetime", context);
+    module->setTargetTriple(Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE));
+    module->setDataLayout(KALANDRA_NATIVE_CPU_DATA_LAYOUT);
+    auto *type = FunctionType::get(Type::getInt64Ty(context), {}, false);
+    auto *helper = Function::Create(type, GlobalValue::InternalLinkage, "owned.helper", *module);
+    helper->addFnAttr("kalandra.task.frame");
+    IRBuilder<> h(BasicBlock::Create(context, "entry", helper));
+    // Model a helper whose bookkeeping must finish before source abandonment.
+    h.CreateRet(h.CreateCall(module->getOrInsertFunction("host.owned.work", type)));
+    auto *source = Function::Create(type, GlobalValue::ExternalLinkage, "source", *module);
+    source->addFnAttr("kalandra.native.pure-frame");
+    IRBuilder<> b(BasicBlock::Create(context, "entry", source));
+    b.CreateRet(b.CreateCall(helper));
+    check(!kalandra::optimizeNativeCalls(module));
+    check(!verifyModule(*module, &errs()));
+    source = module->getFunction("source");
+    helper = module->getFunction("owned.helper");
+    check(source && helper && !helper->hasFnAttribute(Attribute::NoInline));
+    unsigned barriers = 0;
+    for (auto &block : *source)
+      for (auto &instruction : block)
+        if (auto *call = dyn_cast<CallInst>(&instruction); call && call->getCalledFunction() == helper)
+          barriers += call->hasFnAttr(Attribute::NoInline);
+    const bool native = module->getTargetTriple().isOSDarwin() && module->getTargetTriple().isAArch64();
+    check(barriers == unsigned(native)); // Helper-internal optimization remains allowed.
   }
   std::cout << "Internal convention: boundary admission, native returns, uniform environments, "
                "mutual/indirect/aggregate/void tail calls, local-frame fallback and token checkpoints passed\n";

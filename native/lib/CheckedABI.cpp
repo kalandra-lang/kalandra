@@ -180,6 +180,8 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
   // Structural simplification must use the same target layout as storage and
   // stack admission, including i64/i128 alignment on the pinned ARM64 target.
   module.setDataLayout(nativeCpuDataLayout);
+  if (module.getTargetTriple().str().empty())
+    module.setTargetTriple(llvm::Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE));
   auto &context = module.getContext();
   auto *pointer = PointerType::getUnqual(context);
   auto *i64 = Type::getInt64Ty(context);
@@ -193,7 +195,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
   auto abort = module.getOrInsertFunction("kalandra_source_abort_v2", voidType);
   cast<Function>(abort.getCallee())->addFnAttr(Attribute::NoReturn);
   cast<Function>(abort.getCallee())->addFnAttr(Attribute::Cold);
-  auto boundary = module.getOrInsertFunction("kalandra_source_run_v3",
+  auto boundary = module.getOrInsertFunction("kalandra_source_run_v4",
       Type::getInt1Ty(context), pointer, pointer, pointer);
   cast<Function>(boundary.getCallee())->addFnAttr(Attribute::NoUnwind);
   std::vector<Function *> originals;
@@ -274,6 +276,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
     function->removeFnAttr(Attribute::NoUnwind);
     function->setUWTableKind(UWTableKind::Sync);
     function->addFnAttr("kalandra.effects", statusFree.contains(old) ? "bounded-total" : "checked");
+    function->addFnAttr("kalandra.native.pure-frame");
     function->splice(function->begin(), old);
     for (auto &argument : old->args())
       argument.replaceAllUsesWith(function->getArg(argument.getArgNo() + (callable ? 0 : 1) + unsigned(indirectResult)));
