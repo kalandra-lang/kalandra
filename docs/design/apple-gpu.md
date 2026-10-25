@@ -367,7 +367,7 @@ The [isolated layout study](../../benchmarks/results/native-gpu-2026-10-15-tilin
 
 Three interleaved processes show a 1.27× GPU-command improvement for the 2×2 tile at 512-square and about 1.11× for the two-row tile at 256-square and the tested wide/tall shapes. Both lose on smaller/narrow shapes; the shared candidate loses every measured shape. That initial study retained the scalar production kernel/runtime. The subsequent integration below selects qualified register entries within a bounded profile. The initial measurements are command intervals, not managed-task or application speedups. Next: qualify shape-aware selection over a broader shape sweep and measure any resulting integration through the managed lifecycle; eight timing shapes do not establish a reliable threshold. No numeric policy or GPU-ABI-001 limit changes.
 
-## Shape-selected register matmul
+## Initial shape-selected register matmul
 
 The source compiler packages three independently lowered/validated entries into each matmul library: the scalar control, a two-row tile and a 2×2 tile. Each retains the reflected four-buffer ABI and `[M,K,N]` parameters. The runtime checks each selected entry's complete interface and 64-thread capability before publishing a kernel bundle. Pipeline owners remain in the existing kernel/frame ownership chain until command acknowledgement. The managed tensor/staging budgets and task result/transfer rules are unchanged; the bundle contains additional pipeline metadata.
 
@@ -378,6 +378,16 @@ Register dispatch counts logical tiles, using widened arithmetic and ceiling div
 The [49-shape sweep](../../benchmarks/results/native-gpu-2026-10-15-crossover.md) selects register candidates in 33 measured cases, all with improved command medians, while retaining scalar in 16. The [matched managed comparison and confirmation](../../benchmarks/results/native-gpu-2026-10-15-selection.md) show selected gains reaching resident and transfer-inclusive calls, with substantial variability in unchanged controls. Both complete runs are retained. This does not establish a CPU/GPU placement threshold or improve cold pipeline startup by claim.
 
 All 119 native tests pass. The four matmul variants now compare 678 cases, 347,871 cells and 79,315,558 products against CPU/APFloat, including managed odd-shaped row/quad dispatch. All three layouts sweep eight allocation/encoder checkpoints and cancellation/deadline/failure/core-teardown scenarios; bundle preparation sweeps four checkpoints. [Evidence](../../native/metal-proof/evidence/gpu-selection-2026-10-15.json) records sources, artifacts, original scalar equivalence and lifecycle results. The temporary GPU parameter-layout limit remains tracked as GPU-ABI-001.
+
+## Large strict hardware float32 matrices
+
+Hardware-policy bundles additionally contain native float32 shared-memory kernels, compiled without fast math or contraction. On the qualified Apple M2 Max, a 16×16 output tile uses 256 lanes, two 4 KiB threadgroup panels and seven explicit scalar subtree roots per lane. It rounds each product separately and preserves the same adjacent-pair additions, including the final fold for non-power-of-two block counts. This is ordinary hardware multiplication/addition, without fused matrix instructions or reassociation.
+
+The specialization requires `M >= 16`, `N >= 16`, at least 65,536 output cells, and `512 <= K <= 4096` with `K` divisible by 64. The compiled pipeline must support at least 256 threads per group. The upper contraction bound justifies the seven-root storage: at most 64 aligned 64-leaf roots. This bounds an optimization, not the language. Larger/odd contractions, small/narrow outputs, other devices and older bundles retain their existing GPU kernels. Software-policy bundles and other numeric types keep their previous lowering.
+
+This qualified hardware entry takes priority over the older quad-layout profile, which otherwise masks the faster hardware path for some 512² matrices. Partial output tiles keep every lane in both barriers while guarding reads and writes. Kernel owners, checked allocation, byte budgets, cancellation/deadlines and acknowledgement cleanup retain the common runtime paths. The existing matrix/post-map/reduction batching remains in effect.
+
+[The complete pipeline comparison](../../benchmarks/results/large-matrix-pipeline-2026-10-25.md) distinguishes isolated screening from end-to-end timings. New conformance checks all output cells against independent APFloat references across contraction/admission boundaries, non-dyadic inputs, signed zero, subnormals, NaNs and cancellation-sensitive magnitudes. The four build modes also sweep allocation failures and hold completion while cancellation, deadlines and device failure occur.
 
 ## Rank-two GPU elementwise helpers
 

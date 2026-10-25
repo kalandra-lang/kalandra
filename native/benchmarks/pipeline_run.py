@@ -26,7 +26,8 @@ def main():
     build=p.BUILD.parent/'pipeline';build.mkdir(exist_ok=True);bundle=build/'bundle';openblas=Path('/opt/homebrew/opt/openblas')
     inputs=[Path(__file__),fair/'pipeline_reference.py',fair/'library_reference.py',fair/'protocol.py',src/'Pipeline.k',
             fair/'PipelineGpu.cpp',fair/'PipelineCpu.cpp',fair/'PipelineLibraries.cpp',compiler,runtime,metal,args.baseline_metal,
-            openblas/'lib/libopenblas.dylib',root/'native/metal/Metal.mm']
+            openblas/'lib/libopenblas.dylib',root/'native/metal/Metal.mm',root/'native/metal/MatmulLayout.h',
+            root/'native/metal-source/HardwareShaders.h',root/'native/metal-source/Build.cpp']
     signature={str(x):p.sha(x) for x in inputs};manifest=build/'manifest.json'
     flags=['-std=c++23','-O2','-DNDEBUG','-ffp-contract=off','-pthread','-Wno-override-module']
     if args.reuse_build:

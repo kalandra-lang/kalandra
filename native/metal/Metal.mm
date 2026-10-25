@@ -122,7 +122,7 @@ struct KernelState {
   std::vector<NumericType> tensorTypes{}, scalarTypes{};
   std::vector<std::uint8_t> scalarBuffers{};
   id<MTLComputePipelineState> blockReduction = nil, tiledMatrix = nil, block32Matrix = nil,
-                              block64Matrix = nil;
+                              block64Matrix = nil, registerMatrix = nil;
   bool scalarBuffer(std::size_t i) const { return !scalarBuffers.empty() && scalarBuffers[i]; }
   NumericType tensorType(std::size_t i) const {
     return tensorTypes.empty() ? *numericType : tensorTypes[i];
@@ -2066,12 +2066,18 @@ struct Bridge {
             auto pipeline = layout == MatmulLayout::Rows2  ? kernel->matrixTiles[0]
                             : layout == MatmulLayout::Quad ? kernel->matrixTiles[1]
                                                            : kernel->pipeline;
-            const bool hardwareTile = matrix && kernel->tiledMatrix && layout != MatmulLayout::Quad;
-            const bool hardwareWide = hardwareTile && kernel->block64Matrix &&
+            const bool hardwareRegister = matrix && kernel->registerMatrix &&
+                                          useRegisterMatmul(std::uint32_t(matrixShape[0]),
+                                                            std::uint32_t(source->dimensions[1]),
+                                                            std::uint32_t(matrixShape[1]));
+            const bool hardwareTile =
+                matrix && kernel->tiledMatrix && (layout != MatmulLayout::Quad || hardwareRegister);
+            const bool hardwareWide = hardwareTile && !hardwareRegister && kernel->block64Matrix &&
                                       source->dimensions[1] >= 512 && matrixShape[0] >= 16 &&
                                       matrixShape[1] >= 8 && source->dimensions[1] % 64 == 0;
             if (hardwareTile)
-              pipeline = hardwareWide ? kernel->block64Matrix
+              pipeline = hardwareRegister ? kernel->registerMatrix
+                         : hardwareWide   ? kernel->block64Matrix
                          : kernel->block32Matrix && source->dimensions[1] >= 256 &&
                                  source->dimensions[1] % 32 == 0
                              ? kernel->block32Matrix
@@ -2134,15 +2140,17 @@ struct Bridge {
               [encoder setBuffer:f.resources->buffer offset:0 atIndex:0];
             } else
               [encoder setBuffer:f.staging->buffer offset:0 atIndex:tensors + 1];
-            const auto threads = hardwareWide ? 128u : 64u;
-            const auto lanes = hardwareWide   ? ((std::uint64_t(parameters[0]) + 15) / 16) *
-                                                    ((std::uint64_t(parameters[2]) + 7) / 8) * 128
-                               : hardwareTile ? ((std::uint64_t(parameters[0]) + 7) / 8) *
-                                                    ((std::uint64_t(parameters[2]) + 7) / 8) * 64
-                               : matrix ? matmulWorkItems(layout, parameters[0], parameters[2])
-                               : kernel->numericType
-                                   ? std::max(UINT64_C(1), std::uint64_t(parameters[0]))
-                                   : std::uint64_t(parameters[0]);
+            const auto threads = hardwareRegister ? 256u : hardwareWide ? 128u : 64u;
+            const auto lanes =
+                hardwareRegister      ? ((std::uint64_t(parameters[0]) + 15) / 16) *
+                                            ((std::uint64_t(parameters[2]) + 15) / 16) * 256
+                : hardwareWide        ? ((std::uint64_t(parameters[0]) + 15) / 16) *
+                                            ((std::uint64_t(parameters[2]) + 7) / 8) * 128
+                : hardwareTile        ? ((std::uint64_t(parameters[0]) + 7) / 8) *
+                                            ((std::uint64_t(parameters[2]) + 7) / 8) * 64
+                : matrix              ? matmulWorkItems(layout, parameters[0], parameters[2])
+                : kernel->numericType ? std::max(UINT64_C(1), std::uint64_t(parameters[0]))
+                                      : std::uint64_t(parameters[0]);
             if (state->options.profile)
               ++state->dispatches;
             [encoder dispatchThreadgroups:MTLSizeMake((lanes + threads - 1) / threads, 1, 1)
@@ -2776,6 +2784,16 @@ std::expected<Kernel, Error> Runtime::loadKernel(
             return std::unexpected(block64.error());
           if ((*block64).maxTotalThreadsPerThreadgroup >= 128)
             metadata->block64Matrix = *block64;
+        }
+        if ([state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"] &&
+            [library newFunctionWithName:@"kalandra_matmul_hardware_register16"]) {
+          if (!state_->permit())
+            return std::unexpected(Error::Allocation);
+          auto registers = prepare(@"kalandra_matmul_hardware_register16");
+          if (!registers)
+            return std::unexpected(registers.error());
+          if ((*registers).maxTotalThreadsPerThreadgroup >= 256)
+            metadata->registerMatrix = *registers;
         }
       }
       metadata->numericType = numericType;

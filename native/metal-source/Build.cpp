@@ -173,7 +173,7 @@ void buildMetalProgram(const std::filesystem::path &directory,
       if (contents.find("@kalandra_reduce_sum(") != std::string::npos)
         optimized << hardwareReductionShader;
       if (contents.find("@kalandra_matmul(") != std::string::npos)
-        optimized << hardwareMatmulShader;
+        optimized << hardwareMatmulShader << hardwareRegisterMatmulShader;
       if (!optimized)
         throw std::runtime_error("cannot emit hardware Metal entries");
     }

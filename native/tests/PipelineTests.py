@@ -10,8 +10,10 @@ def run(args):
  return r.stdout
 bundle=a.output/'bundle'
 run([compiler,root/'native/benchmarks/Pipeline.k','--target','metal','--arithmetic','hardware','-O2','-o',bundle])
+assert 'kalandra_matmul_hardware_register16' in (bundle/'kernel0.metal').read_text(), 'compiler must include current register kernel'
 variants=[('optimized',['-O2'],'libkalandra-task-core-optimized.a'),('debug',['-O0'],'libkalandra-native-runtime.a'),('sanitized',['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'],'libkalandra-native-runtime-sanitized.a'),('thread-sanitized',['-O1','-g','-fsanitize=thread','-fno-omit-frame-pointer'],'libkalandra-native-runtime-thread-sanitized.a')]
 for name,flags,runtime in variants:
- binary=a.output/name
- run([clang,'-std=c++23','-ffp-contract=off','-pthread','-Wall','-Wextra','-Werror',*flags,'-isystem',llvm/'include',root/'native/tests/PipelineGpu.cpp',compiler.parent/'metal'/('libkalandra-metal-'+name+'.a'),compiler.parent/runtime,'-L'+str(llvm/'lib'),'-lLLVM','-Wl,-rpath,'+str(llvm/'lib'),'-framework','Foundation','-framework','Metal','-o',binary])
- print(name+': '+run([binary,bundle]).strip(),flush=True)
+ for harness in ('PipelineGpu','RegisterMatmulGpu'):
+  binary=a.output/(name+'-'+harness)
+  run([clang,'-std=c++23','-ffp-contract=off','-pthread','-Wall','-Wextra','-Werror',*flags,'-isystem',llvm/'include',root/('native/tests/'+harness+'.cpp'),compiler.parent/'metal'/('libkalandra-metal-'+name+'.a'),compiler.parent/runtime,'-L'+str(llvm/'lib'),'-lLLVM','-Wl,-rpath,'+str(llvm/'lib'),'-framework','Foundation','-framework','Metal','-o',binary])
+  print(name+': '+run([binary,bundle]).strip(),flush=True)
