@@ -1,0 +1,2716 @@
+{
+  "schema": 1,
+  "contract": "Diagnostic task-boundary control, same compiled kernels and heap-based probe as main study. Includes root state setup and settlement. Three randomized trials. Depth zero measures the root boundary plus scalar return. This is not a subtraction-based replacement score.",
+  "records": [
+    {
+      "language": "current",
+      "depth": 10000,
+      "trial": 0,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22332875,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 19802334,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 19728375,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 99011.67
+    },
+    {
+      "language": "rust",
+      "depth": 0,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 70625,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 74625,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 74208,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 3.7104
+    },
+    {
+      "language": "hybrid",
+      "depth": 100,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22184125,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 21551333,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 21636417,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1081.82085
+    },
+    {
+      "language": "floor",
+      "depth": 100,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21568708,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 23345000,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 21307500,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1078.4354
+    },
+    {
+      "language": "floor",
+      "depth": 0,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3764792,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3305125,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 3280875,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 165.25625
+    },
+    {
+      "language": "hybrid",
+      "depth": 1000,
+      "trial": 0,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19119500,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 20102125,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 19916708,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9958.354
+    },
+    {
+      "language": "cpp",
+      "depth": 10000,
+      "trial": 0,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18818875,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 18136541,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 18333584,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 91667.92
+    },
+    {
+      "language": "floor",
+      "depth": 10000,
+      "trial": 0,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18969625,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 20005792,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 19187833,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 95939.165
+    },
+    {
+      "language": "cpp",
+      "depth": 0,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 61583,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 59458,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 86167,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 3.07915
+    },
+    {
+      "language": "floor",
+      "depth": 1000,
+      "trial": 0,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19241792,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 19232208,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 19174000,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9616.104
+    },
+    {
+      "language": "cpp",
+      "depth": 1000,
+      "trial": 0,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18108875,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 18814042,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 18267375,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9133.6875
+    },
+    {
+      "language": "rust",
+      "depth": 100,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 17187958,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 17261541,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 17258500,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 862.925
+    },
+    {
+      "language": "hybrid",
+      "depth": 0,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3404958,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3348291,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 4041500,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 170.2479
+    },
+    {
+      "language": "hybrid",
+      "depth": 10000,
+      "trial": 0,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19093958,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 19376083,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 18941042,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 95469.79
+    },
+    {
+      "language": "cpp",
+      "depth": 100,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 17948250,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 17358292,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 17084792,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 867.9146
+    },
+    {
+      "language": "current",
+      "depth": 1000,
+      "trial": 0,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20451917,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 19685416,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 20213375,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 10106.6875
+    },
+    {
+      "language": "rust",
+      "depth": 1000,
+      "trial": 0,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18115083,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 18399459,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 18158500,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9079.25
+    },
+    {
+      "language": "rust",
+      "depth": 10000,
+      "trial": 0,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18231584,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 18130000,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 19098042,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 91157.92
+    },
+    {
+      "language": "current",
+      "depth": 0,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3265750,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3193209,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 3173875,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 159.66045
+    },
+    {
+      "language": "current",
+      "depth": 100,
+      "trial": 0,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22309917,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 22055458,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 22915333,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1115.49585
+    },
+    {
+      "language": "floor",
+      "depth": 1000,
+      "trial": 1,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18987625,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 19032625,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 18878708,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9493.8125
+    },
+    {
+      "language": "hybrid",
+      "depth": 10000,
+      "trial": 1,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18690125,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 18856084,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 18710000,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 93550.0
+    },
+    {
+      "language": "hybrid",
+      "depth": 0,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3366000,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3411834,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 3237584,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 168.3
+    },
+    {
+      "language": "cpp",
+      "depth": 1000,
+      "trial": 1,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 17751541,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 17761208,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 17883041,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 8880.604
+    },
+    {
+      "language": "rust",
+      "depth": 1000,
+      "trial": 1,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 17778459,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 17924625,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 17895625,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 8947.8125
+    },
+    {
+      "language": "hybrid",
+      "depth": 100,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22166250,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 21076083,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 21200208,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1060.0104
+    },
+    {
+      "language": "hybrid",
+      "depth": 1000,
+      "trial": 1,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19682167,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 19818250,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 19025458,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9841.0835
+    },
+    {
+      "language": "cpp",
+      "depth": 0,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 35375,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 35167,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 35250,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 1.7625
+    },
+    {
+      "language": "cpp",
+      "depth": 100,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 17190333,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 17079583,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 17864667,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 859.51665
+    },
+    {
+      "language": "rust",
+      "depth": 100,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 17061375,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 17179375,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 17399375,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 858.96875
+    },
+    {
+      "language": "current",
+      "depth": 100,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23873417,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 22985833,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 22458375,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1149.29165
+    },
+    {
+      "language": "floor",
+      "depth": 10000,
+      "trial": 1,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19045625,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 19431542,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 19088500,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 95442.5
+    },
+    {
+      "language": "cpp",
+      "depth": 10000,
+      "trial": 1,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18233792,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 18931541,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 18204333,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 91168.96
+    },
+    {
+      "language": "floor",
+      "depth": 0,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3207500,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3173959,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 3194583,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 159.72915
+    },
+    {
+      "language": "current",
+      "depth": 10000,
+      "trial": 1,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19646167,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 20054875,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 20452167,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 100274.375
+    },
+    {
+      "language": "floor",
+      "depth": 100,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21300917,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 21329208,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 21410625,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1066.4604
+    },
+    {
+      "language": "rust",
+      "depth": 10000,
+      "trial": 1,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18353958,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 18203792,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 18205208,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 91026.04
+    },
+    {
+      "language": "rust",
+      "depth": 0,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 73625,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 73292,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 76917,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 3.68125
+    },
+    {
+      "language": "current",
+      "depth": 0,
+      "trial": 1,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3162125,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3166084,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 3144542,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 158.10625
+    },
+    {
+      "language": "current",
+      "depth": 1000,
+      "trial": 1,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20327333,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 20676250,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 19854667,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 10163.6665
+    },
+    {
+      "language": "floor",
+      "depth": 10000,
+      "trial": 2,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19208417,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 18939666,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 19660292,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 96042.085
+    },
+    {
+      "language": "current",
+      "depth": 1000,
+      "trial": 2,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20693125,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 19970750,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 19937542,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9985.375
+    },
+    {
+      "language": "cpp",
+      "depth": 10000,
+      "trial": 2,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18087167,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 18551833,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 19192917,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 92759.165
+    },
+    {
+      "language": "rust",
+      "depth": 100,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 17773750,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 18048458,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 17519250,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 888.6875
+    },
+    {
+      "language": "hybrid",
+      "depth": 1000,
+      "trial": 2,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19459083,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 20622667,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 18893792,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9729.5415
+    },
+    {
+      "language": "floor",
+      "depth": 0,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3157083,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3320209,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 3260458,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 163.0229
+    },
+    {
+      "language": "hybrid",
+      "depth": 0,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3412375,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3289708,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 3322417,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 166.12085
+    },
+    {
+      "language": "hybrid",
+      "depth": 10000,
+      "trial": 2,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20066167,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 19039834,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 19034000,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 95199.17
+    },
+    {
+      "language": "cpp",
+      "depth": 1000,
+      "trial": 2,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18057000,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 18148375,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 18052584,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9028.5
+    },
+    {
+      "language": "floor",
+      "depth": 100,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21897291,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 21407667,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 21137000,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1070.38335
+    },
+    {
+      "language": "hybrid",
+      "depth": 100,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21016583,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 23673667,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 21149959,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1057.49795
+    },
+    {
+      "language": "floor",
+      "depth": 1000,
+      "trial": 2,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18921583,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 18847375,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 19854959,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9460.7915
+    },
+    {
+      "language": "rust",
+      "depth": 0,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 71500,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 106459,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 76000,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 3.8
+    },
+    {
+      "language": "current",
+      "depth": 10000,
+      "trial": 2,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19443875,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 19448000,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 19420500,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 97219.375
+    },
+    {
+      "language": "rust",
+      "depth": 10000,
+      "trial": 2,
+      "iterations": 200,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 18029292,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": -1,
+          "ns": 19649084,
+          "checksum": 3664014.038420028
+        },
+        {
+          "round": 0,
+          "ns": 18084500,
+          "checksum": 3664014.038420028
+        }
+      ],
+      "median_ns": 90422.5
+    },
+    {
+      "language": "rust",
+      "depth": 1000,
+      "trial": 2,
+      "iterations": 2000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 17959625,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": -1,
+          "ns": 18099000,
+          "checksum": 36640140.38419886
+        },
+        {
+          "round": 0,
+          "ns": 18883083,
+          "checksum": 36640140.38419886
+        }
+      ],
+      "median_ns": 9049.5
+    },
+    {
+      "language": "cpp",
+      "depth": 0,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 35833,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 35792,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 35833,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 1.79165
+    },
+    {
+      "language": "current",
+      "depth": 100,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22296125,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 22154333,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 23091875,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 1114.80625
+    },
+    {
+      "language": "current",
+      "depth": 0,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3143042,
+          "checksum": 340000
+        },
+        {
+          "round": -1,
+          "ns": 3136125,
+          "checksum": 340000
+        },
+        {
+          "round": 0,
+          "ns": 3109125,
+          "checksum": 340000
+        }
+      ],
+      "median_ns": 156.80625
+    },
+    {
+      "language": "cpp",
+      "depth": 100,
+      "trial": 2,
+      "iterations": 20000,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 16960708,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": -1,
+          "ns": 17189125,
+          "checksum": 366401403.841974
+        },
+        {
+          "round": 0,
+          "ns": 17446458,
+          "checksum": 366401403.841974
+        }
+      ],
+      "median_ns": 859.45625
+    }
+  ],
+  "summary": [
+    {
+      "language": "cpp",
+      "depth": 0,
+      "median_ns": 1.79165,
+      "process_medians_ns": [
+        3.07915,
+        1.7625,
+        1.79165
+      ]
+    },
+    {
+      "language": "cpp",
+      "depth": 100,
+      "median_ns": 859.51665,
+      "process_medians_ns": [
+        867.9146,
+        859.51665,
+        859.45625
+      ]
+    },
+    {
+      "language": "cpp",
+      "depth": 1000,
+      "median_ns": 9028.5,
+      "process_medians_ns": [
+        9133.6875,
+        8880.604,
+        9028.5
+      ]
+    },
+    {
+      "language": "cpp",
+      "depth": 10000,
+      "median_ns": 91667.92,
+      "process_medians_ns": [
+        91667.92,
+        91168.96,
+        92759.165
+      ]
+    },
+    {
+      "language": "current",
+      "depth": 0,
+      "median_ns": 158.10625,
+      "process_medians_ns": [
+        159.66045,
+        158.10625,
+        156.80625
+      ]
+    },
+    {
+      "language": "current",
+      "depth": 100,
+      "median_ns": 1115.49585,
+      "process_medians_ns": [
+        1115.49585,
+        1149.29165,
+        1114.80625
+      ]
+    },
+    {
+      "language": "current",
+      "depth": 1000,
+      "median_ns": 10106.6875,
+      "process_medians_ns": [
+        10106.6875,
+        10163.6665,
+        9985.375
+      ]
+    },
+    {
+      "language": "current",
+      "depth": 10000,
+      "median_ns": 99011.67,
+      "process_medians_ns": [
+        99011.67,
+        100274.375,
+        97219.375
+      ]
+    },
+    {
+      "language": "floor",
+      "depth": 0,
+      "median_ns": 163.0229,
+      "process_medians_ns": [
+        165.25625,
+        159.72915,
+        163.0229
+      ]
+    },
+    {
+      "language": "floor",
+      "depth": 100,
+      "median_ns": 1070.38335,
+      "process_medians_ns": [
+        1078.4354,
+        1066.4604,
+        1070.38335
+      ]
+    },
+    {
+      "language": "floor",
+      "depth": 1000,
+      "median_ns": 9493.8125,
+      "process_medians_ns": [
+        9616.104,
+        9493.8125,
+        9460.7915
+      ]
+    },
+    {
+      "language": "floor",
+      "depth": 10000,
+      "median_ns": 95939.165,
+      "process_medians_ns": [
+        95939.165,
+        95442.5,
+        96042.085
+      ]
+    },
+    {
+      "language": "hybrid",
+      "depth": 0,
+      "median_ns": 168.3,
+      "process_medians_ns": [
+        170.2479,
+        168.3,
+        166.12085
+      ]
+    },
+    {
+      "language": "hybrid",
+      "depth": 100,
+      "median_ns": 1060.0104,
+      "process_medians_ns": [
+        1081.82085,
+        1060.0104,
+        1057.49795
+      ]
+    },
+    {
+      "language": "hybrid",
+      "depth": 1000,
+      "median_ns": 9841.0835,
+      "process_medians_ns": [
+        9958.354,
+        9841.0835,
+        9729.5415
+      ]
+    },
+    {
+      "language": "hybrid",
+      "depth": 10000,
+      "median_ns": 95199.17,
+      "process_medians_ns": [
+        95469.79,
+        93550.0,
+        95199.17
+      ]
+    },
+    {
+      "language": "rust",
+      "depth": 0,
+      "median_ns": 3.7104,
+      "process_medians_ns": [
+        3.7104,
+        3.68125,
+        3.8
+      ]
+    },
+    {
+      "language": "rust",
+      "depth": 100,
+      "median_ns": 862.925,
+      "process_medians_ns": [
+        862.925,
+        858.96875,
+        888.6875
+      ]
+    },
+    {
+      "language": "rust",
+      "depth": 1000,
+      "median_ns": 9049.5,
+      "process_medians_ns": [
+        9079.25,
+        8947.8125,
+        9049.5
+      ]
+    },
+    {
+      "language": "rust",
+      "depth": 10000,
+      "median_ns": 91026.04,
+      "process_medians_ns": [
+        91157.92,
+        91026.04,
+        90422.5
+      ]
+    }
+  ],
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "0",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "10000",
+      "200",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "0",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "1000",
+      "2000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "100",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "100",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "1000",
+      "2000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "10000",
+      "200",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "1000",
+      "2000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "1000",
+      "2000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "0",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "100",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "100",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "10000",
+      "200",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "10000",
+      "200",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "0",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "10000",
+      "200",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "100",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "1000",
+      "2000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid",
+      "hybrid",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor",
+      "floor",
+      "1000",
+      "2000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "0",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "10000",
+      "200",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "10000",
+      "200",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust",
+      "3",
+      "1000",
+      "2000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "0",
+      "20000",
+      "1",
+      "17"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "100",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current",
+      "current",
+      "0",
+      "20000",
+      "0",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp",
+      "3",
+      "100",
+      "20000",
+      "1",
+      "17"
+    ]
+  ],
+  "hashes": {
+    "/Users/pouya/Projects/kalandra.dev/native/experiments/cancellation/depth_controls.py": "482bb1817a48bee2403a8f1f110026445d870ceedfa729f1e350a4100e9b2572",
+    "/Users/pouya/Projects/kalandra.dev/native/experiments/cancellation/Probe.cpp": "6ff404bb0497334c5720d99bb89edcdc50b53ea7b190fcf2c5584d0a051b2bfb",
+    "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.floor": "17f0a31e174bb28cac3ba5a9f0ea800f5017d7c2a090aee2efa5e578213528cd",
+    "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.current": "ed208f4d268a1ce16d75feda8e174013f26fc55bb9471a1869906dec9a78eb81",
+    "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/chain.hybrid": "4116961c2d187f52d935003ecb8ff174eb76b189394a026f8881325b8f55504b",
+    "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/DepthProbe.cpp": "cc639d1a96a9d6f379bc1fe3732eb64f014a8ca89585d259e4185b68823a7bb9",
+    "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/cpp": "5110eee8748dbae9f9d46f3caace0e444ae7dd5d6df8bb2dec7a79b9cd78d6be",
+    "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/cancellation-depth/rust": "34d0335f24d2a4da100990ecfe49d4ce3fb6d786984b50d41b7af504e6609572"
+  }
+}

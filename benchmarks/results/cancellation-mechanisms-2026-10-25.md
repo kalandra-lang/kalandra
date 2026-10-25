@@ -4,6 +4,8 @@ The hybrid prototype combines asynchronous interruption of eligible generated co
 
 This implements the proposed compiler-arranged cleanup per task. Detection and cleanup transfer are separate choices: targeted signals, ordinary polls or a page fault can all reach the same cleanup boundary. The experiment does not force-kill an OS thread.
 
+The [follow-up depth study](cancellation-depth-scaling-2026-10-25.md) extends trees to depth 22 and adds genuine non-tail chains at 100/1,000/10,000 levels. It identifies a short-chain exception: depth 100 misses the 10% target (27% slower than C++, 25% slower than Rust), while the deeper chains meet it. The earlier twelve-cell result below remains limited to its measured tree workloads.
+
 ## Measured mechanisms
 
 Apple M2 Max, macOS 27, Darwin ARM64; existing pinned LLVM/compiler and optimized runtime. Three adjacent ABBA/BAAB blocks per algorithm/depth/candidate, twenty warmup tasks per process, approximately 25 ms measured batches. Per-task state allocation, entry boundary and ledger settlement are timed. The unbound floor uses the same heap-based probe harness. The current bound path uses the actual compiler/runtime token mode. Candidates reserve x28 and use checked linked PC metadata; callback adapters reinstall the register even if ordinary runtime code borrows it.
