@@ -12,7 +12,24 @@ static void require(bool condition, int line) {
   }
 }
 #define CHECK(condition) require(condition, __LINE__)
-int main() {
+int main(int argc, char **) {
+  if (argc == 2) {
+    // CTest supplies FAIL_ALLOC_AT=2 in a fresh process. Scalar work does not
+    // consume an allocation attempt; explicit zero disables the process hook.
+    Invocation injected, disabled, overridden;
+    CHECK(injected.enterCall(0, 0));
+    injected.leaveCall();
+    CHECK(injected.allocate(8));
+    CHECK(!injected.allocate(8) && injected.status() == 2);
+    injected.settle();
+    injected.settle();
+    CHECK(injected.live() == 0 && injected.allocations() == injected.releases());
+    disabled.failAllocationAt(0);
+    CHECK(disabled.allocate(8) && disabled.allocate(8));
+    overridden.failAllocationAt(1);
+    CHECK(!overridden.allocate(8) && overridden.status() == 2);
+    return 0;
+  }
   for (unsigned repeat = 0; repeat < 1000; ++repeat) {
     Invocation parent, child, sibling, result;
     auto *values = static_cast<float *>(parent.allocate(2 * sizeof(float)));

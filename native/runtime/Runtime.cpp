@@ -239,14 +239,7 @@ std::optional<AllocationLease> Invocation::lease(const void *allocated) const no
     return {};
   return AllocationLease(backing);
 }
-Invocation::Invocation() noexcept {
-  if (const auto *text = std::getenv("KALANDRA_TEST_FAIL_ALLOC_AT")) {
-    char *end = nullptr;
-    const auto failure = std::strtoull(text, &end, 10);
-    if (end != text && *end == '\0')
-      failAt_ = failure;
-  }
-}
+Invocation::Invocation() noexcept = default;
 Invocation::~Invocation() { settle(); }
 void Invocation::fault(std::int64_t code, std::int64_t line, std::int64_t column) noexcept {
   pollMode_ = 2;
@@ -261,6 +254,15 @@ bool Invocation::reserve() noexcept {
     fault(3);
   if (code_)
     return false;
+  if (!allocationFailureConfigured_) {
+    allocationFailureConfigured_ = true;
+    if (const auto *text = std::getenv("KALANDRA_TEST_FAIL_ALLOC_AT")) {
+      char *end = nullptr;
+      const auto failure = std::strtoull(text, &end, 10);
+      if (end != text && *end == '\0')
+        failAt_ = failure;
+    }
+  }
   if (++attempts_ == failAt_) {
     fault(2);
     return false;
@@ -724,6 +726,8 @@ void Invocation::release(void *buffer) noexcept {
   remove(owner);
 }
 void Invocation::settle() noexcept {
+  if (settled_)
+    return;
   pollMode_ = 2;
   while (head_)
     remove(head_);

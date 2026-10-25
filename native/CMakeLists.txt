@@ -251,6 +251,9 @@ if(BUILD_TESTING)
       target_compile_options(kalandra-invocation-tests-${VARIANT} PRIVATE -O2)
     endif()
     add_test(NAME native-invocation-${VARIANT} COMMAND kalandra-invocation-tests-${VARIANT})
+    add_test(NAME native-invocation-environment-${VARIANT}
+      COMMAND ${CMAKE_COMMAND} -E env KALANDRA_TEST_FAIL_ALLOC_AT=2
+        $<TARGET_FILE:kalandra-invocation-tests-${VARIANT}> environment)
     set_tests_properties(native-invocation-${VARIANT} PROPERTIES TIMEOUT 30)
   endforeach()
 endif()

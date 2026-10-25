@@ -110,3 +110,9 @@ See [the measured results](../../../benchmarks/results/cancellation-mechanisms-2
 for performance, latency, sanitizer failures, and the remaining production
 qualification requirements. Linux, Windows, ARM64e pointer authentication, and
 macOS 26 execution are not qualified by these macOS 27 ARM64 experiments.
+
+The [runtime entry correction](../../../benchmarks/results/cancellation-runtime-entry-2026-10-25.md)
+compares a frozen earlier runtime with the current one using identical cleaned
+probe objects and generated code. Run `runtime_entry.py OLD_ARCHIVE OUTPUT.json`
+after preparing the depth and entry-ablation artifacts. It requires a quiet
+machine; build and correctness checks must finish before throughput measurement.

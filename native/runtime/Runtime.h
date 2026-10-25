@@ -120,7 +120,10 @@ public:
   bool hasApplicationError() const noexcept { return applicationFamily_ != nullptr; }
   bool hasExpectedError() const noexcept { return hasTaskError() || hasApplicationError(); }
   [[noreturn]] void reportFailure() noexcept; // CLI boundary only, never generated code.
-  void failAllocationAt(std::uint64_t attempt) noexcept { failAt_ = attempt; }
+  void failAllocationAt(std::uint64_t attempt) noexcept {
+    failAt_ = attempt;
+    allocationFailureConfigured_ = true;
+  }
   std::int64_t status() const noexcept { return code_; }
   std::int64_t executionStatus() noexcept {
     if (settled_)
@@ -149,6 +152,9 @@ private:
   std::uint64_t allocations_ = 0, releases_ = 0, attempts_ = 0, failAt_ = 0;
   std::int64_t code_ = 0, line_ = 0, column_ = 0;
   bool settled_ = false;
+  // Resolve the process test hook only when this invocation reserves a resource.
+  // An explicit failAllocationAt(), including zero, overrides that hook.
+  bool allocationFailureConfigured_ = false;
   std::int64_t taskError_ = 0, expectedCode_ = 0, expectedLine_ = 0, expectedColumn_ = 0;
   const char *applicationFamily_ = nullptr, *applicationVariant_ = nullptr;
   // 0: clear; 1: acquire-load the bound cancellation token; 2: observed/faulted/settled.

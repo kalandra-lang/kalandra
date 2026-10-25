@@ -1,5 +1,10 @@
 # Explaining the short-chain gap — 25 October 2026
 
+Follow-up: [the runtime entry correction](cancellation-runtime-entry-2026-10-25.md)
+removes a test-hook environment scan from scalar invocation startup and measures
+25 ns empty entry and a 6.9–7.6% depth-100 gap. The original ablation below is
+retained as measured against the earlier runtime.
+
 Most of the depth-100 gap is fixed outer-invocation overhead. Part is avoidable benchmark scaffolding, but removing it does not eliminate the gap: the cleaned prototype remains about **16–17% slower** than ordinary C++/Rust at 100 non-tail levels. Production compiler/runtime code is unchanged.
 
 ## Controlled ablations
