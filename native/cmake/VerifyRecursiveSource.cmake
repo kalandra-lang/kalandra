@@ -99,9 +99,15 @@ foreach(NAME IN ITEMS fault call-limit)
   if(NAME STREQUAL "fault")
     set(EXPECTED_FAULT ArithmeticFault)
   else()
-    set(EXPECTED_FAULT StackExhaustionFault)
+    set(EXPECTED_FAULT "(StackExhaustionFault|AllocationFault)")
   endif()
-  execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_REPORT_CLEANUP=1 "${OUTPUT_DIR}/${NAME}"
+  set(RESOURCE_ENV "")
+  if(NAME STREQUAL "call-limit")
+    # This constructor may use stackless continuations. Inject a backing
+    # allocation failure after admission beyond the retired 128-call cap.
+    set(RESOURCE_ENV KALANDRA_TEST_FAIL_ALLOC_AT=512)
+  endif()
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${RESOURCE_ENV} KALANDRA_TEST_REPORT_CLEANUP=1 "${OUTPUT_DIR}/${NAME}"
     RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
   if(NOT "${STATUS}" STREQUAL "86" OR NOT OUT STREQUAL "" OR NOT ERR MATCHES "cleanup: live=0" OR NOT ERR MATCHES "${EXPECTED_FAULT}")
     message(FATAL_ERROR "Recursive fault cleanup ${NAME}: ${STATUS}: ${OUT}${ERR}")

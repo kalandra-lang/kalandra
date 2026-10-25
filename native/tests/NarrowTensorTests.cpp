@@ -16,9 +16,9 @@ int main() {
       const std::string type = name, tensor = "Tensor[" + type + ",?,?]";
       auto element = *resolveNumeric(type);
       require(numericTensorElementwiseAvailable(element, NumericTarget::Cpu) &&
-                  !numericTensorElementwiseAvailable(element, NumericTarget::AppleGpu) &&
+                  numericTensorElementwiseAvailable(element, NumericTarget::AppleGpu) &&
                   numericTensorConversionAvailable(element, NumericTarget::Cpu),
-              "tensor capability lost CPU/GPU distinction");
+              "narrow tensor CPU/GPU capability rejected");
       for (const auto &operation : {"a+1", "1-a", "a*2", "a/2", "a%2", "-a", "+a"}) {
         auto result = analyze("fn operation(a:" + tensor + ")->" + tensor + ":\n  " + operation +
                               "\nfn main()->int:\n  0\n");
@@ -52,8 +52,6 @@ int main() {
             std::cerr << renderDiagnostic(*result.source, d);
         require(result.ok(), "narrow tensor storage/worker source rejected");
         require(bool(continuation::plan(*result.module)), "tensor continuation plan failed");
-        require(bool(numericCapabilityError(*result.module, NumericTarget::AppleGpu)),
-                "narrow GPU admitted");
 #ifndef KALANDRA_NARROW_TENSOR_FRONTEND_ONLY
         auto lowered = lowerNative(*result.module);
         require(bool(lowered), lowered ? "" : lowered.error());

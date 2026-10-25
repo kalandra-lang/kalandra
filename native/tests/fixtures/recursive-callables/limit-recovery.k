@@ -15,5 +15,6 @@ fn main()->int:
       TaskError.Fault {kind}:
         match kind:
           FaultKind.Native:42
+          FaultKind.Allocation:42
           _:0
       _:0

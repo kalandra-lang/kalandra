@@ -184,6 +184,9 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-checked-inlining-tests SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
   target_link_libraries(kalandra-checked-inlining-tests PRIVATE kalandra-backend LLVM)
   target_compile_options(kalandra-checked-inlining-tests PRIVATE -Wall -Wextra -Werror)
+  if(NOT LLVM_ENABLE_RTTI)
+    target_compile_options(kalandra-checked-inlining-tests PRIVATE -fno-rtti)
+  endif()
   add_test(NAME native-checked-inlining COMMAND kalandra-checked-inlining-tests)
   set_tests_properties(native-checked-inlining PROPERTIES TIMEOUT 30)
 endif()
@@ -1069,6 +1072,11 @@ if(WIN32)
 endif()
 
 if(BUILD_TESTING)
+  add_test(NAME native-windows-tail-codegen
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/WindowsTailPacketTests.py"
+      --driver "$<TARGET_FILE:kalandra-checked-inlining-tests>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/windows-tail-codegen")
+  set_tests_properties(native-windows-tail-codegen PROPERTIES TIMEOUT 300)
   add_test(NAME native-call-foundation-source
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CallFoundationTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

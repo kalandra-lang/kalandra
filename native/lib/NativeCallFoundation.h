@@ -4,6 +4,9 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <array>
+#include <memory>
+#include <optional>
+#include <string>
 #include <unordered_map>
 
 namespace kalandra {
@@ -13,7 +16,12 @@ namespace kalandra {
 // signature musttail calls. Register-only calls use tailcc, including differing
 // source parameter lists. Other qualified targets use tailcc throughout.
 inline llvm::CallingConv::ID nativeInternalCallingConvention(llvm::FunctionType *type) {
-#if defined(__APPLE__) && defined(__aarch64__)
+#if defined(_WIN32)
+  for (auto *parameter : type->params())
+    if (!parameter->isPointerTy() && !parameter->isFloatTy() && !parameter->isDoubleTy() &&
+        !(parameter->isIntegerTy() && parameter->getIntegerBitWidth() <= 64))
+      return llvm::CallingConv::C;
+#elif defined(__APPLE__) && defined(__aarch64__)
   unsigned general = 0, floating = 0;
   for (auto *parameter : type->params()) {
     if (parameter->isFloatingPointTy() || parameter->isVectorTy()) ++floating;
@@ -131,7 +139,129 @@ inline void finalizeNativeCallResolvers(llvm::Module &module) {
   }
 }
 // Run after composing every execution engine that can produce source values.
-void optimizeNativeCalls(std::unique_ptr<llvm::Module> &module);
+std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module);
+// Win64 cannot unwind a tailcc frame that reserves a larger outgoing tail
+// argument packet than its incoming packet. Equalize scalar packets within
+// each internal call component after optimization, then freeze those private
+// signatures against downstream IPA. Public checked entries are unchanged.
+inline std::optional<std::string> normalizeWindowsTailPackets(llvm::Module &module) {
+  using namespace llvm;
+  if (!module.getTargetTriple().isOSWindows()) return {};
+  std::unordered_map<llvm::Function *, llvm::Function *> parents;
+  SmallVector<llvm::Function *, 32> functions;
+  for (auto &fn : module)
+    if (!fn.isDeclaration() && fn.getCallingConv() == CallingConv::Tail) {
+      for (auto *type : fn.getFunctionType()->params())
+        if (!type->isPointerTy() && !type->isFloatTy() && !type->isDoubleTy() &&
+            !(type->isIntegerTy() && type->getIntegerBitWidth() <= 64))
+          return "unsupported Win64 native tail argument: " + fn.getName().str();
+      parents[&fn] = &fn;
+      functions.push_back(&fn);
+    }
+  auto root = [&](llvm::Function *fn) {
+    while (parents.at(fn) != fn) fn = parents.at(fn);
+    return fn;
+  };
+  SmallVector<CallInst *, 32> calls;
+  for (auto &fn : module)
+    for (auto &block : fn)
+      for (auto &instruction : block)
+        if (auto *call = dyn_cast<CallBase>(&instruction);
+            call && call->getCallingConv() == CallingConv::Tail) {
+          auto *ordinary = dyn_cast<CallInst>(call);
+          if (!ordinary) return "unsupported Win64 native tail control transfer";
+          calls.push_back(ordinary);
+          if (!parents.contains(&fn)) continue;
+          if (auto *target = call->getCalledFunction()) {
+            if (parents.contains(target)) parents[root(target)] = root(&fn);
+          } else {
+            for (auto *target : functions)
+              if (target->getFunctionType() == call->getFunctionType())
+                parents[root(target)] = root(&fn);
+          }
+        }
+  std::unordered_map<llvm::Function *, unsigned> widths;
+  for (auto *fn : functions)
+    widths[root(fn)] = std::max(widths[root(fn)], unsigned(fn->arg_size()));
+  std::unordered_map<FunctionType *, unsigned> indirectWidths;
+  for (auto *fn : functions)
+    indirectWidths[fn->getFunctionType()] =
+        std::max(indirectWidths[fn->getFunctionType()], widths.at(root(fn)));
+  // A stored target with this signature may belong to another component.
+  // Merge those components before deciding the final packet width.
+  for (auto *call : calls)
+    if (!call->getCalledFunction()) {
+      llvm::Function *first = nullptr;
+      for (auto *target : functions)
+        if (target->getFunctionType() == call->getFunctionType()) {
+          if (first) parents[root(target)] = root(first);
+          else first = target;
+        }
+    }
+  widths.clear();
+  indirectWidths.clear();
+  for (auto *fn : functions)
+    widths[root(fn)] = std::max(widths[root(fn)], unsigned(fn->arg_size()));
+  for (auto *fn : functions)
+    indirectWidths[fn->getFunctionType()] = widths.at(root(fn));
+  std::unordered_map<llvm::Function *, llvm::Function *> replacements;
+  for (auto *fn : functions) {
+    const unsigned width = widths.at(root(fn));
+    SmallVector<Type *, 16> parameters(fn->getFunctionType()->params());
+    parameters.append(width - parameters.size(), Type::getInt64Ty(module.getContext()));
+    auto *type = FunctionType::get(fn->getReturnType(), parameters, false);
+    auto *replacement = fn;
+    if (type != fn->getFunctionType()) {
+      auto name = fn->getName().str();
+      fn->setName(name + ".unpadded");
+      replacement = llvm::Function::Create(type, fn->getLinkage(), name, module);
+      replacement->copyAttributesFrom(fn);
+      replacement->setCallingConv(CallingConv::Tail);
+      replacement->splice(replacement->begin(), fn);
+      for (auto &arg : fn->args()) {
+        replacement->getArg(arg.getArgNo())->setName(arg.getName());
+        arg.replaceAllUsesWith(replacement->getArg(arg.getArgNo()));
+      }
+    }
+    replacement->removeFnAttr(Attribute::AlwaysInline);
+    replacement->addFnAttr(Attribute::NoInline);
+    replacement->addFnAttr(Attribute::NoIPA);
+    replacements[fn] = replacement;
+  }
+  for (auto *call : calls) {
+    auto *target = call->getCalledFunction();
+    auto *type = call->getFunctionType();
+    unsigned width = type->getNumParams();
+    if (target && replacements.contains(target))
+      width = replacements.at(target)->arg_size();
+    else if (!target && indirectWidths.contains(type)) width = indirectWidths.at(type);
+    SmallVector<Value *, 16> args(call->args());
+    SmallVector<Type *, 16> parameters(type->params());
+    while (args.size() < width) {
+      parameters.push_back(Type::getInt64Ty(module.getContext()));
+      args.push_back(PoisonValue::get(parameters.back()));
+    }
+    SmallVector<OperandBundleDef, 2> bundles;
+    call->getOperandBundlesAsDefs(bundles);
+    IRBuilder<> b(call);
+    auto *next = b.CreateCall(FunctionType::get(type->getReturnType(), parameters, false),
+                              target && replacements.contains(target) ? replacements.at(target) :
+                                                                         call->getCalledOperand(), args, bundles);
+    next->setCallingConv(CallingConv::Tail);
+    next->setAttributes(call->getAttributes());
+    next->setTailCallKind(call->getTailCallKind());
+    next->copyMetadata(*call);
+    next->setDebugLoc(call->getDebugLoc());
+    call->replaceAllUsesWith(next);
+    call->eraseFromParent();
+  }
+  for (auto [old, replacement] : replacements)
+    if (old != replacement) {
+      old->replaceAllUsesWith(replacement);
+      old->eraseFromParent();
+    }
+  return {};
+}
 // Keep call-free return paths outside a recursive worker's physical frame.
 // This is partial inlining by control flow, independent of source numeric type,
 // recursion depth or benchmark input. The slow region keeps its original body
@@ -230,9 +360,12 @@ inline void outlineNativeLeafPaths(llvm::Module &module,
       values[&instruction] = copy;
       RemapInstruction(copy, values, RF_IgnoreMissingLocals);
     }
-    for (auto *block : workerRegion)
-      values[block] = CloneBasicBlock(block, values, ".leaf", fn);
-    for (auto *block : workerRegion) {
+    for (auto &block : *worker)
+      if (workerRegion.contains(&block))
+        values[&block] = CloneBasicBlock(&block, values, ".leaf", fn);
+    for (auto &original : *worker) {
+      auto *block = &original;
+      if (!workerRegion.contains(block)) continue;
       auto *copy = cast<BasicBlock>(values[block]);
       for (auto &instruction : *copy) {
         if (auto *phi = dyn_cast<PHINode>(&instruction))

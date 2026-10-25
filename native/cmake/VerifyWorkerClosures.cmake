@@ -14,7 +14,7 @@ foreach(TYPE IN ITEMS int8 uint8 int16 uint16 int32 uint32 int64 uint64 float32 
   EXPECT("width-${TYPE}" 42)
 endforeach()
 file(READ "${OUTPUT_DIR}/raw.ll" IR)
-string(REGEX MATCH "@kalandra_environment_alloc_v1\\([^\n]*ptr @(kalandra_callable_[0-9]+)" TARGET "${IR}")
+string(REGEX MATCH "@kalandra_environment_alloc_v1\\([^\n]*ptr [^@\n]*@(kalandra_callable_[0-9]+)" TARGET "${IR}")
 set(CODE "${CMAKE_MATCH_1}")
 if(CODE STREQUAL "")
   message(FATAL_ERROR "Private closure fixture lost its tagged entry")

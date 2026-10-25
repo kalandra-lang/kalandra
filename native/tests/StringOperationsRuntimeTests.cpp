@@ -122,13 +122,26 @@ int main() {
           std::this_thread::yield();
         token = true;
       });
-      if (kind == 0)
-        require(kalandra_string_equal_v1(&work, &a, &b) == 0, "cancelled equality succeeded");
-      else {
-        auto out = concat(work, a, b);
-        require(!out.data && !out.byteLength, "cancelled concat published storage");
-      }
+      // The watcher may run after completion. A concurrent cancellation permits
+      // either a complete correct result or no published result, never a partial one.
+      auto equal = kind == 0 ? kalandra_string_equal_v1(&work, &a, &b) : 0;
+      StringDescriptor out{};
+      if (kind) out = concat(work, a, b);
       cancel.join();
+      if (kind == 0)
+        require(equal == 0 || equal == 1, "invalid equality result");
+      else
+        require((!out.data && !out.byteLength) ||
+                    (out.byteLength == 2 * static_cast<std::int64_t>(bytes.size()) &&
+                     !std::memcmp(out.data, bytes.data(), bytes.size()) &&
+                     !std::memcmp(out.data + bytes.size(), bytes.data(), bytes.size())),
+                "concurrent cancellation published partial concat");
+      // Once cancellation is visible, every subsequent operation must reject it.
+      require(kalandra_string_equal_v1(&work, &a, &b) == 0,
+              "visible cancellation ignored by equality");
+      auto stopped = concat(work, a, b);
+      require(!stopped.data && !stopped.byteLength,
+              "visible cancellation ignored by concat");
       require(work.poll() != 0, "operation ignored cancellation");
       work.settle();
       require(!work.live() && work.allocations() == work.releases(), "cancelled operation leaked");

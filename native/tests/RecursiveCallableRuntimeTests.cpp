@@ -52,13 +52,37 @@ int main() {
     repeated.settle();
     require(repeated.live() == 0 && repeated.allocations() == repeated.releases(),
             "repeated recursive calls leaked storage");
+    Invocation beyond;
+    require(kalandra_callable_test_entry(256, &beyond) == 42 && beyond.status() == 0 &&
+                beyond.callDepth() == 0, "recursive callable retained a fixed call cap");
+    beyond.settle();
+    require(beyond.live() == 0 && beyond.allocations() == beyond.releases(),
+            "deep successful callable leaked storage");
+    struct Budget {
+      std::uint64_t used = 0;
+      static bool reserve(void *state, std::uint64_t bytes) noexcept {
+        auto &budget = *static_cast<Budget *>(state);
+        if (bytes > 256 * 1024 - budget.used) return false;
+        budget.used += bytes;
+        return true;
+      }
+      static void release(void *state, std::uint64_t bytes) noexcept {
+        static_cast<Budget *>(state)->used -= bytes;
+      }
+    } budget;
     Invocation deep;
-    require(kalandra_callable_test_entry(1000000, &deep) == 0 && deep.status() == 6 &&
-                deep.callDepth() == 0,
-            "runaway recursion did not fail and unwind safely");
+    deep.bindRecursiveBudget(&budget, Budget::reserve, Budget::release);
+    const auto result = kalandra_callable_test_entry(1000000, &deep);
+    // Planned continuations may consume owned heap frames, physical stack, or
+    // be optimized to constant space. Check the result or the actual resource
+    // fault, without imposing a logical recursion counter on the language.
+    require(deep.callDepth() == 0 &&
+                ((deep.status() == 0 && result == 42) ||
+                 ((deep.status() == 2 || deep.status() == 6) && result == 0)),
+            "runaway recursion did not complete or stop at a checked resource boundary");
     deep.settle();
-    require(deep.live() == 0 && deep.allocations() == deep.releases(),
-            "runaway recursion leaked storage");
+    require(deep.live() == 0 && deep.allocations() == deep.releases() && !budget.used,
+            "runaway recursion leaked storage or reservations");
     Invocation arithmetic;
     require(kalandra_callable_test_entry(-1, &arithmetic) == 0 && arithmetic.status() == 4 &&
                 arithmetic.callDepth() == 0,

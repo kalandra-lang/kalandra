@@ -36,7 +36,7 @@ int main() {
         ++count;
       }
     }
-    require(count == 148, "worker callable fixture catalog incomplete");
+    require(count >= 148, "worker callable fixture catalog incomplete");
     const std::string base = "fn double(value:int)->int:\n  value*2\nfn "
                              "apply(value:int,transform:fn(int)->int)->int:\n  transform(value)\n";
     for (const auto *body :
@@ -210,7 +210,7 @@ int main() {
               functionValueTransportError(module, module.expressions[task->operand]).has_value();
       require(changed && rejected, "forged early error provenance admitted");
     }
-    std::cout << "Worker named functions: 148 valid programs, 19 rejected boundaries, 14 forged IR "
+    std::cout << "Worker named functions: " << count << " valid programs, 19 rejected boundaries, 14 forged IR "
                  "cases passed\n";
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';

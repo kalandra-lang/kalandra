@@ -28,7 +28,7 @@ foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
   endif()
 endforeach()
 # The sanitizer-instrumented compiler must make identical semantic/lowering decisions.
-execute_process(COMMAND "${SANITIZED_COMPILER}" "${SOURCE}" -o "${OUTPUT_DIR}/compiler-sanitized"
+execute_process(COMMAND "${SANITIZED_COMPILER}" --arithmetic software "${SOURCE}" -o "${OUTPUT_DIR}/compiler-sanitized"
   RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERROR)
 if(NOT STATUS EQUAL 0)
   message(FATAL_ERROR "Sanitized compiler rejected typed supervisor: ${OUT} ${ERROR}")

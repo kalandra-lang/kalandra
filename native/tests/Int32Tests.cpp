@@ -89,8 +89,8 @@ int main() {
     auto loweredTask = lowerNative(*task.module);
     require(bool(loweredTask), "int32 task backend rejected typed captures/results");
 #endif
-    require(bool(numericCapabilityError(*functions.module, NumericTarget::AppleGpu)),
-            "int32 GPU capability accidentally enabled");
+    require(!numericCapabilityError(*functions.module, NumericTarget::AppleGpu),
+            "int32 GPU arithmetic capability rejected");
     std::cout << "Checked int32 literals, constants, calls and unsupported target gates\n";
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';

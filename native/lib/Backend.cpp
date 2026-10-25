@@ -31,6 +31,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <functional>
 #include <limits>
 #include <map>
@@ -41,12 +42,32 @@ namespace kalandra {
 std::expected<BackendOutput, std::string>
 lowerTaskNative(const TypedModule &, std::optional<std::string>, ArithmeticMode);
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool functionValues);
-void optimizeNativeCalls(std::unique_ptr<llvm::Module> &module) {
+std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module) {
   // Fault exits are already explicit: optimizing unchecked fault helpers could
   // execute operations after failure. Optimize the complete internal call graph
   // now, before sealing the final physical-frame boundaries for code generation.
   finalizeNativeCallResolvers(*module);
   auto candidate = llvm::CloneModule(*module);
+  // Task descriptors are also trusted diagnostic/test entry points. Keep their
+  // identities when optimizing the composed module, including unselected roots.
+  llvm::SmallVector<llvm::GlobalValue *, 16> descriptors;
+  for (auto &global : candidate->globals())
+    if (global.getName().starts_with("task.entry.") ||
+        global.getName().starts_with("value.layout.")) descriptors.push_back(&global);
+  if (!descriptors.empty()) llvm::appendToCompilerUsed(*candidate, descriptors);
+  // Preserve the separately lowered task-controller IR. Its frame/state
+  // layouts and checked entries have their own admission and optimization
+  // policy; only synchronous native bodies and their adapters are optimized.
+  for (auto &fn : *candidate)
+    if (fn.hasFnAttribute("kalandra.task.frame")) {
+      unsigned original = unsigned(fn.hasFnAttribute(llvm::Attribute::NoInline)) |
+                          (unsigned(fn.hasFnAttribute(llvm::Attribute::OptimizeNone)) << 1) |
+                          (unsigned(fn.hasFnAttribute(llvm::Attribute::AlwaysInline)) << 2);
+      fn.addFnAttr("kalandra.task.preserve", std::to_string(original));
+      fn.removeFnAttr(llvm::Attribute::AlwaysInline);
+      fn.addFnAttr(llvm::Attribute::NoInline);
+      fn.addFnAttr(llvm::Attribute::OptimizeNone);
+    }
   llvm::LoopAnalysisManager loops;
   llvm::FunctionAnalysisManager functions;
   llvm::CGSCCAnalysisManager calls;
@@ -101,9 +122,10 @@ void optimizeNativeCalls(std::unique_ptr<llvm::Module> &module) {
     }
     if (!aborts.empty()) fn.removeFnAttr(llvm::Attribute::NoReturn);
   }
+  if (auto error = normalizeWindowsTailPackets(*candidate)) return error;
   bool fits = !llvm::verifyModule(*candidate);
   for (auto &fn : *candidate) {
-    if (fn.isDeclaration()) continue;
+    if (fn.isDeclaration() || fn.hasFnAttribute("kalandra.task.frame")) continue;
     const auto name = fn.getName();
     // The numerical leaf allowance belongs to the computation worker, not
     // its checked entry, callback packet or mode dispatcher.
@@ -115,9 +137,30 @@ void optimizeNativeCalls(std::unique_ptr<llvm::Module> &module) {
   // Optimization must not reject a previously admissible source program.
   if (fits)
     module = std::move(candidate);
+  else if (auto error = normalizeWindowsTailPackets(*module)) return error;
+  if (module->getTargetTriple().isOSWindows())
+    for (auto &fn : *module)
+      if (!fn.isDeclaration() && fn.getCallingConv() == llvm::CallingConv::Tail)
+        if (auto error = nativeStackBudgetError(fn, module->getDataLayout(),
+              fn.getName().starts_with("kalandra_fn_matmul_wide_") &&
+              (fn.getName().contains(".body.clear") || fn.getName().contains(".body.token") ||
+               fn.getName().contains(".body.observed")))) return error;
   for (auto &fn : *module)
-    if (!fn.isDeclaration() && !fn.hasFnAttribute(llvm::Attribute::AlwaysInline))
+    if (!fn.isDeclaration() && !fn.hasFnAttribute("kalandra.task.frame") &&
+        !fn.hasFnAttribute(llvm::Attribute::AlwaysInline))
       fn.addFnAttr(llvm::Attribute::NoInline);
+  for (auto &fn : *module) {
+    if (fn.hasFnAttribute("kalandra.task.preserve")) {
+      unsigned original = 0;
+      fn.getFnAttribute("kalandra.task.preserve").getValueAsString().getAsInteger(10, original);
+      if (!(original & 1)) fn.removeFnAttr(llvm::Attribute::NoInline);
+      if (!(original & 2)) fn.removeFnAttr(llvm::Attribute::OptimizeNone);
+      if (original & 4) fn.addFnAttr(llvm::Attribute::AlwaysInline);
+      fn.removeFnAttr("kalandra.task.preserve");
+    }
+    fn.removeFnAttr("kalandra.task.frame");
+  }
+  return {};
 }
 namespace {
 using namespace mlir;
@@ -2799,7 +2842,8 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
         if (function.name == "main" && function.resultType.tensor)
           collectionMetadata(*native, function.resultType);
     native->setTargetTriple(llvm::Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE));
-    if (!deferCallFinalization) optimizeNativeCalls(native);
+    if (!deferCallFinalization)
+      if (auto error = optimizeNativeCalls(native)) return std::unexpected(*error);
     std::string errors;
     llvm::raw_string_ostream errorStream(errors);
     if (llvm::verifyModule(*native, &errorStream))

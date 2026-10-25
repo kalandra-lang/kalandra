@@ -160,15 +160,38 @@ int main() {
       balanced(source);
       balanced(destination);
     }
-    // Even a malformed cyclic descriptor graph must stop at checked call admission.
+    // Repeated children are a shared DAG, not an active-path cycle.
+    {
+      Invocation source, destination;
+      const auto leaf = fixture(source, 1);
+      const auto name = static_cast<const Tree *>(leaf.items.data)->name;
+      auto *cells = static_cast<Tree *>(source.allocateRecord(2 * sizeof(Tree)));
+      require(cells, "shared task tree fixture allocation failed");
+      cells[0] = cells[1] = {name, leaf.items};
+      ArrayValue input{{}, {cells, cells, 0, 2, 1}}, output{};
+      require(task_copy_tree_array(&destination, &output, &source, &input) && !destination.status(),
+              "shared DAG child was treated as a cycle");
+      source.settle();
+      const auto *copied = static_cast<const Tree *>(output.items.data);
+      require(output.items.size == 2,
+              "shared task tree values changed");
+      for (unsigned n = 0; n < 2; ++n) {
+        ArrayValue branch{{}, {const_cast<Tree *>(copied + n), const_cast<Tree *>(copied + n), 0, 1, 1}};
+        verify(branch, 2);
+      }
+      destination.settle();
+      balanced(source);
+      balanced(destination);
+    }
+    // Reject a malformed active-path cycle independently of recursion depth.
     {
       Invocation source, destination;
       auto input = fixture(source, 1);
       static_cast<Tree *>(input.items.data)->children = input.items;
       ArrayValue output{};
       require(!task_copy_tree_array(&destination, &output, &source, &input) &&
-                  destination.status() == 6 && !output.items.data,
-              "cyclic task array did not stop");
+                  destination.status() == 3 && !output.items.data,
+              "cyclic task array was not rejected");
       source.settle();
       destination.settle();
       balanced(source);

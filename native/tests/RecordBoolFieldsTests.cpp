@@ -47,7 +47,7 @@ int main() {
                              "type Box:\n  values:[Bool]\nfn main():\n  Box {values:true}\n",
                              "type Box:\n  values:[Bool]\nfn main():\n  p=Box {values:[true]}\n  p "
                              "with {values:[1]}\n",
-                             "type Box:\n  values:[Box]\nfn main():\n  0\n"})
+                             "type Box:\n  values:[Box]\nfn main():\n  Box {values:[true]}\n"})
       require(!analyze(body).ok(), "invalid Bool field admitted");
     auto valid = analyze(
         "type Box:\n  flags:[Bool]\nfn make(flags:[Bool])->Box:\n  Box {flags:flags}\nfn main():\n "

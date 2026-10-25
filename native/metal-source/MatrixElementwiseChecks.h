@@ -149,10 +149,10 @@ void matrixConformance(m::Runtime &runtime, const char *directory) {
   for (auto shapes :
        {Shapes{2, 3, 3, 2}, Shapes{2, 0, 3, 0}, Shapes{0, 2, 0, 3}, Shapes{2, 3, 2, 4}})
     rejectShapes(std::span(shapes).first(2), std::span(shapes).last(2));
-  const std::int64_t matrix[] = {2, 3}, vector[] = {6}, cube[] = {1, 2, 3};
+  const std::int64_t matrix[] = {2, 3}, vector[] = {6};
   rejectShapes(matrix, vector);
   rejectShapes(vector, matrix);
-  rejectShapes(cube, cube);
+  // Equal rank-three shapes are supported and covered by numeric matrix tests.
   rejectShapes(matrix, matrix, m::Format::UInt32);
   empty(runtime);
   std::printf("Matrix elementwise: %llu cases, %llu CPU/GPU/APFloat lane comparisons; "

@@ -1,3 +1,4 @@
+#include "../lib/NativeSanitizerFrames.h"
 #include "../lib/PlatformFileSystem.h"
 #include "kalandra/Backend.h"
 #include "kalandra/PackageInstall.h"
@@ -311,6 +312,7 @@ int main(int argc, char **argv) {
       if (!function.isDeclaration())
         function.addFnAttr(threadSanitize ? llvm::Attribute::SanitizeThread
                                           : llvm::Attribute::SanitizeAddress);
+    if (threadSanitize) kalandra::padThreadSanitizerFrames(*module);
     if (llvm::verifyModule(*module, &llvm::errs()))
       return 1;
     lowered->llvm.clear();

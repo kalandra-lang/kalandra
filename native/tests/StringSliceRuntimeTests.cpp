@@ -145,8 +145,16 @@ int main() {
       });
       auto out = slice(work, input, 0, kind ? 16 * 1024 * 1024 : 0);
       cancel.join();
-      require(work.poll() != 0 && !out.data && !out.byteLength,
-              "cancelled scan/copy published slice");
+      require(work.poll() != 0, "slice watcher did not cancel");
+      // A watcher scheduled after completion may observe a complete result.
+      // Partial publication is forbidden in either scheduling order.
+      require((!out.data && !out.byteLength) ||
+                  (kind && out.byteLength == input.byteLength &&
+                   !std::memcmp(out.data, input.data, input.byteLength)),
+              "concurrent cancellation published partial slice");
+      auto stopped = slice(work, input, 0, kind ? input.byteLength : 0);
+      require(!stopped.data && !stopped.byteLength,
+              "visible cancellation ignored by slice");
       if (kind)
         require(work.allocations() == 2, "copy cancellation did not reach result allocation");
       work.settle();

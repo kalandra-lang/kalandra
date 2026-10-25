@@ -82,10 +82,10 @@ int main() {
     auto loweredRows = lowerNative(*rows.module);
     require(bool(loweredRows), loweredRows ? "" : loweredRows.error());
 #endif
-    require(!analyze("enum Recursive:\n  Empty\n  Value:\n    next:[Recursive]\n"
+    require(analyze("enum Recursive:\n  Empty\n  Value:\n    next:[Recursive]\n"
                      "fn main()->int:\n  0\n")
                  .ok(),
-            "recursive enum-array payload admitted");
+            "finite recursive enum-array payload rejected");
     for (const auto &tail :
          {"fn main():\n  Reading.Value\n",
           "fn main():\n  Reading.Unknown\n",

@@ -9,6 +9,7 @@
 #include "TaskEntries.h"
 #include "TaskEnvironment.h"
 #include "TaskRecordOps.h"
+#include "TaskTraversal.h"
 #include "TaskValueCopy.h"
 #include "TaskValueTypes.h"
 #include "kalandra/Backend.h"
@@ -408,6 +409,7 @@ private:
       auto *active = Block::Create(context, "retain.active", fn);
       builder.CreateCondBr(ready, active, failed);
       builder.SetInsertPoint(active);
+      TaskTraversal traversal(builder, *fn, fn->getArg(3), failed);
       ValueType type;
       type.builtin = BuiltinValue::Record;
       type.record = id;
@@ -417,6 +419,7 @@ private:
       builder.SetInsertPoint(failed);
       call("kalandra_call_leave_v1", voidType, {fn->getArg(0)});
       builder.CreateRet(builder.getFalse());
+      traversal.finish();
       if (auto error = nativeStackBudgetError(*fn, module.getDataLayout()))
         throw std::runtime_error(*error);
     }
@@ -982,6 +985,7 @@ private:
     auto *value = builder.CreateExtractValue(input, {1});
     auto *code = builder.CreateExtractValue(value, {0});
     auto *environment = builder.CreateExtractValue(value, {1});
+    TaskTraversal traversal(builder, *fn, environment, failed);
     std::unordered_set<Value *> accepted;
     const auto accept = [&](const TypedModule &inputModule, const FunctionReference &ref,
                             const ValueType &actual, Value *entry) {
@@ -1090,6 +1094,7 @@ private:
     builder.SetInsertPoint(fault);
     call("kalandra_fault_v1", voidType, {fn->getArg(0), c64(3), c64(0), c64(0)});
     builder.CreateBr(stopped);
+    traversal.finish();
     if (auto error = nativeStackBudgetError(*fn, module.getDataLayout()))
       throw std::runtime_error(*error);
   }
@@ -2163,8 +2168,13 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
     auto module = llvm::parseAssemblyString(kernels->llvm, diagnostic, context);
     if (!module)
       return std::unexpected("cannot read verified kernel LLVM module");
+    std::set<llvm::Function *> kernelFunctions;
+    for (auto &fn : *module) if (!fn.isDeclaration()) kernelFunctions.insert(&fn);
     Emitter(planner, *module).run(testEntry);
-    optimizeNativeCalls(module);
+    for (auto &fn : *module)
+      if (!fn.isDeclaration() && !kernelFunctions.contains(&fn))
+        fn.addFnAttr("kalandra.task.frame");
+    if (auto error = optimizeNativeCalls(module)) return std::unexpected(*error);
     std::string errors;
     llvm::raw_string_ostream stream(errors);
     if (llvm::verifyModule(*module, &stream))

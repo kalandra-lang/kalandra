@@ -21,7 +21,87 @@ static unsigned calls(llvm::Function &fn, llvm::StringRef target) {
         count += call->getCalledFunction() && call->getCalledFunction()->getName() == target;
   return count;
 }
-int main() {
+static std::unique_ptr<llvm::Module> windowsTailFixture(llvm::LLVMContext &context) {
+  using namespace llvm;
+  auto module = std::make_unique<Module>("windows-tail-packets", context);
+  module->setTargetTriple(Triple("x86_64-pc-windows-msvc"));
+  auto *i64 = Type::getInt64Ty(context);
+  auto *ptr = PointerType::getUnqual(context);
+  auto *shortType = FunctionType::get(i64, {ptr, i64, ptr, ptr, i64}, false);
+  auto *wideType = FunctionType::get(i64, {ptr, i64, i64, i64, i64, i64, i64, i64, i64, i64,
+                                         ptr, ptr, i64}, false);
+  auto *a = Function::Create(shortType, GlobalValue::InternalLinkage, "windows.short", *module);
+  auto *b = Function::Create(wideType, GlobalValue::InternalLinkage, "windows.wide", *module);
+  auto *dispatch = Function::Create(FunctionType::get(i64, {ptr, ptr, i64, ptr, ptr, i64}, false),
+                                     GlobalValue::InternalLinkage, "windows.indirect", *module);
+  auto *floating = Function::Create(FunctionType::get(Type::getDoubleTy(context),
+                      {Type::getDoubleTy(context), Type::getFloatTy(context), i64}, false),
+                      GlobalValue::InternalLinkage, "windows.floating", *module);
+  for (auto *fn : {a, b, dispatch, floating}) {
+    fn->setCallingConv(CallingConv::Tail);
+    fn->setUWTableKind(UWTableKind::Sync);
+    fn->addFnAttr("frame-pointer", "all");
+  }
+  for (auto *fn : {a, b}) {
+    IRBuilder<> ir(BasicBlock::Create(context, "entry", fn));
+    auto *done = BasicBlock::Create(context, "done", fn);
+    auto *next = BasicBlock::Create(context, "next", fn);
+    ir.CreateCondBr(ir.CreateICmpEQ(fn->getArg(1), ir.getInt64(0)), done, next);
+    ir.SetInsertPoint(done);
+    ir.CreateRet(ir.getInt64(42));
+    ir.SetInsertPoint(next);
+    SmallVector<Value *, 16> args{fn->getArg(0), ir.CreateSub(fn->getArg(1), ir.getInt64(1))};
+    if (fn == a) for (unsigned n = 0; n < 8; ++n) args.push_back(ir.getInt64(n));
+    args.append({ConstantPointerNull::get(ptr), ConstantPointerNull::get(ptr), ir.getInt64(0)});
+    auto *call = ir.CreateCall(fn == a ? b : a, args);
+    call->setCallingConv(CallingConv::Tail);
+    call->setTailCallKind(CallInst::TCK_MustTail);
+    ir.CreateRet(call);
+  }
+  {
+    IRBuilder<> ir(BasicBlock::Create(context, "entry", dispatch));
+    auto *call = ir.CreateCall(shortType, dispatch->getArg(0),
+        {dispatch->getArg(1), dispatch->getArg(2), dispatch->getArg(3), dispatch->getArg(4), dispatch->getArg(5)});
+    call->setCallingConv(CallingConv::Tail);
+    call->setTailCallKind(CallInst::TCK_MustTail);
+    ir.CreateRet(call);
+  }
+  {
+    IRBuilder<> ir(BasicBlock::Create(context, "entry", floating));
+    auto *call = ir.CreateCall(a, {ConstantPointerNull::get(ptr), floating->getArg(2),
+        ConstantPointerNull::get(ptr), ConstantPointerNull::get(ptr), ir.getInt64(0)});
+    call->setCallingConv(CallingConv::Tail);
+    ir.CreateRet(ir.CreateFAdd(ir.CreateSIToFP(call, ir.getDoubleTy()),
+        ir.CreateFAdd(floating->getArg(0), ir.CreateFPExt(floating->getArg(1), ir.getDoubleTy()))));
+  }
+  auto *entry = Function::Create(FunctionType::get(i64, {i64}, false),
+                                  GlobalValue::ExternalLinkage, "windows_tail_entry", *module);
+  {
+    IRBuilder<> ir(BasicBlock::Create(context, "entry", entry));
+    auto *call = ir.CreateCall(dispatch, {a, ConstantPointerNull::get(ptr), entry->getArg(0),
+        ConstantPointerNull::get(ptr), ConstantPointerNull::get(ptr), ir.getInt64(0)});
+    call->setCallingConv(CallingConv::Tail);
+    auto *fp = ir.CreateCall(floating, {ConstantFP::get(ir.getDoubleTy(), 0.5),
+        ConstantFP::get(ir.getFloatTy(), 0.25), entry->getArg(0)});
+    fp->setCallingConv(CallingConv::Tail);
+    ir.CreateRet(ir.CreateAdd(call, ir.CreateFPToSI(fp, i64)));
+  }
+  check(!kalandra::normalizeWindowsTailPackets(*module));
+  check(!verifyModule(*module, &errs()));
+  for (auto &fn : *module)
+    if (fn.getCallingConv() == CallingConv::Tail) {
+      check(fn.arg_size() == 13 && fn.hasFnAttribute(Attribute::NoIPA));
+      check(fn.hasFnAttribute(Attribute::NoInline) && !fn.hasFnAttribute(Attribute::AlwaysInline));
+      for (auto &block : fn)
+        for (auto &instruction : block)
+          if (auto *call = dyn_cast<CallInst>(&instruction);
+              call && call->getCallingConv() == CallingConv::Tail) check(call->arg_size() == 13);
+    }
+  check(entry->arg_size() == 1 && entry->getCallingConv() == CallingConv::C);
+  return module;
+}
+
+int main(int argc, char **argv) {
   using namespace llvm;
   for (bool reverse : {false, true}) {
     LLVMContext context;
@@ -205,6 +285,17 @@ int main() {
     ir.CreateRet(kalandra::nativeStackPointer(ir));
     check(!kalandra::nativeStackBudgetError(*sp, module.getDataLayout()));
     check(!verifyModule(module, &errs()));
+  }
+  {
+    LLVMContext context;
+    auto module = windowsTailFixture(context);
+    check(argc == 1 || argc == 2);
+    if (argc == 2) {
+      std::error_code error;
+      raw_fd_ostream output(argv[1], error);
+      check(!error);
+      module->print(output, nullptr);
+    }
   }
   std::cout << "Internal convention: boundary admission, native returns, uniform environments, "
                "mutual/indirect/aggregate/void tail calls, local-frame fallback and token checkpoints passed\n";

@@ -22,7 +22,7 @@ set(IR "${OUTPUT_DIR}/kernels.ll")
 RUN_OK("${COMPILER}" "${SOURCE_ROOT}/native/tests/fixtures/dynamic-projection.k"
   -o "${OUTPUT_DIR}/projection" --emit-llvm "${IR}" --test-entry reference ${EXTRA})
 file(READ "${IR}" LLVM)
-if(NOT LLVM MATCHES "loop.body" OR NOT LLVM MATCHES "@kalandra_poll_v1")
+if(NOT LLVM MATCHES "load atomic i8" OR NOT LLVM MATCHES "@kalandra_poll_slow_v1")
   message(FATAL_ERROR "CPU loop cancellation guards missing")
 endif()
 # Confirm the LLVM memory accesses, not just the C++ harness/runtime, receive

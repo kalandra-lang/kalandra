@@ -32,8 +32,8 @@ int main() {
           std::cerr << renderDiagnostic(*result.source, d);
       require(result.ok(), std::string("valid int16 program rejected: ") + source);
       require(bool(continuation::plan(*result.module)), "int16 planning failed");
-      require(bool(numericCapabilityError(*result.module, NumericTarget::AppleGpu)),
-              "GPU int16 enabled");
+      require(!numericCapabilityError(*result.module, NumericTarget::Cpu),
+              "numeric CPU capability rejected");
 #ifndef KALANDRA_INT16_FRONTEND_ONLY
       auto lowered = lowerNative(*result.module);
       require(bool(lowered), lowered ? "" : lowered.error());

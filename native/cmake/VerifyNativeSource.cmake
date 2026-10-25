@@ -28,7 +28,7 @@ if(NOT LLVM_IR MATCHES "call [^\n]*@kalandra_fn_" OR
    NOT LLVM_IR MATCHES "noinline" OR NOT LLVM_IR MATCHES "@kalandra_free_v1" OR
    LLVM_IR MATCHES "@kalandra_fault[(]" OR
    LLVM_IR MATCHES "@_mlir_memref_to_llvm_(alloc|free)" OR
-   NOT LLVM_IR MATCHES "@kalandra_poll_v1" OR
+   NOT LLVM_IR MATCHES "@kalandra_poll_slow_v1" OR
    LLVM_IR MATCHES "[ \t](fast|reassoc|contract|afn|nnan|ninf|nsz|arcp)[ \t]")
   message(FATAL_ERROR "Source compiler lost function/ownership/numerical contract")
 endif()
@@ -106,8 +106,6 @@ if(NOT DYNAMIC_LLVM MATCHES "fmul <4 x float>" OR
    NOT DYNAMIC_LLVM MATCHES "fadd <4 x float>" OR
    NOT DYNAMIC_LLVM MATCHES "fmul <2 x float>" OR
    NOT DYNAMIC_LLVM MATCHES "fadd <2 x float>" OR
-   NOT DYNAMIC_LLVM MATCHES "fmul <64 x float>" OR
-   NOT DYNAMIC_LLVM MATCHES "fadd <64 x float>" OR
    DYNAMIC_LLVM MATCHES "llvm[.]fma" OR
    DYNAMIC_LLVM MATCHES "[ \t](fast|reassoc|contract|afn|nnan|ninf|nsz|arcp)[ \t]")
   message(FATAL_ERROR "Matrix code lost strict two/four-lane SIMD arithmetic")

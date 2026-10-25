@@ -126,6 +126,9 @@ static void cancelKernel(bool deadline, std::int64_t columns) {
   for (unsigned attempt = 0; attempt < 8; ++attempt) {
     TaskLimits limits;
     limits.workers = 2;
+    // Wide kernels reserve a packed operand larger than the default 1 MiB.
+    // Exercise cancellation rather than exhausting that unrelated task budget.
+    limits.bytes = 16 * 1024 * 1024;
     auto core = TaskCore::create(limits);
     CHECK(core);
     Shared shared;

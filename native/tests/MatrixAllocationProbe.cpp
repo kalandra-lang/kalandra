@@ -43,8 +43,11 @@ int main() {
     check(!context.status() && calls == 2);
     std::uint64_t scratch = 0;
     if (m && n) {
-      auto width = m >= 4 && n >= 16 ? 64 : n >= 4 ? 4 : n >= 2 ? 2 : 1;
-      auto count = width == 64 && k > 256 ? 256 + k / 256 + (k % 256 != 0) : k;
+      const bool wide = m >= 4 && n >= 16;
+      auto width = wide ? 16 : n >= 4 ? 4 : n >= 2 ? 2 : 1;
+      // Two rows by eight columns; sixteen register-reduced leaves plus
+      // stored subtree roots. Empty contractions still reserve the tile area.
+      auto count = wide ? 17 + k / 16 : k;
       scratch = std::uint64_t(count) * width * sizeof(float);
     }
     // Bufferization requests 64 extra bytes to align tensor output; product

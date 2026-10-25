@@ -124,7 +124,7 @@ int main() {
       }
       input.payload = wrap(source, inner);
       if (mode == 7) {
-        // A forged cycle must stop at checked call admission, without native
+        // A forged cycle must fail active-path validation, without native
         // stack overflow or publication of a partially copied graph.
         std::memcpy(input.payload.environment, &input.payload, sizeof input.payload);
       }
@@ -139,7 +139,7 @@ int main() {
       const auto before = output;
       require(!layout.copy(destination, output.data(), source, &input) && output == before,
               "invalid nested copy published output");
-      require(destination.status() == (mode == 7   ? 6
+      require(destination.status() == (mode == 7   ? 3
                                        : mode == 8 ? 4
                                        : mode == 9 ? 0
                                                    : 3),

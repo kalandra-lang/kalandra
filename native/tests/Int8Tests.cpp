@@ -31,8 +31,8 @@ int main() {
           std::cerr << renderDiagnostic(*result.source, d);
       require(result.ok(), std::string("valid int8 program rejected: ") + source);
       require(bool(continuation::plan(*result.module)), "int8 planning failed");
-      require(bool(numericCapabilityError(*result.module, NumericTarget::AppleGpu)),
-              "GPU int8 enabled");
+      require(!numericCapabilityError(*result.module, NumericTarget::Cpu),
+              "numeric CPU capability rejected");
 #ifndef KALANDRA_INT8_FRONTEND_ONLY
       auto lowered = lowerNative(*result.module);
       require(bool(lowered), lowered ? "" : lowered.error());

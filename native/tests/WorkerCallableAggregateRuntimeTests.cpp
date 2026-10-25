@@ -335,9 +335,9 @@ int main() {
     alignas(Function) std::array<std::byte, sizeof(Function)> sentinel;
     sentinel.fill(std::byte{0x5a});
     const auto before = sentinel;
-    require(!captured.result->copy(denied, sentinel.data(), src, &cycle) && denied.status() == 6 &&
+    require(!captured.result->copy(denied, sentinel.data(), src, &cycle) && denied.status() == 3 &&
                 sentinel == before,
-            "cyclic aggregate did not stop with checked admission");
+            "cyclic aggregate was not rejected by active-path validation");
     balanced(denied);
     balanced(src);
     balanced(source);
