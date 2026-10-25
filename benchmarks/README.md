@@ -21,7 +21,7 @@ Earlier hardware-policy baselines on 2026-10-24:
 
 The [earlier software float64 comparison](results/languages-2026-10-24.md) remains a historical baseline. It predates the hardware default; its CPU and Metal floating arithmetic were emulated.
 
-Latest GPU optimization results: [hardware float32 GPU speedup qualification](results/gpu-speedup-2026-10-24.md), with resident and upload-inclusive timings, larger vector/matrix workloads, command-level profiles and independent numerical checks.
+Latest GPU optimization results: [strict matrix epilogue fusion](results/epilogue-pipeline-2026-10-25.md), with complete resident/upload-inclusive timings and qualification. The subsequent [stage profile and 29 rejected microkernels](results/microkernel-investigation-2026-10-25.md) identify matrix execution as the remaining large-workload bottleneck; that investigation ships measurement tools and evidence, with no production kernel replacement. Earlier [hardware float32 GPU speedup qualification](results/gpu-speedup-2026-10-24.md) retains its larger vector/matrix workloads and independent numerical checks.
 
 The [bottleneck investigation](results/bottlenecks-2026-10-24.md) profiles checked recursive calls, CPU matrix scratch reductions and Metal device/host timing, with isolated diagnostic ablations.
 

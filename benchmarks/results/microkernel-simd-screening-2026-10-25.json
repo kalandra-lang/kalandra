@@ -1,0 +1,3673 @@
+{
+  "records": [
+    {
+      "trial": 0,
+      "variant": "simd_1_32",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 87821666,
+          "gpu_ns": 84442000,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 71478750,
+          "gpu_ns": 71261292,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 74409667,
+          "gpu_ns": 73912625,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 72279209,
+          "gpu_ns": 72083083,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 72846916,
+          "gpu_ns": 72631125,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 72064709,
+          "gpu_ns": 71775625,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 73855375,
+          "gpu_ns": 73623250,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 496167,
+          "gpu_ns": 205167,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 385333,
+          "gpu_ns": 221792,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 561666,
+          "gpu_ns": 386792,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 381667,
+          "gpu_ns": 212083,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 376000,
+          "gpu_ns": 200375,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 344375,
+          "gpu_ns": 198500,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 335625,
+          "gpu_ns": 197625,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_1_32",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 11936708,
+          "gpu_ns": 9560708,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 9449541,
+          "gpu_ns": 9211750,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 9333000,
+          "gpu_ns": 9136333,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 9444041,
+          "gpu_ns": 9255750,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 9546417,
+          "gpu_ns": 9386417,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 9489875,
+          "gpu_ns": 9301667,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 9600250,
+          "gpu_ns": 9397333,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_2_16",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1137765083,
+          "gpu_ns": 1132280458,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1133090375,
+          "gpu_ns": 1132700250,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1165335417,
+          "gpu_ns": 1165043042,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1160775625,
+          "gpu_ns": 1160337167,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1122909042,
+          "gpu_ns": 1122162167,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1172274333,
+          "gpu_ns": 1171235375,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1168770542,
+          "gpu_ns": 1166266458,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 14738042,
+          "gpu_ns": 14032083,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 13450000,
+          "gpu_ns": 13121125,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 13481500,
+          "gpu_ns": 13135750,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 15198041,
+          "gpu_ns": 14746750,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 12631334,
+          "gpu_ns": 12365875,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 16179000,
+          "gpu_ns": 15751875,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 12702833,
+          "gpu_ns": 12227458,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_4_8",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 140631250,
+          "gpu_ns": 135149875,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 133502333,
+          "gpu_ns": 133310792,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 135141000,
+          "gpu_ns": 134661500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 138373542,
+          "gpu_ns": 138138750,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 134978875,
+          "gpu_ns": 134659500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 139534709,
+          "gpu_ns": 139347375,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 138193167,
+          "gpu_ns": 137958125,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_8_4",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 144977625,
+          "gpu_ns": 139405500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 137707583,
+          "gpu_ns": 137456208,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 135246500,
+          "gpu_ns": 135002917,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 138371750,
+          "gpu_ns": 137885500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 138218666,
+          "gpu_ns": 138025500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 140810458,
+          "gpu_ns": 140457917,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 139538750,
+          "gpu_ns": 138639375,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2197750,
+          "gpu_ns": 1644792,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 1661333,
+          "gpu_ns": 1470917,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1907875,
+          "gpu_ns": 1581333,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1660875,
+          "gpu_ns": 1470500,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1596750,
+          "gpu_ns": 1442042,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 1826792,
+          "gpu_ns": 1566208,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 2020417,
+          "gpu_ns": 1472000,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_2_16",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 133927667,
+          "gpu_ns": 127939875,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 141785792,
+          "gpu_ns": 141186958,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 135810709,
+          "gpu_ns": 135515292,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 144996167,
+          "gpu_ns": 144613250,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 141784667,
+          "gpu_ns": 141405250,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 138334792,
+          "gpu_ns": 137663958,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 131993917,
+          "gpu_ns": 131829625,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_4_8",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24077750,
+          "gpu_ns": 18649250,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 18897667,
+          "gpu_ns": 18522250,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 16962209,
+          "gpu_ns": 16452792,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 18718667,
+          "gpu_ns": 18220667,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 17613917,
+          "gpu_ns": 17234125,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 18313791,
+          "gpu_ns": 17892792,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 18422792,
+          "gpu_ns": 17722667,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_4_8",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1252469750,
+          "gpu_ns": 1245085000,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1234843666,
+          "gpu_ns": 1228349583,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1241108666,
+          "gpu_ns": 1240872000,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1162210875,
+          "gpu_ns": 1161870125,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1194640333,
+          "gpu_ns": 1194341000,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1209172625,
+          "gpu_ns": 1208866792,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1225905083,
+          "gpu_ns": 1225440375,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_1_32",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3464750,
+          "gpu_ns": 1120667,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1750333,
+          "gpu_ns": 1191375,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1588166,
+          "gpu_ns": 1400375,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1424500,
+          "gpu_ns": 1125625,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1715542,
+          "gpu_ns": 1519042,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1704291,
+          "gpu_ns": 1450167,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1396542,
+          "gpu_ns": 1101500,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_8_4",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23289625,
+          "gpu_ns": 17599042,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 17184750,
+          "gpu_ns": 16846875,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 20760375,
+          "gpu_ns": 20460708,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 20770208,
+          "gpu_ns": 20226875,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 18061542,
+          "gpu_ns": 17706750,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 18459083,
+          "gpu_ns": 18078833,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 20406250,
+          "gpu_ns": 19235375,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_8_4",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1146808750,
+          "gpu_ns": 1140034583,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1134984500,
+          "gpu_ns": 1134688750,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1145410083,
+          "gpu_ns": 1145083958,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1150849375,
+          "gpu_ns": 1150105375,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1133587583,
+          "gpu_ns": 1132682750,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1139233333,
+          "gpu_ns": 1138844542,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1119743708,
+          "gpu_ns": 1119287458,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "variant": "simd_2_16",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23413666,
+          "gpu_ns": 18630667,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 16028875,
+          "gpu_ns": 15875125,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 16681250,
+          "gpu_ns": 16309250,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 16181917,
+          "gpu_ns": 15905500,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 17112458,
+          "gpu_ns": 16756583,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 17474250,
+          "gpu_ns": 17107750,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 18702625,
+          "gpu_ns": 18521167,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_8_4",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20105250,
+          "gpu_ns": 15177875,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 16890209,
+          "gpu_ns": 16592250,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 16301959,
+          "gpu_ns": 16086417,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 17172584,
+          "gpu_ns": 16580625,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 17545000,
+          "gpu_ns": 17340458,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 16082791,
+          "gpu_ns": 15735208,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 17567917,
+          "gpu_ns": 17263500,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_4_8",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1135157917,
+          "gpu_ns": 1129656917,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1118798083,
+          "gpu_ns": 1118541208,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1132889292,
+          "gpu_ns": 1132595708,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1115841084,
+          "gpu_ns": 1115175917,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1112760291,
+          "gpu_ns": 1112370792,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1099684000,
+          "gpu_ns": 1099310292,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1139876542,
+          "gpu_ns": 1139524500,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 15800375,
+          "gpu_ns": 15023250,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 14366959,
+          "gpu_ns": 14152333,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 13734875,
+          "gpu_ns": 13551542,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 14205875,
+          "gpu_ns": 13975000,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 13790792,
+          "gpu_ns": 13576958,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 13732459,
+          "gpu_ns": 13508833,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 14488375,
+          "gpu_ns": 14233042,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_8_4",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1111069541,
+          "gpu_ns": 1105162292,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1089238125,
+          "gpu_ns": 1088888667,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1091760458,
+          "gpu_ns": 1091470417,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1111233250,
+          "gpu_ns": 1110390833,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1084598333,
+          "gpu_ns": 1084339292,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1097047541,
+          "gpu_ns": 1091309750,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1100255333,
+          "gpu_ns": 1099989375,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_1_32",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 12331167,
+          "gpu_ns": 9630917,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 9359958,
+          "gpu_ns": 9159000,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 9288959,
+          "gpu_ns": 9103208,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 9350333,
+          "gpu_ns": 9088917,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 9781917,
+          "gpu_ns": 9326375,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 8619208,
+          "gpu_ns": 8339417,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 9777583,
+          "gpu_ns": 9460000,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_1_32",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3345375,
+          "gpu_ns": 1103125,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1457958,
+          "gpu_ns": 1211125,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1752208,
+          "gpu_ns": 1188208,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1356500,
+          "gpu_ns": 1104500,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1276500,
+          "gpu_ns": 1103208,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1434917,
+          "gpu_ns": 1108375,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1576750,
+          "gpu_ns": 1349625,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_2_16",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1117647125,
+          "gpu_ns": 1111612875,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1146633833,
+          "gpu_ns": 1146325917,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1127297750,
+          "gpu_ns": 1125932375,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1110187542,
+          "gpu_ns": 1109534333,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1111848208,
+          "gpu_ns": 1109714500,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1117578250,
+          "gpu_ns": 1114537375,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1101156541,
+          "gpu_ns": 1099796875,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_4_8",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23741583,
+          "gpu_ns": 18075708,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 18712667,
+          "gpu_ns": 18506292,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 19942708,
+          "gpu_ns": 19589750,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 17254875,
+          "gpu_ns": 16806250,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 17595208,
+          "gpu_ns": 17262333,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 16692875,
+          "gpu_ns": 16468125,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 17381417,
+          "gpu_ns": 16978917,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_8_4",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 139008417,
+          "gpu_ns": 132895083,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 131705458,
+          "gpu_ns": 131487000,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 136508250,
+          "gpu_ns": 135360417,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 131813083,
+          "gpu_ns": 130476958,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 134453584,
+          "gpu_ns": 133848125,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 139963292,
+          "gpu_ns": 137543292,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 133644875,
+          "gpu_ns": 131615375,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1886542,
+          "gpu_ns": 1494125,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 1666791,
+          "gpu_ns": 1469500,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1718333,
+          "gpu_ns": 1449250,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1755208,
+          "gpu_ns": 1569125,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1669792,
+          "gpu_ns": 1468333,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 2272875,
+          "gpu_ns": 2082875,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 1683125,
+          "gpu_ns": 1473625,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_4_8",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 136051250,
+          "gpu_ns": 130813375,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 133019584,
+          "gpu_ns": 132769750,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 140021416,
+          "gpu_ns": 139737875,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 130874334,
+          "gpu_ns": 130576250,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 133523042,
+          "gpu_ns": 133333750,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 133857583,
+          "gpu_ns": 133201000,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 131360291,
+          "gpu_ns": 131138500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_2_16",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23810791,
+          "gpu_ns": 17248250,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 18383291,
+          "gpu_ns": 18028000,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 16052625,
+          "gpu_ns": 15882917,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 19046167,
+          "gpu_ns": 18611625,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 18988791,
+          "gpu_ns": 18113458,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 18379458,
+          "gpu_ns": 17964125,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 17253000,
+          "gpu_ns": 16620875,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_2_16",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 144990709,
+          "gpu_ns": 138602875,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 139046750,
+          "gpu_ns": 138789500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 134094833,
+          "gpu_ns": 133922500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 136836917,
+          "gpu_ns": 136520500,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 134376375,
+          "gpu_ns": 134132542,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 142758917,
+          "gpu_ns": 142509083,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 142790417,
+          "gpu_ns": 142404625,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "simd_1_32",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 73399834,
+          "gpu_ns": 70755250,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 72166167,
+          "gpu_ns": 71912208,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 72857375,
+          "gpu_ns": 72578583,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 74171459,
+          "gpu_ns": 73660000,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 73324083,
+          "gpu_ns": 73102875,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 71548083,
+          "gpu_ns": 71265208,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 71169708,
+          "gpu_ns": 70868208,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 597125,
+          "gpu_ns": 241333,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 396917,
+          "gpu_ns": 213500,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 520250,
+          "gpu_ns": 322292,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 434416,
+          "gpu_ns": 212750,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 951666,
+          "gpu_ns": 205792,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 380250,
+          "gpu_ns": 197042,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 359709,
+          "gpu_ns": 196542,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_4_8",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1136048208,
+          "gpu_ns": 1130452167,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1124723292,
+          "gpu_ns": 1124227292,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1114930666,
+          "gpu_ns": 1113742625,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1106065625,
+          "gpu_ns": 1105360917,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1129096792,
+          "gpu_ns": 1128793958,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1102208500,
+          "gpu_ns": 1101909625,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1158555292,
+          "gpu_ns": 1157877875,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_8_4",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20799709,
+          "gpu_ns": 15082667,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 16996542,
+          "gpu_ns": 15844875,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 19049958,
+          "gpu_ns": 18428917,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 17916875,
+          "gpu_ns": 16933750,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 17392709,
+          "gpu_ns": 17176125,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 19291417,
+          "gpu_ns": 18632542,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 16588709,
+          "gpu_ns": 16090917,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_4_8",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22957917,
+          "gpu_ns": 16559625,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 17144042,
+          "gpu_ns": 16769042,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 17523375,
+          "gpu_ns": 16675833,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 17470375,
+          "gpu_ns": 17192667,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 16959250,
+          "gpu_ns": 16471833,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 19320959,
+          "gpu_ns": 19034083,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 17993833,
+          "gpu_ns": 17584542,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_8_4",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1185436458,
+          "gpu_ns": 1174299625,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1131945458,
+          "gpu_ns": 1131642750,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1112546875,
+          "gpu_ns": 1111683042,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1115454583,
+          "gpu_ns": 1115063792,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1118504042,
+          "gpu_ns": 1117957375,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1198809917,
+          "gpu_ns": 1198584000,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1169519958,
+          "gpu_ns": 1169040708,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 15588709,
+          "gpu_ns": 14797625,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 13216292,
+          "gpu_ns": 12619125,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 12676459,
+          "gpu_ns": 12179042,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 13018584,
+          "gpu_ns": 12808583,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 15357125,
+          "gpu_ns": 15091250,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 14864791,
+          "gpu_ns": 14193375,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 14245917,
+          "gpu_ns": 13866833,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_1_32",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 79024250,
+          "gpu_ns": 74244375,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 71419333,
+          "gpu_ns": 70729250,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 76366750,
+          "gpu_ns": 73748917,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 73136916,
+          "gpu_ns": 72717042,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 74239459,
+          "gpu_ns": 73675750,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 72634334,
+          "gpu_ns": 72247625,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 73502584,
+          "gpu_ns": 73094375,
+          "cells": 4194304,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_2_16",
+      "n": 2048,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1164566042,
+          "gpu_ns": 1156855625,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1170964958,
+          "gpu_ns": 1170667125,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1149721584,
+          "gpu_ns": 1148950000,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1151490292,
+          "gpu_ns": 1150985208,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1149588708,
+          "gpu_ns": 1149071250,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1168243375,
+          "gpu_ns": 1167787792,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1133765167,
+          "gpu_ns": 1133484333,
+          "cells": 4194304,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_8_4",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 138712208,
+          "gpu_ns": 133134375,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 138789292,
+          "gpu_ns": 138261625,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 136917250,
+          "gpu_ns": 133075000,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 134300541,
+          "gpu_ns": 133957667,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 138462375,
+          "gpu_ns": 136433750,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 130356333,
+          "gpu_ns": 129471000,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 127115542,
+          "gpu_ns": 126782542,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_4_8",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 142251334,
+          "gpu_ns": 136264000,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 130781375,
+          "gpu_ns": 130581708,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 131613041,
+          "gpu_ns": 131370667,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 134849667,
+          "gpu_ns": 134503750,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 132880667,
+          "gpu_ns": 132572250,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 135217167,
+          "gpu_ns": 134989375,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 132458917,
+          "gpu_ns": 132185083,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_1_32",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3812583,
+          "gpu_ns": 1103750,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 1314792,
+          "gpu_ns": 1110625,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 1362875,
+          "gpu_ns": 1143500,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 1606667,
+          "gpu_ns": 1102750,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 1454666,
+          "gpu_ns": 1256250,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 1312042,
+          "gpu_ns": 1111000,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 1460625,
+          "gpu_ns": 1104500,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_2_16",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 145089833,
+          "gpu_ns": 138531875,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 131365334,
+          "gpu_ns": 130806000,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 134015375,
+          "gpu_ns": 133679750,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 145113500,
+          "gpu_ns": 144931958,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 132225250,
+          "gpu_ns": 131897625,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 134322500,
+          "gpu_ns": 134120125,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 127993875,
+          "gpu_ns": 127710625,
+          "cells": 1048576,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_2_16",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24466916,
+          "gpu_ns": 17217500,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 18823750,
+          "gpu_ns": 18600750,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 16998084,
+          "gpu_ns": 16752625,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 18475292,
+          "gpu_ns": 18139250,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 17777541,
+          "gpu_ns": 17429167,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 17419209,
+          "gpu_ns": 16829333,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 19991917,
+          "gpu_ns": 19640583,
+          "cells": 262144,
+          "register_max_threads": 384,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "simd_1_32",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 12572917,
+          "gpu_ns": 9326708,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": -1,
+          "ns": 9349875,
+          "gpu_ns": 9099500,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 0,
+          "ns": 9169708,
+          "gpu_ns": 8939917,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 1,
+          "ns": 8593833,
+          "gpu_ns": 8403542,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 2,
+          "ns": 10205625,
+          "gpu_ns": 9285833,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 3,
+          "ns": 9563458,
+          "gpu_ns": 9369708,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        },
+        {
+          "round": 4,
+          "ns": 8919375,
+          "gpu_ns": 8652000,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 0
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 512,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 825250,
+          "gpu_ns": 360542,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 375417,
+          "gpu_ns": 210625,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 374166,
+          "gpu_ns": 198500,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 369541,
+          "gpu_ns": 200750,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 376250,
+          "gpu_ns": 197375,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 597250,
+          "gpu_ns": 316833,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 835541,
+          "gpu_ns": 367375,
+          "cells": 262144,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 1024,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2612500,
+          "gpu_ns": 2155417,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 2003667,
+          "gpu_ns": 1482375,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 2558333,
+          "gpu_ns": 2080500,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1707917,
+          "gpu_ns": 1550125,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1794875,
+          "gpu_ns": 1578375,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 3,
+          "ns": 2098958,
+          "gpu_ns": 1914208,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 4,
+          "ns": 1630709,
+          "gpu_ns": 1456000,
+          "cells": 1048576,
+          "register_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 512,
+      "gpu_ns": 200750,
+      "process_medians_ns": [
+        200375,
+        205792,
+        200750
+      ]
+    },
+    {
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 1024,
+      "gpu_ns": 1473625,
+      "process_medians_ns": [
+        1472000,
+        1473625,
+        1578375
+      ]
+    },
+    {
+      "variant": "kalandra_matmul_hardware_register16",
+      "n": 2048,
+      "gpu_ns": 13576958,
+      "process_medians_ns": [
+        13135750,
+        13576958,
+        13866833
+      ]
+    },
+    {
+      "variant": "simd_1_32",
+      "n": 512,
+      "gpu_ns": 1111000,
+      "process_medians_ns": [
+        1400375,
+        1108375,
+        1111000
+      ]
+    },
+    {
+      "variant": "simd_1_32",
+      "n": 1024,
+      "gpu_ns": 9103208,
+      "process_medians_ns": [
+        9301667,
+        9103208,
+        8939917
+      ]
+    },
+    {
+      "variant": "simd_1_32",
+      "n": 2048,
+      "gpu_ns": 72631125,
+      "process_medians_ns": [
+        72631125,
+        72578583,
+        73094375
+      ]
+    },
+    {
+      "variant": "simd_2_16",
+      "n": 512,
+      "gpu_ns": 17429167,
+      "process_medians_ns": [
+        16756583,
+        17964125,
+        17429167
+      ]
+    },
+    {
+      "variant": "simd_2_16",
+      "n": 1024,
+      "gpu_ns": 136520500,
+      "process_medians_ns": [
+        137663958,
+        136520500,
+        133679750
+      ]
+    },
+    {
+      "variant": "simd_2_16",
+      "n": 2048,
+      "gpu_ns": 1149071250,
+      "process_medians_ns": [
+        1165043042,
+        1109714500,
+        1149071250
+      ]
+    },
+    {
+      "variant": "simd_4_8",
+      "n": 512,
+      "gpu_ns": 17192667,
+      "process_medians_ns": [
+        17722667,
+        16978917,
+        17192667
+      ]
+    },
+    {
+      "variant": "simd_4_8",
+      "n": 1024,
+      "gpu_ns": 133201000,
+      "process_medians_ns": [
+        137958125,
+        133201000,
+        132572250
+      ]
+    },
+    {
+      "variant": "simd_4_8",
+      "n": 2048,
+      "gpu_ns": 1115175917,
+      "process_medians_ns": [
+        1208866792,
+        1115175917,
+        1113742625
+      ]
+    },
+    {
+      "variant": "simd_8_4",
+      "n": 512,
+      "gpu_ns": 17176125,
+      "process_medians_ns": [
+        19235375,
+        16580625,
+        17176125
+      ]
+    },
+    {
+      "variant": "simd_8_4",
+      "n": 1024,
+      "gpu_ns": 133848125,
+      "process_medians_ns": [
+        138025500,
+        133848125,
+        133075000
+      ]
+    },
+    {
+      "variant": "simd_8_4",
+      "n": 2048,
+      "gpu_ns": 1117957375,
+      "process_medians_ns": [
+        1138844542,
+        1091470417,
+        1117957375
+      ]
+    }
+  ],
+  "variants": [
+    [
+      "kalandra_matmul_hardware_register16",
+      16,
+      16,
+      256,
+      64,
+      false
+    ],
+    [
+      "simd_1_32",
+      8,
+      32,
+      256,
+      64,
+      false
+    ],
+    [
+      "simd_2_16",
+      16,
+      16,
+      256,
+      64,
+      false
+    ],
+    [
+      "simd_4_8",
+      16,
+      16,
+      256,
+      64,
+      false
+    ],
+    [
+      "simd_8_4",
+      16,
+      16,
+      256,
+      64,
+      false
+    ]
+  ],
+  "generator_source": "\"\"\"Strict matmul screening: contraction panels, ping-pong panels and explicit per-lane reuse.\"\"\"\nimport argparse,json,os,random,statistics,sys\nfrom pathlib import Path\nsys.path.insert(0,str(Path(__file__).resolve().parent/'fair'))\nimport protocol as p\n\ndef tree(values):\n    while len(values)>1:values=[f'({values[i]}+{values[i+1]})' for i in range(0,len(values),2)]\n    return values[0]\n\ndef kernel(name,rows=16,cols=16,threads=256,panel=64,double=False):\n    basecols=min(cols,max(8,threads//rows));baserows=threads//basecols\n    cells=[(r,c) for r in range(0,rows,baserows) for c in range(0,cols,basecols)]\n    assert rows%baserows==0 and cols%basecols==0 and panel in [64,128,256]\n    text=f'''kernel void {name}(device const float* a [[buffer(0)]],device const float* b [[buffer(1)]],device float* out [[buffer(2)]],constant uint* shape [[buffer(3)]],uint lane [[thread_position_in_threadgroup]],uint group [[threadgroup_position_in_grid]]) {{\nthreadgroup float aa[{rows*panel*(2 if double else 1)}],bb[{cols*panel*(2 if double else 1)}];\nconst uint m=shape[0],k=shape[1],n=shape[2],columns=(n+{cols-1})/{cols};\nconst uint rb=(group/columns)*{rows},cb=(group%columns)*{cols},blocks=k/{panel};\n'''\n    for idx,(r,c) in enumerate(cells):\n        text+=f'const uint r{idx}=rb+lane/{basecols}+{r},c{idx}=cb+lane%{basecols}+{c};\\n'\n        text+='float '+','.join(f's{idx}_{l}=0.0f' for l in range(7))+';\\n'\n    def load(first,side):\n        return f'''for(uint at=lane;at<{rows*panel};at+={threads}) aa[{side}*{rows*panel}+at]=rb+at/{panel}<m?a[(rb+at/{panel})*k+{first}+at%{panel}]:0.0f;\nfor(uint at=lane;at<{cols*panel};at+={threads}) bb[{side}*{cols*panel}+at]=cb+at%{cols}<n?b[({first}+at/{cols})*n+cb+at%{cols}]:0.0f;\n'''\n    if double:text+=load('0','0')+'threadgroup_barrier(mem_flags::mem_threadgroup);\\n'\n    text+=f'for(uint block=0;block<blocks;++block) {{ const uint first=block*{panel};\\n'\n    if double:\n        text+='const uint side=block&1u;\\nif(block+1<blocks){\\n'+load(f'(first+{panel})','(side^1u)')+'}\\n'\n        text+=f'threadgroup float* av=aa+side*{rows*panel};threadgroup float* bv=bb+side*{cols*panel};\\n'\n    else:text+=load('first','0')+'threadgroup_barrier(mem_flags::mem_threadgroup);\\nthreadgroup float* av=aa;threadgroup float* bv=bb;\\n'\n    # Explicit shared loads across output cells; do not rely on cross-scope CSE.\n    roff=sorted(set(r for r,c in cells));coff=sorted(set(c for r,c in cells))\n    for j in range(panel//8):\n        for i in range(8):\n            inner=j*8+i\n            for r in roff:text+=f'float a{j}_{i}_{r}=av[(lane/{basecols}+{r})*{panel}+{inner}];\\n'\n            for c in coff:text+=f'float b{j}_{i}_{c}=bv[{inner*cols}+lane%{basecols}+{c}];\\n'\n            for idx,(r,c) in enumerate(cells):text+=f'float p{idx}_{j}_{i}=a{j}_{i}_{r}*b{j}_{i}_{c};\\n'\n        for idx,_ in enumerate(cells):text+=f'float v{idx}_{j}='+tree([f'p{idx}_{j}_{i}' for i in range(8)])+';\\n'\n    for idx,_ in enumerate(cells):\n        text+=f'float value{idx}='+tree([f'v{idx}_{j}' for j in range(panel//8)])+';\\n'\n        for l in range(6):text+=f'if(!(block&{1<<l}u))s{idx}_{l}=value{idx};else{{value{idx}=s{idx}_{l}+value{idx};\\n'\n        text+=f's{idx}_6=value{idx};'+'}'*6+'\\n'\n    text+='threadgroup_barrier(mem_flags::mem_threadgroup);}\\n'\n    for idx,_ in enumerate(cells):\n        text+=f'if(r{idx}<m && c{idx}<n) {{float value=0.0f;bool used=false;\\n'\n        for l in range(7):text+=f'if(blocks&{1<<l}u){{value=used?s{idx}_{l}+value:s{idx}_{l};used=true;}}\\n'\n        text+=f'out[r{idx}*n+c{idx}]=value;}}\\n'\n    return text+'}\\n'\n\ndef scheduled(original,name,panel=64,double=False,unroll=0):\n    text=original.replace('kalandra_matmul_hardware_register16',name).replace('kalandra_hardware_eight16','eight_'+name)\n    if panel!=64:\n        text=text.replace('row*64+first','row*'+str(panel)+'+first')\n        text=text.replace('av[1024],bv[1024]',f'av[{16*panel}],bv[{16*panel}]')\n        text=text.replace('blocks=k/64',f'blocks=k/{panel}').replace('first=block*64',f'first=block*{panel}')\n        text=text.replace('at<1024',f'at<{16*panel}').replace('rowBase+at/64',f'rowBase+at/{panel}').replace('first+at%64',f'first+at%{panel}')\n        begin=text.index('      float r0=');end=text.index('      // Explicit binary-counter',begin)\n        terms=''\n        for j in range(panel//8):terms+=f'      float r{j}=eight_{name}(av,bv,lane/16,lane%16,{j*8});\\n'\n        terms+='      float value='+tree([f'r{j}' for j in range(panel//8)])+';\\n'\n        text=text[:begin]+terms+text[end:]\n    if double:\n        assert panel==64\n        start=text.index('    for(uint at=lane;at<1024;at+=256)');end=text.index('    threadgroup_barrier(mem_flags::mem_threadgroup);',start)\n        load=text[start:end]\n        initial=load.replace('first+','').replace('av[at]','aa[at]').replace('bv[at]','bb[at]')\n        nextload=load.replace('first+','(first+64)+').replace('av[at]','aa[(side^1u)*1024+at]').replace('bv[at]','bb[(side^1u)*1024+at]')\n        text=text[:start]+f'    const uint side=block&1u;\\n    threadgroup float* av=aa+side*1024;threadgroup float* bv=bb+side*1024;\\n    if(block+1<blocks) {{\\n'+nextload+'    }\\n'+text[end+len('    threadgroup_barrier(mem_flags::mem_threadgroup);\\n'):]\n        text=text.replace('threadgroup float av[1024],bv[1024];','threadgroup float aa[2048],bb[2048];')\n        text=text.replace('  for (uint block=0;block<blocks;++block) {',initial+'    threadgroup_barrier(mem_flags::mem_threadgroup);\\n  for (uint block=0;block<blocks;++block) {')\n    if unroll:text=text.replace('  for (uint block=0;block<blocks;++block)',f'  #pragma clang loop unroll_count({unroll})\\n  for (uint block=0;block<blocks;++block)')\n    return text\n\ndef vector_kernel(name,width=2,panel=64,fixed=False):\n    rows=16;cols=16;threads=rows*cols//width;levels=8 if panel==32 else 7\n    dtype='float'+str(width)\n    helper=f'inline {dtype} eight_{name}(threadgroup float* a,threadgroup {dtype}* b,uint row,uint col,uint first) {{\\n'\n    for i in range(8):helper+=f'{dtype} p{i}=a[row*{panel}+first+{i}]*b[(first+{i})*{cols//width}+col];\\n'\n    helper+=f'return '+tree([f'p{i}' for i in range(8)])+';}\\n'\n    core=f'const uint m=shape[0],k=shape[1],n=shape[2],columns=(n+15)/16,rb=(group/columns)*16,cb=(group%columns)*16,row=rb+lane/{cols//width},col=cb+(lane%{cols//width})*{width},blocks=k/{panel};\\n'\n    core+=dtype+' '+','.join(f's{l}={dtype}(0.0f)' for l in range(levels))+';\\n'\n    core+=f'for(uint block=0;block<blocks;++block) {{const uint first=block*{panel};\\n'\n    core+=f'for(uint at=lane;at<{rows*panel};at+={threads}) {{const uint r=rb+at/{panel},c=cb+at%16;av[at]=r<m?a[r*k+first+at%{panel}]:0.0f;bv[at]=c<n?b[(first+at/16)*n+c]:0.0f;}}\\nthreadgroup_barrier(mem_flags::mem_threadgroup);\\n'\n    core+='if(row<m && col<n) {\\n'\n    for j in range(panel//8):core+=f'{dtype} r{j}=eight_{name}(av,reinterpret_cast<threadgroup {dtype}*>(bv),lane/{cols//width},lane%{cols//width},{j*8});\\n'\n    core+=dtype+' value='+tree([f'r{j}' for j in range(panel//8)])+';\\n'\n    for l in range(levels-1):core+=f'if(!(block&{1<<l}u))s{l}=value;else{{value=s{l}+value;\\n'\n    core+=f's{levels-1}=value;'+'}'*(levels-1)+'}\\nthreadgroup_barrier(mem_flags::mem_threadgroup); }\\n'\n    core+=f'if(row<m && col<n) {{{dtype} value={dtype}(0.0f);bool used=false;\\n'\n    for l in range(levels):core+=f'if(blocks&{1<<l}u){{value=used?s{l}+value:s{l};used=true;}}\\n'\n    for i in range(width):core+=f'if(col+{i}<n)out[row*n+col+{i}]=value[{i}];\\n'\n    core+='}\\n'\n    args='device const float* a,device const float* b,device float* out,constant uint* shape,uint lane,uint group'\n    signature=f'kernel void {name}(device const float* a [[buffer(0)]],device const float* b [[buffer(1)]],device float* out [[buffer(2)]],constant uint* shape [[buffer(3)]],uint lane [[thread_position_in_threadgroup]],uint group [[threadgroup_position_in_grid]])'\n    if fixed:\n        return helper+f'template<uint K> inline void body_{name}('+args+',threadgroup float* av,threadgroup float* bv){'+core.replace('k=shape[1]','k=K')+'}\\n'+signature+'{'+f'threadgroup float av[{rows*panel}],bv[{cols*panel}];switch(shape[1]){{'+''.join(f'case {k}:body_{name}<{k}>(a,b,out,shape,lane,group,av,bv);break;' for k in [512,1024,2048])+'}}\\n'\n    return helper+signature+'{'+f'threadgroup float av[{rows*panel}],bv[{cols*panel}];'+core+'}\\n'\n\ndef fixed_kernel(original,name,unroll=False):\n    text=original.replace('kalandra_hardware_eight16','eight_'+name)\n    helper,main=text.split('kernel void kalandra_matmul_hardware_register16',1)\n    signature,body=main.split('{',1);body=body.rsplit('}',1)[0]\n    body=body.replace('  threadgroup float av[1024],bv[1024];','').replace('k=parameters.values[1]','k=K')\n    if unroll:body=body.replace('  for (uint block=0;block<blocks;++block)', '  #pragma clang loop unroll(full)\\n  for (uint block=0;block<blocks;++block)')\n    args='device KalandraHardwareMatrix& a,device KalandraHardwareMatrix& b,device KalandraHardwareMatrix& output,device KalandraHardwareShape& parameters,uint lane,uint group,threadgroup float* av,threadgroup float* bv'\n    return helper+f'template<uint K> inline void body_{name}('+args+'){'+body+'}\\n'+'kernel void '+name+signature+'{threadgroup float av[1024],bv[1024];switch(parameters.values[1]){'+''.join(f'case {k}:body_{name}<{k}>(a,b,output,parameters,lane,group,av,bv);break;' for k in [512,1024,2048])+'}}\\n'\n\ndef simd_kernel(name,simdrows,simdcols):\n    assert simdrows*simdcols==32\n    cols=max(16,simdcols);rows=simdrows*8//(cols//simdcols)\n    helper=f'inline float eight_{name}(device const float* a,device const float* b,uint m,uint k,uint n,uint row,uint col,uint slane,uint first){{\\n'\n    for j in range((8+simdcols-1)//simdcols):\n        index=f'(slane%{simdcols}+{j*simdcols})'\n        helper+=f'float a{j}=row<m && {index}<8?a[row*k+first+{index}]:0.0f;\\n'\n    for j in range((8+simdrows-1)//simdrows):\n        index=f'(slane/{simdcols}+{j*simdrows})'\n        helper+=f'float b{j}=col<n && {index}<8?b[(first+{index})*n+col]:0.0f;\\n'\n    for i in range(8):\n        a=f'simd_shuffle(a{i//simdcols},(slane/{simdcols})*{simdcols}+{i%simdcols})'\n        b=f'simd_shuffle(b{i//simdrows},{(i%simdrows)*simdcols}+slane%{simdcols})'\n        if simdrows==1:b=f'b{i}'\n        helper+=f'float p{i}={a}*{b};\\n'\n    helper+='return '+tree([f'p{i}' for i in range(8)])+';}\\n'\n    body=f'''kernel void {name}(device const float* a [[buffer(0)]],device const float* b [[buffer(1)]],device float* out [[buffer(2)]],constant uint* shape [[buffer(3)]],uint lane [[thread_position_in_threadgroup]],uint group [[threadgroup_position_in_grid]]) {{\nconst uint m=shape[0],k=shape[1],n=shape[2],columns=(n+{cols-1})/{cols};\nconst uint sg=lane/32,slane=lane%32,row=(group/columns)*{rows}+(sg/{cols//simdcols})*{simdrows}+slane/{simdcols},col=(group%columns)*{cols}+(sg%{cols//simdcols})*{simdcols}+slane%{simdcols},blocks=k/64;\nfloat s0=0,s1=0,s2=0,s3=0,s4=0,s5=0,s6=0;\nfor(uint block=0;block<blocks;++block) {{uint first=block*64;\n'''\n    for j in range(8):body+=f'float r{j}=eight_{name}(a,b,m,k,n,row,col,slane,first+{j*8});\\n'\n    body+='float value='+tree([f'r{j}' for j in range(8)])+';\\n'\n    for l in range(6):body+=f'if(!(block&{1<<l}u))s{l}=value;else{{value=s{l}+value;\\n'\n    body+='s6=value;'+'}'*6+'}\\nif(row<m && col<n){float value=0;bool used=false;\\n'\n    for l in range(7):body+=f'if(blocks&{1<<l}u){{value=used?s{l}+value:s{l};used=true;}}\\n'\n    return helper+body+'out[row*n+col]=value;}}\\n',rows,cols\n\ndef main():\n    parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,required=True);parser.add_argument('--suite',choices=['initial','scheduled','vector','simd'],default='initial');a=parser.parse_args();assert not a.output.exists()\n    for key in ('MTL_DEBUG_LAYER','MTL_SHADER_VALIDATION','KALANDRA_GPU_PROFILE','DYLD_INSERT_LIBRARIES'):assert os.getenv(key) in (None,'','0'),key\n    build=p.ROOT/'benchmarks/.build/microkernel-2026-10-25'/a.output.stem;build.mkdir(parents=True,exist_ok=True)\n    header=p.ROOT/'native/metal-source/HardwareShaders.h'\n    code='#include <metal_stdlib>\\nusing namespace metal;\\n'\n    code+=header.read_text().split('hardwareMatmulShader = R\"MSL(')[1].split(')MSL\";')[0]\n    code+=header.read_text().split('hardwareRegisterMatmulShader = R\"MSL(')[1].split(')MSL\";')[0]\n    variants=[('kalandra_matmul_hardware_register16',16,16,256,64,False)]\n    if a.suite=='initial':\n        specs=[(16,16,256,128,False),(16,16,256,256,False),(16,16,256,64,True),(16,16,256,128,True),(16,16,128,64,False),(32,16,256,64,False),(16,32,256,64,False),(32,32,256,64,False),(32,16,256,64,True)]\n        for rows,cols,threads,panel,double in specs:\n            name=f'micro_{rows}_{cols}_{threads}_{panel}_{int(double)}';code+=kernel(name,rows,cols,threads,panel,double);variants.append((name,rows,cols,threads,panel,double))\n    elif a.suite=='scheduled':\n        original=header.read_text().split('hardwareRegisterMatmulShader = R\"MSL(')[1].split(')MSL\";')[0]\n        for panel,double,unroll in [(64,False,2),(64,False,4),(64,False,8),(64,False,16),(128,False,0),(256,False,0),(64,True,0),(64,True,2),(128,False,2)]:\n            name=f'scheduled_{panel}_{int(double)}_{unroll}'\n            code+=scheduled(original,name,panel,double,unroll);variants.append((name,16,16,256,panel,double))\n    elif a.suite=='vector':\n        original=header.read_text().split('hardwareRegisterMatmulShader = R\"MSL(')[1].split(')MSL\";')[0]\n        for width,panel,fixed in [(2,64,False),(2,32,False),(4,64,False),(2,64,True),(2,32,True)]:\n            name=f'vector_{width}_{panel}_{int(fixed)}';code+=vector_kernel(name,width,panel,fixed);variants.append((name,16,16,256//width,panel,False))\n        for unroll in [False,True]:\n            name=f'fixed_{int(unroll)}';code+=fixed_kernel(original,name,unroll);variants.append((name,16,16,256,64,False))\n    else:\n        for sr,sc in [(1,32),(2,16),(4,8),(8,4)]:\n            name=f'simd_{sr}_{sc}';text,rows,cols=simd_kernel(name,sr,sc);code+=text;variants.append((name,rows,cols,256,64,False))\n    source=build/'candidates.metal';source.write_text(code)\n    lock=json.loads((p.ROOT/'native/metal-proof/toolchain.json').read_text());metal=['xcrun','--toolchain',lock['metalToolchain'],'--sdk','macosx','metal']\n    p.run([*metal,'-mmacosx-version-min=26.0','-std=macos-metal2.2','-fno-fast-math','-ffp-contract=off','-c',source,'-o',build/'candidates.air'])\n    p.run([*metal,build/'candidates.air','-o',build/'candidates.metallib'])\n    driver=Path(__file__).with_name('MatrixKernelStudy.mm');binary=build/'study'\n    p.run([p.CLANG,'-std=c++23','-O2','-DNDEBUG','-ffp-contract=off','-fobjc-arc','-fblocks',driver,'-framework','Foundation','-framework','Metal','-o',binary])\n    records=[];rng=random.Random(20261025)\n    for trial in range(3):\n        cells=[(v,n) for v in variants for n in (512,1024,2048)];rng.shuffle(cells)\n        for (name,rows,cols,threads,panel,double),n in cells:\n            output=p.run([binary,build/'candidates.metallib',name,rows,cols,threads,n,n,n,5])\n            samples=list(map(json.loads,output.splitlines()));assert [x['round'] for x in samples]==list(range(-2,5))\n            records.append(dict(trial=trial,variant=name,n=n,samples=samples))\n            print(trial,name,n,statistics.median(x['gpu_ns']/1e6 for x in samples if x['round']>=0),flush=True)\n    summary=[]\n    for name,*_ in variants:\n        for n in (512,1024,2048):\n            medians=[statistics.median(x['gpu_ns'] for x in record['samples'] if x['round']>=0) for record in records if record['variant']==name and record['n']==n]\n            summary.append(dict(variant=name,n=n,gpu_ns=statistics.median(medians),process_medians_ns=medians))\n    p.evidence(a.output,dict(records=records,summary=summary,variants=variants,generator_source=Path(__file__).read_text(),driver_source=driver.read_text(),generated_msl=code,contract='Isolated preallocated strict GPU command screening, not managed pipeline throughput. Shared input/private output buffers; independent dyadic every-cell checks and poison/suffix guard each round outside GPU timing. Panel candidates require K divisible by their panel size and K<=4096. Three randomized processes, two warmups, five measured rounds. All candidates and samples retained.'),[Path(__file__),driver,header,source],[binary,build/'candidates.metallib'],p.ROOT/'build/native/native/kalandra')\nif __name__=='__main__':main()\n",
+  "driver_source": "// Isolated candidate screening. Final scores use the complete language pipeline.\n#import <Foundation/Foundation.h>\n#import <Metal/Metal.h>\n#include <array>\n#include <bit>\n#include <chrono>\n#include <cstdint>\n#include <cstdio>\n#include <cstdlib>\n#include <stdexcept>\n#include <string>\n#include <vector>\nstatic void check(bool ok) {\n  if (!ok)\n    throw std::runtime_error(\"matrix kernel screening failed\");\n}\nint main(int argc, char **argv) {\n  @autoreleasepool {\n    if (argc != 10)\n      return 2;\n    const unsigned rows = std::stoul(argv[3]), cols = std::stoul(argv[4]),\n                   threads = std::stoul(argv[5]);\n    const unsigned m = std::stoul(argv[6]), k = std::stoul(argv[7]), n = std::stoul(argv[8]);\n    const unsigned rounds = std::stoul(argv[9]);\n    check(m && k && n && k % 64 == 0 && k <= 4096 && rows && cols && threads);\n    id<MTLDevice> device = MTLCreateSystemDefaultDevice();\n    NSError *error = nil;\n    auto library = [device newLibraryWithURL:[NSURL fileURLWithPath:@(argv[1])] error:&error];\n    auto fn = [library newFunctionWithName:@(argv[2])];\n    auto pipeline = [device newComputePipelineStateWithFunction:fn error:&error];\n    check(pipeline && pipeline.maxTotalThreadsPerThreadgroup >= threads);\n    auto queue = [device newCommandQueue];\n    auto a = [device newBufferWithLength:std::size_t(m) * k * 4\n                                 options:MTLResourceStorageModeShared];\n    auto b = [device newBufferWithLength:std::size_t(k) * n * 4\n                                 options:MTLResourceStorageModeShared];\n    auto out = [device newBufferWithLength:std::size_t(m) * n * 4 + 64\n                                   options:MTLResourceStorageModePrivate];\n    auto readback = [device newBufferWithLength:out.length options:MTLResourceStorageModeShared];\n    const std::array shape{m, k, n};\n    auto parameters = [device newBufferWithBytes:shape.data()\n                                          length:12\n                                         options:MTLResourceStorageModeShared];\n    check(queue && a && b && out && readback && parameters);\n    auto *av = static_cast<float *>(a.contents), *bv = static_cast<float *>(b.contents);\n    for (std::size_t i = 0; i < std::size_t(m) * k; ++i)\n      av[i] = float(int(i % 17) - 8) / 8;\n    for (std::size_t i = 0; i < std::size_t(k) * n; ++i)\n      bv[i] = float(int(i % 13) - 6) / 8;\n    std::array<std::array<std::uint32_t, 13>, 17> expected{};\n    for (unsigned r = 0; r < 17; ++r)\n      for (unsigned c = 0; c < 13; ++c) {\n        std::int64_t sum = 0;\n        for (unsigned t = 0; t < k; ++t)\n          sum += (int((r + t) % 17) - 8) * (int((c + std::uint64_t(t) * n) % 13) - 6);\n        expected[r][c] = std::bit_cast<std::uint32_t>(float(sum) / 64);\n      }\n    for (int round = -2; round < int(rounds); ++round) {\n      auto poison = [queue commandBuffer];\n      auto fill = [poison blitCommandEncoder];\n      [fill fillBuffer:out range:NSMakeRange(0, out.length) value:0xa5];\n      [fill endEncoding];\n      [poison commit];\n      [poison waitUntilCompleted];\n      const auto start = std::chrono::steady_clock::now();\n      auto command = [queue commandBuffer];\n      auto encoder = [command computeCommandEncoder];\n      [encoder setComputePipelineState:pipeline];\n      [encoder setBuffer:a offset:0 atIndex:0];\n      [encoder setBuffer:b offset:0 atIndex:1];\n      [encoder setBuffer:out offset:0 atIndex:2];\n      [encoder setBuffer:parameters offset:0 atIndex:3];\n      [encoder dispatchThreadgroups:MTLSizeMake(((std::uint64_t(m) + rows - 1) / rows) *\n                                                    ((std::uint64_t(n) + cols - 1) / cols),\n                                                1, 1)\n              threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];\n      [encoder endEncoding];\n      [command commit];\n      [command waitUntilCompleted];\n      double ns = std::chrono::duration<double, std::nano>(std::chrono::steady_clock::now() - start)\n                      .count();\n      check(command.status == MTLCommandBufferStatusCompleted &&\n            command.GPUEndTime >= command.GPUStartTime);\n      auto copy = [queue commandBuffer];\n      auto blit = [copy blitCommandEncoder];\n      [blit copyFromBuffer:out\n               sourceOffset:0\n                   toBuffer:readback\n          destinationOffset:0\n                       size:out.length];\n      [blit endEncoding];\n      [copy commit];\n      [copy waitUntilCompleted];\n      check(copy.status == MTLCommandBufferStatusCompleted);\n      auto *actual = static_cast<std::uint32_t *>(readback.contents);\n      for (unsigned r = 0; r < m; ++r)\n        for (unsigned c = 0; c < n; ++c)\n          if (actual[std::size_t(r) * n + c] != expected[(std::uint64_t(r) * k) % 17][c % 13]) {\n            std::fprintf(stderr, \"%s (%u,%u,%u) cell %u,%u actual=%08x expected=%08x\\n\", argv[2], m,\n                         k, n, r, c, actual[std::size_t(r) * n + c],\n                         expected[(std::uint64_t(r) * k) % 17][c % 13]);\n            return 1;\n          }\n      for (unsigned i = 0; i < 16; ++i)\n        check(actual[std::size_t(m) * n + i] == 0xa5a5a5a5u);\n      std::printf(\"{\\\"round\\\":%d,\\\"ns\\\":%.0f,\\\"gpu_ns\\\":%.0f,\\\"cells\\\":%llu,\\\"register_max_\"\n                  \"threads\\\":%llu,\\\"threadgroup_bytes\\\":%llu}\\n\",\n                  round, ns, (command.GPUEndTime - command.GPUStartTime) * 1e9,\n                  (unsigned long long)m * n,\n                  (unsigned long long)pipeline.maxTotalThreadsPerThreadgroup,\n                  (unsigned long long)pipeline.staticThreadgroupMemoryLength);\n    }\n  }\n}\n",
+  "generated_msl": "#include <metal_stdlib>\nusing namespace metal;\n\nstruct KalandraHardwareMatrix { float values[1]; };\nstruct KalandraHardwareShape { uint values[3]; };\nkernel void kalandra_matmul_hardware_tiled(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[64];\n  threadgroup float bv[64];\n  const uint m = parameters.values[0], k = parameters.values[1], n = parameters.values[2];\n  const uint tileColumns = (n / 8) + uint(n % 8 != 0);\n  const uint row = (group / tileColumns) * 8 + lane / 8;\n  const uint col = (group % tileColumns) * 8 + lane % 8;\n  float stack[29];\n  float tail = 0.0f;\n  const uint blocks = k / 8;\n  for (uint block = 0; block < (k / 8) + uint(k % 8 != 0); ++block) {\n    const uint inner = block * 8;\n    av[lane] = row < m && inner + lane % 8 < k ? a.values[row * k + inner + lane % 8] : 0.0f;\n    bv[lane] = col < n && inner + lane / 8 < k ? b.values[(inner + lane / 8) * n + col] : 0.0f;\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if (row < m && col < n) {\n      float products[8];\n      for (uint i = 0; i < 8; ++i)\n        products[i] = av[(lane / 8) * 8 + i] * bv[i * 8 + lane % 8];\n      uint count = min(8u, k - inner);\n      // Explicit adjacent-pair tree; products and sums are separately rounded.\n      while (count > 1) {\n        for (uint i = 0; i < count / 2; ++i)\n          products[i] = products[i * 2] + products[i * 2 + 1];\n        if (count & 1) products[count / 2] = products[count - 1];\n        count = (count + 1) / 2;\n      }\n      float value = products[0];\n      if (block < blocks) {\n        uint occupied = block, level = 0;\n        while (occupied & 1) {\n          value = stack[level] + value;\n          ++level;\n          occupied >>= 1;\n        }\n        stack[level] = value;\n      } else tail = value;\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if (row < m && col < n) {\n    float value = tail;\n    bool used = (k % 8) != 0;\n    for (uint level = 0, occupied = blocks; occupied; ++level, occupied >>= 1) {\n      if (occupied & 1) {\n        value = used ? stack[level] + value : stack[level];\n        used = true;\n      }\n    }\n    output.values[row * n + col] = value;\n  }\n}\n\n// Full 32-leaf contraction blocks keep the same arithmetic tree while\n// amortizing threadgroup synchronization across four old eight-leaf blocks.\ninline float kalandra_hardware_eight(threadgroup float* a, threadgroup float* b,\n                                      uint row, uint col, uint first) {\n  float p0=a[row*32+first+0]*b[(first+0)*8+col];\n  float p1=a[row*32+first+1]*b[(first+1)*8+col];\n  float p2=a[row*32+first+2]*b[(first+2)*8+col];\n  float p3=a[row*32+first+3]*b[(first+3)*8+col];\n  float p4=a[row*32+first+4]*b[(first+4)*8+col];\n  float p5=a[row*32+first+5]*b[(first+5)*8+col];\n  float p6=a[row*32+first+6]*b[(first+6)*8+col];\n  float p7=a[row*32+first+7]*b[(first+7)*8+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void kalandra_matmul_hardware_block32(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[256];\n  threadgroup float bv[256];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/8+uint(n%8!=0);\n  const uint rowBase=(group/tileColumns)*8, colBase=(group%tileColumns)*8;\n  const uint row=rowBase+lane/8, col=colBase+lane%8;\n  float stack[27];\n  const uint blocks=k/32; // Runtime admits only nonzero multiples of 32.\n  for (uint block=0; block<blocks; ++block) {\n    const uint first=block*32;\n    for (uint at=lane; at<256; at+=64) {\n      const uint r=rowBase+at/32, c=colBase+at%8;\n      av[at]=r<m ? a.values[r*k+first+at%32] : 0.0f;\n      bv[at]=c<n ? b.values[(first+at/8)*n+c] : 0.0f;\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if (row<m && col<n) {\n      float r0=kalandra_hardware_eight(av,bv,lane/8,lane%8,0);\n      float r1=kalandra_hardware_eight(av,bv,lane/8,lane%8,8);\n      float r2=kalandra_hardware_eight(av,bv,lane/8,lane%8,16);\n      float r3=kalandra_hardware_eight(av,bv,lane/8,lane%8,24);\n      float value=(r0+r1)+(r2+r3);\n      uint occupied=block, level=0;\n      while (occupied&1) {\n        value=stack[level]+value;\n        ++level; occupied>>=1;\n      }\n      stack[level]=value;\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if (row<m && col<n) {\n    bool used=false;\n    float value=0.0f;\n    for (uint level=0, occupied=blocks; occupied; ++level, occupied>>=1) {\n      if (occupied&1) {\n        value=used ? stack[level]+value : stack[level];\n        used=true;\n      }\n    }\n    output.values[row*n+col]=value;\n  }\n}\n\n// A 16x8 output tile reuses each RHS panel across sixteen rows. Its 128\n// lanes reduce exact 64-leaf subtrees with two barriers per block. Missing\n// output lanes participate in both barriers but never enter the arithmetic.\ninline float kalandra_hardware_eight64(threadgroup float* a, threadgroup float* b,\n                                      uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*8+col];\n  float p1=a[row*64+first+1]*b[(first+1)*8+col];\n  float p2=a[row*64+first+2]*b[(first+2)*8+col];\n  float p3=a[row*64+first+3]*b[(first+3)*8+col];\n  float p4=a[row*64+first+4]*b[(first+4)*8+col];\n  float p5=a[row*64+first+5]*b[(first+5)*8+col];\n  float p6=a[row*64+first+6]*b[(first+6)*8+col];\n  float p7=a[row*64+first+7]*b[(first+7)*8+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void kalandra_matmul_hardware_block64(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024];\n  threadgroup float bv[512];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/8+uint(n%8!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*8;\n  const uint row=rowBase+lane/8, col=colBase+lane%8;\n  float stack[27];\n  const uint blocks=k/64; // Runtime admits only nonzero multiples of 64.\n  for (uint block=0; block<blocks; ++block) {\n    const uint first=block*64;\n    for (uint at=lane; at<1024; at+=128) {\n      const uint r=rowBase+at/64;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n    }\n    for (uint at=lane; at<512; at+=128) {\n      const uint c=colBase+at%8;\n      bv[at]=c<n ? b.values[(first+at/8)*n+c] : 0.0f;\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if (row<m && col<n) {\n      float r0=kalandra_hardware_eight64(av,bv,lane/8,lane%8,0);\n      float r1=kalandra_hardware_eight64(av,bv,lane/8,lane%8,8);\n      float r2=kalandra_hardware_eight64(av,bv,lane/8,lane%8,16);\n      float r3=kalandra_hardware_eight64(av,bv,lane/8,lane%8,24);\n      float r4=kalandra_hardware_eight64(av,bv,lane/8,lane%8,32);\n      float r5=kalandra_hardware_eight64(av,bv,lane/8,lane%8,40);\n      float r6=kalandra_hardware_eight64(av,bv,lane/8,lane%8,48);\n      float r7=kalandra_hardware_eight64(av,bv,lane/8,lane%8,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      uint occupied=block, level=0;\n      while (occupied&1) {\n        value=stack[level]+value;\n        ++level; occupied>>=1;\n      }\n      stack[level]=value;\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if (row<m && col<n) {\n    bool used=false;\n    float value=0.0f;\n    for (uint level=0, occupied=blocks; occupied; ++level, occupied>>=1) {\n      if (occupied&1) {\n        value=used ? stack[level]+value : stack[level];\n        used=true;\n      }\n    }\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float kalandra_hardware_eight16(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*16+col];\n  float p1=a[row*64+first+1]*b[(first+1)*16+col];\n  float p2=a[row*64+first+2]*b[(first+2)*16+col];\n  float p3=a[row*64+first+3]*b[(first+3)*16+col];\n  float p4=a[row*64+first+4]*b[(first+4)*16+col];\n  float p5=a[row*64+first+5]*b[(first+5)*16+col];\n  float p6=a[row*64+first+6]*b[(first+6)*16+col];\n  float p7=a[row*64+first+7]*b[(first+7)*16+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void kalandra_matmul_hardware_register16(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1024];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[at]=c<n ? b.values[(first+at/16)*n+c] : 0.0f;\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=kalandra_hardware_eight16(av,bv,lane/16,lane%16,0);\n      float r1=kalandra_hardware_eight16(av,bv,lane/16,lane%16,8);\n      float r2=kalandra_hardware_eight16(av,bv,lane/16,lane%16,16);\n      float r3=kalandra_hardware_eight16(av,bv,lane/16,lane%16,24);\n      float r4=kalandra_hardware_eight16(av,bv,lane/16,lane%16,32);\n      float r5=kalandra_hardware_eight16(av,bv,lane/16,lane%16,40);\n      float r6=kalandra_hardware_eight16(av,bv,lane/16,lane%16,48);\n      float r7=kalandra_hardware_eight16(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\ninline float eight_simd_1_32(device const float* a,device const float* b,uint m,uint k,uint n,uint row,uint col,uint slane,uint first){\nfloat a0=row<m && (slane%32+0)<8?a[row*k+first+(slane%32+0)]:0.0f;\nfloat b0=col<n && (slane/32+0)<8?b[(first+(slane/32+0))*n+col]:0.0f;\nfloat b1=col<n && (slane/32+1)<8?b[(first+(slane/32+1))*n+col]:0.0f;\nfloat b2=col<n && (slane/32+2)<8?b[(first+(slane/32+2))*n+col]:0.0f;\nfloat b3=col<n && (slane/32+3)<8?b[(first+(slane/32+3))*n+col]:0.0f;\nfloat b4=col<n && (slane/32+4)<8?b[(first+(slane/32+4))*n+col]:0.0f;\nfloat b5=col<n && (slane/32+5)<8?b[(first+(slane/32+5))*n+col]:0.0f;\nfloat b6=col<n && (slane/32+6)<8?b[(first+(slane/32+6))*n+col]:0.0f;\nfloat b7=col<n && (slane/32+7)<8?b[(first+(slane/32+7))*n+col]:0.0f;\nfloat p0=simd_shuffle(a0,(slane/32)*32+0)*b0;\nfloat p1=simd_shuffle(a0,(slane/32)*32+1)*b1;\nfloat p2=simd_shuffle(a0,(slane/32)*32+2)*b2;\nfloat p3=simd_shuffle(a0,(slane/32)*32+3)*b3;\nfloat p4=simd_shuffle(a0,(slane/32)*32+4)*b4;\nfloat p5=simd_shuffle(a0,(slane/32)*32+5)*b5;\nfloat p6=simd_shuffle(a0,(slane/32)*32+6)*b6;\nfloat p7=simd_shuffle(a0,(slane/32)*32+7)*b7;\nreturn (((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7)));}\nkernel void simd_1_32(device const float* a [[buffer(0)]],device const float* b [[buffer(1)]],device float* out [[buffer(2)]],constant uint* shape [[buffer(3)]],uint lane [[thread_position_in_threadgroup]],uint group [[threadgroup_position_in_grid]]) {\nconst uint m=shape[0],k=shape[1],n=shape[2],columns=(n+31)/32;\nconst uint sg=lane/32,slane=lane%32,row=(group/columns)*8+(sg/1)*1+slane/32,col=(group%columns)*32+(sg%1)*32+slane%32,blocks=k/64;\nfloat s0=0,s1=0,s2=0,s3=0,s4=0,s5=0,s6=0;\nfor(uint block=0;block<blocks;++block) {uint first=block*64;\nfloat r0=eight_simd_1_32(a,b,m,k,n,row,col,slane,first+0);\nfloat r1=eight_simd_1_32(a,b,m,k,n,row,col,slane,first+8);\nfloat r2=eight_simd_1_32(a,b,m,k,n,row,col,slane,first+16);\nfloat r3=eight_simd_1_32(a,b,m,k,n,row,col,slane,first+24);\nfloat r4=eight_simd_1_32(a,b,m,k,n,row,col,slane,first+32);\nfloat r5=eight_simd_1_32(a,b,m,k,n,row,col,slane,first+40);\nfloat r6=eight_simd_1_32(a,b,m,k,n,row,col,slane,first+48);\nfloat r7=eight_simd_1_32(a,b,m,k,n,row,col,slane,first+56);\nfloat value=(((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7)));\nif(!(block&1u))s0=value;else{value=s0+value;\nif(!(block&2u))s1=value;else{value=s1+value;\nif(!(block&4u))s2=value;else{value=s2+value;\nif(!(block&8u))s3=value;else{value=s3+value;\nif(!(block&16u))s4=value;else{value=s4+value;\nif(!(block&32u))s5=value;else{value=s5+value;\ns6=value;}}}}}}}\nif(row<m && col<n){float value=0;bool used=false;\nif(blocks&1u){value=used?s0+value:s0;used=true;}\nif(blocks&2u){value=used?s1+value:s1;used=true;}\nif(blocks&4u){value=used?s2+value:s2;used=true;}\nif(blocks&8u){value=used?s3+value:s3;used=true;}\nif(blocks&16u){value=used?s4+value:s4;used=true;}\nif(blocks&32u){value=used?s5+value:s5;used=true;}\nif(blocks&64u){value=used?s6+value:s6;used=true;}\nout[row*n+col]=value;}}\ninline float eight_simd_2_16(device const float* a,device const float* b,uint m,uint k,uint n,uint row,uint col,uint slane,uint first){\nfloat a0=row<m && (slane%16+0)<8?a[row*k+first+(slane%16+0)]:0.0f;\nfloat b0=col<n && (slane/16+0)<8?b[(first+(slane/16+0))*n+col]:0.0f;\nfloat b1=col<n && (slane/16+2)<8?b[(first+(slane/16+2))*n+col]:0.0f;\nfloat b2=col<n && (slane/16+4)<8?b[(first+(slane/16+4))*n+col]:0.0f;\nfloat b3=col<n && (slane/16+6)<8?b[(first+(slane/16+6))*n+col]:0.0f;\nfloat p0=simd_shuffle(a0,(slane/16)*16+0)*simd_shuffle(b0,0+slane%16);\nfloat p1=simd_shuffle(a0,(slane/16)*16+1)*simd_shuffle(b0,16+slane%16);\nfloat p2=simd_shuffle(a0,(slane/16)*16+2)*simd_shuffle(b1,0+slane%16);\nfloat p3=simd_shuffle(a0,(slane/16)*16+3)*simd_shuffle(b1,16+slane%16);\nfloat p4=simd_shuffle(a0,(slane/16)*16+4)*simd_shuffle(b2,0+slane%16);\nfloat p5=simd_shuffle(a0,(slane/16)*16+5)*simd_shuffle(b2,16+slane%16);\nfloat p6=simd_shuffle(a0,(slane/16)*16+6)*simd_shuffle(b3,0+slane%16);\nfloat p7=simd_shuffle(a0,(slane/16)*16+7)*simd_shuffle(b3,16+slane%16);\nreturn (((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7)));}\nkernel void simd_2_16(device const float* a [[buffer(0)]],device const float* b [[buffer(1)]],device float* out [[buffer(2)]],constant uint* shape [[buffer(3)]],uint lane [[thread_position_in_threadgroup]],uint group [[threadgroup_position_in_grid]]) {\nconst uint m=shape[0],k=shape[1],n=shape[2],columns=(n+15)/16;\nconst uint sg=lane/32,slane=lane%32,row=(group/columns)*16+(sg/1)*2+slane/16,col=(group%columns)*16+(sg%1)*16+slane%16,blocks=k/64;\nfloat s0=0,s1=0,s2=0,s3=0,s4=0,s5=0,s6=0;\nfor(uint block=0;block<blocks;++block) {uint first=block*64;\nfloat r0=eight_simd_2_16(a,b,m,k,n,row,col,slane,first+0);\nfloat r1=eight_simd_2_16(a,b,m,k,n,row,col,slane,first+8);\nfloat r2=eight_simd_2_16(a,b,m,k,n,row,col,slane,first+16);\nfloat r3=eight_simd_2_16(a,b,m,k,n,row,col,slane,first+24);\nfloat r4=eight_simd_2_16(a,b,m,k,n,row,col,slane,first+32);\nfloat r5=eight_simd_2_16(a,b,m,k,n,row,col,slane,first+40);\nfloat r6=eight_simd_2_16(a,b,m,k,n,row,col,slane,first+48);\nfloat r7=eight_simd_2_16(a,b,m,k,n,row,col,slane,first+56);\nfloat value=(((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7)));\nif(!(block&1u))s0=value;else{value=s0+value;\nif(!(block&2u))s1=value;else{value=s1+value;\nif(!(block&4u))s2=value;else{value=s2+value;\nif(!(block&8u))s3=value;else{value=s3+value;\nif(!(block&16u))s4=value;else{value=s4+value;\nif(!(block&32u))s5=value;else{value=s5+value;\ns6=value;}}}}}}}\nif(row<m && col<n){float value=0;bool used=false;\nif(blocks&1u){value=used?s0+value:s0;used=true;}\nif(blocks&2u){value=used?s1+value:s1;used=true;}\nif(blocks&4u){value=used?s2+value:s2;used=true;}\nif(blocks&8u){value=used?s3+value:s3;used=true;}\nif(blocks&16u){value=used?s4+value:s4;used=true;}\nif(blocks&32u){value=used?s5+value:s5;used=true;}\nif(blocks&64u){value=used?s6+value:s6;used=true;}\nout[row*n+col]=value;}}\ninline float eight_simd_4_8(device const float* a,device const float* b,uint m,uint k,uint n,uint row,uint col,uint slane,uint first){\nfloat a0=row<m && (slane%8+0)<8?a[row*k+first+(slane%8+0)]:0.0f;\nfloat b0=col<n && (slane/8+0)<8?b[(first+(slane/8+0))*n+col]:0.0f;\nfloat b1=col<n && (slane/8+4)<8?b[(first+(slane/8+4))*n+col]:0.0f;\nfloat p0=simd_shuffle(a0,(slane/8)*8+0)*simd_shuffle(b0,0+slane%8);\nfloat p1=simd_shuffle(a0,(slane/8)*8+1)*simd_shuffle(b0,8+slane%8);\nfloat p2=simd_shuffle(a0,(slane/8)*8+2)*simd_shuffle(b0,16+slane%8);\nfloat p3=simd_shuffle(a0,(slane/8)*8+3)*simd_shuffle(b0,24+slane%8);\nfloat p4=simd_shuffle(a0,(slane/8)*8+4)*simd_shuffle(b1,0+slane%8);\nfloat p5=simd_shuffle(a0,(slane/8)*8+5)*simd_shuffle(b1,8+slane%8);\nfloat p6=simd_shuffle(a0,(slane/8)*8+6)*simd_shuffle(b1,16+slane%8);\nfloat p7=simd_shuffle(a0,(slane/8)*8+7)*simd_shuffle(b1,24+slane%8);\nreturn (((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7)));}\nkernel void simd_4_8(device const float* a [[buffer(0)]],device const float* b [[buffer(1)]],device float* out [[buffer(2)]],constant uint* shape [[buffer(3)]],uint lane [[thread_position_in_threadgroup]],uint group [[threadgroup_position_in_grid]]) {\nconst uint m=shape[0],k=shape[1],n=shape[2],columns=(n+15)/16;\nconst uint sg=lane/32,slane=lane%32,row=(group/columns)*16+(sg/2)*4+slane/8,col=(group%columns)*16+(sg%2)*8+slane%8,blocks=k/64;\nfloat s0=0,s1=0,s2=0,s3=0,s4=0,s5=0,s6=0;\nfor(uint block=0;block<blocks;++block) {uint first=block*64;\nfloat r0=eight_simd_4_8(a,b,m,k,n,row,col,slane,first+0);\nfloat r1=eight_simd_4_8(a,b,m,k,n,row,col,slane,first+8);\nfloat r2=eight_simd_4_8(a,b,m,k,n,row,col,slane,first+16);\nfloat r3=eight_simd_4_8(a,b,m,k,n,row,col,slane,first+24);\nfloat r4=eight_simd_4_8(a,b,m,k,n,row,col,slane,first+32);\nfloat r5=eight_simd_4_8(a,b,m,k,n,row,col,slane,first+40);\nfloat r6=eight_simd_4_8(a,b,m,k,n,row,col,slane,first+48);\nfloat r7=eight_simd_4_8(a,b,m,k,n,row,col,slane,first+56);\nfloat value=(((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7)));\nif(!(block&1u))s0=value;else{value=s0+value;\nif(!(block&2u))s1=value;else{value=s1+value;\nif(!(block&4u))s2=value;else{value=s2+value;\nif(!(block&8u))s3=value;else{value=s3+value;\nif(!(block&16u))s4=value;else{value=s4+value;\nif(!(block&32u))s5=value;else{value=s5+value;\ns6=value;}}}}}}}\nif(row<m && col<n){float value=0;bool used=false;\nif(blocks&1u){value=used?s0+value:s0;used=true;}\nif(blocks&2u){value=used?s1+value:s1;used=true;}\nif(blocks&4u){value=used?s2+value:s2;used=true;}\nif(blocks&8u){value=used?s3+value:s3;used=true;}\nif(blocks&16u){value=used?s4+value:s4;used=true;}\nif(blocks&32u){value=used?s5+value:s5;used=true;}\nif(blocks&64u){value=used?s6+value:s6;used=true;}\nout[row*n+col]=value;}}\ninline float eight_simd_8_4(device const float* a,device const float* b,uint m,uint k,uint n,uint row,uint col,uint slane,uint first){\nfloat a0=row<m && (slane%4+0)<8?a[row*k+first+(slane%4+0)]:0.0f;\nfloat a1=row<m && (slane%4+4)<8?a[row*k+first+(slane%4+4)]:0.0f;\nfloat b0=col<n && (slane/4+0)<8?b[(first+(slane/4+0))*n+col]:0.0f;\nfloat p0=simd_shuffle(a0,(slane/4)*4+0)*simd_shuffle(b0,0+slane%4);\nfloat p1=simd_shuffle(a0,(slane/4)*4+1)*simd_shuffle(b0,4+slane%4);\nfloat p2=simd_shuffle(a0,(slane/4)*4+2)*simd_shuffle(b0,8+slane%4);\nfloat p3=simd_shuffle(a0,(slane/4)*4+3)*simd_shuffle(b0,12+slane%4);\nfloat p4=simd_shuffle(a1,(slane/4)*4+0)*simd_shuffle(b0,16+slane%4);\nfloat p5=simd_shuffle(a1,(slane/4)*4+1)*simd_shuffle(b0,20+slane%4);\nfloat p6=simd_shuffle(a1,(slane/4)*4+2)*simd_shuffle(b0,24+slane%4);\nfloat p7=simd_shuffle(a1,(slane/4)*4+3)*simd_shuffle(b0,28+slane%4);\nreturn (((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7)));}\nkernel void simd_8_4(device const float* a [[buffer(0)]],device const float* b [[buffer(1)]],device float* out [[buffer(2)]],constant uint* shape [[buffer(3)]],uint lane [[thread_position_in_threadgroup]],uint group [[threadgroup_position_in_grid]]) {\nconst uint m=shape[0],k=shape[1],n=shape[2],columns=(n+15)/16;\nconst uint sg=lane/32,slane=lane%32,row=(group/columns)*16+(sg/4)*8+slane/4,col=(group%columns)*16+(sg%4)*4+slane%4,blocks=k/64;\nfloat s0=0,s1=0,s2=0,s3=0,s4=0,s5=0,s6=0;\nfor(uint block=0;block<blocks;++block) {uint first=block*64;\nfloat r0=eight_simd_8_4(a,b,m,k,n,row,col,slane,first+0);\nfloat r1=eight_simd_8_4(a,b,m,k,n,row,col,slane,first+8);\nfloat r2=eight_simd_8_4(a,b,m,k,n,row,col,slane,first+16);\nfloat r3=eight_simd_8_4(a,b,m,k,n,row,col,slane,first+24);\nfloat r4=eight_simd_8_4(a,b,m,k,n,row,col,slane,first+32);\nfloat r5=eight_simd_8_4(a,b,m,k,n,row,col,slane,first+40);\nfloat r6=eight_simd_8_4(a,b,m,k,n,row,col,slane,first+48);\nfloat r7=eight_simd_8_4(a,b,m,k,n,row,col,slane,first+56);\nfloat value=(((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7)));\nif(!(block&1u))s0=value;else{value=s0+value;\nif(!(block&2u))s1=value;else{value=s1+value;\nif(!(block&4u))s2=value;else{value=s2+value;\nif(!(block&8u))s3=value;else{value=s3+value;\nif(!(block&16u))s4=value;else{value=s4+value;\nif(!(block&32u))s5=value;else{value=s5+value;\ns6=value;}}}}}}}\nif(row<m && col<n){float value=0;bool used=false;\nif(blocks&1u){value=used?s0+value:s0;used=true;}\nif(blocks&2u){value=used?s1+value:s1;used=true;}\nif(blocks&4u){value=used?s2+value:s2;used=true;}\nif(blocks&8u){value=used?s3+value:s3;used=true;}\nif(blocks&16u){value=used?s4+value:s4;used=true;}\nif(blocks&32u){value=used?s5+value:s5;used=true;}\nif(blocks&64u){value=used?s6+value:s6;used=true;}\nout[row*n+col]=value;}}\n",
+  "contract": "Isolated preallocated strict GPU command screening, not managed pipeline throughput. Shared input/private output buffers; independent dyadic every-cell checks and poison/suffix guard each round outside GPU timing. Panel candidates require K divisible by their panel size and K<=4096. Three randomized processes, two warmups, five measured rounds. All candidates and samples retained.",
+  "schema": 1,
+  "timestamp": "2026-10-25T21:46:11.775851+00:00",
+  "compiler_sha256": "052b10cf2f37496794ac4f83ffb68e3b94dedb1f4ce59b228a1e7bfc847ae6a2",
+  "source_sha256": {
+    "native/benchmarks/matrix_microkernel_study.py": "c6df361466d3c664b682baa1b9f918d4ab3588e8349fc6b8b12719ae157f8f5b",
+    "native/benchmarks/MatrixKernelStudy.mm": "a323fea0f748b114a527e8d83e3eb04cb139bd19fd18fac984410ac0d59bd33f",
+    "native/metal-source/HardwareShaders.h": "e032e15242f0488d1d8ebe2d6aead0daa4086aacaf9fd195e4c4cd927898d647",
+    "benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metal": "70509c3ad7e61aec769e0d69dbd088325d0c05d59baa90ef82078e610971590f"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study": "515d728a58e8b9a9d7c6cb530aedad30baa3c76abbe74c1bb819e8105c86eb8a",
+    "benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib": "0aeef5e9c31aae84d38dfc71f6ea104a9496aa4f5f7d4f9405ee615fa67e9ea4"
+  },
+  "commands": [
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "-mmacosx-version-min=26.0",
+      "-std=macos-metal2.2",
+      "-fno-fast-math",
+      "-ffp-contract=off",
+      "-c",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.air"
+    ],
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.air",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-DNDEBUG",
+      "-ffp-contract=off",
+      "-fobjc-arc",
+      "-fblocks",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/MatrixKernelStudy.mm",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "2048",
+      "2048",
+      "2048",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_8_4",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_4_8",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_2_16",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "simd_1_32",
+      "8",
+      "32",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "512",
+      "512",
+      "512",
+      "5"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/microkernel-2026-10-25/microkernel-simd-screening-2026-10-25/candidates.metallib",
+      "kalandra_matmul_hardware_register16",
+      "16",
+      "16",
+      "256",
+      "1024",
+      "1024",
+      "1024",
+      "5"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "f6ae8fb97858bd9dc29d53c056702f21762792b6",
+  "worktree_status": "?? benchmarks/results/microkernel-scheduled-screening-2026-10-25.json\n?? benchmarks/results/microkernel-screening-2026-10-25.json\n?? benchmarks/results/microkernel-stages-baseline-2026-10-25.json\n?? benchmarks/results/microkernel-vector-screening-2026-10-25.json\n?? native/benchmarks/PipelineStages.mm\n?? native/benchmarks/matrix_microkernel_study.py\n?? native/benchmarks/matrix_pipeline_stages.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

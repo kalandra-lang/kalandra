@@ -281,3 +281,9 @@ Use `checked_inlining.py --paired --observed` with a frozen `--baseline-compiler
 
 
 The [private recursive state report](../../benchmarks/results/recursive-register-2026-10-24.md) combines a matched unbound control with six depth phases. `source_run.py --depths 9 10 11 12 13 14 --output PATH` retains the original source algorithms and input guard (maximum depth 14), while recording the phase cliff. `native-recursive-scalars` qualifies numeric/Bool recursive results against independent references; `RecursiveScalarTests.py` additionally accepts `--baseline` for exact state comparison.
+
+## GPU stage profiling and microkernel screening
+
+[The matrix investigation](../../benchmarks/results/microkernel-investigation-2026-10-25.md) records encoder-boundary timestamps, 29 rejected strict candidates and a seven-block paired confirmation across nine shapes. No production shader/runtime changes are made. [matrix_pipeline_stages.py](matrix_pipeline_stages.py) profiles the hardware bundle generated from [Pipeline.k](Pipeline.k), using timestamp sampling and an unsampled control. [matrix_microkernel_study.py](matrix_microkernel_study.py) reproduces the `initial`, `scheduled`, `vector` and `simd` suites; [matrix_microkernel_confirm.py](matrix_microkernel_confirm.py) performs mirrored paired confirmation from a saved screening library. Choose unused output paths and retain generated artifacts if confirming a candidate later.
+
+Screens verify every dyadic output cell and a poison/suffix guard outside timing. They exclude managed allocation/scheduling, and do not replace APFloat/non-dyadic/NaN, failure/cancellation, sanitizer or complete-pipeline qualification before promotion. The measured M2 Max exposes only public timestamp counters, so these tools do not establish instruction-level occupancy/stall causes. See the report for limits, complete commands and all retained regressions.

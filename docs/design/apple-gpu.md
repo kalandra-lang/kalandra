@@ -399,6 +399,8 @@ Runtime selection preserves the existing matrix shape/device policy and validate
 
 The task retains the post-kernel, captured tensors and independent parameter storage until GPU acknowledgement. Cancellation/deadlines suppress publication and wait for submitted access to end. Both preparation and execution allocation failures unwind through the common checked paths. [Complete-pipeline timing and qualification](../../benchmarks/results/epilogue-pipeline-2026-10-25.md) compare the frozen preceding runtime against the fused runtime using identical shaders, driver and task archive.
 
+[Subsequent encoder profiling and 29 microkernel experiments](../../benchmarks/results/microkernel-investigation-2026-10-25.md) place almost all sampled compute-stage time at 2048² in the matrix/fused-epilogue encoder. Larger/ping-pong panels, multiple outputs, unrolling, fixed contractions and barrier-free SIMD input sharing do not establish a broadly qualified replacement. The current production kernels and safety/arithmetic policy remain unchanged; all rejected trials and paired confirmation are retained.
+
 ## Rank-two GPU elementwise helpers
 
 Dynamic rank-two float32 helpers now support the same strict `+` and `*`, scalar lifting, immutable local bindings and transitive helper calls as vector helpers. The original function definition still works on CPU. Scalars may appear between tensor parameters; submission owns the buffer and scalar captures.
