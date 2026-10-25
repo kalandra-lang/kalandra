@@ -1,0 +1,67 @@
+UpdateCTestConfiguration  from :/Users/pouya/Projects/kalandra.dev/build/native/DartConfiguration.tcl
+Parse Config file:/Users/pouya/Projects/kalandra.dev/build/native/DartConfiguration.tcl
+Test project /Users/pouya/Projects/kalandra.dev/build/native
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1072
+    Start 1072: native-metal-pre-matmul-debug
+
+1072: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-pre-matmul-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-matmul-debug"
+1072: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1072: Environment variables: 
+1072:  MTL_DEBUG_LAYER=1
+1072: Test timeout computed to be: 60
+1072: 2026-10-26 00:01:54.915 kalandra-metal-pre-matmul-debug[95513:15674178] Metal API Validation Enabled
+1072: [42680000,42a80000,42c40000,430e0000]
+1072: Matmul composition: 96 CPU/GPU/separate/APFloat cases, 4392 cells, 41 allocation checkpoints, all-stage failure/cancellation and retained output passed
+1/4 Test #1072: native-metal-pre-matmul-debug ..............   Passed    0.77 sec
+test 1073
+    Start 1073: native-metal-pre-matmul-optimized
+
+1073: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-pre-matmul-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-matmul-optimized"
+1073: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1073: Environment variables: 
+1073:  MTL_DEBUG_LAYER=1
+1073: Test timeout computed to be: 60
+1073: 2026-10-26 00:01:55.451 kalandra-metal-pre-matmul-optimized[95521:15674703] Metal API Validation Enabled
+1073: [42680000,42a80000,42c40000,430e0000]
+1073: Matmul composition: 96 CPU/GPU/separate/APFloat cases, 4392 cells, 41 allocation checkpoints, all-stage failure/cancellation and retained output passed
+2/4 Test #1073: native-metal-pre-matmul-optimized ..........   Passed    0.46 sec
+test 1074
+    Start 1074: native-metal-pre-matmul-sanitized
+
+1074: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-pre-matmul-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-matmul-sanitized"
+1074: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1074: Environment variables: 
+1074:  MTL_DEBUG_LAYER=1
+1074: Test timeout computed to be: 60
+1074: 2026-10-26 00:01:56.005 kalandra-metal-pre-matmul-sanitized[95524:15675182] Metal API Validation Enabled
+1074: [42680000,42a80000,42c40000,430e0000]
+1074: Matmul composition: 96 CPU/GPU/separate/APFloat cases, 4392 cells, 41 allocation checkpoints, all-stage failure/cancellation and retained output passed
+3/4 Test #1074: native-metal-pre-matmul-sanitized ..........   Passed    0.78 sec
+test 1075
+    Start 1075: native-metal-pre-matmul-thread-sanitized
+
+1075: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-pre-matmul-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-matmul-thread-sanitized"
+1075: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1075: Environment variables: 
+1075:  MTL_DEBUG_LAYER=1
+1075: Test timeout computed to be: 60
+1075: 2026-10-26 00:01:56.866 kalandra-metal-pre-matmul-thread-sanitized[95527:15675661] Metal API Validation Enabled
+1075: [42680000,42a80000,42c40000,430e0000]
+1075: Matmul composition: 96 CPU/GPU/separate/APFloat cases, 4392 cells, 41 allocation checkpoints, all-stage failure/cancellation and retained output passed
+4/4 Test #1075: native-metal-pre-matmul-thread-sanitized ...   Passed    3.03 sec
+
+The following tests passed:
+	native-metal-pre-matmul-debug
+	native-metal-pre-matmul-optimized
+	native-metal-pre-matmul-sanitized
+	native-metal-pre-matmul-thread-sanitized
+
+100% tests passed out of 4
+
+Total Test time (real) =   5.07 sec

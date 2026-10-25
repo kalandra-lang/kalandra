@@ -800,3 +800,7 @@ Tier 2 binding path. [Resident reduction feedback](native-gpu-reduction-feedback
 now compose with tensor helpers and resident reduction graphs. Comparisons and
 selection use bit encodings to preserve IEEE behavior. Tensor-producing and
 dispatching branches remain outside this bounded subset.
+
+## Input-layout experiments
+
+The [weight-packing investigation](../../benchmarks/results/weight-packing-investigation-2026-10-25.md) measures GPU construction, repeated immutable weights, activation layouts and explicit scratch storage. Some square cases improve, but rectangular and interior-shape regressions reject both the broad and narrower policies. Packing remains experimental benchmark code; production kernels, strict arithmetic, budgets and acknowledgement ownership are unchanged.

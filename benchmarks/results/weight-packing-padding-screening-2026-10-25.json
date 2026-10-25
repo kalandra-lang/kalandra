@@ -1,0 +1,4472 @@
+{
+  "records": [
+    {
+      "trial": 0,
+      "layout": "panelpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 10280375,
+          "gpu_ns": 3931167,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 4293166,
+          "gpu_ns": 4055333,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 4969250,
+          "gpu_ns": 4435125,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 4589041,
+          "gpu_ns": 4391792,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 4189500,
+          "gpu_ns": 3932750,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "baseline",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 4946291,
+          "gpu_ns": 4370750,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 5159375,
+          "gpu_ns": 4970875,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 4724667,
+          "gpu_ns": 4551250,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 4831875,
+          "gpu_ns": 4656458,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 4569208,
+          "gpu_ns": 4378750,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "baseline",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21455791,
+          "gpu_ns": 20834250,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 12626625,
+          "gpu_ns": 12348208,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 12912875,
+          "gpu_ns": 12222875,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 12338209,
+          "gpu_ns": 12149542,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 12522042,
+          "gpu_ns": 12334125,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "baseline",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 931334,
+          "gpu_ns": 213542,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 353458,
+          "gpu_ns": 199167,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 401125,
+          "gpu_ns": 205375,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 386958,
+          "gpu_ns": 211958,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 904541,
+          "gpu_ns": 200500,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "blockpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 9841834,
+          "gpu_ns": 3946250,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 4229250,
+          "gpu_ns": 3933375,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 4644500,
+          "gpu_ns": 4433583,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 2115625,
+          "gpu_ns": 1329958,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 2488834,
+          "gpu_ns": 2291042,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "panelpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 95988625,
+          "gpu_ns": 90316208,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 86220584,
+          "gpu_ns": 85972833,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 87209792,
+          "gpu_ns": 86253750,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 86927709,
+          "gpu_ns": 86163375,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 86885375,
+          "gpu_ns": 86108250,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "panelpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 27625833,
+          "gpu_ns": 21375292,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 12371292,
+          "gpu_ns": 12106375,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 19911292,
+          "gpu_ns": 18988833,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 19884042,
+          "gpu_ns": 19251417,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 11986334,
+          "gpu_ns": 11637208,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "baseline",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 159115667,
+          "gpu_ns": 103983750,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99384333,
+          "gpu_ns": 98443375,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 98745833,
+          "gpu_ns": 98415833,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 98162250,
+          "gpu_ns": 97938500,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 98142875,
+          "gpu_ns": 97906000,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "blockpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7525958,
+          "gpu_ns": 195042,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 937333,
+          "gpu_ns": 196125,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 431292,
+          "gpu_ns": 176542,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 714209,
+          "gpu_ns": 441625,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 370292,
+          "gpu_ns": 176833,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "baseline",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2265250,
+          "gpu_ns": 1511250,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 2251333,
+          "gpu_ns": 1511500,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1692750,
+          "gpu_ns": 1516125,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1665750,
+          "gpu_ns": 1494000,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1694000,
+          "gpu_ns": 1496000,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "panelpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21072792,
+          "gpu_ns": 14791708,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 11073667,
+          "gpu_ns": 10841250,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 11522875,
+          "gpu_ns": 10759167,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 10677458,
+          "gpu_ns": 10462167,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 10310541,
+          "gpu_ns": 10077833,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "blockpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 26381083,
+          "gpu_ns": 20409875,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 10563791,
+          "gpu_ns": 10345250,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 10714917,
+          "gpu_ns": 10459500,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 10621625,
+          "gpu_ns": 10414375,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 10610584,
+          "gpu_ns": 10399750,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "blockpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 105216959,
+          "gpu_ns": 98388792,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 86908166,
+          "gpu_ns": 86201833,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 86352416,
+          "gpu_ns": 86121500,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 87223667,
+          "gpu_ns": 86519000,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 86902125,
+          "gpu_ns": 86165875,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "blockpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21547709,
+          "gpu_ns": 15144125,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 11710958,
+          "gpu_ns": 11482875,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 15019375,
+          "gpu_ns": 14774375,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 18024083,
+          "gpu_ns": 17802750,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 16980250,
+          "gpu_ns": 16349375,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "baseline",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21761292,
+          "gpu_ns": 21196417,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 12094875,
+          "gpu_ns": 11889500,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 12168250,
+          "gpu_ns": 11862500,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 11642041,
+          "gpu_ns": 11450125,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 11755416,
+          "gpu_ns": 11568667,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "blockpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7565042,
+          "gpu_ns": 1377708,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 1562417,
+          "gpu_ns": 1355250,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1892791,
+          "gpu_ns": 1622083,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1583959,
+          "gpu_ns": 1347750,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1552625,
+          "gpu_ns": 1350750,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "panelpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 5806042,
+          "gpu_ns": 201875,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 405208,
+          "gpu_ns": 197250,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 402833,
+          "gpu_ns": 217583,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 406708,
+          "gpu_ns": 217875,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 451459,
+          "gpu_ns": 250750,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 0,
+      "layout": "panelpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 10440083,
+          "gpu_ns": 4874542,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 4501208,
+          "gpu_ns": 4275250,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1566042,
+          "gpu_ns": 1344667,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1568250,
+          "gpu_ns": 1357042,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1824250,
+          "gpu_ns": 1648250,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "baseline",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20676583,
+          "gpu_ns": 20141625,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 12592208,
+          "gpu_ns": 12324625,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 12585042,
+          "gpu_ns": 12399208,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 12560125,
+          "gpu_ns": 12311000,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 12582750,
+          "gpu_ns": 12374750,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "baseline",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 113229625,
+          "gpu_ns": 112615875,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99590209,
+          "gpu_ns": 99233000,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 98211000,
+          "gpu_ns": 98011125,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 98508750,
+          "gpu_ns": 98258333,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 98771959,
+          "gpu_ns": 98472125,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "panelpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 93820916,
+          "gpu_ns": 87637833,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 86891208,
+          "gpu_ns": 86147583,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 86971083,
+          "gpu_ns": 86252458,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 86863250,
+          "gpu_ns": 86089333,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 87099042,
+          "gpu_ns": 86280542,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "baseline",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22616125,
+          "gpu_ns": 22068583,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 11611375,
+          "gpu_ns": 11392125,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 11605583,
+          "gpu_ns": 11429125,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 12170500,
+          "gpu_ns": 11981083,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 12153917,
+          "gpu_ns": 11945625,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "panelpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24664708,
+          "gpu_ns": 17422125,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 12777583,
+          "gpu_ns": 12082208,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 12799875,
+          "gpu_ns": 11574583,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 11690750,
+          "gpu_ns": 11478208,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 14376333,
+          "gpu_ns": 14038375,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "blockpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 6604584,
+          "gpu_ns": 545875,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 1058750,
+          "gpu_ns": 540000,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 729708,
+          "gpu_ns": 541625,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 721584,
+          "gpu_ns": 541208,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 517292,
+          "gpu_ns": 299875,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "blockpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21635042,
+          "gpu_ns": 15704500,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 12371417,
+          "gpu_ns": 12147000,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 20921292,
+          "gpu_ns": 20632750,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 17134208,
+          "gpu_ns": 16500667,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 15448250,
+          "gpu_ns": 14707375,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "blockpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 10243417,
+          "gpu_ns": 3953625,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 4658875,
+          "gpu_ns": 4106167,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 4163000,
+          "gpu_ns": 3924917,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 4164833,
+          "gpu_ns": 3928625,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 5116250,
+          "gpu_ns": 4822208,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "baseline",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 981458,
+          "gpu_ns": 343167,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 998041,
+          "gpu_ns": 305667,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 456167,
+          "gpu_ns": 282958,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 516250,
+          "gpu_ns": 334000,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 504875,
+          "gpu_ns": 338000,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "panelpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 10518000,
+          "gpu_ns": 4046375,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 3114958,
+          "gpu_ns": 2853875,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1883958,
+          "gpu_ns": 1686958,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1582208,
+          "gpu_ns": 1380500,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1535042,
+          "gpu_ns": 1352292,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "blockpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 10197875,
+          "gpu_ns": 4211375,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 2471750,
+          "gpu_ns": 2253917,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1891042,
+          "gpu_ns": 1671417,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1583583,
+          "gpu_ns": 1355750,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1588500,
+          "gpu_ns": 1364500,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "panelpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24766209,
+          "gpu_ns": 16686292,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 12314333,
+          "gpu_ns": 10945625,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 11164000,
+          "gpu_ns": 10727500,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 11914667,
+          "gpu_ns": 10878208,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 11101875,
+          "gpu_ns": 10758000,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "baseline",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2274375,
+          "gpu_ns": 1519833,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 1720416,
+          "gpu_ns": 1510875,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1715792,
+          "gpu_ns": 1506542,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1692500,
+          "gpu_ns": 1497625,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1992417,
+          "gpu_ns": 1819792,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "panelpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7733292,
+          "gpu_ns": 1515500,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 2468584,
+          "gpu_ns": 2164125,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 2710959,
+          "gpu_ns": 2529250,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 3618334,
+          "gpu_ns": 3398792,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 2280416,
+          "gpu_ns": 2077958,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "blockpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 27997583,
+          "gpu_ns": 22038333,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 10315791,
+          "gpu_ns": 10107458,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 10833333,
+          "gpu_ns": 10595625,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 10300125,
+          "gpu_ns": 10094583,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 10857958,
+          "gpu_ns": 10633333,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "blockpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 111085750,
+          "gpu_ns": 102721542,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 90095333,
+          "gpu_ns": 89877958,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 87632084,
+          "gpu_ns": 87263208,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 86406875,
+          "gpu_ns": 85730000,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 85976292,
+          "gpu_ns": 85257250,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "baseline",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2226833,
+          "gpu_ns": 1463000,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 2229250,
+          "gpu_ns": 1457000,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1626958,
+          "gpu_ns": 1432375,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1703959,
+          "gpu_ns": 1472750,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 2167209,
+          "gpu_ns": 1436333,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "layout": "panelpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 6061834,
+          "gpu_ns": 199833,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 371667,
+          "gpu_ns": 175000,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 378167,
+          "gpu_ns": 176333,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 393792,
+          "gpu_ns": 184500,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 374834,
+          "gpu_ns": 183042,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "blockpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 26243625,
+          "gpu_ns": 20489250,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 10351292,
+          "gpu_ns": 10096875,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 10349709,
+          "gpu_ns": 10096000,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 10449417,
+          "gpu_ns": 10157000,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 10475458,
+          "gpu_ns": 10246125,
+          "cells": 8388608,
+          "workspace_bytes": 4196416,
+          "private_bytes": 50334272,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "panelpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 101143041,
+          "gpu_ns": 95097125,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 85797667,
+          "gpu_ns": 85053125,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 86244417,
+          "gpu_ns": 85428625,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 86012875,
+          "gpu_ns": 85283542,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 85739875,
+          "gpu_ns": 84990000,
+          "cells": 33554432,
+          "workspace_bytes": 16793664,
+          "private_bytes": 201343552,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "baseline",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2192750,
+          "gpu_ns": 1492750,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 2424916,
+          "gpu_ns": 1478792,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1918167,
+          "gpu_ns": 1587250,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1915583,
+          "gpu_ns": 1649208,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 2201000,
+          "gpu_ns": 1442250,
+          "cells": 1048576,
+          "workspace_bytes": 0,
+          "private_bytes": 16777280,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "panelpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7640500,
+          "gpu_ns": 1454875,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 1791083,
+          "gpu_ns": 1604333,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 2080500,
+          "gpu_ns": 1879000,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 3535250,
+          "gpu_ns": 3309875,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 2543291,
+          "gpu_ns": 2303708,
+          "cells": 1048576,
+          "workspace_bytes": 4202560,
+          "private_bytes": 20979840,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "panelpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7171250,
+          "gpu_ns": 261500,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 517042,
+          "gpu_ns": 301667,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 519500,
+          "gpu_ns": 301625,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 503542,
+          "gpu_ns": 301875,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 508416,
+          "gpu_ns": 300875,
+          "cells": 262144,
+          "workspace_bytes": 1052736,
+          "private_bytes": 5247104,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "blockpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 96935375,
+          "gpu_ns": 90790125,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 86157375,
+          "gpu_ns": 85386833,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 86201834,
+          "gpu_ns": 85452500,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 86626542,
+          "gpu_ns": 85833833,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 93686083,
+          "gpu_ns": 92403625,
+          "cells": 33554432,
+          "workspace_bytes": 16781376,
+          "private_bytes": 201331264,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "panelpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20699167,
+          "gpu_ns": 12253792,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 14725750,
+          "gpu_ns": 14028167,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 14876042,
+          "gpu_ns": 14124167,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 15431292,
+          "gpu_ns": 14748000,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 15131583,
+          "gpu_ns": 14601750,
+          "cells": 4194304,
+          "workspace_bytes": 16793664,
+          "private_bytes": 83902592,
+          "shared_bytes": 67125324,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "panelpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 8792250,
+          "gpu_ns": 1940083,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 2412750,
+          "gpu_ns": 2205125,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 2051708,
+          "gpu_ns": 1830500,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1975458,
+          "gpu_ns": 1368750,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1850750,
+          "gpu_ns": 1661333,
+          "cells": 2097152,
+          "workspace_bytes": 1052736,
+          "private_bytes": 12587584,
+          "shared_bytes": 4198476,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "baseline",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19292959,
+          "gpu_ns": 18399458,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 12333084,
+          "gpu_ns": 12102125,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 12626541,
+          "gpu_ns": 12338917,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 12357083,
+          "gpu_ns": 12087250,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 12290708,
+          "gpu_ns": 12081958,
+          "cells": 4194304,
+          "workspace_bytes": 0,
+          "private_bytes": 67108928,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "blockpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 8198625,
+          "gpu_ns": 1403500,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 1560750,
+          "gpu_ns": 1351375,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1695000,
+          "gpu_ns": 1353000,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1571459,
+          "gpu_ns": 1358250,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1548792,
+          "gpu_ns": 1354500,
+          "cells": 2097152,
+          "workspace_bytes": 1049664,
+          "private_bytes": 12584512,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "blockpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7736833,
+          "gpu_ns": 1395875,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 2157167,
+          "gpu_ns": 1447875,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 2371583,
+          "gpu_ns": 1648708,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 2399333,
+          "gpu_ns": 2173792,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 2837000,
+          "gpu_ns": 2191917,
+          "cells": 1048576,
+          "workspace_bytes": 4196416,
+          "private_bytes": 20973696,
+          "shared_bytes": 16779340,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "blockpad",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 6349583,
+          "gpu_ns": 544500,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 766334,
+          "gpu_ns": 541625,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 724125,
+          "gpu_ns": 539333,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 735625,
+          "gpu_ns": 540750,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 686916,
+          "gpu_ns": 469500,
+          "cells": 262144,
+          "workspace_bytes": 1049664,
+          "private_bytes": 5244032,
+          "shared_bytes": 4195404,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "baseline",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21764625,
+          "gpu_ns": 21202792,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 11555208,
+          "gpu_ns": 11382250,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 11595750,
+          "gpu_ns": 11393000,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 12357208,
+          "gpu_ns": 12188167,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 12210625,
+          "gpu_ns": 11980625,
+          "cells": 8388608,
+          "workspace_bytes": 0,
+          "private_bytes": 46137856,
+          "shared_bytes": 16777292,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "baseline",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 102212791,
+          "gpu_ns": 101513375,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 98480333,
+          "gpu_ns": 98243000,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 98284125,
+          "gpu_ns": 98063625,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 98481041,
+          "gpu_ns": 98253917,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 98690959,
+          "gpu_ns": 98428375,
+          "cells": 33554432,
+          "workspace_bytes": 0,
+          "private_bytes": 184549888,
+          "shared_bytes": 67108940,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "blockpad",
+      "shape": [
+        2048,
+        2048,
+        2048
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 16600750,
+          "gpu_ns": 10964000,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 11455709,
+          "gpu_ns": 10707250,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 11530334,
+          "gpu_ns": 10804750,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 12087792,
+          "gpu_ns": 11368625,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 11437500,
+          "gpu_ns": 10715625,
+          "cells": 4194304,
+          "workspace_bytes": 16781376,
+          "private_bytes": 83890304,
+          "shared_bytes": 67113036,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "baseline",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1110834,
+          "gpu_ns": 442292,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 975333,
+          "gpu_ns": 340000,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1070958,
+          "gpu_ns": 442958,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 673625,
+          "gpu_ns": 440083,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 376583,
+          "gpu_ns": 197500,
+          "cells": 262144,
+          "workspace_bytes": 0,
+          "private_bytes": 4194368,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "baseline",
+      "shape": [
+        512,
+        512,
+        512
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 5306459,
+          "gpu_ns": 4719458,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 4899583,
+          "gpu_ns": 4217333,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1715125,
+          "gpu_ns": 1506250,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1670417,
+          "gpu_ns": 1504958,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 1699209,
+          "gpu_ns": 1504667,
+          "cells": 2097152,
+          "workspace_bytes": 0,
+          "private_bytes": 11534848,
+          "shared_bytes": 4194380,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "layout": "panelpad",
+      "shape": [
+        1024,
+        1024,
+        1024
+      ],
+      "reuse": 8,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 21340958,
+          "gpu_ns": 15692333,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 10643583,
+          "gpu_ns": 10387750,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 10329000,
+          "gpu_ns": 10077667,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 10325333,
+          "gpu_ns": 10084750,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 10452125,
+          "gpu_ns": 10084250,
+          "cells": 8388608,
+          "workspace_bytes": 4202560,
+          "private_bytes": 50340416,
+          "shared_bytes": 16785484,
+          "matrix_max_threads": 1024,
+          "threadgroup_bytes": 8192
+        }
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "layout": "baseline",
+      "n": 512,
+      "reuse": 1,
+      "gpu_ns_per_call": 334000.0,
+      "process_medians_ns": [
+        205375.0,
+        334000.0,
+        440083.0
+      ]
+    },
+    {
+      "layout": "baseline",
+      "n": 512,
+      "reuse": 8,
+      "gpu_ns_per_call": 188119.75,
+      "process_medians_ns": [
+        187000.0,
+        188317.75,
+        188119.75
+      ]
+    },
+    {
+      "layout": "baseline",
+      "n": 1024,
+      "reuse": 1,
+      "gpu_ns_per_call": 1587250.0,
+      "process_medians_ns": [
+        4551250.0,
+        1436333.0,
+        1587250.0
+      ]
+    },
+    {
+      "layout": "baseline",
+      "n": 1024,
+      "reuse": 8,
+      "gpu_ns_per_call": 1493203.125,
+      "process_medians_ns": [
+        1446083.375,
+        1493203.125,
+        1497578.125
+      ]
+    },
+    {
+      "layout": "baseline",
+      "n": 2048,
+      "reuse": 1,
+      "gpu_ns_per_call": 12222875.0,
+      "process_medians_ns": [
+        12222875.0,
+        12374750.0,
+        12087250.0
+      ]
+    },
+    {
+      "layout": "baseline",
+      "n": 2048,
+      "reuse": 8,
+      "gpu_ns_per_call": 12281739.625,
+      "process_medians_ns": [
+        12242312.5,
+        12282291.625,
+        12281739.625
+      ]
+    },
+    {
+      "layout": "blockpad",
+      "n": 512,
+      "reuse": 1,
+      "gpu_ns_per_call": 539333.0,
+      "process_medians_ns": [
+        176833.0,
+        541208.0,
+        539333.0
+      ]
+    },
+    {
+      "layout": "blockpad",
+      "n": 512,
+      "reuse": 8,
+      "gpu_ns_per_call": 169312.5,
+      "process_medians_ns": [
+        168843.75,
+        170562.5,
+        169312.5
+      ]
+    },
+    {
+      "layout": "blockpad",
+      "n": 1024,
+      "reuse": 1,
+      "gpu_ns_per_call": 2291042.0,
+      "process_medians_ns": [
+        2291042.0,
+        3928625.0,
+        2173792.0
+      ]
+    },
+    {
+      "layout": "blockpad",
+      "n": 1024,
+      "reuse": 8,
+      "gpu_ns_per_call": 1301796.875,
+      "process_medians_ns": [
+        1301796.875,
+        1324453.125,
+        1269625.0
+      ]
+    },
+    {
+      "layout": "blockpad",
+      "n": 2048,
+      "reuse": 1,
+      "gpu_ns_per_call": 16349375.0,
+      "process_medians_ns": [
+        16349375.0,
+        16500667.0,
+        10804750.0
+      ]
+    },
+    {
+      "layout": "blockpad",
+      "n": 2048,
+      "reuse": 8,
+      "gpu_ns_per_call": 10729229.125,
+      "process_medians_ns": [
+        10770734.375,
+        10716250.0,
+        10729229.125
+      ]
+    },
+    {
+      "layout": "panelpad",
+      "n": 512,
+      "reuse": 1,
+      "gpu_ns_per_call": 217875.0,
+      "process_medians_ns": [
+        217875.0,
+        183042.0,
+        301625.0
+      ]
+    },
+    {
+      "layout": "panelpad",
+      "n": 512,
+      "reuse": 8,
+      "gpu_ns_per_call": 172562.5,
+      "process_medians_ns": [
+        169630.25,
+        172562.5,
+        207666.625
+      ]
+    },
+    {
+      "layout": "panelpad",
+      "n": 1024,
+      "reuse": 1,
+      "gpu_ns_per_call": 2529250.0,
+      "process_medians_ns": [
+        4391792.0,
+        2529250.0,
+        2303708.0
+      ]
+    },
+    {
+      "layout": "panelpad",
+      "n": 1024,
+      "reuse": 8,
+      "gpu_ns_per_call": 1307770.875,
+      "process_medians_ns": [
+        1307770.875,
+        1344750.0,
+        1260531.25
+      ]
+    },
+    {
+      "layout": "panelpad",
+      "n": 2048,
+      "reuse": 1,
+      "gpu_ns_per_call": 14601750.0,
+      "process_medians_ns": [
+        18988833.0,
+        11574583.0,
+        14601750.0
+      ]
+    },
+    {
+      "layout": "panelpad",
+      "n": 2048,
+      "reuse": 8,
+      "gpu_ns_per_call": 10770421.875,
+      "process_medians_ns": [
+        10770421.875,
+        10781557.25,
+        10660442.75
+      ]
+    }
+  ],
+  "layouts": [
+    "baseline",
+    "blockpad",
+    "panelpad"
+  ],
+  "pack_method": "tiled",
+  "generator_source": "\"\"\"Screen strict GPU matmul input layouts, including GPU construction and repeated-weight use.\"\"\"\nimport argparse,json,os,random,statistics,sys\nfrom pathlib import Path\nsys.path.insert(0,str(Path(__file__).resolve().parent/'fair'))\nimport protocol as p\n\nLAYOUTS=['baseline','panel','block','column','tpanel','swizzle','both','blockpad','panelpad']\ndef shaders(header,tiled=False):\n    original=header.read_text().split('hardwareRegisterMatmulShader = R\"MSL(')[1].split(')MSL\";')[0]\n    code='#include <metal_stdlib>\\nusing namespace metal;\\nstruct KalandraHardwareMatrix {float values[1];};struct KalandraHardwareShape {uint values[3];};\\n'\n    for name in (LAYOUTS if tiled else LAYOUTS[:7]):\n        text=original.replace('kalandra_matmul_hardware_register16','matrix_'+name).replace('kalandra_hardware_eight16','eight_'+name)\n        if name in ['panel','both']:\n            text=text.replace('c<n ? b.values[(first+at/16)*n+c] : 0.0f','b.values[((colBase/16)*(k/64)+block)*1024+at]')\n        elif name in ['blockpad','panelpad']:\n            offset='block*(((n+15)/16)*1024+32)+(colBase/16)*1024+at' if name=='blockpad' else '(colBase/16)*((k/64)*1024+32)+block*1024+at'\n            text=text.replace('c<n ? b.values[(first+at/16)*n+c] : 0.0f','b.values['+offset+']')\n        elif name=='block':\n            text=text.replace('c<n ? b.values[(first+at/16)*n+c] : 0.0f','b.values[(block*((n+15)/16)+colBase/16)*1024+at]')\n        elif name=='swizzle':\n            text=text.replace('c<n ? b.values[(first+at/16)*n+c] : 0.0f','b.values[((colBase/16)*(k/64)+block)*1024+at]')\n            for i in range(8):text=text.replace(f'b[(first+{i})*16+col]',f'b[(first+{i})*16+(col^((first+{i})&15))]')\n        elif name in ['column','tpanel']:\n            text=text.replace('bv[1024]','bv[1088]')\n            for i in range(8):text=text.replace(f'b[(first+{i})*16+col]',f'b[(first+{i})*17+col]')\n            source='b.values[(colBase+at/64)*k+first+at%64]' if name=='column' else 'b.values[((colBase/16)*(k/64)+block)*1024+at]'\n            text=text.replace('bv[at]=c<n ? b.values[(first+at/16)*n+c] : 0.0f',f'bv[(at%64)*17+at/64]={source}')\n        if name=='both':text=text.replace('r<m ? a.values[r*k+first+at%64] : 0.0f','a.values[((rowBase/16)*(k/64)+block)*1024+at]')\n        code+=text\n    if tiled:return code+tiled_packers()\n    for name in LAYOUTS[1:7]+['left']:\n        if name in ['panel','both','swizzle']:\n            mapping='uint tile=index/1024,i=(tile%(k/64))*64+(index%1024)/16,c=(tile/(k/64))*16+index%16;'\n            if name=='swizzle':mapping+='c=(c&~15u)|((c&15u)^(i&15u));'\n        elif name=='block':mapping='uint tile=index/1024,i=(tile/((n+15)/16))*64+(index%1024)/16,c=(tile%((n+15)/16))*16+index%16;'\n        elif name=='column':mapping='uint c=index/k,i=index%k;'\n        elif name=='tpanel':mapping='uint tile=index/1024,c=(tile/(k/64))*16+(index%1024)/64,i=(tile%(k/64))*64+index%64;'\n        else:mapping='uint tile=index/1024,r=(tile/(k/64))*16+(index%1024)/64,i=(tile%(k/64))*64+index%64;'\n        count='((m+15)/16)*16*k' if name=='left' else '((n+15)/16)*16*k'\n        value='r<m?input[r*k+i]:0u' if name=='left' else 'c<n?input[i*n+c]:0u'\n        code+=f'''kernel void pack_{name}(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint index [[thread_position_in_grid]]) {{uint m=shape[0],k=shape[1],n=shape[2];if(index<{count}){{{mapping}output[index]={value};}}}}\\n'''\n    return code\n\ndef tiled_packers():\n    code=''\n    for name in LAYOUTS[1:]+['left']:\n        base='uint m=shape[0],k=shape[1],n=shape[2];'\n        if name=='column':\n            body=base+'''threadgroup uint tile[32*33];\nfor(uint at=lane;at<1024;at+=256){uint i=group.y*32+at/32,c=group.x*32+at%32;tile[(at/32)*33+at%32]=c<n?input[i*n+c]:0u;}\nthreadgroup_barrier(mem_flags::mem_threadgroup);\nfor(uint at=lane;at<1024;at+=256){uint c=group.x*32+at/32,i=group.y*32+at%32;if(c<((n+15)/16)*16)output[c*k+i]=tile[(at%32)*33+at/32];}\n'''\n        elif name=='tpanel':\n            body=base+'''threadgroup uint tile[64*17];\nfor(uint at=lane;at<1024;at+=256){uint i=group.y*64+at/16,c=group.x*16+at%16;tile[(at/16)*17+at%16]=c<n?input[i*n+c]:0u;}\nthreadgroup_barrier(mem_flags::mem_threadgroup);\nuint base=(group.x*(k/64)+group.y)*1024;\nfor(uint at=lane;at<1024;at+=256)output[base+at]=tile[(at%64)*17+at/64];\n'''\n        else:\n            dest='(group.y*((n+15)/16)+group.x)*1024+at' if name=='block' else '(group.x*(k/64)+group.y)*1024+at'\n            if name=='blockpad':dest='group.y*(((n+15)/16)*1024+32)+group.x*1024+at'\n            if name=='panelpad':dest='group.x*((k/64)*1024+32)+group.y*1024+at'\n            if name=='left':\n                mapping='uint r=group.x*16+at/64,i=group.y*64+at%64;'\n                value='r<m?input[r*k+i]:0u'\n            else:\n                mapping='uint i=group.y*64+at/16,c=group.x*16+at%16;'\n                if name=='swizzle':mapping+='c=(c&~15u)|((c&15u)^(i&15u));'\n                value='c<n?input[i*n+c]:0u'\n            body=base+'for(uint at=lane;at<1024;at+=256){'+mapping+f'output[{dest}]={value};'+'}\\n'\n            if name=='blockpad':body+='if(group.x==0 && lane<32)output[group.y*(((n+15)/16)*1024+32)+((n+15)/16)*1024+lane]=0u;\\n'\n            if name=='panelpad':body+='if(group.y==0 && lane<32)output[group.x*((k/64)*1024+32)+(k/64)*1024+lane]=0u;\\n'\n        code+=f'kernel void pack_{name}(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){{uint lane=local.x;{body}}}\\n'\n    return code\n\ndef main():\n    parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,required=True);parser.add_argument('--pack-method',choices=['flat','tiled'],default='flat');parser.add_argument('--layouts',nargs='+');a=parser.parse_args();assert not a.output.exists()\n    for key in ('MTL_DEBUG_LAYER','MTL_SHADER_VALIDATION','KALANDRA_GPU_PROFILE','DYLD_INSERT_LIBRARIES'):assert os.getenv(key) in (None,'','0'),key\n    build=p.ROOT/'benchmarks/.build/weight-packing-2026-10-25'/a.output.stem;build.mkdir(parents=True,exist_ok=True)\n    header=p.ROOT/'native/metal-source/HardwareShaders.h';source=build/'packing.metal';source.write_text(shaders(header,a.pack_method=='tiled'))\n    lock=json.loads((p.ROOT/'native/metal-proof/toolchain.json').read_text());metal=['xcrun','--toolchain',lock['metalToolchain'],'--sdk','macosx','metal']\n    p.run([*metal,'-mmacosx-version-min=26.0','-std=macos-metal2.2','-fno-fast-math','-ffp-contract=off','-c',source,'-o',build/'packing.air'])\n    p.run([*metal,build/'packing.air','-o',build/'packing.metallib'])\n    driver=Path(__file__).with_name('WeightPackingStudy.mm');binary=build/'packing'\n    p.run([p.CLANG,'-std=c++23','-O2','-DNDEBUG','-Wall','-Wextra','-Werror','-ffp-contract=off','-fobjc-arc','-fblocks',*(['-DKALANDRA_PACK_TILED'] if a.pack_method=='tiled' else []),driver,'-framework','Foundation','-framework','Metal','-o',binary])\n    layouts=a.layouts or LAYOUTS[:7];assert all(v in LAYOUTS for v in layouts) and (a.pack_method=='tiled' or all(v in LAYOUTS[:7] for v in layouts))\n    records=[];rng=random.Random(20261025)\n    for trial in range(3):\n        cells=[(layout,n,reuse) for layout in layouts for n in [512,1024,2048] for reuse in [1,8]];rng.shuffle(cells)\n        for layout,n,reuse in cells:\n            samples=list(map(json.loads,p.run([binary,build/'packing.metallib',layout,n,n,n,reuse,3]).splitlines()))\n            assert [r['round'] for r in samples]==list(range(-2,3))\n            assert all(r['cells']==n*n*reuse and r['gpu_ns']>0 and r['ns']>0 for r in samples)\n            records.append(dict(trial=trial,layout=layout,shape=[n,n,n],reuse=reuse,samples=samples))\n            print(trial,layout,n,reuse,statistics.median(r['gpu_ns']/reuse/1e6 for r in samples if r['round']>=0),flush=True)\n    summary=[]\n    for layout in layouts:\n        for n in [512,1024,2048]:\n            for reuse in [1,8]:\n                vals=[statistics.median(r['gpu_ns']/reuse for r in rec['samples'] if r['round']>=0) for rec in records if (rec['layout'],rec['shape'][0],rec['reuse'])==(layout,n,reuse)]\n                summary.append(dict(layout=layout,n=n,reuse=reuse,gpu_ns_per_call=statistics.median(vals),process_medians_ns=vals))\n    p.evidence(a.output,dict(records=records,summary=summary,layouts=layouts,pack_method=a.pack_method,generator_source=Path(__file__).read_text(),driver_source=driver.read_text(),generated_msl=source.read_text(),contract='Preallocated private input/output/packed buffers. GPU command interval includes fresh B packing once per round and, for both, A packing every call; repeated calls alternate two activation tensors, share one immutable B, and have distinct outputs. Packing is not retained across warmup/measured rounds. Host wall includes encoding/commit/wait but excludes buffer allocation, shader loading, uploads and output verification. Every output cell and guard, packed contents/padding/guard, and input immutability are checked outside timing every round. Strict dyadic screening, not full language/non-dyadic/safety qualification. R=1 includes construction for a single use; R=8 amortizes construction within the batch. Packed workspace and total preallocated GPU bytes are recorded.'),[Path(__file__),driver,header,source],[binary,build/'packing.metallib'],p.ROOT/'build/native/native/kalandra')\nif __name__=='__main__':main()\n",
+  "driver_source": "// Layout screening only: production allocation/scheduling qualification is separate.\n#import <Foundation/Foundation.h>\n#import <Metal/Metal.h>\n#include <algorithm>\n#include <array>\n#include <bit>\n#include <chrono>\n#include <cstdint>\n#include <cstdio>\n#include <cstring>\n#include <stdexcept>\n#include <string>\n#include <vector>\nstatic void check(bool value) {\n  if (!value)\n    throw std::runtime_error(\"weight packing screening failed\");\n}\nint main(int argc, char **argv) {\n  @autoreleasepool {\n    check(argc == 8 || argc == 9);\n    const std::string layout = argv[2];\n    const unsigned m = std::stoul(argv[3]), k = std::stoul(argv[4]), n = std::stoul(argv[5]),\n                   reuse = std::stoul(argv[6]), rounds = std::stoul(argv[7]);\n    check(m && k && n && k % 64 == 0 && k <= 4096 && reuse && reuse <= 16);\n    const unsigned iterations = argc == 9 ? std::stoul(argv[8]) : 1;\n    check(iterations >= 1 && iterations <= 512);\n    const bool packed = layout != \"baseline\", left = layout == \"both\";\n    auto device = MTLCreateSystemDefaultDevice();\n    check(device);\n    NSError *error = nil;\n    auto library = [device newLibraryWithURL:[NSURL fileURLWithPath:@(argv[1])] error:&error];\n    check(library);\n    auto load = [&](std::string name) {\n      auto fn = [library newFunctionWithName:@(name.c_str())];\n      check(fn);\n      auto p = [device newComputePipelineStateWithFunction:fn error:&error];\n      check(p && p.maxTotalThreadsPerThreadgroup >= 256);\n      return p;\n    };\n    auto matrix = load(\"matrix_\" + layout);\n    id<MTLComputePipelineState> packB = packed ? load(\"pack_\" + layout) : nil,\n                                packA = left ? load(\"pack_left\") : nil;\n    auto queue = [device newCommandQueue];\n    check(queue);\n    std::uint64_t privateBytes = 0, sharedBytes = 0;\n    auto owned = [&](std::size_t count) {\n      auto b = [device newBufferWithLength:count options:MTLResourceStorageModePrivate];\n      check(b);\n      privateBytes += count;\n      return b;\n    };\n    auto shared = [&](std::size_t count) {\n      auto b = [device newBufferWithLength:count options:MTLResourceStorageModeShared];\n      check(b);\n      sharedBytes += count;\n      return b;\n    };\n    const auto ac = std::size_t(m) * k, bc = std::size_t(k) * n, oc = std::size_t(m) * n,\n               apc = std::size_t((m + 15) / 16) * 16 * k,\n               bpc = std::size_t((n + 15) / 16) * 16 * k +\n                     (layout == \"blockpad\"   ? std::size_t(k / 64) * 32\n                      : layout == \"panelpad\" ? std::size_t((n + 15) / 16) * 32\n                                             : 0);\n    std::array<id<MTLBuffer>, 2> ah{shared(ac * 4), shared(ac * 4)},\n        a{owned(ac * 4), owned(ac * 4)};\n    auto bh = shared(bc * 4), b = owned(bc * 4), parameters = shared(12);\n    std::array shape{m, k, n};\n    std::memcpy(parameters.contents, shape.data(), 12);\n    for (unsigned phase = 0; phase < 2; ++phase)\n      for (std::size_t i = 0; i < ac; ++i)\n        static_cast<float *>(ah[phase].contents)[i] = float(int((i + phase * 7) % 17) - 8) / 8;\n    for (std::size_t i = 0; i < bc; ++i)\n      static_cast<float *>(bh.contents)[i] = float(int(i % 13) - 6) / 8;\n    auto initial = [queue commandBuffer];\n    auto upload = [initial blitCommandEncoder];\n    for (unsigned phase = 0; phase < 2; ++phase)\n      [upload copyFromBuffer:ah[phase]\n                sourceOffset:0\n                    toBuffer:a[phase]\n           destinationOffset:0\n                        size:ac * 4];\n    [upload copyFromBuffer:bh sourceOffset:0 toBuffer:b destinationOffset:0 size:bc * 4];\n    [upload endEncoding];\n    [initial commit];\n    [initial waitUntilCompleted];\n    check(initial.status == MTLCommandBufferStatusCompleted);\n    id<MTLBuffer> bp = packed ? owned(bpc * 4 + 64) : nil, ap = left ? owned(apc * 4 + 64) : nil;\n    std::vector<id<MTLBuffer>> outputs;\n    for (unsigned r = 0; r < reuse; ++r)\n      outputs.push_back(owned(oc * 4 + 64));\n    auto readback = shared(std::max({ac, bc, oc, packed ? bpc : 0, left ? apc : 0}) * 4 + 64);\n    auto download = [&](id<MTLBuffer> input) {\n      auto cmd = [queue commandBuffer];\n      auto e = [cmd blitCommandEncoder];\n      [e copyFromBuffer:input\n               sourceOffset:0\n                   toBuffer:readback\n          destinationOffset:0\n                       size:input.length];\n      [e endEncoding];\n      [cmd commit];\n      [cmd waitUntilCompleted];\n      check(cmd.status == MTLCommandBufferStatusCompleted);\n      return static_cast<const std::uint32_t *>(readback.contents);\n    };\n    std::array<std::array<std::uint32_t, 13>, 17> expected{};\n    for (unsigned row = 0; row < 17; ++row)\n      for (unsigned col = 0; col < 13; ++col) {\n        std::int64_t sum = 0;\n        for (unsigned t = 0; t < k; ++t)\n          sum += (int((row + t) % 17) - 8) * (int((col + std::uint64_t(t) * n) % 13) - 6);\n        expected[row][col] = std::bit_cast<std::uint32_t>(float(sum) / 64);\n      }\n    for (int round = -2; round < int(rounds); ++round) {\n      auto poison = [queue commandBuffer];\n      auto fill = [poison blitCommandEncoder];\n      for (auto output : outputs)\n        [fill fillBuffer:output range:NSMakeRange(0, output.length) value:0xa5];\n      for (auto buffer : std::array<id<MTLBuffer>, 2>{bp, ap})\n        if (buffer)\n          [fill fillBuffer:buffer range:NSMakeRange(0, buffer.length) value:0xa5];\n      [fill endEncoding];\n      [poison commit];\n      [poison waitUntilCompleted];\n      check(poison.status == MTLCommandBufferStatusCompleted);\n      const auto start = std::chrono::steady_clock::now();\n      auto command = [queue commandBuffer];\n      auto pack = [&](id<MTLComputePipelineState> pipeline, id<MTLBuffer> input,\n                      id<MTLBuffer> output, std::size_t count) {\n        auto encoder = [command computeCommandEncoder];\n        check(encoder);\n        [encoder setComputePipelineState:pipeline];\n        [encoder setBuffer:input offset:0 atIndex:0];\n        [encoder setBuffer:output offset:0 atIndex:1];\n        [encoder setBuffer:parameters offset:0 atIndex:2];\n#ifdef KALANDRA_PACK_TILED\n        const bool packingA = pipeline == packA;\n        const auto groups = !packingA && layout == \"column\"\n                                ? MTLSizeMake((n + 31) / 32, k / 32, 1)\n                                : MTLSizeMake(((packingA ? m : n) + 15) / 16, k / 64, 1);\n        (void)count;\n#else\n        const auto groups = MTLSizeMake((count + 255) / 256, 1, 1);\n#endif\n        [encoder dispatchThreadgroups:groups threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];\n        [encoder endEncoding];\n      };\n      for (unsigned iteration = 0; iteration < iterations; ++iteration) {\n        if (packed)\n          pack(packB, b, bp, bpc);\n        for (unsigned r = 0; r < reuse; ++r) {\n          if (left)\n            pack(packA, a[r % 2], ap, apc);\n          auto encoder = [command computeCommandEncoder];\n          check(encoder);\n          [encoder setComputePipelineState:matrix];\n          [encoder setBuffer:left ? ap : a[r % 2] offset:0 atIndex:0];\n          [encoder setBuffer:packed ? bp : b offset:0 atIndex:1];\n          [encoder setBuffer:outputs[r] offset:0 atIndex:2];\n          [encoder setBuffer:parameters offset:0 atIndex:3];\n          [encoder dispatchThreadgroups:MTLSizeMake(((std::uint64_t(m) + 15) / 16) *\n                                                        ((std::uint64_t(n) + 15) / 16),\n                                                    1, 1)\n                  threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];\n          [encoder endEncoding];\n        }\n      }\n      [command commit];\n      [command waitUntilCompleted];\n      const double ns =\n          std::chrono::duration<double, std::nano>(std::chrono::steady_clock::now() - start)\n              .count();\n      check(command.status == MTLCommandBufferStatusCompleted &&\n            command.GPUEndTime > command.GPUStartTime);\n      for (unsigned r = 0; r < reuse; ++r) {\n        const auto actual = download(outputs[r]);\n        for (unsigned row = 0; row < m; ++row)\n          for (unsigned col = 0; col < n; ++col) {\n            const auto want = expected[(std::uint64_t(row) * k + (r % 2) * 7) % 17][col % 13];\n            if (actual[std::size_t(row) * n + col] != want) {\n              std::fprintf(stderr,\n                           \"%s %u,%u,%u reuse %u output %u cell %u,%u actual=%08x want=%08x\\n\",\n                           layout.c_str(), m, k, n, reuse, r, row, col,\n                           actual[std::size_t(row) * n + col], want);\n              return 1;\n            }\n          }\n        for (unsigned i = 0; i < 16; ++i)\n          check(actual[oc + i] == 0xa5a5a5a5u);\n      }\n      if (packed) {\n        const auto actual = download(bp);\n        for (unsigned i = 0; i < k; ++i)\n          for (unsigned col = 0; col < ((n + 15) / 16) * 16; ++col) {\n            std::size_t index = 0;\n            if (layout == \"blockpad\")\n              index = (i / 64) * (std::size_t((n + 15) / 16) * 1024 + 32) + (col / 16) * 1024 +\n                      (i % 64) * 16 + col % 16;\n            else if (layout == \"panelpad\")\n              index = (col / 16) * (std::size_t(k / 64) * 1024 + 32) + (i / 64) * 1024 +\n                      (i % 64) * 16 + col % 16;\n            else if (layout == \"column\")\n              index = std::size_t(col) * k + i;\n            else if (layout == \"block\")\n              index = ((i / 64) * std::size_t((n + 15) / 16) + col / 16) * 1024 + (i % 64) * 16 +\n                      col % 16;\n            else if (layout == \"tpanel\")\n              index = ((col / 16) * std::size_t(k / 64) + i / 64) * 1024 + (col % 16) * 64 + i % 64;\n            else\n              index = ((col / 16) * std::size_t(k / 64) + i / 64) * 1024 + (i % 64) * 16 +\n                      (layout == \"swizzle\" ? ((col % 16) ^ (i % 16)) : col % 16);\n            const auto want =\n                col < n ? static_cast<const std::uint32_t *>(bh.contents)[std::size_t(i) * n + col]\n                        : 0u;\n            check(actual[index] == want);\n          }\n        if (layout == \"blockpad\")\n          for (unsigned tile = 0; tile < k / 64; ++tile)\n            for (unsigned i = 0; i < 32; ++i)\n              check(actual[tile * (std::size_t((n + 15) / 16) * 1024 + 32) +\n                           ((n + 15) / 16) * 1024 + i] == 0u);\n        if (layout == \"panelpad\")\n          for (unsigned tile = 0; tile < (n + 15) / 16; ++tile)\n            for (unsigned i = 0; i < 32; ++i)\n              check(actual[tile * (std::size_t(k / 64) * 1024 + 32) + (k / 64) * 1024 + i] == 0u);\n        for (unsigned i = 0; i < 16; ++i)\n          check(actual[bpc + i] == 0xa5a5a5a5u);\n      }\n      if (left) {\n        const auto actual = download(ap);\n        for (unsigned row = 0; row < ((m + 15) / 16) * 16; ++row)\n          for (unsigned i = 0; i < k; ++i) {\n            const auto index =\n                ((row / 16) * std::size_t(k / 64) + i / 64) * 1024 + (row % 16) * 64 + i % 64;\n            const auto want = row < m ? static_cast<const std::uint32_t *>(\n                                            ah[(reuse - 1) % 2].contents)[std::size_t(row) * k + i]\n                                      : 0u;\n            check(actual[index] == want);\n          }\n        for (unsigned i = 0; i < 16; ++i)\n          check(actual[apc + i] == 0xa5a5a5a5u);\n      }\n      for (unsigned phase = 0; phase < 2; ++phase)\n        check(std::memcmp(download(a[phase]), ah[phase].contents, ac * 4) == 0);\n      check(std::memcmp(download(b), bh.contents, bc * 4) == 0);\n      std::printf(\"{\\\"round\\\":%d,\\\"ns\\\":%.0f,\\\"gpu_ns\\\":%.0f,\\\"cells\\\":%llu,\\\"workspace_bytes\\\":%\"\n                  \"llu,\\\"private_bytes\\\":%llu,\\\"shared_bytes\\\":%llu,\\\"matrix_max_threads\\\":%llu,\"\n                  \"\\\"threadgroup_bytes\\\":%llu}\\n\",\n                  round, ns, (command.GPUEndTime - command.GPUStartTime) * 1e9,\n                  (unsigned long long)oc * reuse,\n                  (unsigned long long)((packed ? bpc * 4 + 64 : 0) + (left ? apc * 4 + 64 : 0)),\n                  (unsigned long long)privateBytes, (unsigned long long)sharedBytes,\n                  (unsigned long long)matrix.maxTotalThreadsPerThreadgroup,\n                  (unsigned long long)matrix.staticThreadgroupMemoryLength);\n    }\n  }\n}\n",
+  "generated_msl": "#include <metal_stdlib>\nusing namespace metal;\nstruct KalandraHardwareMatrix {float values[1];};struct KalandraHardwareShape {uint values[3];};\n\ninline float eight_baseline(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*16+col];\n  float p1=a[row*64+first+1]*b[(first+1)*16+col];\n  float p2=a[row*64+first+2]*b[(first+2)*16+col];\n  float p3=a[row*64+first+3]*b[(first+3)*16+col];\n  float p4=a[row*64+first+4]*b[(first+4)*16+col];\n  float p5=a[row*64+first+5]*b[(first+5)*16+col];\n  float p6=a[row*64+first+6]*b[(first+6)*16+col];\n  float p7=a[row*64+first+7]*b[(first+7)*16+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_baseline(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1024];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[at]=c<n ? b.values[(first+at/16)*n+c] : 0.0f;\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_baseline(av,bv,lane/16,lane%16,0);\n      float r1=eight_baseline(av,bv,lane/16,lane%16,8);\n      float r2=eight_baseline(av,bv,lane/16,lane%16,16);\n      float r3=eight_baseline(av,bv,lane/16,lane%16,24);\n      float r4=eight_baseline(av,bv,lane/16,lane%16,32);\n      float r5=eight_baseline(av,bv,lane/16,lane%16,40);\n      float r6=eight_baseline(av,bv,lane/16,lane%16,48);\n      float r7=eight_baseline(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float eight_panel(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*16+col];\n  float p1=a[row*64+first+1]*b[(first+1)*16+col];\n  float p2=a[row*64+first+2]*b[(first+2)*16+col];\n  float p3=a[row*64+first+3]*b[(first+3)*16+col];\n  float p4=a[row*64+first+4]*b[(first+4)*16+col];\n  float p5=a[row*64+first+5]*b[(first+5)*16+col];\n  float p6=a[row*64+first+6]*b[(first+6)*16+col];\n  float p7=a[row*64+first+7]*b[(first+7)*16+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_panel(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1024];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[at]=b.values[((colBase/16)*(k/64)+block)*1024+at];\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_panel(av,bv,lane/16,lane%16,0);\n      float r1=eight_panel(av,bv,lane/16,lane%16,8);\n      float r2=eight_panel(av,bv,lane/16,lane%16,16);\n      float r3=eight_panel(av,bv,lane/16,lane%16,24);\n      float r4=eight_panel(av,bv,lane/16,lane%16,32);\n      float r5=eight_panel(av,bv,lane/16,lane%16,40);\n      float r6=eight_panel(av,bv,lane/16,lane%16,48);\n      float r7=eight_panel(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float eight_block(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*16+col];\n  float p1=a[row*64+first+1]*b[(first+1)*16+col];\n  float p2=a[row*64+first+2]*b[(first+2)*16+col];\n  float p3=a[row*64+first+3]*b[(first+3)*16+col];\n  float p4=a[row*64+first+4]*b[(first+4)*16+col];\n  float p5=a[row*64+first+5]*b[(first+5)*16+col];\n  float p6=a[row*64+first+6]*b[(first+6)*16+col];\n  float p7=a[row*64+first+7]*b[(first+7)*16+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_block(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1024];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[at]=b.values[(block*((n+15)/16)+colBase/16)*1024+at];\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_block(av,bv,lane/16,lane%16,0);\n      float r1=eight_block(av,bv,lane/16,lane%16,8);\n      float r2=eight_block(av,bv,lane/16,lane%16,16);\n      float r3=eight_block(av,bv,lane/16,lane%16,24);\n      float r4=eight_block(av,bv,lane/16,lane%16,32);\n      float r5=eight_block(av,bv,lane/16,lane%16,40);\n      float r6=eight_block(av,bv,lane/16,lane%16,48);\n      float r7=eight_block(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float eight_column(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*17+col];\n  float p1=a[row*64+first+1]*b[(first+1)*17+col];\n  float p2=a[row*64+first+2]*b[(first+2)*17+col];\n  float p3=a[row*64+first+3]*b[(first+3)*17+col];\n  float p4=a[row*64+first+4]*b[(first+4)*17+col];\n  float p5=a[row*64+first+5]*b[(first+5)*17+col];\n  float p6=a[row*64+first+6]*b[(first+6)*17+col];\n  float p7=a[row*64+first+7]*b[(first+7)*17+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_column(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1088];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[(at%64)*17+at/64]=b.values[(colBase+at/64)*k+first+at%64];\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_column(av,bv,lane/16,lane%16,0);\n      float r1=eight_column(av,bv,lane/16,lane%16,8);\n      float r2=eight_column(av,bv,lane/16,lane%16,16);\n      float r3=eight_column(av,bv,lane/16,lane%16,24);\n      float r4=eight_column(av,bv,lane/16,lane%16,32);\n      float r5=eight_column(av,bv,lane/16,lane%16,40);\n      float r6=eight_column(av,bv,lane/16,lane%16,48);\n      float r7=eight_column(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float eight_tpanel(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*17+col];\n  float p1=a[row*64+first+1]*b[(first+1)*17+col];\n  float p2=a[row*64+first+2]*b[(first+2)*17+col];\n  float p3=a[row*64+first+3]*b[(first+3)*17+col];\n  float p4=a[row*64+first+4]*b[(first+4)*17+col];\n  float p5=a[row*64+first+5]*b[(first+5)*17+col];\n  float p6=a[row*64+first+6]*b[(first+6)*17+col];\n  float p7=a[row*64+first+7]*b[(first+7)*17+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_tpanel(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1088];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[(at%64)*17+at/64]=b.values[((colBase/16)*(k/64)+block)*1024+at];\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_tpanel(av,bv,lane/16,lane%16,0);\n      float r1=eight_tpanel(av,bv,lane/16,lane%16,8);\n      float r2=eight_tpanel(av,bv,lane/16,lane%16,16);\n      float r3=eight_tpanel(av,bv,lane/16,lane%16,24);\n      float r4=eight_tpanel(av,bv,lane/16,lane%16,32);\n      float r5=eight_tpanel(av,bv,lane/16,lane%16,40);\n      float r6=eight_tpanel(av,bv,lane/16,lane%16,48);\n      float r7=eight_tpanel(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float eight_swizzle(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*16+(col^((first+0)&15))];\n  float p1=a[row*64+first+1]*b[(first+1)*16+(col^((first+1)&15))];\n  float p2=a[row*64+first+2]*b[(first+2)*16+(col^((first+2)&15))];\n  float p3=a[row*64+first+3]*b[(first+3)*16+(col^((first+3)&15))];\n  float p4=a[row*64+first+4]*b[(first+4)*16+(col^((first+4)&15))];\n  float p5=a[row*64+first+5]*b[(first+5)*16+(col^((first+5)&15))];\n  float p6=a[row*64+first+6]*b[(first+6)*16+(col^((first+6)&15))];\n  float p7=a[row*64+first+7]*b[(first+7)*16+(col^((first+7)&15))];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_swizzle(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1024];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[at]=b.values[((colBase/16)*(k/64)+block)*1024+at];\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_swizzle(av,bv,lane/16,lane%16,0);\n      float r1=eight_swizzle(av,bv,lane/16,lane%16,8);\n      float r2=eight_swizzle(av,bv,lane/16,lane%16,16);\n      float r3=eight_swizzle(av,bv,lane/16,lane%16,24);\n      float r4=eight_swizzle(av,bv,lane/16,lane%16,32);\n      float r5=eight_swizzle(av,bv,lane/16,lane%16,40);\n      float r6=eight_swizzle(av,bv,lane/16,lane%16,48);\n      float r7=eight_swizzle(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float eight_both(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*16+col];\n  float p1=a[row*64+first+1]*b[(first+1)*16+col];\n  float p2=a[row*64+first+2]*b[(first+2)*16+col];\n  float p3=a[row*64+first+3]*b[(first+3)*16+col];\n  float p4=a[row*64+first+4]*b[(first+4)*16+col];\n  float p5=a[row*64+first+5]*b[(first+5)*16+col];\n  float p6=a[row*64+first+6]*b[(first+6)*16+col];\n  float p7=a[row*64+first+7]*b[(first+7)*16+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_both(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1024];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=a.values[((rowBase/16)*(k/64)+block)*1024+at];\n      bv[at]=b.values[((colBase/16)*(k/64)+block)*1024+at];\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_both(av,bv,lane/16,lane%16,0);\n      float r1=eight_both(av,bv,lane/16,lane%16,8);\n      float r2=eight_both(av,bv,lane/16,lane%16,16);\n      float r3=eight_both(av,bv,lane/16,lane%16,24);\n      float r4=eight_both(av,bv,lane/16,lane%16,32);\n      float r5=eight_both(av,bv,lane/16,lane%16,40);\n      float r6=eight_both(av,bv,lane/16,lane%16,48);\n      float r7=eight_both(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float eight_blockpad(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*16+col];\n  float p1=a[row*64+first+1]*b[(first+1)*16+col];\n  float p2=a[row*64+first+2]*b[(first+2)*16+col];\n  float p3=a[row*64+first+3]*b[(first+3)*16+col];\n  float p4=a[row*64+first+4]*b[(first+4)*16+col];\n  float p5=a[row*64+first+5]*b[(first+5)*16+col];\n  float p6=a[row*64+first+6]*b[(first+6)*16+col];\n  float p7=a[row*64+first+7]*b[(first+7)*16+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_blockpad(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1024];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[at]=b.values[block*(((n+15)/16)*1024+32)+(colBase/16)*1024+at];\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_blockpad(av,bv,lane/16,lane%16,0);\n      float r1=eight_blockpad(av,bv,lane/16,lane%16,8);\n      float r2=eight_blockpad(av,bv,lane/16,lane%16,16);\n      float r3=eight_blockpad(av,bv,lane/16,lane%16,24);\n      float r4=eight_blockpad(av,bv,lane/16,lane%16,32);\n      float r5=eight_blockpad(av,bv,lane/16,lane%16,40);\n      float r6=eight_blockpad(av,bv,lane/16,lane%16,48);\n      float r7=eight_blockpad(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\n\ninline float eight_panelpad(threadgroup float* a, threadgroup float* b,\n                                       uint row, uint col, uint first) {\n  float p0=a[row*64+first+0]*b[(first+0)*16+col];\n  float p1=a[row*64+first+1]*b[(first+1)*16+col];\n  float p2=a[row*64+first+2]*b[(first+2)*16+col];\n  float p3=a[row*64+first+3]*b[(first+3)*16+col];\n  float p4=a[row*64+first+4]*b[(first+4)*16+col];\n  float p5=a[row*64+first+5]*b[(first+5)*16+col];\n  float p6=a[row*64+first+6]*b[(first+6)*16+col];\n  float p7=a[row*64+first+7]*b[(first+7)*16+col];\n  return ((p0+p1)+(p2+p3))+((p4+p5)+(p6+p7));\n}\nkernel void matrix_panelpad(\n    device KalandraHardwareMatrix& a [[buffer(0)]],\n    device KalandraHardwareMatrix& b [[buffer(1)]],\n    device KalandraHardwareMatrix& output [[buffer(2)]],\n    device KalandraHardwareShape& parameters [[buffer(3)]],\n    uint lane [[thread_position_in_threadgroup]],\n    uint group [[threadgroup_position_in_grid]]) {\n  threadgroup float av[1024],bv[1024];\n  const uint m=parameters.values[0], k=parameters.values[1], n=parameters.values[2];\n  const uint tileColumns=n/16+uint(n%16!=0);\n  const uint rowBase=(group/tileColumns)*16, colBase=(group%tileColumns)*16;\n  const uint row=rowBase+lane/16, col=colBase+lane%16, blocks=k/64;\n  float s0=0.0f,s1=0.0f,s2=0.0f,s3=0.0f,s4=0.0f,s5=0.0f,s6=0.0f;\n  for (uint block=0;block<blocks;++block) {\n    const uint first=block*64;\n    for(uint at=lane;at<1024;at+=256) {\n      const uint r=rowBase+at/64,c=colBase+at%16;\n      av[at]=r<m ? a.values[r*k+first+at%64] : 0.0f;\n      bv[at]=b.values[(colBase/16)*((k/64)*1024+32)+block*1024+at];\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n    if(row<m && col<n) {\n      float r0=eight_panelpad(av,bv,lane/16,lane%16,0);\n      float r1=eight_panelpad(av,bv,lane/16,lane%16,8);\n      float r2=eight_panelpad(av,bv,lane/16,lane%16,16);\n      float r3=eight_panelpad(av,bv,lane/16,lane%16,24);\n      float r4=eight_panelpad(av,bv,lane/16,lane%16,32);\n      float r5=eight_panelpad(av,bv,lane/16,lane%16,40);\n      float r6=eight_panelpad(av,bv,lane/16,lane%16,48);\n      float r7=eight_panelpad(av,bv,lane/16,lane%16,56);\n      float value=((r0+r1)+(r2+r3))+((r4+r5)+(r6+r7));\n      // Explicit binary-counter roots avoid dynamically indexed private arrays.\n      // Every addition has the same left/right children as the general tree.\n      if(!(block&1u)) s0=value;\n      else { value=s0+value;\n        if(!(block&2u)) s1=value;\n        else { value=s1+value;\n          if(!(block&4u)) s2=value;\n          else { value=s2+value;\n            if(!(block&8u)) s3=value;\n            else { value=s3+value;\n              if(!(block&16u)) s4=value;\n              else { value=s4+value;\n                if(!(block&32u)) s5=value;\n                else s6=s5+value;\n              }\n            }\n          }\n        }\n      }\n    }\n    threadgroup_barrier(mem_flags::mem_threadgroup);\n  }\n  if(row<m && col<n) {\n    float value=0.0f;bool used=false;\n    if(blocks&1u) {value=s0;used=true;}\n    if(blocks&2u) {value=used?s1+value:s1;used=true;}\n    if(blocks&4u) {value=used?s2+value:s2;used=true;}\n    if(blocks&8u) {value=used?s3+value:s3;used=true;}\n    if(blocks&16u) {value=used?s4+value:s4;used=true;}\n    if(blocks&32u) {value=used?s5+value:s5;used=true;}\n    if(blocks&64u) {value=used?s6+value:s6;}\n    output.values[row*n+col]=value;\n  }\n}\nkernel void pack_panel(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];for(uint at=lane;at<1024;at+=256){uint i=group.y*64+at/16,c=group.x*16+at%16;output[(group.x*(k/64)+group.y)*1024+at]=c<n?input[i*n+c]:0u;}\n}\nkernel void pack_block(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];for(uint at=lane;at<1024;at+=256){uint i=group.y*64+at/16,c=group.x*16+at%16;output[(group.y*((n+15)/16)+group.x)*1024+at]=c<n?input[i*n+c]:0u;}\n}\nkernel void pack_column(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];threadgroup uint tile[32*33];\nfor(uint at=lane;at<1024;at+=256){uint i=group.y*32+at/32,c=group.x*32+at%32;tile[(at/32)*33+at%32]=c<n?input[i*n+c]:0u;}\nthreadgroup_barrier(mem_flags::mem_threadgroup);\nfor(uint at=lane;at<1024;at+=256){uint c=group.x*32+at/32,i=group.y*32+at%32;if(c<((n+15)/16)*16)output[c*k+i]=tile[(at%32)*33+at/32];}\n}\nkernel void pack_tpanel(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];threadgroup uint tile[64*17];\nfor(uint at=lane;at<1024;at+=256){uint i=group.y*64+at/16,c=group.x*16+at%16;tile[(at/16)*17+at%16]=c<n?input[i*n+c]:0u;}\nthreadgroup_barrier(mem_flags::mem_threadgroup);\nuint base=(group.x*(k/64)+group.y)*1024;\nfor(uint at=lane;at<1024;at+=256)output[base+at]=tile[(at%64)*17+at/64];\n}\nkernel void pack_swizzle(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];for(uint at=lane;at<1024;at+=256){uint i=group.y*64+at/16,c=group.x*16+at%16;c=(c&~15u)|((c&15u)^(i&15u));output[(group.x*(k/64)+group.y)*1024+at]=c<n?input[i*n+c]:0u;}\n}\nkernel void pack_both(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];for(uint at=lane;at<1024;at+=256){uint i=group.y*64+at/16,c=group.x*16+at%16;output[(group.x*(k/64)+group.y)*1024+at]=c<n?input[i*n+c]:0u;}\n}\nkernel void pack_blockpad(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];for(uint at=lane;at<1024;at+=256){uint i=group.y*64+at/16,c=group.x*16+at%16;output[group.y*(((n+15)/16)*1024+32)+group.x*1024+at]=c<n?input[i*n+c]:0u;}\nif(group.x==0 && lane<32)output[group.y*(((n+15)/16)*1024+32)+((n+15)/16)*1024+lane]=0u;\n}\nkernel void pack_panelpad(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];for(uint at=lane;at<1024;at+=256){uint i=group.y*64+at/16,c=group.x*16+at%16;output[group.x*((k/64)*1024+32)+group.y*1024+at]=c<n?input[i*n+c]:0u;}\nif(group.y==0 && lane<32)output[group.x*((k/64)*1024+32)+(k/64)*1024+lane]=0u;\n}\nkernel void pack_left(device const uint* input [[buffer(0)]],device uint* output [[buffer(1)]],constant uint* shape [[buffer(2)]],uint3 local [[thread_position_in_threadgroup]],uint3 group [[threadgroup_position_in_grid]]){uint lane=local.x;uint m=shape[0],k=shape[1],n=shape[2];for(uint at=lane;at<1024;at+=256){uint r=group.x*16+at/64,i=group.y*64+at%64;output[(group.x*(k/64)+group.y)*1024+at]=r<m?input[r*k+i]:0u;}\n}\n",
+  "contract": "Preallocated private input/output/packed buffers. GPU command interval includes fresh B packing once per round and, for both, A packing every call; repeated calls alternate two activation tensors, share one immutable B, and have distinct outputs. Packing is not retained across warmup/measured rounds. Host wall includes encoding/commit/wait but excludes buffer allocation, shader loading, uploads and output verification. Every output cell and guard, packed contents/padding/guard, and input immutability are checked outside timing every round. Strict dyadic screening, not full language/non-dyadic/safety qualification. R=1 includes construction for a single use; R=8 amortizes construction within the batch. Packed workspace and total preallocated GPU bytes are recorded.",
+  "schema": 1,
+  "timestamp": "2026-10-25T22:41:46.903909+00:00",
+  "compiler_sha256": "a36cf22cdaa11c7c446de24b141834e8069a1e083060341d29bb273a01de7fc6",
+  "source_sha256": {
+    "native/benchmarks/weight_packing.py": "e884c1aecbe1242503f3f74dbc92cb410f7023f4b5b6cc9f14413b0f0d23a021",
+    "native/benchmarks/WeightPackingStudy.mm": "e5fda5cc3e3dafd646d90adbf564221ccf88e31aa47879e6a65b6265b6549229",
+    "native/metal-source/HardwareShaders.h": "e032e15242f0488d1d8ebe2d6aead0daa4086aacaf9fd195e4c4cd927898d647",
+    "benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metal": "477c19467e9c8682a3b044617e6e099e3858d14954e970868a1b1c7b7d408231"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing": "0fff2a9c773da6bf6e0daab825633429014f851071c5d4479d3214b6bc5bd410",
+    "benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib": "6877471bdf97279e5971e678116e84aa38a8d8d15d14d02c193a1c67773181e7"
+  },
+  "commands": [
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "-mmacosx-version-min=26.0",
+      "-std=macos-metal2.2",
+      "-fno-fast-math",
+      "-ffp-contract=off",
+      "-c",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.air"
+    ],
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.air",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-DNDEBUG",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-ffp-contract=off",
+      "-fobjc-arc",
+      "-fblocks",
+      "-DKALANDRA_PACK_TILED",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/WeightPackingStudy.mm",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "1024",
+      "1024",
+      "1024",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "2048",
+      "2048",
+      "2048",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "blockpad",
+      "2048",
+      "2048",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "8",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/weight-packing-2026-10-25/weight-packing-padding-screening-2026-10-25/packing.metallib",
+      "panelpad",
+      "1024",
+      "1024",
+      "1024",
+      "8",
+      "3"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "0937d11518994f98ca9d697eaecd596620ced11f",
+  "worktree_status": " M docs/design/apple-gpu.md\n M native/benchmarks/pipeline_run.py\n M native/metal-source/Build.cpp\n M native/metal-source/MatmulEpilogue.h\n M native/metal/MatmulLayout.h\n M native/metal/Metal.mm\n M native/tests/MatmulEpilogueTests.cpp\n M native/tests/PipelineGpu.cpp\n M native/tests/PipelineTests.py\n M native/tests/RegisterMatmulGpu.cpp\n?? benchmarks/results/weight-packing-boundaries-2026-10-25.json\n?? benchmarks/results/weight-packing-confirmation-2026-10-25.json\n?? benchmarks/results/weight-packing-right-boundaries-2026-10-25.json\n?? benchmarks/results/weight-packing-screening-2026-10-25.json\n?? benchmarks/results/weight-packing-tiled-screening-2026-10-25.json\n?? native/benchmarks/WeightPackingStudy.mm\n?? native/benchmarks/weight_packing.py\n?? native/benchmarks/weight_packing_boundaries.py\n?? native/benchmarks/weight_packing_confirm.py\n?? native/metal-source/HardwarePacked.h\n?? native/tests/PackedWeightsBits.mm\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}
