@@ -1,15 +1,33 @@
 """Integrity tests for independently checked benchmark evidence."""
 import json
+import struct
 import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'benchmarks/fair'))
 import protocol as p
 import library_reference as ref
+import pipeline_reference as pipeline
 import source
 import source_run
 
 class EvidenceTests(unittest.TestCase):
+    def test_pipeline_fixed_point_reference(self):
+        f32=lambda x:struct.unpack('f',struct.pack('f',x))[0]
+        for value in (2**24-1,2**24+1,2**24+3,2**25+2,2**25+6,2**40+65536):
+            self.assertEqual(pipeline.round32_integer(value),int(f32(value)))
+        for n in (1,3,7,17):
+            a,b=ref.inputs(n,2,'float32',0)
+            cells=[max(0.,f32(f32(sum(a[r*n+k]*b[k*n+c] for k in range(n)))+.125)*.25)
+                   for r in range(n) for c in range(n)]
+            tree=cells.copy()
+            while len(tree)>1:
+                tree=[f32(tree[i]+tree[i+1]) for i in range(0,len(tree)-1,2)]+(tree[-1:] if len(tree)&1 else [])
+            self.assertEqual(pipeline.exact(n),tree[0])
+            pipeline.assess(n,0,tree[0],cells)
+            bad=cells.copy();bad[0]+=1
+            with self.assertRaises(AssertionError):pipeline.assess(n,0,tree[0],bad)
+
     def rows(self, value=4, ns=1):
         return '\n'.join(json.dumps(dict(round=r, checksum=value, ns=ns)) for r in (-2,-1,0))
 

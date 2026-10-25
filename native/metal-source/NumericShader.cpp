@@ -309,7 +309,26 @@ public:
         const auto bits = describeNumeric(element)->bits;
         if (out.boolean)
           out.value = negate(header, materialize(out));
-        else if (op == TokenKind::Minus) {
+        else if (op == TokenKind::Relu) {
+          auto &builder = out.tensor ? lane : header;
+          auto value = materialize(out);
+          if (!isUnsigned(element)) {
+            auto sign =
+                arith::AndIOp::create(builder, loc(), value, c(builder, UINT64_C(1) << (bits - 1)));
+            Value clear = cmp(builder, arith::CmpIPredicate::ne, sign, c(builder, 0));
+            if (!isInteger(element)) {
+              auto magnitude = arith::AndIOp::create(
+                  builder, loc(), value,
+                  c(builder, bits == 32 ? UINT64_C(0x7fffffff) : UINT64_C(0x7fffffffffffffff)));
+              auto notNaN =
+                  cmp(builder, arith::CmpIPredicate::ule, magnitude,
+                      c(builder, bits == 32 ? UINT64_C(0x7f800000) : UINT64_C(0x7ff0000000000000)));
+              clear = arith::AndIOp::create(builder, loc(), clear, notNaN);
+            }
+            out.value = arith::SelectOp::create(builder, loc(), clear, c(builder, 0), value);
+            out.parameter.reset();
+          }
+        } else if (op == TokenKind::Minus) {
           auto &builder = out.tensor ? lane : header;
           if (isInteger(element)) {
             auto numeric =

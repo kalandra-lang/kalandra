@@ -1126,6 +1126,18 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
+  add_test(NAME native-metal-pipeline
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/PipelineTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/pipeline")
+  set_tests_properties(native-metal-pipeline PROPERTIES TIMEOUT 600
+    RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
+  add_test(NAME native-metal-relu
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/ReluTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/relu" --gpu --gpu-only)
+  set_tests_properties(native-metal-relu PROPERTIES TIMEOUT 600
+    RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
   add_test(NAME native-metal-gpu-optimization
     COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/GpuOptimizationTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

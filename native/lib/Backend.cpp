@@ -952,6 +952,31 @@ private:
                                                      : negate(less);
     return both(ordered, result);
   }
+  Value relu(Location loc, Value input, NumericType element) {
+    const auto bits = describeNumeric(element)->bits;
+    if (isUnsigned(element))
+      return input;
+    auto integerType = builder_.getIntegerType(bits);
+    Value value = isInteger(element)
+                      ? input
+                      : Value(arith::BitcastOp::create(builder_, loc, integerType, input));
+    auto zero = arith::ConstantIntOp::create(builder_, loc, 0, bits);
+    Value clear = compare(loc, arith::CmpIPredicate::slt, value, zero);
+    if (!isInteger(element)) {
+      auto magnitude = arith::AndIOp::create(
+          builder_, loc, value,
+          arith::ConstantIntOp::create(builder_, loc,
+                                       bits == 32 ? 0x7fffffffLL : 0x7fffffffffffffffLL, bits));
+      auto infinity = arith::ConstantIntOp::create(
+          builder_, loc, bits == 32 ? 0x7f800000LL : 0x7ff0000000000000LL, bits);
+      auto notNaN = compare(loc, arith::CmpIPredicate::ule, magnitude, infinity);
+      clear = arith::AndIOp::create(builder_, loc, clear, notNaN);
+    }
+    auto result = arith::SelectOp::create(builder_, loc, clear, zero, value);
+    return isInteger(element)
+               ? Value(result)
+               : Value(arith::BitcastOp::create(builder_, loc, input.getType(), result));
+  }
   Value integerUnary(Location loc, Value operand, TokenKind op, bool unsignedValue = false) {
     if (op == TokenKind::Plus)
       return operand;
@@ -1659,8 +1684,11 @@ private:
         Value left = tensorA ? tensor::ExtractOp::create(builder_, loc, a, indices).getResult() : a;
         Value result;
         if (!b) {
-          result = isInteger(element) ? integerUnary(loc, left, op, isUnsigned(element))
-                                      : arith::NegFOp::create(builder_, loc, left).getResult();
+          if (op == TokenKind::Relu)
+            result = relu(loc, left, element);
+          else
+            result = isInteger(element) ? integerUnary(loc, left, op, isUnsigned(element))
+                                        : arith::NegFOp::create(builder_, loc, left).getResult();
         } else {
           Value right =
               tensorB ? tensor::ExtractOp::create(builder_, loc, b, indices).getResult() : b;
@@ -1808,6 +1836,8 @@ private:
         const auto &node = input_.expressions[id];
         if (auto *op = std::get_if<TensorUnary>(&node.operation)) {
           auto value = lane(op->operand, indices);
+          if (op->operation == TokenKind::Relu)
+            return relu(loc, value, node.type.element);
           return op->operation == TokenKind::Plus
                      ? value
                      : Value(arith::NegFOp::create(builder_, loc, value));

@@ -959,7 +959,10 @@ std::string dumpTypedIR(const TypedModule &module) {
                 out << (node.type.element == NumericType::Float64 ? "f64 " : "f32 ");
               value(operation.operand);
             } else if constexpr (std::is_same_v<T, TensorUnary>) {
-              if (isInteger(node.type.element))
+              if (operation.operation == TokenKind::Relu)
+                out << "elementwise relu." << describeNumeric(node.type.element)->name
+                    << " preserve_nan ";
+              else if (isInteger(node.type.element))
                 out << "elementwise neg." << (isUnsigned(node.type.element) ? "u" : "i")
                     << describeNumeric(node.type.element)->bits << " checked ";
               else

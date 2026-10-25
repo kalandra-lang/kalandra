@@ -100,6 +100,8 @@ int main() {
            "fn float32(input: int64) -> float32");
     expect("fn main():\n  array(tensor([1,2],[1,2]))\n", "array",
            "fn array(input: Tensor[int64, 1, 2]) -> [int64]");
+    expect("fn main():\n  relu(tensor([-1,2]))\n", "relu",
+           "fn relu(input: Tensor[int64, 2]) -> Tensor[int64, 2]");
     expect("fn main():\n  reduceSum(tensor([1,2]))\n", "reduceSum",
            "fn reduceSum(input: Tensor[int64, 2]) -> int64");
     expect(

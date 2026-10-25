@@ -247,8 +247,9 @@ private:
     if (callTarget) {
       // These names are compiler call forms, not first-class function values.
       // Insert last so lexical and module bindings retain their normal priority.
-      for (const auto *label : {"array", "tensor", "reshape", "map", "parallelMap", "matmul",
-                                "reduceSum", "length", "byteLength", "shape", "slice", "concat"})
+      for (const auto *label :
+           {"array", "tensor", "reshape", "map", "parallelMap", "matmul", "reduceSum", "relu",
+            "length", "byteLength", "shape", "slice", "concat"})
         insert(label, ScopeNameKind::Function);
       if (allowTransfer && options_.placement && !frame.groups.empty())
         insert("transfer", ScopeNameKind::Function);
@@ -4024,6 +4025,13 @@ private:
             syntax_.expressions[arguments[0]].span);
       return {};
     }
+    if (callee == "relu") {
+      if (!describeNumeric(leftType.element)) {
+        error("S053", "relu requires a numeric tensor", span);
+        return {};
+      }
+      return add(frame, leftType, span, TensorUnary{TokenKind::Relu, *left});
+    }
     if (!(callee == "reduceSum" ? numericReductionAvailable(leftType.element, NumericTarget::Cpu)
                                 : numericMatmulAvailable(leftType.element, NumericTarget::Cpu))) {
       error("S053", callee + " currently requires implemented numeric tensor elements", span);
@@ -4256,7 +4264,7 @@ private:
         return collectionQuery(frame, span, callee, arguments);
       if (callee == "map" || callee == "parallelMap")
         return arrayMap(frame, span, arguments, callee == "parallelMap");
-      if (callee == "tensor" || callee == "matmul" || callee == "reduceSum")
+      if (callee == "tensor" || callee == "matmul" || callee == "reduceSum" || callee == "relu")
         return builtin(frame, span, callee, arguments, expected);
       error("S031", "unknown function '" + callee + "'", calleeSpan);
       return {};

@@ -472,6 +472,9 @@ int main() {
                 result->label == "fn matmul(left: Tensor[int64, 1, 2], right: Tensor[int64, 2, 1]) "
                                  "-> Tensor[int64, 1, 1]",
             "piped matrix call tracks explicit right operand");
+    result = query("fn main():\n  relu(|tensor([-1,2]))\n");
+    require(result && result->label == "fn relu(input: Tensor[int64, 2]) -> Tensor[int64, 2]",
+            "ReLU tensor signature");
     result = query("fn main():\n  reduceSum(|tensor([7],[]))\n");
     require(result && result->label == "fn reduceSum(input: Tensor[int64]) -> int64",
             "rank-zero reduction signature");

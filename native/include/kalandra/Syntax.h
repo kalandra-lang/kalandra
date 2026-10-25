@@ -76,7 +76,8 @@ enum class TokenKind {
   Dot,
   Comparison,
   Bang,
-  Pipe
+  Pipe,
+  Relu // Typed tensor builtin; never produced by the lexer.
 };
 struct Token {
   TokenKind kind;

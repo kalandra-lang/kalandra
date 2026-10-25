@@ -244,13 +244,12 @@ bool validRenameName(std::string_view name) {
   if (!identifier(name))
     return false;
   constexpr std::string_view reserved[] = {
-      "fn",        "export",     "from",    "import",   "as",          "type",      "enum",
-      "error",     "with",       "if",      "else",     "match",       "catch",     "fail",
-      "try",       "await",      "spawn",   "parallel", "on",          "true",      "false",
-      "and",       "or",         "not",     "main",     "Tensor",      "Bool",      "String",
-      "TaskError", "FaultKind",  "devices", "map",      "parallelMap", "reduceSum", "matmul",
-      "length",    "byteLength", "shape",   "array",    "tensor",      "int",       "uint",
-      "float"};
+      "fn",          "export",    "from", "import", "as",        "type",       "enum",    "error",
+      "with",        "if",        "else", "match",  "catch",     "fail",       "try",     "await",
+      "spawn",       "parallel",  "on",   "true",   "false",     "and",        "or",      "not",
+      "main",        "Tensor",    "Bool", "String", "TaskError", "FaultKind",  "devices", "map",
+      "parallelMap", "reduceSum", "relu", "matmul", "length",    "byteLength", "shape",   "array",
+      "tensor",      "int",       "uint", "float"};
   if (std::ranges::find(reserved, name) != std::end(reserved))
     return false;
   return std::ranges::none_of(numericTypes, [&](const auto &type) { return type.name == name; });

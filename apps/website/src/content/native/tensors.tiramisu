@@ -32,6 +32,22 @@ codeblock { language = kalandra, """fn main() -> float32:
 
 matmul currently multiplies rank-two tensors with matching inner dimensions. reduceSum follows a balanced adjacent-pair tree, rather than an arbitrary sequential or reassociated sum. Integer products and sums remain checked.
 
+h2 { "ReLU activation" }
+
+codeblock { language = kalandra, """fn main() -> float32:
+  values: Tensor[float32, 2, 2] = tensor([[-3, 2], [-1, 4]])
+  activated = relu(values)
+  reduceSum(activated)
+""" }
+
+relu(values) applies rectified linear activation to every element and preserves the tensor's shape and numeric type. It supports all ten numeric types and ranks zero through eight on CPU and Apple GPU. It accepts a tensor, not a scalar or array. Inputs remain immutable.
+
+Negative values become zero; positive values remain unchanged. For floating types, negative zero becomes positive zero, positive infinity remains positive infinity, negative infinity becomes zero, and NaN bit patterns are preserved. Positive subnormal values are preserved by ReLU itself; surrounding GPU floating arithmetic retains its documented flush-to-zero behavior. Unsigned tensors are unchanged in value.
+
+ReLU uses integer-bit selection, including for float64 on Metal. It does not require software floating arithmetic. Arithmetic surrounding float64 ReLU, such as matrix multiplication or reduction on the GPU, still requires an explicit software fallback where hardware lacks that arithmetic.
+
+Compose relu(matmul(input, weights) + bias) inside an eligible GPU function. Bias must have the complete output shape; implicit row or column broadcasting is not provided. Keep tensors resident between operations and read back only the final result when possible.
+
 h2 { "Move to a GPU" }
 
 Building a tensor does not place it on a device. Transfer data explicitly and dispatch an eligible numerical function on the chosen GPU. A tensor result can remain resident for later numerical work.

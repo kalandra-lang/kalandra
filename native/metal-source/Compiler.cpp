@@ -120,6 +120,9 @@ class Compiler {
             (std::holds_alternative<ScalarBinary>(op) || std::holds_alternative<TensorBinary>(op) ||
              std::holds_alternative<ScalarUnary>(op) || std::holds_alternative<TensorUnary>(op) ||
              std::holds_alternative<Matmul>(op) || std::holds_alternative<ReduceSum>(op));
+        if (auto *unary = std::get_if<TensorUnary>(&op);
+            unary && unary->operation == TokenKind::Relu)
+          requiresDouble = false; // ReLU selects integer bits; no binary64 arithmetic.
         if (auto *cast = std::get_if<NumericConvert>(&op))
           requiresDouble |= expression.type.element == NumericType::Float64 ||
                             cpu.expressions[cast->input].type.element == NumericType::Float64;
@@ -763,7 +766,8 @@ class Compiler {
         } else if (const auto *unary = std::get_if<TensorUnary>(&node.operation)) {
           auto input = emit(unary->operand);
           if (input && *input >= 0 &&
-              (unary->operation == TokenKind::Plus || unary->operation == TokenKind::Minus)) {
+              (unary->operation == TokenKind::Plus || unary->operation == TokenKind::Minus ||
+               unary->operation == TokenKind::Relu)) {
             if (laneDepth)
               result = *input;
             else {
@@ -878,7 +882,8 @@ class Compiler {
         } else if (const auto *unary = std::get_if<ScalarUnary>(&node.operation)) {
           auto a = emit(unary->operand);
           if (a && *a < 0 &&
-              (unary->operation == TokenKind::Plus || unary->operation == TokenKind::Minus)) {
+              (unary->operation == TokenKind::Plus || unary->operation == TokenKind::Minus ||
+               unary->operation == TokenKind::Relu)) {
             result = *a;
             graph.scalarPost |= *result <= -2;
           }
@@ -998,17 +1003,19 @@ class Compiler {
     if (auto found = hostOperations.find(key); found != hostOperations.end())
       return found->second;
     const auto conversion = resolveNumeric(operation);
-    const bool builtin = operation == "matmul" || operation == "reduceSum" || conversion;
-    if (inputs.size() !=
-        (operation == "reduceSum" || operation == "neg" || operation == "pos" || conversion ? 1
-                                                                                            : 2))
+    const bool builtin =
+        operation == "matmul" || operation == "reduceSum" || operation == "relu" || conversion;
+    if (inputs.size() != (operation == "reduceSum" || operation == "relu" || operation == "neg" ||
+                                  operation == "pos" || conversion
+                              ? 1
+                              : 2))
       reject(span, "inline CPU operation argument count mismatch");
     auto name = "__host_expression_" + std::to_string(cpu.functions.size());
     while (cpuFunctions.contains(name))
       name += "_";
-    const auto type = [](unsigned rank, NumericType element) {
+    const auto type = [](unsigned rank, NumericType element, bool tensor = false) {
       auto name = std::string(describeNumeric(element)->name);
-      if (!rank)
+      if (!rank && !tensor)
         return name;
       std::string result = "Tensor[" + name;
       for (unsigned axis = 0; axis < rank; ++axis)
@@ -1016,20 +1023,26 @@ class Compiler {
       return result + "]";
     };
     unsigned resultRank = 0;
+    bool resultTensor = false;
     std::string parameters, arguments;
     for (std::size_t i = 0; i < inputs.size(); ++i) {
       auto rank = inputs[i].kind == Value::Tensor ? inputs[i].rank : 0;
       resultRank = std::max(resultRank, rank);
+      resultTensor |= inputs[i].kind == Value::Tensor;
       if (i) {
         parameters += ",";
         arguments += ",";
       }
       parameters += "a" + std::to_string(i) + ":" +
-                    (inputs[i].kind == Value::Boolean ? "Bool" : type(rank, inputs[i].element));
+                    (inputs[i].kind == Value::Boolean
+                         ? "Bool"
+                         : type(rank, inputs[i].element, inputs[i].kind == Value::Tensor));
       arguments += "a" + std::to_string(i);
     }
-    if (operation == "reduceSum")
+    if (operation == "reduceSum") {
       resultRank = 0;
+      resultTensor = false;
+    }
     std::string body = builtin              ? operation + "(" + arguments + ")"
                        : operation == "neg" ? "-a0"
                        : operation == "pos" ? "+a0"
@@ -1039,7 +1052,9 @@ class Compiler {
     auto source = std::make_shared<SourceFile>(
         syntax.source->path(),
         "fn " + name + "(" + parameters + ") -> " +
-            (comparison ? "Bool" : type(resultRank, conversion.value_or(inputs.at(0).element))) +
+            (comparison
+                 ? "Bool"
+                 : type(resultRank, conversion.value_or(inputs.at(0).element), resultTensor)) +
             ":\n  " + body + "\n");
     auto checked = kalandra::check(parse(source));
     if (!checked.ok()) {
@@ -2207,13 +2222,19 @@ class Compiler {
       return value;
     }
     if (const auto *unary = std::get_if<ScalarUnary>(&typed.operation))
-      return hostOperation(unary->operation == TokenKind::Minus ? "neg" : "pos", args, span);
+      return hostOperation(unary->operation == TokenKind::Relu    ? "relu"
+                           : unary->operation == TokenKind::Minus ? "neg"
+                                                                  : "pos",
+                           args, span);
     if (const auto *binary = std::get_if<ScalarBinary>(&typed.operation))
       return arithmetic(binary->operation, args, span);
     if (std::holds_alternative<NumericConvert>(typed.operation))
       return hostOperation(std::string(describeNumeric(typed.type.element)->name), args, span);
     if (const auto *unary = std::get_if<TensorUnary>(&typed.operation))
-      return hostOperation(unary->operation == TokenKind::Minus ? "neg" : "pos", args, span);
+      return hostOperation(unary->operation == TokenKind::Relu    ? "relu"
+                           : unary->operation == TokenKind::Minus ? "neg"
+                                                                  : "pos",
+                           args, span);
     if (const auto *binary = std::get_if<TensorBinary>(&typed.operation))
       return arithmetic(binary->operation, args, span);
     if (std::holds_alternative<ReduceSum>(typed.operation))
@@ -3011,6 +3032,29 @@ class Compiler {
             result = temporary();
             operands = {operand};
             instruction << "        " << result << " = arith.negf " << operand << " : f32\n";
+          } else if (op == TokenKind::Relu) {
+            auto operand = result;
+            operands = {operand};
+            auto bits = temporary(), zero = temporary(), mask = temporary(), infinity = temporary();
+            auto magnitude = temporary(), negative = temporary(), notNaN = temporary(),
+                 clear = temporary(), selected = temporary();
+            result = temporary();
+            instruction << "        " << bits << " = arith.bitcast " << operand << " : f32 to i32\n"
+                        << "        " << zero << " = arith.constant 0 : i32\n"
+                        << "        " << mask << " = arith.constant 2147483647 : i32\n"
+                        << "        " << infinity << " = arith.constant 2139095040 : i32\n"
+                        << "        " << magnitude << " = arith.andi " << bits << ", " << mask
+                        << " : i32\n"
+                        << "        " << negative << " = arith.cmpi slt, " << bits << ", " << zero
+                        << " : i32\n"
+                        << "        " << notNaN << " = arith.cmpi ule, " << magnitude << ", "
+                        << infinity << " : i32\n"
+                        << "        " << clear << " = arith.andi " << negative << ", " << notNaN
+                        << " : i1\n"
+                        << "        " << selected << " = arith.select " << clear << ", " << zero
+                        << ", " << bits << " : i32\n"
+                        << "        " << result << " = arith.bitcast " << selected
+                        << " : i32 to f32\n";
           } else if (op != TokenKind::Plus)
             reject(n.span, "GPU unary arithmetic is not implemented");
         } else if (auto *sum = std::get_if<ReduceSum>(&n.operation)) {

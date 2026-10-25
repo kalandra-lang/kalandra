@@ -180,6 +180,10 @@
     {
       "kind": "cpu",
       "expected": "23"
+    },
+    {
+      "kind": "cpu",
+      "expected": "6"
     }
   ],
   "tooling": [],

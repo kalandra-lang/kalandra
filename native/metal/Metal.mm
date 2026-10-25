@@ -821,6 +821,12 @@ struct Bridge {
     Buffer matrixLeft{}, matrixRight{}, combinedSource{};
     Kernel combinedKernel{};
     std::shared_ptr<MetalAllocation> combinedParameters;
+    // A matrix and its pure post-map may share one uncommitted command.
+    // Keep the first stage's owners and budget reservations until acknowledgement.
+    Buffer batchedLeft{}, batchedRight{};
+    Kernel batchedKernel{};
+    std::shared_ptr<MetalAllocation> batchedParameters;
+    id<MTLCommandBuffer> pendingCommand = nil;
     Kernel matrixKernel{}, graphKernel{};
     std::size_t graphStage = 0, reductionStage = 0;
     unsigned graphPhase = 0;
@@ -1548,6 +1554,10 @@ struct Bridge {
           nextGraphStage(f);
         }
         if (f.started) {
+          f.batchedLeft = {};
+          f.batchedRight = {};
+          f.batchedKernel = {};
+          f.batchedParameters.reset();
           if (!f.succeeded) {
             task.fault(static_cast<std::int64_t>(f.error));
             return;
@@ -1911,14 +1921,16 @@ struct Bridge {
           task.complete(&f.packet.input);
           return;
         }
-        auto count = state->inFlight.load();
-        do {
-          if (count >= state->options.maxInFlight) {
-            task.fault(std::int64_t(Error::Budget));
-            return;
-          }
-        } while (!state->inFlight.compare_exchange_weak(count, count + 1));
-        f.active = true;
+        if (!f.active) {
+          auto count = state->inFlight.load();
+          do {
+            if (count >= state->options.maxInFlight) {
+              task.fault(std::int64_t(Error::Budget));
+              return;
+            }
+          } while (!state->inFlight.compare_exchange_weak(count, count + 1));
+          f.active = true;
+        }
         const auto encodingStart = state->options.profile ? std::chrono::steady_clock::now()
                                                           : std::chrono::steady_clock::time_point{};
         id<MTLCommandBuffer> command = nil;
@@ -2022,7 +2034,9 @@ struct Bridge {
               }
               [arguments setArgumentBuffer:f.resources->buffer offset:0];
             }
-            if (!state->permit() || !(command = [state->queues[index] commandBuffer])) {
+            command = f.pendingCommand;
+            if (!command &&
+                (!state->permit() || !(command = [state->queues[index] commandBuffer]))) {
               task.fault(std::int64_t(Error::Allocation));
               return;
             }
@@ -2203,6 +2217,41 @@ struct Bridge {
             }
           }
         }
+        // Hardware float32 post-maps have no checked device fault or observable
+        // host boundary. Batch only with ample workspace headroom; tight budgets
+        // retain the acknowledgement path and its earlier resource reclamation.
+        const auto usedBytes = state->bytes.load();
+        const auto postBytes = f.packet.matrixPost.state_
+                                   ? 4ull * f.packet.matrixPost.state_->parameterWords() +
+                                         f.packet.matrixPost.state_->encodedBytes
+                                   : 0;
+        const bool batchPost =
+            matrix && f.packet.matrixPost.state_ && f.packet.kernel.state_->tiledMatrix &&
+            !f.packet.matrixPost.state_->numericType && !f.packet.graph &&
+            !f.packet.numericProgram && !f.packet.epilogue &&
+            (!f.packet.reduction || f.packet.reduction.state_->blockReduction) &&
+            f.result.bytes() && usedBytes <= state->options.maxBytes &&
+            2 * f.result.bytes() + postBytes + 4096 <= state->options.maxBytes - usedBytes;
+        if (batchPost) {
+          f.batchedLeft = std::move(f.packet.input);
+          f.batchedRight = std::move(f.packet.right);
+          f.batchedKernel = std::move(f.packet.kernel);
+          f.batchedParameters = std::move(f.staging);
+          f.pendingCommand = command;
+          f.packet.replacement = std::move(f.result);
+          f.packet.kernel = std::move(f.packet.matrixPost);
+          f.packet.arguments = std::move(f.packet.postArguments);
+          f.packet.kind = Kind::Elementwise;
+          f.matrixStage = 0;
+          f.started = false;
+          if (state->options.profile)
+            state->encodingNanoseconds += std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                              std::chrono::steady_clock::now() - encodingStart)
+                                              .count();
+          if (task.cancelled())
+            return;
+          continue;
+        }
         // A pure hardware map/matrix followed by a sum has no observable host
         // boundary. Encode the reduction into the same command, retaining every
         // original resource and its budget reservation through acknowledgement.
@@ -2223,6 +2272,7 @@ struct Bridge {
             return;
           }
         }
+        f.pendingCommand = nil;
         f.error = Error::Device;
         auto completion = task.suspendExternal();
         if (!completion)
