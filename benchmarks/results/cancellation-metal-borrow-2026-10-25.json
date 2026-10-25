@@ -1,0 +1,8 @@
+{
+  "physical_metal_borrows": 100,
+  "exact_values": 409600,
+  "device": "Apple M2 Max",
+  "command": "/opt/homebrew/opt/llvm/bin/clang++ -std=c++20 -O2 -fobjc-arc native/experiments/cancellation/GpuLease.mm build/native/native/libkalandra-task-core-optimized.a -framework Metal -framework Foundation -o benchmarks/.build/cancellation/gpu-lease; benchmarks/.build/cancellation/gpu-lease",
+  "source_sha256": "6f5a3b6b9f9c5342eea891ce8530204b791e11423fd15035358e331453a333db",
+  "binary_sha256": "680e002653cbc90cb0186a6e3f3cf8bbea265f703655d6afbab672ab51f0c33b"
+}
