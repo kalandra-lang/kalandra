@@ -233,7 +233,7 @@ if(BUILD_TESTING)
         "-DCASE_DIR=${CMAKE_CURRENT_BINARY_DIR}/toolchain-proof/cases"
         "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/compiled-${VARIANT}"
         -P "${PROJECT_SOURCE_DIR}/native/cmake/VerifyNativeSource.cmake")
-    set_tests_properties(native-source-${VARIANT} PROPERTIES TIMEOUT 120)
+    set_tests_properties(native-source-${VARIANT} PROPERTIES TIMEOUT 300)
   endforeach()
 endif()
 

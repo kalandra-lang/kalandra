@@ -100,7 +100,10 @@ static unsigned verify(std::int64_t rows, std::int64_t inner, std::int64_t colum
     check(!std::memcmp(a.data(), originalA.data(), a.size() * sizeof(float)) &&
           !std::memcmp(b.data(), originalB.data(), b.size() * sizeof(float)));
     allocations = context.allocations();
-    check(allocations <= 2); // One product/root scratch plus one output, independent of tile count.
+    // Dense wide shapes also pack the RHS once; allocation count remains
+    // independent of tile count and every reserved backing is swept below.
+    const bool packed = rows >= 32 && inner >= 128 && columns >= 32;
+    check(allocations <= (packed ? 3u : 2u));
     context.settle();
     check(!context.live() && context.allocations() == context.releases());
   }

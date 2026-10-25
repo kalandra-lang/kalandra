@@ -3,6 +3,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #ifndef TEST_SCALAR
 #error TEST_SCALAR is required
 #endif
