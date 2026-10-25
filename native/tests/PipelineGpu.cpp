@@ -333,7 +333,9 @@ int main(int argc, char **argv) {
     // epilogues, including partial 16x16 output tiles. Periodic phases avoid
     // duplicating the production tile or millions of redundant oracle calls.
     if (!tight) {
-      for (auto shape : {std::array{17, 256, 17}, std::array{257, 576, 257}}) {
+      for (auto shape :
+           {std::array{17, 256, 17}, std::array{257, 576, 257}, std::array{1025, 2048, 1027},
+            std::array{513, 4096, 2049}, std::array{2049, 4096, 513}}) {
         auto [rows, k, columns] = shape;
         std::vector<Bits> av(rows * k), bv(k * columns),
             cv(rows * columns, std::bit_cast<Bits>(0.12345f));

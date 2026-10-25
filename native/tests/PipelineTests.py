@@ -13,8 +13,10 @@ def run(args):
  return r.stdout
 bundle=a.output/'bundle'
 run([compiler,root/'native/benchmarks/Pipeline.k','--target','metal','--arithmetic','hardware','-O2','-o',bundle])
+assert 'kalandra_matmul_hardware_grouped16' in (bundle/'kernel0.metal').read_text(), 'compiler must include grouped kernel'
 assert 'kalandra_matmul_hardware_register16' in (bundle/'kernel0.metal').read_text(), 'compiler must include current register kernel'
 post=(bundle/'kernel0-post.metal').read_text()
+assert 'kalandra_matmul_fused_grouped16' in post, 'compiler must include grouped epilogue'
 assert 'kalandra_matmul_fused_register16' in post, 'compiler must include current epilogue'
 # Simulate an existing bundle: same standalone map, no optional fused entries.
 legacy=a.output/'legacy';shutil.copytree(bundle,legacy,dirs_exist_ok=True)
@@ -23,12 +25,22 @@ lock=json.loads((root/'native/metal-proof/toolchain.json').read_text())
 metal=['xcrun','--toolchain',lock['metalToolchain'],'--sdk','macosx','metal']
 run([*metal,'-mmacosx-version-min=26.0','-std=macos-metal2.2','-fno-fast-math','-ffp-contract=off','-c',plain,'-o',a.output/'legacy-post.air'])
 run([*metal,a.output/'legacy-post.air','-o',legacy/'kernel0-post.metallib'])
+# Simulate a pre-grouping bundle with all four earlier fused entries intact.
+old_bundle=a.output/'old-bundle';shutil.copytree(bundle,old_bundle,dirs_exist_ok=True)
+for file,entry in [('kernel0','kalandra_matmul_hardware_grouped16'),('kernel0-post','kalandra_matmul_fused_grouped16')]:
+ text=(bundle/(file+'.metal')).read_text();start=text.index('kernel void '+entry+'(');body=text.index('{',start);depth=1;end=body+1
+ while depth:
+  depth+=(text[end]=='{')-(text[end]=='}');end+=1
+ source=a.output/(file+'-old.metal');source.write_text(text[:start]+text[end:])
+ run([*metal,'-mmacosx-version-min=26.0','-std=macos-metal2.2','-fno-fast-math','-ffp-contract=off','-c',source,'-o',a.output/(file+'-old.air')])
+ run([*metal,a.output/(file+'-old.air'),*([bundle/'kernel0-rows2.air',bundle/'kernel0-quad.air'] if file=='kernel0' else []),'-o',old_bundle/(file+'.metallib')])
 variants=[('optimized',['-O2'],'libkalandra-task-core-optimized.a'),('debug',['-O0'],'libkalandra-native-runtime.a'),('sanitized',['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'],'libkalandra-native-runtime-sanitized.a'),('thread-sanitized',['-O1','-g','-fsanitize=thread','-fno-omit-frame-pointer'],'libkalandra-native-runtime-thread-sanitized.a')]
 for name,flags,runtime in variants:
  for harness in ('PipelineGpu','RegisterMatmulGpu'):
   binary=a.output/(name+'-'+harness)
   run([clang,'-std=c++23','-ffp-contract=off','-pthread','-Wall','-Wextra','-Werror',*flags,'-isystem',llvm/'include',root/('native/tests/'+harness+'.cpp'),compiler.parent/'metal'/('libkalandra-metal-'+name+'.a'),compiler.parent/runtime,'-L'+str(llvm/'lib'),'-lLLVM','-Wl,-rpath,'+str(llvm/'lib'),'-framework','Foundation','-framework','Metal','-o',binary])
   print(name+': '+run([binary,bundle]).strip(),flush=True)
+  if name=='optimized':print(name+' old-bundle: '+run([binary,old_bundle]).strip(),flush=True)
   if harness=='PipelineGpu':print(name+' legacy: '+run([binary,legacy,'--legacy']).strip(),flush=True)
 
 # Source-level captures at the fusion/direct/argument-buffer boundaries.

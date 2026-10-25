@@ -1,4 +1,5 @@
 #pragma once
+#include "GroupedMatmul.h"
 #include "HardwareShaders.h"
 #include <cstdint>
 #include <optional>
@@ -96,10 +97,11 @@ inline std::optional<std::string> matmulEpilogue(const std::string &source, unsi
   arguments += "," + parameter;
   extra += "    device " + types.back() + "& " + parameter + " [[buffer(" +
            std::to_string(tensors + 3) + ")]],\n";
-  std::string matrices = std::string(hardwareMatmulShader) + hardwareRegisterMatmulShader;
+  std::string matrices = std::string(hardwareMatmulShader) + hardwareRegisterMatmulShader +
+                         hardwareGroupedMatmulShader();
   replace(matrices, "kalandra_matmul_hardware_", "kalandra_matmul_fused_");
   if (replace(matrices, "    uint lane [[thread_position_in_threadgroup]],",
-              extra + "    uint lane [[thread_position_in_threadgroup]],") != 4)
+              extra + "    uint lane [[thread_position_in_threadgroup]],") != 5)
     return {};
   unsigned stores = 0;
   for (auto cell : {std::string("row*n+col"), std::string("row * n + col")}) {
@@ -107,7 +109,7 @@ inline std::optional<std::string> matmulEpilogue(const std::string &source, unsi
     stores += replace(matrices, storeText + (cell == "row*n+col" ? "=value;" : " = value;"),
                       storeText + "=kalandra_fused_post(value" + arguments + "," + cell + ");");
   }
-  if (stores != 4)
+  if (stores != 5)
     return {};
   return helper + matrices;
 }

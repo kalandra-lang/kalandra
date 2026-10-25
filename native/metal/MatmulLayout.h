@@ -11,6 +11,16 @@ constexpr bool useRegisterMatmul(std::uint32_t rows, std::uint32_t inner,
   return rows >= 16 && columns >= 16 && inner >= 512 && inner <= 4096 && inner % 64 == 0 &&
          std::uint64_t(rows) * columns >= 256u * 256u;
 }
+// Measured M2 Max tile-order profile: output at least 1M cells and
+// combined input storage at least 16 MiB. Selection happens on the host so
+// smaller shapes retain the original shader. Bounds keep shader indexing safe.
+constexpr bool useGroupedMatmul(std::uint32_t rows, std::uint32_t inner,
+                                std::uint32_t columns) noexcept {
+  return rows >= 512 && rows <= 65535 && columns >= 512 && columns <= 65535 &&
+         useRegisterMatmul(rows, inner, columns) &&
+         std::uint64_t(rows) * columns >= 1024u * 1024u &&
+         std::uint64_t(inner) * (std::uint64_t(rows) + columns) >= 4u * 1024u * 1024u;
+}
 constexpr MatmulLayout selectMatmulLayout(std::uint32_t rows, std::uint32_t inner,
                                           std::uint32_t columns) noexcept {
   const auto cells = std::uint64_t(rows) * columns;

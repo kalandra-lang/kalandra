@@ -12,6 +12,13 @@ namespace m = kalandra::runtime::metal;
 using Bits = std::uint32_t;
 #define CHECK(x) relu_tests::check(bool(x))
 static_assert(m::useRegisterMatmul(256, 512, 256));
+static_assert(m::useGroupedMatmul(1024, 2048, 1024));
+static_assert(m::useGroupedMatmul(513, 4096, 2049));
+static_assert(!m::useGroupedMatmul(1024, 1984, 1024));
+static_assert(!m::useGroupedMatmul(511, 4096, 2049));
+static_assert(!m::useGroupedMatmul(256, 4096, 4096));
+static_assert(!m::useGroupedMatmul(65536, 4096, 1024));
+static_assert(!m::useGroupedMatmul(1024, 4160, 1024));
 static_assert(m::useRegisterMatmul(257, 4032, 257));
 static_assert(m::useRegisterMatmul(16, 4096, 4096));
 static_assert(!m::useRegisterMatmul(15, 512, 8192));
@@ -64,7 +71,7 @@ static m::Buffer upload(m::Runtime &rt, TaskCore &core, std::span<const Bits> bi
 int main(int argc, char **argv) {
   CHECK(argc == 2);
   auto made =
-      m::Runtime::create({.profile = true, .maxBytes = 128u * 1024u * 1024u, .maxInFlight = 1});
+      m::Runtime::create({.profile = true, .maxBytes = 512u * 1024u * 1024u, .maxInFlight = 1});
   CHECK(made);
   auto &rt = **made;
   auto device = rt.device();
@@ -90,15 +97,19 @@ int main(int argc, char **argv) {
   CHECK(core);
   std::size_t cells = 0, cases = 0, products = 0;
   for (auto shape : std::array{
-           std::array{256, 512, 256}, std::array{257, 576, 257}, std::array{257, 960, 257},
-           std::array{257, 1024, 257}, std::array{257, 1984, 257}, std::array{257, 2048, 257},
-           std::array{257, 2112, 257}, std::array{257, 4032, 257}, std::array{257, 4096, 257},
-           std::array{257, 4160, 257}, std::array{257, 511, 257}, std::array{257, 513, 257},
-           std::array{255, 512, 257}, std::array{16, 512, 4097}}) {
+           std::array{256, 512, 256},    std::array{257, 576, 257},    std::array{257, 960, 257},
+           std::array{257, 1024, 257},   std::array{257, 1984, 257},   std::array{257, 2048, 257},
+           std::array{257, 2112, 257},   std::array{257, 4032, 257},   std::array{257, 4096, 257},
+           std::array{257, 4160, 257},   std::array{257, 511, 257},    std::array{257, 513, 257},
+           std::array{255, 512, 257},    std::array{16, 512, 4097},    std::array{1024, 1984, 1024},
+           std::array{1024, 2048, 1024}, std::array{1025, 2048, 1027}, std::array{513, 4096, 2049},
+           std::array{2049, 4096, 513},  std::array{2048, 4096, 512},  std::array{511, 4096, 2049},
+           std::array{512, 4096, 2048}}) {
     auto [rows, k, columns] = shape;
     for (unsigned pattern = 0; pattern < 6; ++pattern) {
       if (pattern >= 3 && shape != std::array{256, 512, 256} &&
-          shape != std::array{257, 4032, 257} && shape != std::array{257, 4096, 257})
+          shape != std::array{257, 4032, 257} && shape != std::array{257, 4096, 257} &&
+          shape != std::array{1025, 2048, 1027})
         continue;
       std::array<Bits, 17> aphase;
       std::array<Bits, 13> bphase;
@@ -148,9 +159,11 @@ int main(int argc, char **argv) {
       auto a = upload(rt, *core, av, {rows, k}), b = upload(rt, *core, bv, {k, columns});
       auto group = core->openRoot();
       auto before = rt.stats().submissions;
+      auto dispatches = rt.stats().dispatches;
       auto task = rt.matmul(*core, group, *kernel, a, b);
       CHECK(task && core->drain());
       CHECK(rt.stats().submissions == before + 1);
+      CHECK(rt.stats().dispatches == dispatches + 1);
       auto result = observe(*core, task);
       auto down = rt.download(*core, group, result);
       CHECK(down && core->drain());
@@ -185,8 +198,8 @@ int main(int argc, char **argv) {
   }
   // Exercise resource ownership after the new kernel is physically submitted.
   {
-    auto a = upload(rt, *core, std::vector<Bits>(256 * 512, 0x3f800000u), {256, 512});
-    auto b = upload(rt, *core, std::vector<Bits>(512 * 256, 0x3f800000u), {512, 256});
+    auto a = upload(rt, *core, std::vector<Bits>(1024 * 2048, 0x3f800000u), {1024, 2048});
+    auto b = upload(rt, *core, std::vector<Bits>(2048 * 1024, 0x3f800000u), {2048, 1024});
     const auto baseline = rt.stats().bytes;
     auto run = [&](bool success) {
       auto group = core->openRoot();

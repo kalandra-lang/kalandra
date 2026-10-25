@@ -111,7 +111,7 @@ struct KernelState {
   bool elementwise, reduction, matrix;
   std::optional<ElementwiseSignature> signature;
   std::array<id<MTLComputePipelineState>, 2> matrixTiles{};
-  std::array<id<MTLComputePipelineState>, 4> fusedMatrices{};
+  std::array<id<MTLComputePipelineState>, 5> fusedMatrices{};
   // Backend resource bound, independent of logical signature arity.
   std::array<std::uint32_t, directBufferEntries - 2> reads{};
   std::uint32_t readCount = 2;
@@ -123,7 +123,7 @@ struct KernelState {
   std::vector<NumericType> tensorTypes{}, scalarTypes{};
   std::vector<std::uint8_t> scalarBuffers{};
   id<MTLComputePipelineState> blockReduction = nil, tiledMatrix = nil, block32Matrix = nil,
-                              block64Matrix = nil, registerMatrix = nil;
+                              block64Matrix = nil, registerMatrix = nil, groupedMatrix = nil;
   bool scalarBuffer(std::size_t i) const { return !scalarBuffers.empty() && scalarBuffers[i]; }
   NumericType tensorType(std::size_t i) const {
     return tensorTypes.empty() ? *numericType : tensorTypes[i];
@@ -1943,7 +1943,12 @@ struct Bridge {
               base->registerMatrix &&
               useRegisterMatmul(std::uint32_t(matrixShape[0]), std::uint32_t(source->dimensions[1]),
                                 std::uint32_t(matrixShape[1]));
-          fusedVariant = registers ? 3
+          const bool grouped =
+              registers && base->groupedMatrix && post->fusedMatrices[4] &&
+              useGroupedMatmul(std::uint32_t(matrixShape[0]), std::uint32_t(source->dimensions[1]),
+                               std::uint32_t(matrixShape[1]));
+          fusedVariant = grouped     ? 4
+                         : registers ? 3
                          : base->block64Matrix && source->dimensions[1] >= 512 &&
                                  matrixShape[0] >= 16 && matrixShape[1] >= 8 &&
                                  source->dimensions[1] % 64 == 0
@@ -2159,6 +2164,11 @@ struct Bridge {
                                  source->dimensions[1] % 32 == 0
                              ? kernel->block32Matrix
                              : kernel->tiledMatrix;
+            if (hardwareRegister && kernel->groupedMatrix &&
+                useGroupedMatmul(std::uint32_t(matrixShape[0]),
+                                 std::uint32_t(source->dimensions[1]),
+                                 std::uint32_t(matrixShape[1])))
+              pipeline = kernel->groupedMatrix;
             if (fusePost)
               pipeline = f.packet.matrixPost.state_->fusedMatrices[fusedVariant];
             [encoder setComputePipelineState:pipeline];
@@ -2888,22 +2898,36 @@ std::expected<Kernel, Error> Runtime::loadKernel(
             metadata->registerMatrix = *registers;
         }
       }
+      if (metadata->registerMatrix &&
+          [library newFunctionWithName:@"kalandra_matmul_hardware_grouped16"]) {
+        if (!state_->permit())
+          return std::unexpected(Error::Allocation);
+        auto grouped = prepare(@"kalandra_matmul_hardware_grouped16");
+        if (!grouped)
+          return std::unexpected(grouped.error());
+        if ((*grouped).maxTotalThreadsPerThreadgroup >= 256)
+          metadata->groupedMatrix = *grouped;
+      }
       metadata->numericType = numericType;
       if (!numericType && elementwise && !matrix && !reduction && !indirect && physical >= 1 &&
           physical <= directBufferEntries - 4 && (!reads || (*reads)[0] == 0) &&
           [library newFunctionWithName:@"kalandra_matmul_fused_tiled"]) {
-        const std::array<NSString *, 4> names{
+        const std::array<NSString *, 5> names{
             @"kalandra_matmul_fused_tiled", @"kalandra_matmul_fused_block32",
-            @"kalandra_matmul_fused_block64", @"kalandra_matmul_fused_register16"};
+            @"kalandra_matmul_fused_block64", @"kalandra_matmul_fused_register16",
+            @"kalandra_matmul_fused_grouped16"};
         for (unsigned i = 0; i < names.size(); ++i) {
+          if (i == 4 && (![library newFunctionWithName:names[i]] ||
+                         ![state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"]))
+            continue;
           if (!state_->permit())
             return std::unexpected(Error::Allocation);
           auto pipeline = prepare(names[i], true);
           if (!pipeline)
             return std::unexpected(pipeline.error());
-          const unsigned threads = i == 3 ? 256 : i == 2 ? 128 : 64;
+          const unsigned threads = i >= 3 ? 256 : i == 2 ? 128 : 64;
           if ((*pipeline).maxTotalThreadsPerThreadgroup >= threads &&
-              (i != 3 || [state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"]))
+              (i < 3 || [state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"]))
             metadata->fusedMatrices[i] = *pipeline;
         }
       }

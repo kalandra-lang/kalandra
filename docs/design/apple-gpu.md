@@ -804,3 +804,9 @@ dispatching branches remain outside this bounded subset.
 ## Input-layout experiments
 
 The [weight-packing investigation](../../benchmarks/results/weight-packing-investigation-2026-10-25.md) measures GPU construction, repeated immutable weights, activation layouts and explicit scratch storage. Some square cases improve, but rectangular and interior-shape regressions reject both the broad and narrower policies. Packing remains experimental benchmark code; production kernels, strict arithmetic, budgets and acknowledgement ownership are unchanged.
+
+## Grouped output-tile traversal
+
+The [memory-access follow-up](../../benchmarks/results/memory-access-pipeline-2026-10-26.md) adds an optional hardware-float32 entry that visits output tiles in groups of 16 tile rows. On the qualified M2 Max profile, the host selects it for M,N between 512 and 65,535, at least 1M output cells and 16 MiB combined input storage, within the existing K=512…4096/multiple-of-64 register envelope. These are performance limits, not language limits. Other shapes and older bundles retain their original entries.
+
+The grouped entry shares the original strict arithmetic helper and keeps each output cell's producer, balanced tree and fused epilogue unchanged. It adds no copy, dispatch or per-invocation buffer. Two extra optional plain/fused pipelines affect cold preparation. Complete 2048² pipeline runs improve resident medians by about 4.9% and upload-inclusive medians by 3.2–4.5%; the report retains small-input latency regressions and qualification limits. All 44 selected numerical/runtime gates pass.
