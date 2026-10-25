@@ -39,6 +39,8 @@ Ratios are experimental Kalandra hybrid time / reference time; below 1 is faster
 
 At depth 22, polynomial takes 26.3% less time than C++ and 31.8% less than Rust; branching takes about 20.6% less than each. GCD remains near C++ parity and takes 25.6% less time than Rust. These are source-level recursive algorithms, without tensor/reduction built-ins or optimized numerical libraries.
 
+The [follow-up entry ablation](cancellation-entry-ablation-2026-10-25.md) isolates benchmark-only costs: two heap state allocations and a per-invocation latency timestamp. With matched batch warmups, stack state and no latency instrumentation, the depth-100 gap falls to roughly 16–17% but still misses the target. The original scores above remain retained as measured.
+
 ## Why the 100-level result is worse
 
 A separate randomized three-trial control uses the same compiled kernels and task harness:
