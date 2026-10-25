@@ -1,5 +1,6 @@
 #include "Build.h"
 #include "HardwareShaders.h"
+#include "MatmulEpilogue.h"
 #include "Toolchain.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
@@ -169,6 +170,21 @@ void buildMetalProgram(const std::filesystem::path &directory,
                                  "--msl-force-active-argument-buffer-resources"});
     run(std::move(cross));
     if (!numeric && arithmetic != kalandra::ArithmeticMode::Software) {
+      if (contents.starts_with("// kalandra.matmul.epilogue ")) {
+        std::istringstream marker(contents.substr(28));
+        unsigned tensors = 0, scalars = 0;
+        if (marker >> tensors >> scalars) {
+          std::ifstream input(base + ".metal");
+          std::ostringstream text;
+          text << input.rdbuf();
+          if (auto fused = matmulEpilogue(text.str(), tensors, scalars)) {
+            std::ofstream append(base + ".metal", std::ios::app);
+            append << *fused;
+            if (!append)
+              throw std::runtime_error("cannot emit matrix epilogue");
+          }
+        }
+      }
       std::ofstream optimized(base + ".metal", std::ios::app);
       if (contents.find("@kalandra_reduce_sum(") != std::string::npos)
         optimized << hardwareReductionShader;

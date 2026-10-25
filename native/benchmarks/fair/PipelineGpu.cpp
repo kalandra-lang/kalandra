@@ -141,12 +141,13 @@ int main(int argc, char **argv) {
       std::printf("{\"round\":%d,\"ns\":%.0f,\"checksum\":%.17g,\"device_id\":%llu", round, ns,
                   checksum, static_cast<unsigned long long>(device->identity()));
       if (options.profile)
-        std::printf(
-            ",\"gpu_ns\":%llu,\"encoding_ns\":%llu,\"submissions\":%llu,\"dispatches\":%llu",
-            (unsigned long long)(stats.gpuNanoseconds - before.gpuNanoseconds),
-            (unsigned long long)(stats.encodingNanoseconds - before.encodingNanoseconds),
-            (unsigned long long)(stats.submissions - before.submissions),
-            (unsigned long long)(stats.dispatches - before.dispatches));
+        std::printf(",\"gpu_ns\":%llu,\"encoding_ns\":%llu,\"submissions\":%llu,\"dispatches\":%"
+                    "llu,\"peak_bytes\":%llu,\"resident_bytes\":%llu",
+                    (unsigned long long)(stats.gpuNanoseconds - before.gpuNanoseconds),
+                    (unsigned long long)(stats.encodingNanoseconds - before.encodingNanoseconds),
+                    (unsigned long long)(stats.submissions - before.submissions),
+                    (unsigned long long)(stats.dispatches - before.dispatches),
+                    (unsigned long long)stats.peakBytes, (unsigned long long)baselineBytes);
       std::printf("}\n");
     }
     for (std::size_t i = 0; i < count; ++i)

@@ -389,6 +389,16 @@ This qualified hardware entry takes priority over the older quad-layout profile,
 
 [The complete pipeline comparison](../../benchmarks/results/large-matrix-pipeline-2026-10-25.md) distinguishes isolated screening from end-to-end timings. New conformance checks all output cells against independent APFloat references across contraction/admission boundaries, non-dyadic inputs, signed zero, subnormals, NaNs and cancellation-sensitive magnitudes. The four build modes also sweep allocation failures and hold completion while cancellation, deadlines and device failure occur.
 
+## Float32 matrix epilogue fusion
+
+Eligible hardware float32 matrix tasks now apply their elementwise result arithmetic inside the selected matrix kernel. For example, `relu((matmul(a,b)+bias)*scale)` writes only the adjusted matrix; a following `reduceSum` consumes that output in the same command submission. This removes one full output allocation and one dispatch. It preserves the matrix tree, separately rounded post operations, NaN/zero selection and complete-shape capture checks. No implicit bias broadcasting is added.
+
+The compiler marks matrix post-maps and lifts only the pinned SPIRV-Cross canonical, straight-line, same-cell float32 MSL into an optional helper. The transformation validates the buffer structs, indexing and single output store, and declines unsupported control/indexing or sources over 16 KiB. At most 27 physical tensor reads fit the fused four-extra-binding interface within Metal's 31 direct buffer slots. These are optimization bounds: larger signatures, Tier 2 bindings and unsupported generated forms still execute the original post-map. The original entry remains packaged for compatibility.
+
+Runtime selection preserves the existing matrix shape/device policy and validates each optional fused pipeline's complete reflected interface. Graphs, pre-mapped inputs, numeric programs, scalar epilogues, software arithmetic and other numeric types keep the staged path. Older bundles without optional entries also remain supported. Empty output axes retain the no-dispatch path; an empty contraction with a nonempty output still applies the post-map to positive-zero matrix values.
+
+The task retains the post-kernel, captured tensors and independent parameter storage until GPU acknowledgement. Cancellation/deadlines suppress publication and wait for submitted access to end. Both preparation and execution allocation failures unwind through the common checked paths. [Complete-pipeline timing and qualification](../../benchmarks/results/epilogue-pipeline-2026-10-25.md) compare the frozen preceding runtime against the fused runtime using identical shaders, driver and task archive.
+
 ## Rank-two GPU elementwise helpers
 
 Dynamic rank-two float32 helpers now support the same strict `+` and `*`, scalar lifting, immutable local bindings and transitive helper calls as vector helpers. The original function definition still works on CPU. Scalars may appear between tensor parameters; submission owns the buffer and scalar captures.

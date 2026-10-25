@@ -111,6 +111,7 @@ struct KernelState {
   bool elementwise, reduction, matrix;
   std::optional<ElementwiseSignature> signature;
   std::array<id<MTLComputePipelineState>, 2> matrixTiles{};
+  std::array<id<MTLComputePipelineState>, 4> fusedMatrices{};
   // Backend resource bound, independent of logical signature arity.
   std::array<std::uint32_t, directBufferEntries - 2> reads{};
   std::uint32_t readCount = 2;
@@ -826,6 +827,8 @@ struct Bridge {
     Buffer batchedLeft{}, batchedRight{};
     Kernel batchedKernel{};
     std::shared_ptr<MetalAllocation> batchedParameters;
+    Kernel fusedPostKernel{};
+    std::shared_ptr<MetalAllocation> fusedParameters;
     id<MTLCommandBuffer> pendingCommand = nil;
     Kernel matrixKernel{}, graphKernel{};
     std::size_t graphStage = 0, reductionStage = 0;
@@ -1554,6 +1557,8 @@ struct Bridge {
           nextGraphStage(f);
         }
         if (f.started) {
+          f.fusedPostKernel = {};
+          f.fusedParameters.reset();
           f.batchedLeft = {};
           f.batchedRight = {};
           f.batchedKernel = {};
@@ -1921,6 +1926,65 @@ struct Bridge {
           task.complete(&f.packet.input);
           return;
         }
+        unsigned fusedVariant = 0;
+        bool fusePost = false;
+        if (matrix && f.packet.matrixPost.state_ && f.packet.postArguments &&
+            f.packet.kernel.state_->tiledMatrix && !f.packet.kernel.state_->numericType &&
+            !f.packet.graph && !f.packet.numericProgram && !f.packet.epilogue && !f.matrixStage &&
+            matrixShape[0] && matrixShape[1]) {
+          const auto &base = f.packet.kernel.state_;
+          const auto &post = f.packet.matrixPost.state_;
+          auto layout = MatmulLayout::Scalar;
+          if (base->matrixTiles[0] && base->matrixTiles[1])
+            layout = selectMatmulLayout(std::uint32_t(matrixShape[0]),
+                                        std::uint32_t(source->dimensions[1]),
+                                        std::uint32_t(matrixShape[1]));
+          const bool registers =
+              base->registerMatrix &&
+              useRegisterMatmul(std::uint32_t(matrixShape[0]), std::uint32_t(source->dimensions[1]),
+                                std::uint32_t(matrixShape[1]));
+          fusedVariant = registers ? 3
+                         : base->block64Matrix && source->dimensions[1] >= 512 &&
+                                 matrixShape[0] >= 16 && matrixShape[1] >= 8 &&
+                                 source->dimensions[1] % 64 == 0
+                             ? 2
+                         : base->block32Matrix && source->dimensions[1] >= 256 &&
+                                 source->dimensions[1] % 32 == 0
+                             ? 1
+                             : 0;
+          fusePost = !post->numericType && !post->indirect() && post->fusedMatrices[fusedVariant] &&
+                     (layout != MatmulLayout::Quad || registers);
+          if (fusePost) {
+            const auto &arguments = f.packet.postArguments;
+            const auto signature = post->signature.value_or(ElementwiseSignature{2, 0});
+            if (arguments->tensors.size() != signature.tensors ||
+                arguments->scalarBits.size() != post->scalarWords()) {
+              task.fault(std::int64_t(Error::Invalid));
+              return;
+            }
+            // Slot zero is the not-yet-materialized matrix, not its placeholder.
+            // Validate every other logical capture exactly as the staged map.
+            for (std::size_t i = 1; i < arguments->tensors.size(); ++i) {
+              const auto &other = arguments->tensors[i].storage_;
+              const bool read =
+                  std::binary_search(post->reads.begin(), post->reads.begin() + post->readCount, i);
+              if (!other || other->format != Format::Float32 || other->rank < 1 ||
+                  other->rank > 8 ||
+                  (read && (other->rank != 2 ||
+                            other->size !=
+                                std::uint64_t(matrixShape[0]) * std::uint64_t(matrixShape[1]) * 4 ||
+                            other->dimensions[0] != matrixShape[0] ||
+                            other->dimensions[1] != matrixShape[1]))) {
+                task.fault(std::int64_t(Error::Invalid));
+                return;
+              }
+              if (!other->device || other->state != state || other->deviceIndex != index) {
+                task.fault(std::int64_t(Error::Residency));
+                return;
+              }
+            }
+          }
+        }
         if (!f.active) {
           auto count = state->inFlight.load();
           do {
@@ -2001,6 +2065,19 @@ struct Bridge {
               return;
             }
             f.staging = *parametersBuffer;
+            if (fusePost) {
+              const auto &post = f.packet.matrixPost.state_;
+              auto parameters = allocateMetal(state, index, 4ull * post->parameterWords(), true);
+              if (!parameters) {
+                task.fault(std::int64_t(parameters.error()));
+                return;
+              }
+              f.fusedParameters = *parameters;
+              auto *words = static_cast<std::uint32_t *>((*parameters)->buffer.contents);
+              words[0] = std::uint32_t(std::uint64_t(matrixShape[0]) * matrixShape[1]);
+              std::copy(f.packet.postArguments->scalarBits.begin(),
+                        f.packet.postArguments->scalarBits.end(), words + 1);
+            }
             if ((f.packet.graph && f.graphPhase == 2) || f.packet.numericScalar) {
               auto readback =
                   allocateMetal(state, index,
@@ -2082,6 +2159,8 @@ struct Bridge {
                                  source->dimensions[1] % 32 == 0
                              ? kernel->block32Matrix
                              : kernel->tiledMatrix;
+            if (fusePost)
+              pipeline = f.packet.matrixPost.state_->fusedMatrices[fusedVariant];
             [encoder setComputePipelineState:pipeline];
             if (!kernel->indirect()) {
               [encoder setBuffer:(matrix || kernel->numericType) && !source->size
@@ -2140,6 +2219,14 @@ struct Bridge {
               [encoder setBuffer:f.resources->buffer offset:0 atIndex:0];
             } else
               [encoder setBuffer:f.staging->buffer offset:0 atIndex:tensors + 1];
+            if (fusePost) {
+              const auto &post = f.packet.matrixPost.state_;
+              for (std::uint32_t i = 1; i < post->readCount; ++i) {
+                const auto &input = f.packet.postArguments->tensors[post->tensorIndex(i)].storage_;
+                [encoder setBuffer:input->metal->buffer offset:0 atIndex:i + 3];
+              }
+              [encoder setBuffer:f.fusedParameters->buffer offset:0 atIndex:post->readCount + 3];
+            }
             const auto threads = hardwareRegister ? 256u : hardwareWide ? 128u : 64u;
             const auto lanes =
                 hardwareRegister      ? ((std::uint64_t(parameters[0]) + 15) / 16) *
@@ -2156,6 +2243,8 @@ struct Bridge {
             [encoder dispatchThreadgroups:MTLSizeMake((lanes + threads - 1) / threads, 1, 1)
                     threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
             [encoder endEncoding];
+            if (fusePost)
+              f.fusedPostKernel = std::move(f.packet.matrixPost);
             if ((f.packet.graph && f.graphPhase == 2) || f.packet.numericScalar) {
               id<MTLBlitCommandEncoder> blit = state->permit() ? [command blitCommandEncoder] : nil;
               if (!blit) {
@@ -2598,7 +2687,8 @@ std::expected<Kernel, Error> Runtime::loadKernel(
         return std::unexpected(Error::Invalid);
       id<MTLFunction> argumentFunction = nil;
       std::uint64_t encodedBytes = 0;
-      auto prepare = [&](NSString *entry) -> std::expected<id<MTLComputePipelineState>, Error> {
+      auto prepare = [&](NSString *entry,
+                         bool fused = false) -> std::expected<id<MTLComputePipelineState>, Error> {
         id<MTLFunction> function = [library newFunctionWithName:entry];
         if (!function)
           return std::unexpected(Error::Invalid);
@@ -2614,7 +2704,8 @@ std::expected<Kernel, Error> Runtime::loadKernel(
         // Validate the private dynamic-array ABI, not the numerical contents of
         // arbitrary shaders.
         const auto tensors = physical;
-        const auto parameterIndex = tensors + 1, bindingCount = tensors + 2;
+        const auto parameterIndex = tensors + (fused ? 3 : 1),
+                   bindingCount = tensors + (fused ? 4 : 2);
         const auto words = matrix ? (numericType ? 4 : 3) : parameterWords;
 
         if (indirect) {
@@ -2681,22 +2772,23 @@ std::expected<Kernel, Error> Runtime::loadKernel(
           const auto wireType = !numericType     ? MTLDataTypeFloat
                                 : wireWidth == 8 ? MTLDataTypeULong
                                                  : MTLDataTypeUInt;
+          const bool shape = fused && argument.index == 3;
+          const bool integer = shape || argument.index == parameterIndex;
+          const auto count = shape ? 3u : argument.index == parameterIndex ? words : 1u;
           if (argument.type != MTLBindingTypeBuffer || argument.index >= bindingCount ||
               seen[argument.index] ||
               ((id<MTLBufferBinding>)argument).bufferDataSize !=
-                  (argument.index == parameterIndex ? 4ull * words : wireWidth))
+                  (integer ? 4ull * count : wireWidth))
             return std::unexpected(Error::Invalid);
           id<MTLBufferBinding> binding = (id<MTLBufferBinding>)argument;
           auto members = binding.bufferStructType.members;
-          if (binding.bufferAlignment != (argument.index == parameterIndex ? 4 : wireWidth) ||
-              members.count != 1)
+          if (binding.bufferAlignment != (integer ? 4 : wireWidth) || members.count != 1)
             return std::unexpected(Error::Invalid);
           MTLStructMember *member = members[0];
           MTLArrayType *array = member.arrayType;
           if (member.offset != 0 || member.dataType != MTLDataTypeArray || !array ||
-              array.stride != (argument.index == parameterIndex ? 4 : wireWidth) ||
-              array.arrayLength != (argument.index == parameterIndex ? words : 1) ||
-              array.elementType != (argument.index == parameterIndex ? MTLDataTypeUInt : wireType))
+              array.stride != (integer ? 4 : wireWidth) || array.arrayLength != count ||
+              array.elementType != (integer ? MTLDataTypeUInt : wireType))
             return std::unexpected(Error::Invalid);
           seen[argument.index] = true;
         }
@@ -2797,6 +2889,24 @@ std::expected<Kernel, Error> Runtime::loadKernel(
         }
       }
       metadata->numericType = numericType;
+      if (!numericType && elementwise && !matrix && !reduction && !indirect && physical >= 1 &&
+          physical <= directBufferEntries - 4 && (!reads || (*reads)[0] == 0) &&
+          [library newFunctionWithName:@"kalandra_matmul_fused_tiled"]) {
+        const std::array<NSString *, 4> names{
+            @"kalandra_matmul_fused_tiled", @"kalandra_matmul_fused_block32",
+            @"kalandra_matmul_fused_block64", @"kalandra_matmul_fused_register16"};
+        for (unsigned i = 0; i < names.size(); ++i) {
+          if (!state_->permit())
+            return std::unexpected(Error::Allocation);
+          auto pipeline = prepare(names[i], true);
+          if (!pipeline)
+            return std::unexpected(pipeline.error());
+          const unsigned threads = i == 3 ? 256 : i == 2 ? 128 : 64;
+          if ((*pipeline).maxTotalThreadsPerThreadgroup >= threads &&
+              (i != 3 || [state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"]))
+            metadata->fusedMatrices[i] = *pipeline;
+        }
+      }
       if (!scalarBuffers.empty()) {
         if (!state_->permit())
           return std::unexpected(Error::Allocation);

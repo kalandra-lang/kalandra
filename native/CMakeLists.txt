@@ -1170,6 +1170,9 @@ if(BUILD_TESTING)
   add_test(NAME native-fair-benchmark-evidence
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/FairBenchmarkTests.py")
   set_tests_properties(native-fair-benchmark-evidence PROPERTIES TIMEOUT 30)
+  add_executable(kalandra-matmul-epilogue-tests tests/MatmulEpilogueTests.cpp)
+  add_test(NAME native-matmul-epilogue-codegen COMMAND kalandra-matmul-epilogue-tests)
+  set_tests_properties(native-matmul-epilogue-codegen PROPERTIES TIMEOUT 30)
   add_test(NAME native-relu
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ReluTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

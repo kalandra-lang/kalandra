@@ -3482,8 +3482,20 @@ public:
           outputs[base + "-left.mlir"] = shader(function, nullptr, false, 0);
         if (entry->rightMapped)
           outputs[base + "-right.mlir"] = shader(function, nullptr, false, 1);
-        if (entry->post)
-          outputs[base + "-post.mlir"] = shader(function, nullptr, true);
+        if (entry->post) {
+          std::vector<std::uint32_t> reads;
+          auto post = shader(function, &reads, true);
+          if ((entry->kind == PrimitiveEntry::Matrix || entry->kind == PrimitiveEntry::MatrixSum) &&
+              !reads.empty() && reads.front() == 0 && reads.size() <= 27 &&
+              !retainedChoiceBindings(function, reads.size())) {
+            unsigned scalars = 0;
+            for (auto parameter : cpu.functions[function].parameters)
+              scalars += !cpu.symbols[parameter].type.tensor;
+            post = "// kalandra.matmul.epilogue " + std::to_string(reads.size()) + " " +
+                   std::to_string(scalars) + "\n" + post;
+          }
+          outputs[base + "-post.mlir"] = std::move(post);
+        }
         if (entry->scalarPost)
           outputs[base + "-scalar.mlir"] = shader(function, nullptr, true, -1, true);
       }
