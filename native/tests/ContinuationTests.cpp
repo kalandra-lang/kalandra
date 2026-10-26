@@ -204,10 +204,23 @@ int main(int argc, char **argv) {
     auto recursivePlan = plan(*recursive.module);
     require(bool(recursivePlan), "recursive CPU calls were expanded instead of planned");
     bool backedge = false;
+    for (FunctionId id = 0; id < recursivePlan->kernels.functions.size(); ++id)
+      for (auto value : recursivePlan->kernels.functions[id].expressions)
+        if (const auto *call = std::get_if<FunctionCall>(
+                &recursivePlan->kernels.expressions[value].operation))
+          backedge |= call->function == id;
+    require(backedge, "recursive CPU call lost its native backedge");
     for (const auto &entry : recursivePlan->plans)
-      for (const auto &op : entry->code)
-        backedge |= op.code == Code::SynchronousCall;
-    require(backedge, "recursive CPU plan omitted its synchronous backedge");
+      require(std::ranges::none_of(entry->code, [](const auto &op) {
+                return op.code == Code::SynchronousCall;
+              }), "pure recursive work retained per-call continuation frames");
+    auto legacyPlan = plan(*recursive.module, {.nativeSubgraphs = false});
+    require(bool(legacyPlan), "checked continuation fallback was removed");
+    backedge = false;
+    for (const auto &entry : legacyPlan->plans)
+      for (const auto &op : entry->code) backedge |= op.code == Code::SynchronousCall;
+    require(backedge, "fallback lost checked recursive execution");
+    verify(*legacyPlan);
     auto builtin =
         analyze("fn main() -> float32 ! TaskError:\n  try parallel:\n    data:Tensor[float32,2] = "
                 "tensor([1,2])\n    try await spawn reduceSum(data)\n");
@@ -227,7 +240,7 @@ int main(int argc, char **argv) {
           if (op.source < projected.module->expressions.size() &&
               std::holds_alternative<RecordFieldRead>(
                   projected.module->expressions[op.source].operation)) {
-            require(op.code == (preserved ? Code::Kernel : Code::Field),
+            require(op.code == Code::Kernel,
                     "record field plan used the wrong backend path");
             found = true;
           }

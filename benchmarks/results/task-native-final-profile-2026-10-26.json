@@ -1,0 +1,135 @@
+{
+  "timestamp": "2026-10-26T12:00:44.481509+00:00",
+  "contract": "Instrumented macOS sample diagnostics of owned child processes, interval default 1ms, duration 2s. Includes warmup or measured batches; these times are not acceptance results. Task diagnostic explicitly uses one host-driven worker. Sampling counts are observations, not exact exclusive time percentages.",
+  "sources": {
+    "native/benchmarks/fair/runtime_workload_profile.py": "c41f67d499bf2111dc88e02a37ee8c8ab74c53423426a0807df25db909f7ccf8"
+  },
+  "records": [
+    {
+      "name": "arrays",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/call-foundation-2026-10-26/reuse/arrays",
+        "0",
+        "17",
+        "256",
+        "1000000",
+        "1",
+        "4838550"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "80678",
+        "2",
+        "-file",
+        "benchmarks/results/task-native-final-profile-2026-10-26.arrays.sample.txt"
+      ],
+      "pid": 80678,
+      "binary_sha256": "70aec445e703a7c56a2b3be7e0fead9469d6d1d6fb497960818211e7aa38b94f",
+      "sample_path": "benchmarks/results/task-native-final-profile-2026-10-26.arrays.sample.txt",
+      "sample_sha256": "2c939df37e3a00107daf00c81af2a14b61673f4716a5303782db01ae0ec9bd14",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 8173364920.0,
+          "checksum": 4838550000000
+        },
+        {
+          "round": -1,
+          "ns": 8018992210.0,
+          "checksum": 4838550000000
+        },
+        {
+          "round": 0,
+          "ns": 7897765170.0,
+          "checksum": 4838550000000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 80678 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 80678 written to file benchmarks/results/task-native-final-profile-2026-10-26.arrays.sample.txt\n"
+    },
+    {
+      "name": "closure",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/call-foundation-2026-10-26/reuse/closure",
+        "1",
+        "17",
+        "0",
+        "60000000",
+        "1",
+        "17"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "80706",
+        "2",
+        "-file",
+        "benchmarks/results/task-native-final-profile-2026-10-26.closure.sample.txt"
+      ],
+      "pid": 80706,
+      "binary_sha256": "8984bc06da10a26eb6f0b3903ba0ee4cd33aeec86e4a66eab9d0fa4006065b9f",
+      "sample_path": "benchmarks/results/task-native-final-profile-2026-10-26.closure.sample.txt",
+      "sample_sha256": "d1bc075a33f5d6a7381d5cc893b2aeace50412ce16022205df8fa71dd57f2077",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1130462540.0,
+          "checksum": 1020000000
+        },
+        {
+          "round": -1,
+          "ns": 1091332290.0,
+          "checksum": 1020000000
+        },
+        {
+          "round": 0,
+          "ns": 1108499380.0,
+          "checksum": 1020000000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 80706 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 80706 written to file benchmarks/results/task-native-final-profile-2026-10-26.closure.sample.txt\n"
+    },
+    {
+      "name": "scheduled-256",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/call-foundation-2026-10-26/reuse/scheduled-256",
+        "1",
+        "17",
+        "256",
+        "50000",
+        "1",
+        "248609"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "80711",
+        "2",
+        "-file",
+        "benchmarks/results/task-native-final-profile-2026-10-26.scheduled-256.sample.txt"
+      ],
+      "pid": 80711,
+      "binary_sha256": "c617b08eb1fef7fccc6946541a0ab13115b98b90e8885079973d7d7a357851ac",
+      "sample_path": "benchmarks/results/task-native-final-profile-2026-10-26.scheduled-256.sample.txt",
+      "sample_sha256": "710645e80cd8a47f0d94a91028e03c9cf90a6dc77d421784c2329070ea69a839",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1413452620.0,
+          "checksum": 12430450000
+        },
+        {
+          "round": -1,
+          "ns": 1623616040.0,
+          "checksum": 12430450000
+        },
+        {
+          "round": 0,
+          "ns": 1427827710.0,
+          "checksum": 12430450000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 80711 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 80711 written to file benchmarks/results/task-native-final-profile-2026-10-26.scheduled-256.sample.txt\n"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "path": "benchmarks/results/runtime-workloads-final-native-2026-10-26.json",
+    "sha256": "c403fc833f720b0d13ec0d5a7ac49cd57f1330914642774b2c74bac60bfc9a45",
+    "verification_workloads": 99,
+    "measured_processes": 99,
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/production-cancellation-final-native-2026-10-26.json",
+    "sha256": "1a3e8a4206ec2aaf7bd4249f18c6d79161851022bf7b9aadd359408706ac5644",
+    "verification_workloads": 300,
+    "timed_samples": 1120,
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/task-native-final-profile-2026-10-26.json",
+    "sha256": "d9365dd0e293d3bbfdf37274082578868577d819e605900b68e2059aa1e36ce2",
+    "profiles": 3,
+    "verified": true
+  }
+]

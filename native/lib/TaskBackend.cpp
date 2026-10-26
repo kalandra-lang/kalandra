@@ -2159,8 +2159,19 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
     auto planned = continuation::plan(input);
     if (!planned)
       return std::unexpected(planned.error());
-    auto &planner = *planned;
-    auto kernels = lowerNative(planner.kernels, {}, {}, arithmetic, true);
+    std::optional<continuation::ModulePlan> fallback;
+    auto *planner = &*planned;
+    auto kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true);
+    if (!kernels) {
+      // Native subgraphs are an optimization, not a new source admission
+      // requirement. A large synchronous body can still use budgeted checked
+      // continuation storage when the native physical frame would be too big.
+      auto legacy = continuation::plan(input, {.nativeSubgraphs = false});
+      if (!legacy) return std::unexpected(legacy.error());
+      fallback.emplace(std::move(*legacy));
+      planner = &*fallback;
+      kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true);
+    }
     if (!kernels)
       return kernels;
     llvm::LLVMContext context;
@@ -2170,7 +2181,7 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
       return std::unexpected("cannot read verified kernel LLVM module");
     std::set<llvm::Function *> kernelFunctions;
     for (auto &fn : *module) if (!fn.isDeclaration()) kernelFunctions.insert(&fn);
-    Emitter(planner, *module).run(testEntry);
+    Emitter(*planner, *module).run(testEntry);
     for (auto &fn : *module)
       if (!fn.isDeclaration() && !kernelFunctions.contains(&fn))
         fn.addFnAttr("kalandra.task.frame");

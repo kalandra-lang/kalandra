@@ -85,6 +85,56 @@ On AArch64, dynamic signed 64-bit remainder uses `SDIV`/`MSUB` after the source 
 
 No fast-math, floating reassociation, source algorithm substitution or unchecked arithmetic mode is introduced. Strict numerical tests remain independent of benchmark checksums.
 
+## Native subgraphs inside CPU tasks
+
+Ordinary synchronous helpers inside a task now use the same native lowering as
+standalone CPU functions. The continuation planner imports their complete pure
+call graph, including recursive helpers and function values, into a checked
+native kernel. A spawned helper retains its outer task descriptor, parameter
+transport, execution lease and result publication; its source calls do not need
+a heap continuation frame at every recursive step. Expected-error/control-flow
+callables and coordinating functions retain their checked continuation paths.
+If a native subgraph exceeds physical-frame admission, compilation retries the
+existing checked continuation representation instead of rejecting that source.
+
+After graph inlining, the compiler can replace a small, acyclic closure
+environment with local storage when every address use is a local load/store or
+address calculation. Scalar replacement normally removes that storage entirely.
+Returns, publication, pointer identity, foreign/other calls, loop allocations and
+uncertain uses retain managed environments. The proof does not let a tail call
+borrow the local address, so existing guaranteed tail transfers remain valid.
+
+Eligible direct self-tail calls with rank-one numeric array/tensor state and a
+scalar numeric/Bool result are lowered to a structured loop before bufferization.
+The current form recognizes a single conditional with one direct recursive arm
+and one terminal arm; other recursion retains its existing lowering. Terminal
+work precedes the loop condition, while a continuing iteration produces the next
+arguments. This preserves simultaneous argument replacement, immutable aliases
+and changing-length views while allowing intermediate arrays to be released
+between iterations. Tensor parameters carry an explicit read-only contract.
+A simple parameter/literal comparison also permits the terminal case to bypass
+loop ownership conversion. No source condition with allocations or other work
+is duplicated by that shortcut. Native stack admission can fall back to the
+previous lowering when the loop representation would exceed its budget.
+
+The invocation allocator can retain one fully released numeric buffer of at most
+256 payload bytes for exact-size reuse. It requires the original embedded owner,
+no managed record/dependencies and an exclusive backing reference. Retained
+readers and transported values are never recycled. Reuse still performs logical
+allocation fault injection and reservation; counters and cumulative task byte
+charges remain balanced through settlement. Constant live buffers therefore do
+not imply an unlimited allocation quota under a fixed task byte budget.
+
+`native-task-native-helpers` checks native task execution with 1/2/4 workers,
+million-step closure recursion, immutable and aliased arrays, changing-length
+views, every allocation fault, exact/rejected budgets and cancellation/deadlines.
+Separate harnesses check bounded live buffers through 100,000 array steps,
+divergence until cancellation, actual native redirects where supported, and
+binary32/binary64 bit patterns including signed zeros, subnormals and NaN payloads.
+All ten numeric types are exercised; software floating arithmetic is checked
+separately. The [measurement report](../../benchmarks/results/task-native-optimization-2026-10-26.md)
+records improvements, unsuccessful prototypes and remaining gaps.
+
 ## Tests and historical evidence
 
 `native-call-foundation-source` exercises million-step self, mutual and runtime-selected tail calls, captured closures, aggregate values, non-tail floating recurrence, arithmetic faults, cancellation and small physical stacks in debug, optimized, ASan/UBSan and TSan builds where supported. Existing numeric, closure, worker and ownership suites cover the surrounding language behavior. `native-checked-inlining` checks the internal convention and conservative fallbacks structurally. The scalar suite additionally checks every narrow integer and Bool value at a raw C boundary, immediately promoting the return rather than truncating it back to its source width. Checked C entries carry explicit signed/unsigned return-extension attributes; the internal convention retains its own signless value representation.

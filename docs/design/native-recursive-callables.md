@@ -46,9 +46,21 @@ These are bounded native calls, not unlimited recursion or guaranteed tail-call 
 
 ## Lowering and ownership
 
-The continuation planner emits a synchronous-call backedge when inlining would revisit an active synchronous function. All callable declarations are created before bodies are emitted, so self and mutual references can resolve directly. No recursive body expansion or scheduler task is needed for that backedge.
+Pure synchronous subgraphs inside CPU tasks now use the [ordinary native call
+lowering](checked-call-optimization.md#native-subgraphs-inside-cpu-tasks), including
+recursive helpers and function values. The outer task retains its descriptor and
+checked transport/publication. Eligible numeric array self-tail calls also use
+structured loop lifetimes, allowing intermediate backing to retire between steps.
 
-Synchronous continuation frames remain checked invocation allocations. Recursive expected-error result staging lives in those heap frames. Returning or faulting releases the temporary frame; captured environments and result backing follow their existing managed ownership rules. Ordinary MLIR functions use the same call-admission runtime through the checked ABI. The private test-export path can expose an existing capture-free synchronous entry with typed parameters; this is not a public C/C++ ABI.
+For expected-error/control-flow paths, the continuation planner still emits a synchronous-call backedge when inlining would revisit an active synchronous function. All callable declarations are created before bodies are emitted, so self and mutual references can resolve directly. No recursive body expansion or scheduler task is needed for that backedge.
+
+Those synchronous continuation frames remain checked invocation allocations.
+Recursive expected-error result staging lives in those heap frames. Returning or
+faulting releases the temporary frame; captured environments and result backing
+follow their managed ownership rules. Ordinary source calls inside native graphs
+use direct native returns, with admission at checked runtime boundaries. The
+private test-export path can expose an existing capture-free synchronous entry
+with typed parameters; this is not a public C/C++ ABI.
 
 ## Qualification
 

@@ -24,7 +24,9 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           auto values = op.arguments;
           values.insert(values.begin(), op.callee);
           return values;
-        } else if constexpr (std::is_same_v<T, RecordValue>) {
+        } else if constexpr (std::is_same_v<T, FunctionCall>)
+          return op.arguments;
+        else if constexpr (std::is_same_v<T, RecordValue>) {
           std::vector<ValueId> values;
           if (op.base)
             values.push_back(*op.base);
@@ -156,6 +158,16 @@ private:
   }
   Slot function(Plan &plan, FunctionId id, const std::vector<Slot> &args,
                 std::set<FunctionId> &stack, std::optional<std::size_t> ambient = {}) {
+    if (!options.preserveCalls && options.nativeSubgraphs && nativeFunction(id)) {
+      const auto target = importFunction(id);
+      // A spawned synchronous function still needs its outer task descriptor,
+      // but all of its computation belongs to one native subgraph/boundary.
+      kernels.functions[target].name = "__step_native_" + std::to_string(id);
+      const auto output = slot(plan, input.functions[id].resultType);
+      plan.code.push_back({Code::Kernel, output, args, target, 0, 0,
+                           input.functions[id].result});
+      return output;
+    }
     if (!stack.insert(id).second || stack.size() > 128)
       throw std::runtime_error("recursive calls are not implemented in task-enabled modules yet");
     Environment env;
@@ -182,6 +194,13 @@ private:
   std::unordered_map<FunctionId, FunctionId> importedFunctions;
   std::unordered_map<ValueId, ValueId> importedValues;
   std::unordered_map<SymbolId, SymbolId> importedSymbols;
+  bool nativeFunction(FunctionId id) const {
+    return !resumable.at(id) &&
+           std::ranges::none_of(input.functions[id].parameters, [&](auto parameter) {
+             const auto &type = input.symbols[parameter].type;
+             return type.fallible || type.task;
+           });
+  }
   SymbolId importSymbol(SymbolId id) {
     if (auto found = importedSymbols.find(id); found != importedSymbols.end())
       return found->second;
@@ -357,6 +376,8 @@ private:
             : FunctionId{};
     const auto *reference = std::get_if<FunctionReference>(&source.operation);
     const auto referenced = reference ? importFunction(reference->function) : FunctionId{};
+    const auto *call = std::get_if<FunctionCall>(&source.operation);
+    const auto called = call ? importFunction(call->function) : FunctionId{};
     std::vector<ValueType> parameters;
     if (controlMap)
       parameters = {plain(input.expressions[map->input].type), mapCallableType(*map)};
@@ -377,7 +398,10 @@ private:
       kernels.expressions.push_back({source.span, type, SymbolRead{symbol}});
     }
     auto op = source.operation;
-    if (auto *reference = std::get_if<FunctionReference>(&op)) {
+    if (auto *call = std::get_if<FunctionCall>(&op)) {
+      call->function = called;
+      call->arguments = reads;
+    } else if (auto *reference = std::get_if<FunctionReference>(&op)) {
       reference->function = referenced;
       reference->captures = reads;
     } else if (auto *call = std::get_if<FunctionInvoke>(&op)) {
@@ -679,6 +703,16 @@ private:
       std::vector<Slot> args;
       for (auto arg : call->arguments)
         args.push_back(expression(plan, arg, env, stack));
+      // Synchronous native subgraphs share the ordinary checked call ABI,
+      // including recursive/function-value calls and their cancellation boundary.
+      // A task owns only the outer continuation; it must not impose a heap
+      // continuation frame on every non-suspending source call within that work.
+      if (!options.preserveCalls && options.nativeSubgraphs && nativeFunction(call->function)) {
+        const auto value = slot(plan, node.type);
+        plan.code.push_back({Code::Kernel, value, args, kernel(id), 0, 0, id});
+        env.values[id] = value;
+        return value;
+      }
       if (!options.preserveCalls && stack.contains(call->function) &&
           coordinating.at(call->function)) {
         auto value = recursiveCall(plan, id, call->function, args, env);

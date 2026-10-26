@@ -3,6 +3,7 @@
 #include "NativeLayout.h"
 #include "NativeStack.h"
 #include "NativeCallFoundation.h"
+#include "LocalStorage.h"
 #include "RecordLLVMTypes.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
@@ -30,6 +31,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <functional>
@@ -103,6 +105,23 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   modules.clear();
   auto finish = passes.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
   finish.run(*candidate, modules);
+  // The complete graph pipeline can expose a local environment only on its
+  // final inlining round. Promote afterwards, then replace its loads/stores
+  // with SSA values without re-running unrelated module optimizations.
+  if (promoteLocalEnvironments(*candidate))
+    for (auto &fn : *candidate) {
+      bool local = false;
+      if (!fn.isDeclaration())
+        for (auto &instruction : fn.getEntryBlock())
+          local |= llvm::isa<llvm::AllocaInst>(instruction) &&
+                   instruction.getName().starts_with("local.environment");
+      if (local) {
+        llvm::FunctionPassManager scalarize;
+        scalarize.addPass(llvm::SROAPass(llvm::SROAOptions{}));
+        scalarize.run(fn, functions);
+        simplifyLeaf(fn, true);
+      }
+    }
   // At the outermost callback there is no source caller left to unwind.
   // Return an explicit boundary failure instead. Keep the bit even if a host
   // resets its cancellation token before the runtime checks final readiness.
@@ -202,10 +221,12 @@ struct LoweringFailure {
 };
 class Lowerer {
   ArithmeticMode arithmetic_;
+  bool arrayTailLoops_;
 
 public:
-  Lowerer(const TypedModule &input, MLIRContext &context, ArithmeticMode arithmetic)
-      : arithmetic_(arithmetic), input_(input), builder_(&context),
+  Lowerer(const TypedModule &input, MLIRContext &context, ArithmeticMode arithmetic,
+          bool arrayTailLoops)
+      : arithmetic_(arithmetic), arrayTailLoops_(arrayTailLoops), input_(input), builder_(&context),
         module_(ModuleOp::create(builder_.getUnknownLoc())) {}
   OwningOpRef<ModuleOp> run(const std::optional<std::string> &testEntry,
                             const std::vector<std::string> &exports) {
@@ -2695,6 +2716,136 @@ private:
       frame.symbols.emplace(parameter, entry->getArgument(i));
       validateStrings(function.getLoc(), entry->getArgument(i), input_.symbols[parameter].type);
     }
+    const auto &source = input_.functions[id];
+    const auto plainNumeric = [](const ValueType &t) {
+      return !t.fallible && !t.task &&
+             (t.builtin == BuiltinValue::Numeric || (t.builtin == BuiltinValue::Bool && !t.tensor));
+    };
+    // Keep the terminal branch before the loop condition and the recursive
+    // branch after it. Each condition forwards the current arrays unchanged;
+    // only a continuing iteration produces replacement buffers. Mixing a base
+    // result and new allocations in one loop yield forces needless copies.
+    const auto *choice = source.body.size() == 1
+        ? std::get_if<ConditionalOperation>(&input_.expressions[source.body[0].value].operation)
+        : nullptr;
+    const auto *trueCall = choice
+        ? std::get_if<FunctionCall>(&input_.expressions[choice->trueResult].operation) : nullptr;
+    const auto *falseCall = choice
+        ? std::get_if<FunctionCall>(&input_.expressions[choice->falseResult].operation) : nullptr;
+    const bool trueTail = trueCall && trueCall->function == id &&
+        !choice->whenTrue.empty() && choice->whenTrue.back().value == choice->trueResult;
+    const bool falseTail = falseCall && falseCall->function == id &&
+        !choice->whenFalse.empty() && choice->whenFalse.back().value == choice->falseResult;
+    const bool arrayTail = arrayTailLoops_ && (trueTail != falseTail) &&
+        !source.resultType.tensor && plainNumeric(source.resultType) &&
+        std::ranges::all_of(source.parameters, [&](auto p) {
+          const auto &t = input_.symbols[p].type;
+          return plainNumeric(t) && (!t.tensor || t.shape.size() == 1);
+        }) && std::ranges::any_of(source.parameters, [&](auto p) {
+          return input_.symbols[p].type.tensor;
+        });
+    if (arrayTail) {
+      // Preserve source immutability in function-boundary bufferization. A
+      // writable default otherwise forces callers to clone even a base case.
+      for (std::size_t n = 0; n < source.parameters.size(); ++n)
+        if (input_.symbols[source.parameters[n]].type.tensor)
+          function.setArgAttr(n, "bufferization.writable", builder_.getBoolAttr(false));
+      const auto loc = function.getLoc();
+      const auto &terminal = trueTail ? choice->whenFalse : choice->whenTrue;
+      const auto terminalResult = trueTail ? choice->falseResult : choice->trueResult;
+      const auto &continuation = trueTail ? choice->whenTrue : choice->whenFalse;
+      const auto &call = *(trueTail ? trueCall : falseCall);
+      auto resultType = function.getResultTypes()[0];
+      SmallVector<Value> initial(entry->getArguments());
+      SmallVector<Type> stateTypes(function.getArgumentTypes());
+      stateTypes.push_back(resultType);
+      auto iteration = [&](ValueRange args) {
+        auto current = frame;
+        current.values.clear();
+        for (std::size_t n = 0; n < source.parameters.size(); ++n)
+          current.symbols[source.parameters[n]] = args[n];
+        return current;
+      };
+      auto emitLoop = [&]() -> Value {
+        Value zero = arith::ConstantOp::create(builder_, loc, builder_.getZeroAttr(resultType));
+        auto loop = scf::WhileOp::create(builder_, loc, stateTypes, initial,
+          [&](OpBuilder &, Location, ValueRange args) {
+            auto current = iteration(args);
+            Value active = expression(current, choice->condition);
+            if (!trueTail)
+              active = arith::XOrIOp::create(builder_, loc, active,
+                  arith::ConstantIntOp::create(builder_, loc, 1, 1));
+            auto completed = scf::IfOp::create(builder_, loc, TypeRange{resultType}, active, true);
+            {
+              OpBuilder::InsertionGuard guard(builder_);
+              builder_.setInsertionPointToStart(&completed.getThenRegion().front());
+              scf::YieldOp::create(builder_, loc, zero);
+              builder_.setInsertionPointToStart(&completed.getElseRegion().front());
+              for (const auto &statement : terminal) {
+                auto value = expression(current, statement.value);
+                if (statement.binding) current.symbols[*statement.binding] = value;
+              }
+              auto result = castTensor(loc, expression(current, terminalResult), resultType);
+              scf::YieldOp::create(builder_, loc, result);
+            }
+            SmallVector<Value> next(args);
+            next.push_back(completed.getResult(0));
+            scf::ConditionOp::create(builder_, loc, active, next);
+          },
+          [&](OpBuilder &, Location, ValueRange args) {
+            auto current = iteration(args);
+            for (std::size_t n = 0; n + 1 < continuation.size(); ++n) {
+              const auto &statement = continuation[n];
+              auto value = expression(current, statement.value);
+              if (statement.binding) current.symbols[*statement.binding] = value;
+            }
+            SmallVector<Value> next;
+            for (std::size_t n = 0; n < call.arguments.size(); ++n)
+              next.push_back(castTensor(loc, expression(current, call.arguments[n]),
+                                         function.getArgumentTypes()[n]));
+            scf::YieldOp::create(builder_, loc, next);
+          });
+        return loop.getResults().back();
+      };
+      const auto simpleOperand = [&](ValueId value) {
+        const auto &node = input_.expressions[value];
+        return !node.type.tensor && plainNumeric(node.type) && std::visit([](const auto &op) {
+          using T = std::decay_t<decltype(op)>;
+          return std::is_same_v<T, SymbolRead> || std::is_same_v<T, Int32Literal> ||
+                 std::is_same_v<T, Int64Literal> || std::is_same_v<T, UInt32Literal> ||
+                 std::is_same_v<T, UInt64Literal> || std::is_same_v<T, Float32Literal> ||
+                 std::is_same_v<T, Float64Literal> || std::is_same_v<T, BoolLiteral>;
+        }, node.operation);
+      };
+      const auto *comparison =
+          std::get_if<ScalarCompare>(&input_.expressions[choice->condition].operation);
+      if (comparison && simpleOperand(comparison->left) && simpleOperand(comparison->right)) {
+        // A parameter/literal comparison has no allocation or other source
+        // effects. Keep its terminal case outside loop ownership conversion,
+        // which otherwise clones an unused tensor result even at zero steps.
+        Value active = expression(frame, choice->condition);
+        if (!trueTail)
+          active = arith::XOrIOp::create(builder_, loc, active,
+              arith::ConstantIntOp::create(builder_, loc, 1, 1));
+        auto selected = scf::IfOp::create(builder_, loc, TypeRange{resultType}, active, true);
+        {
+          OpBuilder::InsertionGuard guard(builder_);
+          builder_.setInsertionPointToStart(&selected.getThenRegion().front());
+          scf::YieldOp::create(builder_, loc, emitLoop());
+          builder_.setInsertionPointToStart(&selected.getElseRegion().front());
+          auto stopped = frame;
+          for (const auto &statement : terminal) {
+            auto value = expression(stopped, statement.value);
+            if (statement.binding) stopped.symbols[*statement.binding] = value;
+          }
+          scf::YieldOp::create(builder_, loc,
+              castTensor(loc, expression(stopped, terminalResult), resultType));
+        }
+        func::ReturnOp::create(builder_, loc, selected.getResult(0));
+      } else
+        func::ReturnOp::create(builder_, loc, emitLoop());
+      return;
+    }
     Value result;
     for (const auto &statement : input_.functions[id].body) {
       result = expression(frame, statement.value);
@@ -2773,11 +2924,12 @@ private:
   unsigned nextMatmulHelper_ = 0, nextStringLiteral_ = 0, nextElementwiseHelper_ = 0;
 };
 } // namespace
-std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
+static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModule &input,
                                                       std::optional<std::string> testEntry,
                                                       const std::vector<std::string> &exports,
                                                       ArithmeticMode arithmetic,
-                                                      bool deferCallFinalization) {
+                                                      bool deferCallFinalization,
+                                                      bool arrayTailLoops) {
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   const auto storage = planRecordStorage(input);
@@ -2806,7 +2958,7 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
   static std::once_flag passRegistration;
   std::call_once(passRegistration, [] { registerAllPasses(); });
   try {
-    auto module = Lowerer(input, context, arithmetic).run(testEntry, exports);
+    auto module = Lowerer(input, context, arithmetic, arrayTailLoops).run(testEntry, exports);
     if (failed(verify(*module)))
       return std::unexpected("generated tensor MLIR failed verification");
     BackendOutput result;
@@ -2830,7 +2982,8 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
         return std::unexpected("strict CPU float64 lowering failed");
     PassManager pipeline(&context);
     pipeline.enableVerifier(true);
-    const char *passes = "one-shot-bufferize{bufferize-function-boundaries},convert-linalg-to-"
+    const char *passes = "one-shot-bufferize{bufferize-function-boundaries "
+                         "allow-return-allocs-from-loops},convert-linalg-to-"
                          "loops,buffer-deallocation-pipeline,convert-bufferization-to-memref";
     if (failed(parsePassPipeline(passes, pipeline)))
       return std::unexpected("cannot construct pinned lowering pipeline");
@@ -2927,5 +3080,15 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
   } catch (const LoweringFailure &failure) {
     return std::unexpected(failure.message);
   }
+}
+std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
+                                                      std::optional<std::string> testEntry,
+                                                      const std::vector<std::string> &exports,
+                                                      ArithmeticMode arithmetic,
+                                                      bool deferCallFinalization) {
+  auto result = lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, true);
+  if (!result && result.error().find("native stack budget") != std::string::npos)
+    return lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, false);
+  return result;
 }
 } // namespace kalandra

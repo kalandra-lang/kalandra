@@ -10,10 +10,15 @@ The shared instruction set covers literals and arithmetic, numerical kernels, sy
 
 Two call policies preserve the current backend interfaces:
 
-- Ordinary CPU task compilation expands synchronous helper bodies into the caller's plan and extracts numeric operations into checked CPU kernels. Named CPU child entries and synthetic builtin entries retain their own plans. Existing recursion, expansion and frame-value limits still apply.
+- Ordinary CPU task compilation imports eligible non-suspending helper call graphs into native kernels, including recursive helpers and function values. A named synchronous child retains its outer task plan and transport, while its source calls use the native checked ABI. Expected-error/control-flow callables and coordinating helpers retain checked continuation storage. If native physical-frame admission fails, compilation retries the previous continuation representation. See [native task subgraphs and ownership](checked-call-optimization.md#native-subgraphs-inside-cpu-tasks) for the optimization boundary.
 - Mixed-program compilation preserves ordinary numeric calls as checked target dispatches, expands resumable helpers into the caller, and plans its selected `main` plus reachable resumable child entries. CPU calls use the existing checked export ABI; GPU calls and transfers use the Metal task runtime. A placed spawn contains evaluated argument slots plus a checked selector slot. Constant tensor data stays embedded instead of consuming one frame slot per literal element; nonconstant operands retain their evaluation order. Logical function IDs map explicitly to CPU export IDs. Other function IDs retain their positions rather than being renumbered around the selected entry.
 
 These are call-lowering policies within the same control-flow planner. They retain the existing value types, scheduler and GPU capabilities.
+
+Native numeric work runs synchronously on its worker until return, fault or
+cancellation. It does not yield to sibling continuations at every source call;
+await/join and coordinating continuations remain scheduler suspension points.
+The bounded worker scheduler is not a preemptive executor for pure CPU work.
 
 ## Settlement and control flow
 

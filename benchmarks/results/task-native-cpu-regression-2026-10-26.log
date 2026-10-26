@@ -1,0 +1,765 @@
+Test project /Users/pouya/Projects/kalandra.dev/build/native
+        Start  578: native-int16-thread-sanitized
+        Start  715: native-function-collections-thread-sanitized
+        Start  899: native-total-hardware-casts
+        Start  348: native-array-closures-thread-sanitized
+  1/380 Test  #348: native-array-closures-thread-sanitized ...................   Passed  171.12 sec
+        Start  438: native-record-closures-thread-sanitized
+  2/380 Test  #899: native-total-hardware-casts ..............................   Passed  171.52 sec
+        Start  746: native-function-arrays-thread-sanitized
+  3/380 Test  #715: native-function-collections-thread-sanitized .............   Passed  225.69 sec
+        Start  728: native-block-closures-thread-sanitized
+  4/380 Test  #578: native-int16-thread-sanitized ............................   Passed  248.48 sec
+        Start  722: native-closures-thread-sanitized
+  5/380 Test  #746: native-function-arrays-thread-sanitized ..................   Passed  175.33 sec
+        Start  577: native-int16-sanitized
+  6/380 Test  #438: native-record-closures-thread-sanitized ..................   Passed  203.67 sec
+        Start  571: native-int8-thread-sanitized
+  7/380 Test  #728: native-block-closures-thread-sanitized ...................   Passed  169.35 sec
+        Start  827: native-resumable-callables-thread-sanitized
+  8/380 Test  #722: native-closures-thread-sanitized .........................   Passed  173.44 sec
+        Start  809: native-parallel-map-thread-sanitized
+  9/380 Test  #577: native-int16-sanitized ...................................   Passed  141.43 sec
+        Start  575: native-int16-debug
+ 10/380 Test  #571: native-int8-thread-sanitized .............................   Passed  157.95 sec
+        Start  716: native-fallible-functions-thread-sanitized
+ 11/380 Test  #827: native-resumable-callables-thread-sanitized ..............   Passed  150.51 sec
+        Start  576: native-int16-optimized
+ 12/380 Test  #809: native-parallel-map-thread-sanitized .....................   Passed  147.84 sec
+        Start  812: native-worker-callable-maps-thread-sanitized
+ 13/380 Test  #575: native-int16-debug .......................................   Passed  119.64 sec
+        Start  810: native-worker-error-functions-thread-sanitized
+ 14/380 Test  #576: native-int16-optimized ...................................   Passed   94.97 sec
+        Start  811: native-worker-callable-collections-thread-sanitized
+ 15/380 Test  #716: native-fallible-functions-thread-sanitized ...............   Passed  142.23 sec
+        Start  634: native-recursive-workers-thread-sanitized
+ 16/380 Test  #812: native-worker-callable-maps-thread-sanitized .............   Passed  121.72 sec
+        Start  816: native-worker-callable-aggregates-thread-sanitized
+ 17/380 Test  #810: native-worker-error-functions-thread-sanitized ...........   Passed  115.27 sec
+        Start  148: native-int64-tensor-tasks-thread-sanitized
+ 18/380 Test  #811: native-worker-callable-collections-thread-sanitized ......   Passed  109.53 sec
+        Start  569: native-int8-sanitized
+ 19/380 Test  #634: native-recursive-workers-thread-sanitized ................   Passed  116.24 sec
+        Start  152: native-uint64-tensor-tasks-thread-sanitized
+ 20/380 Test  #816: native-worker-callable-aggregates-thread-sanitized .......   Passed  105.15 sec
+        Start  688: native-worker-errors-thread-sanitized
+ 21/380 Test  #148: native-int64-tensor-tasks-thread-sanitized ...............   Passed  106.44 sec
+        Start  222: native-float64-reductions-thread-sanitized
+ 22/380 Test  #569: native-int8-sanitized ....................................   Passed   90.05 sec
+        Start  815: native-worker-parameters-thread-sanitized
+ 23/380 Test  #688: native-worker-errors-thread-sanitized ....................   Passed   90.57 sec
+        Start  814: native-worker-indirect-provenance-thread-sanitized
+ 24/380 Test  #152: native-uint64-tensor-tasks-thread-sanitized ..............   Passed  100.96 sec
+        Start  808: native-worker-function-results-thread-sanitized
+ 25/380 Test  #222: native-float64-reductions-thread-sanitized ...............   Passed   95.04 sec
+        Start  807: native-worker-nested-closures-thread-sanitized
+ 26/380 Test  #815: native-worker-parameters-thread-sanitized ................   Passed   85.63 sec
+        Start  567: native-int8-optimized
+ 27/380 Test  #814: native-worker-indirect-provenance-thread-sanitized .......   Passed   92.62 sec
+        Start  806: native-worker-closures-thread-sanitized
+ 28/380 Test  #808: native-worker-function-results-thread-sanitized ..........   Passed   89.48 sec
+        Start  218: native-float64-tensor-tasks-thread-sanitized
+ 29/380 Test  #567: native-int8-optimized ....................................   Passed   73.12 sec
+        Start  210: native-float64-tasks-thread-sanitized
+ 30/380 Test  #807: native-worker-nested-closures-thread-sanitized ...........   Passed   80.45 sec
+        Start  346: native-array-closures-sanitized
+ 31/380 Test  #806: native-worker-closures-thread-sanitized ..................   Passed   72.66 sec
+        Start  565: native-int8-debug
+ 32/380 Test  #218: native-float64-tensor-tasks-thread-sanitized .............   Passed   76.47 sec
+        Start  192: native-uint16-matmul-thread-sanitized
+ 33/380 Test  #210: native-float64-tasks-thread-sanitized ....................   Passed   79.65 sec
+        Start  890: native-recursive-scalars
+ 34/380 Test  #346: native-array-closures-sanitized ..........................   Passed   75.21 sec
+        Start  136: native-uint64-runtime-thread-sanitized
+ 35/380 Test  #565: native-int8-debug ........................................   Passed   67.78 sec
+        Start  120: native-uint32-tensor-tasks-thread-sanitized
+ 36/380 Test  #192: native-uint16-matmul-thread-sanitized ....................   Passed   70.45 sec
+        Start  214: native-float64-tensors-thread-sanitized
+ 37/380 Test  #890: native-recursive-scalars .................................   Passed   62.46 sec
+        Start  712: native-function-collections-sanitized
+ 38/380 Test  #136: native-uint64-runtime-thread-sanitized ...................   Passed   71.89 sec
+        Start  184: native-uint8-matmul-thread-sanitized
+ 39/380 Test  #120: native-uint32-tensor-tasks-thread-sanitized ..............   Passed   72.14 sec
+        Start  200: native-uint64-matmul-thread-sanitized
+ 40/380 Test  #214: native-float64-tensors-thread-sanitized ..................   Passed   64.57 sec
+        Start  631: native-recursive-workers-sanitized
+ 41/380 Test  #712: native-function-collections-sanitized ....................   Passed   68.12 sec
+        Start  188: native-int16-matmul-thread-sanitized
+ 42/380 Test  #184: native-uint8-matmul-thread-sanitized .....................   Passed   69.82 sec
+        Start  196: native-int64-matmul-thread-sanitized
+ 43/380 Test  #631: native-recursive-workers-sanitized .......................   Passed   66.66 sec
+        Start  805: native-worker-functions-thread-sanitized
+ 44/380 Test  #200: native-uint64-matmul-thread-sanitized ....................   Passed   70.55 sec
+        Start  112: native-uint32-runtime-thread-sanitized
+ 45/380 Test  #188: native-int16-matmul-thread-sanitized .....................   Passed   66.39 sec
+        Start  180: native-int8-matmul-thread-sanitized
+ 46/380 Test  #196: native-int64-matmul-thread-sanitized .....................   Passed   66.34 sec
+        Start  160: native-uint8-reductions-thread-sanitized
+ 47/380 Test  #805: native-worker-functions-thread-sanitized .................   Passed   55.11 sec
+        Start  168: native-uint16-reductions-thread-sanitized
+ 48/380 Test  #112: native-uint32-runtime-thread-sanitized ...................   Passed   62.05 sec
+        Start  721: native-closures-sanitized
+ 49/380 Test  #180: native-int8-matmul-thread-sanitized ......................   Passed   66.41 sec
+        Start  226: native-float64-matmul-thread-sanitized
+ 50/380 Test  #160: native-uint8-reductions-thread-sanitized .................   Passed   57.66 sec
+        Start  156: native-int8-reductions-thread-sanitized
+ 51/380 Test  #168: native-uint16-reductions-thread-sanitized ................   Passed   58.24 sec
+        Start  727: native-block-closures-sanitized
+ 52/380 Test  #721: native-closures-sanitized ................................   Passed   55.18 sec
+        Start  176: native-uint64-reductions-thread-sanitized
+ 53/380 Test  #226: native-float64-matmul-thread-sanitized ...................   Passed   61.21 sec
+        Start  172: native-int64-reductions-thread-sanitized
+ 54/380 Test  #156: native-int8-reductions-thread-sanitized ..................   Passed   57.62 sec
+        Start  164: native-int16-reductions-thread-sanitized
+ 55/380 Test  #727: native-block-closures-sanitized ..........................   Passed   51.51 sec
+        Start  436: native-record-closures-optimized
+ 56/380 Test  #176: native-uint64-reductions-thread-sanitized ................   Passed   56.56 sec
+        Start  745: native-function-arrays-sanitized
+ 57/380 Test  #172: native-int64-reductions-thread-sanitized .................   Passed   56.78 sec
+        Start  213: native-float64-tensors-sanitized
+ 58/380 Test  #164: native-int16-reductions-thread-sanitized .................   Passed   56.79 sec
+        Start  147: native-int64-tensor-tasks-sanitized
+ 59/380 Test  #436: native-record-closures-optimized .........................   Passed   65.14 sec
+        Start  140: native-int64-tensors-thread-sanitized
+ 60/380 Test  #745: native-function-arrays-sanitized .........................   Passed   53.48 sec
+        Start  139: native-int64-tensors-sanitized
+ 61/380 Test  #147: native-int64-tensor-tasks-sanitized ......................   Passed   47.22 sec
+        Start  713: native-fallible-functions-sanitized
+ 62/380 Test  #213: native-float64-tensors-sanitized .........................   Passed   52.73 sec
+        Start   90: native-int32-tensor-tasks-thread-sanitized
+ 63/380 Test  #139: native-int64-tensors-sanitized ...........................   Passed   39.56 sec
+        Start  106: native-uint32-matmul-thread-sanitized
+ 64/380 Test  #140: native-int64-tensors-thread-sanitized ....................   Passed   45.49 sec
+        Start  211: native-float64-tensors-debug
+ 65/380 Test  #713: native-fallible-functions-sanitized ......................   Passed   45.30 sec
+        Start  797: native-parallel-map-sanitized
+ 66/380 Test   #90: native-int32-tensor-tasks-thread-sanitized ...............   Passed   51.02 sec
+        Start  116: native-uint32-tensors-thread-sanitized
+ 67/380 Test  #106: native-uint32-matmul-thread-sanitized ....................   Passed   48.93 sec
+        Start  144: native-uint64-tensors-thread-sanitized
+ 68/380 Test  #211: native-float64-tensors-debug .............................   Passed   46.75 sec
+        Start  628: native-recursive-workers-optimized
+ 69/380 Test  #797: native-parallel-map-sanitized ............................   Passed   43.07 sec
+        Start  151: native-uint64-tensor-tasks-sanitized
+ 70/380 Test  #116: native-uint32-tensors-thread-sanitized ...................   Passed   45.29 sec
+        Start  344: native-array-closures-optimized
+ 71/380 Test  #144: native-uint64-tensors-thread-sanitized ...................   Passed   45.64 sec
+        Start  130: native-int64-tasks-thread-sanitized
+ 72/380 Test  #628: native-recursive-workers-optimized .......................   Passed   48.71 sec
+        Start  115: native-uint32-tensors-sanitized
+ 73/380 Test  #151: native-uint64-tensor-tasks-sanitized .....................   Passed   44.55 sec
+        Start  143: native-uint64-tensors-sanitized
+ 74/380 Test  #344: native-array-closures-optimized ..........................   Passed   41.73 sec
+        Start  212: native-float64-tensors-optimized
+ 75/380 Test  #130: native-int64-tasks-thread-sanitized ......................   Passed   43.80 sec
+        Start  105: native-int32-matmul-thread-sanitized
+ 76/380 Test  #115: native-uint32-tensors-sanitized ..........................   Passed   38.80 sec
+        Start  625: native-recursive-workers-debug
+ 77/380 Test  #143: native-uint64-tensors-sanitized ..........................   Passed   40.29 sec
+        Start  764: native-recursive-callables-thread-sanitized
+ 78/380 Test  #212: native-float64-tensors-optimized .........................   Passed   42.75 sec
+        Start   86: native-int32-tensors-thread-sanitized
+ 79/380 Test  #105: native-int32-matmul-thread-sanitized .....................   Passed   45.33 sec
+        Start  758: native-delimited-closures-thread-sanitized
+ 80/380 Test  #625: native-recursive-workers-debug ...........................   Passed   45.18 sec
+        Start  342: native-array-closures-debug
+ 81/380 Test  #764: native-recursive-callables-thread-sanitized ..............   Passed   36.52 sec
+        Start  138: native-int64-tensors-optimized
+ 82/380 Test   #86: native-int32-tensors-thread-sanitized ....................   Passed   40.63 sec
+        Start   85: native-int32-tensors-sanitized
+ 83/380 Test  #342: native-array-closures-debug ..............................   Passed   34.10 sec
+        Start  636: native-recursive-source-thread-sanitized
+ 84/380 Test  #138: native-int64-tensors-optimized ...........................   Passed   32.25 sec
+        Start  635: native-recursive-continuations-thread-sanitized
+ 85/380 Test  #758: native-delimited-closures-thread-sanitized ...............   Passed   37.07 sec
+        Start  146: native-int64-tensor-tasks-optimized
+ 86/380 Test   #85: native-int32-tensors-sanitized ...........................   Passed   35.56 sec
+        Start  707: native-fallible-functions-debug
+ 87/380 Test  #146: native-int64-tensor-tasks-optimized ......................   Passed   30.10 sec
+        Start  644: native-recursive-collections-thread-sanitized
+ 88/380 Test  #635: native-recursive-continuations-thread-sanitized ..........   Passed   38.22 sec
+        Start  137: native-int64-tensors-debug
+ 89/380 Test  #636: native-recursive-source-thread-sanitized .................   Passed   39.51 sec
+        Start  135: native-uint64-runtime-sanitized
+ 90/380 Test  #707: native-fallible-functions-debug ..........................   Passed   22.94 sec
+        Start  652: native-recursive-record-arrays-thread-sanitized
+ 91/380 Test  #137: native-int64-tensors-debug ...............................   Passed   29.10 sec
+        Start  726: native-block-closures-optimized
+ 92/380 Test  #135: native-uint64-runtime-sanitized ..........................   Passed   30.50 sec
+        Start  145: native-int64-tensor-tasks-debug
+ 93/380 Test  #644: native-recursive-collections-thread-sanitized ............   Passed   38.77 sec
+        Start   82: native-int32-tasks-thread-sanitized
+ 94/380 Test  #652: native-recursive-record-arrays-thread-sanitized ..........   Passed   38.41 sec
+        Start  800: native-worker-callable-maps-sanitized
+ 95/380 Test  #726: native-block-closures-optimized ..........................   Passed   23.55 sec
+        Start  711: native-function-values-sanitized
+ 96/380 Test  #145: native-int64-tensor-tasks-debug ..........................   Passed   25.07 sec
+        Start  142: native-uint64-tensors-optimized
+ 97/380 Test   #82: native-int32-tasks-thread-sanitized ......................   Passed   35.87 sec
+        Start  119: native-uint32-tensor-tasks-sanitized
+ 98/380 Test  #800: native-worker-callable-maps-sanitized ....................   Passed   33.63 sec
+        Start  114: native-uint32-tensors-optimized
+ 99/380 Test  #711: native-function-values-sanitized .........................   Passed   29.16 sec
+        Start  705: native-function-values-debug
+100/380 Test  #142: native-uint64-tensors-optimized ..........................   Passed   32.96 sec
+        Start  141: native-uint64-tensors-debug
+101/380 Test  #705: native-function-values-debug .............................   Passed   15.75 sec
+        Start  710: native-fallible-functions-optimized
+102/380 Test  #119: native-uint32-tensor-tasks-sanitized .....................   Passed   32.64 sec
+        Start  648: native-recursive-string-arrays-thread-sanitized
+103/380 Test  #114: native-uint32-tensors-optimized ..........................   Passed   31.54 sec
+        Start  725: native-block-closures-debug
+104/380 Test  #141: native-uint64-tensors-debug ..............................   Passed   30.11 sec
+        Start  111: native-uint32-runtime-sanitized
+105/380 Test  #710: native-fallible-functions-optimized ......................   Passed   26.37 sec
+        Start  720: native-closures-optimized
+106/380 Test  #725: native-block-closures-debug ..............................   Passed   23.19 sec
+        Start  133: native-uint64-runtime-debug
+107/380 Test  #648: native-recursive-string-arrays-thread-sanitized ..........   Passed   35.55 sec
+        Start  719: native-closures-debug
+108/380 Test  #111: native-uint32-runtime-sanitized ..........................   Passed   26.53 sec
+        Start  150: native-uint64-tensor-tasks-optimized
+109/380 Test  #720: native-closures-optimized ................................   Passed   25.56 sec
+        Start  134: native-uint64-runtime-optimized
+110/380 Test  #133: native-uint64-runtime-debug ..............................   Passed   19.10 sec
+        Start   84: native-int32-tensors-optimized
+111/380 Test  #719: native-closures-debug ....................................   Passed   24.25 sec
+        Start  687: native-worker-errors-sanitized
+112/380 Test  #134: native-uint64-runtime-optimized ..........................   Passed   20.69 sec
+        Start  803: native-worker-parameters-sanitized
+113/380 Test  #150: native-uint64-tensor-tasks-optimized .....................   Passed   27.48 sec
+        Start  743: native-function-arrays-debug
+114/380 Test   #84: native-int32-tensors-optimized ...........................   Passed   29.45 sec
+        Start  757: native-delimited-closures-sanitized
+115/380 Test  #687: native-worker-errors-sanitized ...........................   Passed   28.50 sec
+        Start  149: native-uint64-tensor-tasks-debug
+116/380 Test  #803: native-worker-parameters-sanitized .......................   Passed   22.26 sec
+        Start  113: native-uint32-tensors-debug
+117/380 Test  #743: native-function-arrays-debug .............................   Passed   23.78 sec
+        Start  217: native-float64-tensor-tasks-sanitized
+118/380 Test  #757: native-delimited-closures-sanitized ......................   Passed   21.68 sec
+        Start   83: native-int32-tensors-debug
+119/380 Test  #149: native-uint64-tensor-tasks-debug .........................   Passed   23.39 sec
+        Start  755: native-delimited-closures-debug
+120/380 Test  #113: native-uint32-tensors-debug ..............................   Passed   28.96 sec
+        Start  209: native-float64-scalars-thread-sanitized
+121/380 Test  #217: native-float64-tensor-tasks-sanitized ....................   Passed   27.95 sec
+        Start  744: native-function-arrays-optimized
+122/380 Test   #83: native-int32-tensors-debug ...............................   Passed   26.98 sec
+        Start  825: native-resumable-callables-sanitized
+123/380 Test  #755: native-delimited-closures-debug ..........................   Passed   17.02 sec
+        Start  709: native-function-collections-optimized
+124/380 Test  #209: native-float64-scalars-thread-sanitized ..................   Passed   25.12 sec
+        Start  799: native-worker-callable-collections-sanitized
+125/380 Test  #744: native-function-arrays-optimized .........................   Passed   24.20 sec
+        Start  706: native-function-collections-debug
+126/380 Test  #709: native-function-collections-optimized ....................   Passed   25.41 sec
+        Start  221: native-float64-reductions-sanitized
+127/380 Test  #825: native-resumable-callables-sanitized .....................   Passed   39.46 sec
+        Start  109: native-uint32-runtime-debug
+128/380 Test  #706: native-function-collections-debug ........................   Passed   22.45 sec
+        Start  110: native-uint32-runtime-optimized
+129/380 Test  #799: native-worker-callable-collections-sanitized .............   Passed   25.84 sec
+        Start  118: native-uint32-tensor-tasks-optimized
+130/380 Test  #221: native-float64-reductions-sanitized ......................   Passed   27.50 sec
+        Start  208: native-float64-tasks-sanitized
+131/380 Test  #109: native-uint32-runtime-debug ..............................   Passed   17.31 sec
+        Start  792: native-worker-callable-aggregates-optimized
+132/380 Test  #110: native-uint32-runtime-optimized ..........................   Passed   18.51 sec
+        Start  708: native-function-values-optimized
+133/380 Test  #118: native-uint32-tensor-tasks-optimized .....................   Passed   20.78 sec
+        Start   98: native-uint32-reductions-thread-sanitized
+134/380 Test  #792: native-worker-callable-aggregates-optimized ..............   Passed   15.24 sec
+        Start  117: native-uint32-tensor-tasks-debug
+135/380 Test  #208: native-float64-tasks-sanitized ...........................   Passed   23.68 sec
+        Start   87: native-int32-tensor-tasks-debug
+136/380 Test  #708: native-function-values-optimized .........................   Passed   16.33 sec
+        Start   97: native-int32-reductions-thread-sanitized
+137/380 Test   #87: native-int32-tensor-tasks-debug ..........................   Passed   11.66 sec
+        Start  802: native-worker-indirect-provenance-sanitized
+138/380 Test  #117: native-uint32-tensor-tasks-debug .........................   Passed   18.98 sec
+        Start   89: native-int32-tensor-tasks-sanitized
+139/380 Test  #802: native-worker-indirect-provenance-sanitized ..............   Passed   22.25 sec
+        Start  756: native-delimited-closures-optimized
+140/380 Test   #89: native-int32-tensor-tasks-sanitized ......................   Passed   20.43 sec
+        Start  773: native-parallel-map-debug
+141/380 Test   #98: native-uint32-reductions-thread-sanitized ................   Passed   48.95 sec
+        Start  785: native-parallel-map-optimized
+142/380 Test   #97: native-int32-reductions-thread-sanitized .................   Passed   49.68 sec
+        Start  191: native-uint16-matmul-sanitized
+143/380 Test  #756: native-delimited-closures-optimized ......................   Passed   16.85 sec
+        Start  183: native-uint8-matmul-sanitized
+144/380 Test  #773: native-parallel-map-debug ................................   Passed   17.13 sec
+        Start  761: native-recursive-callables-debug
+145/380 Test  #785: native-parallel-map-optimized ............................   Passed   18.89 sec
+        Start  781: native-worker-functions-optimized
+146/380 Test  #761: native-recursive-callables-debug .........................   Passed   15.22 sec
+        Start  179: native-int8-matmul-sanitized
+147/380 Test  #781: native-worker-functions-optimized ........................   Passed   13.79 sec
+        Start  199: native-uint64-matmul-sanitized
+148/380 Test  #191: native-uint16-matmul-sanitized ...........................   Passed   20.25 sec
+        Start  195: native-int64-matmul-sanitized
+149/380 Test  #183: native-uint8-matmul-sanitized ............................   Passed   20.17 sec
+        Start  685: native-worker-errors-debug
+150/380 Test  #685: native-worker-errors-debug ...............................   Passed   12.80 sec
+        Start  769: native-worker-functions-debug
+151/380 Test  #179: native-int8-matmul-sanitized .............................   Passed   19.56 sec
+        Start  225: native-float64-matmul-sanitized
+152/380 Test  #199: native-uint64-matmul-sanitized ...........................   Passed   21.31 sec
+        Start  898: native-tail-calls-software
+153/380 Test  #195: native-int64-matmul-sanitized ............................   Passed   20.07 sec
+        Start  126: native-int64-runtime-thread-sanitized
+154/380 Test  #769: native-worker-functions-debug ............................   Passed   12.85 sec
+        Start  155: native-int8-reductions-sanitized
+155/380 Test  #225: native-float64-matmul-sanitized ..........................   Passed   19.80 sec
+        Start  660: native-recursive-function-arrays-thread-sanitized
+156/380 Test  #126: native-int64-runtime-thread-sanitized ....................   Passed   15.71 sec
+        Start  187: native-int16-matmul-sanitized
+157/380 Test  #898: native-tail-calls-software ...............................   Passed   16.99 sec
+        Start  686: native-worker-errors-optimized
+158/380 Test  #155: native-int8-reductions-sanitized .........................   Passed   17.38 sec
+        Start  897: native-tail-calls
+159/380 Test  #686: native-worker-errors-optimized ...........................   Passed   14.28 sec
+        Start  163: native-int16-reductions-sanitized
+160/380 Test  #187: native-int16-matmul-sanitized ............................   Passed   19.18 sec
+        Start  171: native-int64-reductions-sanitized
+161/380 Test  #897: native-tail-calls ........................................   Passed   16.31 sec
+        Start  167: native-uint16-reductions-sanitized
+162/380 Test  #660: native-recursive-function-arrays-thread-sanitized ........   Passed   31.12 sec
+        Start  159: native-uint8-reductions-sanitized
+163/380 Test  #163: native-int16-reductions-sanitized ........................   Passed   18.41 sec
+        Start  788: native-worker-callable-maps-optimized
+164/380 Test  #171: native-int64-reductions-sanitized ........................   Passed   18.83 sec
+        Start  216: native-float64-tensor-tasks-optimized
+165/380 Test  #167: native-uint16-reductions-sanitized .......................   Passed   18.53 sec
+        Start   78: native-int32-runtime-thread-sanitized
+166/380 Test  #788: native-worker-callable-maps-optimized ....................   Passed   13.14 sec
+        Start  207: native-float64-scalars-sanitized
+167/380 Test  #159: native-uint8-reductions-sanitized ........................   Passed   18.36 sec
+        Start  175: native-uint64-reductions-sanitized
+168/380 Test  #216: native-float64-tensor-tasks-optimized ....................   Passed   15.85 sec
+        Start  129: native-int64-tasks-sanitized
+169/380 Test   #78: native-int32-runtime-thread-sanitized ....................   Passed   15.78 sec
+        Start  632: native-recursive-continuations-sanitized
+170/380 Test  #207: native-float64-scalars-sanitized .........................   Passed   17.04 sec
+        Start  782: native-worker-closures-optimized
+171/380 Test  #175: native-uint64-reductions-sanitized .......................   Passed   18.31 sec
+        Start  203: native-float64-scalars-debug
+172/380 Test  #129: native-int64-tasks-sanitized .............................   Passed   15.79 sec
+        Start  770: native-worker-closures-debug
+173/380 Test  #632: native-recursive-continuations-sanitized .................   Passed   18.17 sec
+        Start  784: native-worker-function-results-optimized
+174/380 Test  #782: native-worker-closures-optimized .........................   Passed   12.49 sec
+        Start  215: native-float64-tensor-tasks-debug
+175/380 Test  #770: native-worker-closures-debug .............................   Passed   11.49 sec
+        Start  104: native-uint32-matmul-sanitized
+176/380 Test  #203: native-float64-scalars-debug .............................   Passed   13.87 sec
+        Start  776: native-worker-callable-maps-debug
+177/380 Test  #784: native-worker-function-results-optimized .................   Passed   13.29 sec
+        Start   88: native-int32-tensor-tasks-optimized
+178/380 Test  #215: native-float64-tensor-tasks-debug ........................   Passed   14.31 sec
+        Start  656: native-recursive-callable-fields-thread-sanitized
+179/380 Test  #776: native-worker-callable-maps-debug ........................   Passed   11.82 sec
+        Start  798: native-worker-error-functions-sanitized
+180/380 Test  #104: native-uint32-matmul-sanitized ...........................   Passed   17.75 sec
+        Start  205: native-float64-scalars-optimized
+181/380 Test   #88: native-int32-tensor-tasks-optimized ......................   Passed   12.40 sec
+        Start  640: native-recursive-strings-thread-sanitized
+182/380 Test  #205: native-float64-scalars-optimized .........................   Passed   13.29 sec
+        Start  103: native-int32-matmul-sanitized
+183/380 Test  #656: native-recursive-callable-fields-thread-sanitized ........   Passed   26.04 sec
+        Start  783: native-worker-nested-closures-optimized
+184/380 Test  #640: native-recursive-strings-thread-sanitized ................   Passed   15.28 sec
+        Start  714: native-function-values-thread-sanitized
+185/380 Test  #798: native-worker-error-functions-sanitized ..................   Passed   27.14 sec
+        Start   81: native-int32-tasks-sanitized
+186/380 Test  #783: native-worker-nested-closures-optimized ..................   Passed   11.30 sec
+        Start  128: native-int64-tasks-optimized
+187/380 Test  #103: native-int32-matmul-sanitized ............................   Passed   15.92 sec
+        Start  206: native-float64-tasks-optimized
+188/380 Test   #81: native-int32-tasks-sanitized .............................   Passed   12.48 sec
+        Start  127: native-int64-tasks-debug
+189/380 Test  #128: native-int64-tasks-optimized .............................   Passed    9.29 sec
+        Start  633: native-recursive-source-sanitized
+190/380 Test  #206: native-float64-tasks-optimized ...........................   Passed   12.56 sec
+        Start  204: native-float64-tasks-debug
+191/380 Test  #127: native-int64-tasks-debug .................................   Passed    8.67 sec
+        Start  125: native-int64-runtime-sanitized
+192/380 Test  #125: native-int64-runtime-sanitized ...........................   Passed   10.43 sec
+        Start  763: native-recursive-callables-sanitized
+193/380 Test  #204: native-float64-tasks-debug ...............................   Passed   12.10 sec
+        Start   77: native-int32-runtime-sanitized
+194/380 Test  #633: native-recursive-source-sanitized ........................   Passed   16.22 sec
+        Start  884: native-task-native-helpers
+195/380 Test   #77: native-int32-runtime-sanitized ...........................   Passed    9.78 sec
+        Start  643: native-recursive-collections-sanitized
+196/380 Test  #763: native-recursive-callables-sanitized .....................   Passed   20.73 sec
+        Start  124: native-int64-runtime-optimized
+197/380 Test  #643: native-recursive-collections-sanitized ...................   Passed   14.96 sec
+        Start  794: native-worker-closures-sanitized
+198/380 Test  #124: native-int64-runtime-optimized ...........................   Passed    8.06 sec
+        Start  123: native-int64-runtime-debug
+199/380 Test  #123: native-int64-runtime-debug ...............................   Passed    7.86 sec
+        Start  437: native-record-closures-sanitized
+200/380 Test  #714: native-function-values-thread-sanitized ..................   Passed   79.07 sec
+        Start   96: native-uint32-reductions-sanitized
+201/380 Test  #794: native-worker-closures-sanitized .........................   Passed   23.68 sec
+        Start   80: native-int32-tasks-optimized
+202/380 Test   #80: native-int32-tasks-optimized .............................   Passed    7.30 sec
+        Start  189: native-uint16-matmul-debug
+203/380 Test   #96: native-uint32-reductions-sanitized .......................   Passed   17.95 sec
+        Start  629: native-recursive-continuations-optimized
+204/380 Test  #189: native-uint16-matmul-debug ...............................   Passed    9.35 sec
+        Start   79: native-int32-tasks-debug
+205/380 Test   #79: native-int32-tasks-debug .................................   Passed    6.99 sec
+        Start  198: native-uint64-matmul-optimized
+206/380 Test  #629: native-recursive-continuations-optimized .................   Passed   11.24 sec
+        Start   95: native-int32-reductions-sanitized
+207/380 Test  #884: native-task-native-helpers ...............................   Passed   73.22 sec
+        Start  181: native-uint8-matmul-debug
+208/380 Test  #198: native-uint64-matmul-optimized ...........................   Passed   10.63 sec
+        Start  194: native-int64-matmul-optimized
+209/380 Test  #181: native-uint8-matmul-debug ................................   Passed    9.45 sec
+        Start   76: native-int32-runtime-optimized
+210/380 Test   #95: native-int32-reductions-sanitized ........................   Passed   18.05 sec
+        Start  778: native-worker-indirect-provenance-debug
+211/380 Test   #76: native-int32-runtime-optimized ...........................   Passed    7.89 sec
+        Start  170: native-int64-reductions-optimized
+212/380 Test  #194: native-int64-matmul-optimized ............................   Passed    9.73 sec
+        Start   75: native-int32-runtime-debug
+213/380 Test  #778: native-worker-indirect-provenance-debug ..................   Passed    8.48 sec
+        Start  790: native-worker-indirect-provenance-optimized
+214/380 Test  #170: native-int64-reductions-optimized ........................   Passed    9.08 sec
+        Start  220: native-float64-reductions-optimized
+215/380 Test   #75: native-int32-runtime-debug ...............................   Passed    8.12 sec
+        Start  185: native-int16-matmul-debug
+216/380 Test  #790: native-worker-indirect-provenance-optimized ..............   Passed    8.95 sec
+        Start  197: native-uint64-matmul-debug
+217/380 Test  #185: native-int16-matmul-debug ................................   Passed    8.27 sec
+        Start  177: native-int8-matmul-debug
+218/380 Test  #220: native-float64-reductions-optimized ......................   Passed   10.54 sec
+        Start  219: native-float64-reductions-debug
+219/380 Test  #197: native-uint64-matmul-debug ...............................   Passed    9.17 sec
+220/380 Test  #177: native-int8-matmul-debug .................................   Passed    8.33 sec
+        Start  786: native-worker-error-functions-optimized
+        Start  793: native-worker-functions-sanitized
+221/380 Test  #219: native-float64-reductions-debug ..........................   Passed    9.78 sec
+        Start  182: native-uint8-matmul-optimized
+222/380 Test  #786: native-worker-error-functions-optimized ..................   Passed    8.64 sec
+        Start  102: native-uint32-matmul-optimized
+223/380 Test  #437: native-record-closures-sanitized .........................   Passed   92.03 sec
+        Start  821: native-resumable-callables-debug
+224/380 Test  #182: native-uint8-matmul-optimized ............................   Passed   10.32 sec
+        Start  169: native-int64-reductions-debug
+225/380 Test  #102: native-uint32-matmul-optimized ...........................   Passed   10.05 sec
+        Start  153: native-int8-reductions-debug
+226/380 Test  #793: native-worker-functions-sanitized ........................   Passed   21.42 sec
+        Start  157: native-uint8-reductions-debug
+227/380 Test  #169: native-int64-reductions-debug ............................   Passed    7.99 sec
+        Start  165: native-uint16-reductions-debug
+228/380 Test  #153: native-int8-reductions-debug .............................   Passed    7.98 sec
+        Start  895: native-checked-inlining-source-software
+229/380 Test  #821: native-resumable-callables-debug .........................   Passed   16.65 sec
+        Start  161: native-int16-reductions-debug
+230/380 Test  #157: native-uint8-reductions-debug ............................   Passed    8.39 sec
+        Start  100: native-uint32-matmul-debug
+231/380 Test  #165: native-uint16-reductions-debug ...........................   Passed    8.27 sec
+        Start  224: native-float64-matmul-optimized
+232/380 Test  #161: native-int16-reductions-debug ............................   Passed    8.03 sec
+        Start  166: native-uint16-reductions-optimized
+233/380 Test  #895: native-checked-inlining-source-software ..................   Passed   10.76 sec
+        Start  190: native-uint16-matmul-optimized
+234/380 Test  #100: native-uint32-matmul-debug ...............................   Passed    9.20 sec
+        Start  795: native-worker-nested-closures-sanitized
+235/380 Test  #224: native-float64-matmul-optimized ..........................   Passed   11.93 sec
+        Start  626: native-recursive-continuations-debug
+236/380 Test  #166: native-uint16-reductions-optimized .......................   Passed    9.61 sec
+        Start  162: native-int16-reductions-optimized
+237/380 Test  #190: native-uint16-matmul-optimized ...........................   Passed   10.79 sec
+        Start  154: native-int8-reductions-optimized
+238/380 Test  #626: native-recursive-continuations-debug .....................   Passed   10.61 sec
+        Start  787: native-worker-callable-collections-optimized
+239/380 Test  #162: native-int16-reductions-optimized ........................   Passed    8.92 sec
+        Start   32: native-task-recovery-thread-sanitized
+240/380 Test  #154: native-int8-reductions-optimized .........................   Passed    8.79 sec
+        Start  651: native-recursive-record-arrays-sanitized
+241/380 Test  #787: native-worker-callable-collections-optimized .............   Passed    7.62 sec
+        Start  193: native-int64-matmul-debug
+242/380 Test  #795: native-worker-nested-closures-sanitized ..................   Passed   22.66 sec
+        Start  186: native-int16-matmul-optimized
+243/380 Test  #651: native-recursive-record-arrays-sanitized .................   Passed   10.15 sec
+        Start  173: native-uint64-reductions-debug
+244/380 Test  #193: native-int64-matmul-debug ................................   Passed    8.68 sec
+        Start  223: native-float64-matmul-debug
+245/380 Test   #32: native-task-recovery-thread-sanitized ....................   Passed   16.04 sec
+        Start  174: native-uint64-reductions-optimized
+246/380 Test  #186: native-int16-matmul-optimized ............................   Passed    9.81 sec
+        Start  178: native-int8-matmul-optimized
+247/380 Test  #173: native-uint64-reductions-debug ...........................   Passed    7.89 sec
+        Start  158: native-uint8-reductions-optimized
+248/380 Test  #223: native-float64-matmul-debug ..............................   Passed    9.18 sec
+        Start  647: native-recursive-string-arrays-sanitized
+249/380 Test  #174: native-uint64-reductions-optimized .......................   Passed    8.63 sec
+        Start   99: native-int32-matmul-debug
+250/380 Test  #178: native-int8-matmul-optimized .............................   Passed    9.22 sec
+        Start  896: native-checked-inlining-source-float32-software
+251/380 Test  #158: native-uint8-reductions-optimized ........................   Passed    8.69 sec
+        Start   94: native-uint32-reductions-optimized
+252/380 Test   #99: native-int32-matmul-debug ................................   Passed    8.09 sec
+        Start  891: native-signed-remainder
+253/380 Test  #647: native-recursive-string-arrays-sanitized .................   Passed    9.91 sec
+        Start  572: native-int8-existing-conversion-smoke-thread-sanitized
+254/380 Test  #896: native-checked-inlining-source-float32-software ..........   Passed    8.72 sec
+        Start   93: native-int32-reductions-optimized
+255/380 Test   #94: native-uint32-reductions-optimized .......................   Passed    9.01 sec
+        Start  630: native-recursive-source-optimized
+256/380 Test  #891: native-signed-remainder ..................................   Passed    7.70 sec
+        Start  886: native-call-foundation-source
+257/380 Test   #93: native-int32-reductions-optimized ........................   Passed    8.72 sec
+        Start  101: native-int32-matmul-optimized
+258/380 Test  #572: native-int8-existing-conversion-smoke-thread-sanitized ...   Passed   12.38 sec
+        Start   92: native-uint32-reductions-debug
+259/380 Test  #630: native-recursive-source-optimized ........................   Passed   10.45 sec
+        Start  804: native-worker-callable-aggregates-sanitized
+260/380 Test  #886: native-call-foundation-source ............................   Passed    9.60 sec
+        Start   91: native-int32-reductions-debug
+261/380 Test  #101: native-int32-matmul-optimized ............................   Passed    9.21 sec
+        Start  775: native-worker-callable-collections-debug
+262/380 Test   #92: native-uint32-reductions-debug ...........................   Passed    8.06 sec
+        Start  796: native-worker-function-results-sanitized
+263/380 Test   #91: native-int32-reductions-debug ............................   Passed    8.39 sec
+        Start  627: native-recursive-source-debug
+264/380 Test  #775: native-worker-callable-collections-debug .................   Passed    7.38 sec
+        Start  888: native-arithmetic-policy
+265/380 Test  #627: native-recursive-source-debug ............................   Passed    9.98 sec
+        Start  894: native-checked-inlining-source-float32-hardware
+266/380 Test  #888: native-arithmetic-policy .................................   Passed   10.49 sec
+        Start  904: native-static-numerical-shapes
+267/380 Test  #894: native-checked-inlining-source-float32-hardware ..........   Passed    7.54 sec
+        Start  642: native-recursive-collections-optimized
+268/380 Test  #804: native-worker-callable-aggregates-sanitized ..............   Passed   29.19 sec
+        Start  791: native-worker-parameters-optimized
+269/380 Test  #796: native-worker-function-results-sanitized .................   Passed   24.78 sec
+        Start  570: native-int8-existing-conversion-smoke-sanitized
+270/380 Test  #791: native-worker-parameters-optimized .......................   Passed    7.01 sec
+        Start  779: native-worker-parameters-debug
+271/380 Test  #642: native-recursive-collections-optimized ...................   Passed    9.72 sec
+        Start  893: native-checked-inlining-source-hardware
+272/380 Test  #570: native-int8-existing-conversion-smoke-sanitized ..........   Passed    9.20 sec
+        Start  641: native-recursive-collections-debug
+273/380 Test  #779: native-worker-parameters-debug ...........................   Passed    6.94 sec
+        Start  568: native-int8-existing-conversion-smoke-optimized
+274/380 Test  #893: native-checked-inlining-source-hardware ..................   Passed    7.63 sec
+        Start  659: native-recursive-function-arrays-sanitized
+275/380 Test  #641: native-recursive-collections-debug .......................   Passed    8.51 sec
+        Start  622: native-recursive-record-bridge-thread-sanitized
+276/380 Test  #904: native-static-numerical-shapes ...........................   Passed   27.70 sec
+        Start  828: native-resumable-callable-extras-thread-sanitized
+277/380 Test  #568: native-int8-existing-conversion-smoke-optimized ..........   Passed    7.83 sec
+        Start  435: native-record-closures-debug
+278/380 Test  #659: native-recursive-function-arrays-sanitized ...............   Passed    9.66 sec
+        Start   28: native-source-tasks-thread-sanitized
+279/380 Test  #828: native-resumable-callable-extras-thread-sanitized ........   Passed    4.34 sec
+        Start  566: native-int8-existing-conversion-smoke-debug
+280/380 Test  #566: native-int8-existing-conversion-smoke-debug ..............   Passed    7.18 sec
+        Start  887: native-cancellation-source
+281/380 Test   #28: native-source-tasks-thread-sanitized .....................   Passed   11.75 sec
+        Start   31: native-task-recovery-sanitized
+282/380 Test  #887: native-cancellation-source ...............................   Passed    5.67 sec
+        Start  621: native-recursive-record-bridge-sanitized
+283/380 Test  #622: native-recursive-record-bridge-thread-sanitized ..........   Passed   20.26 sec
+        Start  655: native-recursive-callable-fields-sanitized
+284/380 Test   #31: native-task-recovery-sanitized ...........................   Passed    8.38 sec
+        Start   30: native-task-recovery-optimized
+285/380 Test  #655: native-recursive-callable-fields-sanitized ...............   Passed    8.77 sec
+        Start   29: native-task-recovery-debug
+286/380 Test   #30: native-task-recovery-optimized ...........................   Passed    6.89 sec
+        Start  639: native-recursive-strings-sanitized
+287/380 Test   #29: native-task-recovery-debug ...............................   Passed    6.43 sec
+        Start  826: native-resumable-callable-extras-sanitized
+288/380 Test  #621: native-recursive-record-bridge-sanitized .................   Passed   16.63 sec
+        Start  646: native-recursive-string-arrays-optimized
+289/380 Test  #639: native-recursive-strings-sanitized .......................   Passed    5.25 sec
+        Start  892: native-fast-calls
+290/380 Test  #826: native-resumable-callable-extras-sanitized ...............   Passed    2.68 sec
+        Start  620: native-recursive-record-bridge-optimized
+291/380 Test  #646: native-recursive-string-arrays-optimized .................   Passed    4.77 sec
+        Start  645: native-recursive-string-arrays-debug
+292/380 Test  #892: native-fast-calls ........................................   Passed    4.38 sec
+        Start  824: native-resumable-callable-extras-optimized
+293/380 Test  #824: native-resumable-callable-extras-optimized ...............   Passed    2.25 sec
+        Start  650: native-recursive-record-arrays-optimized
+294/380 Test  #645: native-recursive-string-arrays-debug .....................   Passed    4.37 sec
+        Start  771: native-worker-nested-closures-debug
+295/380 Test  #650: native-recursive-record-arrays-optimized .................   Passed    4.71 sec
+        Start  649: native-recursive-record-arrays-debug
+296/380 Test  #620: native-recursive-record-bridge-optimized .................   Passed   12.54 sec
+        Start  822: native-resumable-callable-extras-debug
+297/380 Test  #435: native-record-closures-debug .............................   Passed   49.20 sec
+        Start  774: native-worker-error-functions-debug
+298/380 Test  #822: native-resumable-callable-extras-debug ...................   Passed    2.40 sec
+        Start  772: native-worker-function-results-debug
+299/380 Test  #649: native-recursive-record-arrays-debug .....................   Passed    4.43 sec
+        Start  780: native-worker-callable-aggregates-debug
+300/380 Test  #771: native-worker-nested-closures-debug ......................   Passed   10.72 sec
+        Start   27: native-source-tasks-sanitized
+301/380 Test  #774: native-worker-error-functions-debug ......................   Passed    7.93 sec
+        Start  658: native-recursive-function-arrays-optimized
+302/380 Test   #27: native-source-tasks-sanitized ............................   Passed    6.69 sec
+        Start  657: native-recursive-function-arrays-debug
+303/380 Test  #772: native-worker-function-results-debug .....................   Passed   11.82 sec
+        Start  619: native-recursive-record-bridge-debug
+304/380 Test  #658: native-recursive-function-arrays-optimized ...............   Passed    5.15 sec
+        Start  654: native-recursive-callable-fields-optimized
+305/380 Test  #780: native-worker-callable-aggregates-debug ..................   Passed   13.13 sec
+        Start  638: native-recursive-strings-optimized
+306/380 Test  #657: native-recursive-function-arrays-debug ...................   Passed    4.76 sec
+        Start  637: native-recursive-strings-debug
+307/380 Test  #637: native-recursive-strings-debug ...........................   Passed    2.93 sec
+        Start  653: native-recursive-callable-fields-debug
+308/380 Test  #638: native-recursive-strings-optimized .......................   Passed    3.06 sec
+        Start   25: native-source-tasks-debug
+309/380 Test  #654: native-recursive-callable-fields-optimized ...............   Passed    5.00 sec
+        Start  823: native-resumable-callables-optimized
+310/380 Test  #619: native-recursive-record-bridge-debug .....................   Passed    9.32 sec
+        Start  617: native-recursive-handoff-thread-sanitized
+311/380 Test  #653: native-recursive-callable-fields-debug ...................   Passed    4.63 sec
+        Start  615: native-recursive-handoff-sanitized
+312/380 Test   #25: native-source-tasks-debug ................................   Passed    5.03 sec
+        Start 1153: native-resumable-helpers-cli
+313/380 Test  #617: native-recursive-handoff-thread-sanitized ................   Passed    1.90 sec
+        Start  433: native-record-closures-frontend-debug
+314/380 Test  #615: native-recursive-handoff-sanitized .......................   Passed    1.87 sec
+        Start  434: native-record-closures-frontend-sanitized
+315/380 Test  #434: native-record-closures-frontend-sanitized ................   Passed    0.62 sec
+        Start  766: native-worker-functions-frontend-sanitized
+316/380 Test  #433: native-record-closures-frontend-debug ....................   Passed    1.23 sec
+        Start  723: native-block-closures-frontend-debug
+317/380 Test  #766: native-worker-functions-frontend-sanitized ...............   Passed    1.22 sec
+        Start  131: native-uint64-frontend-debug
+318/380 Test  #723: native-block-closures-frontend-debug .....................   Passed    1.37 sec
+        Start  574: native-int16-frontend-sanitized
+319/380 Test  #131: native-uint64-frontend-debug .............................   Passed    0.78 sec
+        Start  724: native-block-closures-frontend-sanitized
+320/380 Test  #574: native-int16-frontend-sanitized ..........................   Passed    0.58 sec
+        Start  121: native-int64-frontend-debug
+321/380 Test  #724: native-block-closures-frontend-sanitized .................   Passed    0.64 sec
+        Start    9: native-function-type-syntax-sanitized
+322/380 Test  #121: native-int64-frontend-debug ..............................   Passed    0.78 sec
+        Start  741: native-function-arrays-frontend-debug
+323/380 Test    #9: native-function-type-syntax-sanitized ....................   Passed    0.60 sec
+        Start  573: native-int16-frontend-debug
+324/380 Test  #573: native-int16-frontend-debug ..............................   Passed    0.54 sec
+        Start  563: native-int8-frontend-debug
+325/380 Test  #741: native-function-arrays-frontend-debug ....................   Passed    1.26 sec
+        Start  702: native-fallible-functions-frontend-debug
+326/380 Test  #563: native-int8-frontend-debug ...............................   Passed    0.54 sec
+        Start  564: native-int8-frontend-sanitized
+327/380 Test  #564: native-int8-frontend-sanitized ...........................   Passed    0.58 sec
+        Start  768: native-parallel-map-frontend-sanitized
+328/380 Test  #702: native-fallible-functions-frontend-debug .................   Passed    0.90 sec
+        Start  704: native-fallible-functions-frontend-sanitized
+329/380 Test  #768: native-parallel-map-frontend-sanitized ...................   Passed    0.64 sec
+        Start  742: native-function-arrays-frontend-sanitized
+330/380 Test  #704: native-fallible-functions-frontend-sanitized .............   Passed    0.62 sec
+        Start  132: native-uint64-frontend-sanitized
+331/380 Test  #742: native-function-arrays-frontend-sanitized ................   Passed    0.65 sec
+        Start  122: native-int64-frontend-sanitized
+332/380 Test  #132: native-uint64-frontend-sanitized .........................   Passed    0.56 sec
+        Start  718: native-closures-frontend-sanitized
+333/380 Test  #122: native-int64-frontend-sanitized ..........................   Passed    0.58 sec
+        Start  889: native-cpu-benchmark-cells
+334/380 Test  #718: native-closures-frontend-sanitized .......................   Passed    0.65 sec
+        Start  762: native-recursive-callables-optimized
+335/380 Test  #823: native-resumable-callables-optimized .....................   Passed   17.10 sec
+        Start  108: native-uint32-frontend-sanitized
+336/380 Test  #108: native-uint32-frontend-sanitized .........................   Passed    0.63 sec
+        Start    8: native-function-type-syntax-debug
+337/380 Test    #8: native-function-type-syntax-debug ........................   Passed    0.31 sec
+        Start  754: native-delimited-closures-frontend-sanitized
+338/380 Test  #754: native-delimited-closures-frontend-sanitized .............   Passed    0.66 sec
+        Start   74: native-int32-frontend-sanitized
+339/380 Test   #74: native-int32-frontend-sanitized ..........................   Passed    0.58 sec
+        Start  767: native-parallel-map-frontend-debug
+340/380 Test  #767: native-parallel-map-frontend-debug .......................   Passed    0.33 sec
+        Start  717: native-closures-frontend-debug
+341/380 Test  #717: native-closures-frontend-debug ...........................   Passed    1.45 sec
+        Start  611: native-recursive-handoff-debug
+342/380 Test  #611: native-recursive-handoff-debug ...........................   Passed    0.67 sec
+        Start  618: native-recursive-value-runtime-thread-sanitized
+343/380 Test  #618: native-recursive-value-runtime-thread-sanitized ..........   Passed    0.73 sec
+        Start  107: native-uint32-frontend-debug
+344/380 Test  #107: native-uint32-frontend-debug .............................   Passed    0.70 sec
+        Start  753: native-delimited-closures-frontend-debug
+345/380 Test  #753: native-delimited-closures-frontend-debug .................   Passed    0.36 sec
+        Start  765: native-worker-functions-frontend-debug
+346/380 Test #1153: native-resumable-helpers-cli .............................   Passed   19.25 sec
+        Start   73: native-int32-frontend-debug
+347/380 Test  #765: native-worker-functions-frontend-debug ...................   Passed    0.53 sec
+        Start  612: native-recursive-value-runtime-debug
+348/380 Test  #612: native-recursive-value-runtime-debug .....................   Passed    0.46 sec
+        Start   36: native-workers-thread-sanitized
+349/380 Test   #73: native-int32-frontend-debug ..............................   Passed    0.60 sec
+        Start  616: native-recursive-value-runtime-sanitized
+350/380 Test  #616: native-recursive-value-runtime-sanitized .................   Passed    0.38 sec
+        Start  613: native-recursive-handoff-optimized
+351/380 Test  #613: native-recursive-handoff-optimized .......................   Passed    0.26 sec
+        Start   35: native-workers-sanitized
+352/380 Test   #36: native-workers-thread-sanitized ..........................   Passed    0.83 sec
+        Start  760: native-recursive-callables-frontend-sanitized
+353/380 Test   #35: native-workers-sanitized .................................   Passed    0.42 sec
+        Start  624: native-recursive-source-frontend-sanitized
+354/380 Test  #889: native-cpu-benchmark-cells ...............................   Passed   12.45 sec
+        Start   24: native-tasks-sanitized
+355/380 Test  #760: native-recursive-callables-frontend-sanitized ............   Passed    0.67 sec
+        Start  614: native-recursive-value-runtime-optimized
+356/380 Test  #614: native-recursive-value-runtime-optimized .................   Passed    0.14 sec
+        Start   33: native-workers-debug
+357/380 Test   #24: native-tasks-sanitized ...................................   Passed    0.28 sec
+        Start  201: native-float64-frontend-debug
+358/380 Test   #33: native-workers-debug .....................................   Passed    0.20 sec
+        Start  623: native-recursive-source-frontend-debug
+359/380 Test  #624: native-recursive-source-frontend-sanitized ...............   Passed    0.79 sec
+        Start   34: native-workers-optimized
+360/380 Test  #623: native-recursive-source-frontend-debug ...................   Passed    0.17 sec
+        Start   22: native-tasks-debug
+361/380 Test   #34: native-workers-optimized .................................   Passed    0.15 sec
+        Start   23: native-tasks-optimized
+362/380 Test   #22: native-tasks-debug .......................................   Passed    0.15 sec
+        Start   26: native-source-tasks-optimized
+363/380 Test   #23: native-tasks-optimized ...................................   Passed    0.13 sec
+        Start  701: native-function-values-frontend-debug
+364/380 Test  #701: native-function-values-frontend-debug ....................   Passed    1.18 sec
+        Start   12: native-local-storage
+365/380 Test   #12: native-local-storage .....................................   Passed    0.03 sec
+        Start  703: native-function-values-frontend-sanitized
+366/380 Test  #703: native-function-values-frontend-sanitized ................   Passed    0.67 sec
+        Start  202: native-float64-frontend-sanitized
+367/380 Test  #202: native-float64-frontend-sanitized ........................   Passed    0.59 sec
+        Start   68: native-numeric-types-sanitized
+368/380 Test  #201: native-float64-frontend-debug ............................   Passed    3.03 sec
+        Start   61: native-allocation-lease-thread-sanitized
+369/380 Test   #61: native-allocation-lease-thread-sanitized .................   Passed    0.48 sec
+        Start   67: native-numeric-types-debug
+370/380 Test   #68: native-numeric-types-sanitized ...........................   Passed    0.76 sec
+        Start  759: native-recursive-callables-frontend-debug
+371/380 Test  #762: native-recursive-callables-optimized .....................   Passed   16.40 sec
+        Start   11: native-checked-inlining
+372/380 Test   #67: native-numeric-types-debug ...............................   Passed    0.45 sec
+        Start   60: native-allocation-lease-sanitized
+373/380 Test   #60: native-allocation-lease-sanitized ........................   Passed    0.12 sec
+        Start   59: native-allocation-lease-optimized
+374/380 Test   #59: native-allocation-lease-optimized ........................   Passed    0.01 sec
+        Start   66: frontend-continuation-sanitized
+375/380 Test  #759: native-recursive-callables-frontend-debug ................   Passed    0.36 sec
+        Start   58: native-allocation-lease-debug
+376/380 Test   #58: native-allocation-lease-debug ............................   Passed    0.02 sec
+        Start   65: frontend-continuation-debug
+377/380 Test   #11: native-checked-inlining ..................................   Passed    0.38 sec
+378/380 Test   #65: frontend-continuation-debug ..............................   Passed    0.26 sec
+379/380 Test   #66: frontend-continuation-sanitized ..........................   Passed    0.79 sec
+380/380 Test   #26: native-source-tasks-optimized ............................   Passed    8.52 sec
+
+100% tests passed out of 380
+
+Total Test time (real) = 2726.53 sec

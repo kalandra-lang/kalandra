@@ -64,6 +64,9 @@ struct Options {
   bool preserveCalls = false;
   // Plan a selected entry and reachable resumable children, retaining function IDs.
   std::optional<FunctionId> entry = {};
+  // Internal optimization admission: retain checked continuation kernels if a
+  // synchronous subgraph exceeds the native backend's physical-frame limits.
+  bool nativeSubgraphs = true;
 };
 struct ModulePlan {
   // The source typed module must outlive its plan and target emission.

@@ -19,10 +19,12 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--build-only', action='store_true')
     parser.add_argument('--reuse-build', action='store_true')
+    parser.add_argument('--build-dir', type=Path,
+                        help='Keep candidate artifacts separate from a frozen baseline')
     args = parser.parse_args()
     assert not args.output.exists()
     root, src = p.ROOT, Path(__file__).resolve().parent
-    build = p.BUILD/'runtime-workloads'
+    build = args.build_dir.resolve() if args.build_dir else p.BUILD/'runtime-workloads'
     build.mkdir(parents=True, exist_ok=True)
     compiler = root/'build/native/native/kalandra'
     runtime = compiler.parent/'libkalandra-task-core-optimized.a'

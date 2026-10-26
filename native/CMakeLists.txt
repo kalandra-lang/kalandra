@@ -189,6 +189,15 @@ if(BUILD_TESTING)
   endif()
   add_test(NAME native-checked-inlining COMMAND kalandra-checked-inlining-tests)
   set_tests_properties(native-checked-inlining PROPERTIES TIMEOUT 30)
+  add_executable(kalandra-local-storage-tests tests/LocalStorageTests.cpp)
+  target_include_directories(kalandra-local-storage-tests SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+  target_link_libraries(kalandra-local-storage-tests PRIVATE LLVM)
+  target_compile_options(kalandra-local-storage-tests PRIVATE -Wall -Wextra -Werror)
+  if(NOT LLVM_ENABLE_RTTI)
+    target_compile_options(kalandra-local-storage-tests PRIVATE -fno-rtti)
+  endif()
+  add_test(NAME native-local-storage COMMAND kalandra-local-storage-tests)
+  set_tests_properties(native-local-storage PROPERTIES TIMEOUT 30)
 endif()
 add_library(kalandra-native-runtime STATIC runtime/Runtime.cpp runtime/Tasks.cpp runtime/TaskABI.cpp runtime/Entry.cpp)
 target_link_libraries(kalandra-native-runtime PUBLIC Threads::Threads)
@@ -1101,6 +1110,11 @@ if(WIN32)
 endif()
 
 if(BUILD_TESTING)
+  add_test(NAME native-task-native-helpers
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TaskNativeHelpersTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/task-native-helpers")
+  set_tests_properties(native-task-native-helpers PROPERTIES TIMEOUT 900)
   add_test(NAME native-windows-tail-codegen
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/WindowsTailPacketTests.py"
       --driver "$<TARGET_FILE:kalandra-checked-inlining-tests>" --clang "${CMAKE_CXX_COMPILER}"

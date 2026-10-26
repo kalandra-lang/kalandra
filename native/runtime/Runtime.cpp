@@ -290,11 +290,17 @@ void Invocation::remove(Owner *owner) noexcept {
   if (owner->next)
     owner->next->previous = owner->previous;
   auto *backing = owner->backing;
+  const bool recycle = !spareSmall_ && owner->embedded && !backing->record &&
+                       backing->bytes <= 256 && !backing->dependencyCount &&
+                       backing->references.load(std::memory_order_acquire) == 1;
   if (!owner->embedded) {
     owner->~Owner();
     std::free(owner);
   }
-  releaseBacking(backing);
+  if (recycle)
+    spareSmall_ = backing;
+  else
+    releaseBacking(backing);
   --live_;
   ++releases_;
 }
@@ -309,14 +315,21 @@ void *Invocation::allocate(std::uint64_t bytes) noexcept {
   BackingReservation reservation{recursiveBudget_, recursiveRelease_};
   if (!reservation.acquire(*this, storageBytes, recursiveBytes_, recursiveReserve_))
     return nullptr;
-  auto *storage = std::malloc(storageBytes);
-  if (!storage) {
-    fault(2);
-    return nullptr;
+  Backing *backing;
+  if (spareSmall_ && spareSmall_->storageBytes == storageBytes) {
+    // The cache owns the sole reference to this numeric backing. Its size and
+    // immutable metadata still match; attach resets the detached owner links.
+    backing = std::exchange(spareSmall_, nullptr);
+  } else {
+    auto *storage = std::malloc(storageBytes);
+    if (!storage) {
+      fault(2);
+      return nullptr;
+    }
+    backing = new (storage) Backing;
+    backing->bytes = bytes;
+    backing->storageBytes = storageBytes;
   }
-  auto *backing = new (storage) Backing;
-  backing->bytes = bytes;
-  backing->storageBytes = storageBytes;
   recursiveBytes_ += reservation.bytes;
   backing->initial.recursiveCharged = reservation.bytes != 0;
   reservation.bytes = 0;
@@ -735,6 +748,10 @@ void Invocation::settle() noexcept {
   pollMode_ = 2;
   while (head_)
     remove(head_);
+  if (spareSmall_) {
+    spareSmall_->~Backing();
+    std::free(std::exchange(spareSmall_, nullptr));
+  }
   settled_ = true;
   if (environmentBytes_ && environmentRelease_)
     environmentRelease_(environmentBudget_, environmentBytes_);

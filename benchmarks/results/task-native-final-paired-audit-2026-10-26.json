@@ -1,0 +1,400 @@
+[
+  {
+    "path": "benchmarks/results/task-native-final-paired-2026-10-26.json",
+    "sha256": "cf6f0fa686aed505e242dfc6407f7ebf04f03fb0ae8b70d5fe73b5d43aa6a80d",
+    "measured_processes": 476,
+    "groups": [
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          0
+        ],
+        "median_time_reduction": 0.003721172747262913,
+        "min_time_reduction": -0.03957733396987262,
+        "max_time_reduction": 0.04192060552052157
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          16
+        ],
+        "median_time_reduction": -0.006992564166115711,
+        "min_time_reduction": -0.020904605161321088,
+        "max_time_reduction": -0.003775990330445733
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          64
+        ],
+        "median_time_reduction": 0.1639096847823036,
+        "min_time_reduction": -0.18439252478176127,
+        "max_time_reduction": 0.17219895220106418
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          256
+        ],
+        "median_time_reduction": 0.22416049124856718,
+        "min_time_reduction": 0.21281650421544462,
+        "max_time_reduction": 0.2391561203622944
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.8555496579429979,
+        "min_time_reduction": 0.85157863688981,
+        "max_time_reduction": 0.862339146491588
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.7142023143080363,
+        "min_time_reduction": 0.7075421694867858,
+        "max_time_reduction": 0.7189324761041671
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.10369165316831619,
+        "min_time_reduction": 0.09343112927188923,
+        "max_time_reduction": 0.12473081480381365
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          4096
+        ],
+        "median_time_reduction": 0.003948760559781772,
+        "min_time_reduction": -0.016342085672527817,
+        "max_time_reduction": 0.013711662224693555
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.8637947895746306,
+        "min_time_reduction": 0.8577526071244193,
+        "max_time_reduction": 0.86681049903393
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.7214042218916615,
+        "min_time_reduction": 0.7150352447695534,
+        "max_time_reduction": 0.7344564829318299
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.10444328357382415,
+        "min_time_reduction": 0.0860556715064984,
+        "max_time_reduction": 0.15790878120799745
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.0331574604749546,
+        "min_time_reduction": -0.011353875704986915,
+        "max_time_reduction": 0.05483244820166533
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.23007290378947443,
+        "min_time_reduction": 0.1855910626268471,
+        "max_time_reduction": 0.2578292391885677
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.798710123038701,
+        "min_time_reduction": 0.7820600274186629,
+        "max_time_reduction": 0.8261251739437054
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.01069487300215155,
+        "min_time_reduction": -0.010735213298836532,
+        "max_time_reduction": 0.05688416513656758
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.1668067955123974,
+        "min_time_reduction": 0.03551892469103246,
+        "max_time_reduction": 0.20643372406977967
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.5147597446744714,
+        "min_time_reduction": 0.5102960724906256,
+        "max_time_reduction": 0.5410483566367439
+      }
+    ],
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/task-native-final-confirmation-2026-10-26.json",
+    "sha256": "5cad8a697461c7edbedffa7f7b1916073a8d334c53d7a493afd3affed1c2f2a0",
+    "measured_processes": 612,
+    "groups": [
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          0
+        ],
+        "median_time_reduction": -0.00852429209229677,
+        "min_time_reduction": -0.05532312967254782,
+        "max_time_reduction": 0.06448406298003062
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          16
+        ],
+        "median_time_reduction": -0.0006291413234860155,
+        "min_time_reduction": -0.040933429002709465,
+        "max_time_reduction": 0.029393703095348722
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          64
+        ],
+        "median_time_reduction": 0.1664966360856267,
+        "min_time_reduction": 0.10997829918708935,
+        "max_time_reduction": 0.21024714890174445
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          256
+        ],
+        "median_time_reduction": 0.2217060028750355,
+        "min_time_reduction": 0.202961141424026,
+        "max_time_reduction": 0.23225357449335304
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.8560071271355204,
+        "min_time_reduction": 0.8502806302869244,
+        "max_time_reduction": 0.8817929551692274
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.7125264020513992,
+        "min_time_reduction": 0.7082991809072456,
+        "max_time_reduction": 0.7277678900488005
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.10673021462063659,
+        "min_time_reduction": 0.07296167932066122,
+        "max_time_reduction": 0.1287277497527819
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          4096
+        ],
+        "median_time_reduction": 0.007112959005666664,
+        "min_time_reduction": -0.004575546370011896,
+        "max_time_reduction": 0.013035098254304378
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.8630508171765258,
+        "min_time_reduction": 0.8575443566501942,
+        "max_time_reduction": 0.8694652143838834
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.721549480538108,
+        "min_time_reduction": 0.7092450930347055,
+        "max_time_reduction": 0.7266667328797736
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.10541976244759665,
+        "min_time_reduction": 0.06581187238198716,
+        "max_time_reduction": 0.12682694229698566
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.033562048785085175,
+        "min_time_reduction": -0.009283348534775415,
+        "max_time_reduction": 0.11241083541949559
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.2195998601302862,
+        "min_time_reduction": 0.20516750790642369,
+        "max_time_reduction": 0.38228868454192544
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.7838281338901885,
+        "min_time_reduction": 0.6437148115290503,
+        "max_time_reduction": 0.796632447073157
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.030302679608631755,
+        "min_time_reduction": -0.09635435933679593,
+        "max_time_reduction": 0.17710432794194175
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.15880721117705743,
+        "min_time_reduction": 0.06211829223761922,
+        "max_time_reduction": 0.21817188897037398
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.5299175119190056,
+        "min_time_reduction": 0.510866318240621,
+        "max_time_reduction": 0.5845849047666096
+      }
+    ],
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/runtime-workloads-final-native-2026-10-26.json",
+    "sha256": "c403fc833f720b0d13ec0d5a7ac49cd57f1330914642774b2c74bac60bfc9a45",
+    "verification_workloads": 99,
+    "verified": true
+  }
+]

@@ -32,4 +32,26 @@ For paired matrix-only tuning, save a baseline compiler plus the fair suite's fl
 
 Kalandra measurements include fresh invocation setup, automatic cancellation, checked arithmetic, allocation/ownership and settlement. Array sizes are deliberately small, exposing per-allocation cost; this is not an array bandwidth benchmark. Zero rounds expose fixed entry/construction overhead and are reported separately from substantial work. Use `--build-only` followed by `--reuse-build` to separate compilation from timing; hashes must match. Three shuffled fresh processes per cell use two warmups, seven measured batches and a 20 ms calibration target.
 
+`--build-dir <directory>` keeps candidate artifacts separate from a frozen
+baseline. Each immutable map produces a fresh logical value; normal compiler
+optimization and reuse of fully released physical buffers are permitted.
+Source tail-call lifetime optimization is part of the compiler comparison.
+
+For paired before/after measurements, snapshot the baseline workload directory
+with its manifest. Keep its compiler and optimized runtime archive beside that
+directory, named `kalandra` and `runtime.a`. Build the candidate separately, then
+run `runtime_workloads_paired.py --baseline <snapshot-directory> --current
+<candidate-directory> --output <unused.json>`. Adjacent ABBA/BAAB fresh processes
+use identical calibrated iteration counts per pair and validate every warmup
+and measured invocation. `--blocks` and `--target-ms` control repeat length.
+`runtime_workloads_paired_audit.py` independently checks exact results with a
+closed-form modular oracle, verifies ordering and recomputes the paired statistics.
+It can also verify frozen artifacts with `--verify-artifacts`.
+
+`runtime_workload_profile.py --build-dir <candidate-directory> --output
+<unused.json>` samples only its own children, outside acceptance timing. These
+tools currently use the macOS toolchain paths in `protocol.py`; results do not
+establish Linux/Windows performance parity. The task diagnostic still includes
+fresh pool/monitor construction, rather than steady-state queue latency.
+
 The same runner records a separate Kalandra-only task-scope diagnostic. Fixed-input source programs invoke the same closure computation synchronously or through a complete `parallel` scope with `spawn`/`await`. Scope/scheduler creation and teardown are included; process startup is excluded. The task entry uses the production task ABI, with explicit eight-worker and host-driven one-worker runs. This measures the cost of the complete compiled construct, not steady-state queue latency, and makes no C++/Rust scheduler-parity claim. `runtime_workload_profile.py --output <unused.json>` samples only its own benchmark child processes in a separate diagnostic run; those instrumented timings are not performance acceptance data.

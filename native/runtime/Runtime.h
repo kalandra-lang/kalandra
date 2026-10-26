@@ -166,6 +166,10 @@ private:
   // A lease lasts only while a synchronous generated native call chain is live.
   // All exits clear it at its logical entry depth, before worker migration.
   [[maybe_unused]] std::uint64_t stackLeaseDepth_ = 0, stackLow_ = 0, stackHigh_ = 0;
+  // One released, exclusively owned small numeric buffer. It has no live
+  // ledger owner/lease and is freed at settlement; logical allocations still
+  // pass fault injection and resource reservation before reuse.
+  Backing *spareSmall_ = nullptr;
   const void *makeRecursiveValueImpl(std::span<const std::byte>, const void *,
                                      std::span<const AllocationLease>, std::span<const void *const>,
                                      bool) noexcept;
