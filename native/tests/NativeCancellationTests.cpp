@@ -8,6 +8,7 @@
 #include <cstring>
 #include <pthread.h>
 #include <thread>
+#include "NativeCheckpointRegisters.h"
 
 using namespace kalandra::runtime;
 extern "C" bool kalandra_source_run_v4(Invocation *, bool (*)(void *), void *) noexcept;
@@ -108,6 +109,14 @@ static void waitStarted(unsigned before) {
   }
 }
 static void occupied(int) {}
+struct CheckpointProbe {
+  std::atomic<bool> entered{false};
+  Invocation *invocation;
+};
+static bool checkpointProbe(void *opaque) {
+  auto *probe = static_cast<CheckpointProbe *>(opaque);
+  return kalandra_source_run_v4(probe->invocation, kalandra_test_checkpoint_spin, &probe->entered);
+}
 int main(int argc, char **argv) {
   bool blocked = argc > 1 && std::strcmp(argv[1], "blocked") == 0;
   bool conflict = argc > 1 && std::strcmp(argv[1], "occupied") == 0;
@@ -118,6 +127,28 @@ int main(int argc, char **argv) {
   if (blocked) CHECK(pthread_sigmask(SIG_BLOCK, &mask, nullptr) == 0);
   available = initializeNativeCancellation();
   CHECK(available == (!conflict && nativeCancellationCanAbandon()));
+  if (available && !blocked) {
+    for (unsigned repeat = 0; repeat != 64; ++repeat) {
+      Invocation invocation;
+      std::atomic<bool> token{false}, done{false};
+      invocation.bindCancellation(&token);
+      invocation.allowNativeInterrupts(true);
+      CheckpointProbe probe{{false}, &invocation};
+      const auto current = nativeCancellationThread();
+      std::thread cancel([&] {
+        while (!probe.entered.load(std::memory_order_acquire)) std::this_thread::yield();
+        token.store(true, std::memory_order_release);
+        while (!done.load(std::memory_order_acquire)) {
+          interruptNativeCancellation(current);
+          std::this_thread::sleep_for(std::chrono::microseconds(20));
+        }
+      });
+      CHECK(!kalandra_test_checkpoint_registers(checkpointProbe, &probe));
+      done.store(true, std::memory_order_release);
+      cancel.join();
+      CHECK(!invocation.status() && !invocation.callDepth());
+    }
+  }
   for (unsigned workers : {1U, 4U}) {
     TaskLimits limits;
     limits.workers = workers;

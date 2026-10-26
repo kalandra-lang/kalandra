@@ -44,8 +44,8 @@ def run(args):
 for mode,extra,flags,runtime in [
     ('debug',[],['-O0'],'native-runtime'),
     ('optimized',['-O2'],['-O2'],'task-core-optimized'),
-    ('sanitized',['--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),
-    ('thread-sanitized',['--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]:
+    ('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),
+    ('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]:
     if windows and mode=='thread-sanitized': continue
     ir=a.output/(mode+'.ll')
     run([a.compiler,root/'native/tests/fixtures/task-native-helpers.k','--test-entry','worker',
@@ -67,6 +67,32 @@ for mode,extra,flags,runtime in [
          *flags,root/'native/tests/LocalClosureRuntimeTests.cpp',local_ir,
          runtime_file(runtime),'-o',local_binary])
     run([local_binary])
+    captured_ir=a.output/(mode+'-captured-ranges.ll')
+    run([a.compiler,root/'native/benchmarks/fair/RuntimeWorkloads.k','--test-entry','closure',
+         '--emit-llvm',captured_ir,'-o',executable(mode+'-captured-ranges-cli'),*extra])
+    captured_binary=executable(mode+'-captured-ranges')
+    run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
+         *flags,root/'native/tests/CapturedIntegerRangesTests.cpp',captured_ir,
+         runtime_file(runtime),'-o',captured_binary])
+    run([captured_binary])
+    for entry in ('divide','remainder'):
+        ir=a.output/(mode+'-width-'+entry+'.ll')
+        run([a.compiler,root/'native/tests/IntegerWidthSpecialization.k','--test-entry',entry,
+             '--emit-llvm',ir,'-o',executable(mode+'-width-'+entry+'-cli'),*extra])
+        binary=executable(mode+'-width-'+entry)
+        run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
+             *flags,*(['-DREMAINDER'] if entry=='remainder' else []),
+             root/'native/tests/IntegerWidthSpecializationTests.cpp',ir,runtime_file(runtime),'-o',binary])
+        run([binary])
+    for case in range(7):
+        ir=a.output/(mode+'-range-loop-'+str(case)+'.ll')
+        run([a.compiler,root/'native/tests/IntegerRangeLoops.k','--test-entry','probe'+str(case),
+             '--emit-llvm',ir,'-o',executable(mode+'-range-loop-'+str(case)+'-cli'),*extra])
+        binary=executable(mode+'-range-loop-'+str(case))
+        run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
+             *flags,'-DCASE='+str(case),root/'native/tests/IntegerRangeLoopsTests.cpp',
+             ir,runtime_file(runtime),'-o',binary])
+        run([binary])
     array_ir=a.output/(mode+'-array.ll')
     run([a.compiler,root/'native/benchmarks/fair/RuntimeWorkloads.k','--test-entry','arrays',
          '--emit-llvm',array_ir,'-o',a.output/(mode+'-array-cli'),*extra])

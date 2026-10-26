@@ -5,6 +5,8 @@
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <limits>
+#include <source_location>
 #include <stdexcept>
 #include <thread>
 using namespace kalandra::runtime;
@@ -15,8 +17,9 @@ extern "C" void *test_alloc(Invocation *context, std::uint64_t bytes) noexcept {
   return value;
 }
 extern "C" double _mlir_ciface_kalandra_test_entry(std::int64_t,std::int64_t,Invocation *);
-static void check(bool ok) {
-  if (!ok) throw std::runtime_error("array tail lifetime/numerical regression");
+static void check(bool ok, std::source_location at = std::source_location::current()) {
+  if (!ok) throw std::runtime_error("array tail lifetime/numerical regression at " +
+                                    std::to_string(at.line()));
 }
 int main() {
   const bool interrupts = initializeNativeCancellation();
@@ -41,11 +44,26 @@ int main() {
         check(!context.status() && !context.callDepth() && !context.live());
         // Source tail recursion must not retain one backing/native frame per
         // step merely because deallocation was inserted after a recursive call.
-        check(peak <= 4);
+        if (peak > 4) {
+          std::cerr << "array peak=" << peak << " mode=" << mode << " seed=" << seed
+                    << " rounds=" << rounds << '\n';
+          check(false);
+        }
         if (mode == 2) check(polls.load() != 0);
         context.settle();
         check(!context.live() && context.allocations() == context.releases());
       }
+  // Positive countdowns use the ownership-friendly counted loop. Negative
+  // countdowns must retain the original evaluation order and checked underflow.
+  for (auto rounds : {std::numeric_limits<std::int64_t>::min(),
+                      std::numeric_limits<std::int64_t>::min()+1,
+                      std::numeric_limits<std::int64_t>::min()+2}) {
+    Invocation context;
+    check(_mlir_ciface_kalandra_test_entry(17,rounds,&context) == 0);
+    check(context.status() == 4 && context.line() == 6 && context.column() == 22);
+    context.settle();
+    check(!context.live() && !context.callDepth() && context.allocations() == context.releases());
+  }
   std::uint64_t allocations;
   {
     Invocation context;

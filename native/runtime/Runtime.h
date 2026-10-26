@@ -39,7 +39,7 @@ private:
 class Invocation final {
 public:
   Invocation() noexcept;
-  ~Invocation();
+  ~Invocation() { settle(); }
   Invocation(const Invocation &) = delete;
   Invocation &operator=(const Invocation &) = delete;
   void bindCancellation(const std::atomic<bool> *token) noexcept {
@@ -47,14 +47,18 @@ public:
     if (pollMode_ < 2) pollMode_ = token ? 1 : 0;
   }
   // Private scheduler capability; never grants interruption of foreign frames.
-  void allowNativeInterrupts(bool available) noexcept { nativeInterrupts_ = available; }
+  void allowNativeInterrupts(bool available) noexcept {
+    flags_ = available ? flags_ | NativeInterrupts : flags_ & ~NativeInterrupts;
+  }
   // Private test probe; its atomic counter must outlive this invocation.
   void watchPolls(std::atomic<std::uint64_t> *counter) noexcept { pollCounter_ = counter; pollMode_ = 2; }
   std::int64_t poll() noexcept {
-    if (pollCounter_)
-      pollCounter_->fetch_add(1, std::memory_order_relaxed);
-    const auto code = executionStatus();
-    return code ? code : cancellation_ && cancellation_->load(std::memory_order_acquire) ? -1 : 0;
+    // Fault, settlement and observation all enter mode 2. Healthy helpers can
+    // reuse that invariant while retaining their acquire cancellation check.
+    if (pollMode_ == 0) return 0;
+    if (pollMode_ == 1 || pollMode_ == 3)
+      return cancellation_ && cancellation_->load(std::memory_order_acquire) ? -1 : 0;
+    return pollObserved();
   }
   // Runtime-boundary nesting is diagnostic accounting, not a recursion budget.
   // Actual stack bounds protect native frames; tail calls reuse their frame.
@@ -111,10 +115,22 @@ public:
   void release(void *buffer) noexcept;
   // Requires exclusive source-context access, like retainFrom. Reject unknown,
   // faulted or settled contexts before acquiring a backing reference.
-  bool usable() const noexcept { return !settled_ && !code_ && !taskError_ && !applicationFamily_; }
+  bool usable() const noexcept { return !(flags_ & Settled) && !code_ && !taskError_ && !applicationFamily_; }
   std::optional<AllocationLease> lease(const void *allocated) const noexcept;
   void fault(std::int64_t code, std::int64_t line = 0, std::int64_t column = 0) noexcept;
-  void settle() noexcept;
+  void settle() noexcept {
+    if (flags_ & Settled) return;
+    // Scalar work need not cross the runtime ABI to settle an empty ledger.
+    // Keep owned buffers and both resource-budget release paths together.
+    const unsigned resources = unsigned(head_ != nullptr) | unsigned(spareSmall_ != nullptr) |
+                               unsigned(environmentBytes_ != 0) | unsigned(recursiveBytes_ != 0);
+    if (!resources) {
+      pollMode_ = 2;
+      flags_ |= Settled;
+      return;
+    }
+    settleResources();
+  }
   void expectedTaskError(std::int64_t kind, std::int64_t code, std::int64_t line,
                          std::int64_t column) noexcept;
   void expectedApplicationError(const char *family, const char *variant) noexcept;
@@ -124,17 +140,18 @@ public:
   [[noreturn]] void reportFailure() noexcept; // CLI boundary only, never generated code.
   void failAllocationAt(std::uint64_t attempt) noexcept {
     failAt_ = attempt;
-    allocationFailureConfigured_ = true;
+    flags_ |= AllocationConfigured;
   }
   std::int64_t status() const noexcept { return code_; }
   std::int64_t executionStatus() noexcept {
-    if (settled_)
+    if (flags_ & Settled)
       fault(3);
     return code_;
   }
   std::int64_t line() const noexcept { return line_; }
   std::int64_t column() const noexcept { return column_; }
-  std::uint64_t live() const noexcept { return live_; }
+  // An atomic diagnostic snapshot; it does not publish ledger/backing data.
+  std::uint64_t live() const noexcept { return live_.load(std::memory_order_relaxed); }
   std::uint64_t allocations() const noexcept { return allocations_; }
   std::uint64_t releases() const noexcept { return releases_; }
 
@@ -153,11 +170,11 @@ private:
   EnvironmentRelease environmentRelease_ = nullptr;
   std::uint64_t allocations_ = 0, releases_ = 0, attempts_ = 0, failAt_ = 0;
   std::int64_t code_ = 0, line_ = 0, column_ = 0;
-  bool settled_ = false;
   // Resolve the process test hook only when this invocation reserves a resource.
   // An explicit failAllocationAt(), including zero, overrides that hook.
-  bool allocationFailureConfigured_ = false;
-  bool nativeInterrupts_ = false;
+  // An aligned control word also avoids partially overlapping flag accesses.
+  enum Flag : std::uint32_t { Settled = 1, AllocationConfigured = 2, NativeInterrupts = 4 };
+  std::uint32_t flags_ = 0;
   std::int64_t taskError_ = 0, expectedCode_ = 0, expectedLine_ = 0, expectedColumn_ = 0;
   const char *applicationFamily_ = nullptr, *applicationVariant_ = nullptr;
   // 0: clear; 1: bound token; 2: observed/faulted/settled;
@@ -174,6 +191,8 @@ private:
                                      std::span<const AllocationLease>, std::span<const void *const>,
                                      bool) noexcept;
   bool reserve() noexcept;
+  std::int64_t pollObserved() noexcept;
+  void settleResources() noexcept;
   void attach(Owner *owner) noexcept;
   void remove(Owner *owner) noexcept;
 };
@@ -182,7 +201,7 @@ private:
 struct InvocationABI {
   static std::uint8_t armNativeCancellation(Invocation &invocation) noexcept {
     const auto previous = invocation.pollMode_;
-    if (previous == 1 && invocation.nativeInterrupts_) invocation.pollMode_ = 3;
+    if (previous == 1 && (invocation.flags_ & Invocation::NativeInterrupts)) invocation.pollMode_ = 3;
     return previous;
   }
   static bool nativeCancellationArmed(const Invocation &invocation) noexcept {
@@ -201,6 +220,9 @@ struct InvocationABI {
   static constexpr std::size_t stackLow = offsetof(Invocation, stackLow_);
   static constexpr std::size_t stackHigh = offsetof(Invocation, stackHigh_);
   static constexpr std::size_t depth = offsetof(Invocation, callDepth_);
+  static constexpr std::size_t faultCode = offsetof(Invocation, code_);
+  static constexpr std::size_t faultLine = offsetof(Invocation, line_);
+  static constexpr std::size_t faultColumn = offsetof(Invocation, column_);
 };
 static_assert(std::is_standard_layout_v<Invocation>);
 static_assert(sizeof(void *) == 8 && sizeof(std::atomic<bool>) == 1 &&

@@ -1,0 +1,24 @@
+[
+  {
+    "path": "benchmarks/results/runtime-workloads-range-final-2026-10-26.json",
+    "sha256": "e0b0b582bef10a476ccc5a9eb7b1741c90689e57b6627452ac29698791118966",
+    "verification_workloads": 99,
+    "measured_processes": 99,
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/production-cancellation-range-final-2026-10-26.json",
+    "sha256": "637c5d13e7f12a63f10fa883e3ecc9bc11c82d81ea1a554c09f6f245ba3b9457",
+    "verification_workloads": 300,
+    "timed_samples": 1120,
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/range-foundation-profile-2026-10-26.json",
+    "sha256": "1866a13b756c9ac18d8c8e1985281d98f36db5a1f8d926ba469b4f0468e35bd4",
+    "profiles": 3,
+    "verified": true
+  }
+]

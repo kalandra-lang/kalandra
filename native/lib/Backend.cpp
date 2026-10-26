@@ -4,6 +4,9 @@
 #include "NativeStack.h"
 #include "NativeCallFoundation.h"
 #include "LocalStorage.h"
+#include "IntegerRanges.h"
+#include "BoundedEntry.h"
+#include "../runtime/Runtime.h"
 #include "RecordLLVMTypes.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
@@ -108,7 +111,7 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   // The complete graph pipeline can expose a local environment only on its
   // final inlining round. Promote afterwards, then replace its loads/stores
   // with SSA values without re-running unrelated module optimizations.
-  if (promoteLocalEnvironments(*candidate))
+  if (promoteLocalEnvironments(*candidate, runtime::InvocationABI::pollMode))
     for (auto &fn : *candidate) {
       bool local = false;
       if (!fn.isDeclaration())
@@ -116,12 +119,30 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
           local |= llvm::isa<llvm::AllocaInst>(instruction) &&
                    instruction.getName().starts_with("local.environment");
       if (local) {
+        functions.invalidate(fn, llvm::PreservedAnalyses::none());
         llvm::FunctionPassManager scalarize;
         scalarize.addPass(llvm::SROAPass(llvm::SROAOptions{}));
         scalarize.run(fn, functions);
         simplifyLeaf(fn, true);
       }
     }
+  if (removeInlinedNativeStackGuards(*candidate))
+    for (auto &fn : *candidate)
+      if (!fn.isDeclaration() && !fn.hasFnAttribute("kalandra.task.frame"))
+        simplifyLeaf(fn, true);
+  for (auto &fn : *candidate) {
+    if (fn.isDeclaration() || fn.hasFnAttribute("kalandra.task.frame") ||
+        fn.hasFnAttribute(llvm::Attribute::OptimizeNone)) continue;
+    // Promotion/simplification above changes value facts. Build fresh analyses
+    // rather than consuming a cached range result from the module pipeline.
+    llvm::FunctionAnalysisManager ranges;
+    passes.registerFunctionAnalyses(ranges);
+    auto &lvi = ranges.getResult<llvm::LazyValueAnalysis>(fn);
+    auto &dom = ranges.getResult<llvm::DominatorTreeAnalysis>(fn);
+    const bool changed = foldProvenIntegerComparisons(fn, lvi, dom);
+    ranges.clear();
+    if (changed) simplifyLeaf(fn, true);
+  }
   // At the outermost callback there is no source caller left to unwind.
   // Return an explicit boundary failure instead. Keep the bit even if a host
   // resets its cancellation token before the runtime checks final readiness.
@@ -146,6 +167,7 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
     }
     if (!aborts.empty()) fn.removeFnAttr(llvm::Attribute::NoReturn);
   }
+  addBoundedEntries(*candidate, simplifyLeaf);
   lowerAArch64CheckedRemainders(*candidate);
   if (auto error = normalizeWindowsTailPackets(*candidate)) return error;
   bool fits = !llvm::verifyModule(*candidate);
@@ -2766,7 +2788,20 @@ private:
           current.symbols[source.parameters[n]] = args[n];
         return current;
       };
-      auto emitLoop = [&]() -> Value {
+      auto emitStep = [&](ValueRange args) {
+        auto current = iteration(args);
+        for (std::size_t n = 0; n + 1 < continuation.size(); ++n) {
+          const auto &statement = continuation[n];
+          auto value = expression(current, statement.value);
+          if (statement.binding) current.symbols[*statement.binding] = value;
+        }
+        SmallVector<Value> next;
+        for (std::size_t n = 0; n < call.arguments.size(); ++n)
+          next.push_back(castTensor(loc, expression(current, call.arguments[n]),
+                                     function.getArgumentTypes()[n]));
+        return next;
+      };
+      auto emitWhile = [&]() -> Value {
         Value zero = arith::ConstantOp::create(builder_, loc, builder_.getZeroAttr(resultType));
         auto loop = scf::WhileOp::create(builder_, loc, stateTypes, initial,
           [&](OpBuilder &, Location, ValueRange args) {
@@ -2793,17 +2828,7 @@ private:
             scf::ConditionOp::create(builder_, loc, active, next);
           },
           [&](OpBuilder &, Location, ValueRange args) {
-            auto current = iteration(args);
-            for (std::size_t n = 0; n + 1 < continuation.size(); ++n) {
-              const auto &statement = continuation[n];
-              auto value = expression(current, statement.value);
-              if (statement.binding) current.symbols[*statement.binding] = value;
-            }
-            SmallVector<Value> next;
-            for (std::size_t n = 0; n < call.arguments.size(); ++n)
-              next.push_back(castTensor(loc, expression(current, call.arguments[n]),
-                                         function.getArgumentTypes()[n]));
-            scf::YieldOp::create(builder_, loc, next);
+            scf::YieldOp::create(builder_, loc, emitStep(args));
           });
         return loop.getResults().back();
       };
@@ -2819,6 +2844,61 @@ private:
       };
       const auto *comparison =
           std::get_if<ScalarCompare>(&input_.expressions[choice->condition].operation);
+      // A structural int64 countdown has a finite nonnegative iteration count.
+      // SCF's for ownership interface carries replacement arrays without the
+      // condition/body clones required by its general while interface. Negative
+      // counts retain the original while, including eventual checked underflow.
+      std::optional<std::size_t> countdown;
+      if (comparison && ((comparison->operation == ComparisonKind::Equal && !trueTail) ||
+                         (comparison->operation == ComparisonKind::NotEqual && trueTail))) {
+        auto isInteger = [&](ValueId value, std::int64_t expected) {
+          const auto *literal = std::get_if<Int64Literal>(&input_.expressions[value].operation);
+          return literal && literal->value == expected;
+        };
+        auto candidate = isInteger(comparison->right, 0) ? comparison->left
+            : isInteger(comparison->left, 0) ? comparison->right : choice->condition;
+        const auto *read = std::get_if<SymbolRead>(&input_.expressions[candidate].operation);
+        if (read && input_.symbols[read->symbol].type.element == NumericType::Int64)
+          for (std::size_t n = 0; n < source.parameters.size(); ++n) {
+            const auto *subtract =
+                std::get_if<ScalarBinary>(&input_.expressions[call.arguments[n]].operation);
+            const auto *from = subtract
+                ? std::get_if<SymbolRead>(&input_.expressions[subtract->left].operation) : nullptr;
+            if (source.parameters[n] == read->symbol && subtract && from &&
+                subtract->operation == TokenKind::Minus && from->symbol == read->symbol &&
+                isInteger(subtract->right, 1)) countdown = n;
+          }
+      }
+      auto emitLoop = [&]() -> Value {
+        if (!countdown) return emitWhile();
+        auto zero = arith::ConstantIntOp::create(builder_, loc, 0, 64);
+        auto one = arith::ConstantIntOp::create(builder_, loc, 1, 64);
+        auto negative = arith::CmpIOp::create(builder_, loc, arith::CmpIPredicate::slt,
+                                             initial[*countdown], zero);
+        auto selected = scf::IfOp::create(builder_, loc, TypeRange{resultType}, negative, true);
+        {
+          OpBuilder::InsertionGuard guard(builder_);
+          builder_.setInsertionPointToStart(&selected.getThenRegion().front());
+          scf::YieldOp::create(builder_, loc, emitWhile());
+          builder_.setInsertionPointToStart(&selected.getElseRegion().front());
+          // The enclosing zero-case bypass and negative branch prove at least
+          // one iteration. Peel it so freshly produced arrays enter the counted
+          // loop as writable owned buffers, rather than cloning borrowed input.
+          auto first = emitStep(initial);
+          auto loop = scf::ForOp::create(builder_, loc, one, initial[*countdown], one, first,
+              [&](OpBuilder &, Location, Value, ValueRange args) {
+                scf::YieldOp::create(builder_, loc, emitStep(args));
+              });
+          auto completed = iteration(loop.getResults());
+          for (const auto &statement : terminal) {
+            auto value = expression(completed, statement.value);
+            if (statement.binding) completed.symbols[*statement.binding] = value;
+          }
+          scf::YieldOp::create(builder_, loc,
+              castTensor(loc, expression(completed, terminalResult), resultType));
+        }
+        return selected.getResult(0);
+      };
       if (comparison && simpleOperand(comparison->left) && simpleOperand(comparison->right)) {
         // A parameter/literal comparison has no allocation or other source
         // effects. Keep its terminal case outside loop ownership conversion,
@@ -2985,10 +3065,56 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
     const char *passes = "one-shot-bufferize{bufferize-function-boundaries "
                          "allow-return-allocs-from-loops},convert-linalg-to-"
                          "loops,buffer-deallocation-pipeline,convert-bufferization-to-memref";
+    llvm::SmallPtrSet<Operation *, 32> originalFunctions;
+    for (auto fn : module->getOps<func::FuncOp>()) originalFunctions.insert(fn);
     if (failed(parsePassPipeline(passes, pipeline)))
       return std::unexpected("cannot construct pinned lowering pipeline");
     if (failed(pipeline.run(*module)))
       return std::unexpected("native MLIR lowering failed");
+    // Deallocation's alias-check helper creates small index/Bool workspaces.
+    // They are compiler control storage, not source allocations. Keep bounded,
+    // non-escaping workspaces in the native frame, reusable across iterations.
+    llvm::SmallPtrSet<Operation *, 8> deallocationHelpers;
+    for (auto fn : module->getOps<func::FuncOp>())
+      if (arrayTailLoops && !originalFunctions.contains(fn) && fn.isPrivate() &&
+          fn.getName().starts_with("dealloc_helper")) deallocationHelpers.insert(fn);
+    SmallVector<memref::AllocOp> scratch;
+    module->walk([&](memref::AllocOp op) {
+      auto t = op.getType();
+      if (arrayTailLoops && op.getSymbolOperands().empty() &&
+          t.hasStaticShape() && t.getRank() == 1 && t.getNumElements() <= 32 &&
+          (t.getElementType().isIndex() || t.getElementType().isInteger(1)))
+        scratch.push_back(op);
+    });
+    for (auto allocation : scratch) {
+      llvm::SmallPtrSet<Operation *, 16> seen;
+      SmallVector<Value> pending{allocation.getResult()};
+      SmallVector<memref::DeallocOp> releases;
+      bool safe = true, usedByHelper = false;
+      while (!pending.empty() && safe) {
+        auto value = pending.pop_back_val();
+        for (auto *user : value.getUsers()) {
+          if (!seen.insert(user).second) continue;
+          if (auto cast = dyn_cast<memref::CastOp>(user)) pending.push_back(cast.getResult());
+          else if (auto release = dyn_cast<memref::DeallocOp>(user)) releases.push_back(release);
+          else if (auto load = dyn_cast<memref::LoadOp>(user)) safe &= load.getMemRef() == value;
+          else if (auto store = dyn_cast<memref::StoreOp>(user)) safe &= store.getMemRef() == value;
+          else if (auto call = dyn_cast<func::CallOp>(user)) {
+            auto target = module->lookupSymbol<func::FuncOp>(call.getCallee());
+            safe &= target && deallocationHelpers.contains(target);
+            usedByHelper = true;
+          } else safe = false;
+        }
+      }
+      if (!safe || !usedByHelper) continue;
+      auto fn = allocation->getParentOfType<func::FuncOp>();
+      if (!fn || fn.empty()) continue;
+      OpBuilder entry(&fn.front(), fn.front().begin());
+      auto local = memref::AllocaOp::create(entry, allocation.getLoc(), allocation.getType());
+      allocation.replaceAllUsesWith(local.getResult());
+      for (auto release : releases) release.erase();
+      allocation.erase();
+    }
     SmallVector<memref::CopyOp> copies;
     module->walk([&](memref::CopyOp op) { copies.push_back(op); });
     for (auto copy : copies) {

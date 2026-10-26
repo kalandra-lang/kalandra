@@ -15,18 +15,27 @@ extern const char kalandraNativeEnd[]
 namespace kalandra::runtime {
 namespace {
 struct NativeBoundary {
-  sigjmp_buf landing;
+  void *savedStack;
   Invocation *invocation;
   const std::atomic<bool> *token;
   bool (*body)(void *);
   void *arguments;
+#if __has_feature(address_sanitizer)
+  sigjmp_buf landing;
+#endif
 };
+static_assert(offsetof(NativeBoundary, savedStack) == 0);
+static_assert(offsetof(NativeBoundary, token) == 16);
+#if __has_feature(address_sanitizer)
+static_assert(offsetof(NativeBoundary, landing) == 40);
+#endif
 static_assert(std::atomic<bool>::is_always_lock_free);
 std::once_flag nativeSignalOnce;
 bool nativeSignalReady = false;
 alignas(8) std::uint64_t nativeRedirects = 0;
 
 extern "C" bool kalandra_native_enter_v1(bool (*)(void *), void *, NativeBoundary *);
+extern "C" bool kalandra_native_enter_cooperative_v1(bool (*)(void *), void *, NativeBoundary *);
 extern "C" [[noreturn]] void kalandra_native_cancel_v1();
 // Runtime C++ may borrow x28. Reinstall it at EVERY generated callback entry.
 // The assembly wrapper owns no C++ resources and restores the caller's register.
@@ -35,6 +44,53 @@ asm(R"(
 .globl _kalandra_native_enter_v1
 .p2align 2
 _kalandra_native_enter_v1:
+  .cfi_startproc
+  stp x29, x30, [sp, #-160]!
+  .cfi_def_cfa_offset 160
+  .cfi_offset w29, -160
+  .cfi_offset w30, -152
+  stp x19, x20, [sp, #16]
+  stp x21, x22, [sp, #32]
+  stp x23, x24, [sp, #48]
+  stp x25, x26, [sp, #64]
+  stp x27, x28, [sp, #80]
+  stp d8, d9, [sp, #96]
+  stp d10, d11, [sp, #112]
+  stp d12, d13, [sp, #128]
+  stp d14, d15, [sp, #144]
+  .cfi_offset w19, -144
+  .cfi_offset w20, -136
+  .cfi_offset w21, -128
+  .cfi_offset w22, -120
+  .cfi_offset w23, -112
+  .cfi_offset w24, -104
+  .cfi_offset w25, -96
+  .cfi_offset w26, -88
+  .cfi_offset w27, -80
+  .cfi_offset w28, -72
+  .cfi_offset b8, -64
+  .cfi_offset b9, -56
+  .cfi_offset b10, -48
+  .cfi_offset b11, -40
+  .cfi_offset b12, -32
+  .cfi_offset b13, -24
+  .cfi_offset b14, -16
+  .cfi_offset b15, -8
+  mov x29, sp
+  mov x9, sp
+  str x9, [x2]
+  mov x28, x2
+  mov x16, x0
+  mov x0, x1
+  blr x16
+  ldr x28, [sp, #88]
+  ldp x29, x30, [sp]
+  add sp, sp, #160
+  ret
+  .cfi_endproc
+.globl _kalandra_native_enter_cooperative_v1
+.p2align 2
+_kalandra_native_enter_cooperative_v1:
   .cfi_startproc
   stp x29, x30, [sp, #-32]!
   .cfi_def_cfa_offset 32
@@ -54,10 +110,34 @@ _kalandra_native_enter_v1:
 .globl _kalandra_native_cancel_v1
 .p2align 2
 _kalandra_native_cancel_v1:
-  mov x0, x28
+)");
+#if __has_feature(address_sanitizer)
+// Preserve ASan's supported stack/fake-stack recovery through its longjmp
+// interceptor. Production checkpoints need no returns-twice C++ frame.
+asm(R"(
+  add x0, x28, #40
   mov w1, #1
   b _siglongjmp
 )");
+#else
+asm(R"(
+  ldr x9, [x28]
+  mov sp, x9
+  ldp x19, x20, [sp, #16]
+  ldp x21, x22, [sp, #32]
+  ldp x23, x24, [sp, #48]
+  ldp x25, x26, [sp, #64]
+  ldp x27, x28, [sp, #80]
+  ldp d8, d9, [sp, #96]
+  ldp d10, d11, [sp, #112]
+  ldp d12, d13, [sp, #128]
+  ldp d14, d15, [sp, #144]
+  ldp x29, x30, [sp]
+  mov w0, #0
+  add sp, sp, #160
+  ret
+)");
+#endif
 
 __attribute__((disable_sanitizer_instrumentation))
 void nativeInterrupt(int, siginfo_t *, void *opaque) {
@@ -79,9 +159,16 @@ void nativeInterrupt(int, siginfo_t *, void *opaque) {
 
 // The boundary storage belongs to the caller, above the setjmp frame: values
 // written by generated code are not indeterminate automatic locals after jump.
-__attribute__((noinline)) bool runNativeBoundary(NativeBoundary *boundary) noexcept {
+#if __has_feature(address_sanitizer)
+__attribute__((noinline))
+#else
+inline
+#endif
+bool runNativeBoundary(NativeBoundary *boundary) noexcept {
+#if __has_feature(address_sanitizer)
   if (sigsetjmp(boundary->landing, 0))
     return false;
+#endif
   bool complete = false;
   try {
     complete = kalandra_native_enter_v1(boundary->body, boundary->arguments, boundary) &&
@@ -171,7 +258,7 @@ extern "C" bool kalandra_source_run_v4(Invocation *invocation, bool (*body)(void
   // a delayed interrupt may arrive after a worker has moved to another task.
   return kalandra_source_run_v3(invocation, [](void *opaque) -> bool {
     auto *boundary = static_cast<NativeBoundary *>(opaque);
-    return kalandra_native_enter_v1(boundary->body, boundary->arguments, boundary);
+    return kalandra_native_enter_cooperative_v1(boundary->body, boundary->arguments, boundary);
   }, &boundary);
 #else
   return kalandra_source_run_v3(invocation, body, arguments);

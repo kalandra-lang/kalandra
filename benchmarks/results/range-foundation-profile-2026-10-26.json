@@ -1,0 +1,135 @@
+{
+  "timestamp": "2026-10-26T18:30:08.959776+00:00",
+  "contract": "Instrumented macOS sample diagnostics of owned child processes, interval default 1ms, duration 2s. Includes warmup or measured batches; these times are not acceptance results. Task diagnostic explicitly uses one host-driven worker. Sampling counts are observations, not exact exclusive time percentages.",
+  "sources": {
+    "native/benchmarks/fair/runtime_workload_profile.py": "ec37ae3d9fc967400f60125910fa5b5c3caa6396d6c21cf17f16c5d03d20475a"
+  },
+  "records": [
+    {
+      "name": "arrays",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/range-foundation-2026-10-26/final/arrays",
+        "0",
+        "17",
+        "256",
+        "1000000",
+        "1",
+        "4838550"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "87880",
+        "2",
+        "-file",
+        "benchmarks/results/range-foundation-profile-2026-10-26.arrays.sample.txt"
+      ],
+      "pid": 87880,
+      "binary_sha256": "367031bdb18afe662d6d40796a9b9d0c4a0bf54ac62dd675fc138db14d698bc3",
+      "sample_path": "benchmarks/results/range-foundation-profile-2026-10-26.arrays.sample.txt",
+      "sample_sha256": "9bb6ffb2a6a87e4e2bde6ac9e5b9371ca5bd06828f8a5aa0499f3241d0d73e3e",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 4402994620.0,
+          "checksum": 4838550000000
+        },
+        {
+          "round": -1,
+          "ns": 4184298920.0,
+          "checksum": 4838550000000
+        },
+        {
+          "round": 0,
+          "ns": 4176412380.0,
+          "checksum": 4838550000000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 87880 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 87880 written to file benchmarks/results/range-foundation-profile-2026-10-26.arrays.sample.txt\n"
+    },
+    {
+      "name": "closure",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/range-foundation-2026-10-26/final/closure",
+        "1",
+        "17",
+        "16",
+        "60000000",
+        "1",
+        "479436"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "87931",
+        "2",
+        "-file",
+        "benchmarks/results/range-foundation-profile-2026-10-26.closure.sample.txt"
+      ],
+      "pid": 87931,
+      "binary_sha256": "fd2a0ffb097d65995bd7a700601897031f071932da7b14685b8b107d80991963",
+      "sample_path": "benchmarks/results/range-foundation-profile-2026-10-26.closure.sample.txt",
+      "sample_sha256": "39ba9fb117469d7cfd9949e6e84c13243f7fa5b18d0013ed0bdc3d22fd4ee721",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1666650960.0,
+          "checksum": 28766160000000
+        },
+        {
+          "round": -1,
+          "ns": 1794951170.0,
+          "checksum": 28766160000000
+        },
+        {
+          "round": 0,
+          "ns": 1621529710.0,
+          "checksum": 28766160000000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 87931 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 87931 written to file benchmarks/results/range-foundation-profile-2026-10-26.closure.sample.txt\n"
+    },
+    {
+      "name": "scheduled-256",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/range-foundation-2026-10-26/final/scheduled-256",
+        "1",
+        "17",
+        "256",
+        "50000",
+        "1",
+        "248609"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "87958",
+        "2",
+        "-file",
+        "benchmarks/results/range-foundation-profile-2026-10-26.scheduled-256.sample.txt"
+      ],
+      "pid": 87958,
+      "binary_sha256": "7f6f69139cb413a0140cb21fc3be6cf3c68d64396cc70ff186511a6e873941a4",
+      "sample_path": "benchmarks/results/range-foundation-profile-2026-10-26.scheduled-256.sample.txt",
+      "sample_sha256": "34152acce82f1443468432c33b2b613fe3db374b248b31337280d274055248cb",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1449761620.0,
+          "checksum": 12430450000
+        },
+        {
+          "round": -1,
+          "ns": 1814967250.0,
+          "checksum": 12430450000
+        },
+        {
+          "round": 0,
+          "ns": 1530901670.0,
+          "checksum": 12430450000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 87958 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 87958 written to file benchmarks/results/range-foundation-profile-2026-10-26.scheduled-256.sample.txt\n"
+    }
+  ]
+}

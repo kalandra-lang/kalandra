@@ -1,15 +1,18 @@
 #pragma once
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include <optional>
 
 namespace kalandra {
 // After native inlining, some closure environments are only local memory.
 // Keep escaped/transported environments in the invocation ledger. In particular,
 // do not infer non-escape from a closure's source type or from reference counts.
-inline bool promoteLocalEnvironments(llvm::Module &module) {
+inline bool promoteLocalEnvironments(llvm::Module &module,
+                                     std::optional<std::uint64_t> pollModeOffset = {}) {
   using namespace llvm;
   SmallVector<CallInst *, 16> candidates;
   for (auto &fn : module)
@@ -59,6 +62,47 @@ inline bool promoteLocalEnvironments(llvm::Module &module) {
     }
     if (!safe) continue;
     auto &fn = *call->getFunction();
+    // Clear workers are entered only in unbound or armed native-interrupt
+    // mode. Once this allocation disappears, its helper-status diamond has
+    // neither a possible allocation fault nor a cooperative poll obligation.
+    // Watched/cooperative workers retain the diamond. Match the exact ABI
+    // field and isolated slow-poll block; uncertain control flow stays checked.
+    if (pollModeOffset && fn.getName().ends_with(".body.clear")) {
+      auto *dispatch = dyn_cast<SwitchInst>(call->getParent()->getTerminator());
+      auto *mode = dispatch ? dyn_cast<LoadInst>(dispatch->getCondition()) : nullptr;
+      std::int64_t offset = 0;
+      auto *base = mode ? GetPointerBaseWithConstantOffset(mode->getPointerOperand(), offset,
+                                                          module.getDataLayout()) : nullptr;
+      if (dispatch && dispatch->getNumCases() == 2 && mode && mode->isSimple() &&
+          base == call->getArgOperand(0) && offset == std::int64_t(*pollModeOffset)) {
+        auto clear = dispatch->findCaseValue(ConstantInt::get(cast<IntegerType>(mode->getType()), 0));
+        auto token = dispatch->findCaseValue(ConstantInt::get(cast<IntegerType>(mode->getType()), 1));
+        auto *observe = dispatch->getDefaultDest();
+        bool isolated = clear != dispatch->case_default() && token != dispatch->case_default() &&
+            clear->getCaseSuccessor() != observe && token->getCaseSuccessor() != observe &&
+            clear->getCaseSuccessor() != token->getCaseSuccessor() &&
+            observe->getSinglePredecessor() == call->getParent();
+        bool poll = false;
+        for (auto it = std::next(call->getIterator()); it != call->getParent()->end(); ++it)
+          if (&*it != dispatch && it->mayHaveSideEffects()) isolated = false;
+        for (auto &instruction : *observe)
+          if (auto *slow = dyn_cast<CallInst>(&instruction)) {
+            const bool expected = slow->getCalledFunction() &&
+                slow->getCalledFunction()->getName() == "kalandra_poll_slow_v1" &&
+                slow->arg_size() == 1 && slow->getArgOperand(0) == call->getArgOperand(0);
+            isolated &= expected && !poll;
+            poll |= expected;
+          } else if (instruction.mayHaveSideEffects()) isolated = false;
+        if (isolated && poll) {
+          auto *parent = call->getParent();
+          auto *success = clear->getCaseSuccessor();
+          observe->removePredecessor(parent, true);
+          token->getCaseSuccessor()->removePredecessor(parent, true);
+          UncondBrInst::Create(success, dispatch->getIterator());
+          dispatch->eraseFromParent();
+        }
+      }
+    }
     IRBuilder<> entry(&*fn.getEntryBlock().getFirstInsertionPt());
     auto *storage = entry.CreateAlloca(ArrayType::get(entry.getInt8Ty(), bytes->getZExtValue()),
                                       nullptr, "local.environment");

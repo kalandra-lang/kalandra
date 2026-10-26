@@ -244,7 +244,12 @@ std::optional<AllocationLease> Invocation::lease(const void *allocated) const no
   return AllocationLease(backing);
 }
 Invocation::Invocation() noexcept = default;
-Invocation::~Invocation() { settle(); }
+std::int64_t Invocation::pollObserved() noexcept {
+  if (pollCounter_)
+    pollCounter_->fetch_add(1, std::memory_order_relaxed);
+  const auto code = executionStatus();
+  return code ? code : cancellation_ && cancellation_->load(std::memory_order_acquire) ? -1 : 0;
+}
 void Invocation::fault(std::int64_t code, std::int64_t line, std::int64_t column) noexcept {
   pollMode_ = 2;
   if (!code_) {
@@ -254,12 +259,12 @@ void Invocation::fault(std::int64_t code, std::int64_t line, std::int64_t column
   }
 }
 bool Invocation::reserve() noexcept {
-  if (settled_)
+  if (flags_ & Settled)
     fault(3);
   if (code_)
     return false;
-  if (!allocationFailureConfigured_) {
-    allocationFailureConfigured_ = true;
+  if (!(flags_ & AllocationConfigured)) {
+    flags_ |= AllocationConfigured;
     if (const auto *text = std::getenv("KALANDRA_TEST_FAIL_ALLOC_AT")) {
       char *end = nullptr;
       const auto failure = std::strtoull(text, &end, 10);
@@ -279,7 +284,9 @@ void Invocation::attach(Owner *owner) noexcept {
   if (head_)
     head_->previous = owner;
   head_ = owner;
-  ++live_;
+  // Invocation mutation has one exclusive writer. Keep diagnostic reads atomic
+  // without paying for an inter-writer read/modify/write transaction.
+  live_.store(live_.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
   ++allocations_;
 }
 void Invocation::remove(Owner *owner) noexcept {
@@ -301,7 +308,7 @@ void Invocation::remove(Owner *owner) noexcept {
     spareSmall_ = backing;
   else
     releaseBacking(backing);
-  --live_;
+  live_.store(live_.load(std::memory_order_relaxed) - 1, std::memory_order_relaxed);
   ++releases_;
 }
 void *Invocation::allocate(std::uint64_t bytes) noexcept {
@@ -742,8 +749,8 @@ void Invocation::release(void *buffer) noexcept {
   }
   remove(owner);
 }
-void Invocation::settle() noexcept {
-  if (settled_)
+void Invocation::settleResources() noexcept {
+  if (flags_ & Settled)
     return;
   pollMode_ = 2;
   while (head_)
@@ -752,7 +759,7 @@ void Invocation::settle() noexcept {
     spareSmall_->~Backing();
     std::free(std::exchange(spareSmall_, nullptr));
   }
-  settled_ = true;
+  flags_ |= Settled;
   if (environmentBytes_ && environmentRelease_)
     environmentRelease_(environmentBudget_, environmentBytes_);
   environmentBytes_ = 0;

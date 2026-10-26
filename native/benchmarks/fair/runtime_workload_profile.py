@@ -12,11 +12,15 @@ from runtime_workloads import oracle
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output', required=True, type=Path)
 parser.add_argument('--build-dir', type=Path)
+parser.add_argument('--closure-rounds',type=int,default=0)
+parser.add_argument('--closure-count',type=int,default=60000000)
 args = parser.parse_args()
+assert 0 <= args.closure_rounds <= 4096 and args.closure_count > 0
 assert not args.output.exists()
 build = args.build_dir.resolve() if args.build_dir else p.BUILD/'runtime-workloads'
 records = []
-for name,kind,size,count in [('arrays',0,256,1000000), ('closure',1,0,60000000),
+for name,kind,size,count in [('arrays',0,256,1000000),
+                             ('closure',1,args.closure_rounds,args.closure_count),
                              ('scheduled-256',1,256,50000)]:
     binary = build/name
     sample_path = args.output.with_suffix('.'+name+'.sample.txt')

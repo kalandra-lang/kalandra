@@ -19,9 +19,12 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--build-only', action='store_true')
     parser.add_argument('--reuse-build', action='store_true')
+    parser.add_argument('--target-ms',type=float,default=20,
+                        help='Calibration duration shared by every language and task diagnostic')
     parser.add_argument('--build-dir', type=Path,
                         help='Keep candidate artifacts separate from a frozen baseline')
     args = parser.parse_args()
+    assert args.target_ms > 0
     assert not args.output.exists()
     root, src = p.ROOT, Path(__file__).resolve().parent
     build = args.build_dir.resolve() if args.build_dir else p.BUILD/'runtime-workloads'
@@ -31,7 +34,8 @@ def main():
     source, driver = src/'RuntimeWorkloads.k', src/'RuntimeWorkloadDriver.cpp'
     flags = ['-std=c++23','-O2','-ffp-contract=off','-Wno-override-module','-pthread']
     paths = [Path(__file__), source, driver, src/'RuntimeWorkloads.cpp', src/'runtime_workloads.rs',
-             src/'protocol.py', root/'native/runtime/TaskABI.cpp', compiler, runtime]
+             src/'protocol.py', root/'native/runtime/TaskABI.cpp',
+             root/'native/runtime/Runtime.h',root/'native/runtime/NativeCancellation.h',compiler,runtime]
     signature = {p.key(f):p.sha(f) for f in paths}
     manifest = build/'manifest.json'
     if args.reuse_build:
@@ -90,8 +94,8 @@ def main():
     diagnostic = [[mode,1,size] for mode in ('direct','scheduled','scheduled-serial') for size in (0,16,256)]
     for cell in diagnostic:
         verification.append(dict(cell=cell,seed=17,samples=invoke(cell,1,1)))
-    result = p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=20)
-    result['task_scope_diagnostic'] = p.measure(diagnostic,invoke,lambda c:oracle(1,17,c[2]),target_ms=20)
+    result = p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=args.target_ms)
+    result['task_scope_diagnostic'] = p.measure(diagnostic,invoke,lambda c:oracle(1,17,c[2]),target_ms=args.target_ms)
     result['verification'] = verification
     result['contract'] = ('Equivalent runtime-input algorithms: eight-element immutable array maps with a fresh output each pass, and a scalar-capturing closure repeatedly passed through a tail-recursive helper. Each language may optimize normally; C++/Rust use templates/generics, with no forced dynamic calls. Kalandra includes fresh invocation, cancellation, checked arithmetic, allocation/ownership and settlement. C++/Rust retain normal semantics. Identical external C++ timing/validation harness; separate objects/no LTO. Exact independent integer oracle checked every call. Task diagnostic is Kalandra-only, fixed-input complete parallel-scope creation/spawn/await/destruction versus a fixed-input synchronous entry; scheduled explicitly uses 8 workers, scheduled-serial uses the host-driven 1-worker scheduler. It is not a steady-state scheduler microbenchmark or a cross-language ranking.')
     assert {p.key(f):p.sha(f) for f in paths} == signature

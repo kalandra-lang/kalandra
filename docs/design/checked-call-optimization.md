@@ -28,8 +28,9 @@ On Darwin ARM64 (excluding ARM64e), scheduler-owned invocations can select the
 hybrid native boundary automatically. The v4 checked entry captures a cleanup
 return point, installs its state in reserved x28, and selects the clear worker
 for pure computation. Helper returns still check status and the cancellation
-token. Arithmetic and physical-stack checks remain. Source faults still use
-the private C++ abort marker; the direct jump is only for cancellation.
+token. Arithmetic and physical-stack checks remain. Source call chains use the private C++ abort marker for faults; an outermost
+callback can return failure directly when no source caller remains to unwind.
+The direct jump is only for cancellation.
 
 Only compiler-marked resource-free source frames and their callback wrappers
 occupy `__TEXT,__kalandra`. Its linker-defined limits include final machine-code
@@ -40,7 +41,7 @@ allocates, unwinds C++ frames or takes a scheduler lock. Landing returns a
 stopped callback and balances admission. Scheduler settlement then releases
 the invocation ledger under the existing descendant/external-borrow rules.
 
-Every callback entry establishes its own boundary and reinstalls x28, even
+Every v4 callback entry establishes its own boundary and reinstalls x28, even
 when a foreign helper has borrowed that callee-saved register. Cancellation
 therefore stops above C++ owners in the helper below the callback. Unbound and
 cooperative callbacks also install a valid state with no interrupt token, so
@@ -140,3 +141,88 @@ records improvements, unsuccessful prototypes and remaining gaps.
 `native-call-foundation-source` exercises million-step self, mutual and runtime-selected tail calls, captured closures, aggregate values, non-tail floating recurrence, arithmetic faults, cancellation and small physical stacks in debug, optimized, ASan/UBSan and TSan builds where supported. Existing numeric, closure, worker and ownership suites cover the surrounding language behavior. `native-checked-inlining` checks the internal convention and conservative fallbacks structurally. The scalar suite additionally checks every narrow integer and Bool value at a raw C boundary, immediately promoting the return rather than truncating it back to its source width. Checked C entries carry explicit signed/unsigned return-extension attributes; the internal convention retains its own signless value representation.
 
 The preceding implementation and its 128-slot behavior are recorded in the historical [recursive status report](../../benchmarks/results/recursive-status-2026-10-24.md), [recursive register report](../../benchmarks/results/recursive-register-2026-10-24.md) and their linked qualification artifacts. Those historical poll counts, logical-depth failures and expansion phases describe the older compiler; they are not the current execution contract. The [final repeated-process source suite](../../benchmarks/results/call-foundation-2026-10-25.md) meets the Rust/C++ 10% target for all 18 measured unbound cases. This is a scoped result; cancellation-bound regressions and the remaining task/ownership work are retained in that report.
+
+## Range proofs, counted ownership and bounded host entries
+
+Integer guard folding uses fresh LLVM value-range and dominator analyses. It
+intersects facts already established on strict dominators and reevaluates
+immutable integer expressions at the use. Future assumptions, sibling branches,
+changing PHIs and memory reloads cannot justify a fold. Modular ranges preserve
+wrapping behavior. Only a proved comparison is replaced; arithmetic failure
+locations and evaluation order remain intact.
+
+An eligible array-state self-tail call with an int64 parameter tested against
+zero and decremented by one has a counted lowering for positive counts. Its first
+iteration is peeled so a newly produced owned array enters the loop rather than
+a borrowed input. Negative counts retain the general while lowering and checked
+underflow. Other conditions retain that lowering too. Small static index/Bool
+workspaces introduced by deallocation helpers can use native stack storage only
+when all uses are nonescaping helper calls, accesses, casts or releases. They
+are compiler control storage, not source values. Native frame admission still
+falls back to the earlier lowering if necessary.
+
+Promoting a local environment also removes its obsolete allocation-status
+branch only in clear workers, with an exact context-field and slow-poll match.
+Watched/cooperative workers retain their checks. Other effects or uncertain
+pointer uses prevent the rewrite.
+
+A second host-entry path handles scalar callbacks whose optimized computation is
+call-free, allocation-free and provably bounded. It accepts only clear contexts or contexts with a bound
+token at depth zero. It polls a bound token with acquire ordering
+before and after work. Watched, faulted, settled, nested and already armed
+contexts retain the full v4 runtime entry. Source faults store the same first
+fault and return failure. There is no asynchronous abandonment of C++ frames in
+this path; its code is outside the admitted native-source section.
+
+The proof permits an acyclic body or one natural loop with one backedge, no
+nested/irreducible cycles and a calculable exit count that dominates the latch.
+The computation budget is 256 LLVM instructions, conservatively counting every
+block on a path and every loop block per iteration. Admission has a separate
+bounded projection budget of 128 nodes and constant entry/exit bookkeeping.
+Projected counts read only initialized, unchanged scalar fields in the private
+argument packet. Projection uses modular arithmetic without speculative
+no-overflow assumptions. Unknown calls, allocations, atomics, volatile accesses,
+unsupported intrinsics and wide division/remainder reject this path. The normal
+interruptible entry remains available for all unproved work.
+
+An empty invocation ledger now settles inline; owned backing, cached buffers and
+nonzero environment/recursive budget reservations retain the full resource
+cleanup. Construction remains a runtime entry. Private control flags occupy an
+aligned word. Compiler-accessed field offsets and the versioned C runtime
+interfaces are unchanged; consumers rebuild with the matching private C++ header.
+
+On production Darwin ARM64, native entry saves its recovery checkpoint in the
+entry trampoline, including every ABI callee-saved general/FP register. A source
+interrupt restores that checkpoint and returns failure through normal runtime
+cleanup. Cooperative entry retains its smaller frame. ASan keeps its supported
+sigsetjmp/siglongjmp recovery instead. Register-sentinel, nested-cleanup and late
+signal tests qualify both the recovery and reuse paths.
+
+
+Eligible bounded callbacks also have a guarded small-integer version. Up to eight
+immutable int64 packet fields must lie in [0,65535] at entry; other values retain
+the original implementation. This is a compiler policy, not a source type or
+argument-count limit. LLVM range analysis can then narrow division/remainder to
+a proved precision. Signed INT32_MIN / -1 and INT32_MIN % -1 cannot use a naive
+signed int32 operation. Unsigned operations use the required bit precision, which
+the target lowers through native hardware widths; source int64 values and
+checked failures retain their semantics.
+
+A nonnegative remainder recurrence needs an inductive proof: initial values lie
+in [0,modulus), and its numerator remains nonnegative for every value in that
+interval. Negative initial values, negative transforms, uncertain arithmetic and
+wrapping ranges cannot establish that invariant. Source and sanitizer oracles
+cover those rejection cases alongside wide initial values and negative divisors.
+
+The bounded computation receives immutable value arguments through SSA, rather
+than reloading their private packet fields after acquire cancellation polls.
+Forwarding requires a dominating, unambiguous initializer with matching scalar
+type and no overlapping packet write. The checked v4 bridge remains available.
+
+Invocation mutation has one exclusive writer. Atomic live-count snapshots remain
+available to diagnostics, using atomic loads/stores without an inter-writer RMW
+transaction. They do not publish ledger or payload memory. Shared backing
+reference counts retain their acquire/release protocol. Runtime helpers reuse
+poll-mode health information to avoid repeated status/settlement/observer reads;
+they retain acquire cancellation loads, fault priority and the full observed
+poll path. Fault, settlement and observation always enter mode 2.
