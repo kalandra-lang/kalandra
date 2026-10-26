@@ -38,9 +38,16 @@ inline void defineNativeFastABI(llvm::Module &module) {
     b.SetInsertPoint(fast);
     b.CreateRet(b.getInt64(0));
     b.SetInsertPoint(tokenCheck);
-    b.CreateCondBr(b.CreateICmpEQ(mode, b.getInt8(1)), tokenLoad, slow);
-    b.SetInsertPoint(tokenLoad);
+    // Armed mode has the same healthy-token invariant as mode 1. Faults,
+    // observers and settlement switch to mode 2 before returning to source.
+    auto *healthy = b.CreateOr(b.CreateICmpEQ(mode, b.getInt8(1)),
+                              b.CreateICmpEQ(mode, b.getInt8(3)));
+    auto *tokenPresent = BasicBlock::Create(context, "token.present", poll);
+    b.CreateCondBr(healthy, tokenPresent, slow);
+    b.SetInsertPoint(tokenPresent);
     auto *token = load(b, ptr, invocation, Layout::cancellation);
+    b.CreateCondBr(b.CreateIsNull(token), fast, tokenLoad);
+    b.SetInsertPoint(tokenLoad);
     auto *value = b.CreateLoad(i8, token);
     value->setAtomic(AtomicOrdering::Acquire);
     value->setAlignment(Align(1));

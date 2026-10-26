@@ -1,3 +1,4 @@
+#include "PoisonedInvocation.h"
 #include "../runtime/NativeCancellation.h"
 #include "../runtime/Runtime.h"
 #include <atomic>
@@ -50,8 +51,7 @@ int main() {
     for (auto seed : seeds)
       for (std::int64_t rounds : std::array<std::int64_t,12>{0,1,2,16,22,23,24,256,257,min,min+1,min+2}) {
         const auto expected = oracle(seed,rounds);
-        Invocation context;
-        context.failAllocationAt(0);
+        PoisonedInvocation ownedContext; Invocation &context = ownedContext.get();
         std::atomic<bool> token{false}; std::atomic<std::uint64_t> polls{0};
         if (mode) context.bindCancellation(&token);
         if (mode == 2) context.watchPolls(&polls);
@@ -80,8 +80,19 @@ int main() {
           throw std::runtime_error("captured integer ownership regression");
         ++checked;
       }
+  {
+    PoisonedInvocation ownedContext; Invocation &context = ownedContext.get();
+    std::atomic<bool> token{false};
+    context.bindCancellation(&token);
+    context.allowNativeInterrupts(true);
+    const auto previous = InvocationABI::armNativeCancellation(context);
+    context.bindCancellation(nullptr);
+    InvocationABI::restoreNativeCancellation(context, previous);
+    if (_mlir_ciface_kalandra_test_entry(17,0,&context) != 17 || context.status() || context.callDepth())
+      throw std::runtime_error("unbinding an armed token left a stale bound entry mode");
+  }
   for (bool native : {false,true}) {
-    Invocation context; std::atomic<bool> stopped{true};
+    PoisonedInvocation ownedContext; Invocation &context = ownedContext.get(); std::atomic<bool> stopped{true};
     context.bindCancellation(&stopped); context.allowNativeInterrupts(native && interrupts);
     if (_mlir_ciface_kalandra_test_entry(17,16,&context) != 0 || context.status() || context.callDepth())
       throw std::runtime_error("bounded entry ignored an already cancelled token");

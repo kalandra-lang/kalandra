@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <new>
 #include <span>
 #include <type_traits>
 
@@ -38,7 +39,8 @@ private:
 // later migrates between workers. Backing references can cross contexts.
 class Invocation final {
 public:
-  Invocation() noexcept;
+  // User-provided so Invocation{} and make_unique do not zero deferred storage.
+  Invocation() noexcept {}
   ~Invocation() { settle(); }
   Invocation(const Invocation &) = delete;
   Invocation &operator=(const Invocation &) = delete;
@@ -51,7 +53,7 @@ public:
     flags_ = available ? flags_ | NativeInterrupts : flags_ & ~NativeInterrupts;
   }
   // Private test probe; its atomic counter must outlive this invocation.
-  void watchPolls(std::atomic<std::uint64_t> *counter) noexcept { pollCounter_ = counter; pollMode_ = 2; }
+  void watchPolls(std::atomic<std::uint64_t> *counter) noexcept { ledger().pollCounter_ = counter; pollMode_ = 2; }
   std::int64_t poll() noexcept {
     // Fault, settlement and observation all enter mode 2. Healthy helpers can
     // reuse that invariant while retaining their acquire cancellation check.
@@ -64,7 +66,7 @@ public:
   // Actual stack bounds protect native frames; tail calls reuse their frame.
   bool enterCall(std::int64_t line, std::int64_t column) noexcept;
   void leaveCall() noexcept;
-  std::uint64_t callDepth() const noexcept { return callDepth_; }
+  std::uint64_t callDepth() const noexcept { return flags_ & ControlReady ? callDepth_ : 0; }
   void *allocate(std::uint64_t bytes) noexcept;
   // Field backing remains invocation-owned across inline aggregate copies.
   // Release only at a scalar CLI boundary; ordinary helpers may return records.
@@ -92,14 +94,14 @@ public:
   using EnvironmentRelease = void (*)(void *, std::uint64_t) noexcept;
   void bindEnvironmentBudget(void *state, EnvironmentReserve reserve,
                              EnvironmentRelease release) noexcept;
-  std::uint64_t environmentBytes() const noexcept { return environmentBytes_; }
+  std::uint64_t environmentBytes() const noexcept { return flags_ & Materialized ? storage_.value.environmentBytes_ : 0; }
   // Conservative per-invocation reservations for all backing allocation and
   // retention in bound task contexts. Include backing and one owner; ordinary
   // retains each reserve independently, while graph visits reuse charged owners.
   // Charges remain reserved until settlement, including after explicit release.
   void bindRecursiveBudget(void *state, EnvironmentReserve reserve,
                            EnvironmentRelease release) noexcept;
-  std::uint64_t recursiveBytes() const noexcept { return recursiveBytes_; }
+  std::uint64_t recursiveBytes() const noexcept { return flags_ & Materialized ? storage_.value.recursiveBytes_ : 0; }
   void *allocateEnvironment(std::uint64_t bytes, const void *key) noexcept;
   void *allocateTransportStorage(std::uint64_t bytes, const void *key) noexcept;
   void *cloneEnvironment(const Invocation &source, const void *environment, std::uint64_t bytes,
@@ -115,15 +117,25 @@ public:
   void release(void *buffer) noexcept;
   // Requires exclusive source-context access, like retainFrom. Reject unknown,
   // faulted or settled contexts before acquiring a backing reference.
-  bool usable() const noexcept { return !(flags_ & Settled) && !code_ && !taskError_ && !applicationFamily_; }
+  bool usable() const noexcept {
+    if (flags_ & Settled) return false;
+    if (flags_ & Materialized)
+      return !code_ && !storage_.value.taskError_ && !storage_.value.applicationFamily_;
+    return !status();
+  }
   std::optional<AllocationLease> lease(const void *allocated) const noexcept;
   void fault(std::int64_t code, std::int64_t line = 0, std::int64_t column = 0) noexcept;
   void settle() noexcept {
     if (flags_ & Settled) return;
+    if (!(flags_ & Materialized)) {
+      pollMode_ = 2;
+      flags_ |= Settled;
+      return;
+    }
     // Scalar work need not cross the runtime ABI to settle an empty ledger.
     // Keep owned buffers and both resource-budget release paths together.
-    const unsigned resources = unsigned(head_ != nullptr) | unsigned(spareSmall_ != nullptr) |
-                               unsigned(environmentBytes_ != 0) | unsigned(recursiveBytes_ != 0);
+    const unsigned resources = unsigned(ledger().head_ != nullptr) | unsigned(ledger().spareSmall_ != nullptr) |
+                               unsigned(ledger().environmentBytes_ != 0) | unsigned(ledger().recursiveBytes_ != 0);
     if (!resources) {
       pollMode_ = 2;
       flags_ |= Settled;
@@ -134,59 +146,86 @@ public:
   void expectedTaskError(std::int64_t kind, std::int64_t code, std::int64_t line,
                          std::int64_t column) noexcept;
   void expectedApplicationError(const char *family, const char *variant) noexcept;
-  bool hasTaskError() const noexcept { return taskError_ != 0; }
-  bool hasApplicationError() const noexcept { return applicationFamily_ != nullptr; }
+  bool hasTaskError() const noexcept { return (flags_ & Materialized) && storage_.value.taskError_ != 0; }
+  bool hasApplicationError() const noexcept { return (flags_ & Materialized) && storage_.value.applicationFamily_ != nullptr; }
   bool hasExpectedError() const noexcept { return hasTaskError() || hasApplicationError(); }
   [[noreturn]] void reportFailure() noexcept; // CLI boundary only, never generated code.
   void failAllocationAt(std::uint64_t attempt) noexcept {
-    failAt_ = attempt;
+    ledger().failAt_ = attempt;
     flags_ |= AllocationConfigured;
   }
-  std::int64_t status() const noexcept { return code_; }
+  std::int64_t status() const noexcept { return flags_ & ControlReady ? code_ : 0; }
   std::int64_t executionStatus() noexcept {
     if (flags_ & Settled)
       fault(3);
-    return code_;
+    return status();
   }
-  std::int64_t line() const noexcept { return line_; }
-  std::int64_t column() const noexcept { return column_; }
+  std::int64_t line() const noexcept { return flags_ & ControlReady ? line_ : 0; }
+  std::int64_t column() const noexcept { return flags_ & ControlReady ? column_ : 0; }
   // An atomic diagnostic snapshot; it does not publish ledger/backing data.
   std::uint64_t live() const noexcept { return live_.load(std::memory_order_relaxed); }
-  std::uint64_t allocations() const noexcept { return allocations_; }
-  std::uint64_t releases() const noexcept { return releases_; }
+  std::uint64_t allocations() const noexcept { return flags_ & Materialized ? storage_.value.allocations_ : 0; }
+  std::uint64_t releases() const noexcept { return flags_ & Materialized ? storage_.value.releases_ : 0; }
 
 private:
   friend struct InvocationABI;
-  Owner *head_ = nullptr;
-  std::atomic<std::uint64_t> live_{0};
+  // Only the token, control tag and atomic diagnostic exist at cold entry.
   const std::atomic<bool> *cancellation_ = nullptr;
-  std::atomic<std::uint64_t> *pollCounter_ = nullptr;
-  std::uint64_t callDepth_ = 0, environmentBytes_ = 0, recursiveBytes_ = 0;
-  void *recursiveBudget_ = nullptr;
-  EnvironmentReserve recursiveReserve_ = nullptr;
-  EnvironmentRelease recursiveRelease_ = nullptr;
-  void *environmentBudget_ = nullptr;
-  EnvironmentReserve environmentReserve_ = nullptr;
-  EnvironmentRelease environmentRelease_ = nullptr;
-  std::uint64_t allocations_ = 0, releases_ = 0, attempts_ = 0, failAt_ = 0;
-  std::int64_t code_ = 0, line_ = 0, column_ = 0;
-  // Resolve the process test hook only when this invocation reserves a resource.
-  // An explicit failAllocationAt(), including zero, overrides that hook.
-  // An aligned control word also avoids partially overlapping flag accesses.
-  enum Flag : std::uint32_t { Settled = 1, AllocationConfigured = 2, NativeInterrupts = 4 };
+  enum Flag : std::uint32_t {
+    Settled = 1, AllocationConfigured = 2, NativeInterrupts = 4,
+    Materialized = 8, ControlReady = 16
+  };
   std::uint32_t flags_ = 0;
-  std::int64_t taskError_ = 0, expectedCode_ = 0, expectedLine_ = 0, expectedColumn_ = 0;
-  const char *applicationFamily_ = nullptr, *applicationVariant_ = nullptr;
-  // 0: clear; 1: bound token; 2: observed/faulted/settled;
-  // 3: token bound, generated execution protected by the v4 native boundary.
+  // 0 clear, 1 token, 2 observed/faulted/settled, 3 native protected.
   std::uint8_t pollMode_ = 0;
-  // A lease lasts only while a synchronous generated native call chain is live.
-  // All exits clear it at its logical entry depth, before worker migration.
-  [[maybe_unused]] std::uint64_t stackLeaseDepth_ = 0, stackLow_ = 0, stackHigh_ = 0;
-  // One released, exclusively owned small numeric buffer. It has no live
-  // ledger owner/lease and is freed at settlement; logical allocations still
-  // pass fault injection and resource reservation before reuse.
-  Backing *spareSmall_ = nullptr;
+  std::atomic<std::uint64_t> live_{0};
+  // Source execution through a managed boundary initializes these once.
+  std::uint64_t callDepth_;
+  std::int64_t code_, line_, column_;
+  [[maybe_unused]] std::uint64_t stackLeaseDepth_, stackLow_, stackHigh_;
+  void initializeControl() noexcept {
+    if (flags_ & ControlReady) return;
+    callDepth_ = 0;
+    code_ = line_ = column_ = 0;
+    stackLeaseDepth_ = stackLow_ = stackHigh_ = 0;
+    flags_ |= ControlReady;
+  }
+  // Inline storage, but no ledger object until a resource/observer is needed.
+  // References still cross contexts through Backing's atomic ownership.
+  struct Ledger {
+    Owner *head_ = nullptr;
+    std::atomic<std::uint64_t> *pollCounter_ = nullptr;
+    std::uint64_t environmentBytes_ = 0, recursiveBytes_ = 0;
+    void *recursiveBudget_ = nullptr;
+    EnvironmentReserve recursiveReserve_ = nullptr;
+    EnvironmentRelease recursiveRelease_ = nullptr;
+    void *environmentBudget_ = nullptr;
+    EnvironmentReserve environmentReserve_ = nullptr;
+    EnvironmentRelease environmentRelease_ = nullptr;
+    std::uint64_t allocations_ = 0, releases_ = 0, attempts_ = 0, failAt_ = 0;
+    std::int64_t taskError_ = 0, expectedCode_ = 0, expectedLine_ = 0, expectedColumn_ = 0;
+    const char *applicationFamily_ = nullptr, *applicationVariant_ = nullptr;
+    // Released exclusive small buffer; logical charges still precede reuse.
+    Backing *spareSmall_ = nullptr;
+  };
+  static_assert(std::is_trivially_destructible_v<Ledger>);
+  union LedgerStorage {
+    Ledger value;
+    LedgerStorage() noexcept {}
+    ~LedgerStorage() {}
+  } storage_;
+  static const Ledger emptyLedger_;
+  void materializeLedger() noexcept;
+  Ledger &ledger() noexcept {
+    if (!(flags_ & Materialized)) {
+      materializeLedger();
+      flags_ |= Materialized;
+    }
+    return storage_.value;
+  }
+  const Ledger &ledger() const noexcept {
+    return flags_ & Materialized ? storage_.value : emptyLedger_;
+  }
   const void *makeRecursiveValueImpl(std::span<const std::byte>, const void *,
                                      std::span<const AllocationLease>, std::span<const void *const>,
                                      bool) noexcept;
@@ -200,6 +239,7 @@ private:
 // field access used by checked fast paths explicit and mechanically verified.
 struct InvocationABI {
   static std::uint8_t armNativeCancellation(Invocation &invocation) noexcept {
+    invocation.initializeControl();
     const auto previous = invocation.pollMode_;
     if (previous == 1 && (invocation.flags_ & Invocation::NativeInterrupts)) invocation.pollMode_ = 3;
     return previous;
@@ -211,9 +251,16 @@ struct InvocationABI {
     return invocation.cancellation_;
   }
   static void restoreNativeCancellation(Invocation &invocation, std::uint8_t mode) noexcept {
-    if (invocation.pollMode_ == 3) invocation.pollMode_ = mode;
+    if (invocation.pollMode_ == 3)
+      invocation.pollMode_ = (mode == 1 || mode == 3) && !invocation.cancellation_ ? 0 : mode;
   }
   static void cacheStackBounds(Invocation &) noexcept;
+  static constexpr std::size_t ledgerStorage = offsetof(Invocation, storage_);
+  static bool resourceLedgerMaterialized(const Invocation &invocation) noexcept {
+    return invocation.flags_ & Invocation::Materialized;
+  }
+  static constexpr std::size_t control = offsetof(Invocation, flags_);
+  static constexpr std::uint32_t controlReady = Invocation::ControlReady;
   static constexpr std::size_t pollMode = offsetof(Invocation, pollMode_);
   static constexpr std::size_t cancellation = offsetof(Invocation, cancellation_);
   static constexpr std::size_t leaseDepth = offsetof(Invocation, stackLeaseDepth_);

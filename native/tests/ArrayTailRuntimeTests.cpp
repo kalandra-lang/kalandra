@@ -1,3 +1,4 @@
+#include "PoisonedInvocation.h"
 #include "../runtime/NativeCancellation.h"
 #include "../runtime/Runtime.h"
 #include <algorithm>
@@ -23,11 +24,27 @@ static void check(bool ok, std::source_location at = std::source_location::curre
 }
 int main() {
   const bool interrupts = initializeNativeCancellation();
+  {
+    // Private callers can unbind a token while the native mode is armed.
+    // Generated helper-status checks must retain Runtime::poll's null safety.
+    PoisonedInvocation ownedContext; Invocation &context = ownedContext.get();
+    std::atomic<bool> token{false};
+    context.bindCancellation(&token);
+    context.allowNativeInterrupts(true);
+    const auto previous = InvocationABI::armNativeCancellation(context);
+    context.bindCancellation(nullptr);
+    check(_mlir_ciface_kalandra_test_entry(17,0,&context) == 164);
+    check(!context.status() && !context.callDepth());
+    InvocationABI::restoreNativeCancellation(context, previous);
+    check(_mlir_ciface_kalandra_test_entry(17,0,&context) == 164);
+    check(!context.status() && !context.callDepth());
+    context.settle();
+    check(!context.live() && context.allocations() == context.releases());
+  }
   for (int mode = 0; mode != 4; ++mode)
     for (std::int64_t seed : {1,17,31})
       for (std::int64_t rounds : {0,1,16,256,100000}) {
-        Invocation context;
-        context.failAllocationAt(0);
+        PoisonedInvocation ownedContext; Invocation &context = ownedContext.get();
         std::atomic<bool> token{false};
         std::atomic<std::uint64_t> polls{0};
         if (mode) context.bindCancellation(&token);

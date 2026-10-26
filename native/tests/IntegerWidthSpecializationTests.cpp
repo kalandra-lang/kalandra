@@ -1,3 +1,4 @@
+#include "PoisonedInvocation.h"
 #include "../runtime/Runtime.h"
 #include "../runtime/NativeCancellation.h"
 #include <array>
@@ -31,7 +32,7 @@ int main() {
       if (!fault) expected = numerator / divisor;
 #endif
     }
-    Invocation context; std::atomic<bool> token{false}; std::atomic<std::uint64_t> polls{0};
+    PoisonedInvocation ownedContext; Invocation &context = ownedContext.get(); std::atomic<bool> token{false}; std::atomic<std::uint64_t> polls{0};
     if (mode) context.bindCancellation(&token);
     if (mode == 2) context.watchPolls(&polls);
     if (mode == 3) context.allowNativeInterrupts(interrupts);

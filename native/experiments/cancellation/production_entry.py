@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Benchmark integrated native entries; no experimental rewrite or x28 harness."""
+import argparse
 import datetime
 import json
 import math
@@ -14,7 +15,14 @@ OUT = d.ROOT / 'benchmarks/.build/production-cancellation'
 
 
 def main():
-    output = pathlib.Path(sys.argv[1])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('output', type=pathlib.Path)
+    parser.add_argument('--target-ms', type=float, default=20,
+                        help='Shared per-cell calibration duration for every version')
+    args = parser.parse_args()
+    if not math.isfinite(args.target_ms) or args.target_ms <= 0:
+        parser.error('--target-ms must be finite and positive')
+    output = args.output
     assert not output.exists()
     OUT.mkdir(parents=True, exist_ok=True)
     d.build_references()
@@ -51,7 +59,7 @@ def main():
                     for seed in (1, 17, 31)]
     cells = [(kind, depth) for kind in range(3) for depth in (10, 14, 18, 22)]
     cells += [(3, depth) for depth in (0, 100, 1000, 10000)]
-    counts = {(kind, depth): max(1, int(20000000 / max(1, observe('cpp', kind, depth, 1)['ns'])))
+    counts = {(kind, depth): max(1, int(args.target_ms * 1000000 / max(1, observe('cpp', kind, depth, 1)['ns'])))
               for kind, depth in cells}
     rng = random.Random(20261025)
     samples = []
@@ -82,7 +90,7 @@ def main():
              *[OUT / name for name in d.NAMES], *OUT.glob('*.ll'))
     output.write_text(json.dumps(dict(timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         contract='Real production compiler/runtime entry; no experimental LLVM preparation or callback harness. Modes 0 unbound, 1 cooperative token, 3 integrated hybrid boundary. Fresh invocation and ledger/status/depth/numerical checks timed. Two full-batch warmups, seven randomized mirrored blocks, ordinary C++/Rust reference kernels freshly rebuilt from the depth-study sources. This measures native entry lifecycle, not core creation/scheduler dispatch.',
-        verification=verification, samples=samples, summary=summary, commands=d.p.COMMANDS,
+        calibration_target_ms=args.target_ms, verification=verification, samples=samples, summary=summary, commands=d.p.COMMANDS,
         hashes={d.p.key(path): d.p.sha(path) for path in paths}), indent=2)+'\n')
 
 

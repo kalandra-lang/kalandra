@@ -73,15 +73,19 @@ inline bool promoteLocalEnvironments(llvm::Module &module,
       std::int64_t offset = 0;
       auto *base = mode ? GetPointerBaseWithConstantOffset(mode->getPointerOperand(), offset,
                                                           module.getDataLayout()) : nullptr;
-      if (dispatch && dispatch->getNumCases() == 2 && mode && mode->isSimple() &&
+      if (dispatch && (dispatch->getNumCases() == 2 || dispatch->getNumCases() == 3) && mode && mode->isSimple() &&
           base == call->getArgOperand(0) && offset == std::int64_t(*pollModeOffset)) {
         auto clear = dispatch->findCaseValue(ConstantInt::get(cast<IntegerType>(mode->getType()), 0));
         auto token = dispatch->findCaseValue(ConstantInt::get(cast<IntegerType>(mode->getType()), 1));
+        auto armed = dispatch->findCaseValue(ConstantInt::get(cast<IntegerType>(mode->getType()), 3));
         auto *observe = dispatch->getDefaultDest();
         bool isolated = clear != dispatch->case_default() && token != dispatch->case_default() &&
             clear->getCaseSuccessor() != observe && token->getCaseSuccessor() != observe &&
             clear->getCaseSuccessor() != token->getCaseSuccessor() &&
             observe->getSinglePredecessor() == call->getParent();
+        if (dispatch->getNumCases() == 3)
+          isolated &= armed != dispatch->case_default() && token != dispatch->case_default() &&
+              armed->getCaseSuccessor() == token->getCaseSuccessor();
         bool poll = false;
         for (auto it = std::next(call->getIterator()); it != call->getParent()->end(); ++it)
           if (&*it != dispatch && it->mayHaveSideEffects()) isolated = false;
@@ -98,6 +102,8 @@ inline bool promoteLocalEnvironments(llvm::Module &module,
           auto *success = clear->getCaseSuccessor();
           observe->removePredecessor(parent, true);
           token->getCaseSuccessor()->removePredecessor(parent, true);
+          if (dispatch->getNumCases() == 3)
+            token->getCaseSuccessor()->removePredecessor(parent, true);
           UncondBrInst::Create(success, dispatch->getIterator());
           dispatch->eraseFromParent();
         }

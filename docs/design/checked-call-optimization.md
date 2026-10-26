@@ -187,8 +187,8 @@ interruptible entry remains available for all unproved work.
 
 An empty invocation ledger now settles inline; owned backing, cached buffers and
 nonzero environment/recursive budget reservations retain the full resource
-cleanup. Construction remains a runtime entry. Private control flags occupy an
-aligned word. Compiler-accessed field offsets and the versioned C runtime
+cleanup. At that checkpoint construction remained a runtime entry and private
+control flags occupied an aligned word. Compiler-accessed field offsets and the versioned C runtime
 interfaces are unchanged; consumers rebuild with the matching private C++ header.
 
 On production Darwin ARM64, native entry saves its recovery checkpoint in the
@@ -226,3 +226,51 @@ reference counts retain their acquire/release protocol. Runtime helpers reuse
 poll-mode health information to avoid repeated status/settlement/observer reads;
 they retain acquire cancellation loads, fault priority and the full observed
 poll path. Fault, settlement and observation always enter mode 2.
+
+
+## Lazy invocation lifecycle and private layout revision
+
+A fresh invocation initializes only its cancellation pointer, control tag/poll
+mode and atomic live-count diagnostic. Fault/depth/stack state is initialized
+on first managed entry or fault; the inline resource ledger is constructed on
+first resource, observer or expected-error use. Both use tagged initialization,
+not a heap allocation or a process-global current invocation. Explicit value
+initialization (`Invocation{}`) also leaves deferred storage untouched.
+
+The `ControlReady` and `Materialized` bits describe object lifetime, not language
+execution modes. Materializing a ledger preserves any earlier fault, token,
+observer and native-interruption capability. Empty settlement never touches an
+inactive union member. Its control-only fast path remains idempotent. The live
+counter stays an always-live atomic because diagnostic readers may sample it
+concurrently with the owner's first allocation. Ledger mutation remains exclusive;
+shared backing retains/releases retain their existing atomic synchronization.
+
+Bounded entries inspect the control tag before reading a stored depth. Cold
+entries have logical depth/status zero. Fault recording goes through the runtime
+on the exceptional path so it cannot inspect an uninitialized fault slot. Tokens
+are still checked with acquire ordering before and after admitted work. Generated
+helper status checks recognize healthy armed mode 3 as well as mode 1, including
+a null-token case; faults, observation and settlement still select mode 2 and the
+full observed path. Returning from an armed boundary after explicit token
+unbinding normalizes the context to unbound mode, so a following bounded entry
+cannot inherit a token-bound mode with a null pointer.
+
+The private compiler/runtime field layout changed. Rebuild C++ header consumers
+and generated modules together. New modules retain a data relocation against
+`kalandra_invocation_layout_v2`, so linking them to a runtime without that layout
+fails without adding a runtime entry call. This is not a stable public C++ ABI or
+backward-compatibility promise for older generated modules.
+
+`KALANDRA_TEST_FAIL_ALLOC_AT` is immutable process test configuration, read once
+at the first resource request. Allocation attempts and their failure counters
+remain per invocation. `failAllocationAt(n)` overrides the process default for
+that invocation, including zero to disable it. Changing the environment after
+configuration has been read is unsupported; use the explicit per-invocation
+probe for in-process changes. Scalar work does not resolve this configuration
+or consume an allocation attempt.
+
+Poisoned-storage tests cover both construction forms, first-fault preservation,
+late observer/resource materialization, cancellation and repeated settlement.
+The exact numerical corpus also begins in poisoned storage across all four
+source build variants. [Measurements and qualification](../../benchmarks/results/invocation-lifecycle-2026-10-26.md)
+retain the zero-round controls rather than replacing them with reused contexts.

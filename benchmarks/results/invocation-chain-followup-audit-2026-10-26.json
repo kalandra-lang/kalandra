@@ -1,0 +1,28 @@
+{
+  "path": "benchmarks/results/invocation-chain-admission-followup-2026-10-26.json",
+  "sha256": "0004476d1092c8d78ac346ae13ea0abe38afbdbc6f53522a2abc091c27525b7f",
+  "measured_processes": 208,
+  "mirrored_blocks": 13,
+  "artifact_files_verified": true,
+  "verified": true,
+  "ratio_statistics": {
+    "cpp": {
+      "median_block_ratio": 1.0505229257221038,
+      "bootstrap_95_percent_median_interval": [
+        1.0442135920476763,
+        1.0588961301798774
+      ],
+      "min_block_ratio": 1.0261154789822802,
+      "max_block_ratio": 1.0627448541546836
+    },
+    "rust": {
+      "median_block_ratio": 1.0562682907129115,
+      "bootstrap_95_percent_median_interval": [
+        1.0437277163081977,
+        1.0641504064968168
+      ],
+      "min_block_ratio": 1.0113295636717978,
+      "max_block_ratio": 1.0882831353130107
+    }
+  }
+}

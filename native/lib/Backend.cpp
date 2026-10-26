@@ -3154,6 +3154,13 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
     auto native = translateModuleToLLVMIR(*module, llvmContext);
     if (!native)
       return std::unexpected("LLVM translation failed");
+    // A retained relocation makes a new-layout module fail to link against an
+    // older runtime, without adding an entry call or a mutable global context.
+    auto *layout = new llvm::GlobalVariable(*native, llvm::Type::getInt8Ty(llvmContext),
+        true, llvm::GlobalValue::ExternalLinkage, nullptr, "kalandra_invocation_layout_v2");
+    auto *requiredLayout = new llvm::GlobalVariable(*native, layout->getType(), true,
+        llvm::GlobalValue::PrivateLinkage, layout, "kalandra.required.invocation.layout");
+    llvm::appendToUsed(*native, {requiredLayout});
     // LLVM's signless i8/i16 type does not describe the platform C return
     // extension. Packet loads naturally zero-extend, so preserve signedness
     // explicitly at checked/foreign entries instead of relying on arithmetic

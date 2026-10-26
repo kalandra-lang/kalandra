@@ -286,21 +286,8 @@ inline bool addBoundedEntries(llvm::Module &module,
           if (call->getCalledFunction()->getName() == "kalandra_fault_v1") faults.push_back(call);
         }
     }
-    for (auto *call : faults) {
-      IRBuilder<> b(call);
-      auto field = [&](std::size_t offset) {
-        return b.CreateConstGEP1_64(b.getInt8Ty(), call->getArgOperand(0), offset);
-      };
-      b.CreateStore(b.getInt8(2), field(ABI::pollMode));
-      auto *empty = b.CreateIsNull(b.CreateLoad(b.getInt64Ty(), field(ABI::faultCode)));
-      auto *then = SplitBlockAndInsertIfThen(empty, call->getIterator(), false);
-      b.SetInsertPoint(then);
-      auto *code = b.CreateSelect(b.CreateIsNull(call->getArgOperand(1)), b.getInt64(3), call->getArgOperand(1));
-      b.CreateStore(code, field(ABI::faultCode));
-      b.CreateStore(call->getArgOperand(2), field(ABI::faultLine));
-      b.CreateStore(call->getArgOperand(3), field(ABI::faultColumn));
-      call->eraseFromParent();
-    }
+    // Recording a fault materializes control on the exceptional path. Do not
+    // inspect a cold invocation's intentionally uninitialized fault fields.
     for (auto *call : aborts) {
       auto *block = call->getParent(); auto it = call->getIterator();
       while (it != block->end()) it = it->eraseFromParent();
@@ -485,11 +472,21 @@ inline bool addBoundedEntries(llvm::Module &module,
     auto *ctx = entry->getArgOperand(0);
     auto field = [&](std::size_t offset) { return b.CreateConstGEP1_64(b.getInt8Ty(),ctx,offset); };
     auto *mode = b.CreateLoad(b.getInt8Ty(),field(ABI::pollMode));
-    auto *depth = b.CreateLoad(b.getInt64Ty(),field(ABI::depth));
+    auto *control = b.CreateLoad(b.getInt32Ty(),field(ABI::control));
+    auto *readyControl = b.CreateICmpNE(b.CreateAnd(control,b.getInt32(ABI::controlReady)),b.getInt32(0));
+    auto *readDepth = make("entry.depth.read");
+    auto *depthReady = make("entry.depth.ready");
+    before->getTerminator()->eraseFromParent();
+    b.SetInsertPoint(before); b.CreateCondBr(readyControl,readDepth,depthReady);
+    b.SetInsertPoint(readDepth);
+    auto *storedDepth = b.CreateLoad(b.getInt64Ty(),field(ABI::depth));
+    b.CreateBr(depthReady);
+    b.SetInsertPoint(depthReady);
+    auto *depth = b.CreatePHI(b.getInt64Ty(),2);
+    depth->addIncoming(b.getInt64(0),before); depth->addIncoming(storedDepth,readDepth);
     auto *bound = b.CreateCall(guard,{entry->getArgOperand(2)});
     auto *eligible = b.CreateAnd(b.CreateICmpULE(mode,b.getInt8(1)),b.CreateIsNull(depth));
     eligible = b.CreateAnd(eligible,bound);
-    before->getTerminator()->eraseFromParent(); b.SetInsertPoint(before);
     auto *dispatch = b.CreateCondBr(eligible,check,slow);
     b.SetInsertPoint(check);
     auto *boundToken = b.CreateICmpEQ(mode,b.getInt8(1));

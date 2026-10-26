@@ -15,7 +15,7 @@ int main() {
   auto foreign = module.getOrInsertFunction("foreign", b.getVoidTy(), pointer);
   auto slowPoll = module.getOrInsertFunction("kalandra_poll_slow_v1", b.getInt64Ty(), pointer);
   SmallVector<Function *, 12> functions;
-  for (unsigned kind = 0; kind < 16; ++kind) {
+  for (unsigned kind = 0; kind < 18; ++kind) {
     auto *fn = Function::Create(FunctionType::get(pointer, {pointer}, false),
                                 GlobalValue::ExternalLinkage, "case" + std::to_string(kind), module);
     functions.push_back(fn);
@@ -38,6 +38,7 @@ int main() {
       auto *failed = BasicBlock::Create(context, "failed", fn);
       auto *dispatch = b.CreateSwitch(mode, observe, 2);
       dispatch->addCase(b.getInt8(0), ready); dispatch->addCase(b.getInt8(1), token);
+      if (kind >= 16) dispatch->addCase(b.getInt8(3), kind == 16 ? token : ready);
       b.SetInsertPoint(observe);
       if (kind == 14) b.CreateCall(foreign, {fn->getArg(0)});
       auto *status = b.CreateCall(slowPoll, {kind == 15 ? static_cast<Value *>(fn) : fn->getArg(0)});
@@ -79,7 +80,7 @@ int main() {
     const bool local = kind == 0 || (kind >= 9 && kind != 12);
     if (allocations != (local ? 0u : 1u))
       throw std::runtime_error("local storage escaped its admission proof: " + std::to_string(kind));
-    if (kind >= 9 && isa<UncondBrInst>(functions[kind]->getEntryBlock().getTerminator()) != (kind == 9))
+    if (kind >= 9 && isa<UncondBrInst>(functions[kind]->getEntryBlock().getTerminator()) != (kind == 9 || kind == 16))
       throw std::runtime_error("allocation status diamond escaped its proof: " + std::to_string(kind));
   }
   std::cout << "Local storage: local scalar captures promoted; returns, publication, foreign "

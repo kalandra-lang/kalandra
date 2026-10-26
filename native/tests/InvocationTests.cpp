@@ -4,6 +4,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <cstring>
+#include <new>
+#include <thread>
 using kalandra::runtime::Invocation;
 static void require(bool condition, int line) {
   if (!condition) {
@@ -12,7 +15,54 @@ static void require(bool condition, int line) {
   }
 }
 #define CHECK(condition) require(condition, __LINE__)
+static void coldLifecycle() {
+  using kalandra::runtime::InvocationABI;
+  // Reuse poisoned storage so accidentally reading the inactive ledger or
+  // stale control state cannot pass just because stack memory happened to zero.
+  alignas(Invocation) std::byte storage[sizeof(Invocation)];
+  for (unsigned repeat = 0; repeat != 512; ++repeat) {
+    std::memset(storage, 0xa5, sizeof(storage));
+    auto *context = repeat & 1 ? ::new (storage) Invocation{} : ::new (storage) Invocation;
+    CHECK(!InvocationABI::resourceLedgerMaterialized(*context));
+    CHECK(storage[InvocationABI::ledgerStorage] == std::byte{0xa5});
+    CHECK(!context->status() && !context->callDepth() && !context->line() && !context->column());
+    CHECK(!context->live() && !context->allocations() && !context->releases());
+    CHECK(!context->environmentBytes() && !context->recursiveBytes());
+    CHECK(context->usable() && !context->hasExpectedError());
+    CHECK(!context->lease(storage));
+    std::atomic<bool> token{true};
+    context->bindCancellation(&token);
+    context->allowNativeInterrupts(true);
+    CHECK(context->poll() == -1 && !context->status());
+    token.store(false, std::memory_order_release);
+    CHECK(!context->poll());
+    CHECK(!InvocationABI::resourceLedgerMaterialized(*context));
+    if (repeat % 3 == 0) {
+      context->fault(4, 23, 11);
+      context->fault(3, 99, 99);
+      CHECK(context->status() == 4 && context->line() == 23 && context->column() == 11);
+      std::atomic<std::uint64_t> polls{0};
+      context->watchPolls(&polls);
+      CHECK(context->poll() == 4 && polls.load() == 1);
+      CHECK(context->status() == 4 && context->line() == 23 && context->column() == 11);
+    } else if (repeat % 3 == 1) {
+      context->failAllocationAt(1);
+      CHECK(!context->allocate(8) && context->status() == 2);
+      CHECK(InvocationABI::resourceLedgerMaterialized(*context));
+    } else {
+      context->settle();
+      CHECK(!context->status() && !context->live());
+      CHECK(context->executionStatus() == 3);
+      CHECK(!InvocationABI::resourceLedgerMaterialized(*context));
+    }
+    context->settle();
+    context->settle();
+    CHECK(!context->live() && context->allocations() == context->releases());
+    context->~Invocation();
+  }
+}
 int main(int argc, char **) {
+  if (argc != 2) coldLifecycle();
   if (argc == 2) {
     // CTest supplies FAIL_ALLOC_AT=2 in a fresh process. Scalar work does not
     // consume an allocation attempt; explicit zero disables the process hook.
@@ -24,11 +74,32 @@ int main(int argc, char **) {
     injected.settle();
     injected.settle();
     CHECK(injected.live() == 0 && injected.allocations() == injected.releases());
+    Invocation second;
+    CHECK(second.allocate(8));
+    CHECK(!second.allocate(8) && second.status() == 2);
+    second.settle();
+    CHECK(second.allocations() == second.releases());
     disabled.failAllocationAt(0);
     CHECK(disabled.allocate(8) && disabled.allocate(8));
     overridden.failAllocationAt(1);
     CHECK(!overridden.allocate(8) && overridden.status() == 2);
     return 0;
+  }
+  {
+    // The live diagnostic remains safe to sample during first materialization.
+    Invocation context;
+    std::atomic<bool> stop{false};
+    std::thread reader([&] {
+      while (!stop.load(std::memory_order_acquire)) CHECK(context.live() <= 1);
+    });
+    for (unsigned i = 0; i != 1000; ++i) {
+      auto *buffer = context.allocate(8);
+      CHECK(buffer);
+      context.release(buffer);
+    }
+    context.settle();
+    stop.store(true, std::memory_order_release);
+    reader.join();
   }
   for (unsigned repeat = 0; repeat < 1000; ++repeat) {
     Invocation parent, child, sibling, result;
