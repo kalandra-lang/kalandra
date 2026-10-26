@@ -12,6 +12,22 @@ import source
 import source_run
 
 class EvidenceTests(unittest.TestCase):
+    def test_rectangular_pipeline_reference(self):
+        f32=lambda x:struct.unpack('f',struct.pack('f',x))[0]
+        for rows,inner,columns in [(1,32,7),(2,544,33),(3,17,5),(1,16352,3)]:
+            a=[(i%17-8)/8 for i in range(rows*inner)]
+            b=[(i%13-6)/8 for i in range(inner*columns)]
+            cells=[]
+            for r in range(rows):
+                for c in range(columns):
+                    products=[f32(a[r*inner+k]*b[k*columns+c]) for k in range(inner)]
+                    while len(products)>1:
+                        products=[f32(products[i]+products[i+1]) for i in range(0,len(products)-1,2)]+(products[-1:] if len(products)&1 else [])
+                    cells.append(max(0.,f32(f32(products[0]+.125)*.25)))
+            while len(cells)>1:
+                cells=[f32(cells[i]+cells[i+1]) for i in range(0,len(cells)-1,2)]+(cells[-1:] if len(cells)&1 else [])
+            self.assertEqual(pipeline.exact_rect(rows,inner,columns),cells[0])
+
     def test_pipeline_fixed_point_reference(self):
         f32=lambda x:struct.unpack('f',struct.pack('f',x))[0]
         for value in (2**24-1,2**24+1,2**24+3,2**25+2,2**25+6,2**40+65536):

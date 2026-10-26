@@ -12,6 +12,15 @@ namespace m = kalandra::runtime::metal;
 using Bits = std::uint32_t;
 #define CHECK(x) relu_tests::check(bool(x))
 static_assert(m::useRegisterMatmul(256, 512, 256));
+static_assert(m::useSkinnyMatmul(1, 544, 257));
+static_assert(m::useSkinnyMatmul(2, 16384, 16384));
+static_assert(!m::useSkinnyMatmul(0, 512, 256));
+static_assert(!m::useSkinnyMatmul(3, 512, 256));
+static_assert(!m::useSkinnyMatmul(1, 480, 256));
+static_assert(!m::useSkinnyMatmul(1, 513, 256));
+static_assert(!m::useSkinnyMatmul(1, 16416, 256));
+static_assert(!m::useSkinnyMatmul(1, 512, 255));
+static_assert(!m::useSkinnyMatmul(1, 512, 16385));
 static_assert(m::useGroupedMatmul(1024, 2048, 1024));
 static_assert(m::useGroupedMatmul(513, 4096, 2049));
 static_assert(!m::useGroupedMatmul(1024, 1984, 1024));
@@ -104,12 +113,16 @@ int main(int argc, char **argv) {
            std::array{255, 512, 257},    std::array{16, 512, 4097},    std::array{1024, 1984, 1024},
            std::array{1024, 2048, 1024}, std::array{1025, 2048, 1027}, std::array{513, 4096, 2049},
            std::array{2049, 4096, 513},  std::array{2048, 4096, 512},  std::array{511, 4096, 2049},
-           std::array{512, 4096, 2048}}) {
+           std::array{512, 4096, 2048},  std::array{1, 512, 256},      std::array{2, 544, 257},
+           std::array{1, 1984, 1027},    std::array{2, 8192, 1025},    std::array{1, 16352, 257},
+           std::array{2, 16384, 256},    std::array{3, 512, 256},      std::array{1, 480, 256},
+           std::array{1, 513, 256},      std::array{1, 16416, 256},    std::array{1, 512, 255},
+           std::array{1, 512, 16385}}) {
     auto [rows, k, columns] = shape;
     for (unsigned pattern = 0; pattern < 6; ++pattern) {
       if (pattern >= 3 && shape != std::array{256, 512, 256} &&
           shape != std::array{257, 4032, 257} && shape != std::array{257, 4096, 257} &&
-          shape != std::array{1025, 2048, 1027})
+          shape != std::array{1025, 2048, 1027} && rows > 2)
         continue;
       std::array<Bits, 17> aphase;
       std::array<Bits, 13> bphase;
@@ -148,14 +161,18 @@ int main(int argc, char **argv) {
       for (std::size_t i = 0; i < bv.size(); ++i)
         bv[i] = bphase[i % 13];
       std::array<std::array<Bits, 13>, 17> expected;
+      std::array<bool, 17> needed{};
+      for (int row = 0; row < rows; ++row)
+        needed[(std::uint64_t(row) * k) % 17] = true;
       for (unsigned r = 0; r < 17; ++r)
-        for (unsigned c = 0; c < 13; ++c) {
-          std::vector<Bits> terms(k);
-          for (int t = 0; t < k; ++t)
-            terms[t] = op(aphase[(r + t) % 17], bphase[(std::uint64_t(t) * columns + c) % 13], 1);
-          expected[r][c] = tree(std::move(terms));
-          products += k;
-        }
+        if (needed[r])
+          for (unsigned c = 0; c < 13; ++c) {
+            std::vector<Bits> terms(k);
+            for (int t = 0; t < k; ++t)
+              terms[t] = op(aphase[(r + t) % 17], bphase[(std::uint64_t(t) * columns + c) % 13], 1);
+            expected[r][c] = tree(std::move(terms));
+            products += k;
+          }
       auto a = upload(rt, *core, av, {rows, k}), b = upload(rt, *core, bv, {k, columns});
       auto group = core->openRoot();
       auto before = rt.stats().submissions;
@@ -197,9 +214,10 @@ int main(int argc, char **argv) {
     CHECK(!stats.bytes && !stats.metalBuffers && !stats.hostBackings && !stats.deviceBackings);
   }
   // Exercise resource ownership after the new kernel is physically submitted.
-  {
-    auto a = upload(rt, *core, std::vector<Bits>(1024 * 2048, 0x3f800000u), {1024, 2048});
-    auto b = upload(rt, *core, std::vector<Bits>(2048 * 1024, 0x3f800000u), {2048, 1024});
+  for (auto shape : std::array{std::array{1024, 2048, 1024}, std::array{2, 544, 257}}) {
+    auto [rows, inner, columns] = shape;
+    auto a = upload(rt, *core, std::vector<Bits>(rows * inner, 0x3f800000u), {rows, inner});
+    auto b = upload(rt, *core, std::vector<Bits>(inner * columns, 0x3f800000u), {inner, columns});
     const auto baseline = rt.stats().bytes;
     auto run = [&](bool success) {
       auto group = core->openRoot();

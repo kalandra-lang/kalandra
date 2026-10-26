@@ -1,0 +1,5462 @@
+{
+  "baseline_bundle": "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+  "current_bundle": "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+  "contract": "Complete projection/bias/scale/ReLU/balanced sum, fresh intermediates, scalar readback and task cleanup. Exact dyadic checksums checked in every warmup/calibration/timed round. Shader loading excluded; two warmup batches. Acceptance timing disables profiling. No affinity/frequency control or desktop isolation.",
+  "paired": {
+    "protocol": {
+      "blocks": 8,
+      "rounds": 3,
+      "warmups": 2,
+      "target_ms": 30,
+      "max_iterations": 20000,
+      "seed": 20261024,
+      "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+    },
+    "observations": [
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 0,
+        "slot": 0,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 22085459,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13776333,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14147583,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13740625,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14076833,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 0,
+        "slot": 1,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 21041792,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14425708,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14420208,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14112750,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14105166,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 0,
+        "slot": 2,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20581041,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14512375,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14341125,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14374834,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14583125,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 0,
+        "slot": 3,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 19873250,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14096125,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14600500,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14313167,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14681458,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 0,
+        "slot": 0,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13268000,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12565250,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12274667,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 10922208,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 10721875,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 0,
+        "slot": 1,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 11928625,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 10561959,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 10902375,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 10970792,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 10518584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 0,
+        "slot": 2,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 11882209,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 10970708,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 10516625,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 10630333,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11246584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 0,
+        "slot": 3,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12488291,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 10966333,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11565875,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11273125,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11217792,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 0,
+        "slot": 0,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 48995542,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37259833,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37070542,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36894042,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36824791,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 0,
+        "slot": 1,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42892292,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36813875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37250125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37961417,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37318166,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 0,
+        "slot": 2,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 44308958,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37764583,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36963875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36819875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36637125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 0,
+        "slot": 3,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43599834,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36825125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36948542,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37263167,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37839709,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 1,
+        "slot": 0,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 22437125,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14913791,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15471250,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15114542,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 15299500,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 1,
+        "slot": 1,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20265625,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14510334,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14950958,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14342584,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14514750,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 1,
+        "slot": 2,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 19925250,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15203875,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14425459,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14170250,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14683000,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 1,
+        "slot": 3,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20236791,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14211667,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14247709,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14158084,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14179750,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 1,
+        "slot": 0,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13666208,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12068959,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12162083,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11578958,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11294250,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 1,
+        "slot": 1,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12363750,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 10695083,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11421750,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11113125,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11187459,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 1,
+        "slot": 2,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12043042,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12015458,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11105792,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11063334,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 10650250,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 1,
+        "slot": 3,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12188958,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 10725958,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 10959167,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 10889000,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 10786459,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 1,
+        "slot": 0,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43800125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36882709,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36604791,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36817875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37161708,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 1,
+        "slot": 1,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43711125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37467792,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37695875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36859459,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36574250,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 1,
+        "slot": 2,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43371125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36685625,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36791750,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36702375,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36821459,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 1,
+        "slot": 3,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43958209,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37791583,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 38111750,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37240708,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36823084,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 2,
+        "slot": 0,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42516208,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36854917,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36581958,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36785167,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36639125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 2,
+        "slot": 1,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43979209,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37833708,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37901417,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37724958,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37063083,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 2,
+        "slot": 2,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42593584,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36815042,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36951375,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36594667,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37093500,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 2,
+        "slot": 3,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 44423125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37847917,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37398542,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37750333,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36694084,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 2,
+        "slot": 0,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 14790334,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12079375,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12109584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11241791,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11269667,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 2,
+        "slot": 1,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12764833,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11617709,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11469167,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11369625,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 10808083,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 2,
+        "slot": 2,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 11873584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11049375,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11078541,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 10840666,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11309583,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 2,
+        "slot": 3,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 11798958,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11389584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11551916,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11274791,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11441792,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 2,
+        "slot": 0,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 19470833,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13724666,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13903000,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13994541,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13850208,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 2,
+        "slot": 1,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20478458,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13697209,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13413292,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 12957916,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13321916,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 2,
+        "slot": 2,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20153750,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13412708,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13675500,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13591292,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13549417,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 2,
+        "slot": 3,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20269583,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13370916,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13781500,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14032750,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14081708,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 3,
+        "slot": 0,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20672792,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14183208,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14113250,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14398166,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14499667,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 3,
+        "slot": 1,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20585792,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14416542,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14453167,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14604708,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14426625,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 3,
+        "slot": 2,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20167041,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14262459,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14050000,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13688750,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14323500,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 3,
+        "slot": 3,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20259375,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13994791,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13976041,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14596125,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14716083,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 3,
+        "slot": 0,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42641167,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36794041,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36590958,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37304458,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37407625,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 3,
+        "slot": 1,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43806791,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37457917,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36827083,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36548083,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36784833,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 3,
+        "slot": 2,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42285042,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36575417,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36966250,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37201833,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 38638792,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 3,
+        "slot": 3,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43821541,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37662041,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36951584,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37080542,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36884625,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 3,
+        "slot": 0,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 14183625,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12575292,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12493208,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11718334,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11957750,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 3,
+        "slot": 1,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13315125,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11595250,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11026000,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11417959,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11466291,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 3,
+        "slot": 2,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13052750,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12036666,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11531917,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11240541,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11531209,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 3,
+        "slot": 3,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12599375,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11389250,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11381084,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11560209,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11650541,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 4,
+        "slot": 0,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 19966833,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13722917,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13854959,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13130000,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13238584,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 4,
+        "slot": 1,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 21909708,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13820709,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13521666,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13546875,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13220250,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 4,
+        "slot": 2,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 21369917,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13557042,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13699542,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14202542,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13927000,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 4,
+        "slot": 3,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20703625,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13802959,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13681125,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 15105750,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14370542,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 4,
+        "slot": 0,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13295791,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12297791,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12311333,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11969625,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11755125,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 4,
+        "slot": 1,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13112584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11325708,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11894459,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11209208,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11571333,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 4,
+        "slot": 2,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12481959,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11620667,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12064333,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11474584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 10961041,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 4,
+        "slot": 3,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12647917,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11471167,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11056917,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11830750,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11180875,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 4,
+        "slot": 0,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43167459,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36547292,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36571125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37487667,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37563291,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 4,
+        "slot": 1,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43738667,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37296500,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37000542,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36694750,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36900916,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 4,
+        "slot": 2,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42459125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36462833,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36854083,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37182708,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37422708,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 4,
+        "slot": 3,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43184125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37686375,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36807541,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36839209,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36870458,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 5,
+        "slot": 0,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 14372958,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12284084,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11775042,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11550791,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11486333,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 5,
+        "slot": 1,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13352500,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11481250,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11745708,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11181042,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11022250,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 5,
+        "slot": 2,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12636750,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11858625,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11500125,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11709708,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11378833,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 5,
+        "slot": 3,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12924583,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11449250,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11652583,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11425208,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11325916,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 5,
+        "slot": 0,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43452042,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36899292,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36787167,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36774833,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36781500,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 5,
+        "slot": 1,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42848042,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36714041,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37343333,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37603291,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37465750,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 5,
+        "slot": 2,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43572375,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37121541,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36811875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36640667,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36870875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 5,
+        "slot": 3,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42685125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36663000,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37138583,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37591125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37808208,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 5,
+        "slot": 0,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 22077916,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14442583,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14657500,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14450667,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14173917,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 5,
+        "slot": 1,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 21249167,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13963333,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14442833,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14110292,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13817833,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 5,
+        "slot": 2,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20512334,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13513042,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13536166,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13610458,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14130292,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 5,
+        "slot": 3,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 21067083,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13761833,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13697167,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13931917,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14399917,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 6,
+        "slot": 0,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43121667,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37418833,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37627042,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37575125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37021000,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 6,
+        "slot": 1,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43267041,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36716959,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36818458,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36676541,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36873417,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 6,
+        "slot": 2,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42686167,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37181167,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37802708,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37425959,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37010916,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 6,
+        "slot": 3,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43171083,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36620167,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36808958,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36586833,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36761167,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 6,
+        "slot": 0,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 17606500,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12398333,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 12446583,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 12695417,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13213208,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 6,
+        "slot": 1,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13777041,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13095750,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11935583,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11730458,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11621042,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 6,
+        "slot": 2,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12953583,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12092833,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11474791,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11708083,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11484792,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 6,
+        "slot": 3,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12859709,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12016333,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11036875,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 10879833,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 10968875,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 6,
+        "slot": 0,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20500166,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 13578083,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13523708,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 13109333,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 13852500,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 6,
+        "slot": 1,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 19790541,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14244791,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14318084,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14407667,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14443667,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 6,
+        "slot": 2,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 21199584,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14310917,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15655250,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14870333,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14750291,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 6,
+        "slot": 3,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20841291,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14563917,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14484250,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14889042,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14751958,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 7,
+        "slot": 0,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42853750,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36926166,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36765834,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36549041,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36776709,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 7,
+        "slot": 1,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 44070583,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37974875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37453875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 38212417,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 37678333,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "process": 7,
+        "slot": 2,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 42506666,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 36862125,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 36500458,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 36823250,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 36556708,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "process": 7,
+        "slot": 3,
+        "iterations": 3,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 43229625,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 37620833,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 37859250,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 37633875,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 38097459,
+            "checksum": 1503032.0625,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 7,
+        "slot": 0,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 21027458,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14774667,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14782459,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14325334,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14379541,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 7,
+        "slot": 1,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20997750,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 15124209,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 15114042,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14797958,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14423291,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "process": 7,
+        "slot": 2,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 21106875,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14567916,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14616083,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14286834,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14864041,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "process": 7,
+        "slot": 3,
+        "iterations": 31,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 20891125,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 14781917,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 14228125,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 14169000,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 14448625,
+            "checksum": 1244321.71484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 7,
+        "slot": 0,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 14001166,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12519542,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 13143542,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 12204500,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11565000,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 7,
+        "slot": 1,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12962000,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11526000,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 10739791,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11770167,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11823209,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "process": 7,
+        "slot": 2,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 13192584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 11836708,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11583125,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11401917,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11336000,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "process": 7,
+        "slot": 3,
+        "iterations": 44,
+        "samples": [
+          {
+            "round": -2,
+            "ns": 12876792,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": -1,
+            "ns": 12357416,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 0,
+            "ns": 11481584,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 1,
+            "ns": 11717791,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          },
+          {
+            "round": 2,
+            "ns": 11881291,
+            "checksum": 87053.484375,
+            "device_id": 4294968381
+          }
+        ]
+      }
+    ],
+    "summary": [
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          128
+        ],
+        "expected": 1978.48828125,
+        "median_ns": 257670.93181818182,
+        "process_medians_ns": [
+          248232.0,
+          256207.38636363635,
+          254260.43181818182,
+          251439.4090909091,
+          256128.79545454544,
+          260040.72727272726,
+          259499.06818181818,
+          262072.93181818182,
+          272036.9318181818,
+          254110.79545454544,
+          254114.5909090909,
+          261366.47727272726,
+          288532.20454545453,
+          249292.61363636365,
+          267503.79545454547,
+          259134.47727272726
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          512
+        ],
+        "expected": 40139.41015625,
+        "median_ns": 459368.2903225806,
+        "process_medians_ns": [
+          454091.3870967742,
+          470983.87096774194,
+          468217.7419354839,
+          465337.3870967742,
+          448483.87096774194,
+          452669.3548387097,
+          466231.1935483871,
+          453225.8064516129,
+          427051.0967741936,
+          463565.87096774194,
+          455170.70967741933,
+          439047.03225806454,
+          436248.6451612903,
+          475869.6129032258,
+          477353.48387096776,
+          471486.5483870968
+        ]
+      },
+      {
+        "cell": [
+          "baseline",
+          "resident",
+          2048
+        ],
+        "expected": 501010.6875,
+        "median_ns": 12292250.166666668,
+        "process_medians_ns": [
+          12298014.0,
+          12421055.666666666,
+          12286486.333333334,
+          12263916.666666666,
+          12213041.666666666,
+          12466180.666666666,
+          12261611.0,
+          12400611.0,
+          12495889.0,
+          12279736.333333334,
+          12488583.333333334,
+          12270625.0,
+          12525041.666666666,
+          12253722.333333334,
+          12559444.333333334,
+          12185569.333333334
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          128
+        ],
+        "expected": 1978.48828125,
+        "median_ns": 261767.98863636365,
+        "process_medians_ns": [
+          247781.25,
+          241598.47727272726,
+          263158.13636363635,
+          247477.27272727274,
+          258400.56818181818,
+          251785.02272727274,
+          271767.04545454547,
+          262732.0227272727,
+          262984.8409090909,
+          260786.0,
+          262517.9772727273,
+          259663.81818181818,
+          266601.3181818182,
+          261018.0,
+          277375.0,
+          266313.4318181818
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          512
+        ],
+        "expected": 40139.41015625,
+        "median_ns": 461338.04838709673,
+        "process_medians_ns": [
+          455250.0,
+          463704.32258064515,
+          493532.2580645161,
+          457411.29032258067,
+          429739.22580645164,
+          438428.77419354836,
+          464456.96774193546,
+          470842.7419354839,
+          436182.77419354836,
+          449258.06451612903,
+          466150.5483870968,
+          449416.67741935485,
+          464763.4516129032,
+          479688.1612903226,
+          463856.1612903226,
+          458971.77419354836
+        ]
+      },
+      {
+        "cell": [
+          "current",
+          "resident",
+          2048
+        ],
+        "expected": 501010.6875,
+        "median_ns": 12355715.333333332,
+        "process_medians_ns": [
+          12439388.666666666,
+          12273291.666666666,
+          12272625.0,
+          12413569.333333334,
+          12574986.0,
+          12317125.0,
+          12434819.333333334,
+          12317194.666666666,
+          12300305.333333334,
+          12394236.0,
+          12260500.0,
+          12530375.0,
+          12272819.333333334,
+          12475319.666666666,
+          12255278.0,
+          12619750.0
+        ]
+      }
+    ],
+    "pairs": [
+      {
+        "group": [
+          "resident",
+          512
+        ],
+        "block": 0,
+        "baseline_ns": 462537.62903225806,
+        "current_ns": 459477.16129032255,
+        "speedup": 1.0066607614039857,
+        "time_reduction": 0.006616689215834692
+      },
+      {
+        "group": [
+          "resident",
+          128
+        ],
+        "block": 0,
+        "baseline_ns": 252219.69318181818,
+        "current_ns": 244689.86363636365,
+        "speedup": 1.0307729524776912,
+        "time_reduction": 0.029854249089211637
+      },
+      {
+        "group": [
+          "resident",
+          2048
+        ],
+        "block": 0,
+        "baseline_ns": 12359534.833333332,
+        "current_ns": 12356340.166666666,
+        "speedup": 1.000258544732791,
+        "time_reduction": 0.00025847790469024634
+      },
+      {
+        "group": [
+          "resident",
+          512
+        ],
+        "block": 1,
+        "baseline_ns": 466777.56451612903,
+        "current_ns": 475471.77419354836,
+        "speedup": 0.9817145619376342,
+        "time_reduction": -0.018626023053254448
+      },
+      {
+        "group": [
+          "resident",
+          128
+        ],
+        "block": 1,
+        "baseline_ns": 252849.92045454547,
+        "current_ns": 255317.70454545453,
+        "speedup": 0.9903344576307291,
+        "time_reduction": -0.009759876872702744
+      },
+      {
+        "group": [
+          "resident",
+          2048
+        ],
+        "block": 1,
+        "baseline_ns": 12275201.5,
+        "current_ns": 12343097.166666668,
+        "speedup": 0.9944993006414934,
+        "time_reduction": -0.005531124411006116
+      },
+      {
+        "group": [
+          "resident",
+          2048
+        ],
+        "block": 2,
+        "baseline_ns": 12339611.166666666,
+        "current_ns": 12446055.5,
+        "speedup": 0.9914475446993359,
+        "time_reduction": -0.008626230753597364
+      },
+      {
+        "group": [
+          "resident",
+          128
+        ],
+        "block": 2,
+        "baseline_ns": 258084.76136363635,
+        "current_ns": 255092.79545454547,
+        "speedup": 1.011728931441437,
+        "time_reduction": 0.011592958426845157
+      },
+      {
+        "group": [
+          "resident",
+          512
+        ],
+        "block": 2,
+        "baseline_ns": 450576.6129032258,
+        "current_ns": 434084.0,
+        "speedup": 1.0379940585306664,
+        "time_reduction": 0.03660334875562676
+      },
+      {
+        "group": [
+          "resident",
+          512
+        ],
+        "block": 3,
+        "baseline_ns": 459728.5,
+        "current_ns": 467649.8548387097,
+        "speedup": 0.9830613550784877,
+        "time_reduction": -0.017230506350399688
+      },
+      {
+        "group": [
+          "resident",
+          2048
+        ],
+        "block": 3,
+        "baseline_ns": 12331111.0,
+        "current_ns": 12376007.0,
+        "speedup": 0.9963723356006505,
+        "time_reduction": -0.0036408722620371314
+      },
+      {
+        "group": [
+          "resident",
+          128
+        ],
+        "block": 3,
+        "baseline_ns": 260786.0,
+        "current_ns": 267249.53409090906,
+        "speedup": 0.9758146104430236,
+        "time_reduction": -0.024784820085852255
+      },
+      {
+        "group": [
+          "resident",
+          512
+        ],
+        "block": 4,
+        "baseline_ns": 445308.48387096776,
+        "current_ns": 442720.41935483867,
+        "speedup": 1.0058458214326338,
+        "time_reduction": 0.005811846416290178
+      },
+      {
+        "group": [
+          "resident",
+          128
+        ],
+        "block": 4,
+        "baseline_ns": 263073.86363636365,
+        "current_ns": 261885.42045454544,
+        "speedup": 1.0045380272783244,
+        "time_reduction": 0.004517526619295609
+      },
+      {
+        "group": [
+          "resident",
+          2048
+        ],
+        "block": 4,
+        "baseline_ns": 12387812.666666668,
+        "current_ns": 12347270.666666668,
+        "speedup": 1.0032834786807945,
+        "time_reduction": 0.00327273273263895
+      },
+      {
+        "group": [
+          "resident",
+          128
+        ],
+        "block": 5,
+        "baseline_ns": 257740.5340909091,
+        "current_ns": 261090.89772727274,
+        "speedup": 0.9871678267395467,
+        "time_reduction": -0.012998978403536254
+      },
+      {
+        "group": [
+          "resident",
+          2048
+        ],
+        "block": 5,
+        "baseline_ns": 12379604.166666668,
+        "current_ns": 12395437.5,
+        "speedup": 0.9987226482862479,
+        "time_reduction": -0.0012789854279804391
+      },
+      {
+        "group": [
+          "resident",
+          512
+        ],
+        "block": 5,
+        "baseline_ns": 447108.87096774194,
+        "current_ns": 457783.6129032258,
+        "speedup": 0.9766816862058789,
+        "time_reduction": -0.023875039456003222
+      },
+      {
+        "group": [
+          "resident",
+          2048
+        ],
+        "block": 6,
+        "baseline_ns": 12389382.0,
+        "current_ns": 12374069.5,
+        "speedup": 1.0012374667848762,
+        "time_reduction": 0.001235937353453176
+      },
+      {
+        "group": [
+          "resident",
+          128
+        ],
+        "block": 6,
+        "baseline_ns": 268912.40909090906,
+        "current_ns": 263809.65909090906,
+        "speedup": 1.019342544232778,
+        "time_reduction": 0.018975509599019502
+      },
+      {
+        "group": [
+          "resident",
+          512
+        ],
+        "block": 6,
+        "baseline_ns": 456059.12903225806,
+        "current_ns": 472225.8064516129,
+        "speedup": 0.9657649429605847,
+        "time_reduction": -0.03544864336705644
+      },
+      {
+        "group": [
+          "resident",
+          2048
+        ],
+        "block": 7,
+        "baseline_ns": 12372506.833333334,
+        "current_ns": 12437514.0,
+        "speedup": 0.99477329901565,
+        "time_reduction": -0.005254162922870842
+      },
+      {
+        "group": [
+          "resident",
+          512
+        ],
+        "block": 7,
+        "baseline_ns": 474420.01612903224,
+        "current_ns": 461413.9677419355,
+        "speedup": 1.0281873746708312,
+        "time_reduction": 0.027414628272259378
+      },
+      {
+        "group": [
+          "resident",
+          128
+        ],
+        "block": 7,
+        "baseline_ns": 263319.13636363635,
+        "current_ns": 271844.21590909094,
+        "speedup": 0.9686398347047946,
+        "time_reduction": -0.03237546523653223
+      }
+    ]
+  },
+  "schema": 1,
+  "timestamp": "2026-10-26T00:53:23.183731+00:00",
+  "compiler_sha256": "49fbe5f858534d001c0a9381094ae2939c7bd1f4aa42bc47a88f6ed6d70fdf48",
+  "source_sha256": {
+    "native/benchmarks/small_workloads.py": "036fb6fd0acd319c997d1445dc65675efb483be2c3b75e202a743ac33bfa189c",
+    "native/benchmarks/fair/PipelineGpu.cpp": "ccffbeb8e172a94975a42f18202b398c0c2fed722303759f658e8c6414321964",
+    "native/benchmarks/fair/protocol.py": "5e84d1585ea9b9f9282a72d5d47e70ac7442ab3b09b5858cfc27d1ce984570dd",
+    "native/benchmarks/fair/pipeline_reference.py": "f376eaa14214bf8e35796af099e7fa9bd56e4bbf8ba6c90b86b2eb49dd11763d",
+    "native/metal/Metal.mm": "57b71b64e400bcaed1abf4a8842323f40082f951ec161461db6c2b704d4e557c",
+    "native/metal-source/HardwareShaders.h": "e032e15242f0488d1d8ebe2d6aead0daa4086aacaf9fd195e4c4cd927898d647",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0-post.metal": "252198132ac3844831f0cf38cbd0aa9d5cbe87ee73ef8873848821377dd36097",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0-quad.metal": "509c0dbfe7210b698b78dce97fb1afa128057e127b39bdc15a76823c6961d760",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0-reduce.metal": "63be2037efc4f071c8dd242806959699a9aea04472fa52814244fc56c713806a",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0-rows2.metal": "b690758314a03a74b4726aa273ba5c084dbb5a25fdaef00806219cdb2d38b818",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0.metal": "88b7529dbe077e96e9dcdc2db25b651516040bd74eda3562308d4599e70d6d44"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/skinny-2026-10-26/pipeline/current": "75c4c14d1511f1e7ea7d0e675092f11e29eb78cc267523c233bb4a45a26913ca",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0-post.metallib": "35ee9b0b8fb2ddb2e5848fe415ab3d099d4341213d343490e913c739a91bd78c",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0-quad.metallib": "7416f023732d75de3738ae35b6c556d766545d0f89d7abe0dc6c77efd7fe4575",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0-reduce.metallib": "fd9ff338f99858e2c3159b0237e303dd2e9b131005ae5bf72602b2c38bdfbfdf",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0-rows2.metallib": "d3f63015b5c989dc1eb3f1cd95d8482754b8587f4fe15ea107d51cce8236b5e3",
+    "benchmarks/.build/skinny-2026-10-26/pipeline/bundle/kernel0.metallib": "6a0465385faa2ec714cad1f2af06f71bfde91a635a4ae7e0b5672275d585724b"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "1",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "2048",
+      "3",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "512",
+      "31",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/current",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/skinny-2026-10-26/pipeline/bundle",
+      "0",
+      "2",
+      "128",
+      "44",
+      "3"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "650ebf78921751a977245daf2364b7a0aeb7b075",
+  "worktree_status": " M native/benchmarks/fair/PipelineGpu.cpp\n M native/benchmarks/fair/pipeline_reference.py\n M native/metal-source/Build.cpp\n M native/metal-source/MatmulEpilogue.h\n M native/metal/MatmulLayout.h\n M native/metal/Metal.mm\n M native/tests/FairBenchmarkTests.py\n M native/tests/MatmulEpilogueTests.cpp\n M native/tests/PipelineGpu.cpp\n M native/tests/PipelineTests.py\n M native/tests/RegisterMatmulGpu.cpp\n?? benchmarks/results/skinny-benchmark-build-2026-10-26.log\n?? benchmarks/results/skinny-build-2026-10-26.log\n?? benchmarks/results/skinny-control-aa-2026-10-26.log\n?? benchmarks/results/skinny-core-tests-2026-10-26.log\n?? benchmarks/results/skinny-fixtures-2026-10-26.log\n?? benchmarks/results/skinny-holdout-2026-10-26.json\n?? benchmarks/results/skinny-holdout-2026-10-26.log\n?? benchmarks/results/skinny-holdout-fixture-failure-2026-10-26.log\n?? benchmarks/results/skinny-initial-resource-failure-2026-10-26.log\n?? benchmarks/results/skinny-order-confirmation-2026-10-26.json\n?? benchmarks/results/skinny-order-confirmation-2026-10-26.log\n?? benchmarks/results/skinny-pipeline-2026-10-26.json\n?? benchmarks/results/skinny-pipeline-2026-10-26.log\n?? benchmarks/results/skinny-pipeline-confirmation-2026-10-26.json\n?? benchmarks/results/skinny-pipeline-confirmation-2026-10-26.log\n?? benchmarks/results/skinny-profile-2026-10-26.json\n?? benchmarks/results/skinny-regression-2026-10-26.log\n?? benchmarks/results/skinny-resource-rejection-2026-10-26.json\n?? benchmarks/results/skinny-screening-2026-10-26.json\n?? benchmarks/results/skinny-screening-2026-10-26.log\n?? native/benchmarks/SkinnyMatmulStudy.mm\n?? native/benchmarks/skinny_audit.py\n?? native/benchmarks/skinny_matmul.py\n?? native/benchmarks/skinny_pipeline.py\n?? native/metal-source/SkinnyMatmul.h\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

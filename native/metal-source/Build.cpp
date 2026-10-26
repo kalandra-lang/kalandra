@@ -2,6 +2,7 @@
 #include "GroupedMatmul.h"
 #include "HardwareShaders.h"
 #include "MatmulEpilogue.h"
+#include "SkinnyMatmul.h"
 #include "Toolchain.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
@@ -191,7 +192,7 @@ void buildMetalProgram(const std::filesystem::path &directory,
         optimized << hardwareReductionShader;
       if (contents.find("@kalandra_matmul(") != std::string::npos)
         optimized << hardwareMatmulShader << hardwareRegisterMatmulShader
-                  << hardwareGroupedMatmulShader();
+                  << hardwareGroupedMatmulShader() << hardwareSkinnyMatmulShader;
       if (!optimized)
         throw std::runtime_error("cannot emit hardware Metal entries");
     }

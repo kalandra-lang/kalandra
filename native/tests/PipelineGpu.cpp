@@ -116,7 +116,11 @@ int main(int argc, char **argv) {
                                                                {17, 33, 16},
                                                                {33, 129, 35},
                                                                {17, 512, 17},
-                                                               {33, 576, 9}}) {
+                                                               {33, 576, 9},
+                                                               {1, 512, 256},
+                                                               {2, 544, 257},
+                                                               {1, 1984, 257},
+                                                               {2, 16384, 256}}) {
       if (tight && shape != std::array<std::int64_t, 3>{3, 5, 4})
         continue;
       auto [rows, k, columns] = shape;
@@ -204,7 +208,9 @@ int main(int argc, char **argv) {
         unchanged(rt, *core, bias, cv);
         CHECK(rt.stats().bytes == baseline);
         ++cases;
-        if (shape == std::array<std::int64_t, 3>{3, 5, 4} && pattern == 0 && !tight) {
+        if ((shape == std::array<std::int64_t, 3>{3, 5, 4} ||
+             shape == std::array<std::int64_t, 3>{2, 544, 257}) &&
+            pattern == 0 && !tight) {
           for (std::uint64_t fail = 1; fail <= checkpoints; ++fail) {
             rt.failAllocationAt(fail);
             group = core->openRoot();

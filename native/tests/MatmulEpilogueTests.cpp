@@ -30,6 +30,7 @@ int main() {
       check(bool(fused));
       check(fused->find("kalandra_matmul_fused_register16") != std::string::npos);
       check(fused->find("kalandra_matmul_fused_grouped16") != std::string::npos);
+      check(fused->find("kalandra_matmul_fused_skinny32") != std::string::npos);
       check(fused->find("kalandra_matmul_fused_tiled") != std::string::npos);
       check(fused->find("return value;") != std::string::npos);
       check(fused->find("kalandra_matrix_value") != std::string::npos);

@@ -111,7 +111,7 @@ struct KernelState {
   bool elementwise, reduction, matrix;
   std::optional<ElementwiseSignature> signature;
   std::array<id<MTLComputePipelineState>, 2> matrixTiles{};
-  std::array<id<MTLComputePipelineState>, 5> fusedMatrices{};
+  std::array<id<MTLComputePipelineState>, 6> fusedMatrices{};
   // Backend resource bound, independent of logical signature arity.
   std::array<std::uint32_t, directBufferEntries - 2> reads{};
   std::uint32_t readCount = 2;
@@ -123,7 +123,8 @@ struct KernelState {
   std::vector<NumericType> tensorTypes{}, scalarTypes{};
   std::vector<std::uint8_t> scalarBuffers{};
   id<MTLComputePipelineState> blockReduction = nil, tiledMatrix = nil, block32Matrix = nil,
-                              block64Matrix = nil, registerMatrix = nil, groupedMatrix = nil;
+                              block64Matrix = nil, registerMatrix = nil, groupedMatrix = nil,
+                              skinnyMatrix = nil;
   bool scalarBuffer(std::size_t i) const { return !scalarBuffers.empty() && scalarBuffers[i]; }
   NumericType tensorType(std::size_t i) const {
     return tensorTypes.empty() ? *numericType : tensorTypes[i];
@@ -1958,7 +1959,12 @@ struct Bridge {
               registers && base->groupedMatrix && post->fusedMatrices[4] &&
               useGroupedMatmul(std::uint32_t(matrixShape[0]), std::uint32_t(source->dimensions[1]),
                                std::uint32_t(matrixShape[1]));
-          fusedVariant = grouped     ? 4
+          const bool skinny = base->skinnyMatrix && post->fusedMatrices[5] &&
+                              useSkinnyMatmul(std::uint32_t(matrixShape[0]),
+                                              std::uint32_t(source->dimensions[1]),
+                                              std::uint32_t(matrixShape[1]));
+          fusedVariant = skinny      ? 5
+                         : grouped   ? 4
                          : registers ? 3
                          : base->block64Matrix && source->dimensions[1] >= 512 &&
                                  matrixShape[0] >= 16 && matrixShape[1] >= 8 &&
@@ -2163,6 +2169,13 @@ struct Bridge {
                                           useRegisterMatmul(std::uint32_t(matrixShape[0]),
                                                             std::uint32_t(source->dimensions[1]),
                                                             std::uint32_t(matrixShape[1]));
+            // An older post-map can fuse its earlier matrix entry. Its grid
+            // must stay paired with that entry even when the base has skinny.
+            const bool hardwareSkinny = matrix && kernel->skinnyMatrix &&
+                                        (!fusePost || fusedVariant == 5) &&
+                                        useSkinnyMatmul(std::uint32_t(matrixShape[0]),
+                                                        std::uint32_t(source->dimensions[1]),
+                                                        std::uint32_t(matrixShape[1]));
             const bool hardwareTile =
                 matrix && kernel->tiledMatrix && (layout != MatmulLayout::Quad || hardwareRegister);
             const bool hardwareWide = hardwareTile && !hardwareRegister && kernel->block64Matrix &&
@@ -2180,6 +2193,8 @@ struct Bridge {
                                  std::uint32_t(source->dimensions[1]),
                                  std::uint32_t(matrixShape[1])))
               pipeline = kernel->groupedMatrix;
+            if (hardwareSkinny)
+              pipeline = kernel->skinnyMatrix;
             if (fusePost)
               pipeline = f.packet.matrixPost.state_->fusedMatrices[fusedVariant];
             [encoder setComputePipelineState:pipeline];
@@ -2248,9 +2263,11 @@ struct Bridge {
               }
               [encoder setBuffer:f.fusedParameters->buffer offset:0 atIndex:post->readCount + 3];
             }
-            const auto threads = hardwareRegister ? 256u : hardwareWide ? 128u : 64u;
+            const auto threads = hardwareSkinny || hardwareRegister ? 256u : hardwareWide ? 128u : 64u;
             const auto lanes =
-                hardwareRegister      ? ((std::uint64_t(parameters[0]) + 15) / 16) *
+                hardwareSkinny        ? std::uint64_t(parameters[0]) *
+                                            ((std::uint64_t(parameters[2]) + 31) / 32) * 256
+                : hardwareRegister    ? ((std::uint64_t(parameters[0]) + 15) / 16) *
                                             ((std::uint64_t(parameters[2]) + 15) / 16) * 256
                 : hardwareWide        ? ((std::uint64_t(parameters[0]) + 15) / 16) *
                                             ((std::uint64_t(parameters[2]) + 7) / 8) * 128
@@ -2920,15 +2937,26 @@ std::expected<Kernel, Error> Runtime::loadKernel(
           metadata->groupedMatrix = *grouped;
       }
       metadata->numericType = numericType;
+      if (!numericType && matrix &&
+          [state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"] &&
+          [library newFunctionWithName:@"kalandra_matmul_hardware_skinny32"]) {
+        if (!state_->permit())
+          return std::unexpected(Error::Allocation);
+        auto skinny = prepare(@"kalandra_matmul_hardware_skinny32");
+        if (!skinny)
+          return std::unexpected(skinny.error());
+        if ((*skinny).maxTotalThreadsPerThreadgroup >= 256)
+          metadata->skinnyMatrix = *skinny;
+      }
       if (!numericType && elementwise && !matrix && !reduction && !indirect && physical >= 1 &&
           physical <= directBufferEntries - 4 && (!reads || (*reads)[0] == 0) &&
           [library newFunctionWithName:@"kalandra_matmul_fused_tiled"]) {
-        const std::array<NSString *, 5> names{
+        const std::array<NSString *, 6> names{
             @"kalandra_matmul_fused_tiled", @"kalandra_matmul_fused_block32",
             @"kalandra_matmul_fused_block64", @"kalandra_matmul_fused_register16",
-            @"kalandra_matmul_fused_grouped16"};
+            @"kalandra_matmul_fused_grouped16", @"kalandra_matmul_fused_skinny32"};
         for (unsigned i = 0; i < names.size(); ++i) {
-          if (i == 4 && (![library newFunctionWithName:names[i]] ||
+          if (i >= 4 && (![library newFunctionWithName:names[i]] ||
                          ![state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"]))
             continue;
           if (!state_->permit())

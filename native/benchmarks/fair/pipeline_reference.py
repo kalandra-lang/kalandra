@@ -15,11 +15,16 @@ def round32_integer(value):
 
 @functools.cache
 def exact(n):
+    return exact_rect(n,n,n)
+
+
+@functools.cache
+def exact_rect(rows,inner,columns):
     # All products are integer/64; bias+scale produces integer/256.
     # Round every adjacent pair in integer arithmetic, including large sums.
-    phase=[[max(0,sum(((a+k)%17-8)*((b+k*n)%13-6) for k in range(n))+8)
+    phase=[[max(0,sum(((a+k)%17-8)*((b+k*columns)%13-6) for k in range(inner))+8)
             for b in range(13)] for a in range(17)]
-    values=[phase[(r*n)%17][c%13] for r in range(n) for c in range(n)]
+    values=[phase[(r*inner)%17][c%13] for r in range(rows) for c in range(columns)]
     while len(values)>1:
         values=[round32_integer(values[i]+values[i+1]) for i in range(0,len(values)-1,2)]+(values[-1:] if len(values)&1 else [])
     return values[0]/256

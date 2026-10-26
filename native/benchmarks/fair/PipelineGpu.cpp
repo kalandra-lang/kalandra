@@ -47,19 +47,23 @@ static m::Buffer upload(m::Runtime &runtime, TaskCore &core, m::Buffer host, m::
   return result;
 }
 int main(int argc, char **argv) {
-  if (argc != 7)
+  if (argc != 7 && argc != 9)
     return 2;
   const std::string directory = argv[1];
-  const bool transfers = std::stoi(argv[2]) != 0;
+  const unsigned transfers = std::stoul(argv[2]); // 0 resident, 1 all, 2 activations/bias only
   const int kind = std::stoi(argv[3]);
-  const std::size_t n = std::stoull(argv[4]), iterations = std::stoull(argv[5]);
-  const int rounds = std::stoi(argv[6]);
-  if (kind != 2 || !n || !iterations || rounds < 1)
+  const std::size_t n = std::stoull(argv[argc == 7 ? 4 : 6]),
+                    rows = argc == 7 ? n : std::stoull(argv[4]),
+                    inner = argc == 7 ? n : std::stoull(argv[5]),
+                    iterations = std::stoull(argv[argc == 7 ? 5 : 7]);
+  const int rounds = std::stoi(argv[argc == 7 ? 6 : 8]);
+  if (kind != 2 || transfers > 2 || !rows || !inner || !n || !iterations || rounds < 1)
     return 2;
   m::Options options;
   options.profile = std::getenv("KALANDRA_GPU_PROFILE") != nullptr;
-  const auto count = kind == 2 ? n * n : n;
-  options.maxBytes = std::max(options.maxBytes, std::uint64_t(count) * sizeof(Float) * 12 + 4096);
+  const auto count = rows * n;
+  options.maxBytes = std::max(
+      options.maxBytes, std::uint64_t(rows * inner + inner * n + count) * sizeof(Float) * 4 + 4096);
   auto made = m::Runtime::create(options);
   check(bool(made));
   auto &runtime = **made;
@@ -86,26 +90,27 @@ int main(int argc, char **argv) {
   auto post = runtime.loadElementwiseKernel(stem + "-post.metallib", *device, {4, 1},
                                             std::array<std::uint32_t, 2>{0, 3});
   check(bool(post));
-  std::vector<Float> a(count), b(count), bias(count, Float(0.125));
-  for (std::size_t i = 0; i < count; ++i) {
+  std::vector<Float> a(rows * inner), b(inner * n), bias(count, Float(0.125));
+  for (std::size_t i = 0; i < a.size(); ++i)
     a[i] = (int(i % 17) - 8) / 8.0;
+  for (std::size_t i = 0; i < b.size(); ++i)
     b[i] = (int(i % 13) - 6) / 8.0;
-  }
-  std::vector<std::int64_t> shape =
-      kind == 2 ? std::vector<std::int64_t>{std::int64_t(n), std::int64_t(n)}
-                : std::vector<std::int64_t>{std::int64_t(n)};
   {
-    auto ha = runtime.hostTensor(std::as_bytes(std::span(a)), shape, Format);
-    auto hb = runtime.hostTensor(std::as_bytes(std::span(b)), shape, Format);
+    auto ha = runtime.hostTensor(std::as_bytes(std::span(a)),
+                                 std::array{std::int64_t(rows), std::int64_t(inner)}, Format);
+    auto hb = runtime.hostTensor(std::as_bytes(std::span(b)),
+                                 std::array{std::int64_t(inner), std::int64_t(n)}, Format);
     check(bool(ha) && bool(hb));
-    auto hc = runtime.hostTensor(std::as_bytes(std::span(bias)), shape, Format);
+    auto hc = runtime.hostTensor(std::as_bytes(std::span(bias)),
+                                 std::array{std::int64_t(rows), std::int64_t(n)}, Format);
     check(bool(hc));
     m::Buffer residentA, residentB, residentC;
     if (!transfers) {
       residentA = upload(runtime, *core, *ha, *device);
       residentB = upload(runtime, *core, *hb, *device);
       residentC = upload(runtime, *core, *hc, *device);
-    }
+    } else if (transfers == 2)
+      residentB = upload(runtime, *core, *hb, *device);
     const auto baselineBytes = runtime.stats().bytes;
     for (int round = -2; round < rounds; ++round) {
       double checksum = 0;
@@ -113,7 +118,7 @@ int main(int argc, char **argv) {
       const auto start = std::chrono::steady_clock::now();
       for (std::size_t i = 0; i < iterations; ++i) {
         auto da = transfers ? upload(runtime, *core, *ha, *device) : residentA;
-        auto db = transfers ? upload(runtime, *core, *hb, *device) : residentB;
+        auto db = transfers == 1 ? upload(runtime, *core, *hb, *device) : residentB;
         auto dc = transfers ? upload(runtime, *core, *hc, *device) : residentC;
         const auto group = core->openRoot();
         const auto task =
@@ -150,8 +155,10 @@ int main(int argc, char **argv) {
                     (unsigned long long)stats.peakBytes, (unsigned long long)baselineBytes);
       std::printf("}\n");
     }
-    for (std::size_t i = 0; i < count; ++i)
-      check(a[i] == (int(i % 17) - 8) / 8.0 && b[i] == (int(i % 13) - 6) / 8.0);
+    for (std::size_t i = 0; i < a.size(); ++i)
+      check(a[i] == (int(i % 17) - 8) / 8.0);
+    for (std::size_t i = 0; i < b.size(); ++i)
+      check(b[i] == (int(i % 13) - 6) / 8.0);
   }
   const auto stats = runtime.stats();
   check(!stats.bytes && !stats.inFlight && !stats.stagingBuffers && !stats.argumentPacks &&
