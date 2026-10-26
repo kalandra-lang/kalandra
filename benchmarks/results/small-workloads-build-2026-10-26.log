@@ -1,0 +1,14 @@
+[1/8] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-debug.dir/Metal.mm.o
+[2/8] Linking CXX static library native/metal/libkalandra-metal-debug.a
+[3/8] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-optimized.dir/Metal.mm.o
+[4/8] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-thread-sanitized.dir/Metal.mm.o
+[5/8] Linking CXX static library native/metal/libkalandra-metal-optimized.a
+[6/8] Linking CXX static library native/metal/libkalandra-metal-thread-sanitized.a
+[7/8] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-sanitized.dir/Metal.mm.o
+[8/8] Linking CXX static library native/metal/libkalandra-metal-sanitized.a
+[1/8] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/Build.cpp for CXX dependencies
+[2/8] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-backend.dir/CXX.dd
+[3/5] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-backend.dir/Build.cpp.o
+[4/5] Linking CXX static library native/metal-source/libkalandra-metal-source-backend.a
+[5/5] Linking CXX executable native/kalandra
+ld: warning: ignoring duplicate libraries: 'native/libkalandra-backend.a', 'native/libkalandra-packages.a'

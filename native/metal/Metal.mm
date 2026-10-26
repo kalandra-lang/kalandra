@@ -1128,6 +1128,13 @@ struct Bridge {
     const bool packedCounts = [state->devices[index] supportsFamily:MTLGPUFamilyApple1];
     const auto blockPipeline = f.packet.kernel.state_->blockReduction;
     const std::uint64_t divisor = blockPipeline ? 128 : 2;
+    // The final destination is already owned by this frame until command
+    // acknowledgement. Write the last reduction directly into it, avoiding a
+    // private scalar allocation and a separate GPU blit/encoder. Single-leaf
+    // inputs still need a copy, and scalar epilogues keep their staged path.
+    const bool directFinal = length > 1 && !f.packet.epilogue;
+    id<MTLBuffer> finalOutput =
+        resident ? f.result.storage_->metal->buffer : f.staging->buffer;
     unsigned levels = 0;
     for (auto remaining = length; remaining > 1; remaining = (remaining + divisor - 1) / divisor)
       ++levels;
@@ -1146,7 +1153,7 @@ struct Bridge {
     while (length > 1) {
       const auto next = (length + divisor - 1) / divisor;
       auto &output = f.scratch->outputs[level % 2];
-      if (!output) {
+      if (!output && !(directFinal && next == 1)) {
         auto allocated = allocateMetal(state, index, next * 4, false);
         if (!allocated) {
           f.error = allocated.error();
@@ -1185,9 +1192,11 @@ struct Bridge {
       length = f.packet.input.bytes() / 4;
       for (unsigned i = 0; i < level; ++i) {
         const auto next = (length + divisor - 1) / divisor;
-        const auto &output = f.scratch->outputs[i % 2];
+        id<MTLBuffer> output = directFinal && next == 1
+                                  ? finalOutput
+                                  : f.scratch->outputs[i % 2]->buffer;
         [encoder setBuffer:input offset:0 atIndex:0];
-        [encoder setBuffer:output->buffer offset:0 atIndex:1];
+        [encoder setBuffer:output offset:0 atIndex:1];
         [encoder setBuffer:f.scratch->counts[packedCounts ? 0 : i]->buffer
                     offset:packedCounts ? i * 4 : 0
                    atIndex:2];
@@ -1195,7 +1204,7 @@ struct Bridge {
           ++state->dispatches;
         [encoder dispatchThreadgroups:MTLSizeMake(blockPipeline ? next : (next + 63) / 64, 1, 1)
                 threadsPerThreadgroup:MTLSizeMake(64, 1, 1)];
-        input = output->buffer;
+        input = output;
         length = next;
       }
       [encoder endEncoding];
@@ -1218,15 +1227,17 @@ struct Bridge {
     }
     // Only the final scalar crosses back to the host. No CPU arithmetic
     // fallback.
-    id<MTLBlitCommandEncoder> blit = state->permit() ? [command blitCommandEncoder] : nil;
-    if (!blit)
-      return nil;
-    [blit copyFromBuffer:input
-             sourceOffset:0
-                 toBuffer:resident ? f.result.storage_->metal->buffer : f.staging->buffer
-        destinationOffset:0
-                     size:4];
-    [blit endEncoding];
+    if (!directFinal) {
+      id<MTLBlitCommandEncoder> blit = state->permit() ? [command blitCommandEncoder] : nil;
+      if (!blit)
+        return nil;
+      [blit copyFromBuffer:input
+               sourceOffset:0
+                   toBuffer:finalOutput
+          destinationOffset:0
+                       size:4];
+      [blit endEncoding];
+    }
     if (!state->permit())
       return nil;
     return command;

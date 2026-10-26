@@ -1,0 +1,547 @@
+UpdateCTestConfiguration  from :/Users/pouya/Projects/kalandra.dev/build/native/DartConfiguration.tcl
+Parse Config file:/Users/pouya/Projects/kalandra.dev/build/native/DartConfiguration.tcl
+Test project /Users/pouya/Projects/kalandra.dev/build/native
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1052
+      Start 1052: native-metal-reduction-debug
+
+1052: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-reduction-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-debug"
+1052: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1052: Environment variables: 
+1052:  MTL_DEBUG_LAYER=1
+1052: Test timeout computed to be: 60
+1052: 2026-10-26 01:10:04.710 kalandra-metal-reduction-debug[28499:15879720] Metal API Validation Enabled
+1052: 41f80000
+1052: Reduction: 653 CPU/GPU/reference cases, 4070261 input elements, zero mismatches
+1052: Reduction rank-1 allocation checkpoints swept: 12
+1052: Reduction rank-2 allocation checkpoints swept: 12
+1052: GPU fixed-tree reduction, scalar results and failure/cancellation cleanup passed
+ 1/40 Test #1052: native-metal-reduction-debug ............................   Passed    2.00 sec
+test 1053
+      Start 1053: native-metal-reduction-optimized
+
+1053: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-reduction-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-optimized"
+1053: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1053: Environment variables: 
+1053:  MTL_DEBUG_LAYER=1
+1053: Test timeout computed to be: 60
+1053: 2026-10-26 01:10:06.621 kalandra-metal-reduction-optimized[28510:15881220] Metal API Validation Enabled
+1053: 41f80000
+1053: Reduction: 653 CPU/GPU/reference cases, 4070261 input elements, zero mismatches
+1053: Reduction rank-1 allocation checkpoints swept: 12
+1053: Reduction rank-2 allocation checkpoints swept: 12
+1053: GPU fixed-tree reduction, scalar results and failure/cancellation cleanup passed
+ 2/40 Test #1053: native-metal-reduction-optimized ........................   Passed    0.94 sec
+test 1054
+      Start 1054: native-metal-reduction-sanitized
+
+1054: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-reduction-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-sanitized"
+1054: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1054: Environment variables: 
+1054:  MTL_DEBUG_LAYER=1
+1054: Test timeout computed to be: 60
+1054: 2026-10-26 01:10:07.632 kalandra-metal-reduction-sanitized[28517:15882675] Metal API Validation Enabled
+1054: 41f80000
+1054: Reduction: 653 CPU/GPU/reference cases, 4070261 input elements, zero mismatches
+1054: Reduction rank-1 allocation checkpoints swept: 12
+1054: Reduction rank-2 allocation checkpoints swept: 12
+1054: GPU fixed-tree reduction, scalar results and failure/cancellation cleanup passed
+ 3/40 Test #1054: native-metal-reduction-sanitized ........................   Passed    1.33 sec
+test 1055
+      Start 1055: native-metal-reduction-thread-sanitized
+
+1055: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-reduction-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-thread-sanitized"
+1055: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1055: Environment variables: 
+1055:  MTL_DEBUG_LAYER=1
+1055: Test timeout computed to be: 60
+1055: 2026-10-26 01:10:09.049 kalandra-metal-reduction-thread-sanitized[28522:15884114] Metal API Validation Enabled
+1055: 41f80000
+1055: Reduction: 653 CPU/GPU/reference cases, 4070261 input elements, zero mismatches
+1055: Reduction rank-1 allocation checkpoints swept: 12
+1055: Reduction rank-2 allocation checkpoints swept: 12
+1055: GPU fixed-tree reduction, scalar results and failure/cancellation cleanup passed
+ 4/40 Test #1055: native-metal-reduction-thread-sanitized .................   Passed    4.16 sec
+test 1056
+      Start 1056: native-metal-pre-reduction-debug
+
+1056: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-pre-reduction-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-reduction-debug"
+1056: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1056: Environment variables: 
+1056:  MTL_DEBUG_LAYER=1
+1056: Test timeout computed to be: 60
+1056: 2026-10-26 01:10:13.096 kalandra-metal-pre-reduction-debug[28538:15884358] Metal API Validation Enabled
+1056: 42960000
+1056: Pre-reduction: 216 graph/separate/APFloat cases, 23 allocation checkpoints, both-stage cancellation/failure passed
+ 5/40 Test #1056: native-metal-pre-reduction-debug ........................   Passed    0.44 sec
+test 1057
+      Start 1057: native-metal-pre-reduction-optimized
+
+1057: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-pre-reduction-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-reduction-optimized"
+1057: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1057: Environment variables: 
+1057:  MTL_DEBUG_LAYER=1
+1057: Test timeout computed to be: 60
+1057: 2026-10-26 01:10:13.488 kalandra-metal-pre-reduction-optimized[28539:15884697] Metal API Validation Enabled
+1057: 42960000
+1057: Pre-reduction: 216 graph/separate/APFloat cases, 23 allocation checkpoints, both-stage cancellation/failure passed
+ 6/40 Test #1057: native-metal-pre-reduction-optimized ....................   Passed    0.37 sec
+test 1058
+      Start 1058: native-metal-pre-reduction-sanitized
+
+1058: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-pre-reduction-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-reduction-sanitized"
+1058: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1058: Environment variables: 
+1058:  MTL_DEBUG_LAYER=1
+1058: Test timeout computed to be: 60
+1058: 2026-10-26 01:10:13.950 kalandra-metal-pre-reduction-sanitized[28548:15885053] Metal API Validation Enabled
+1058: 42960000
+1058: Pre-reduction: 216 graph/separate/APFloat cases, 23 allocation checkpoints, both-stage cancellation/failure passed
+ 7/40 Test #1058: native-metal-pre-reduction-sanitized ....................   Passed    0.56 sec
+test 1059
+      Start 1059: native-metal-pre-reduction-thread-sanitized
+
+1059: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-pre-reduction-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-reduction-thread-sanitized"
+1059: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1059: Environment variables: 
+1059:  MTL_DEBUG_LAYER=1
+1059: Test timeout computed to be: 60
+1059: 2026-10-26 01:10:14.615 kalandra-metal-pre-reduction-thread-sanitized[28549:15885403] Metal API Validation Enabled
+1059: 42960000
+1059: Pre-reduction: 216 graph/separate/APFloat cases, 23 allocation checkpoints, both-stage cancellation/failure passed
+ 8/40 Test #1059: native-metal-pre-reduction-thread-sanitized .............   Passed    2.91 sec
+test 1076
+      Start 1076: native-metal-matmul-reduction-debug
+
+1076: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-reduction-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-reduction-debug"
+1076: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1076: Environment variables: 
+1076:  MTL_DEBUG_LAYER=1
+1076: Test timeout computed to be: 60
+1076: 2026-10-26 01:10:17.356 kalandra-metal-matmul-reduction-debug[28562:15885572] Metal API Validation Enabled
+1076: 43350000
+1076: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 42 allocation checkpoints, all-stage cancellation/failure passed
+ 9/40 Test #1076: native-metal-matmul-reduction-debug .....................   Passed    0.65 sec
+test 1077
+      Start 1077: native-metal-matmul-reduction-optimized
+
+1077: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-reduction-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-reduction-optimized"
+1077: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1077: Environment variables: 
+1077:  MTL_DEBUG_LAYER=1
+1077: Test timeout computed to be: 60
+1077: 2026-10-26 01:10:17.985 kalandra-metal-matmul-reduction-optimized[28564:15886042] Metal API Validation Enabled
+1077: 43350000
+1077: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 42 allocation checkpoints, all-stage cancellation/failure passed
+10/40 Test #1077: native-metal-matmul-reduction-optimized .................   Passed    0.53 sec
+test 1078
+      Start 1078: native-metal-matmul-reduction-sanitized
+
+1078: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-reduction-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-reduction-sanitized"
+1078: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1078: Environment variables: 
+1078:  MTL_DEBUG_LAYER=1
+1078: Test timeout computed to be: 60
+1078: 2026-10-26 01:10:18.563 kalandra-metal-matmul-reduction-sanitized[28573:15886547] Metal API Validation Enabled
+1078: 43350000
+1078: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 42 allocation checkpoints, all-stage cancellation/failure passed
+11/40 Test #1078: native-metal-matmul-reduction-sanitized .................   Passed    0.70 sec
+test 1079
+      Start 1079: native-metal-matmul-reduction-thread-sanitized
+
+1079: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-reduction-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-reduction-thread-sanitized"
+1079: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1079: Environment variables: 
+1079:  MTL_DEBUG_LAYER=1
+1079: Test timeout computed to be: 60
+1079: 2026-10-26 01:10:19.375 kalandra-metal-matmul-reduction-thread-sanitized[28575:15887022] Metal API Validation Enabled
+1079: 43350000
+1079: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 42 allocation checkpoints, all-stage cancellation/failure passed
+12/40 Test #1079: native-metal-matmul-reduction-thread-sanitized ..........   Passed    3.11 sec
+test 1080
+      Start 1080: native-metal-matmul-adjust-reduction-debug
+
+1080: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-adjust-reduction-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-adjust-reduction-debug"
+1080: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1080: Environment variables: 
+1080:  MTL_DEBUG_LAYER=1
+1080: Test timeout computed to be: 60
+1080: 2026-10-26 01:10:22.349 kalandra-metal-matmul-adjust-reduction-debug[28675:15887427] Metal API Validation Enabled
+1080: 43bf0000
+1080: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 53 allocation checkpoints, all-stage cancellation/failure passed
+13/40 Test #1080: native-metal-matmul-adjust-reduction-debug ..............   Passed    0.76 sec
+test 1081
+      Start 1081: native-metal-matmul-adjust-reduction-optimized
+
+1081: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-adjust-reduction-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-adjust-reduction-optimized"
+1081: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1081: Environment variables: 
+1081:  MTL_DEBUG_LAYER=1
+1081: Test timeout computed to be: 60
+1081: 2026-10-26 01:10:23.089 kalandra-metal-matmul-adjust-reduction-optimized[28677:15888006] Metal API Validation Enabled
+1081: 43bf0000
+1081: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 53 allocation checkpoints, all-stage cancellation/failure passed
+14/40 Test #1081: native-metal-matmul-adjust-reduction-optimized ..........   Passed    0.62 sec
+test 1082
+      Start 1082: native-metal-matmul-adjust-reduction-sanitized
+
+1082: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-adjust-reduction-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-adjust-reduction-sanitized"
+1082: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1082: Environment variables: 
+1082:  MTL_DEBUG_LAYER=1
+1082: Test timeout computed to be: 60
+1082: 2026-10-26 01:10:23.756 kalandra-metal-matmul-adjust-reduction-sanitized[28680:15888600] Metal API Validation Enabled
+1082: 43bf0000
+1082: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 53 allocation checkpoints, all-stage cancellation/failure passed
+15/40 Test #1082: native-metal-matmul-adjust-reduction-sanitized ..........   Passed    0.90 sec
+test 1083
+      Start 1083: native-metal-matmul-adjust-reduction-thread-sanitized
+
+1083: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-adjust-reduction-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-adjust-reduction-thread-sanitized"
+1083: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1083: Environment variables: 
+1083:  MTL_DEBUG_LAYER=1
+1083: Test timeout computed to be: 60
+1083: 2026-10-26 01:10:24.785 kalandra-metal-matmul-adjust-reduction-thread-sanitized[28687:15889206] Metal API Validation Enabled
+1083: 43bf0000
+1083: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 53 allocation checkpoints, all-stage cancellation/failure passed
+16/40 Test #1083: native-metal-matmul-adjust-reduction-thread-sanitized ...   Passed    3.33 sec
+test 1084
+      Start 1084: native-metal-matmul-scalar-reduction-debug
+
+1084: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-scalar-reduction-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-scalar-reduction-debug"
+1084: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1084: Environment variables: 
+1084:  MTL_DEBUG_LAYER=1
+1084: Test timeout computed to be: 60
+1084: 2026-10-26 01:10:27.955 kalandra-metal-matmul-scalar-reduction-debug[28702:15889416] Metal API Validation Enabled
+1084: c3400000
+1084: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 62 allocation checkpoints, all-stage cancellation/failure passed
+17/40 Test #1084: native-metal-matmul-scalar-reduction-debug ..............   Passed    0.83 sec
+test 1085
+      Start 1085: native-metal-matmul-scalar-reduction-optimized
+
+1085: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-scalar-reduction-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-scalar-reduction-optimized"
+1085: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1085: Environment variables: 
+1085:  MTL_DEBUG_LAYER=1
+1085: Test timeout computed to be: 60
+1085: 2026-10-26 01:10:28.775 kalandra-metal-matmul-scalar-reduction-optimized[28710:15890046] Metal API Validation Enabled
+1085: c3400000
+1085: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 62 allocation checkpoints, all-stage cancellation/failure passed
+18/40 Test #1085: native-metal-matmul-scalar-reduction-optimized ..........   Passed    0.68 sec
+test 1086
+      Start 1086: native-metal-matmul-scalar-reduction-sanitized
+
+1086: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-scalar-reduction-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-scalar-reduction-sanitized"
+1086: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1086: Environment variables: 
+1086:  MTL_DEBUG_LAYER=1
+1086: Test timeout computed to be: 60
+1086: 2026-10-26 01:10:29.524 kalandra-metal-matmul-scalar-reduction-sanitized[28713:15890643] Metal API Validation Enabled
+1086: c3400000
+1086: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 62 allocation checkpoints, all-stage cancellation/failure passed
+19/40 Test #1086: native-metal-matmul-scalar-reduction-sanitized ..........   Passed    0.88 sec
+test 1087
+      Start 1087: native-metal-matmul-scalar-reduction-thread-sanitized
+
+1087: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matmul-scalar-reduction-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-scalar-reduction-thread-sanitized"
+1087: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1087: Environment variables: 
+1087:  MTL_DEBUG_LAYER=1
+1087: Test timeout computed to be: 60
+1087: 2026-10-26 01:10:30.509 kalandra-metal-matmul-scalar-reduction-thread-sanitized[28714:15891237] Metal API Validation Enabled
+1087: c3400000
+1087: Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 62 allocation checkpoints, all-stage cancellation/failure passed
+20/40 Test #1087: native-metal-matmul-scalar-reduction-thread-sanitized ...   Passed    3.34 sec
+test 1088
+      Start 1088: native-metal-matrix-graph-debug
+
+1088: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-debug"
+1088: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1088: Environment variables: 
+1088:  MTL_DEBUG_LAYER=1
+1088: Test timeout computed to be: 60
+1088: 2026-10-26 01:10:33.698 kalandra-metal-matrix-graph-debug[28731:15891330] Metal API Validation Enabled
+1088: [42d40000,431c0000,43710000,43b10000]
+1088: Matrix graph conformance: 48 cases; 29 allocation checkpoints; 9 stage faults; 2048 empty products
+21/40 Test #1088: native-metal-matrix-graph-debug .........................   Passed    0.34 sec
+test 1089
+      Start 1089: native-metal-matrix-graph-optimized
+
+1089: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-optimized"
+1089: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1089: Environment variables: 
+1089:  MTL_DEBUG_LAYER=1
+1089: Test timeout computed to be: 60
+1089: 2026-10-26 01:10:34.088 kalandra-metal-matrix-graph-optimized[28733:15891706] Metal API Validation Enabled
+1089: [42d40000,431c0000,43710000,43b10000]
+1089: Matrix graph conformance: 48 cases; 29 allocation checkpoints; 9 stage faults; 2048 empty products
+22/40 Test #1089: native-metal-matrix-graph-optimized .....................   Passed    0.39 sec
+test 1090
+      Start 1090: native-metal-matrix-graph-sanitized
+
+1090: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-sanitized"
+1090: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1090: Environment variables: 
+1090:  MTL_DEBUG_LAYER=1
+1090: Test timeout computed to be: 60
+1090: 2026-10-26 01:10:34.541 kalandra-metal-matrix-graph-sanitized[28738:15892063] Metal API Validation Enabled
+1090: [42d40000,431c0000,43710000,43b10000]
+1090: Matrix graph conformance: 48 cases; 29 allocation checkpoints; 9 stage faults; 2048 empty products
+23/40 Test #1090: native-metal-matrix-graph-sanitized .....................   Passed    0.56 sec
+test 1091
+      Start 1091: native-metal-matrix-graph-thread-sanitized
+
+1091: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-thread-sanitized"
+1091: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1091: Environment variables: 
+1091:  MTL_DEBUG_LAYER=1
+1091: Test timeout computed to be: 60
+1091: 2026-10-26 01:10:35.139 kalandra-metal-matrix-graph-thread-sanitized[28740:15892403] Metal API Validation Enabled
+1091: [42d40000,431c0000,43710000,43b10000]
+1091: Matrix graph conformance: 48 cases; 29 allocation checkpoints; 9 stage faults; 2048 empty products
+24/40 Test #1091: native-metal-matrix-graph-thread-sanitized ..............   Passed    2.82 sec
+test 1092
+      Start 1092: native-metal-matrix-graph-reduction-debug
+
+1092: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-reduction-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-reduction-debug"
+1092: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1092: Environment variables: 
+1092:  MTL_DEBUG_LAYER=1
+1092: Test timeout computed to be: 60
+1092: 2026-10-26 01:10:37.826 kalandra-metal-matrix-graph-reduction-debug[28753:15892582] Metal API Validation Enabled
+1092: c3d6c000
+1092: Matrix graph reduction: 96 numerical cases; 50 allocation checkpoints; 12 stage faults; 2048 empty products
+25/40 Test #1092: native-metal-matrix-graph-reduction-debug ...............   Passed    0.57 sec
+test 1093
+      Start 1093: native-metal-matrix-graph-reduction-optimized
+
+1093: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-reduction-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-reduction-optimized"
+1093: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1093: Environment variables: 
+1093:  MTL_DEBUG_LAYER=1
+1093: Test timeout computed to be: 60
+1093: 2026-10-26 01:10:38.378 kalandra-metal-matrix-graph-reduction-optimized[28755:15893238] Metal API Validation Enabled
+1093: c3d6c000
+1093: Matrix graph reduction: 96 numerical cases; 50 allocation checkpoints; 12 stage faults; 2048 empty products
+26/40 Test #1093: native-metal-matrix-graph-reduction-optimized ...........   Passed    0.50 sec
+test 1094
+      Start 1094: native-metal-matrix-graph-reduction-sanitized
+
+1094: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-reduction-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-reduction-sanitized"
+1094: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1094: Environment variables: 
+1094:  MTL_DEBUG_LAYER=1
+1094: Test timeout computed to be: 60
+1094: 2026-10-26 01:10:38.927 kalandra-metal-matrix-graph-reduction-sanitized[28756:15893897] Metal API Validation Enabled
+1094: c3d6c000
+1094: Matrix graph reduction: 96 numerical cases; 50 allocation checkpoints; 12 stage faults; 2048 empty products
+27/40 Test #1094: native-metal-matrix-graph-reduction-sanitized ...........   Passed    0.67 sec
+test 1095
+      Start 1095: native-metal-matrix-graph-reduction-thread-sanitized
+
+1095: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-reduction-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-reduction-thread-sanitized"
+1095: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1095: Environment variables: 
+1095:  MTL_DEBUG_LAYER=1
+1095: Test timeout computed to be: 60
+1095: 2026-10-26 01:10:39.721 kalandra-metal-matrix-graph-reduction-thread-sanitized[28763:15894572] Metal API Validation Enabled
+1095: c3d6c000
+1095: Matrix graph reduction: 96 numerical cases; 50 allocation checkpoints; 12 stage faults; 2048 empty products
+28/40 Test #1095: native-metal-matrix-graph-reduction-thread-sanitized ....   Passed    3.10 sec
+test 1096
+      Start 1096: native-metal-matrix-graph-arithmetic-debug
+
+1096: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-arithmetic-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-arithmetic-debug"
+1096: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1096: Environment variables: 
+1096:  MTL_DEBUG_LAYER=1
+1096: Test timeout computed to be: 60
+1096: 2026-10-26 01:10:42.669 kalandra-metal-matrix-graph-arithmetic-debug[28770:15894861] Metal API Validation Enabled
+1096: [c2620000,c2a60000,c3000000,c33c0000]
+1096: Mixed matrix graph: 288 numerical cases; 59 allocation checkpoints; 15 stage faults; 2048 empty stages
+29/40 Test #1096: native-metal-matrix-graph-arithmetic-debug ..............   Passed    1.07 sec
+test 1097
+      Start 1097: native-metal-matrix-graph-arithmetic-optimized
+
+1097: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-arithmetic-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-arithmetic-optimized"
+1097: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1097: Environment variables: 
+1097:  MTL_DEBUG_LAYER=1
+1097: Test timeout computed to be: 60
+1097: 2026-10-26 01:10:43.715 kalandra-metal-matrix-graph-arithmetic-optimized[28778:15896629] Metal API Validation Enabled
+1097: [c2620000,c2a60000,c3000000,c33c0000]
+1097: Mixed matrix graph: 288 numerical cases; 59 allocation checkpoints; 15 stage faults; 2048 empty stages
+30/40 Test #1097: native-metal-matrix-graph-arithmetic-optimized ..........   Passed    0.99 sec
+test 1098
+      Start 1098: native-metal-matrix-graph-arithmetic-sanitized
+
+1098: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-arithmetic-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-arithmetic-sanitized"
+1098: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1098: Environment variables: 
+1098:  MTL_DEBUG_LAYER=1
+1098: Test timeout computed to be: 60
+1098: 2026-10-26 01:10:44.765 kalandra-metal-matrix-graph-arithmetic-sanitized[28783:15898339] Metal API Validation Enabled
+1098: [c2620000,c2a60000,c3000000,c33c0000]
+1098: Mixed matrix graph: 288 numerical cases; 59 allocation checkpoints; 15 stage faults; 2048 empty stages
+31/40 Test #1098: native-metal-matrix-graph-arithmetic-sanitized ..........   Passed    1.28 sec
+test 1099
+      Start 1099: native-metal-matrix-graph-arithmetic-thread-sanitized
+
+1099: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-matrix-graph-arithmetic-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-arithmetic-thread-sanitized"
+1099: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1099: Environment variables: 
+1099:  MTL_DEBUG_LAYER=1
+1099: Test timeout computed to be: 60
+1099: 2026-10-26 01:10:46.142 kalandra-metal-matrix-graph-arithmetic-thread-sanitized[28790:15899990] Metal API Validation Enabled
+1099: [c2620000,c2a60000,c3000000,c33c0000]
+1099: Mixed matrix graph: 288 numerical cases; 59 allocation checkpoints; 15 stage faults; 2048 empty stages
+32/40 Test #1099: native-metal-matrix-graph-arithmetic-thread-sanitized ...   Passed    3.69 sec
+test 1100
+      Start 1100: native-metal-multiple-reductions-debug
+
+1100: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-multiple-reductions-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/multiple-reductions-debug"
+1100: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1100: Environment variables: 
+1100:  MTL_DEBUG_LAYER=1
+1100: Test timeout computed to be: 60
+1100: 2026-10-26 01:10:49.698 kalandra-metal-multiple-reductions-debug[28798:15900631] Metal API Validation Enabled
+1100: c3ad8000
+1100: Multiple reductions: 96 numerical cases; 68 allocation checkpoints; 18 stage faults; 2048 empty products
+33/40 Test #1100: native-metal-multiple-reductions-debug ..................   Passed    0.58 sec
+test 1101
+      Start 1101: native-metal-multiple-reductions-optimized
+
+1101: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-multiple-reductions-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/multiple-reductions-optimized"
+1101: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1101: Environment variables: 
+1101:  MTL_DEBUG_LAYER=1
+1101: Test timeout computed to be: 60
+1101: 2026-10-26 01:10:50.251 kalandra-metal-multiple-reductions-optimized[28805:15901366] Metal API Validation Enabled
+1101: c3ad8000
+1101: Multiple reductions: 96 numerical cases; 68 allocation checkpoints; 18 stage faults; 2048 empty products
+34/40 Test #1101: native-metal-multiple-reductions-optimized ..............   Passed    0.51 sec
+test 1102
+      Start 1102: native-metal-multiple-reductions-sanitized
+
+1102: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-multiple-reductions-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/multiple-reductions-sanitized"
+1102: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1102: Environment variables: 
+1102:  MTL_DEBUG_LAYER=1
+1102: Test timeout computed to be: 60
+1102: 2026-10-26 01:10:50.835 kalandra-metal-multiple-reductions-sanitized[28806:15902084] Metal API Validation Enabled
+1102: c3ad8000
+1102: Multiple reductions: 96 numerical cases; 68 allocation checkpoints; 18 stage faults; 2048 empty products
+35/40 Test #1102: native-metal-multiple-reductions-sanitized ..............   Passed    0.72 sec
+test 1103
+      Start 1103: native-metal-multiple-reductions-thread-sanitized
+
+1103: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-multiple-reductions-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/multiple-reductions-thread-sanitized"
+1103: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1103: Environment variables: 
+1103:  MTL_DEBUG_LAYER=1
+1103: Test timeout computed to be: 60
+1103: 2026-10-26 01:10:51.655 kalandra-metal-multiple-reductions-thread-sanitized[28807:15902806] Metal API Validation Enabled
+1103: c3ad8000
+1103: Multiple reductions: 96 numerical cases; 68 allocation checkpoints; 18 stage faults; 2048 empty products
+36/40 Test #1103: native-metal-multiple-reductions-thread-sanitized .......   Passed    3.10 sec
+test 1104
+      Start 1104: native-metal-reduction-feedback-debug
+
+1104: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-reduction-feedback-debug "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-feedback-debug"
+1104: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1104: Environment variables: 
+1104:  MTL_DEBUG_LAYER=1
+1104: Test timeout computed to be: 60
+1104: 2026-10-26 01:10:54.658 kalandra-metal-reduction-feedback-debug[28823:15903146] Metal API Validation Enabled
+1104: 402aaaab
+1104: Reduction feedback: 96 numerical cases; 71 allocation checkpoints; 15 stage failures
+37/40 Test #1104: native-metal-reduction-feedback-debug ...................   Passed    0.47 sec
+test 1105
+      Start 1105: native-metal-reduction-feedback-optimized
+
+1105: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-reduction-feedback-optimized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-feedback-optimized"
+1105: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1105: Environment variables: 
+1105:  MTL_DEBUG_LAYER=1
+1105: Test timeout computed to be: 60
+1105: 2026-10-26 01:10:55.155 kalandra-metal-reduction-feedback-optimized[28824:15903544] Metal API Validation Enabled
+1105: 402aaaab
+1105: Reduction feedback: 96 numerical cases; 71 allocation checkpoints; 15 stage failures
+38/40 Test #1105: native-metal-reduction-feedback-optimized ...............   Passed    0.49 sec
+test 1106
+      Start 1106: native-metal-reduction-feedback-sanitized
+
+1106: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-reduction-feedback-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-feedback-sanitized"
+1106: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1106: Environment variables: 
+1106:  MTL_DEBUG_LAYER=1
+1106: Test timeout computed to be: 60
+1106: 2026-10-26 01:10:55.693 kalandra-metal-reduction-feedback-sanitized[28825:15903937] Metal API Validation Enabled
+1106: 402aaaab
+1106: Reduction feedback: 96 numerical cases; 71 allocation checkpoints; 15 stage failures
+39/40 Test #1106: native-metal-reduction-feedback-sanitized ...............   Passed    0.62 sec
+test 1107
+      Start 1107: native-metal-reduction-feedback-thread-sanitized
+
+1107: Test command: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/kalandra-metal-reduction-feedback-thread-sanitized "/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-feedback-thread-sanitized"
+1107: Working Directory: /Users/pouya/Projects/kalandra.dev/build/native/native/metal-source
+1107: Environment variables: 
+1107:  MTL_DEBUG_LAYER=1
+1107: Test timeout computed to be: 60
+1107: 2026-10-26 01:10:56.338 kalandra-metal-reduction-feedback-thread-sanitized[28829:15904346] Metal API Validation Enabled
+1107: 402aaaab
+1107: Reduction feedback: 96 numerical cases; 71 allocation checkpoints; 15 stage failures
+40/40 Test #1107: native-metal-reduction-feedback-thread-sanitized ........   Passed    2.86 sec
+
+The following tests passed:
+	native-metal-reduction-debug
+	native-metal-reduction-optimized
+	native-metal-reduction-sanitized
+	native-metal-reduction-thread-sanitized
+	native-metal-pre-reduction-debug
+	native-metal-pre-reduction-optimized
+	native-metal-pre-reduction-sanitized
+	native-metal-pre-reduction-thread-sanitized
+	native-metal-matmul-reduction-debug
+	native-metal-matmul-reduction-optimized
+	native-metal-matmul-reduction-sanitized
+	native-metal-matmul-reduction-thread-sanitized
+	native-metal-matmul-adjust-reduction-debug
+	native-metal-matmul-adjust-reduction-optimized
+	native-metal-matmul-adjust-reduction-sanitized
+	native-metal-matmul-adjust-reduction-thread-sanitized
+	native-metal-matmul-scalar-reduction-debug
+	native-metal-matmul-scalar-reduction-optimized
+	native-metal-matmul-scalar-reduction-sanitized
+	native-metal-matmul-scalar-reduction-thread-sanitized
+	native-metal-matrix-graph-debug
+	native-metal-matrix-graph-optimized
+	native-metal-matrix-graph-sanitized
+	native-metal-matrix-graph-thread-sanitized
+	native-metal-matrix-graph-reduction-debug
+	native-metal-matrix-graph-reduction-optimized
+	native-metal-matrix-graph-reduction-sanitized
+	native-metal-matrix-graph-reduction-thread-sanitized
+	native-metal-matrix-graph-arithmetic-debug
+	native-metal-matrix-graph-arithmetic-optimized
+	native-metal-matrix-graph-arithmetic-sanitized
+	native-metal-matrix-graph-arithmetic-thread-sanitized
+	native-metal-multiple-reductions-debug
+	native-metal-multiple-reductions-optimized
+	native-metal-multiple-reductions-sanitized
+	native-metal-multiple-reductions-thread-sanitized
+	native-metal-reduction-feedback-debug
+	native-metal-reduction-feedback-optimized
+	native-metal-reduction-feedback-sanitized
+	native-metal-reduction-feedback-thread-sanitized
+
+100% tests passed out of 40
+
+Total Test time (real) =  54.43 sec

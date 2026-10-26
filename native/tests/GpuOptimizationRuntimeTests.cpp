@@ -35,6 +35,8 @@ static Bits sum(std::vector<Bits> values) {
   return values.empty() ? 0 : values.front();
 }
 static Bits sample(std::size_t i, unsigned pattern) {
+  if (pattern == 4)
+    return 0x80000000; // Padding an absent leaf with +0 would change this sum.
   if (pattern == 1) {
     constexpr Bits values[] = {0,          0x80000000, 0x3f800000, 0xbf800000,
                                0x7f800000, 0xff800000, 0x7fc12345, 0x00800000,
@@ -115,6 +117,18 @@ static void reduction(m::Runtime &r, TaskCore &core, m::Kernel map, m::Kernel re
   equal(std::bit_cast<Bits>(actual), expected, 0);
   if (kind != 2 && n)
     CHECK(r.stats().submissions == submissions + 1);
+  if (n <= 260) {
+    for (const auto &[input, expectedInput] :
+         {std::pair{da, std::cref(a)}, std::pair{db, std::cref(b)}}) {
+      auto copy = r.download(core, group, input);
+      CHECK(copy && core.drain());
+      auto host = observe(core, copy);
+      auto bytes = host.hostBytes();
+      CHECK(bytes && bytes->size() == expectedInput.get().size() * sizeof(Bits));
+      CHECK(bytes->empty() ||
+            std::memcmp(bytes->data(), expectedInput.get().data(), bytes->size()) == 0);
+    }
+  }
   retire(core, group);
 }
 static void matrix(m::Runtime &r, TaskCore &core, m::Kernel kernel, m::Kernel reduce,
@@ -268,6 +282,13 @@ int main(int argc, char **argv) {
         reduction(r, *core, kind == 1 ? *axpy : *dot, *reduce, n, pattern, kind);
   for (std::size_t seed = 0; seed < 32; ++seed)
     reduction(r, *core, *dot, *reduce, 513, 0, 0, seed * 4099);
+  // Exhaust every partial SIMD/workgroup boundary, including negative-zero
+  // tails, then cross the next two 128-way reduction-level boundaries.
+  for (std::size_t n = 0; n <= 260; ++n)
+    for (unsigned pattern : {0u, 2u, 4u})
+      reduction(r, *core, *dot, *reduce, n, pattern, 2);
+  for (auto n : {16383u, 16384u, 16385u, 2097151u, 2097152u, 2097153u})
+    reduction(r, *core, *dot, *reduce, n, 4, 2);
   reduction(r, *core, *dot, *reduce, 4194303, 0, 0);
   // Independently isolate every exceptional pair; mixed NaNs cannot hide errors.
   for (std::size_t a = 0; a < 11; ++a)
