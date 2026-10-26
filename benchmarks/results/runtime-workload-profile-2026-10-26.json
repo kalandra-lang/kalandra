@@ -1,0 +1,135 @@
+{
+  "timestamp": "2026-10-26T06:23:03.825336+00:00",
+  "contract": "Instrumented macOS sample diagnostics of owned child processes, interval default 1ms, duration 2s. Includes warmup or measured batches; these times are not acceptance results. Task diagnostic explicitly uses one host-driven worker. Sampling counts are observations, not exact exclusive time percentages.",
+  "sources": {
+    "native/benchmarks/fair/runtime_workload_profile.py": "6e9ac7b7f6752af764f87f3ff5ce14b44bc92fff29e5faccf21be2d62f2fc94e"
+  },
+  "records": [
+    {
+      "name": "arrays",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/fair/runtime-workloads/arrays",
+        "0",
+        "17",
+        "256",
+        "200000",
+        "1",
+        "4838550"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "94667",
+        "2",
+        "-file",
+        "benchmarks/results/runtime-workload-profile-2026-10-26.arrays.sample.txt"
+      ],
+      "pid": 94667,
+      "binary_sha256": "e49ea4ff825c2bf0eaf52b54fb59a5c615a0b73537412cb0d47dcfc25b2a24d3",
+      "sample_path": "benchmarks/results/runtime-workload-profile-2026-10-26.arrays.sample.txt",
+      "sample_sha256": "e1ab94defd980a2dcb6cda9bb8c4ecafbbe83058e4104fc09bcf1adda9453744",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2220139040.0,
+          "checksum": 967710000000
+        },
+        {
+          "round": -1,
+          "ns": 2246862210.0,
+          "checksum": 967710000000
+        },
+        {
+          "round": 0,
+          "ns": 2069919620.0,
+          "checksum": 967710000000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 94667 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 94667 written to file benchmarks/results/runtime-workload-profile-2026-10-26.arrays.sample.txt\n"
+    },
+    {
+      "name": "closure",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/fair/runtime-workloads/closure",
+        "1",
+        "17",
+        "0",
+        "20000000",
+        "1",
+        "17"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "94693",
+        "2",
+        "-file",
+        "benchmarks/results/runtime-workload-profile-2026-10-26.closure.sample.txt"
+      ],
+      "pid": 94693,
+      "binary_sha256": "71a48c6e48f45cbc2b21c301a2e126315b6c1f8c8035ec3cd96a706206a1ec1c",
+      "sample_path": "benchmarks/results/runtime-workload-profile-2026-10-26.closure.sample.txt",
+      "sample_sha256": "2a2917d7571317c41286d54699a5f3c9a2b9d89f721dedf4a11c7deedb3c76b1",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2747463250.0,
+          "checksum": 340000000
+        },
+        {
+          "round": -1,
+          "ns": 2508292960.0,
+          "checksum": 340000000
+        },
+        {
+          "round": 0,
+          "ns": 2366041620.0,
+          "checksum": 340000000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 94693 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 94693 written to file benchmarks/results/runtime-workload-profile-2026-10-26.closure.sample.txt\n"
+    },
+    {
+      "name": "scheduled-256",
+      "command": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/fair/runtime-workloads/scheduled-256",
+        "1",
+        "17",
+        "256",
+        "50000",
+        "1",
+        "248609"
+      ],
+      "sampler": [
+        "/usr/bin/sample",
+        "94712",
+        "2",
+        "-file",
+        "benchmarks/results/runtime-workload-profile-2026-10-26.scheduled-256.sample.txt"
+      ],
+      "pid": 94712,
+      "binary_sha256": "1c4aafa9fc54d6dda484b9c11748c454f990d334c8dd227ffbb16cd090930ea1",
+      "sample_path": "benchmarks/results/runtime-workload-profile-2026-10-26.scheduled-256.sample.txt",
+      "sample_sha256": "58bbaa1b5b1211b163485204233605cfd81f3c7781155e47d084f95f88cf2a04",
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3404721540.0,
+          "checksum": 12430450000
+        },
+        {
+          "round": -1,
+          "ns": 2822856670.0,
+          "checksum": 12430450000
+        },
+        {
+          "round": 0,
+          "ns": 2805187710.0,
+          "checksum": 12430450000
+        }
+      ],
+      "stdout": "",
+      "stderr": "Sampling process 94712 for 2 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 94712 written to file benchmarks/results/runtime-workload-profile-2026-10-26.scheduled-256.sample.txt\n"
+    }
+  ]
+}

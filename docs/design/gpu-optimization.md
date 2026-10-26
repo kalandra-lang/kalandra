@@ -10,7 +10,7 @@ The original composed map/matrix-plus-sum path submitted two command buffers and
 
 Hardware float32 bundles include an independently compiled threadgroup reduction entry. Sixty-four lanes reduce 128 contiguous leaves using the same adjacent-pair grouping, carrying missing odd leaves without adding padding zeros. Each global pass reduces the length by 128 instead of two. All inputs remain immutable, count words remain immutable through acknowledgement, and alternating scratch buffers retain their tracked dependencies.
 
-Pure hardware maps and matrix products immediately followed by a sum encode both stages into one command buffer. The invocation retains the original inputs, mapping parameters, kernels and intermediate storage until completion. Cancellation still prevents publication, and allocation/command failures unwind the same invocation ledger. Graph/control and checked numeric paths retain their existing stage boundaries.
+Pure hardware maps and matrix products immediately followed by a sum encode both stages into one command buffer. The invocation retains the original inputs, mapping parameters, kernels and intermediate storage until completion. Cancellation still prevents publication, and allocation/command failures unwind the same invocation ledger. Checked numeric/control paths retain their stage boundaries; resident float32 graphs use the separately qualified batching and fusion described below.
 
 The hardware matrix entry uses 8×8 shared-memory tiles for operand reuse. Each contraction block computes the adjacent-pair product tree; a binary-counter tree combines full blocks and carries the partial tail in the original order. The previously qualified register-quad path remains selected in its existing M2 Max crossover range. Products and sums remain separate operations, compiled with `-fno-fast-math -ffp-contract=off`.
 
@@ -45,3 +45,12 @@ The [matrix tuning follow-up](../../benchmarks/results/matrix-tuning-2026-10-25.
 This entry requires at least sixteen rows, eight columns, and a contraction length of at least 512 divisible by 64. The existing quad profile takes precedence. Pipelines supporting fewer than 128 threads, older bundles, smaller shapes, and other contraction tails retain the previous admitted paths. Dispatch sizing now follows the selected layout; the quad entry no longer launches the larger 8×8 hardware tile's work-item count. Allocation, cancellation, submitted-buffer ownership, scalar readback and arithmetic policy retain their contracts.
 
 Qualification includes 511/512/513, 575/576/577 and 640 contractions, 15/16/17 and 31/32/33 row boundaries, APFloat exceptional/rounding checks, and every cell of the timed square matrices through 2048² in all four runtime build modes.
+
+
+## Resident graph map fusion
+
+Pure float32 matrix graphs can lift a following same-cell unary map (including ReLU and captured scalar arithmetic) into the matrix kernel's final store. The compiler emits optional fused entries only for a unary read of the immediately preceding matrix. The runtime additionally checks single consumption, matching supported hardware pipelines, shape, scalar capture layout, workspace headroom and the existing batching allowance. Shared matrix values, indirect/unsupported maps, checked numeric programs, interleaved graph reductions, empty outputs and older bundles retain their staged behavior.
+
+Fusion preserves separately rounded matrix products, the exact adjacent-pair contraction tree and the post-map's operation order. It removes a matrix-sized intermediate and one dispatch per eligible edge. The four **logical** stage allowance still counts both operations; fusion does not extend cancellation's batching allowance. Both parameter blocks and all borrowed inputs remain alive and charged through actual GPU acknowledgement. Tight budgets can select the staged path. The final graph sum remains separately submitted.
+
+The [graph fusion study](../../benchmarks/results/graph-fusion-2026-10-26.md) reports complete resident timings, mixed/regressing cases, dispatch counts and payload peaks. Shader preparation/loading is outside those timings; optional entries add preparation work. This is a numerical runtime optimization, not evidence of general C++/Rust compiler parity.

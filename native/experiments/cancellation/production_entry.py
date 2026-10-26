@@ -17,6 +17,7 @@ def main():
     output = pathlib.Path(sys.argv[1])
     assert not output.exists()
     OUT.mkdir(parents=True, exist_ok=True)
+    d.build_references()
     compiler = d.ROOT / 'build/native/native/kalandra'
     runtime = d.ROOT / 'build/native/native/libkalandra-task-core-optimized.a'
     for kind, function in enumerate(d.NAMES):
@@ -72,11 +73,15 @@ def main():
                    hybrid_over_rust=times['3']/times['rust'], hybrid_over_unbound=times['3']/times['0'])
         print(json.dumps(row), flush=True)
         summary.append(row)
-    paths = (pathlib.Path(__file__), compiler, runtime,
+    paths = (pathlib.Path(__file__), pathlib.Path(d.__file__), compiler, runtime,
+             d.HERE / 'Depth.k', d.HERE / 'Depth.cpp',
+             d.ROOT / 'native/benchmarks/fair/SourceDriver.cpp',
+             d.ROOT / 'native/benchmarks/fair/source.k',
+             d.ROOT / 'native/benchmarks/fair/source.rs',
              d.ROOT / 'native/benchmarks/fair/NativeEntry.cpp', d.OUT / 'cpp', d.OUT / 'rust',
              *[OUT / name for name in d.NAMES], *OUT.glob('*.ll'))
     output.write_text(json.dumps(dict(timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        contract='Real production compiler/runtime entry; no experimental LLVM preparation or callback harness. Modes 0 unbound, 1 cooperative token, 3 integrated hybrid boundary. Fresh invocation and ledger/status/depth/numerical checks timed. Two full-batch warmups, seven randomized mirrored blocks, ordinary C++/Rust reference kernels retained from depth study. This measures native entry lifecycle, not core creation/scheduler dispatch.',
+        contract='Real production compiler/runtime entry; no experimental LLVM preparation or callback harness. Modes 0 unbound, 1 cooperative token, 3 integrated hybrid boundary. Fresh invocation and ledger/status/depth/numerical checks timed. Two full-batch warmups, seven randomized mirrored blocks, ordinary C++/Rust reference kernels freshly rebuilt from the depth-study sources. This measures native entry lifecycle, not core creation/scheduler dispatch.',
         verification=verification, samples=samples, summary=summary, commands=d.p.COMMANDS,
         hashes={d.p.key(path): d.p.sha(path) for path in paths}), indent=2)+'\n')
 

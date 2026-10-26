@@ -31,9 +31,9 @@ def audit(path):
             assert counts.setdefault(tuple(record['cell']), submissions) == submissions
             rows_count, n, layers, relu = case
             stages = layers * (2 if relu else 1)
-            if version == 'baseline':
+            if version == 'baseline' and data.get('baseline_policy') != 'four-stage batching':
                 assert submissions == stages + 1
-            if version == 'current':
+            else:
                 # Acceptance cases are either small enough for full four-stage
                 # batches or the deliberately ineligible 512-cubed control.
                 wanted = (stages + 3) // 4 + 1 if rows_count * n * n <= 64*1024*1024 else stages + 1
@@ -44,7 +44,10 @@ def audit(path):
                 while length > 1:
                     length = (length+127)//128
                     levels += 1
-                assert row['dispatches'] == (stages+levels)*count
+                fused = (layers if relu and version == 'current' and
+                         data.get('baseline_policy') == 'four-stage batching' and
+                         rows_count*n*n + rows_count*n <= 64*1024*1024 else 0)
+                assert row['dispatches'] == (stages-fused+levels)*count
                 assert row['gpu_ns'] > 0 and row['encoding_ns'] > 0
     pairs = data.get('paired', {}).get('pairs', [])
     for pair in pairs:

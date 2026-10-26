@@ -1,5 +1,7 @@
 # Fair comparisons
 
+The additional `runtime_workloads.py` suite compares runtime-input array and closure algorithms with C++/Rust; its separate task-scope diagnostic is Kalandra-only. See the reproduction and contract below.
+
 Run from the repository root on an Apple Silicon Mac with the pinned LLVM/native build, Go, Rust, NumPy and Homebrew OpenBLAS installed:
 
 ```sh
@@ -23,3 +25,11 @@ Timed dyadic input checksums must match exact independent integer references wit
 `--verify-only` on the library runner builds and qualifies without timing. `--reuse-build --reuse-verification` accepts only matching source/dependency/artifact hashes and reuses that qualification. Full build commands remain in the final evidence. Do not change benchmark files between qualification and measurement.
 
 For paired matrix-only tuning, save a baseline compiler plus the fair suite's float32 GPU executable and complete GPU bundle **before** rebuilding. Then run `python3 native/benchmarks/matrix_run.py --baseline-compiler <saved-compiler> --baseline-gpu <saved-gpu> --baseline-gpu-bundle <saved-bundle> --output <unused.json>`. Both CPU versions use the same current runtime archive; preserve compatible baseline artifacts. `--build-only` prepares and fingerprints artifacts without timing; `--reuse-build` rejects changed inputs/artifacts before measurement. Run conformance separately before acceptance timing and keep the host free of builds/tests. The [recorded matrix report](../../../benchmarks/results/matrix-tuning-2026-10-25.md) discloses the baseline revision, experiments and remaining gaps.
+
+## Arrays, closures and task scopes
+
+`python3 native/benchmarks/fair/runtime_workloads.py --output <unused.json>` compares Kalandra, C++ and Rust on two additional runtime-input algorithms: repeated eight-element immutable array maps, and repeated application of a scalar-capturing closure through a tail-recursive helper. Each array pass constructs a fresh output in source. C++ templates and Rust generics can specialize the closure normally; no forced dynamic dispatch or artificial optimizer barrier is added to their kernels. A shared external C++ driver times and validates all three implementations. Compilation is separate with no cross-object LTO. Integer inputs avoid overflow; every result must exactly equal an independent integer oracle, including all warmups and edge cases.
+
+Kalandra measurements include fresh invocation setup, automatic cancellation, checked arithmetic, allocation/ownership and settlement. Array sizes are deliberately small, exposing per-allocation cost; this is not an array bandwidth benchmark. Zero rounds expose fixed entry/construction overhead and are reported separately from substantial work. Use `--build-only` followed by `--reuse-build` to separate compilation from timing; hashes must match. Three shuffled fresh processes per cell use two warmups, seven measured batches and a 20 ms calibration target.
+
+The same runner records a separate Kalandra-only task-scope diagnostic. Fixed-input source programs invoke the same closure computation synchronously or through a complete `parallel` scope with `spawn`/`await`. Scope/scheduler creation and teardown are included; process startup is excluded. The task entry uses the production task ABI, with explicit eight-worker and host-driven one-worker runs. This measures the cost of the complete compiled construct, not steady-state queue latency, and makes no C++/Rust scheduler-parity claim. `runtime_workload_profile.py --output <unused.json>` samples only its own benchmark child processes in a separate diagnostic run; those instrumented timings are not performance acceptance data.

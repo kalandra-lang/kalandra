@@ -87,6 +87,11 @@ def build():
                 manifest.write_text("".join(f"{key} {size}\n" for key, size in spans.items()))
                 transform([manifest])
                 assert preparation.extents(binary) == spans
+    build_references()
+
+
+def build_references():
+    OUT.mkdir(parents=True, exist_ok=True)
     driver = (ROOT / "native/benchmarks/fair/SourceDriver.cpp").read_text()
     assert driver.count("kind > 2") == driver.count("depth > 14") == 1
     driver = driver.replace("kind > 2", "kind > 3").replace("depth > 14", "depth > (kind == 3 ? 10000 : 22)")

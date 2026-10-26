@@ -113,8 +113,8 @@ struct Plan {
   }
 };
 int main(int argc, char **argv) {
-  CHECK(argc == 3);
-  auto made = m::Runtime::create();
+  CHECK(argc == 5);
+  auto made = m::Runtime::create({.profile = true});
   CHECK(made);
   auto &r = **made;
   auto device = r.device();
@@ -168,10 +168,12 @@ int main(int argc, char **argv) {
           auto group = core->openRoot();
           const Plan plan(layers, mapped ? *map : m::Kernel{});
           const auto before = r.stats().submissions;
+          const auto dispatches = r.stats().dispatches;
           auto work =
               r.matmulGraph(*core, group, *kernel, std::array{ga, gb}, plan.edges, plan.maps);
           CHECK(work && core->drain());
           CHECK(r.stats().submissions - before == (n ? (plan.edges.size() + 3) / 4 : 0));
+          CHECK(r.stats().dispatches - dispatches == (n ? layers : 0));
           auto value = observe(*core, work);
           auto downloaded = r.download(*core, group, value);
           CHECK(downloaded && core->drain());
@@ -321,6 +323,60 @@ int main(int argc, char **argv) {
     for (unsigned i = 0; i < 4; ++i)
       expected = multiply(expected, first, 2, 2, 2);
     compare(observe(*core, d), expected);
+    retire(*core, group);
+    empty(r, baseline);
+  }
+  // The original matrix remains available when another stage consumes it.
+  {
+    auto core = TaskCore::create();
+    auto group = core->openRoot();
+    const std::array<m::MatrixProduct, 3> edges{{{0, 0}, {1, 1}, {1, 2}}};
+    const std::array<m::Kernel, 3> maps{{{}, *map, {}}};
+    const auto before = r.stats().dispatches;
+    auto t = r.matmulGraph(*core, group, *kernel, std::array{a}, edges, maps);
+    CHECK(t && core->drain() && r.stats().dispatches == before + 3);
+    auto d = r.download(*core, group, observe(*core, t));
+    CHECK(d && core->drain());
+    compare(observe(*core, d), std::vector<std::uint32_t>(4, 0x41000000u));
+    retire(*core, group);
+    empty(r, baseline);
+  }
+  // Scalar captures and explicit unique operand lists survive fused batches.
+  {
+    auto scale = r.loadElementwiseKernel(std::string(argv[3]) + "/kernel0-map1.metallib",
+                                         *device, {1, 1});
+    CHECK(scale);
+    auto core = TaskCore::create();
+    auto group = core->openRoot();
+    Plan plan(5, *scale);
+    std::array<std::uint32_t, 5> operands;
+    for (unsigned i = 0; i < 5; ++i) {
+      operands[i] = plan.edges[2 * i + 1].left;
+      plan.edges[2 * i + 1].operands = std::span(&operands[i], 1);
+    }
+    const auto before = r.stats().dispatches;
+    auto t = r.matmulGraph(*core, group, *kernel, std::array{a, a}, plan.edges, plan.maps,
+                            std::array{-0.5f});
+    CHECK(t && core->drain() && r.stats().dispatches == before + 5);
+    auto d = r.download(*core, group, observe(*core, t));
+    CHECK(d && core->drain());
+    compare(observe(*core, d), std::vector<std::uint32_t>(4, 0xbf800000u));
+    retire(*core, group);
+    empty(r, baseline);
+  }
+  // A map library without optional fused entries retains its staged path.
+  {
+    auto plain = r.loadElementwiseKernel(std::string(argv[4]) + "/kernel0.metallib", *device, {1, 0});
+    CHECK(plain);
+    const Plan plan(4, *plain);
+    auto core = TaskCore::create();
+    auto group = core->openRoot();
+    const auto before = r.stats().dispatches;
+    auto t = r.matmulGraph(*core, group, *kernel, std::array{a, a}, plan.edges, plan.maps);
+    CHECK(t && core->drain() && r.stats().dispatches == before + 8);
+    auto d = r.download(*core, group, observe(*core, t));
+    CHECK(d && core->drain());
+    compare(observe(*core, d), std::vector<std::uint32_t>(4, 0x41800000u));
     retire(*core, group);
     empty(r, baseline);
   }

@@ -1,0 +1,24 @@
+[
+  {
+    "path": "benchmarks/results/runtime-workloads-2026-10-26.json",
+    "sha256": "c153e4546022302a8f8ae6dad3c8c3b5101d2880f018b08a955902604e926890",
+    "verification_workloads": 99,
+    "measured_processes": 99,
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/production-cancellation-refresh-2026-10-26.json",
+    "sha256": "d0ed694406e0477f1ef03141651b19817d0c520b2039f967f819917be537b815",
+    "verification_workloads": 300,
+    "timed_samples": 1120,
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/runtime-workload-profile-2026-10-26.json",
+    "sha256": "bf6cbf599accbc5da86bc9929fa2d61e81ac034819302eef6ada4326ece72b4f",
+    "profiles": 3,
+    "verified": true
+  }
+]

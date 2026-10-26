@@ -24,6 +24,36 @@ source = root / 'native/benchmarks/GraphBatch.k'
 run([compiler, source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', bundle])
 assert 'matrix_graph_stages=4' in (bundle / 'manifest.txt').read_text()
 assert 'kalandra_matmul_hardware_tiled' in (bundle / 'kernel0.metal').read_text()
+assert 'kalandra_matmul_fused_tiled' in (bundle / 'kernel0-map1.metal').read_text()
+scalar_source = args.output / 'scalar.k'
+scalar_source.write_text('''fn scaled(a:Tensor[float32,?,?],b:Tensor[float32,?,?],scale:float32)->Tensor[float32,?,?]:
+  first=matmul(a,b)*scale
+  matmul(first,b)*scale
+fn main()->Tensor[float32,?,?] ! TaskError:
+  try parallel:
+    x:Tensor[float32,2,2]=tensor([[1,0],[0,1]])
+    gpu=devices.gpu()
+    a=try await transfer(x,gpu)
+    value=try await spawn scaled(a,a,0.5) on gpu
+    try await transfer(value,devices.cpu())
+''')
+scalar = args.output / 'scalar'
+run([compiler, scalar_source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', scalar])
+assert 'kalandra_matmul_fused_tiled' in (scalar / 'kernel0-map1.metal').read_text()
+fallback_source = args.output / 'fallback.k'
+fallback_source.write_text('''fn activate(a:Tensor[float32,?,?])->Tensor[float32,?,?]:
+  relu(a)
+fn main()->Tensor[float32,?,?] ! TaskError:
+  try parallel:
+    x:Tensor[float32,2,2]=tensor([[1,0],[0,1]])
+    gpu=devices.gpu()
+    a=try await transfer(x,gpu)
+    value=try await spawn activate(a) on gpu
+    try await transfer(value,devices.cpu())
+''')
+fallback = args.output / 'fallback'
+run([compiler, fallback_source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', fallback])
+assert 'kalandra_matmul_fused_' not in (fallback / 'kernel0.metal').read_text()
 indirect_source = args.output / 'indirect.k'
 tensor = 'Tensor[float32,?,?]'
 parameters = [f'c{i}:'+tensor for i in range(31)]
@@ -47,7 +77,7 @@ for variant, flags, runtime in variants:
          compiler.parent / 'metal' / f'libkalandra-metal-{variant}.a', compiler.parent / runtime,
          '-L' + str(llvm / 'lib'), '-lLLVM', '-Wl,-rpath,' + str(llvm / 'lib'),
          '-framework', 'Foundation', '-framework', 'Metal', '-o', binary])
-    print(variant + ': ' + run([binary, bundle, indirect]).strip(), flush=True)
+    print(variant + ': ' + run([binary, bundle, indirect, scalar, fallback]).strip(), flush=True)
     target = args.output / ('source-' + variant)
     flag = dict(optimized='-O2', debug='-O0', sanitized='--sanitize', **{'thread-sanitized':'--thread-sanitize'})[variant]
     run([compiler, source, '--target', 'metal', '--arithmetic', 'hardware', flag, '-o', target])

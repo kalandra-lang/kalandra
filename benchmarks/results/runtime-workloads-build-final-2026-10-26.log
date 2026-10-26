@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/runtime_workloads.py", line 94, in <module>
+    if __name__ == '__main__': main()
+                               ~~~~^^
+  File "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/runtime_workloads.py", line 64, in main
+    assert len(entry) == 1, entry
+           ^^^^^^^^^^^^^^^
+AssertionError: ['_mlir_ciface_kalandra_float64_entry', '_mlir_ciface_kalandra_test_entry']

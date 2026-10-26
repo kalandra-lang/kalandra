@@ -28,7 +28,8 @@ int main(int argc, char **argv) {
       if (mode) invocation.bindCancellation(&token);
       invocation.allowNativeInterrupts(mode == 3);
       const auto value = _mlir_ciface_kalandra_test_entry(seed, depth, &invocation);
-      if (invocation.status() || invocation.callDepth() || std::abs(value - expected) > tolerance)
+      if (invocation.status() || invocation.callDepth() || !std::isfinite(value) ||
+          std::abs(value - expected) > tolerance)
         std::abort();
       invocation.settle();
       if (invocation.live() || invocation.allocations() != invocation.releases()) std::abort();

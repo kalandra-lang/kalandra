@@ -20,11 +20,14 @@ def main():
     parser.add_argument('--reuse-build', action='store_true')
     parser.add_argument('--build-only', action='store_true')
     parser.add_argument('--profile-only', action='store_true')
+    parser.add_argument('--build-dir', type=Path)
+    parser.add_argument('--baseline-batched', action='store_true')
+    parser.add_argument('--target-ms', type=float, default=20)
     args = parser.parse_args()
     assert not args.output.exists()
     assert all(os.getenv(k) in (None, '', '0') for k in ('KALANDRA_GPU_PROFILE', 'MTL_DEBUG_LAYER', 'MTL_SHADER_VALIDATION', 'DYLD_INSERT_LIBRARIES'))
     root = p.ROOT
-    build = root / 'benchmarks/.build/graph-batching-2026-10-26/paired'
+    build = args.build_dir or root / 'benchmarks/.build/graph-batching-2026-10-26/paired'
     build.mkdir(parents=True, exist_ok=True)
     compiler = root / 'build/native/native/kalandra'
     task = compiler.parent / 'libkalandra-task-core-optimized.a'
@@ -33,7 +36,9 @@ def main():
     driver = root / 'native/benchmarks/fair/GraphBatchGpu.cpp'
     sources = [Path(__file__), driver, root/'native/benchmarks/fair/protocol.py',
                root/'native/benchmarks/GraphBatch.k', root/'native/metal/Metal.mm',
-               root/'native/metal/Metal.h', root/'native/metal/MatmulLayout.h']
+               root/'native/metal/Metal.h', root/'native/metal/MatmulLayout.h',
+               root/'native/metal-source/Compiler.cpp', root/'native/metal-source/Build.cpp',
+               root/'native/metal-source/MatmulEpilogue.h']
     signature = {str(f):p.sha(f) for f in sources+[compiler,task,metal,args.baseline_metal]}
     manifest = build/'manifest.json'
     if args.reuse_build:
@@ -62,7 +67,9 @@ def main():
         for row in rows:
             assert row['submissions']==row['completions']
             assert row['submissions']%count==0
-            if version=='baseline':assert row['submissions']==count*(stages+1)
+            if version=='baseline':
+                commands = ((stages+3)//4 if args.baseline_batched and case[0]*case[1]*case[1] <= 64*1024*1024 else stages)+1
+                assert row['submissions']==count*commands
         if count==1:calibration.append(dict(cell=cell,iterations=count,samples=rows))
         return rows
     cells=[[v,*case] for v in ('baseline','current') for case in CASES]
@@ -75,8 +82,9 @@ def main():
                     cell=[v,*case]
                     result['profiles'].append(dict(cell=cell,block=block,iterations=3,samples=invoke(cell,3,3,dict(os.environ,KALANDRA_GPU_PROFILE='1'))))
     else:
-        result['paired']=p.measure_paired(cells,invoke,lambda c:expected[tuple(c[1:])],blocks=args.blocks,rounds=3,target_ms=20)
+        result['paired']=p.measure_paired(cells,invoke,lambda c:expected[tuple(c[1:])],blocks=args.blocks,rounds=3,target_ms=args.target_ms)
     result['calibration']=calibration
+    result['baseline_policy']='four-stage batching' if args.baseline_batched else 'one stage per command'
     assert {str(f):p.sha(f) for f in sources+[compiler,task,metal,args.baseline_metal]}==signature,'source changed during timing'
     saved=json.loads(manifest.read_text())
     assert all(p.sha(path)==h for path,h in saved['hashes'].items())

@@ -835,6 +835,7 @@ struct Bridge {
     // all tensor owners; these slots keep immutable encoder parameters and
     // indirect resources charged until the whole command acknowledges.
     std::array<std::shared_ptr<MetalAllocation>, 3> graphParameters{}, graphResources{};
+    std::array<std::shared_ptr<MetalAllocation>, 3> graphPostParameters{};
     unsigned graphBatched = 0;
     std::uint64_t graphWork = 0;
     Kernel matrixKernel{}, graphKernel{};
@@ -1677,6 +1678,7 @@ struct Bridge {
               releaseGraphOperands(graph, i);
             f.graphParameters = {};
             f.graphResources = {};
+            f.graphPostParameters = {};
             f.graphBatched = 0;
             f.graphWork = 0;
             if (!graph.reductions.empty() && f.graphPhase > 0) {
@@ -2002,12 +2004,38 @@ struct Bridge {
         }
         unsigned fusedVariant = 0;
         bool fusePost = false;
-        if (matrix && f.packet.matrixPost.state_ && f.packet.postArguments &&
+        Kernel graphPost;
+        std::shared_ptr<const Arguments> graphPostArguments;
+        if (matrix && f.packet.graph && !f.graphPhase &&
+            f.packet.graph->reductions.empty() && f.graphBatched < f.graphParameters.size()) {
+          const auto &graph = *f.packet.graph;
+          const auto next = f.graphStage + 1;
+          if (next < graph.products.size() && !graph.maps.empty() && graph.maps[next]) {
+            const auto &edge = graph.products[next];
+            const auto value = graph.inputs + f.graphStage;
+            const auto &post = graph.maps[next].state_;
+            const auto work = graphStageWork(f, f.graphStage) + graphStageWork(f, next);
+            const bool unary = edge.operands.empty()
+                                   ? edge.left == value && edge.right == value && graph.uses[value] == 2
+                                   : edge.operands.size() == 1 && edge.operands[0] == value &&
+                                         graph.uses[value] == 1;
+            // Preserve the four-logical-stage and estimated-work cancellation
+            // allowance, including the map that will no longer dispatch.
+            if (unary && post->signature && post->signature->tensors == 1 &&
+                work <= graphWorkLimit && f.graphWork <= graphWorkLimit - work) {
+              graphPost = graph.maps[next];
+              graphPostArguments = graph.mapArguments[next];
+            }
+          }
+        }
+        const auto &postKernel = graphPost ? graphPost : f.packet.matrixPost;
+        const auto &postArguments = graphPost ? graphPostArguments : f.packet.postArguments;
+        if (matrix && postKernel.state_ && postArguments &&
             f.packet.kernel.state_->tiledMatrix && !f.packet.kernel.state_->numericType &&
-            !f.packet.graph && !f.packet.numericProgram && !f.packet.epilogue && !f.matrixStage &&
+            (!f.packet.graph || graphPost) && !f.packet.numericProgram && !f.packet.epilogue && !f.matrixStage &&
             matrixShape[0] && matrixShape[1]) {
           const auto &base = f.packet.kernel.state_;
-          const auto &post = f.packet.matrixPost.state_;
+          const auto &post = postKernel.state_;
           auto layout = MatmulLayout::Scalar;
           if (base->matrixTiles[0] && base->matrixTiles[1])
             layout = selectMatmulLayout(std::uint32_t(matrixShape[0]),
@@ -2038,8 +2066,15 @@ struct Bridge {
                              : 0;
           fusePost = !post->numericType && !post->indirect() && post->fusedMatrices[fusedVariant] &&
                      (layout != MatmulLayout::Quad || registers);
+          if (fusePost && graphPost) {
+            const auto used = state->bytes.load();
+            const auto needed = std::uint64_t(matrixShape[0]) * matrixShape[1] * 4 + 12 +
+                                4ull * post->parameterWords();
+            if (used > state->options.maxBytes || needed > state->options.maxBytes - used)
+              fusePost = false;
+          }
           if (fusePost) {
-            const auto &arguments = f.packet.postArguments;
+            const auto &arguments = postArguments;
             const auto signature = post->signature.value_or(ElementwiseSignature{2, 0});
             if (arguments->tensors.size() != signature.tensors ||
                 arguments->scalarBits.size() != post->scalarWords()) {
@@ -2150,7 +2185,7 @@ struct Bridge {
             }
             f.staging = *parametersBuffer;
             if (fusePost) {
-              const auto &post = f.packet.matrixPost.state_;
+              const auto &post = postKernel.state_;
               auto parameters = allocateMetal(state, index, 4ull * post->parameterWords(), true);
               if (!parameters) {
                 task.fault(std::int64_t(parameters.error()));
@@ -2159,8 +2194,8 @@ struct Bridge {
               f.fusedParameters = *parameters;
               auto *words = static_cast<std::uint32_t *>((*parameters)->buffer.contents);
               words[0] = std::uint32_t(std::uint64_t(matrixShape[0]) * matrixShape[1]);
-              std::copy(f.packet.postArguments->scalarBits.begin(),
-                        f.packet.postArguments->scalarBits.end(), words + 1);
+              std::copy(postArguments->scalarBits.begin(),
+                        postArguments->scalarBits.end(), words + 1);
             }
             if ((f.packet.graph && f.graphPhase == 2) || f.packet.numericScalar) {
               auto readback =
@@ -2258,7 +2293,7 @@ struct Bridge {
             if (hardwareSkinny)
               pipeline = kernel->skinnyMatrix;
             if (fusePost)
-              pipeline = f.packet.matrixPost.state_->fusedMatrices[fusedVariant];
+              pipeline = postKernel.state_->fusedMatrices[fusedVariant];
             [encoder setComputePipelineState:pipeline];
             if (!kernel->indirect()) {
               [encoder setBuffer:(matrix || kernel->numericType) && !source->size
@@ -2318,9 +2353,9 @@ struct Bridge {
             } else
               [encoder setBuffer:f.staging->buffer offset:0 atIndex:tensors + 1];
             if (fusePost) {
-              const auto &post = f.packet.matrixPost.state_;
+              const auto &post = postKernel.state_;
               for (std::uint32_t i = 1; i < post->readCount; ++i) {
-                const auto &input = f.packet.postArguments->tensors[post->tensorIndex(i)].storage_;
+                const auto &input = postArguments->tensors[post->tensorIndex(i)].storage_;
                 [encoder setBuffer:input->metal->buffer offset:0 atIndex:i + 3];
               }
               [encoder setBuffer:f.fusedParameters->buffer offset:0 atIndex:post->readCount + 3];
@@ -2343,8 +2378,15 @@ struct Bridge {
             [encoder dispatchThreadgroups:MTLSizeMake((lanes + threads - 1) / threads, 1, 1)
                     threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
             [encoder endEncoding];
-            if (fusePost)
-              f.fusedPostKernel = std::move(f.packet.matrixPost);
+            if (fusePost) {
+              f.fusedPostKernel = postKernel;
+              if (graphPost) {
+                f.graphWork += graphStageWork(f, f.graphStage);
+                ++f.graphStage;
+                ++f.graphBatched;
+              } else
+                f.packet.matrixPost = {};
+            }
             if ((f.packet.graph && f.graphPhase == 2) || f.packet.numericScalar) {
               id<MTLBlitCommandEncoder> blit = state->permit() ? [command blitCommandEncoder] : nil;
               if (!blit) {
@@ -2417,6 +2459,7 @@ struct Bridge {
         if (batchGraphStage(f)) {
           f.graphWork += graphStageWork(f, f.graphStage);
           f.graphParameters[f.graphBatched] = std::move(f.staging);
+          f.graphPostParameters[f.graphBatched] = std::move(f.fusedParameters);
           f.graphResources[f.graphBatched++] = std::move(f.resources);
           f.packet.graph->values[f.packet.graph->inputs + f.graphStage] = std::move(f.result);
           ++f.graphStage;

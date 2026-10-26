@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/runtime_workloads.py", line 89, in <module>
+    if __name__ == '__main__': main()
+                               ~~~~^^
+  File "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/runtime_workloads.py", line 47, in main
+    p.run([compiler,source,'--test-entry',name,'--emit-llvm',ir,'-O2','-o',build/(name+'-standalone')])
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/protocol.py", line 12, in run
+    if p.returncode:raise RuntimeError(f'{argv}: {p.returncode}\n{p.stdout}\n{p.stderr}')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: ['/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra', '/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/RuntimeWorkloads.k', '--test-entry', 'arrays', '--emit-llvm', '/Users/pouya/Projects/kalandra.dev/benchmarks/.build/fair/runtime-workloads/arrays.ll', '-O2', '-o', '/Users/pouya/Projects/kalandra.dev/benchmarks/.build/fair/runtime-workloads/arrays-standalone']: 1
+
+native lowering: private task test entry requires a parameterless numeric/Bool function or a record/String function with typed parameters
+

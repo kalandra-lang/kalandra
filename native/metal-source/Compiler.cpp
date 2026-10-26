@@ -3508,9 +3508,20 @@ public:
       }
       if (const auto &graph = matrixGraph(function); graph)
         for (std::size_t stage = 0; stage < graph->maps.size(); ++stage)
-          if (graph->maps[stage])
-            outputs[base + "-map" + std::to_string(stage) + ".mlir"] =
-                shader(function, nullptr, false, -1, false, stage);
+          if (graph->maps[stage]) {
+            std::vector<std::uint32_t> reads;
+            auto map = shader(function, &reads, false, -1, false, stage);
+            // Optional same-cell unary epilogue. The runtime also requires a
+            // sole consumer before eliding the original matrix value.
+            if (stage && !graph->maps[stage - 1] && reads.size() == 1 &&
+                reads.front() == graph->inputs + stage - 1) {
+              unsigned scalars = 0;
+              for (auto parameter : cpu.functions[function].parameters)
+                scalars += !cpu.symbols[parameter].type.tensor;
+              map = "// kalandra.matmul.epilogue 1 " + std::to_string(scalars) + "\n" + map;
+            }
+            outputs[base + "-map" + std::to_string(stage) + ".mlir"] = std::move(map);
+          }
       if (matrixFunction(function) ||
           (matrixGraph(function) && matrixGraph(function)->matrixCount)) {
         outputs[base + "-rows2.mlir"] = matmulRows2Shader;
