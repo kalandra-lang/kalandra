@@ -1,0 +1,14 @@
+[0/1] Re-running CMake...
+-- Configuring done (1.0s)
+-- Generating done (0.7s)
+-- Build files have been written to: /Users/pouya/Projects/kalandra.dev/build/native
+[1/37] Generating CXX dyndep file native/CMakeFiles/kalandra-task-core-optimized.dir/CXX.dd
+[2/32] Generating CXX dyndep file native/CMakeFiles/kalandra-native-runtime.dir/CXX.dd
+[3/25] Generating CXX dyndep file native/CMakeFiles/kalandra-native-runtime-sanitized.dir/CXX.dd
+[4/18] Generating CXX dyndep file native/CMakeFiles/kalandra-native-runtime-thread-sanitized.dir/CXX.dd
+[5/11] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-debug.dir/Metal.mm.o
+[6/11] Linking CXX static library native/metal/libkalandra-metal-debug.a
+[7/11] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-thread-sanitized.dir/Metal.mm.o
+[8/11] Linking CXX static library native/metal/libkalandra-metal-thread-sanitized.a
+[9/11] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-sanitized.dir/Metal.mm.o
+[10/11] Linking CXX static library native/metal/libkalandra-metal-sanitized.a

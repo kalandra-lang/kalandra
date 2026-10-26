@@ -287,3 +287,15 @@ The [private recursive state report](../../benchmarks/results/recursive-register
 [The matrix investigation](../../benchmarks/results/microkernel-investigation-2026-10-25.md) records encoder-boundary timestamps, 29 rejected strict candidates and a seven-block paired confirmation across nine shapes. No production shader/runtime changes are made. [matrix_pipeline_stages.py](matrix_pipeline_stages.py) profiles the hardware bundle generated from [Pipeline.k](Pipeline.k), using timestamp sampling and an unsampled control. [matrix_microkernel_study.py](matrix_microkernel_study.py) reproduces the `initial`, `scheduled`, `vector` and `simd` suites; [matrix_microkernel_confirm.py](matrix_microkernel_confirm.py) performs mirrored paired confirmation from a saved screening library. Choose unused output paths and retain generated artifacts if confirming a candidate later.
 
 Screens verify every dyadic output cell and a poison/suffix guard outside timing. They exclude managed allocation/scheduling, and do not replace APFloat/non-dyadic/NaN, failure/cancellation, sanitizer or complete-pipeline qualification before promotion. The measured M2 Max exposes only public timestamp counters, so these tools do not establish instruction-level occupancy/stall causes. See the report for limits, complete commands and all retained regressions.
+
+## Resident graph submission batching
+
+[graph_batching.py](graph_batching.py) compares complete resident projection chains using the same generated shaders, C++ driver and task runtime with two Metal runtime archives. Freeze the baseline archive before rebuilding the changed runtime. It checks every timed, warmup and calibration result against an untimed strict float32 reference, including separately rounded products and adjacent sums; the physical correctness gate additionally uses APFloat per-cell references.
+
+```sh
+python3 native/benchmarks/graph_batching.py \
+  --baseline-metal /path/to/frozen/libkalandra-metal-optimized.a \
+  --blocks 6 --output benchmarks/results/graph-reproduction.json
+```
+
+`--reuse-build` verifies the saved source/artifact manifest before using the same binaries again. `--profile-only` records GPU command duration, encoding time and dispatch counts in separate runs. Performance runs exclude initial uploads/loading, include all per-call graph captures, allocations, task scheduling, scalar completion and cleanup, and preserve all paired samples. Do not run competing builds, tests or profilers during timing. Use [graph_batching_audit.py](graph_batching_audit.py) to recompute checksums, submission counts and paired summaries from the records. See [results and tradeoffs](../../benchmarks/results/graph-batching-2026-10-26.md) for scope, cancellation boundaries, memory peaks and controls.

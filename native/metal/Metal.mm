@@ -831,6 +831,12 @@ struct Bridge {
     Kernel fusedPostKernel{};
     std::shared_ptr<MetalAllocation> fusedParameters;
     id<MTLCommandBuffer> pendingCommand = nil;
+    // Up to four short, pure graph stages share a command. Graph values keep
+    // all tensor owners; these slots keep immutable encoder parameters and
+    // indirect resources charged until the whole command acknowledges.
+    std::array<std::shared_ptr<MetalAllocation>, 3> graphParameters{}, graphResources{};
+    unsigned graphBatched = 0;
+    std::uint64_t graphWork = 0;
     Kernel matrixKernel{}, graphKernel{};
     std::size_t graphStage = 0, reductionStage = 0;
     unsigned graphPhase = 0;
@@ -1344,6 +1350,64 @@ struct Bridge {
     f.packet.input = graph.values[edge.left];
     f.packet.right = graph.values[edge.right];
   }
+  static void releaseGraphOperands(MatrixGraphArguments &graph, std::size_t stage) {
+    const auto &edge = graph.products[stage];
+    const auto release = [&](std::uint32_t operand) {
+      if (!--graph.uses[operand])
+        graph.values[operand] = {};
+    };
+    if (edge.operands.empty()) {
+      release(edge.left);
+      release(edge.right);
+    } else
+      for (auto operand : edge.operands)
+        release(operand);
+  }
+  // This is a dispatch policy, not a language bound. Large operations retain
+  // their individual acknowledgement checkpoints. Count products for matrices
+  // and output elements for maps; neither count is a wall-clock guarantee.
+  static constexpr std::uint64_t graphWorkLimit = 64 * 1024 * 1024;
+  static std::uint64_t graphStageWork(const Frame &f, std::size_t stage) {
+    const auto &graph = *f.packet.graph;
+    const auto &shape = graph.shapes[graph.inputs + stage];
+    const auto cells = std::uint64_t(shape[0]) * std::uint64_t(shape[1]);
+    if (!cells || cells > graphWorkLimit)
+      return graphWorkLimit + 1;
+    if (!graph.maps.empty() && graph.maps[stage])
+      return cells;
+    const auto inner = std::uint64_t(graph.shapes[graph.products[stage].left][1]);
+    return inner > graphWorkLimit / cells ? graphWorkLimit + 1 : cells * inner;
+  }
+  static bool batchGraphStage(const Frame &f) {
+    if (!f.packet.graph || f.graphPhase || f.packet.numericProgram ||
+        !f.packet.graph->reductions.empty() || !f.graphKernel.state_->tiledMatrix ||
+        f.packet.kernel.state_->numericType || f.graphBatched == f.graphParameters.size() ||
+        f.graphStage + 1 == f.packet.graph->products.size() || !f.result.bytes())
+      return false;
+    const auto &graph = *f.packet.graph;
+    const auto next = f.graphStage + 1;
+    const auto &kernel = !graph.maps.empty() && graph.maps[next]
+                             ? graph.maps[next].state_
+                             : f.graphKernel.state_;
+    if (kernel->numericType)
+      return false;
+    const auto work = graphStageWork(f, f.graphStage), following = graphStageWork(f, next);
+    if (work > graphWorkLimit || f.graphWork > graphWorkLimit - work ||
+        following > graphWorkLimit - work - f.graphWork)
+      return false;
+    const auto &shape = graph.shapes[graph.inputs + next];
+    const auto bytes = std::uint64_t(shape[0]) * std::uint64_t(shape[1]) * 4;
+    if (!bytes)
+      return false; // Empty stages keep their no-command path.
+    const auto parameters = kernel->matrix ? 12 : 4ull * kernel->parameterWords();
+    const auto needed = bytes + parameters + kernel->encodedBytes;
+    const auto &state = f.packet.state;
+    const auto used = state->bytes.load();
+    // Flush before the next allocation when batching would prevent last-use
+    // reclamation from fitting it. The normal allocator remains authoritative
+    // if another task consumes the available budget concurrently.
+    return used <= state->options.maxBytes && needed <= state->options.maxBytes - used;
+  }
   static void resume(Task &task) {
     for (;;) {
       @autoreleasepool {
@@ -1607,6 +1671,14 @@ struct Bridge {
           }
           if (f.packet.graph) {
             auto &graph = *f.packet.graph;
+            // Earlier encoded results were private to this task and their
+            // last-use reclamation was deferred until actual acknowledgement.
+            for (std::size_t i = f.graphStage - f.graphBatched; i < f.graphStage; ++i)
+              releaseGraphOperands(graph, i);
+            f.graphParameters = {};
+            f.graphResources = {};
+            f.graphBatched = 0;
+            f.graphWork = 0;
             if (!graph.reductions.empty() && f.graphPhase > 0) {
               if (f.graphPhase == 2) {
                 std::memcpy(&f.scalar, f.joinReadback->buffer.contents, 4);
@@ -1637,23 +1709,13 @@ struct Bridge {
                 return;
               continue;
             }
-            const auto edge = graph.products[f.graphStage];
             f.staging.reset();
             f.resources.reset();
             f.packet.input = {};
             f.packet.right = {};
             f.packet.arguments.reset();
             graph.values[graph.inputs + f.graphStage] = std::move(f.result);
-            const auto release = [&](std::uint32_t operand) {
-              if (!--graph.uses[operand])
-                graph.values[operand] = {};
-            };
-            if (edge.operands.empty()) {
-              release(edge.left);
-              release(edge.right);
-            } else
-              for (auto operand : edge.operands)
-                release(operand);
+            releaseGraphOperands(graph, f.graphStage);
             ++f.graphStage;
             if (graph.tensorResult && f.graphStage == graph.products.size()) {
               f.result = std::move(graph.values.back());
@@ -2351,6 +2413,25 @@ struct Bridge {
               return;
             }
           }
+        }
+        if (batchGraphStage(f)) {
+          f.graphWork += graphStageWork(f, f.graphStage);
+          f.graphParameters[f.graphBatched] = std::move(f.staging);
+          f.graphResources[f.graphBatched++] = std::move(f.resources);
+          f.packet.graph->values[f.packet.graph->inputs + f.graphStage] = std::move(f.result);
+          ++f.graphStage;
+          f.packet.input = {};
+          f.packet.right = {};
+          f.packet.arguments.reset();
+          f.pendingCommand = command;
+          f.started = false;
+          if (state->options.profile)
+            state->encodingNanoseconds += std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                              std::chrono::steady_clock::now() - encodingStart)
+                                              .count();
+          if (task.cancelled())
+            return;
+          continue;
         }
         // Hardware float32 post-maps have no checked device fault or observable
         // host boundary. Batch only with ample workspace headroom; tight budgets
