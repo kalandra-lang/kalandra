@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
   const auto expected = std::strtod(argv[6], nullptr);
   if (kind < 0 || kind > 1 || seed < 1 || seed > 31 || rounds < 0 || rounds > 4096 ||
       count < 1 || batches < 1 || !std::isfinite(expected)) return 2;
-#if defined(KALANDRA_KERNEL) || defined(FIXED_ENTRY)
+#if (defined(KALANDRA_KERNEL) || defined(FIXED_ENTRY)) && !defined(KALANDRA_ORDINARY_EXECUTION)
   if (!kalandra::runtime::initializeNativeCancellation()) return 3;
 #endif
   for (long long batch = -2; batch < batches; ++batch) {
@@ -30,9 +30,11 @@ int main(int argc, char **argv) {
     for (long long i = 0; i < count; ++i) {
 #if defined(KALANDRA_KERNEL) || defined(FIXED_ENTRY)
       Invocation invocation;
+#ifndef KALANDRA_ORDINARY_EXECUTION
       std::atomic<bool> token{false};
       invocation.bindCancellation(&token);
       invocation.allowNativeInterrupts(true);
+#endif
 #ifdef FIXED_ENTRY
       const auto value = ENTRY_NAME(&invocation);
 #else

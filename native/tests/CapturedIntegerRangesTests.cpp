@@ -1,3 +1,4 @@
+#include <cstring>
 #include "PoisonedInvocation.h"
 #include "../runtime/NativeCancellation.h"
 #include "../runtime/Runtime.h"
@@ -29,6 +30,18 @@ static Expected oracle(std::int64_t seed, std::int64_t rounds) {
   return {value};
 }
 int main() {
+#ifdef EXPECT_UNBOUND_ENTRY
+  for (std::int64_t rounds : {0,16,256}) {
+    PoisonedInvocation owned; Invocation &context = owned.get();
+    const auto expected = oracle(17,rounds);
+    const auto result = _mlir_ciface_kalandra_test_entry(17,rounds,&context);
+    std::uint32_t control;
+    std::memcpy(&control, reinterpret_cast<const std::byte *>(&context) + InvocationABI::control, sizeof(control));
+    if (result != static_cast<double>(expected.value) || context.status() ||
+        (control & InvocationABI::controlReady) || InvocationABI::resourceLedgerMaterialized(context))
+      throw std::runtime_error("ordinary scalar entry materialized managed control/resource state");
+  }
+#endif
   constexpr auto min = std::numeric_limits<std::int64_t>::min();
   constexpr auto max = std::numeric_limits<std::int64_t>::max();
   std::vector<std::int64_t> seeds{0,1,-1,17,-17,min,max};
@@ -90,6 +103,19 @@ int main() {
     InvocationABI::restoreNativeCancellation(context, previous);
     if (_mlir_ciface_kalandra_test_entry(17,0,&context) != 17 || context.status() || context.callDepth())
       throw std::runtime_error("unbinding an armed token left a stale bound entry mode");
+  }
+  {
+    PoisonedInvocation owned; Invocation &context = owned.get();
+    context.fault(4,91,92);
+    if (_mlir_ciface_kalandra_test_entry(17,0,&context) != 0 || context.status() != 4 ||
+        context.line() != 91 || context.column() != 92 || context.callDepth())
+      throw std::runtime_error("unbound optimization bypassed a pre-existing fault");
+  }
+  {
+    PoisonedInvocation owned; Invocation &context = owned.get();
+    context.settle();
+    if (_mlir_ciface_kalandra_test_entry(17,0,&context) != 0 || context.callDepth())
+      throw std::runtime_error("unbound optimization executed a settled invocation");
   }
   for (bool native : {false,true}) {
     PoisonedInvocation ownedContext; Invocation &context = ownedContext.get(); std::atomic<bool> stopped{true};

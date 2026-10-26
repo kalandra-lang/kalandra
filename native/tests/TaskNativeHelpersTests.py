@@ -70,9 +70,10 @@ for mode,extra,flags,runtime in [
     captured_ir=a.output/(mode+'-captured-ranges.ll')
     run([a.compiler,root/'native/benchmarks/fair/RuntimeWorkloads.k','--test-entry','closure',
          '--emit-llvm',captured_ir,'-o',executable(mode+'-captured-ranges-cli'),*extra])
+    if mode != 'debug': assert 'entry.unbound' in captured_ir.read_text()
     captured_binary=executable(mode+'-captured-ranges')
     run([a.clang,'-std=c++23','-Wall','-Wextra','-Werror','-Wno-override-module',*host_flags,
-         *flags,root/'native/tests/CapturedIntegerRangesTests.cpp',captured_ir,
+         *flags,*(['-DEXPECT_UNBOUND_ENTRY'] if mode != 'debug' else []),root/'native/tests/CapturedIntegerRangesTests.cpp',captured_ir,
          runtime_file(runtime),'-o',captured_binary])
     run([captured_binary])
     for entry in ('divide','remainder'):

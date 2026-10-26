@@ -274,3 +274,35 @@ late observer/resource materialization, cancellation and repeated settlement.
 The exact numerical corpus also begins in poisoned storage across all four
 source build variants. [Measurements and qualification](../../benchmarks/results/invocation-lifecycle-2026-10-26.md)
 retain the zero-round controls rather than replacing them with reused contexts.
+
+### Omit task entry machinery for proven unbound code
+
+Ordinary standalone execution starts with no cancellation token. This is distinct
+from task execution and from OS process termination: the ability to kill an
+executable does not require source cancellation polls. A sequential function
+inside a cancellable task still inherits that task's execution contract.
+
+After composing and optimizing the native call graph, the compiler can emit an
+unbound entry alongside the general checked entry. A single execution-mode guard
+selects it only for a healthy, unobserved context without a bound token. The
+compiler specializes the callback to that mode and transitively inlines the
+closed clear-body graph. Admission, native interruption setup, cancellation
+polls and boundary depth bookkeeping are omitted from
+the proven path. There is no per-call cancellation opt-out flag or token removal
+inside a running cancellable task.
+
+The proof rejects allocation, foreign and indirect calls, task operations,
+remaining physical stack guards, local stack allocation, atomic/volatile
+accesses and unsupported intrinsics. Packet reads must have dominating host
+initialization; the callback cannot overwrite its context slot or write outside
+its private result packet. Checked arithmetic remains intact: a fault may record
+its original code/location and return boundary failure locally, with no execution
+continuing after that fault. Unknown work uses the existing managed entry.
+Unlike cancellable bounded entry, an unbound source loop needs no cancellation
+latency budget. Token-bound, observed, faulted and settled contexts retain their
+existing paths, including native stack safety and cleanup.
+
+Existing bounded/range specializations run before the unbound fallback so short
+loops retain their narrow arithmetic. Their side-effect-free argument guard
+runs before reading invocation control/depth; packets outside that region can
+reach the unbound eligibility guard without preparing managed control state.

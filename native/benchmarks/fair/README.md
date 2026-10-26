@@ -55,3 +55,24 @@ establish Linux/Windows performance parity. The task diagnostic still includes
 fresh pool/monitor construction, rather than steady-state queue latency.
 
 The same runner records a separate Kalandra-only task-scope diagnostic. Fixed-input source programs invoke the same closure computation synchronously or through a complete `parallel` scope with `spawn`/`await`. Scope/scheduler creation and teardown are included; process startup is excluded. The task entry uses the production task ABI, with explicit eight-worker and host-driven one-worker runs. This measures the cost of the complete compiled construct, not steady-state queue latency, and makes no C++/Rust scheduler-parity claim. `runtime_workload_profile.py --output <unused.json>` samples only its own benchmark child processes in a separate diagnostic run; those instrumented timings are not performance acceptance data.
+
+### Ordinary and cancellable entry contracts
+
+`runtime_workloads.py` retains cancellable embedding as its default: each fresh
+Kalandra invocation binds a token and grants native interruption capability.
+Use `--execution-contract ordinary` to measure ordinary synchronous execution:
+the same harness creates a fresh unbound invocation, without token binding or
+native-cancellation initialization. Input algorithms, checked arithmetic,
+validation, allocation accounting and settlement are unchanged. These are
+separate execution contracts; compare before/after under the same contract and
+keep the cancellable results visible. The complete task-scope diagnostics still
+spawn real tasks, whose cancellation and ownership machinery remains active.
+
+```sh
+python3 native/benchmarks/fair/runtime_workloads.py \
+  --execution-contract ordinary \
+  --output benchmarks/results/runtime-workloads-ordinary.json
+```
+
+`--compiler PATH` can select a frozen compiler beside its matching
+`libkalandra-task-core-optimized.a` for a reproducible same-contract baseline.

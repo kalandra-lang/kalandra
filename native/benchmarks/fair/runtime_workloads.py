@@ -17,7 +17,10 @@ def oracle(kind, seed, rounds):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--compiler', type=Path, help='Use a frozen compiler beside its matching runtime archive')
     parser.add_argument('--build-only', action='store_true')
+    parser.add_argument('--execution-contract', choices=('cancellable', 'ordinary'), default='cancellable',
+                        help='Keep cancellable embedding as default; ordinary uses an unbound invocation')
     parser.add_argument('--reuse-build', action='store_true')
     parser.add_argument('--target-ms',type=float,default=20,
                         help='Calibration duration shared by every language and task diagnostic')
@@ -27,12 +30,13 @@ def main():
     assert args.target_ms > 0
     assert not args.output.exists()
     root, src = p.ROOT, Path(__file__).resolve().parent
-    build = args.build_dir.resolve() if args.build_dir else p.BUILD/'runtime-workloads'
+    build = args.build_dir.resolve() if args.build_dir else p.BUILD/('runtime-workloads'+('-ordinary' if args.execution_contract == 'ordinary' else ''))
     build.mkdir(parents=True, exist_ok=True)
-    compiler = root/'build/native/native/kalandra'
+    compiler = args.compiler.resolve() if args.compiler else root/'build/native/native/kalandra'
     runtime = compiler.parent/'libkalandra-task-core-optimized.a'
     source, driver = src/'RuntimeWorkloads.k', src/'RuntimeWorkloadDriver.cpp'
     flags = ['-std=c++23','-O2','-ffp-contract=off','-Wno-override-module','-pthread']
+    if args.execution_contract == 'ordinary': flags.append('-DKALANDRA_ORDINARY_EXECUTION')
     paths = [Path(__file__), source, driver, src/'RuntimeWorkloads.cpp', src/'runtime_workloads.rs',
              src/'protocol.py', root/'native/runtime/TaskABI.cpp',
              root/'native/runtime/Runtime.h',root/'native/runtime/NativeCancellation.h',compiler,runtime]
@@ -41,6 +45,7 @@ def main():
     if args.reuse_build:
         saved = json.loads(manifest.read_text())
         assert saved['signature'] == signature
+        assert saved['execution_contract'] == args.execution_contract
         assert all(p.sha(f) == h for f,h in saved['hashes'].items())
         p.COMMANDS.extend(saved['commands'])
     else:
@@ -72,7 +77,7 @@ def main():
                 p.run([p.CLANG,*flags,'-DFIXED_ENTRY','-DENTRY_NAME='+entry,driver,ir,
                        root/'native/runtime/TaskABI.cpp',runtime,'-o',build/name])
         artifacts = [f for f in build.iterdir() if f.is_file() and f != manifest]
-        saved = dict(signature=signature,hashes={str(f):p.sha(f) for f in artifacts},commands=p.COMMANDS)
+        saved = dict(compiler=str(compiler),runtime=str(runtime),execution_contract=args.execution_contract,signature=signature,hashes={str(f):p.sha(f) for f in artifacts},commands=p.COMMANDS)
         manifest.write_text(json.dumps(saved,indent=2)+'\n')
     if args.build_only: return
     def invoke(cell,count,rounds,seed=17):
@@ -97,7 +102,11 @@ def main():
     result = p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=args.target_ms)
     result['task_scope_diagnostic'] = p.measure(diagnostic,invoke,lambda c:oracle(1,17,c[2]),target_ms=args.target_ms)
     result['verification'] = verification
+    result['execution_contract'] = args.execution_contract
     result['contract'] = ('Equivalent runtime-input algorithms: eight-element immutable array maps with a fresh output each pass, and a scalar-capturing closure repeatedly passed through a tail-recursive helper. Each language may optimize normally; C++/Rust use templates/generics, with no forced dynamic calls. Kalandra includes fresh invocation, cancellation, checked arithmetic, allocation/ownership and settlement. C++/Rust retain normal semantics. Identical external C++ timing/validation harness; separate objects/no LTO. Exact independent integer oracle checked every call. Task diagnostic is Kalandra-only, fixed-input complete parallel-scope creation/spawn/await/destruction versus a fixed-input synchronous entry; scheduled explicitly uses 8 workers, scheduled-serial uses the host-driven 1-worker scheduler. It is not a steady-state scheduler microbenchmark or a cross-language ranking.')
+    if args.execution_contract == 'ordinary':
+        result['contract'] = result['contract'].replace('fresh invocation, cancellation, checked arithmetic',
+            'fresh unbound invocation (no cancellation token or native-interrupt capability), checked arithmetic')
     assert {p.key(f):p.sha(f) for f in paths} == signature
     assert all(p.sha(f) == h for f,h in saved['hashes'].items())
     result['source_snapshots'] = {p.key(f):f.read_text() for f in paths[:-2]}

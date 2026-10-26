@@ -1,0 +1,11 @@
+[
+  {
+    "path": "benchmarks/results/production-cancellation-unbound-2026-10-26.json",
+    "sha256": "acf7c612d85ce8a61c7202bbcdd459f549ecc06d8b7204cdb4875a3f0d4cdd38",
+    "independent_reference": "Closed-form polynomial/residue sums, periodic Euclid reduction and exact Fraction chain",
+    "verification_workloads": 300,
+    "timed_samples": 1120,
+    "artifact_files_verified": true,
+    "verified": true
+  }
+]

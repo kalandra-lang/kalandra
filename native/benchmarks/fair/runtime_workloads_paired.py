@@ -25,16 +25,19 @@ def main():
     for version,directory in directories.items():
         manifests[version],items=artifacts(directory)
         files.extend(items)
-    base=directories['baseline'].parent
-    for name,key in [('kalandra','build/native/native/kalandra'),
-                     ('runtime.a','build/native/native/libkalandra-task-core-optimized.a')]:
-        assert p.sha(base/name)==manifests['baseline']['signature'][key]
-        files.append(base/name)
+    contracts={m.get('execution_contract','cancellable') for m in manifests.values()}
+    assert len(contracts)==1, 'Compare matching execution contracts'
     compiler=p.ROOT/'build/native/native/kalandra'
-    runtime=compiler.parent/'libkalandra-task-core-optimized.a'
-    for path in (compiler,runtime):
-        assert p.sha(path)==manifests['current']['signature'][p.key(path)]
-        files.append(path)
+    for version,manifest in manifests.items():
+        legacy=directories[version].parent
+        defaults=(legacy/'kalandra',legacy/'runtime.a') if version=='baseline' else (
+            compiler,compiler.parent/'libkalandra-task-core-optimized.a')
+        for label,path,oldkey in zip(('compiler','runtime'),defaults,
+                ('build/native/native/kalandra','build/native/native/libkalandra-task-core-optimized.a')):
+            selected=Path(manifest.get(label,path))
+            key=p.key(selected) if label in manifest else oldkey
+            assert p.sha(selected)==manifest['signature'][key]
+            files.append(selected)
     source_cells=[(name,kind,size) for kind,name in enumerate(('arrays','closure'))
                   for size in ((0,16,64,256) if kind==0 else (0,16,256,4096))]
     task_cells=[(mode,1,size) for mode in ('direct','scheduled-serial','scheduled')
@@ -50,7 +53,7 @@ def main():
                                   oracle(kind,17,size),count,rounds)
         return p.measure_paired(cells,invoke,lambda c:oracle(c[2],17,c[3]),
                                 blocks=args.blocks,target_ms=args.target_ms)
-    result=dict(source=measure(source_cells),task_scope=measure(task_cells),
+    result=dict(execution_contract=next(iter(contracts)),source=measure(source_cells),task_scope=measure(task_cells),
                 manifests=manifests,
                 contract='Identical frozen harness/inputs; every invocation and warmup checks an exact integer oracle. '
                          'Adjacent ABBA/BAAB processes, identical iterations per pair. Zero rounds measure fixed cost. '
@@ -62,6 +65,7 @@ def main():
              Path(__file__).with_name('protocol.py'),Path(__file__).with_name('RuntimeWorkloadDriver.cpp'),
              Path(__file__).with_name('RuntimeWorkloads.k'),p.ROOT/'native/lib/Continuation.cpp',
              p.ROOT/'native/lib/LocalStorage.h',p.ROOT/'native/lib/Backend.cpp',
+             p.ROOT/'native/lib/UnboundEntry.h',
              p.ROOT/'native/runtime/Runtime.cpp',p.ROOT/'native/runtime/Runtime.h']
     result['source_snapshots']={p.key(f):f.read_text() for f in sources[:5]}
     p.evidence(args.output,result,sources,files,compiler)

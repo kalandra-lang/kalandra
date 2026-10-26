@@ -471,22 +471,27 @@ inline bool addBoundedEntries(llvm::Module &module,
     IRBuilder<> b(before->getTerminator());
     auto *ctx = entry->getArgOperand(0);
     auto field = [&](std::size_t offset) { return b.CreateConstGEP1_64(b.getInt8Ty(),ctx,offset); };
+    // Test the side-effect-free source work/range guard before touching control
+    // state. An ineligible packet can use the separate unbound entry without
+    // reading depth or preparing a cancellable bounded invocation.
+    auto *bound = b.CreateCall(guard,{entry->getArgOperand(2)});
+    auto *admission = make("entry.bounded.admission");
+    before->getTerminator()->eraseFromParent();
+    b.SetInsertPoint(before); b.CreateCondBr(bound,admission,slow);
+    b.SetInsertPoint(admission);
     auto *mode = b.CreateLoad(b.getInt8Ty(),field(ABI::pollMode));
     auto *control = b.CreateLoad(b.getInt32Ty(),field(ABI::control));
     auto *readyControl = b.CreateICmpNE(b.CreateAnd(control,b.getInt32(ABI::controlReady)),b.getInt32(0));
     auto *readDepth = make("entry.depth.read");
     auto *depthReady = make("entry.depth.ready");
-    before->getTerminator()->eraseFromParent();
-    b.SetInsertPoint(before); b.CreateCondBr(readyControl,readDepth,depthReady);
+    b.CreateCondBr(readyControl,readDepth,depthReady);
     b.SetInsertPoint(readDepth);
     auto *storedDepth = b.CreateLoad(b.getInt64Ty(),field(ABI::depth));
     b.CreateBr(depthReady);
     b.SetInsertPoint(depthReady);
     auto *depth = b.CreatePHI(b.getInt64Ty(),2);
-    depth->addIncoming(b.getInt64(0),before); depth->addIncoming(storedDepth,readDepth);
-    auto *bound = b.CreateCall(guard,{entry->getArgOperand(2)});
+    depth->addIncoming(b.getInt64(0),admission); depth->addIncoming(storedDepth,readDepth);
     auto *eligible = b.CreateAnd(b.CreateICmpULE(mode,b.getInt8(1)),b.CreateIsNull(depth));
-    eligible = b.CreateAnd(eligible,bound);
     auto *dispatch = b.CreateCondBr(eligible,check,slow);
     b.SetInsertPoint(check);
     auto *boundToken = b.CreateICmpEQ(mode,b.getInt8(1));
