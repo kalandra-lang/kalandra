@@ -1,5 +1,6 @@
 #pragma once
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
@@ -68,6 +69,14 @@ specializeOrdinaryBaseCases(llvm::Module &module,
       work->setLinkage(GlobalValue::InternalLinkage);
       work->removeFnAttr("kalandra.ordinary.entry");
       work->addFnAttr(Attribute::NoInline);
+      // The dispatch proves the outlined worker's argument is nonzero. Carry
+      // that fact across its ABI so its cloned entry test is not repeated.
+      work->addParamAttr(argument,
+                         Attribute::get(module.getContext(), Attribute::Range,
+                                        ConstantRange(APInt(type->getIntegerBitWidth(), 1),
+                                                      APInt(type->getIntegerBitWidth(), 0))));
+      simplify(*work, true);
+
       fn->deleteBody();
       auto &ctx = module.getContext();
       auto *entry = BasicBlock::Create(ctx, "ordinary.entry", fn);

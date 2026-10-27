@@ -1,0 +1,20 @@
+[
+  {
+    "path": "benchmarks/results/scalar-entry-control-before-2026-10-27.json",
+    "sha256": "6fae99e11ce3e28a58e55e76aadb254d2c5fadbee993b0831044bed678f2b30f",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 1596,
+    "artifact_files_verified": true
+  },
+  {
+    "path": "benchmarks/results/scalar-entry-control-repeat-2026-10-27.json",
+    "sha256": "ff57547849bb38e011bf2ebb36132dd7f544f2bce6702fabd7b6e590ef202f6f",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 1601,
+    "artifact_files_verified": true
+  }
+]

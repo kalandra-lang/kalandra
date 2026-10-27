@@ -11,6 +11,10 @@
 #include "OrdinaryEntry.h"
 #include "OrdinaryBaseCase.h"
 #include "OrdinaryLoops.h"
+#include "OrdinaryPair.h"
+#include "OrdinaryDirect.h"
+#include "OrdinaryScalarRanges.h"
+#include "OrdinaryIntegerCases.h"
 #include "OrdinaryReductions.h"
 #include "OrdinaryInputs.h"
 #include "../runtime/Runtime.h"
@@ -182,6 +186,10 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   optimizeOrdinaryLoops(*candidate, simplifyLeaf);
   specializeOrdinaryBaseCases(*candidate, simplifyLeaf);
   outlineCheckedEntryFrames(*candidate, simplifyLeaf);
+  specializeOrdinaryScalarRanges(*candidate, simplifyLeaf);
+  addOrdinaryPairEntries(*candidate, simplifyLeaf);
+  addOrdinaryDirectEntries(*candidate, simplifyLeaf);
+  specializeOrdinaryIntegerCases(*candidate, simplifyLeaf);
   lowerAArch64CheckedRemainders(*candidate);
   if (auto error = normalizeWindowsTailPackets(*candidate)) return error;
   bool fits = !llvm::verifyModule(*candidate);

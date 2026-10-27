@@ -1,0 +1,5 @@
+# Timing records are generated evidence; keep the reports readable in reviews.
+benchmarks/results/scalar-*-2026-10-27.json linguist-generated=true
+# Preserve byte-exact program output, including its original whitespace.
+benchmarks/results/scalar-entry-*-qualification-2026-10-27.log -whitespace linguist-generated=true
+benchmarks/results/scalar-entry-*-qualification-2026-10-27.xml -whitespace linguist-generated=true

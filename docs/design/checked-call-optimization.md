@@ -353,6 +353,41 @@ reading an uninitialized output. No valid numeric value is reserved. ABI extensi
 attributes survive; result range/NaN refinements from the checked failure
 representation do not transfer. All ten numeric types and Bool are covered.
 
+On non-Windows 64-bit targets, a closed scalar companion without local backing
+slots can also use a private `_ordinary_direct_v1` entry. It returns the scalar
+directly and accepts no fault pointer. Successful calls carry no status record
+or sentinel classification. Arithmetic failure transfers to the existing
+terminal standalone reporting boundary, preserving code, location, exit status
+and cleanup. The CLI prefers this form when available; recoverable ordinary
+and checked task entries retain their contracts. This changes no task
+cancellation behavior. A two-word value/code companion provides the intermediate
+fault proof and independent ABI validation.
+
+Scalar loop versions keep the zero-round path unrestricted. A compact
+one-round version preserves the original arithmetic for the full input domain.
+When both bodies are pure and LLVM proves them safe to speculate under its
+floating environment, the entry selects their original result bits without a
+second dispatch branch. Memory operations, fault publication and unsafe
+instructions reject this form.
+Longer loops may select a guarded 16-bit integer input/count domain: every
+folded floating operation must have an exact positive normal dyadic proof,
+including every intermediate. The first iteration can then use integer fixed
+point and a hardware scaled conversion on AArch64; other targets retain strict
+floating IR. Subsequent iterations preserve source operation order. Negative,
+wide and unsupported inputs execute the original code. No fast-math flags or
+public argument restrictions are introduced.
+
+Tiny pure floating recurrences may be unrolled four ways, duplicating the
+original operation chain in order. No additional accumulators or reassociation
+are enabled. This reduces loop-control traffic; verification and the native
+frame budget run after unrolling, including its remainder handling.
+
+A separate guarded integer specialization proves nonnegative remainder
+recurrences. Since `remainder(a,b)` is in `[0,b)` for nonnegative operands, the
+divisor cannot exceed its initial bound. Exposing that invariant removes
+redundant overflow checks and permits narrower arithmetic where LLVM proves
+it safe. Clone instruction counts and the native stack budget remain bounded.
+
 [OrdinaryPool.h](../../native/lib/OrdinaryPool.h) permits four aligned private
 slots sized for the largest constant numeric allocation in an entry (at least
 128 bytes per slot). Storage is capped at 8 KiB, and the complete entry must

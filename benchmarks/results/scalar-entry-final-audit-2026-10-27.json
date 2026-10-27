@@ -1,0 +1,38 @@
+[
+  {
+    "path": "benchmarks/results/scalar-entry-final-before-2026-10-27.json",
+    "sha256": "b4e5b047e1c277d203043ec0ff69dbf746e8efac5b001a5d3f1910048c4e5338",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 360,
+    "samples": 5927,
+    "measured_processes": 288
+  },
+  {
+    "path": "benchmarks/results/scalar-entry-final-2026-10-27.json",
+    "sha256": "1c230cf5bb735ed0029a3caab9fb169d8dac064c16c7d8322ffc1d4d135f8f51",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 360,
+    "samples": 5937,
+    "measured_processes": 288
+  },
+  {
+    "path": "benchmarks/results/scalar-entry-final-repeat-2026-10-27.json",
+    "sha256": "0fd05f23c0f2b81227221f6d352b46746757bba9ad629914b0d05161192ab112",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 360,
+    "samples": 5947,
+    "measured_processes": 288
+  },
+  {
+    "path": "benchmarks/results/scalar-entry-final-paired-2026-10-27.json",
+    "sha256": "f79b7ab601736bcd0a7d5cc1b643fb065d35e1453897b5193c850b27af7ea183",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 0,
+    "samples": 7310,
+    "measured_processes": 1152
+  }
+]

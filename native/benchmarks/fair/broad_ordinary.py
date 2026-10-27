@@ -1,4 +1,8 @@
-"""Broader ordinary CPU algorithms; strict binary64 and integer-bit checksum oracles."""
+"""Ordinary standalone CPU algorithms; strict binary64 and integer-bit oracles.
+
+Direct entries return the scalar and terminate on arithmetic faults, matching
+standalone main. Recoverable and checked exports are validated separately.
+"""
 import argparse,decimal,functools,json,math,os,struct
 from pathlib import Path
 import protocol as p
@@ -56,8 +60,8 @@ def main():
             else:
                 source.write_text((src/'BroadScalar.k').read_text());entry=name;defines=['-D'+name.upper()];cfg=name;rust.write_text((src/'broad_reference.rs').read_text())
             p.run([compiler,source,'--test-entry',entry,'--emit-llvm',ir,'-O2','-o',folder/'standalone'])
-            direct='_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text();abi[name]='ordinary-v1' if direct else 'checked-v4'
-            p.run([p.CLANG,*flags,'-DORDINARY_ENTRY' if direct else '-DCHECKED_ENTRY',src/'BroadDriver.cpp',ir,runtime,'-o',folder/'kalandra'])
+            failstop='_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text();paired='_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text();direct='_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text();abi[name]='ordinary-direct-v1' if failstop else 'ordinary-pair-v1' if paired else 'ordinary-v1' if direct else 'checked-v4'
+            p.run([p.CLANG,*flags,'-DDIRECT_ENTRY' if failstop else '-DPAIR_ENTRY' if paired else '-DORDINARY_ENTRY' if direct else '-DCHECKED_ENTRY',src/'BroadDriver.cpp',ir,runtime,'-o',folder/'kalandra'])
             p.run([p.CLANG,*flags,*defines,'-c',src/'BroadReference.cpp','-o',folder/'cpp.o'])
             p.run([p.CLANG,*flags,src/'BroadDriver.cpp',folder/'cpp.o','-o',folder/'cpp'])
             p.run([p.RUST,'--edition=2021','--crate-type=staticlib','--cfg',cfg,'-C','opt-level=2','-C','lto=off',rust,'-o',folder/'rust.a'])
@@ -76,7 +80,7 @@ def main():
                 for size in (0,1,2,16,257):verification.append(dict(cell=[lang,name,size],seed=seed,samples=invoke([lang,name,size],1,1,seed)))
     cells=[[lang,name,size] for lang in ('kalandra','cpp','rust') for name in PROGRAMS for size in (0,1,16,256)]
     result=p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=10,adaptive=True,max_iterations=20000000)
-    result.update(entry_abi=saved['entry_abi'],verification=verification,execution_contract='ordinary',contract='Identical source-level algorithms, separate per-program entry points, immutable fresh vector maps, strict binary64 multiply then add without FMA or reassociation. Ordinary Kalandra uses its proven companion when emitted, fresh checked unbound Invocation otherwise. No forced allocation or inlining controls for references. Every returned bit and wrapping integer checksum validated; independent Decimal per-operation binary64 and Python integer/GCD oracles. No build/test/profiler overlap during measurements.',source_snapshots={p.key(f):f.read_text() for f in sources})
+    result.update(entry_abi=saved['entry_abi'],verification=verification,execution_contract='ordinary',contract='Identical source-level algorithms, separate per-program entry points, immutable fresh vector maps, strict binary64 multiply then add without FMA or reassociation. Ordinary standalone Kalandra uses its proven scalar-return fail-stop companion when available, then recoverable pair/v1 companions, then a fresh checked unbound Invocation. Successful direct calls need no task context or status transport; arithmetic faults retain standalone terminal reporting. No forced allocation or inlining controls for references. Every returned bit and wrapping integer checksum validated; independent Decimal per-operation binary64 and Python integer/GCD oracles. No build/test/profiler overlap during measurements.',source_snapshots={p.key(f):f.read_text() for f in sources})
     assert signature=={p.key(f):p.sha(f) for f in [*sources,compiler,runtime]}
     assert all(p.sha(f)==h for f,h in saved['hashes'].items())
     p.evidence(a.output,result,sources,[compiler,runtime,*map(Path,saved['hashes'])],compiler)

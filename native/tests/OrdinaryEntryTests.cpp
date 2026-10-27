@@ -4,8 +4,11 @@
 #include "../lib/OrdinaryLoops.h"
 #include "../lib/OrdinaryMain.h"
 #include "../lib/OrdinaryReductions.h"
+#include "../lib/OrdinaryScalarRanges.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/Support/SourceMgr.h"
+#include <bit>
+#include <cstring>
 #include <iostream>
 
 static void simplify(llvm::Function &fn, bool) {
@@ -130,6 +133,11 @@ int main() {
         !root->hasRetAttribute(Attribute::SExt) ||
         kalandra::specializeOrdinaryBaseCases(*module, simplify))
       return 1;
+    auto *work = module->getFunction("generic.work");
+    if (!work || !work->hasParamAttribute(0, Attribute::Range) ||
+        root->hasParamAttribute(0, Attribute::Range) ||
+        work->getParamAttribute(0, Attribute::Range).getRange().contains(APInt(64, 0)))
+      return 1;
     bool tail = false;
     for (auto &block : *root)
       for (auto &i : block)
@@ -230,6 +238,66 @@ int main() {
       return 1;
   }
 
+  // Exact floating folding requires both a checked input domain and exact
+  // intermediate operations; unknown, signed-zero and rounded cases reject it.
+  for (unsigned kind = 0; kind < 19; ++kind) {
+    LLVMContext ctx;
+    Module module("exact", ctx);
+    IRBuilder<> b(ctx);
+    Type *type = kind == 1 ? b.getFloatTy() : b.getDoubleTy();
+    auto *fn = Function::Create(FunctionType::get(type, {b.getInt64Ty(), b.getInt64Ty()}, false),
+                                GlobalValue::ExternalLinkage, "exact", module);
+    b.SetInsertPoint(BasicBlock::Create(ctx, "entry", fn));
+    for (unsigned n = 0; n < 2; ++n)
+      if (kind != 2)
+        fn->addParamAttr(n, Attribute::get(ctx, Attribute::Range,
+                                           ConstantRange(APInt(64, kind == 4 ? -1 : 0),
+                                                         APInt(64, kind == 3 ? 65537 : 65536))));
+    Value *integer = fn->getArg(0);
+    if (kind == 13 || kind == 14 || kind == 15)
+      integer = b.CreateTrunc(integer, b.getIntNTy(kind == 14 ? 17 : 16));
+    Value *input =
+        (kind == 12 || kind == 13) ? b.CreateUIToFP(integer, type) : b.CreateSIToFP(integer, type);
+    if (kind == 11)
+      input = b.CreateFAdd(input, ConstantFP::get(type, 1.0));
+    double coefficient = kind == 5   ? -.25
+                         : kind == 6 ? 0
+                         : kind == 7 ? 1.1
+                         : kind == 8 ? std::ldexp(1., 1023)
+                         : kind == 9 ? std::ldexp(1., -1074)
+                                     : .25;
+    auto *first = b.CreateFMul(input, ConstantFP::get(type, coefficient));
+    Value *other = kind == 10 ? b.CreateSIToFP(fn->getArg(1), type) : input;
+    auto *second = b.CreateFMul(other, ConstantFP::get(type, .125));
+    Value *value = kind == 16   ? b.CreateFSub(first, second)
+                   : kind == 17 ? b.CreateFDiv(first, second)
+                                : b.CreateFAdd(first, second);
+    if (kind == 18)
+      value = b.CreateFAdd(input, b.CreateFMul(input, ConstantFP::get(type, std::ldexp(1., -53))));
+    b.CreateRet(value);
+    const bool expected = kind == 0 || kind == 1 || kind == 12 || kind == 13 || kind == 14;
+    if (bool(kalandra::ordinaryExactScale(value)) != expected || verifyModule(module, &errs())) {
+      errs() << "exact proof " << kind << '\n';
+      return 1;
+    }
+  }
+  auto exhaustive = []<class T>() {
+    for (unsigned i = 0; i < 65536; ++i) {
+      T x = T(i);
+      volatile T a = x * T(.25), b = a * T(.5), c = x * T(.0625);
+      T original = b + c, folded = x * T(.1875);
+      if (std::memcmp(&original, &folded, sizeof(T)))
+        return false;
+      volatile T d = x * T(.015625), e = d * T(1.015625), f = x * T(.00390625);
+      original = e + f;
+      folded = x * T(.019775390625);
+      if (std::memcmp(&original, &folded, sizeof(T)))
+        return false;
+    }
+    return true;
+  };
+  if (!exhaustive.operator()<float>() || !exhaustive.operator()<double>())
+    return 1;
   for (unsigned kind = 0; kind < 19; ++kind) {
     std::string ir = R"(
       @outside = global i64 0
@@ -380,7 +448,8 @@ int main() {
       return 1;
   }
   std::cout << "10 ordinary-entry proof/fault/effect/ABI cases, generic loop-free base version, "
-               "9 IEEE/countdown cases, 19 deferred reduction cases, 3 guarded-input cases, pool "
+               "9 IEEE/countdown cases, 19 exact floating proof cases and 262144 exhaustive "
+               "values, 19 deferred reduction cases, 3 guarded-input cases, pool "
                "budgets, and idempotence "
                "passed\n";
 }

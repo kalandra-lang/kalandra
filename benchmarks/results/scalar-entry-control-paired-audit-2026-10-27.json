@@ -1,0 +1,204 @@
+[
+  {
+    "path": "benchmarks/results/scalar-entry-control-paired-2026-10-27.json",
+    "sha256": "10842d3bc457ffd2eb07b7c9eeec424b1fe0c32337280b3f36600ea174b955ed",
+    "measured_processes": 612,
+    "groups": [
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          0
+        ],
+        "median_time_reduction": 0.0010371681415929368,
+        "min_time_reduction": -0.08455302657524477,
+        "max_time_reduction": 0.11012794612794619
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          16
+        ],
+        "median_time_reduction": 0.001186498058349028,
+        "min_time_reduction": -0.07183878281044875,
+        "max_time_reduction": 0.19925901579685956
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          64
+        ],
+        "median_time_reduction": -0.013161243645879894,
+        "min_time_reduction": -0.11866794054006813,
+        "max_time_reduction": 0.01942486701394408
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          256
+        ],
+        "median_time_reduction": 0.016153905196588436,
+        "min_time_reduction": -0.013049115963111424,
+        "max_time_reduction": 0.08825444735889021
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.045075802389845765,
+        "min_time_reduction": -0.1354617004766654,
+        "max_time_reduction": 0.11506531849711898
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          16
+        ],
+        "median_time_reduction": 8.22789707684013e-05,
+        "min_time_reduction": -0.0449987328159569,
+        "max_time_reduction": 0.04511746948418427
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          256
+        ],
+        "median_time_reduction": -0.009783108814048758,
+        "min_time_reduction": -0.0680958183298861,
+        "max_time_reduction": 0.0435363360106098
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          4096
+        ],
+        "median_time_reduction": -0.0016530193500055024,
+        "min_time_reduction": -0.03328101325021904,
+        "max_time_reduction": 0.2994900742584723
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.018747874107124973,
+        "min_time_reduction": -0.06129866633333014,
+        "max_time_reduction": 0.18586748216106008
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          16
+        ],
+        "median_time_reduction": -0.03476640020772681,
+        "min_time_reduction": -0.12169003115264787,
+        "max_time_reduction": 0.11475409836065564
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.009142420059589873,
+        "min_time_reduction": -0.03218431937175614,
+        "max_time_reduction": 0.16270509395032728
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.016015162483440926,
+        "min_time_reduction": -0.05369287548850754,
+        "max_time_reduction": 0.13988080121929258
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.00018252973319865529,
+        "min_time_reduction": -0.05681076180466893,
+        "max_time_reduction": 0.14466466990138815
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          256
+        ],
+        "median_time_reduction": -0.004252950182394688,
+        "min_time_reduction": -0.1830603191848612,
+        "max_time_reduction": 0.024947224085455355
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.008845887987554257,
+        "min_time_reduction": -0.25932861505893157,
+        "max_time_reduction": 0.046797522344226516
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.008025636676277426,
+        "min_time_reduction": -0.03765442958300391,
+        "max_time_reduction": 0.1919179668434513
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.006507573473185757,
+        "min_time_reduction": -0.1549284499096759,
+        "max_time_reduction": 0.11685847412143002
+      }
+    ],
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/scalar-entry-control-repeat-2026-10-27.json",
+    "sha256": "ff57547849bb38e011bf2ebb36132dd7f544f2bce6702fabd7b6e590ef202f6f",
+    "verification_workloads": 99,
+    "verified": true
+  }
+]

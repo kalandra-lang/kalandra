@@ -8,7 +8,12 @@
 #include <cstdlib>
 #include <limits>
 using I=std::int64_t;
-#if defined(ORDINARY_ENTRY)
+#if defined(DIRECT_ENTRY)
+extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
+#elif defined(PAIR_ENTRY)
+struct OrdinaryPair {std::uint64_t bits,code;};
+extern "C" OrdinaryPair _mlir_ciface_kalandra_test_entry_ordinary_pair_v1(I,I,kalandra::runtime::OrdinaryFault*);
+#elif defined(ORDINARY_ENTRY)
 extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::runtime::OrdinaryFault*);
 #elif defined(CHECKED_ENTRY)
 extern "C" double _mlir_ciface_kalandra_test_entry(I,I,kalandra::runtime::Invocation*);
@@ -24,7 +29,14 @@ int main(int argc,char**argv) {
   for(I batch=-2;batch<batches;++batch) {
     std::uint64_t checksum=0;const auto start=std::chrono::steady_clock::now();
     for(I i=0;i<count;++i) {
-#if defined(ORDINARY_ENTRY)
+#if defined(DIRECT_ENTRY)
+      auto value=_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(seed,rounds);
+#elif defined(PAIR_ENTRY)
+      kalandra::runtime::OrdinaryFault fault;
+      auto result=_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(seed,rounds,&fault);
+      if(result.code)std::abort();
+      auto value=std::bit_cast<double>(result.bits);
+#elif defined(ORDINARY_ENTRY)
       kalandra::runtime::OrdinaryFault fault;
       auto value=_mlir_ciface_kalandra_test_entry_ordinary_v1(seed,rounds,&fault);
       if(kalandra::runtime::ordinaryFaulted(value,fault))std::abort();

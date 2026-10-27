@@ -1175,6 +1175,33 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-source")
   set_tests_properties(native-ordinary-source PROPERTIES TIMEOUT 900)
+  set(_ordinary_exact_abi_args)
+  if(NOT WIN32)
+    list(APPEND _ordinary_exact_abi_args --direct-entry)
+    add_test(NAME native-ordinary-pair-source
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinarySourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-pair-source" --direct-entry)
+    set_tests_properties(native-ordinary-pair-source PROPERTIES TIMEOUT 900)
+    add_test(NAME native-ordinary-direct-faults
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryDirectFaultTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-direct-faults")
+    set_tests_properties(native-ordinary-direct-faults PROPERTIES TIMEOUT 900)
+    add_test(NAME native-ordinary-integer-cases
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryIntegerCasesSourceTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-integer-cases")
+    set_tests_properties(native-ordinary-integer-cases PROPERTIES TIMEOUT 900)
+
+
+  endif()
+  add_test(NAME native-ordinary-scalar-exact
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryLoopSourceTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-scalar-exact"
+      --exhaustive-entry ${_ordinary_exact_abi_args})
+  set_tests_properties(native-ordinary-scalar-exact PROPERTIES TIMEOUT 900)
   add_test(NAME native-task-native-helpers
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TaskNativeHelpersTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

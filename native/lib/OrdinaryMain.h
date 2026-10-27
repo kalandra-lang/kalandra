@@ -13,7 +13,15 @@ inline llvm::Function *addOrdinaryMain(llvm::Module &module) {
                          "uint32_entry", "int64_entry",   "uint64_entry"};
   llvm::Function *entry = nullptr;
   unsigned kind = 0;
+  bool direct = false;
   for (; kind < 7; ++kind) {
+    entry = module.getFunction(std::string("_mlir_ciface_kalandra_") + names[kind] +
+                               "_ordinary_direct_v1");
+    if (entry && entry->hasFnAttribute("kalandra.ordinary.direct") && entry->arg_empty()) {
+      direct = true;
+      break;
+    }
+
     entry =
         module.getFunction(std::string("_mlir_ciface_kalandra_") + names[kind] + "_ordinary_v1");
     if (entry && entry->hasFnAttribute("kalandra.ordinary.entry") && entry->arg_size() == 1)
@@ -27,9 +35,16 @@ inline llvm::Function *addOrdinaryMain(llvm::Module &module) {
                                       GlobalValue::ExternalLinkage, "main", module);
   IRBuilder<> b(BasicBlock::Create(ctx, "entry", main));
   auto *fault = b.CreateAlloca(ArrayType::get(b.getInt64Ty(), 3));
-  auto *call = b.CreateCall(entry, {fault});
+  llvm::SmallVector<Value *, 1> args;
+  if (!direct)
+    args.push_back(fault);
+  auto *call = b.CreateCall(entry, args);
   call->setCallingConv(entry->getCallingConv());
   call->setAttributes(entry->getAttributes().removeFnAttributes(ctx));
+  // A direct entry can return only on success, including legitimate NaNs and
+  // minimum integers. The existing display adapter therefore sees code zero.
+  if (direct)
+    b.CreateStore(b.getInt64(0), fault);
   Value *bits = call;
   if (bits->getType()->isFloatingPointTy())
     bits = b.CreateBitCast(bits, b.getIntNTy(bits->getType()->getPrimitiveSizeInBits()));

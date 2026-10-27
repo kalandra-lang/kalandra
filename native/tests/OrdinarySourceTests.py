@@ -1,7 +1,8 @@
 """Compare the ordinary scalar ABI with checked execution and exact/bit oracles."""
 import argparse, json, os, subprocess, sys
+from OrdinaryPairChecks import pair_checks
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--pair-entry',action='store_true');p.add_argument('--direct-entry',action='store_true');a=p.parse_args();a.pair_entry|=a.direct_entry
 root=Path(__file__).resolve().parents[2];a.output.mkdir(parents=True,exist_ok=True);windows=sys.platform=='win32'
 def run(cmd, expected=0):
  r=subprocess.run(list(map(str,cmd)),text=True,capture_output=True)
@@ -83,10 +84,18 @@ template<class V> void verify() {
 int main(){verify<T>();std::printf("%llu ordinary exact/first-fault/payload cases passed\n",(unsigned long long)cases);}
 '''
   text=text.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp)
+  if a.pair_entry:
+   assert '_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text(),name
+   if 'T reference=' in text:
+    text=text.replace('template<class V> bool same',pair_checks('T','T')+'\ntemplate<class V> bool same')
+    text=text.replace('T reference=_mlir_ciface_kalandra_test_entry(a,b,&context);','T reference=_mlir_ciface_kalandra_test_entry(a,b,&context);checkPair(a,b,reference,context);')
+   else:
+    text=text.replace('int main(){',pair_checks('I','I')+'\nint main(){')
+    text=text.replace('auto expected=_mlir_ciface_kalandra_test_entry(a,b,&context);','auto expected=_mlir_ciface_kalandra_test_entry(a,b,&context);checkPair(a,b,expected,context);')
   driver.write_text(text)
   runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'))
   host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-  run([a.clang,'-std=c++23',*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
+  run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
   output=run([exe]);print(mode,language,output.strip(),flush=True);records.append(dict(mode=mode,type=language,result=output.strip()))
 # Fault-producing projections cover both NaN widths and Bool's true sentinel.
 for mode,extra,flags,library in variants:
@@ -125,9 +134,13 @@ int main(){
  std::puts("6 ordinary projected arithmetic fault/ABI cases passed");
 }
 '''
+  if a.pair_entry:
+   assert '_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text(),name
+   text=text.replace('int main(){',pair_checks('I','I')+'\nint main(){')
+   text=text.replace('auto expected=_mlir_ciface_kalandra_test_entry(a,b,&context);','auto expected=_mlir_ciface_kalandra_test_entry(a,b,&context);checkPair(a,b,expected,context);')
   driver.write_text(text.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp))
   runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'))
   host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-  run([a.clang,'-std=c++23',*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
+  run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
   output=run([exe]);print(mode,language,output.strip(),flush=True);records.append(dict(mode=mode,type=language,projection=True,result=output.strip()))
 (a.output/'results.json').write_text(json.dumps(records,indent=2)+'\n')

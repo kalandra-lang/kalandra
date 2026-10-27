@@ -52,3 +52,12 @@ extern "C" void kalandra_ordinary_end_v1(kalandra::runtime::Invocation *context,
   *fault = {context->status(), context->line(), context->column()};
   context->~Invocation();
 }
+
+// Same process-failure boundary as ordinary_finish_v1, reached only on error.
+// Eligibility excludes live caller resources and all task/cancellable entries.
+extern "C" [[noreturn]] void kalandra_ordinary_fail_v1(std::uint64_t code, std::uint64_t line,
+                                                       std::uint64_t column) noexcept {
+  kalandra::runtime::Invocation context;
+  context.fault(code ? code : 3, line, column);
+  context.reportFailure();
+}

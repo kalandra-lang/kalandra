@@ -1,0 +1,7368 @@
+{
+  "loop_ieee_fault": [
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "finite",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "scaled",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "affine",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "faulting",
+      "result": "112 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "external",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "zero",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "finite",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "scaled",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "affine",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "faulting",
+      "result": "112 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "external",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "zero",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "finite",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "scaled",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "affine",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "faulting",
+      "result": "112 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "external",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "zero",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "finite",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "scaled",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "affine",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "faulting",
+      "result": "112 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "external",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "zero",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "finite",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "scaled",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "affine",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "faulting",
+      "result": "112 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "external",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "zero",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "finite",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "scaled",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "affine",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "faulting",
+      "result": "112 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "external",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "zero",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "finite",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "scaled",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "affine",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "faulting",
+      "result": "112 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "external",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "zero",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "finite",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "scaled",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "affine",
+      "result": "196720 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "faulting",
+      "result": "112 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "external",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "zero",
+      "result": "144 strict recurrence/countdown/fault cases passed"
+    }
+  ],
+  "integer_domain": [
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "other-positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "negative-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "fixture": "overflowing-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "other-positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "negative-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "fixture": "overflowing-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "other-positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "negative-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "fixture": "overflowing-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "other-positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "negative-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "fixture": "overflowing-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "other-positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "negative-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "fixture": "overflowing-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "other-positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "negative-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "fixture": "overflowing-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "other-positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "negative-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "fixture": "overflowing-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "other-positive",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "negative-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "fixture": "overflowing-divisor",
+      "result": "196704 integer-domain/IEEE/first-fault cases passed"
+    }
+  ],
+  "scalar_abis": [
+    {
+      "mode": "debug",
+      "type": "int8",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "int16",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "int32",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "uint8",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "uint16",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "uint32",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "uint64",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "result": "12 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "result": "12 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "result": "2 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "int8",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "int16",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "int32",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "uint8",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "uint16",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "uint32",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "uint64",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "result": "12 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "result": "12 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "result": "2 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int8",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int16",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int32",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "uint8",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "uint16",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "uint32",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "uint64",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "result": "12 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "result": "12 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "result": "2 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int8",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int16",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int32",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "uint8",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "uint16",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "uint32",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "uint64",
+      "result": "49 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "result": "12 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "result": "12 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "result": "2 ordinary exact/first-fault/payload cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "projection": true,
+      "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+    }
+  ],
+  "direct_recoverable_outcomes": [
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775808\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775808\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "debug",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775808\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775808\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "optimized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775808\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775808\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775808\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9223372036854775807\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9223372036854775808\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "int64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.22337204e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float32",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-14\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "-9.2233720368547758e+18\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "-17\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-5\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "-2\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "float64",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "0\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        0,
+        0
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "add",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "divide",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        0,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        17,
+        3
+      ],
+      "status": 0,
+      "stdout": "true\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -9223372036854775808,
+        1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        0,
+        0
+      ],
+      "status": 86,
+      "stdout": "",
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        17,
+        -1
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        -17,
+        3
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    },
+    {
+      "mode": "thread-sanitized",
+      "type": "Bool",
+      "operator": "remainder",
+      "args": [
+        9223372036854775807,
+        9223372036854775807
+      ],
+      "status": 0,
+      "stdout": "false\n",
+      "stderr": ""
+    }
+  ],
+  "compiler_main_outcomes": [
+    {
+      "name": "debug-int64-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-int64-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-int64-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-float32-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-float32-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-float32-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-float64-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-float64-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-float64-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-Bool-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-Bool-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "debug-Bool-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-int64-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-int64-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-int64-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-float32-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-float32-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-float32-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-float64-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-float64-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-float64-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-Bool-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-Bool-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "optimized-Bool-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-int64-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-int64-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-int64-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-float32-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-float32-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-float32-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-float64-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-float64-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-float64-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-Bool-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-Bool-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "sanitized-Bool-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-int64-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-int64-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-int64-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:9\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-float32-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-float32-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-float32-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-float64-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-float64-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-float64-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:11\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-Bool-add",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-Bool-divide",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    },
+    {
+      "name": "thread-sanitized-Bool-remainder",
+      "status": 86,
+      "stderr": "ArithmeticFault at source 2:3\ncleanup: live=0 allocations=0 releases=0\n"
+    }
+  ],
+  "counts": {
+    "loop_ieee_fault": 4724480,
+    "integer_domain": 6294528,
+    "scalar_abis": 1744,
+    "direct_recoverable_outcomes": 528,
+    "compiler_main_outcomes": 48,
+    "mathematical_unit_values": 262144
+  }
+}
