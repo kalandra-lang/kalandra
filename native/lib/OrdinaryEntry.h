@@ -1,5 +1,6 @@
 #pragma once
 #include "../runtime/Runtime.h"
+#include "NativeStack.h"
 #include "OrdinaryPool.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/IRBuilder.h"
@@ -358,16 +359,28 @@ inline bool addOrdinaryScalarEntries(llvm::Module &module,
             (call->getCalledFunction()->getName() == "kalandra_alloc_v1" ||
              call->getCalledFunction()->getName() == "kalandra_free_v1"))
           allocationCalls.push_back(call);
+    std::uint64_t largest = 0;
+    bool constantAllocations = true;
     for (auto &handle : allocationCalls) {
       auto *call = dyn_cast_or_null<CallInst>(handle);
-      if (!call)
+      if (!call || call->getCalledFunction()->getName() != "kalandra_alloc_v1")
         continue;
-      if (call->getCalledFunction()->getName() == "kalandra_free_v1")
-        pool.release(call);
-      else if (auto *bytes = dyn_cast<ConstantInt>(call->getArgOperand(1));
-               bytes && bytes->getZExtValue() > 0 && bytes->getZExtValue() <= OrdinaryPool::bytes)
-        pool.allocate(call);
+      auto *size = dyn_cast<ConstantInt>(call->getArgOperand(1));
+      if (!size || size->getValue().getActiveBits() > 12 || size->isZero())
+        constantAllocations = false;
+      else
+        largest = std::max(largest, size->getZExtValue());
     }
+    if (constantAllocations && pool.configure(largest))
+      for (auto &handle : allocationCalls) {
+        auto *call = dyn_cast_or_null<CallInst>(handle);
+        if (!call)
+          continue;
+        if (call->getCalledFunction()->getName() == "kalandra_free_v1")
+          pool.release(call);
+        else
+          pool.allocate(call);
+      }
     {
       LoopAnalysisManager loops;
       FunctionAnalysisManager functions;
@@ -459,7 +472,8 @@ inline bool addOrdinaryScalarEntries(llvm::Module &module,
             viable = false;
         }
       }
-    viable &= stackBytes <= 2048;
+    viable &= stackBytes <= OrdinaryPool::stackBudget;
+    viable &= !nativeStackBudgetError(*ordinary, module.getDataLayout()).has_value();
     if (!viable) {
       ordinary->eraseFromParent();
       if (pool.heap && pool.heap->use_empty())

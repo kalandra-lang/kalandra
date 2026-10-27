@@ -86,3 +86,15 @@ unchanged. The ordinary companion eliminates Invocation construction only where
 the compiler proves the graph's resource and fault behavior; it preserves checked
 arithmetic and replays through the checked heap path if its local buffers cannot
 serve the invocation. Fixed-input task diagnostics retain their checked entries.
+
+
+`broad_ordinary.py --build-dir DIR --output FILE` adds strict binary64
+recurrences, repeated Euclidean GCD and immutable-array maps at 8–128 elements.
+The references use separate entry points per program. `--compiler` selects a
+frozen compiler beside its matching runtime; `--build-only` and `--reuse-build`
+freeze and validate artifacts. Result bits and wrapping integer checksums are
+checked on every invocation. `broad_ordinary_paired.py` compares two frozen build
+directories in nine adjacent ABBA/BAAB blocks; `broad_ordinary_audit.py` uses
+independent Fraction/modular-power/divisor oracles and verifies raw statistics.
+Keep builds/tests/profiling separate from acceptance timings. All cases,
+including zero/one-round misses, belong in the report.

@@ -24,6 +24,10 @@ fn main()->float64:
 fn main()->float64:
   value(17,16)
 ''','value',2)}
+for width in (16,32,64,128):
+ values=','.join('seed' if i==0 else f'seed+{i}' for i in range(width))
+ text=f'fn total(values:[int],index:int,acc:int)->float64:\n  if index == {width}:\n    float64(acc)\n  else:\n    total(values,index+1,acc+values[index])\nfn iterate(values:[int],rounds:int)->float64:\n  if rounds == 0:\n    total(values,0,0)\n  else:\n    iterate(map(values,fn(value:int):(value*13+7)%1000003),rounds-1)\nfn value(seed:int,rounds:int)->float64:\n  iterate([{values}],rounds)\nfn main()->float64:\n  value(17,16)\n'
+ fixtures['wide'+str(width)]=(text,'value',width+10)
 driver=r'''
 #include "RUNTIME"
 #include "FAULT"
@@ -52,7 +56,11 @@ void test(I seed,I rounds,bool independent) {
  if(!ordinaryAmbiguous(value) && std::memcmp(&before,&info,sizeof(info)))std::abort();
  if(independent && !failed) {
   I expected=0;
-  if(FIXTURE==0) {
+  if(FIXTURE>=10) {
+   std::array<I,128> values{};for(I i=0;i<FIXTURE-10;++i)values[i]=seed+i;
+   for(I n=0;n<rounds;++n)for(I i=0;i<FIXTURE-10;++i)values[i]=(values[i]*13+7)%1000003;
+   for(I i=0;i<FIXTURE-10;++i)expected+=values[i];
+  } else if(FIXTURE==0) {
    std::array<I,8> values{};for(I i=0;i<8;++i)values[i]=seed+i;
    for(I n=0;n<rounds;++n)for(auto &x:values)x=(x*13+7)%1000003;
    for(auto x:values)expected+=x;

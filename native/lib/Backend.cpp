@@ -10,6 +10,7 @@
 #include "LeafEntry.h"
 #include "OrdinaryEntry.h"
 #include "OrdinaryBaseCase.h"
+#include "OrdinaryLoops.h"
 #include "../runtime/Runtime.h"
 #include "RecordLLVMTypes.h"
 #include "RecordLayout.h"
@@ -174,6 +175,7 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   addBoundedEntries(*candidate, simplifyLeaf);
   addUnboundEntries(*candidate, simplifyLeaf);
   addOrdinaryScalarEntries(*candidate, simplifyLeaf);
+  optimizeOrdinaryLoops(*candidate, simplifyLeaf);
   specializeOrdinaryBaseCases(*candidate, simplifyLeaf);
   outlineCheckedEntryFrames(*candidate, simplifyLeaf);
   lowerAArch64CheckedRemainders(*candidate);

@@ -1,0 +1,18 @@
+[
+  {
+    "corruption": "checksum",
+    "rejected": true
+  },
+  {
+    "corruption": "median",
+    "rejected": true
+  },
+  {
+    "corruption": "sample-order",
+    "rejected": true
+  },
+  {
+    "corruption": "source-hash",
+    "rejected": true
+  }
+]

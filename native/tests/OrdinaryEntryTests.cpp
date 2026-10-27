@@ -1,5 +1,6 @@
 #include "../lib/OrdinaryBaseCase.h"
 #include "../lib/OrdinaryEntry.h"
+#include "../lib/OrdinaryLoops.h"
 #include "../lib/OrdinaryMain.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/Support/SourceMgr.h"
@@ -137,6 +138,91 @@ int main() {
     if (!tail)
       return 1;
   }
+
+  for (unsigned kind = 0; kind < 9; ++kind) {
+    std::string base = kind == 1 || kind == 2 ? "%input"
+                       : kind == 3            ? "0x7FF0000000000000"
+                       : kind == 4            ? "0x7FF8000000000000"
+                                              : "0.0";
+    std::string coefficient = kind == 2 || kind == 3 ? "0.0"
+                              : kind == 5            ? "0x7FF0000000000000"
+                                                     : "5.000000e-01";
+    std::string ir = R"(
+      define double @countdown(double %input,i64 %n,ptr %fault) #0 {
+      entry:
+        br label %loop
+      loop:
+        %count=phi i64 [%n,%entry],[%next,%step]
+        %value=phi double [)" +
+                     base + R"(,%entry],[%updated,%step]
+        switch i64 %count,label %step [i64 )" +
+                     (kind == 8 ? "1" : "0") + R"(,label %exit
+          i64 -9223372036854775808,label %bad]
+      step:
+        %next=add nsw i64 %count,)" +
+                     (kind == 7 ? "-2" : "-1") + R"(
+        %product=fmul double %value,)" +
+                     coefficient + R"(
+        %updated=fadd double %product,1.0
+        br label %loop
+      exit:
+        %nan=fcmp uno double %value,0.0
+        br i1 %nan,label %nanout,label %good
+      nanout:
+        store i64 0,ptr %fault
+        ret double %value
+      good:
+        ret double %value
+      bad:
+        store i64 4,ptr %fault
+        ret double 0x7FF8000000000000
+      }
+      attributes #0 = { "kalandra.ordinary.entry" }
+    )";
+    if(kind==6) {std::size_t at=0;while((at=ir.find("double",at))!=std::string::npos)ir.replace(at,6,"float");}
+    LLVMContext context;
+    SMDiagnostic diag;
+    auto module = parseAssemblyString(ir, diag, context);
+    if (!module) {
+      diag.print("ordinary-loop", errs());
+      return 1;
+    }
+    auto *fn = module->getFunction("countdown");
+    const bool noNan = kind == 0 || kind == 6 || kind == 7 || kind == 8;
+    if (kalandra::refineOrdinaryNaNTests(*fn) != noNan) {
+      errs() << "NaN proof case " << kind << '\n';
+      return 1;
+    }
+    const bool versions = kind != 7 && kind != 8;
+    kalandra::optimizeOrdinaryLoops(*module, simplify);
+    if (fn->hasFnAttribute("kalandra.ordinary.countdown") != versions ||
+        verifyModule(*module, &errs()))
+      return 1;
+    if (versions) {
+      auto *slow = module->getFunction("countdown.signed-countdown");
+      bool minimum = false;
+      if (!slow)
+        return 1;
+      for (auto &block : *slow)
+        if (auto *sw = dyn_cast<SwitchInst>(block.getTerminator()))
+          for (auto c : sw->cases())
+            minimum |= c.getCaseValue()->getValue().isMinSignedValue();
+      if (!minimum || kalandra::optimizeOrdinaryLoops(*module, simplify))
+        return 1;
+    }
+  }
+  for (std::uint64_t size : {1U, 127U, 128U, 129U, 319U, 575U, 1024U, 2048U, 2049U}) {
+    LLVMContext context;
+    Module module("pool", context);
+    auto *fn = Function::Create(FunctionType::get(Type::getVoidTy(context), false),
+                                GlobalValue::InternalLinkage, "unused", module);
+    kalandra::OrdinaryPool pool(*fn, *fn, nullptr);
+    bool supported = pool.configure(size);
+    if (supported != (size <= 2048) ||
+        (supported && (pool.bytes < size || pool.bytes % 64 || pool.slots < 2 || pool.slots > 4 ||
+                       pool.slots * pool.bytes > 8192)))
+      return 1;
+  }
   std::cout << "10 ordinary-entry proof/fault/effect/ABI cases, generic loop-free base version, "
-               "and idempotence passed\n";
+               "9 IEEE/countdown cases, pool budgets, and idempotence passed\n";
 }

@@ -1,0 +1,11 @@
+[
+  {
+    "path": "benchmarks/results/broad-ordinary-repeat-2026-10-27.json",
+    "sha256": "31bcb4255ebff76c387cee71ab51123cc7f9ee8c563ed8ed527fb69106d7341c",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 360,
+    "samples": 3672,
+    "measured_processes": 288
+  }
+]

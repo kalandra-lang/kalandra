@@ -353,10 +353,12 @@ reading an uninitialized output. No valid numeric value is reserved. ABI extensi
 attributes survive; result range/NaN refinements from the checked failure
 representation do not transfer. All ten numeric types and Bool are covered.
 
-[OrdinaryPool.h](../../native/lib/OrdinaryPool.h) permits four aligned 128-byte
-private slots for constant-size numeric allocations. The final graph must prove
-all memory private (apart from the fault output) and the static allocation total
-at most 2048 bytes. Unknown effects or pointer escape reject the entire companion.
+[OrdinaryPool.h](../../native/lib/OrdinaryPool.h) permits four aligned private
+slots sized for the largest constant numeric allocation in an entry (at least
+128 bytes per slot). Storage is capped at 8 KiB, and the complete entry must
+pass the existing conservative 16 KiB native frame check, including SSA values,
+fixed allocations and outgoing arguments. The final graph must prove all memory
+private apart from the fault output. Unknown effects or pointer escape reject the entire companion.
 If slots are exhausted or a release cannot be represented, the entry replays the
 original checked graph with original scalar arguments in a fresh real Invocation.
 Stack pointers never enter replay. Allocation-failure injection selects that heap
@@ -374,3 +376,32 @@ names or round-count ranges in this transformation.
 Task/cancellable entries retain cancellation, physical-stack admission, ownership
 and settlement. This private ABI accepts no cancellation token or caller resources;
 it is compiler-selected ordinary execution, not an opt-out within a task.
+
+
+### Ordinary countdown and IEEE value proofs
+
+[OrdinaryLoops.h](../../native/lib/OrdinaryLoops.h) recognizes a two-block
+countdown whose initial value is an entry argument, whose only backedge subtracts
+exactly one, and whose switch exits at zero or reports signed minimum overflow.
+A nonnegative initial count cannot reach signed minimum: zero exits before the
+next subtraction. A guarded version removes only that unreachable minimum case.
+Negative counts retain the original ordinary worker, including first-fault
+location and ABI attributes. Task and buffered entries are excluded.
+
+A separate conservative value proof removes unordered/ordered NaN classification
+only when both operands cannot be NaN. It follows constants, integer-to-float
+conversion, selected casts, and inductive phi/select graphs. A product with a
+finite nonzero constant preserves absence of NaN; addition/subtraction requires
+one finite operand and one non-NaN operand. Division by a finite nonzero
+constant also preserves absence of NaN. Finite multiplication is proven only
+for a finite input and a constant with magnitude at most one. Unknown floating
+arguments, loads and unsupported operations remain unknown. Zero times infinity
+and explicit NaN origins reject the proof. No fast-math flags, reassociation,
+contraction, infinity exclusion or numeric representation restrictions are added.
+
+The [broader ordinary study](../../benchmarks/results/broad-ordinary-2026-10-27.md)
+records separate results for short scalar operations and arrays up to 128
+elements, including remaining misses. Four buffer slots are necessary for some
+nested immutable borrows: a three-slot prototype exhausted capacity on the second
+map and replayed through the heap. That experiment is retained as a rejected
+control rather than presented as a sustained local-buffer speedup.

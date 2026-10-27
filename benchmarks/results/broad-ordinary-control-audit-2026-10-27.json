@@ -1,0 +1,11 @@
+[
+  {
+    "path": "benchmarks/results/broad-ordinary-original-control-2026-10-27.json",
+    "sha256": "0b7dbd2bbe8e958c93d8e9f735a31fe3e9695cbe33d7941e011c371e8b1937e2",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 891,
+    "artifact_files_verified": true
+  }
+]
