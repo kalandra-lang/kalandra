@@ -83,5 +83,5 @@ int main(){
     text=text.replace('unsigned cases=0;',pair_checks('Input','I')+'\nunsigned cases=0;')
     text=text.replace('auto expected=_mlir_ciface_kalandra_test_entry(input,rounds,&context);','auto expected=_mlir_ciface_kalandra_test_entry(input,rounds,&context);checkPair(input,rounds,expected,context);')
    driver.write_text(text);runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'));host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-   run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe]);output=run([exe]);print(name,output.strip(),flush=True);results.append(dict(mode=mode,type=language,fixture=fixture,result=output.strip()))
+   run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*(['-DSKIP_PAIR'] if windows else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe]);output=run([exe]);print(name,output.strip(),flush=True);results.append(dict(mode=mode,type=language,fixture=fixture,result=output.strip()))
 (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n')

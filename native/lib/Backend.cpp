@@ -13,6 +13,7 @@
 #include "OrdinaryLoops.h"
 #include "OrdinaryPair.h"
 #include "OrdinaryDirect.h"
+#include "OrdinaryBufferDirect.h"
 #include "OrdinaryScalarRanges.h"
 #include "OrdinaryIntegerCases.h"
 #include "OrdinaryReductions.h"
@@ -189,6 +190,7 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   specializeOrdinaryScalarRanges(*candidate, simplifyLeaf);
   addOrdinaryPairEntries(*candidate, simplifyLeaf);
   addOrdinaryDirectEntries(*candidate, simplifyLeaf);
+  addOrdinaryBufferDirectEntries(*candidate, simplifyLeaf);
   specializeOrdinaryIntegerCases(*candidate, simplifyLeaf);
   lowerAArch64CheckedRemainders(*candidate);
   if (auto error = normalizeWindowsTailPackets(*candidate)) return error;

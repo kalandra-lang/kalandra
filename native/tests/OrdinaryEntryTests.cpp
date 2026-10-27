@@ -1,11 +1,15 @@
 #include "../lib/OrdinaryBaseCase.h"
+#include "../lib/OrdinaryBufferDirect.h"
+#include "../lib/OrdinaryDirect.h"
 #include "../lib/OrdinaryEntry.h"
 #include "../lib/OrdinaryInputs.h"
 #include "../lib/OrdinaryLoops.h"
 #include "../lib/OrdinaryMain.h"
+#include "../lib/OrdinaryPair.h"
 #include "../lib/OrdinaryReductions.h"
 #include "../lib/OrdinaryScalarRanges.h"
 #include "llvm/AsmParser/Parser.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/SourceMgr.h"
 #include <bit>
 #include <cstring>
@@ -28,7 +32,7 @@ static void simplify(llvm::Function &fn, bool) {
   pipeline.run(fn, functions);
 }
 
-int main() {
+int main(int argc, char **argv) {
   using namespace llvm;
   for (unsigned kind = 0; kind < 10; ++kind) {
     std::string body = "ret i64 %n";
@@ -447,9 +451,130 @@ int main() {
         kalandra::specializeOrdinaryInputs(*module, simplify))
       return 1;
   }
+
+  // Public Win64 entries return a scalar. The aggregate helper is private and
+  // can be consumed only by LLVM-to-LLVM calls, never a host C++ declaration.
+  {
+    LLVMContext context;
+    SMDiagnostic diagnostic;
+    std::string ir = R"(
+      target triple = "x86_64-pc-windows-msvc"
+      target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n8:16:32:64-S128"
+      attributes #0 = { "kalandra.ordinary.entry" }
+    )";
+    unsigned index = 0;
+    for (auto type :
+         {"i1", "i8", "i16", "i32", "i64", "i8", "i16", "i32", "i64", "float", "double"}) {
+      const std::string name = "win" + std::to_string(index++);
+      ir += "define " + std::string(type) + " @" + name + "_ordinary_v1(" + type + " %a, " + type +
+            " %b, ptr %fault) #0 { ret " + type + " %a }\n";
+    }
+    ir += R"(
+      define double @_mlir_ciface_kalandra_float64_entry_ordinary_v1(ptr %fault) #0 { ret double 1.0 }
+    )";
+    auto module = parseAssemblyString(ir, diagnostic, context);
+    if (!module)
+      return 1;
+    for (unsigned n : {0u, 1u, 2u, 5u, 6u}) {
+      auto *fn = module->getFunction("win" + std::to_string(n) + "_ordinary_v1");
+      const auto extension = (n == 1 || n == 2) ? Attribute::SExt : Attribute::ZExt;
+      fn->addRetAttr(extension);
+      fn->addParamAttr(0, extension);
+      fn->addParamAttr(1, extension);
+    }
+    if (!module || !kalandra::addOrdinaryPairEntries(*module, simplify) ||
+        !kalandra::addOrdinaryDirectEntries(*module, simplify))
+      return 1;
+    for (unsigned n = 0; n < index; ++n) {
+      auto prefix = "win" + std::to_string(n);
+      auto *scalar = module->getFunction(prefix + "_ordinary_v1");
+      auto *pair = module->getFunction(prefix + "_ordinary_pair_v1");
+      auto *direct = module->getFunction(prefix + "_ordinary_direct_v1");
+      if (!pair || !pair->hasInternalLinkage() || !direct || !direct->hasExternalLinkage() ||
+          direct->getReturnType() != scalar->getReturnType() || direct->arg_size() != 2 ||
+          verifyFunction(*direct, &errs()))
+        return 1;
+    }
+    auto *main = kalandra::addOrdinaryMain(*module);
+    if (!main || verifyModule(*module, &errs()))
+      return 1;
+    bool selected = false;
+    for (auto &block : *main)
+      for (auto &i : block)
+        if (auto *call = dyn_cast<CallInst>(&i);
+            call && call->getCalledFunction() &&
+            call->getCalledFunction()->getName() ==
+                "_mlir_ciface_kalandra_float64_entry_ordinary_direct_v1")
+          selected = true;
+    if (!selected || argc > 2)
+      return 1;
+    if (argc == 2) {
+      std::error_code error;
+      raw_fd_ostream output(argv[1], error);
+      if (error)
+        return 1;
+      module->print(output, nullptr);
+    }
+  }
+  for (unsigned kind = 0; kind < 4; ++kind) {
+    LLVMContext context;
+    SMDiagnostic diagnostic;
+    std::string transfer =
+        kind == 1 ? "%v = call i64 @buffer_ordinary_v1.worker(i64 %a, ptr %fault)\n %sum = add i64 "
+                    "%v, 1\n ret i64 %sum"
+                  : "%v = tail call i64 @buffer_ordinary_v1.worker(i64 %a, ptr %fault)\n br label "
+                    "%done\n done:\n %value=phi i64 [%v,%entry]\n ret i64 %value";
+    auto ir = std::string(R"(
+      target triple = "x86_64-pc-windows-msvc"
+      target datalayout = "e-m:w-i64:64-i128:128-n8:16:32:64-S128"
+      define i64 @buffer_ordinary_v1(i64 %a,ptr %fault) #0 {
+      entry:
+      )") + transfer +
+              R"(
+      }
+      define internal i64 @buffer_ordinary_v1.worker(i64 %a,ptr %fault) #1 {
+        %result=call i64 @buffer_ordinary_heap_v1(i64 %a,ptr %fault)
+        ret i64 %result
+      }
+      declare void @kalandra_ordinary_begin_v1(ptr)
+      declare void @kalandra_ordinary_end_v1(ptr,ptr)
+      define internal i64 @buffer_ordinary_heap_v1(i64 %a,ptr %fault) #2 {
+        %context=alloca [64 x i8]
+        call void @kalandra_ordinary_begin_v1(ptr %context)
+      )" + (kind == 2 ? "" : "call void @kalandra_ordinary_end_v1(ptr %context,ptr %fault)\n") +
+              R"(
+        ret i64 %a
+      }
+      attributes #0 = { "kalandra.ordinary.entry" "kalandra.ordinary.local-buffers" }
+      attributes #1 = { noinline "kalandra.ordinary.local-buffers" }
+      attributes #2 = { noinline "kalandra.ordinary.fallback" }
+      )";
+    if (kind == 3) {
+      auto at = ir.find("[64 x i8]");
+      ir.replace(at, std::string("[64 x i8]").size(), "[32768 x i8]");
+    }
+    auto module = parseAssemblyString(ir, diagnostic, context);
+    if (!module) {
+      diagnostic.print("buffer proof", errs());
+      return 1;
+    }
+    bool changed = kalandra::addOrdinaryBufferDirectEntries(*module, simplify);
+    if (changed != (kind == 0) || verifyModule(*module, &errs()))
+      return 1;
+    if (!changed)
+      continue;
+    auto *direct = module->getFunction("buffer_ordinary_direct_v1");
+    unsigned tails = 0;
+    for (auto &block : *direct)
+      for (auto &i : block)
+        if (auto *call = dyn_cast<CallInst>(&i); call && call->isMustTailCall())
+          ++tails;
+    if (tails != 1 || kalandra::addOrdinaryBufferDirectEntries(*module, simplify))
+      return 1;
+  }
   std::cout << "10 ordinary-entry proof/fault/effect/ABI cases, generic loop-free base version, "
                "9 IEEE/countdown cases, 19 exact floating proof cases and 262144 exhaustive "
                "values, 19 deferred reduction cases, 3 guarded-input cases, pool "
-               "budgets, and idempotence "
+               "budgets, Win64 scalar ABI, buffer tail/settlement proofs and idempotence "
                "passed\n";
 }

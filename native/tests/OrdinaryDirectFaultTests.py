@@ -3,11 +3,14 @@ import argparse,json,os,subprocess,sys
 from pathlib import Path
 q=argparse.ArgumentParser();q.add_argument('--compiler',type=Path,required=True);q.add_argument('--clang',type=Path,required=True);q.add_argument('--output',type=Path,required=True);a=q.parse_args();a.output.mkdir(parents=True,exist_ok=True)
 root=Path(__file__).resolve().parents[2]
+windows=sys.platform=='win32'
+suffix='.exe' if windows else ''
 def run(args):
  r=subprocess.run(list(map(str,args)),capture_output=True,text=True)
  if r.returncode:raise RuntimeError(str(args)+'\n'+r.stdout+r.stderr)
  return r.stdout
 modes=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
+if windows:modes=[mode for mode in modes if mode[0]!='thread-sanitized']
 values=[(0,1),(17,3),(2**63-1,0),(-2**63,0),(2**63-1,1),(-2**63,-1),(-2**63,1),(0,0),(17,-1),(-17,3),(2**63-1,2**63-1)]
 results=[]
 for mode,extra,flags,library in modes:
@@ -42,10 +45,10 @@ int main(int argc,char **argv){
  return kalandra_ordinary_finish_v1(bits(value),KIND,&fault);
 }
 '''.replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp).replace('KIND',str(kind))
-   driver=a.output/(name+'.cpp');driver.write_text(code);runtime=a.compiler.parent/('libkalandra-'+library+'.a')
+   driver=a.output/(name+'.cpp');driver.write_text(code);runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'))
    binaries=[]
    for contract in ['recoverable','direct']:
-    exe=a.output/(name+'-'+contract);run([a.clang,'-std=c++23',*flags,'-ffp-contract=off','-Wno-override-module','-pthread',*(['-DDIRECT'] if contract=='direct' else []),driver,ir,runtime,'-o',exe]);binaries.append(exe)
+    exe=a.output/(name+'-'+contract+suffix);run([a.clang,'-std=c++23',*flags,'-ffp-contract=off','-Wno-override-module',*(['-fms-runtime-lib=static'] if windows else ['-pthread']),*(['-DDIRECT'] if contract=='direct' else []),driver,ir,runtime,'-o',exe]);binaries.append(exe)
    for x,y in values:
     env=dict(os.environ,KALANDRA_TEST_REPORT_CLEANUP='1')
     records=[subprocess.run([str(exe),str(x),str(y)],env=env,capture_output=True,text=True) for exe in binaries]
@@ -62,11 +65,11 @@ for mode,extra,flags,library in modes:
   for label,inputs in [('add',(2**63-1,1)),('divide',(17,0)),('remainder',(17,0))]:
    name=f'{mode}-{lang}-{label}'
    text=(a.output/(name+'.k')).read_text().split('fn main()->')[0]+f'fn main()->{lang}:\n  value({inputs[0]},{inputs[1]})\n'
-   source=a.output/(name+'-cli.k');exe=a.output/(name+'-cli');source.write_text(text)
+   source=a.output/(name+'-cli.k');exe=a.output/(name+'-cli'+suffix);source.write_text(text)
    run([a.compiler,source,*extra,'-o',exe])
    env=dict(os.environ,KALANDRA_TEST_REPORT_CLEANUP='1')
    actual=subprocess.run([exe],capture_output=True,text=True,env=env)
-   expected=subprocess.run([str(a.output/(name+'-recoverable')),*map(str,inputs)],capture_output=True,text=True,env=env)
+   expected=subprocess.run([str(a.output/(name+'-recoverable'+suffix)),*map(str,inputs)],capture_output=True,text=True,env=env)
    assert (actual.returncode,actual.stdout,actual.stderr)==(expected.returncode,expected.stdout,expected.stderr),(name,actual.stderr,expected.stderr)
    cli.append(dict(name=name,status=actual.returncode,stderr=actual.stderr));print(name,'standalone failure matches',flush=True)
 (a.output/'cli-results.json').write_text(json.dumps(cli,indent=2)+'\n')

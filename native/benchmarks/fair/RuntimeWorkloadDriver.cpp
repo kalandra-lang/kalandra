@@ -9,6 +9,8 @@
 using kalandra::runtime::Invocation;
 #if defined(FIXED_ENTRY)
 extern "C" double ENTRY_NAME(Invocation *);
+#elif defined(KALANDRA_ORDINARY_FAILSTOP)
+extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(std::int64_t,std::int64_t);
 #elif defined(KALANDRA_ORDINARY_DIRECT)
 extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_v1(std::int64_t,std::int64_t,
                                                              kalandra::runtime::OrdinaryFault *);
@@ -32,7 +34,9 @@ int main(int argc, char **argv) {
     double checksum = 0;
     const auto start = std::chrono::steady_clock::now();
     for (long long i = 0; i < count; ++i) {
-#if defined(KALANDRA_ORDINARY_DIRECT)
+#if defined(KALANDRA_ORDINARY_FAILSTOP)
+      const auto value = _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(seed,rounds);
+#elif defined(KALANDRA_ORDINARY_DIRECT)
       kalandra::runtime::OrdinaryFault fault;
       const auto value = _mlir_ciface_kalandra_test_entry_ordinary_v1(seed,rounds,&fault);
       if (kalandra::runtime::ordinaryFaulted(value,fault)) std::abort();

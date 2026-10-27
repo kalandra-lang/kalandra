@@ -353,15 +353,32 @@ reading an uninitialized output. No valid numeric value is reserved. ABI extensi
 attributes survive; result range/NaN refinements from the checked failure
 representation do not transfer. All ten numeric types and Bool are covered.
 
-On non-Windows 64-bit targets, a closed scalar companion without local backing
-slots can also use a private `_ordinary_direct_v1` entry. It returns the scalar
+On qualified 64-bit targets, a closed scalar companion can also use a private
+`_ordinary_direct_v1` entry. It returns the scalar
 directly and accepts no fault pointer. Successful calls carry no status record
 or sentinel classification. Arithmetic failure transfers to the existing
 terminal standalone reporting boundary, preserving code, location, exit status
 and cleanup. The CLI prefers this form when available; recoverable ordinary
 and checked task entries retain their contracts. This changes no task
 cancellation behavior. A two-word value/code companion provides the intermediate
-fault proof and independent ABI validation.
+fault proof and independent ABI validation. On Windows, that aggregate helper
+has internal linkage; only scalar-return entries cross the public C ABI.
+
+Buffer-owning direct entries use a separate family transformation. Scalar
+arguments cannot borrow storage from a discarded pool frame. Every generated
+worker/replay transfer must be terminal and keeps the identical scalar signature;
+it becomes `musttail` rather than joining frames or raising the conservative
+16 KiB frame budget. Lifetime-end markers may precede the original shared return.
+A private fallback owns a fresh invocation, settles it before every return and
+reports terminal errors only after settlement. Its checked computation remains
+checked. Other graphs retain the recoverable entry. Allocation failure injection
+still forces the same heap replay; ambiguous successful values remain exact. On
+pinned LLVM 23/AArch64, narrow zero-extended return families keep their scalar
+inputs in `llvm.fake.use` at entry. LLVM's [TypePromotion pass](https://github.com/llvm/llvm-project/blob/release/23.x/llvm/lib/CodeGen/TypePromotion.cpp)
+otherwise inserts a zero-extend/truncate after a mandatory tail call and causes
+ISel to reject it. The intrinsic emits no instructions and blocks only that
+promotion tree; optimization and ABI extension attributes remain enabled.
+The typed buffer matrix covers the failing optimized `uint8` case.
 
 Scalar loop versions keep the zero-round path unrestricted. A compact
 one-round version preserves the original arithmetic for the full input domain.

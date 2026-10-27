@@ -2,7 +2,7 @@
 import argparse, json, os, subprocess, sys
 from OrdinaryPairChecks import pair_checks
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--pair-entry',action='store_true');p.add_argument('--direct-entry',action='store_true');a=p.parse_args();a.pair_entry|=a.direct_entry
+p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--buffer-entry',action='store_true');p.add_argument('--pair-entry',action='store_true');p.add_argument('--direct-entry',action='store_true');a=p.parse_args();a.pair_entry|=a.direct_entry
 root=Path(__file__).resolve().parents[2];a.output.mkdir(parents=True,exist_ok=True);windows=sys.platform=='win32'
 def run(cmd, expected=0):
  r=subprocess.run(list(map(str,cmd)),text=True,capture_output=True)
@@ -18,7 +18,12 @@ for mode,extra,flags,library in variants:
   # Numeric additions exercise both success and checked failures. Identity
   # preserves floating payloads; Bool identity exercises false/true ABI extension.
   operation='a' if floating or boolean else 'a+b';main='false' if boolean else language+'(0)'
-  source.write_text(f'fn value(a:{language},b:{language})->{language}:\n  {operation}\nfn main()->{language}:\n  {main}\n')
+  body=f'  {operation}'
+  if a.buffer_entry:
+   body='  values=[a,b]\n  '+('values[0]' if floating or boolean else 'values[0]+values[1]')
+   # The pool handles numeric backing; exercise Bool's scalar ABI over it.
+   if boolean:body='  values=[1,2]\n  if a:\n    values[0] == 1\n  else:\n    values[1] == 0'
+  source.write_text(f'fn value(a:{language},b:{language})->{language}:\n{body}\nfn main()->{language}:\n  {main}\n')
   run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
   assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text(),name
   text=r'''
@@ -51,6 +56,7 @@ void test(T a,T b) {
   } else if(!same(reference,value))std::abort();
   if(!ordinaryAmbiguous(value) && std::memcmp(&original,&info,sizeof(info)))std::abort();
   if(ordinaryAmbiguous(value) && !failed && info.code)std::abort();
+  context.settle();
   if(context.live() || context.allocations()!=context.releases())std::abort();
   ++cases;
 }
@@ -85,7 +91,8 @@ int main(){verify<T>();std::printf("%llu ordinary exact/first-fault/payload case
 '''
   text=text.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp)
   if a.pair_entry:
-   assert '_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text(),name
+   if not a.buffer_entry:assert '_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text(),name
+   if a.direct_entry:assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text(),name
    if 'T reference=' in text:
     text=text.replace('template<class V> bool same',pair_checks('T','T')+'\ntemplate<class V> bool same')
     text=text.replace('T reference=_mlir_ciface_kalandra_test_entry(a,b,&context);','T reference=_mlir_ciface_kalandra_test_entry(a,b,&context);checkPair(a,b,reference,context);')
@@ -95,14 +102,16 @@ int main(){verify<T>();std::printf("%llu ordinary exact/first-fault/payload case
   driver.write_text(text)
   runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'))
   host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-  run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
+  run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*(['-DSKIP_PAIR'] if windows or a.buffer_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
   output=run([exe]);print(mode,language,output.strip(),flush=True);records.append(dict(mode=mode,type=language,result=output.strip()))
 # Fault-producing projections cover both NaN widths and Bool's true sentinel.
 for mode,extra,flags,library in variants:
  if windows and mode=='thread-sanitized':continue
  for language,cpp,operation,main in [('Bool','bool','a+b>0','false'),('float32','float','float32(a+b)','float32(0)'),('float64','double','float64(a+b)','float64(0)')]:
   name=mode+'-fault-'+language;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
-  source.write_text(f'fn value(a:int64,b:int64)->{language}:\n  {operation}\nfn main()->{language}:\n  {main}\n')
+  body='  '+operation
+  if a.buffer_entry:body='  values=[a,b]\n  '+operation.replace('a+b','values[0]+values[1]')
+  source.write_text(f'fn value(a:int64,b:int64)->{language}:\n{body}\nfn main()->{language}:\n  {main}\n')
   run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
   assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text(),name
   text=r'''
@@ -135,12 +144,13 @@ int main(){
 }
 '''
   if a.pair_entry:
-   assert '_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text(),name
+   if not a.buffer_entry:assert '_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text(),name
+   if a.direct_entry:assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text(),name
    text=text.replace('int main(){',pair_checks('I','I')+'\nint main(){')
    text=text.replace('auto expected=_mlir_ciface_kalandra_test_entry(a,b,&context);','auto expected=_mlir_ciface_kalandra_test_entry(a,b,&context);checkPair(a,b,expected,context);')
   driver.write_text(text.replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp))
   runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'))
   host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-  run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
+  run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*(['-DSKIP_PAIR'] if windows or a.buffer_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe])
   output=run([exe]);print(mode,language,output.strip(),flush=True);records.append(dict(mode=mode,type=language,projection=True,result=output.strip()))
 (a.output/'results.json').write_text(json.dumps(records,indent=2)+'\n')

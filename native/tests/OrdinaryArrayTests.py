@@ -1,7 +1,7 @@
 """Qualify private ordinary buffers, replay and unchanged allocation failures."""
 import argparse,json,os,subprocess,sys
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True);root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32'
+p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--direct-entry',action='store_true');a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True);root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32'
 def run(cmd,env=None):
  r=subprocess.run(list(map(str,cmd)),env=env,text=True,capture_output=True)
  if r.returncode:raise RuntimeError(str(cmd)+'\n'+r.stdout+r.stderr)
@@ -41,6 +41,9 @@ driver=r'''
 using I=std::int64_t;
 extern "C" double _mlir_ciface_kalandra_test_entry(I,I,kalandra::runtime::Invocation*);
 extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::runtime::OrdinaryFault*);
+#if defined(TEST_DIRECT)
+extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
+#endif
 std::uint64_t cases=0;
 void test(I seed,I rounds,bool independent) {
  using namespace kalandra::runtime;
@@ -54,6 +57,9 @@ void test(I seed,I rounds,bool independent) {
   if(info.code!=context.status() || info.line!=context.line() || info.column!=context.column())std::abort();
  } else if(std::bit_cast<std::uint64_t>(value)!=std::bit_cast<std::uint64_t>(reference))std::abort();
  if(!ordinaryAmbiguous(value) && std::memcmp(&before,&info,sizeof(info)))std::abort();
+#if defined(TEST_DIRECT)
+ if(!failed){auto direct=_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(seed,rounds);if(std::bit_cast<std::uint64_t>(direct)!=std::bit_cast<std::uint64_t>(reference))std::abort();}
+#endif
  if(independent && !failed) {
   I expected=0;
   if(FIXTURE>=10) {
@@ -87,9 +93,10 @@ for mode,extra,flags,library in variants:
  for name,(text,entry,kind) in fixtures.items():
   stem=mode+'-'+name;src=a.output/(stem+'.k');ir=a.output/(stem+'.ll');cpp=a.output/(stem+'.cpp');exe=a.output/(stem+('.exe' if windows else ''));src.write_text(text)
   run([a.compiler,src,'--test-entry',entry,'--emit-llvm',ir,'-o',a.output/(stem+'-standalone'),*extra]);assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text(),stem
+  if a.direct_entry:assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text(),stem
   cpp.write_text(driver.replace('FIXTURE',str(kind)))
   runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'))
-  run([a.clang,'-std=c++23',*flags,'-ffp-contract=off','-Wno-override-module',*(['-fms-runtime-lib=static'] if windows else ['-pthread']),cpp,ir,runtime,'-o',exe])
+  run([a.clang,'-std=c++23',*(['-DTEST_DIRECT'] if a.direct_entry else []),*flags,'-ffp-contract=off','-Wno-override-module',*(['-fms-runtime-lib=static'] if windows else ['-pthread']),cpp,ir,runtime,'-o',exe])
   for fail in (0,1,2,3,4,5,7,20):
    env=dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT=str(fail));out=run([exe],env);print(mode,name,fail,out.strip(),flush=True);results.append(dict(mode=mode,fixture=name,allocation_failure=fail,result=out.strip()))
 (a.output/'results.json').write_text(json.dumps(results,indent=2)+'\n')

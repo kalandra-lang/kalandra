@@ -63,8 +63,9 @@ def main():
             ir = build/(name+'.ll')
             p.run([compiler,source,'--test-entry',name,'--emit-llvm',ir,'-O2','-o',build/(name+'-standalone')])
             direct = args.ordinary_entry and '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text()
-            selected_abi[name] = 'ordinary-v1' if direct else 'checked-v4'
-            p.run([p.CLANG,*flags,*(['-DKALANDRA_ORDINARY_DIRECT'] if direct else []),'-DKALANDRA_KERNEL',driver,ir,runtime,'-o',build/name])
+            failstop = args.ordinary_entry and '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text()
+            selected_abi[name] = 'ordinary-direct-v1' if failstop else 'ordinary-v1' if direct else 'checked-v4'
+            p.run([p.CLANG,*flags,*(['-DKALANDRA_ORDINARY_FAILSTOP'] if failstop else ['-DKALANDRA_ORDINARY_DIRECT'] if direct else []),'-DKALANDRA_KERNEL',driver,ir,runtime,'-o',build/name])
         for rounds in (0,16,256):
             for mode in ('direct','scheduled'):
                 name = f'{mode}-{rounds}'
@@ -116,7 +117,7 @@ def main():
         result['contract'] = result['contract'].replace('fresh invocation, cancellation, checked arithmetic',
             'fresh unbound invocation (no cancellation token or native-interrupt capability), checked arithmetic')
     if args.ordinary_entry:
-        result['contract'] += ' Compiler-proven ordinary-v1 companions omit Invocation construction and use private bounded local buffers where proven safe, replaying through the checked heap path if needed. Per-program entry_abi records selection. Task diagnostics retain checked-v4. All arithmetic checks remain; no cancellation capability is supplied.'
+        result['contract'] += ' Compiler-proven ordinary-v1 companions omit Invocation construction and use private bounded local buffers where proven safe, replaying through the checked heap path if needed. Eligible scalar-return fail-stop companions omit success status transport; recoverable ordinary-v1 is the fallback. Per-program entry_abi records selection. Task diagnostics retain checked-v4. All arithmetic checks remain; no cancellation capability is supplied.'
         result['contract'] = result['contract'].replace('Kalandra includes fresh unbound invocation (no cancellation token or native-interrupt capability), checked arithmetic, allocation/ownership and settlement.', 'Kalandra includes checked arithmetic and compiler-proven ordinary resource/fault handling; unsupported entries use a fresh unbound invocation.')
     assert {p.key(f):p.sha(f) for f in paths} == signature
     assert all(p.sha(f) == h for f,h in saved['hashes'].items())

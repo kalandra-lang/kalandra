@@ -54,6 +54,30 @@ jobs:
           --compiler build/windows/native/kalandra.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/call-foundation
+      - name: Verify ordinary scalar ABI, private buffers and failure cleanup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $compiler = 'build/windows/native/kalandra.exe'
+          $clang = "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          python native/tests/OrdinarySourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-direct --direct-entry
+          if ($LASTEXITCODE -ne 0) { throw 'Scalar direct ABI qualification failed' }
+          python native/tests/OrdinaryLoopSourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-loop-direct --direct-entry --exhaustive-entry
+          if ($LASTEXITCODE -ne 0) { throw 'Loop direct ABI qualification failed' }
+          python native/tests/OrdinarySourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-types --direct-entry --buffer-entry
+          if ($LASTEXITCODE -ne 0) { throw 'Typed buffer ABI qualification failed' }
+          python native/tests/OrdinaryArrayTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-direct --direct-entry
+          if ($LASTEXITCODE -ne 0) { throw 'Buffer direct ABI qualification failed' }
+          python native/tests/OrdinaryDirectFaultTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-direct-faults
+          if ($LASTEXITCODE -ne 0) { throw 'Scalar failure qualification failed' }
+          python native/tests/OrdinaryBufferFaultTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-faults
+          if ($LASTEXITCODE -ne 0) { throw 'Buffer failure qualification failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-ordinary-qualification
+          path: build/windows/ordinary*/**/*.json
+          if-no-files-found: warn
       - name: Verify documented PowerShell starter commands
         shell: pwsh
         run: |

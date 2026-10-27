@@ -1158,8 +1158,23 @@ if(BUILD_TESTING)
   add_test(NAME native-ordinary-arrays
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryArrayTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
-      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-arrays")
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-arrays" --direct-entry)
   set_tests_properties(native-ordinary-arrays PROPERTIES TIMEOUT 900)
+  add_test(NAME native-ordinary-buffer-types
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinarySourceTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-buffer-types" --direct-entry --buffer-entry)
+  set_tests_properties(native-ordinary-buffer-types PROPERTIES TIMEOUT 900)
+  add_test(NAME native-ordinary-buffer-faults
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryBufferFaultTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-buffer-faults")
+  set_tests_properties(native-ordinary-buffer-faults PROPERTIES TIMEOUT 900)
+  add_test(NAME native-windows-ordinary-codegen
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/WindowsOrdinaryTests.py"
+      --driver "$<TARGET_FILE:kalandra-ordinary-entry-tests>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/windows-ordinary-codegen")
+  set_tests_properties(native-windows-ordinary-codegen PROPERTIES TIMEOUT 300)
   add_test(NAME native-ordinary-reductions
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryReductionSourceTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
@@ -1175,26 +1190,23 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-source")
   set_tests_properties(native-ordinary-source PROPERTIES TIMEOUT 900)
-  set(_ordinary_exact_abi_args)
+  set(_ordinary_exact_abi_args --direct-entry)
+  add_test(NAME native-ordinary-pair-source
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinarySourceTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-pair-source" --direct-entry)
+  set_tests_properties(native-ordinary-pair-source PROPERTIES TIMEOUT 900)
+  add_test(NAME native-ordinary-direct-faults
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryDirectFaultTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-direct-faults")
+  set_tests_properties(native-ordinary-direct-faults PROPERTIES TIMEOUT 900)
   if(NOT WIN32)
-    list(APPEND _ordinary_exact_abi_args --direct-entry)
-    add_test(NAME native-ordinary-pair-source
-      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinarySourceTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
-        --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-pair-source" --direct-entry)
-    set_tests_properties(native-ordinary-pair-source PROPERTIES TIMEOUT 900)
-    add_test(NAME native-ordinary-direct-faults
-      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryDirectFaultTests.py"
-        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
-        --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-direct-faults")
-    set_tests_properties(native-ordinary-direct-faults PROPERTIES TIMEOUT 900)
     add_test(NAME native-ordinary-integer-cases
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryIntegerCasesSourceTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
         --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-integer-cases")
     set_tests_properties(native-ordinary-integer-cases PROPERTIES TIMEOUT 900)
-
-
   endif()
   add_test(NAME native-ordinary-scalar-exact
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryLoopSourceTests.py"

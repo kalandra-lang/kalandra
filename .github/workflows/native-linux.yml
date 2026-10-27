@@ -56,6 +56,11 @@ jobs:
           cmake --build build/linux --target kalandra-checked-inlining-tests -j2
           ctest --test-dir build/linux --output-on-failure -j2 \
             -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|call-foundation-source|windows-tail-codegen|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
+      - name: Verify ordinary direct ABI and resource cleanup
+        run: |
+          cmake --build build/linux --target kalandra-ordinary-entry-tests -j2
+          ctest --test-dir build/linux --output-on-failure -j2 \
+            -R '^native-(ordinary-(entry|source|pair-source|arrays|buffer-types|buffer-faults|direct-faults|scalar-exact)|windows-ordinary-codegen)$'
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version

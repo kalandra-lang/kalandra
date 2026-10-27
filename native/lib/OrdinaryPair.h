@@ -12,7 +12,7 @@ namespace kalandra {
 inline bool addOrdinaryPairEntries(llvm::Module &module,
                                    const std::function<void(llvm::Function &, bool)> &simplify) {
   using namespace llvm;
-  if (module.getTargetTriple().isOSWindows() || module.getDataLayout().getPointerSizeInBits() != 64)
+  if (module.getDataLayout().getPointerSizeInBits() != 64)
     return false;
   SmallVector<llvm::Function *, 8> roots;
   for (auto &fn : module)
@@ -125,8 +125,10 @@ inline bool addOrdinaryPairEntries(llvm::Module &module,
     auto name = root->getName().str();
     name.resize(name.size() - std::string("ordinary_v1").size());
     name += "ordinary_pair_v1";
-    auto *pair = llvm::Function::Create(FunctionType::get(pairType, types, false),
-                                        root->getLinkage(), name, module);
+    auto *pair = llvm::Function::Create(
+        FunctionType::get(pairType, types, false),
+        module.getTargetTriple().isOSWindows() ? GlobalValue::InternalLinkage : root->getLinkage(),
+        name, module);
     pair->setCallingConv(root->getCallingConv());
     pair->setAttributes(
         AttributeList::get(ctx, flat->getAttributes().getFnAttrs(), AttributeSet(), attrs));

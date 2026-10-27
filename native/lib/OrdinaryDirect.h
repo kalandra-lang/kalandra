@@ -7,7 +7,8 @@
 #include <functional>
 
 namespace kalandra {
-// A closed, resource-free ordinary entry can report process failure directly.
+// A closed ordinary entry can report process failure directly. Private buffers
+// live on its stack; heap replay settles ownership before returning here.
 // There is no per-call token, error buffer or status test on its normal path.
 // Recoverable entries remain separate, and managed/task code never selects it.
 inline bool addOrdinaryDirectEntries(llvm::Module &module,
@@ -32,8 +33,9 @@ inline bool addOrdinaryDirectEntries(llvm::Module &module,
       params.push_back(pair->getArg(n)->getType());
       attrs.push_back(pair->getAttributes().getParamAttrs(n));
     }
-    auto *direct = llvm::Function::Create(FunctionType::get(scalar->getReturnType(), params, false),
-                                          pair->getLinkage(), name + "ordinary_direct_v1", module);
+    auto *direct =
+        llvm::Function::Create(FunctionType::get(scalar->getReturnType(), params, false),
+                               scalar->getLinkage(), name + "ordinary_direct_v1", module);
     direct->setCallingConv(pair->getCallingConv());
     IRBuilder<> b(BasicBlock::Create(ctx, "ordinary.direct", direct));
     auto *fault = b.CreateAlloca(ArrayType::get(b.getInt64Ty(), 3), nullptr, "ordinary.cold-fault");
