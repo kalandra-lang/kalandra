@@ -306,3 +306,28 @@ Existing bounded/range specializations run before the unbound fallback so short
 loops retain their narrow arithmetic. Their side-effect-free argument guard
 runs before reading invocation control/depth; packets outside that region can
 reach the unbound eligibility guard without preparing managed control state.
+
+### Separate checked entry frames from pure value returns
+
+After the closed unbound graph proof, [LeafEntry.h](../../native/lib/LeafEntry.h)
+can outline a checked scalar host entry's original body into an internal worker.
+A call-free prefix can return its value without the packet frame. Before atomic,
+volatile or external effects, foreign/resource calls or dynamic stack allocation,
+it transfers to that worker with the original arguments. Private scratch writes
+are eliminated by SROA; a surviving alloca or absence of a value-return path rejects
+the transformation. Cancellation boundaries, task/native pure frames and special
+code sections are excluded.
+
+The required tail transfer preserves the original return and parameter ABI
+attributes, including Boolean return extension. The original checked worker
+retains its frame pointer and all admission/fault/cleanup behavior. The wrapper
+can omit its frame pointer; target code generation still owns actual register
+and stack requirements. No public callable ABI or cancellation opt-out is added.
+
+The [isolated study](../../benchmarks/results/entry-costs-2026-10-27.md) records
+both the zero-round gain and short-case regression, the ABI defect found by broad
+source qualification, and the rejected compact backing experiment. The scalar
+context/entry ABI and array allocation/ownership parity targets remain open.
+
+The unbound host marker is installed before CFG simplification, which may delete
+the originating basic block. The proof unit checks this optimizer-callback order.

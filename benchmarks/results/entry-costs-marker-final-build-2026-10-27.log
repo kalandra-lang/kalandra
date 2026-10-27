@@ -1,0 +1,1053 @@
+[1/907] Scanning /Users/pouya/Projects/kalandra.dev/native/tests/BoundedEntryTests.cpp for CXX dependencies
+[2/907] Generating CXX dyndep file native/CMakeFiles/kalandra-bounded-entry-tests.dir/CXX.dd
+[3/907] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Backend.cpp for CXX dependencies
+[4/907] Scanning /Users/pouya/Projects/kalandra.dev/native/lib/Backend.cpp for CXX dependencies
+[5/907] Generating CXX dyndep file native/CMakeFiles/kalandra-backend.dir/CXX.dd
+[6/903] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-lowering-sanitized.dir/CXX.dd
+[7/898] Building CXX object native/CMakeFiles/kalandra-bounded-entry-tests.dir/tests/BoundedEntryTests.cpp.o
+[8/898] Linking CXX executable native/kalandra-bounded-entry-tests
+[9/898] Building CXX object native/CMakeFiles/kalandra-backend.dir/lib/Backend.cpp.o
+[10/898] Linking CXX static library native/libkalandra-backend.a
+[11/898] Linking CXX executable native/kalandra-checked-inlining-tests
+[12/898] Linking CXX executable native/kalandra-numeric-type-tests-debug
+[13/898] Linking CXX executable native/metal-proof/kalandra-metal-numeric-wire
+ld: warning: ignoring duplicate libraries: 'native/libkalandra-gpu-numeric.a'
+[14/898] Linking CXX executable native/kalandra-placement-tests-debug
+[15/898] Linking CXX executable native/metal-source/kalandra-metal-source
+[16/898] Linking CXX executable native/kalandra
+ld: warning: ignoring duplicate libraries: 'native/libkalandra-backend.a', 'native/libkalandra-packages.a'
+[17/898] Linking CXX executable native/kalandra-placement-tests-sanitized
+[18/898] Linking CXX executable native/kalandra-int32-tests-debug
+[19/898] Linking CXX executable native/kalandra-numeric-type-tests-sanitized
+[20/898] Generating placed/host.cpp, placed/placement.ir, placed/continuation.plan, placed/kernel0.mlir, placed/manifest.txt
+[21/898] Generating numeric-float64.metallib, numeric-float64.spvasm, numeric-float64.metal
+[22/898] Generating numeric-int32.metallib, numeric-int32.spvasm, numeric-int32.metal
+[23/898] Generating numeric-float32.metallib, numeric-float32.spvasm, numeric-float32.metal
+[24/898] Generating numeric-int16.metallib, numeric-int16.spvasm, numeric-int16.metal
+[25/898] Generating composed/host.cpp, composed/placement.ir, composed/continuation.plan, composed/kernel0.mlir, composed/manifest.txt
+[26/898] Generating numeric-int64.metallib, numeric-int64.spvasm, numeric-int64.metal
+[27/898] Generating placed/kernel0.metallib, placed/kernel0.lowered.mlir, placed/kernel0.spvasm, placed/kernel0.metal, placed/kernel0.reflection.json
+[28/898] Generating numeric-reduce-int16.metallib, numeric-reduce-int16.spvasm, numeric-reduce-int16.metal
+[29/898] Generating numeric-int8.metallib, numeric-int8.spvasm, numeric-int8.metal
+[30/898] Generating numeric-reduce-float64.metallib, numeric-reduce-float64.spvasm, numeric-reduce-float64.metal
+[31/898] Generating numeric-reduce-float32.metallib, numeric-reduce-float32.spvasm, numeric-reduce-float32.metal
+[32/898] Generating numeric-reduce-int32.metallib, numeric-reduce-int32.spvasm, numeric-reduce-int32.metal
+[33/898] Generating numeric-reduce-int64.metallib, numeric-reduce-int64.spvasm, numeric-reduce-int64.metal
+[34/898] Generating numeric-reduce-int8.metallib, numeric-reduce-int8.spvasm, numeric-reduce-int8.metal
+[35/898] Generating numeric-reduce-uint16.metallib, numeric-reduce-uint16.spvasm, numeric-reduce-uint16.metal
+[36/898] Generating numeric-reduce-uint32.metallib, numeric-reduce-uint32.spvasm, numeric-reduce-uint32.metal
+[37/898] Generating numeric-reduce-uint64.metallib, numeric-reduce-uint64.spvasm, numeric-reduce-uint64.metal
+[38/898] Generating numeric-reduce-uint8.metallib, numeric-reduce-uint8.spvasm, numeric-reduce-uint8.metal
+[39/898] Generating numeric-scalar-float32.metallib, numeric-scalar-float32.spvasm, numeric-scalar-float32.metal
+[40/898] Generating numeric-scalar-float64.metallib, numeric-scalar-float64.spvasm, numeric-scalar-float64.metal
+[41/898] Generating numeric-scalar-int16.metallib, numeric-scalar-int16.spvasm, numeric-scalar-int16.metal
+[42/898] Generating numeric-scalar-int8.metallib, numeric-scalar-int8.spvasm, numeric-scalar-int8.metal
+[43/898] Generating numeric-scalar-uint16.metallib, numeric-scalar-uint16.spvasm, numeric-scalar-uint16.metal
+[44/898] Generating numeric-scalar-int64.metallib, numeric-scalar-int64.spvasm, numeric-scalar-int64.metal
+[45/898] Generating numeric-scalar-int32.metallib, numeric-scalar-int32.spvasm, numeric-scalar-int32.metal
+[46/898] Generating numeric-scalar-uint32.metallib, numeric-scalar-uint32.spvasm, numeric-scalar-uint32.metal
+[47/898] Generating numeric-scalar-uint64.metallib, numeric-scalar-uint64.spvasm, numeric-scalar-uint64.metal
+[48/898] Generating numeric-scalar-uint8.metallib, numeric-scalar-uint8.spvasm, numeric-scalar-uint8.metal
+[49/898] Generating numeric-uint16.metallib, numeric-uint16.spvasm, numeric-uint16.metal
+[50/898] Generating numeric-uint64.metallib, numeric-uint64.spvasm, numeric-uint64.metal
+[51/898] Generating numeric-uint8.metallib, numeric-uint8.spvasm, numeric-uint8.metal
+[52/898] Generating numeric-uint32.metallib, numeric-uint32.spvasm, numeric-uint32.metal
+[53/898] Generating composed/kernel0.metallib, composed/kernel0.lowered.mlir, composed/kernel0.spvasm, composed/kernel0.metal, composed/kernel0.reflection.json
+[54/898] Generating cpu-consumer-debug.o, cpu-consumer-debug.ll
+[55/898] Generating cpu-consumer-thread-sanitized.o, cpu-consumer-thread-sanitized.ll
+[56/898] Generating cpu-consumer-sanitized.o, cpu-consumer-sanitized.ll
+[57/898] Generating cpu-consumer-optimized.o, cpu-consumer-optimized.ll
+[58/898] Generating mixed-debug/host.cpp, mixed-debug/placement.ir, mixed-debug/continuation.plan, mixed-debug/cpu.ll, mixed-debug/cpu.o, mixed-debug/kernel0.metallib
+[59/898] Generating mixed-optimized/host.cpp, mixed-optimized/placement.ir, mixed-optimized/continuation.plan, mixed-optimized/cpu.ll, mixed-optimized/cpu.o, mixed-optimized/kernel0.metallib
+[60/898] Generating tensor-results-debug/host.cpp, tensor-results-debug/placement.ir, tensor-results-debug/continuation.plan, tensor-results-debug/cpu.ll, tensor-results-debug/cpu.o, tensor-results-debug/kernel0.metallib
+[61/898] Generating mixed-sanitized/host.cpp, mixed-sanitized/placement.ir, mixed-sanitized/continuation.plan, mixed-sanitized/cpu.ll, mixed-sanitized/cpu.o, mixed-sanitized/kernel0.metallib
+[62/898] Generating tensor-results-optimized/host.cpp, tensor-results-optimized/placement.ir, tensor-results-optimized/continuation.plan, tensor-results-optimized/cpu.ll, tensor-results-optimized/cpu.o, tensor-results-optimized/kernel0.metallib
+[63/898] Generating mixed-thread-sanitized/host.cpp, mixed-thread-sanitized/placement.ir, mixed-thread-sanitized/continuation.plan, mixed-thread-sanitized/cpu.ll, mixed-thread-sanitized/cpu.o, mixed-thread-sanitized/kernel0.metallib
+[64/898] Generating tensor-results-sanitized/host.cpp, tensor-results-sanitized/placement.ir, tensor-results-sanitized/continuation.plan, tensor-results-sanitized/cpu.ll, tensor-results-sanitized/cpu.o, tensor-results-sanitized/kernel0.metallib
+[65/898] Generating tensor-results-thread-sanitized/host.cpp, tensor-results-thread-sanitized/placement.ir, tensor-results-thread-sanitized/continuation.plan, tensor-results-thread-sanitized/cpu.ll, tensor-results-thread-sanitized/cpu.o, tensor-results-thread-sanitized/kernel0.metallib
+[66/898] Generating shared-helpers-debug/host.cpp, shared-helpers-debug/placement.ir, shared-helpers-debug/continuation.plan, shared-helpers-debug/cpu.ll, shared-helpers-debug/cpu.o, shared-helpers-debug/kernel0.metallib
+[67/898] Generating shared-helpers-optimized/host.cpp, shared-helpers-optimized/placement.ir, shared-helpers-optimized/continuation.plan, shared-helpers-optimized/cpu.ll, shared-helpers-optimized/cpu.o, shared-helpers-optimized/kernel0.metallib
+[68/898] Generating shared-helpers-thread-sanitized/host.cpp, shared-helpers-thread-sanitized/placement.ir, shared-helpers-thread-sanitized/continuation.plan, shared-helpers-thread-sanitized/cpu.ll, shared-helpers-thread-sanitized/cpu.o, shared-helpers-thread-sanitized/kernel0.metallib
+[69/898] Generating scalar-entry-debug/host.cpp, scalar-entry-debug/placement.ir, scalar-entry-debug/continuation.plan, scalar-entry-debug/cpu.ll, scalar-entry-debug/cpu.o, scalar-entry-debug/kernel0.metallib
+[70/898] Generating shared-helpers-sanitized/host.cpp, shared-helpers-sanitized/placement.ir, shared-helpers-sanitized/continuation.plan, shared-helpers-sanitized/cpu.ll, shared-helpers-sanitized/cpu.o, shared-helpers-sanitized/kernel0.metallib
+[71/898] Generating scalar-entry-optimized/host.cpp, scalar-entry-optimized/placement.ir, scalar-entry-optimized/continuation.plan, scalar-entry-optimized/cpu.ll, scalar-entry-optimized/cpu.o, scalar-entry-optimized/kernel0.metallib
+[72/898] Generating matrix-elementwise-debug/host.cpp, matrix-elementwise-debug/placement.ir, matrix-elementwise-debug/continuation.plan, matrix-elementwise-debug/cpu.ll, matrix-elementwise-debug/cpu.o, matrix-elementwise-debug/kernel0.metallib
+[73/898] Generating scalar-entry-thread-sanitized/host.cpp, scalar-entry-thread-sanitized/placement.ir, scalar-entry-thread-sanitized/continuation.plan, scalar-entry-thread-sanitized/cpu.ll, scalar-entry-thread-sanitized/cpu.o, scalar-entry-thread-sanitized/kernel0.metallib
+[74/898] Generating scalar-entry-sanitized/host.cpp, scalar-entry-sanitized/placement.ir, scalar-entry-sanitized/continuation.plan, scalar-entry-sanitized/cpu.ll, scalar-entry-sanitized/cpu.o, scalar-entry-sanitized/kernel0.metallib
+[75/898] Generating matrix-elementwise-optimized/host.cpp, matrix-elementwise-optimized/placement.ir, matrix-elementwise-optimized/continuation.plan, matrix-elementwise-optimized/cpu.ll, matrix-elementwise-optimized/cpu.o, matrix-elementwise-optimized/kernel0.metallib
+[76/898] Generating matrix-elementwise-thread-sanitized/host.cpp, matrix-elementwise-thread-sanitized/placement.ir, matrix-elementwise-thread-sanitized/continuation.plan, matrix-elementwise-thread-sanitized/cpu.ll, matrix-elementwise-thread-sanitized/cpu.o, matrix-elementwise-thread-sanitized/kernel0.metallib
+[77/898] Generating matrix-elementwise-sanitized/host.cpp, matrix-elementwise-sanitized/placement.ir, matrix-elementwise-sanitized/continuation.plan, matrix-elementwise-sanitized/cpu.ll, matrix-elementwise-sanitized/cpu.o, matrix-elementwise-sanitized/kernel0.metallib
+[78/898] Generating differences-debug/host.cpp, differences-debug/placement.ir, differences-debug/continuation.plan, differences-debug/cpu.ll, differences-debug/cpu.o, differences-debug/kernel0.metallib
+[79/898] Generating differences-optimized/host.cpp, differences-optimized/placement.ir, differences-optimized/continuation.plan, differences-optimized/cpu.ll, differences-optimized/cpu.o, differences-optimized/kernel0.metallib
+[80/898] Generating arguments-debug/host.cpp, arguments-debug/placement.ir, arguments-debug/continuation.plan, arguments-debug/cpu.ll, arguments-debug/cpu.o, arguments-debug/kernel0.metallib
+[81/898] Generating differences-thread-sanitized/host.cpp, differences-thread-sanitized/placement.ir, differences-thread-sanitized/continuation.plan, differences-thread-sanitized/cpu.ll, differences-thread-sanitized/cpu.o, differences-thread-sanitized/kernel0.metallib
+[82/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-lowering-sanitized.dir/__/lib/Backend.cpp.o
+[83/898] Generating differences-sanitized/host.cpp, differences-sanitized/placement.ir, differences-sanitized/continuation.plan, differences-sanitized/cpu.ll, differences-sanitized/cpu.o, differences-sanitized/kernel0.metallib
+[84/898] Generating arguments-optimized/host.cpp, arguments-optimized/placement.ir, arguments-optimized/continuation.plan, arguments-optimized/cpu.ll, arguments-optimized/cpu.o, arguments-optimized/kernel0.metallib
+[85/898] Generating unused-inputs-debug/host.cpp, unused-inputs-debug/placement.ir, unused-inputs-debug/continuation.plan, unused-inputs-debug/cpu.ll, unused-inputs-debug/cpu.o, unused-inputs-debug/kernel0.metallib
+[86/898] Generating unused-inputs-optimized/host.cpp, unused-inputs-optimized/placement.ir, unused-inputs-optimized/continuation.plan, unused-inputs-optimized/cpu.ll, unused-inputs-optimized/cpu.o, unused-inputs-optimized/kernel0.metallib
+[87/898] Generating arguments-thread-sanitized/host.cpp, arguments-thread-sanitized/placement.ir, arguments-thread-sanitized/continuation.plan, arguments-thread-sanitized/cpu.ll, arguments-thread-sanitized/cpu.o, arguments-thread-sanitized/kernel0.metallib
+[88/898] Generating unused-inputs-thread-sanitized/host.cpp, unused-inputs-thread-sanitized/placement.ir, unused-inputs-thread-sanitized/continuation.plan, unused-inputs-thread-sanitized/cpu.ll, unused-inputs-thread-sanitized/cpu.o, unused-inputs-thread-sanitized/kernel0.metallib
+[89/898] Generating unused-inputs-sanitized/host.cpp, unused-inputs-sanitized/placement.ir, unused-inputs-sanitized/continuation.plan, unused-inputs-sanitized/cpu.ll, unused-inputs-sanitized/cpu.o, unused-inputs-sanitized/kernel0.metallib
+[90/898] Generating arguments-sanitized/host.cpp, arguments-sanitized/placement.ir, arguments-sanitized/continuation.plan, arguments-sanitized/cpu.ll, arguments-sanitized/cpu.o, arguments-sanitized/kernel0.metallib
+[91/898] Generating indirect-arguments-debug/host.cpp, indirect-arguments-debug/placement.ir, indirect-arguments-debug/continuation.plan, indirect-arguments-debug/cpu.ll, indirect-arguments-debug/cpu.o, indirect-arguments-debug/kernel0.metallib
+[92/898] Generating tensor-negation-debug/host.cpp, tensor-negation-debug/placement.ir, tensor-negation-debug/continuation.plan, tensor-negation-debug/cpu.ll, tensor-negation-debug/cpu.o, tensor-negation-debug/kernel0.metallib
+[93/898] Generating tensor-negation-optimized/host.cpp, tensor-negation-optimized/placement.ir, tensor-negation-optimized/continuation.plan, tensor-negation-optimized/cpu.ll, tensor-negation-optimized/cpu.o, tensor-negation-optimized/kernel0.metallib
+[94/898] Generating tensor-negation-thread-sanitized/host.cpp, tensor-negation-thread-sanitized/placement.ir, tensor-negation-thread-sanitized/continuation.plan, tensor-negation-thread-sanitized/cpu.ll, tensor-negation-thread-sanitized/cpu.o, tensor-negation-thread-sanitized/kernel0.metallib
+[95/898] Generating tensor-negation-sanitized/host.cpp, tensor-negation-sanitized/placement.ir, tensor-negation-sanitized/continuation.plan, tensor-negation-sanitized/cpu.ll, tensor-negation-sanitized/cpu.o, tensor-negation-sanitized/kernel0.metallib
+[96/898] Generating division-debug/host.cpp, division-debug/placement.ir, division-debug/continuation.plan, division-debug/cpu.ll, division-debug/cpu.o, division-debug/kernel0.metallib
+[97/898] Generating indirect-arguments-optimized/host.cpp, indirect-arguments-optimized/placement.ir, indirect-arguments-optimized/continuation.plan, indirect-arguments-optimized/cpu.ll, indirect-arguments-optimized/cpu.o, indirect-arguments-optimized/kernel0.metallib
+[98/898] Generating division-optimized/host.cpp, division-optimized/placement.ir, division-optimized/continuation.plan, division-optimized/cpu.ll, division-optimized/cpu.o, division-optimized/kernel0.metallib
+[99/898] Generating host-expressions-debug/host.cpp, host-expressions-debug/placement.ir, host-expressions-debug/continuation.plan, host-expressions-debug/cpu.ll, host-expressions-debug/cpu.o, host-expressions-debug/kernel0.metallib
+[100/898] Generating indirect-arguments-thread-sanitized/host.cpp, indirect-arguments-thread-sanitized/placement.ir, indirect-arguments-thread-sanitized/continuation.plan, indirect-arguments-thread-sanitized/cpu.ll, indirect-arguments-thread-sanitized/cpu.o, indirect-arguments-thread-sanitized/kernel0.metallib
+[101/898] Generating division-thread-sanitized/host.cpp, division-thread-sanitized/placement.ir, division-thread-sanitized/continuation.plan, division-thread-sanitized/cpu.ll, division-thread-sanitized/cpu.o, division-thread-sanitized/kernel0.metallib
+[102/898] Generating division-sanitized/host.cpp, division-sanitized/placement.ir, division-sanitized/continuation.plan, division-sanitized/cpu.ll, division-sanitized/cpu.o, division-sanitized/kernel0.metallib
+[103/898] Generating host-expressions-optimized/host.cpp, host-expressions-optimized/placement.ir, host-expressions-optimized/continuation.plan, host-expressions-optimized/cpu.ll, host-expressions-optimized/cpu.o, host-expressions-optimized/kernel0.metallib
+[104/898] Generating cpu-spawn-debug/host.cpp, cpu-spawn-debug/placement.ir, cpu-spawn-debug/continuation.plan, cpu-spawn-debug/cpu.ll, cpu-spawn-debug/cpu.o, cpu-spawn-debug/kernel0.metallib
+[105/898] Generating indirect-arguments-sanitized/host.cpp, indirect-arguments-sanitized/placement.ir, indirect-arguments-sanitized/continuation.plan, indirect-arguments-sanitized/cpu.ll, indirect-arguments-sanitized/cpu.o, indirect-arguments-sanitized/kernel0.metallib
+[106/898] Generating host-expressions-thread-sanitized/host.cpp, host-expressions-thread-sanitized/placement.ir, host-expressions-thread-sanitized/continuation.plan, host-expressions-thread-sanitized/cpu.ll, host-expressions-thread-sanitized/cpu.o, host-expressions-thread-sanitized/kernel0.metallib
+[107/898] Generating host-expressions-sanitized/host.cpp, host-expressions-sanitized/placement.ir, host-expressions-sanitized/continuation.plan, host-expressions-sanitized/cpu.ll, host-expressions-sanitized/cpu.o, host-expressions-sanitized/kernel0.metallib
+[108/898] Generating cpu-spawn-optimized/host.cpp, cpu-spawn-optimized/placement.ir, cpu-spawn-optimized/continuation.plan, cpu-spawn-optimized/cpu.ll, cpu-spawn-optimized/cpu.o, cpu-spawn-optimized/kernel0.metallib
+[109/898] Generating nested-parallel-debug/host.cpp, nested-parallel-debug/placement.ir, nested-parallel-debug/continuation.plan, nested-parallel-debug/cpu.ll, nested-parallel-debug/cpu.o, nested-parallel-debug/kernel0.metallib
+[110/898] Generating nested-parallel-optimized/host.cpp, nested-parallel-optimized/placement.ir, nested-parallel-optimized/continuation.plan, nested-parallel-optimized/cpu.ll, nested-parallel-optimized/cpu.o, nested-parallel-optimized/kernel0.metallib
+[111/898] Generating cpu-spawn-thread-sanitized/host.cpp, cpu-spawn-thread-sanitized/placement.ir, cpu-spawn-thread-sanitized/continuation.plan, cpu-spawn-thread-sanitized/cpu.ll, cpu-spawn-thread-sanitized/cpu.o, cpu-spawn-thread-sanitized/kernel0.metallib
+[112/898] Generating recovery-debug/host.cpp, recovery-debug/placement.ir, recovery-debug/continuation.plan, recovery-debug/cpu.ll, recovery-debug/cpu.o, recovery-debug/kernel0.metallib
+[113/898] Generating cpu-spawn-sanitized/host.cpp, cpu-spawn-sanitized/placement.ir, cpu-spawn-sanitized/continuation.plan, cpu-spawn-sanitized/cpu.ll, cpu-spawn-sanitized/cpu.o, cpu-spawn-sanitized/kernel0.metallib
+[114/898] Generating nested-parallel-thread-sanitized/host.cpp, nested-parallel-thread-sanitized/placement.ir, nested-parallel-thread-sanitized/continuation.plan, nested-parallel-thread-sanitized/cpu.ll, nested-parallel-thread-sanitized/cpu.o, nested-parallel-thread-sanitized/kernel0.metallib
+[115/898] Generating recovery-optimized/host.cpp, recovery-optimized/placement.ir, recovery-optimized/continuation.plan, recovery-optimized/cpu.ll, recovery-optimized/cpu.o, recovery-optimized/kernel0.metallib
+[116/898] Generating nested-parallel-sanitized/host.cpp, nested-parallel-sanitized/placement.ir, nested-parallel-sanitized/continuation.plan, nested-parallel-sanitized/cpu.ll, nested-parallel-sanitized/cpu.o, nested-parallel-sanitized/kernel0.metallib
+[117/898] Generating resumable-helpers-debug/host.cpp, resumable-helpers-debug/placement.ir, resumable-helpers-debug/continuation.plan, resumable-helpers-debug/cpu.ll, resumable-helpers-debug/cpu.o, resumable-helpers-debug/kernel0.metallib
+[118/898] Generating recovery-sanitized/host.cpp, recovery-sanitized/placement.ir, recovery-sanitized/continuation.plan, recovery-sanitized/cpu.ll, recovery-sanitized/cpu.o, recovery-sanitized/kernel0.metallib
+[119/898] Generating recovery-thread-sanitized/host.cpp, recovery-thread-sanitized/placement.ir, recovery-thread-sanitized/continuation.plan, recovery-thread-sanitized/cpu.ll, recovery-thread-sanitized/cpu.o, recovery-thread-sanitized/kernel0.metallib
+[120/898] Generating resumable-helpers-optimized/host.cpp, resumable-helpers-optimized/placement.ir, resumable-helpers-optimized/continuation.plan, resumable-helpers-optimized/cpu.ll, resumable-helpers-optimized/cpu.o, resumable-helpers-optimized/kernel0.metallib
+[121/898] Generating spawned-helpers-debug/host.cpp, spawned-helpers-debug/placement.ir, spawned-helpers-debug/continuation.plan, spawned-helpers-debug/cpu.ll, spawned-helpers-debug/cpu.o, spawned-helpers-debug/kernel0.metallib
+[122/898] Generating resumable-helpers-thread-sanitized/host.cpp, resumable-helpers-thread-sanitized/placement.ir, resumable-helpers-thread-sanitized/continuation.plan, resumable-helpers-thread-sanitized/cpu.ll, resumable-helpers-thread-sanitized/cpu.o, resumable-helpers-thread-sanitized/kernel0.metallib
+[123/898] Generating spawned-helpers-optimized/host.cpp, spawned-helpers-optimized/placement.ir, spawned-helpers-optimized/continuation.plan, spawned-helpers-optimized/cpu.ll, spawned-helpers-optimized/cpu.o, spawned-helpers-optimized/kernel0.metallib
+[124/898] Generating resumable-helpers-sanitized/host.cpp, resumable-helpers-sanitized/placement.ir, resumable-helpers-sanitized/continuation.plan, resumable-helpers-sanitized/cpu.ll, resumable-helpers-sanitized/cpu.o, resumable-helpers-sanitized/kernel0.metallib
+[125/898] Generating reduction-debug/host.cpp, reduction-debug/placement.ir, reduction-debug/continuation.plan, reduction-debug/cpu.ll, reduction-debug/cpu.o, reduction-debug/kernel0.metallib
+[126/898] Generating spawned-helpers-thread-sanitized/host.cpp, spawned-helpers-thread-sanitized/placement.ir, spawned-helpers-thread-sanitized/continuation.plan, spawned-helpers-thread-sanitized/cpu.ll, spawned-helpers-thread-sanitized/cpu.o, spawned-helpers-thread-sanitized/kernel0.metallib
+[127/898] Generating spawned-helpers-sanitized/host.cpp, spawned-helpers-sanitized/placement.ir, spawned-helpers-sanitized/continuation.plan, spawned-helpers-sanitized/cpu.ll, spawned-helpers-sanitized/cpu.o, spawned-helpers-sanitized/kernel0.metallib
+[128/898] Generating reduction-optimized/host.cpp, reduction-optimized/placement.ir, reduction-optimized/continuation.plan, reduction-optimized/cpu.ll, reduction-optimized/cpu.o, reduction-optimized/kernel0.metallib
+[129/898] Generating pre-reduction-debug/host.cpp, pre-reduction-debug/placement.ir, pre-reduction-debug/continuation.plan, pre-reduction-debug/cpu.ll, pre-reduction-debug/cpu.o, pre-reduction-debug/kernel0.metallib
+[130/898] Generating reduction-sanitized/host.cpp, reduction-sanitized/placement.ir, reduction-sanitized/continuation.plan, reduction-sanitized/cpu.ll, reduction-sanitized/cpu.o, reduction-sanitized/kernel0.metallib
+[131/898] Generating reduction-thread-sanitized/host.cpp, reduction-thread-sanitized/placement.ir, reduction-thread-sanitized/continuation.plan, reduction-thread-sanitized/cpu.ll, reduction-thread-sanitized/cpu.o, reduction-thread-sanitized/kernel0.metallib
+[132/898] Generating pre-reduction-optimized/host.cpp, pre-reduction-optimized/placement.ir, pre-reduction-optimized/continuation.plan, pre-reduction-optimized/cpu.ll, pre-reduction-optimized/cpu.o, pre-reduction-optimized/kernel0.metallib
+[133/898] Generating pre-reduction-thread-sanitized/host.cpp, pre-reduction-thread-sanitized/placement.ir, pre-reduction-thread-sanitized/continuation.plan, pre-reduction-thread-sanitized/cpu.ll, pre-reduction-thread-sanitized/cpu.o, pre-reduction-thread-sanitized/kernel0.metallib
+[134/898] Generating post-reduction-debug/host.cpp, post-reduction-debug/placement.ir, post-reduction-debug/continuation.plan, post-reduction-debug/cpu.ll, post-reduction-debug/cpu.o, post-reduction-debug/kernel0.metallib
+[135/898] Generating pre-reduction-sanitized/host.cpp, pre-reduction-sanitized/placement.ir, pre-reduction-sanitized/continuation.plan, pre-reduction-sanitized/cpu.ll, pre-reduction-sanitized/cpu.o, pre-reduction-sanitized/kernel0.metallib
+[136/898] Generating post-reduction-optimized/host.cpp, post-reduction-optimized/placement.ir, post-reduction-optimized/continuation.plan, post-reduction-optimized/cpu.ll, post-reduction-optimized/cpu.o, post-reduction-optimized/kernel0.metallib
+[137/898] Generating matmul-debug/host.cpp, matmul-debug/placement.ir, matmul-debug/continuation.plan, matmul-debug/cpu.ll, matmul-debug/cpu.o, matmul-debug/kernel0.metallib
+[138/898] Generating post-reduction-thread-sanitized/host.cpp, post-reduction-thread-sanitized/placement.ir, post-reduction-thread-sanitized/continuation.plan, post-reduction-thread-sanitized/cpu.ll, post-reduction-thread-sanitized/cpu.o, post-reduction-thread-sanitized/kernel0.metallib
+[139/898] Generating post-reduction-sanitized/host.cpp, post-reduction-sanitized/placement.ir, post-reduction-sanitized/continuation.plan, post-reduction-sanitized/cpu.ll, post-reduction-sanitized/cpu.o, post-reduction-sanitized/kernel0.metallib
+[140/898] Generating matmul-optimized/host.cpp, matmul-optimized/placement.ir, matmul-optimized/continuation.plan, matmul-optimized/cpu.ll, matmul-optimized/cpu.o, matmul-optimized/kernel0.metallib
+[141/898] Generating post-matmul-debug/host.cpp, post-matmul-debug/placement.ir, post-matmul-debug/continuation.plan, post-matmul-debug/cpu.ll, post-matmul-debug/cpu.o, post-matmul-debug/kernel0.metallib
+[142/898] Generating matmul-thread-sanitized/host.cpp, matmul-thread-sanitized/placement.ir, matmul-thread-sanitized/continuation.plan, matmul-thread-sanitized/cpu.ll, matmul-thread-sanitized/cpu.o, matmul-thread-sanitized/kernel0.metallib
+[143/898] Generating matmul-sanitized/host.cpp, matmul-sanitized/placement.ir, matmul-sanitized/continuation.plan, matmul-sanitized/cpu.ll, matmul-sanitized/cpu.o, matmul-sanitized/kernel0.metallib
+[144/898] Generating post-matmul-optimized/host.cpp, post-matmul-optimized/placement.ir, post-matmul-optimized/continuation.plan, post-matmul-optimized/cpu.ll, post-matmul-optimized/cpu.o, post-matmul-optimized/kernel0.metallib
+[145/898] Generating post-matmul-thread-sanitized/host.cpp, post-matmul-thread-sanitized/placement.ir, post-matmul-thread-sanitized/continuation.plan, post-matmul-thread-sanitized/cpu.ll, post-matmul-thread-sanitized/cpu.o, post-matmul-thread-sanitized/kernel0.metallib
+[146/898] Generating post-matmul-sanitized/host.cpp, post-matmul-sanitized/placement.ir, post-matmul-sanitized/continuation.plan, post-matmul-sanitized/cpu.ll, post-matmul-sanitized/cpu.o, post-matmul-sanitized/kernel0.metallib
+[147/898] Generating pre-matmul-debug/host.cpp, pre-matmul-debug/placement.ir, pre-matmul-debug/continuation.plan, pre-matmul-debug/cpu.ll, pre-matmul-debug/cpu.o, pre-matmul-debug/kernel0.metallib
+[148/898] Generating pre-matmul-optimized/host.cpp, pre-matmul-optimized/placement.ir, pre-matmul-optimized/continuation.plan, pre-matmul-optimized/cpu.ll, pre-matmul-optimized/cpu.o, pre-matmul-optimized/kernel0.metallib
+[149/898] Generating matmul-reduction-debug/host.cpp, matmul-reduction-debug/placement.ir, matmul-reduction-debug/continuation.plan, matmul-reduction-debug/cpu.ll, matmul-reduction-debug/cpu.o, matmul-reduction-debug/kernel0.metallib
+[150/898] Generating pre-matmul-thread-sanitized/host.cpp, pre-matmul-thread-sanitized/placement.ir, pre-matmul-thread-sanitized/continuation.plan, pre-matmul-thread-sanitized/cpu.ll, pre-matmul-thread-sanitized/cpu.o, pre-matmul-thread-sanitized/kernel0.metallib
+[151/898] Generating pre-matmul-sanitized/host.cpp, pre-matmul-sanitized/placement.ir, pre-matmul-sanitized/continuation.plan, pre-matmul-sanitized/cpu.ll, pre-matmul-sanitized/cpu.o, pre-matmul-sanitized/kernel0.metallib
+[152/898] Generating matmul-reduction-optimized/host.cpp, matmul-reduction-optimized/placement.ir, matmul-reduction-optimized/continuation.plan, matmul-reduction-optimized/cpu.ll, matmul-reduction-optimized/cpu.o, matmul-reduction-optimized/kernel0.metallib
+[153/898] Generating matmul-reduction-thread-sanitized/host.cpp, matmul-reduction-thread-sanitized/placement.ir, matmul-reduction-thread-sanitized/continuation.plan, matmul-reduction-thread-sanitized/cpu.ll, matmul-reduction-thread-sanitized/cpu.o, matmul-reduction-thread-sanitized/kernel0.metallib
+[154/898] Generating matmul-adjust-reduction-debug/host.cpp, matmul-adjust-reduction-debug/placement.ir, matmul-adjust-reduction-debug/continuation.plan, matmul-adjust-reduction-debug/cpu.ll, matmul-adjust-reduction-debug/cpu.o, matmul-adjust-reduction-debug/kernel0.metallib
+[155/898] Generating matmul-reduction-sanitized/host.cpp, matmul-reduction-sanitized/placement.ir, matmul-reduction-sanitized/continuation.plan, matmul-reduction-sanitized/cpu.ll, matmul-reduction-sanitized/cpu.o, matmul-reduction-sanitized/kernel0.metallib
+[156/898] Generating matmul-adjust-reduction-optimized/host.cpp, matmul-adjust-reduction-optimized/placement.ir, matmul-adjust-reduction-optimized/continuation.plan, matmul-adjust-reduction-optimized/cpu.ll, matmul-adjust-reduction-optimized/cpu.o, matmul-adjust-reduction-optimized/kernel0.metallib
+[157/898] Generating matmul-scalar-reduction-debug/host.cpp, matmul-scalar-reduction-debug/placement.ir, matmul-scalar-reduction-debug/continuation.plan, matmul-scalar-reduction-debug/cpu.ll, matmul-scalar-reduction-debug/cpu.o, matmul-scalar-reduction-debug/kernel0.metallib
+[158/898] Generating matmul-adjust-reduction-thread-sanitized/host.cpp, matmul-adjust-reduction-thread-sanitized/placement.ir, matmul-adjust-reduction-thread-sanitized/continuation.plan, matmul-adjust-reduction-thread-sanitized/cpu.ll, matmul-adjust-reduction-thread-sanitized/cpu.o, matmul-adjust-reduction-thread-sanitized/kernel0.metallib
+[159/898] Generating matrix-graph-debug/host.cpp, matrix-graph-debug/placement.ir, matrix-graph-debug/continuation.plan, matrix-graph-debug/cpu.ll, matrix-graph-debug/cpu.o, matrix-graph-debug/kernel0.metallib
+[160/898] Generating matmul-adjust-reduction-sanitized/host.cpp, matmul-adjust-reduction-sanitized/placement.ir, matmul-adjust-reduction-sanitized/continuation.plan, matmul-adjust-reduction-sanitized/cpu.ll, matmul-adjust-reduction-sanitized/cpu.o, matmul-adjust-reduction-sanitized/kernel0.metallib
+[161/898] Generating matmul-scalar-reduction-optimized/host.cpp, matmul-scalar-reduction-optimized/placement.ir, matmul-scalar-reduction-optimized/continuation.plan, matmul-scalar-reduction-optimized/cpu.ll, matmul-scalar-reduction-optimized/cpu.o, matmul-scalar-reduction-optimized/kernel0.metallib
+[162/898] Generating matrix-graph-optimized/host.cpp, matrix-graph-optimized/placement.ir, matrix-graph-optimized/continuation.plan, matrix-graph-optimized/cpu.ll, matrix-graph-optimized/cpu.o, matrix-graph-optimized/kernel0.metallib
+[163/898] Generating matrix-graph-thread-sanitized/host.cpp, matrix-graph-thread-sanitized/placement.ir, matrix-graph-thread-sanitized/continuation.plan, matrix-graph-thread-sanitized/cpu.ll, matrix-graph-thread-sanitized/cpu.o, matrix-graph-thread-sanitized/kernel0.metallib
+[164/898] Generating matmul-scalar-reduction-thread-sanitized/host.cpp, matmul-scalar-reduction-thread-sanitized/placement.ir, matmul-scalar-reduction-thread-sanitized/continuation.plan, matmul-scalar-reduction-thread-sanitized/cpu.ll, matmul-scalar-reduction-thread-sanitized/cpu.o, matmul-scalar-reduction-thread-sanitized/kernel0.metallib
+[165/898] Generating matrix-graph-sanitized/host.cpp, matrix-graph-sanitized/placement.ir, matrix-graph-sanitized/continuation.plan, matrix-graph-sanitized/cpu.ll, matrix-graph-sanitized/cpu.o, matrix-graph-sanitized/kernel0.metallib
+[166/898] Generating matmul-scalar-reduction-sanitized/host.cpp, matmul-scalar-reduction-sanitized/placement.ir, matmul-scalar-reduction-sanitized/continuation.plan, matmul-scalar-reduction-sanitized/cpu.ll, matmul-scalar-reduction-sanitized/cpu.o, matmul-scalar-reduction-sanitized/kernel0.metallib
+[167/898] Generating matrix-graph-reduction-debug/host.cpp, matrix-graph-reduction-debug/placement.ir, matrix-graph-reduction-debug/continuation.plan, matrix-graph-reduction-debug/cpu.ll, matrix-graph-reduction-debug/cpu.o, matrix-graph-reduction-debug/kernel0.metallib
+[168/898] Generating matrix-graph-reduction-optimized/host.cpp, matrix-graph-reduction-optimized/placement.ir, matrix-graph-reduction-optimized/continuation.plan, matrix-graph-reduction-optimized/cpu.ll, matrix-graph-reduction-optimized/cpu.o, matrix-graph-reduction-optimized/kernel0.metallib
+[169/898] Generating matrix-graph-reduction-thread-sanitized/host.cpp, matrix-graph-reduction-thread-sanitized/placement.ir, matrix-graph-reduction-thread-sanitized/continuation.plan, matrix-graph-reduction-thread-sanitized/cpu.ll, matrix-graph-reduction-thread-sanitized/cpu.o, matrix-graph-reduction-thread-sanitized/kernel0.metallib
+[170/898] Generating matrix-graph-arithmetic-debug/host.cpp, matrix-graph-arithmetic-debug/placement.ir, matrix-graph-arithmetic-debug/continuation.plan, matrix-graph-arithmetic-debug/cpu.ll, matrix-graph-arithmetic-debug/cpu.o, matrix-graph-arithmetic-debug/kernel0.metallib
+[171/898] Generating matrix-graph-reduction-sanitized/host.cpp, matrix-graph-reduction-sanitized/placement.ir, matrix-graph-reduction-sanitized/continuation.plan, matrix-graph-reduction-sanitized/cpu.ll, matrix-graph-reduction-sanitized/cpu.o, matrix-graph-reduction-sanitized/kernel0.metallib
+[172/898] Generating multiple-reductions-debug/host.cpp, multiple-reductions-debug/placement.ir, multiple-reductions-debug/continuation.plan, multiple-reductions-debug/cpu.ll, multiple-reductions-debug/cpu.o, multiple-reductions-debug/kernel0.metallib
+[173/898] Generating matrix-graph-arithmetic-optimized/host.cpp, matrix-graph-arithmetic-optimized/placement.ir, matrix-graph-arithmetic-optimized/continuation.plan, matrix-graph-arithmetic-optimized/cpu.ll, matrix-graph-arithmetic-optimized/cpu.o, matrix-graph-arithmetic-optimized/kernel0.metallib
+[174/898] Generating matrix-graph-arithmetic-thread-sanitized/host.cpp, matrix-graph-arithmetic-thread-sanitized/placement.ir, matrix-graph-arithmetic-thread-sanitized/continuation.plan, matrix-graph-arithmetic-thread-sanitized/cpu.ll, matrix-graph-arithmetic-thread-sanitized/cpu.o, matrix-graph-arithmetic-thread-sanitized/kernel0.metallib
+[175/898] Generating matrix-graph-arithmetic-sanitized/host.cpp, matrix-graph-arithmetic-sanitized/placement.ir, matrix-graph-arithmetic-sanitized/continuation.plan, matrix-graph-arithmetic-sanitized/cpu.ll, matrix-graph-arithmetic-sanitized/cpu.o, matrix-graph-arithmetic-sanitized/kernel0.metallib
+[176/898] Generating multiple-reductions-optimized/host.cpp, multiple-reductions-optimized/placement.ir, multiple-reductions-optimized/continuation.plan, multiple-reductions-optimized/cpu.ll, multiple-reductions-optimized/cpu.o, multiple-reductions-optimized/kernel0.metallib
+[177/898] Generating reduction-feedback-debug/host.cpp, reduction-feedback-debug/placement.ir, reduction-feedback-debug/continuation.plan, reduction-feedback-debug/cpu.ll, reduction-feedback-debug/cpu.o, reduction-feedback-debug/kernel0.metallib
+[178/898] Generating tensor-feedback-debug/host.cpp, tensor-feedback-debug/placement.ir, tensor-feedback-debug/continuation.plan, tensor-feedback-debug/cpu.ll, tensor-feedback-debug/cpu.o, tensor-feedback-debug/kernel0.metallib
+[179/898] Generating reduction-feedback-optimized/host.cpp, reduction-feedback-optimized/placement.ir, reduction-feedback-optimized/continuation.plan, reduction-feedback-optimized/cpu.ll, reduction-feedback-optimized/cpu.o, reduction-feedback-optimized/kernel0.metallib
+[180/898] Generating multiple-reductions-thread-sanitized/host.cpp, multiple-reductions-thread-sanitized/placement.ir, multiple-reductions-thread-sanitized/continuation.plan, multiple-reductions-thread-sanitized/cpu.ll, multiple-reductions-thread-sanitized/cpu.o, multiple-reductions-thread-sanitized/kernel0.metallib
+[181/898] Generating multiple-reductions-sanitized/host.cpp, multiple-reductions-sanitized/placement.ir, multiple-reductions-sanitized/continuation.plan, multiple-reductions-sanitized/cpu.ll, multiple-reductions-sanitized/cpu.o, multiple-reductions-sanitized/kernel0.metallib
+[182/898] Generating tensor-feedback-optimized/host.cpp, tensor-feedback-optimized/placement.ir, tensor-feedback-optimized/continuation.plan, tensor-feedback-optimized/cpu.ll, tensor-feedback-optimized/cpu.o, tensor-feedback-optimized/kernel0.metallib
+[183/898] Generating reduction-feedback-sanitized/host.cpp, reduction-feedback-sanitized/placement.ir, reduction-feedback-sanitized/continuation.plan, reduction-feedback-sanitized/cpu.ll, reduction-feedback-sanitized/cpu.o, reduction-feedback-sanitized/kernel0.metallib
+[184/898] Generating reduction-feedback-thread-sanitized/host.cpp, reduction-feedback-thread-sanitized/placement.ir, reduction-feedback-thread-sanitized/continuation.plan, reduction-feedback-thread-sanitized/cpu.ll, reduction-feedback-thread-sanitized/cpu.o, reduction-feedback-thread-sanitized/kernel0.metallib
+[185/898] Generating tensor-feedback-sanitized/host.cpp, tensor-feedback-sanitized/placement.ir, tensor-feedback-sanitized/continuation.plan, tensor-feedback-sanitized/cpu.ll, tensor-feedback-sanitized/cpu.o, tensor-feedback-sanitized/kernel0.metallib
+[186/898] Generating tensor-feedback-thread-sanitized/host.cpp, tensor-feedback-thread-sanitized/placement.ir, tensor-feedback-thread-sanitized/continuation.plan, tensor-feedback-thread-sanitized/cpu.ll, tensor-feedback-thread-sanitized/cpu.o, tensor-feedback-thread-sanitized/kernel0.metallib
+[187/898] Generating scalar-control-debug/host.cpp, scalar-control-debug/placement.ir, scalar-control-debug/continuation.plan, scalar-control-debug/cpu.ll, scalar-control-debug/cpu.o, scalar-control-debug/kernel0.metallib
+[188/898] Generating tensor-control-debug/host.cpp, tensor-control-debug/placement.ir, tensor-control-debug/continuation.plan, tensor-control-debug/cpu.ll, tensor-control-debug/cpu.o, tensor-control-debug/kernel0.metallib
+[189/898] Generating scalar-control-optimized/host.cpp, scalar-control-optimized/placement.ir, scalar-control-optimized/continuation.plan, scalar-control-optimized/cpu.ll, scalar-control-optimized/cpu.o, scalar-control-optimized/kernel0.metallib
+[190/898] Generating scalar-control-thread-sanitized/host.cpp, scalar-control-thread-sanitized/placement.ir, scalar-control-thread-sanitized/continuation.plan, scalar-control-thread-sanitized/cpu.ll, scalar-control-thread-sanitized/cpu.o, scalar-control-thread-sanitized/kernel0.metallib
+[191/898] Generating scalar-control-sanitized/host.cpp, scalar-control-sanitized/placement.ir, scalar-control-sanitized/continuation.plan, scalar-control-sanitized/cpu.ll, scalar-control-sanitized/cpu.o, scalar-control-sanitized/kernel0.metallib
+[192/898] Generating tensor-control-optimized/host.cpp, tensor-control-optimized/placement.ir, tensor-control-optimized/continuation.plan, tensor-control-optimized/cpu.ll, tensor-control-optimized/cpu.o, tensor-control-optimized/kernel0.metallib
+[193/898] Generating tensor-sources-debug/host.cpp, tensor-sources-debug/placement.ir, tensor-sources-debug/continuation.plan, tensor-sources-debug/cpu.ll, tensor-sources-debug/cpu.o, tensor-sources-debug/kernel0.metallib
+[194/898] Generating tensor-control-sanitized/host.cpp, tensor-control-sanitized/placement.ir, tensor-control-sanitized/continuation.plan, tensor-control-sanitized/cpu.ll, tensor-control-sanitized/cpu.o, tensor-control-sanitized/kernel0.metallib
+[195/898] Generating tensor-control-thread-sanitized/host.cpp, tensor-control-thread-sanitized/placement.ir, tensor-control-thread-sanitized/continuation.plan, tensor-control-thread-sanitized/cpu.ll, tensor-control-thread-sanitized/cpu.o, tensor-control-thread-sanitized/kernel0.metallib
+[196/898] Generating tensor-sources-optimized/host.cpp, tensor-sources-optimized/placement.ir, tensor-sources-optimized/continuation.plan, tensor-sources-optimized/cpu.ll, tensor-sources-optimized/cpu.o, tensor-sources-optimized/kernel0.metallib
+[197/898] Generating tensor-sources-thread-sanitized/host.cpp, tensor-sources-thread-sanitized/placement.ir, tensor-sources-thread-sanitized/continuation.plan, tensor-sources-thread-sanitized/cpu.ll, tensor-sources-thread-sanitized/cpu.o, tensor-sources-thread-sanitized/kernel0.metallib
+[198/898] Generating tensor-sources-sanitized/host.cpp, tensor-sources-sanitized/placement.ir, tensor-sources-sanitized/continuation.plan, tensor-sources-sanitized/cpu.ll, tensor-sources-sanitized/cpu.o, tensor-sources-sanitized/kernel0.metallib
+[199/898] Generating dynamic-choices-debug/host.cpp, dynamic-choices-debug/placement.ir, dynamic-choices-debug/continuation.plan, dynamic-choices-debug/cpu.ll, dynamic-choices-debug/cpu.o, dynamic-choices-debug/kernel0.metallib
+[200/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SourceTests.cpp for CXX dependencies
+[201/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SourceTests.cpp for CXX dependencies
+[202/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SourceTests.cpp for CXX dependencies
+[203/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SourceTests.cpp for CXX dependencies
+[204/898] Generating dynamic-choices-optimized/host.cpp, dynamic-choices-optimized/placement.ir, dynamic-choices-optimized/continuation.plan, dynamic-choices-optimized/cpu.ll, dynamic-choices-optimized/cpu.o, dynamic-choices-optimized/kernel0.metallib
+[205/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MixedTests.cpp for CXX dependencies
+[206/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MixedTests.cpp for CXX dependencies
+[207/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MixedTests.cpp for CXX dependencies
+[208/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MixedTests.cpp for CXX dependencies
+[209/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[210/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[211/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[212/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[213/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[214/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[215/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[216/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[217/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[218/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[219/898] Generating nary-choices-debug/host.cpp, nary-choices-debug/placement.ir, nary-choices-debug/continuation.plan, nary-choices-debug/cpu.ll, nary-choices-debug/cpu.o, nary-choices-debug/kernel0.metallib
+[220/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[221/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[222/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[223/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[224/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[225/898] Generating dynamic-choices-thread-sanitized/host.cpp, dynamic-choices-thread-sanitized/placement.ir, dynamic-choices-thread-sanitized/continuation.plan, dynamic-choices-thread-sanitized/cpu.ll, dynamic-choices-thread-sanitized/cpu.o, dynamic-choices-thread-sanitized/kernel0.metallib
+[226/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[227/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[228/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[229/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[230/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[231/898] Generating dynamic-choices-sanitized/host.cpp, dynamic-choices-sanitized/placement.ir, dynamic-choices-sanitized/continuation.plan, dynamic-choices-sanitized/cpu.ll, dynamic-choices-sanitized/cpu.o, dynamic-choices-sanitized/kernel0.metallib
+[232/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[233/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[234/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[235/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[236/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[237/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[238/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[239/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[240/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[241/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[242/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[243/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[244/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[245/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[246/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[247/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[248/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[249/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[250/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[251/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorResultTests.cpp for CXX dependencies
+[252/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/HostExpressionTests.cpp for CXX dependencies
+[253/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/HostExpressionTests.cpp for CXX dependencies
+[254/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/HostExpressionTests.cpp for CXX dependencies
+[255/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/HostExpressionTests.cpp for CXX dependencies
+[256/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/CpuSpawnTests.cpp for CXX dependencies
+[257/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/CpuSpawnTests.cpp for CXX dependencies
+[258/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/CpuSpawnTests.cpp for CXX dependencies
+[259/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/CpuSpawnTests.cpp for CXX dependencies
+[260/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/NestedParallelTests.cpp for CXX dependencies
+[261/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/NestedParallelTests.cpp for CXX dependencies
+[262/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/NestedParallelTests.cpp for CXX dependencies
+[263/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/NestedParallelTests.cpp for CXX dependencies
+[264/898] Generating nary-choices-optimized/host.cpp, nary-choices-optimized/placement.ir, nary-choices-optimized/continuation.plan, nary-choices-optimized/cpu.ll, nary-choices-optimized/cpu.o, nary-choices-optimized/kernel0.metallib
+[265/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/RecoveryTests.cpp for CXX dependencies
+[266/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/RecoveryTests.cpp for CXX dependencies
+[267/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/RecoveryTests.cpp for CXX dependencies
+[268/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/RecoveryTests.cpp for CXX dependencies
+[269/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/RecoveryTests.cpp for CXX dependencies
+[270/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/RecoveryTests.cpp for CXX dependencies
+[271/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/RecoveryTests.cpp for CXX dependencies
+[272/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/RecoveryTests.cpp for CXX dependencies
+[273/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SpawnedHelperTests.cpp for CXX dependencies
+[274/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SpawnedHelperTests.cpp for CXX dependencies
+[275/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SpawnedHelperTests.cpp for CXX dependencies
+[276/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SpawnedHelperTests.cpp for CXX dependencies
+[277/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ReductionTests.cpp for CXX dependencies
+[278/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ReductionTests.cpp for CXX dependencies
+[279/898] Generating nary-choices-thread-sanitized/host.cpp, nary-choices-thread-sanitized/placement.ir, nary-choices-thread-sanitized/continuation.plan, nary-choices-thread-sanitized/cpu.ll, nary-choices-thread-sanitized/cpu.o, nary-choices-thread-sanitized/kernel0.metallib
+[280/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ReductionTests.cpp for CXX dependencies
+[281/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/PreReductionTests.cpp for CXX dependencies
+[282/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/PreReductionTests.cpp for CXX dependencies
+[283/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ReductionTests.cpp for CXX dependencies
+[284/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/PreReductionTests.cpp for CXX dependencies
+[285/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/PreReductionTests.cpp for CXX dependencies
+[286/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/PreReductionTests.cpp for CXX dependencies
+[287/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/PreReductionTests.cpp for CXX dependencies
+[288/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/PreReductionTests.cpp for CXX dependencies
+[289/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/PreReductionTests.cpp for CXX dependencies
+[290/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulTests.cpp for CXX dependencies
+[291/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulTests.cpp for CXX dependencies
+[292/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulTests.cpp for CXX dependencies
+[293/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulTests.cpp for CXX dependencies
+[294/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulPostTests.cpp for CXX dependencies
+[295/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulPostTests.cpp for CXX dependencies
+[296/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulPostTests.cpp for CXX dependencies
+[297/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulPostTests.cpp for CXX dependencies
+[298/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulPostTests.cpp for CXX dependencies
+[299/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulPostTests.cpp for CXX dependencies
+[300/898] Generating nary-choices-sanitized/host.cpp, nary-choices-sanitized/placement.ir, nary-choices-sanitized/continuation.plan, nary-choices-sanitized/cpu.ll, nary-choices-sanitized/cpu.o, nary-choices-sanitized/kernel0.metallib
+[301/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulPostTests.cpp for CXX dependencies
+[302/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulPostTests.cpp for CXX dependencies
+[303/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[304/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[305/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[306/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[307/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[308/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[309/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[310/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[311/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[312/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[313/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[314/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatmulReductionTests.cpp for CXX dependencies
+[315/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphTests.cpp for CXX dependencies
+[316/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphTests.cpp for CXX dependencies
+[317/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphTests.cpp for CXX dependencies
+[318/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphTests.cpp for CXX dependencies
+[319/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphReductionTests.cpp for CXX dependencies
+[320/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphReductionTests.cpp for CXX dependencies
+[321/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphReductionTests.cpp for CXX dependencies
+[322/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphReductionTests.cpp for CXX dependencies
+[323/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphArithmeticTests.cpp for CXX dependencies
+[324/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphArithmeticTests.cpp for CXX dependencies
+[325/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphArithmeticTests.cpp for CXX dependencies
+[326/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MatrixGraphArithmeticTests.cpp for CXX dependencies
+[327/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MultipleReductionTests.cpp for CXX dependencies
+[328/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MultipleReductionTests.cpp for CXX dependencies
+[329/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MultipleReductionTests.cpp for CXX dependencies
+[330/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ReductionFeedbackTests.cpp for CXX dependencies
+[331/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/MultipleReductionTests.cpp for CXX dependencies
+[332/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ReductionFeedbackTests.cpp for CXX dependencies
+[333/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ReductionFeedbackTests.cpp for CXX dependencies
+[334/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ReductionFeedbackTests.cpp for CXX dependencies
+[335/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorFeedbackTests.cpp for CXX dependencies
+[336/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorFeedbackTests.cpp for CXX dependencies
+[337/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorFeedbackTests.cpp for CXX dependencies
+[338/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorFeedbackTests.cpp for CXX dependencies
+[339/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ScalarControlTests.cpp for CXX dependencies
+[340/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ScalarControlTests.cpp for CXX dependencies
+[341/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ScalarControlTests.cpp for CXX dependencies
+[342/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorControlTests.cpp for CXX dependencies
+[343/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorControlTests.cpp for CXX dependencies
+[344/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/ScalarControlTests.cpp for CXX dependencies
+[345/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorControlTests.cpp for CXX dependencies
+[346/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorControlTests.cpp for CXX dependencies
+[347/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorSourceTests.cpp for CXX dependencies
+[348/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorSourceTests.cpp for CXX dependencies
+[349/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorSourceTests.cpp for CXX dependencies
+[350/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/TensorSourceTests.cpp for CXX dependencies
+[351/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/DynamicChoiceTests.cpp for CXX dependencies
+[352/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/DynamicChoiceTests.cpp for CXX dependencies
+[353/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/DynamicChoiceTests.cpp for CXX dependencies
+[354/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/DynamicChoiceTests.cpp for CXX dependencies
+[355/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/NaryChoiceTests.cpp for CXX dependencies
+[356/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-placed-debug.dir/CXX.dd
+[357/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-placed-optimized.dir/CXX.dd
+[358/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/NaryChoiceTests.cpp for CXX dependencies
+[359/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-placed-sanitized.dir/CXX.dd
+[360/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-placed-thread-sanitized.dir/CXX.dd
+[361/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-mixed-debug.dir/CXX.dd
+[362/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-mixed-optimized.dir/CXX.dd
+[363/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-mixed-sanitized.dir/CXX.dd
+[364/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-mixed-thread-sanitized.dir/CXX.dd
+[365/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-results-debug.dir/CXX.dd
+[366/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-results-optimized.dir/CXX.dd
+[367/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-results-sanitized.dir/CXX.dd
+[368/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-results-thread-sanitized.dir/CXX.dd
+[369/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-shared-helpers-debug.dir/CXX.dd
+[370/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-shared-helpers-optimized.dir/CXX.dd
+[371/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/NaryChoiceTests.cpp for CXX dependencies
+[372/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-shared-helpers-sanitized.dir/CXX.dd
+[373/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-shared-helpers-thread-sanitized.dir/CXX.dd
+[374/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/NaryChoiceTests.cpp for CXX dependencies
+[375/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SourceTests.cpp for CXX dependencies
+[376/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SourceTests.cpp for CXX dependencies
+[377/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SourceTests.cpp for CXX dependencies
+[378/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-scalar-entry-debug.dir/CXX.dd
+[379/898] Scanning /Users/pouya/Projects/kalandra.dev/native/metal-source/SourceTests.cpp for CXX dependencies
+[380/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-scalar-entry-optimized.dir/CXX.dd
+[381/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-scalar-entry-sanitized.dir/CXX.dd
+[382/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-scalar-entry-thread-sanitized.dir/CXX.dd
+[383/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-composed-debug.dir/CXX.dd
+[384/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-composed-sanitized.dir/CXX.dd
+[385/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-composed-optimized.dir/CXX.dd
+[386/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-elementwise-debug.dir/CXX.dd
+[387/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-source-composed-thread-sanitized.dir/CXX.dd
+[388/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-elementwise-optimized.dir/CXX.dd
+[389/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-elementwise-sanitized.dir/CXX.dd
+[390/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-elementwise-thread-sanitized.dir/CXX.dd
+[391/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-differences-debug.dir/CXX.dd
+[392/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-differences-optimized.dir/CXX.dd
+[393/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-differences-thread-sanitized.dir/CXX.dd
+[394/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-differences-sanitized.dir/CXX.dd
+[395/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-arguments-debug.dir/CXX.dd
+[396/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-arguments-optimized.dir/CXX.dd
+[397/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-arguments-sanitized.dir/CXX.dd
+[398/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-arguments-thread-sanitized.dir/CXX.dd
+[399/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-unused-inputs-debug.dir/CXX.dd
+[400/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-unused-inputs-optimized.dir/CXX.dd
+[401/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-unused-inputs-sanitized.dir/CXX.dd
+[402/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-unused-inputs-thread-sanitized.dir/CXX.dd
+[403/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-indirect-arguments-debug.dir/CXX.dd
+[404/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-indirect-arguments-optimized.dir/CXX.dd
+[405/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-indirect-arguments-sanitized.dir/CXX.dd
+[406/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-indirect-arguments-thread-sanitized.dir/CXX.dd
+[407/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-negation-debug.dir/CXX.dd
+[408/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-negation-optimized.dir/CXX.dd
+[409/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-negation-sanitized.dir/CXX.dd
+[410/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-negation-thread-sanitized.dir/CXX.dd
+[411/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-division-debug.dir/CXX.dd
+[412/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-division-optimized.dir/CXX.dd
+[413/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-division-sanitized.dir/CXX.dd
+[414/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-host-expressions-debug.dir/CXX.dd
+[415/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-division-thread-sanitized.dir/CXX.dd
+[416/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-host-expressions-optimized.dir/CXX.dd
+[417/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-host-expressions-sanitized.dir/CXX.dd
+[418/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-host-expressions-thread-sanitized.dir/CXX.dd
+[419/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-cpu-spawn-debug.dir/CXX.dd
+[420/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-cpu-spawn-optimized.dir/CXX.dd
+[421/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-cpu-spawn-sanitized.dir/CXX.dd
+[422/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-cpu-spawn-thread-sanitized.dir/CXX.dd
+[423/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-nested-parallel-debug.dir/CXX.dd
+[424/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-nested-parallel-optimized.dir/CXX.dd
+[425/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-nested-parallel-sanitized.dir/CXX.dd
+[426/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-nested-parallel-thread-sanitized.dir/CXX.dd
+[427/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-recovery-debug.dir/CXX.dd
+[428/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-recovery-optimized.dir/CXX.dd
+[429/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-recovery-sanitized.dir/CXX.dd
+[430/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-recovery-thread-sanitized.dir/CXX.dd
+[431/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-resumable-helpers-debug.dir/CXX.dd
+[432/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-resumable-helpers-sanitized.dir/CXX.dd
+[433/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-resumable-helpers-optimized.dir/CXX.dd
+[434/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-resumable-helpers-thread-sanitized.dir/CXX.dd
+[435/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-spawned-helpers-optimized.dir/CXX.dd
+[436/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-spawned-helpers-debug.dir/CXX.dd
+[437/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-spawned-helpers-sanitized.dir/CXX.dd
+[438/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-spawned-helpers-thread-sanitized.dir/CXX.dd
+[439/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-reduction-debug.dir/CXX.dd
+[440/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-reduction-optimized.dir/CXX.dd
+[441/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-reduction-sanitized.dir/CXX.dd
+[442/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-reduction-thread-sanitized.dir/CXX.dd
+[443/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-pre-reduction-debug.dir/CXX.dd
+[444/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-pre-reduction-optimized.dir/CXX.dd
+[445/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-pre-reduction-sanitized.dir/CXX.dd
+[446/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-pre-reduction-thread-sanitized.dir/CXX.dd
+[447/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-post-reduction-optimized.dir/CXX.dd
+[448/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-post-reduction-sanitized.dir/CXX.dd
+[449/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-post-reduction-debug.dir/CXX.dd
+[450/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-post-reduction-thread-sanitized.dir/CXX.dd
+[451/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-debug.dir/CXX.dd
+[452/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-sanitized.dir/CXX.dd
+[453/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-optimized.dir/CXX.dd
+[454/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-thread-sanitized.dir/CXX.dd
+[455/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-post-matmul-debug.dir/CXX.dd
+[456/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-post-matmul-optimized.dir/CXX.dd
+[457/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-post-matmul-sanitized.dir/CXX.dd
+[458/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-post-matmul-thread-sanitized.dir/CXX.dd
+[459/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-pre-matmul-debug.dir/CXX.dd
+[460/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-pre-matmul-optimized.dir/CXX.dd
+[461/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-pre-matmul-sanitized.dir/CXX.dd
+[462/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-pre-matmul-thread-sanitized.dir/CXX.dd
+[463/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-reduction-debug.dir/CXX.dd
+[464/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-reduction-optimized.dir/CXX.dd
+[465/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-reduction-sanitized.dir/CXX.dd
+[466/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-reduction-thread-sanitized.dir/CXX.dd
+[467/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-adjust-reduction-debug.dir/CXX.dd
+[468/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-adjust-reduction-optimized.dir/CXX.dd
+[469/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-adjust-reduction-sanitized.dir/CXX.dd
+[470/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-adjust-reduction-thread-sanitized.dir/CXX.dd
+[471/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-scalar-reduction-debug.dir/CXX.dd
+[472/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-scalar-reduction-optimized.dir/CXX.dd
+[473/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-scalar-reduction-sanitized.dir/CXX.dd
+[474/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matmul-scalar-reduction-thread-sanitized.dir/CXX.dd
+[475/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-optimized.dir/CXX.dd
+[476/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-debug.dir/CXX.dd
+[477/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-sanitized.dir/CXX.dd
+[478/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-thread-sanitized.dir/CXX.dd
+[479/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-reduction-debug.dir/CXX.dd
+[480/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-reduction-sanitized.dir/CXX.dd
+[481/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-reduction-optimized.dir/CXX.dd
+[482/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-reduction-thread-sanitized.dir/CXX.dd
+[483/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-arithmetic-optimized.dir/CXX.dd
+[484/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-arithmetic-debug.dir/CXX.dd
+[485/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-arithmetic-sanitized.dir/CXX.dd
+[486/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-arithmetic-thread-sanitized.dir/CXX.dd
+[487/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-multiple-reductions-debug.dir/CXX.dd
+[488/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-multiple-reductions-sanitized.dir/CXX.dd
+[489/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-multiple-reductions-optimized.dir/CXX.dd
+[490/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-reduction-feedback-debug.dir/CXX.dd
+[491/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-multiple-reductions-thread-sanitized.dir/CXX.dd
+[492/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-reduction-feedback-optimized.dir/CXX.dd
+[493/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-reduction-feedback-sanitized.dir/CXX.dd
+[494/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-reduction-feedback-thread-sanitized.dir/CXX.dd
+[495/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-feedback-optimized.dir/CXX.dd
+[496/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-feedback-thread-sanitized.dir/CXX.dd
+[497/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-feedback-sanitized.dir/CXX.dd
+[498/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-feedback-debug.dir/CXX.dd
+[499/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-scalar-control-debug.dir/CXX.dd
+[500/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-scalar-control-sanitized.dir/CXX.dd
+[501/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-scalar-control-optimized.dir/CXX.dd
+[502/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-scalar-control-thread-sanitized.dir/CXX.dd
+[503/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-control-debug.dir/CXX.dd
+[504/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-control-optimized.dir/CXX.dd
+[505/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-control-sanitized.dir/CXX.dd
+[506/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-control-thread-sanitized.dir/CXX.dd
+[507/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-sources-debug.dir/CXX.dd
+[508/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-sources-optimized.dir/CXX.dd
+[509/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-sources-sanitized.dir/CXX.dd
+[510/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-tensor-sources-thread-sanitized.dir/CXX.dd
+[511/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-dynamic-choices-debug.dir/CXX.dd
+[512/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-dynamic-choices-optimized.dir/CXX.dd
+[513/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-dynamic-choices-sanitized.dir/CXX.dd
+[514/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-dynamic-choices-thread-sanitized.dir/CXX.dd
+[515/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-nary-choices-debug.dir/CXX.dd
+[516/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-nary-choices-optimized.dir/CXX.dd
+[517/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-nary-choices-sanitized.dir/CXX.dd
+[518/898] Generating CXX dyndep file native/metal-source/CMakeFiles/kalandra-metal-nary-choices-thread-sanitized.dir/CXX.dd
+[519/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-composed-debug.dir/SourceTests.cpp.o
+[520/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-placed-debug.dir/SourceTests.cpp.o
+[521/898] Linking CXX static library native/metal-source/libkalandra-metal-source-lowering-sanitized.a
+[522/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-composed-optimized.dir/SourceTests.cpp.o
+[523/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-placed-optimized.dir/SourceTests.cpp.o
+[524/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-composed-thread-sanitized.dir/SourceTests.cpp.o
+[525/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-placed-thread-sanitized.dir/SourceTests.cpp.o
+[526/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-composed-sanitized.dir/SourceTests.cpp.o
+[527/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-source-placed-sanitized.dir/SourceTests.cpp.o
+[528/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-mixed-debug.dir/MixedTests.cpp.o
+[529/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-results-debug.dir/TensorResultTests.cpp.o
+[530/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-mixed-optimized.dir/MixedTests.cpp.o
+[531/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-mixed-thread-sanitized.dir/MixedTests.cpp.o
+[532/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-results-optimized.dir/TensorResultTests.cpp.o
+[533/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-mixed-sanitized.dir/MixedTests.cpp.o
+[534/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-results-thread-sanitized.dir/TensorResultTests.cpp.o
+[535/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-shared-helpers-debug.dir/TensorResultTests.cpp.o
+[536/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-results-sanitized.dir/TensorResultTests.cpp.o
+[537/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-scalar-entry-debug.dir/TensorResultTests.cpp.o
+[538/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-shared-helpers-optimized.dir/TensorResultTests.cpp.o
+[539/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-shared-helpers-thread-sanitized.dir/TensorResultTests.cpp.o
+[540/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-scalar-entry-optimized.dir/TensorResultTests.cpp.o
+[541/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-shared-helpers-sanitized.dir/TensorResultTests.cpp.o
+[542/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-elementwise-debug.dir/TensorResultTests.cpp.o
+[543/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-scalar-entry-thread-sanitized.dir/TensorResultTests.cpp.o
+[544/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-scalar-entry-sanitized.dir/TensorResultTests.cpp.o
+[545/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-elementwise-optimized.dir/TensorResultTests.cpp.o
+[546/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-differences-debug.dir/TensorResultTests.cpp.o
+[547/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-elementwise-thread-sanitized.dir/TensorResultTests.cpp.o
+[548/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-differences-optimized.dir/TensorResultTests.cpp.o
+[549/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-elementwise-sanitized.dir/TensorResultTests.cpp.o
+[550/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-arguments-debug.dir/TensorResultTests.cpp.o
+[551/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-differences-thread-sanitized.dir/TensorResultTests.cpp.o
+[552/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-arguments-optimized.dir/TensorResultTests.cpp.o
+[553/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-unused-inputs-debug.dir/TensorResultTests.cpp.o
+[554/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-arguments-thread-sanitized.dir/TensorResultTests.cpp.o
+[555/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-differences-sanitized.dir/TensorResultTests.cpp.o
+[556/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-unused-inputs-optimized.dir/TensorResultTests.cpp.o
+[557/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-unused-inputs-thread-sanitized.dir/TensorResultTests.cpp.o
+[558/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-indirect-arguments-debug.dir/TensorResultTests.cpp.o
+[559/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-arguments-sanitized.dir/TensorResultTests.cpp.o
+[560/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-negation-debug.dir/TensorResultTests.cpp.o
+[561/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-unused-inputs-sanitized.dir/TensorResultTests.cpp.o
+[562/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-indirect-arguments-optimized.dir/TensorResultTests.cpp.o
+[563/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-indirect-arguments-thread-sanitized.dir/TensorResultTests.cpp.o
+[564/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-negation-optimized.dir/TensorResultTests.cpp.o
+[565/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-division-debug.dir/TensorResultTests.cpp.o
+[566/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-negation-thread-sanitized.dir/TensorResultTests.cpp.o
+[567/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-indirect-arguments-sanitized.dir/TensorResultTests.cpp.o
+[568/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-host-expressions-debug.dir/HostExpressionTests.cpp.o
+[569/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-division-optimized.dir/TensorResultTests.cpp.o
+[570/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-negation-sanitized.dir/TensorResultTests.cpp.o
+[571/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-division-thread-sanitized.dir/TensorResultTests.cpp.o
+[572/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-host-expressions-optimized.dir/HostExpressionTests.cpp.o
+[573/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-host-expressions-thread-sanitized.dir/HostExpressionTests.cpp.o
+[574/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-cpu-spawn-debug.dir/CpuSpawnTests.cpp.o
+[575/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-host-expressions-sanitized.dir/HostExpressionTests.cpp.o
+[576/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-cpu-spawn-optimized.dir/CpuSpawnTests.cpp.o
+[577/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-nested-parallel-debug.dir/NestedParallelTests.cpp.o
+[578/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-division-sanitized.dir/TensorResultTests.cpp.o
+[579/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-cpu-spawn-thread-sanitized.dir/CpuSpawnTests.cpp.o
+[580/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-nested-parallel-optimized.dir/NestedParallelTests.cpp.o
+[581/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-nested-parallel-thread-sanitized.dir/NestedParallelTests.cpp.o
+[582/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-recovery-debug.dir/RecoveryTests.cpp.o
+[583/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-cpu-spawn-sanitized.dir/CpuSpawnTests.cpp.o
+[584/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-recovery-optimized.dir/RecoveryTests.cpp.o
+[585/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-nested-parallel-sanitized.dir/NestedParallelTests.cpp.o
+[586/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-resumable-helpers-debug.dir/RecoveryTests.cpp.o
+[587/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-recovery-thread-sanitized.dir/RecoveryTests.cpp.o
+[588/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-recovery-sanitized.dir/RecoveryTests.cpp.o
+[589/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-resumable-helpers-optimized.dir/RecoveryTests.cpp.o
+[590/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-spawned-helpers-debug.dir/SpawnedHelperTests.cpp.o
+[591/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-resumable-helpers-thread-sanitized.dir/RecoveryTests.cpp.o
+[592/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-spawned-helpers-optimized.dir/SpawnedHelperTests.cpp.o
+[593/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-resumable-helpers-sanitized.dir/RecoveryTests.cpp.o
+[594/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-spawned-helpers-thread-sanitized.dir/SpawnedHelperTests.cpp.o
+[595/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-reduction-debug.dir/ReductionTests.cpp.o
+[596/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-spawned-helpers-sanitized.dir/SpawnedHelperTests.cpp.o
+[597/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-pre-reduction-debug.dir/PreReductionTests.cpp.o
+[598/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-reduction-optimized.dir/ReductionTests.cpp.o
+[599/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-reduction-thread-sanitized.dir/ReductionTests.cpp.o
+[600/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-reduction-sanitized.dir/ReductionTests.cpp.o
+[601/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-pre-reduction-optimized.dir/PreReductionTests.cpp.o
+[602/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-post-reduction-debug.dir/PreReductionTests.cpp.o
+[603/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-pre-reduction-thread-sanitized.dir/PreReductionTests.cpp.o
+[604/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-pre-reduction-sanitized.dir/PreReductionTests.cpp.o
+[605/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-post-reduction-optimized.dir/PreReductionTests.cpp.o
+[606/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-post-reduction-thread-sanitized.dir/PreReductionTests.cpp.o
+[607/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-debug.dir/MatmulTests.cpp.o
+[608/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-post-reduction-sanitized.dir/PreReductionTests.cpp.o
+[609/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-optimized.dir/MatmulTests.cpp.o
+[610/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-post-matmul-debug.dir/MatmulPostTests.cpp.o
+[611/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-thread-sanitized.dir/MatmulTests.cpp.o
+[612/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-sanitized.dir/MatmulTests.cpp.o
+[613/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-post-matmul-optimized.dir/MatmulPostTests.cpp.o
+[614/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-pre-matmul-debug.dir/MatmulPostTests.cpp.o
+[615/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-post-matmul-thread-sanitized.dir/MatmulPostTests.cpp.o
+[616/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-pre-matmul-optimized.dir/MatmulPostTests.cpp.o
+[617/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-reduction-debug.dir/MatmulReductionTests.cpp.o
+[618/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-post-matmul-sanitized.dir/MatmulPostTests.cpp.o
+[619/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-pre-matmul-thread-sanitized.dir/MatmulPostTests.cpp.o
+[620/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-reduction-optimized.dir/MatmulReductionTests.cpp.o
+[621/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-pre-matmul-sanitized.dir/MatmulPostTests.cpp.o
+[622/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-adjust-reduction-debug.dir/MatmulReductionTests.cpp.o
+[623/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-reduction-thread-sanitized.dir/MatmulReductionTests.cpp.o
+[624/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-reduction-sanitized.dir/MatmulReductionTests.cpp.o
+[625/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-adjust-reduction-optimized.dir/MatmulReductionTests.cpp.o
+[626/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-scalar-reduction-debug.dir/MatmulReductionTests.cpp.o
+[627/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-adjust-reduction-thread-sanitized.dir/MatmulReductionTests.cpp.o
+[628/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-scalar-reduction-optimized.dir/MatmulReductionTests.cpp.o
+[629/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-debug.dir/MatrixGraphTests.cpp.o
+[630/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-adjust-reduction-sanitized.dir/MatmulReductionTests.cpp.o
+[631/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-scalar-reduction-thread-sanitized.dir/MatmulReductionTests.cpp.o
+[632/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-optimized.dir/MatrixGraphTests.cpp.o
+[633/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-thread-sanitized.dir/MatrixGraphTests.cpp.o
+[634/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matmul-scalar-reduction-sanitized.dir/MatmulReductionTests.cpp.o
+[635/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-reduction-debug.dir/MatrixGraphReductionTests.cpp.o
+[636/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-sanitized.dir/MatrixGraphTests.cpp.o
+[637/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-reduction-optimized.dir/MatrixGraphReductionTests.cpp.o
+[638/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-reduction-thread-sanitized.dir/MatrixGraphReductionTests.cpp.o
+[639/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-arithmetic-debug.dir/MatrixGraphArithmeticTests.cpp.o
+[640/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-reduction-sanitized.dir/MatrixGraphReductionTests.cpp.o
+[641/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-arithmetic-optimized.dir/MatrixGraphArithmeticTests.cpp.o
+[642/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-multiple-reductions-debug.dir/MultipleReductionTests.cpp.o
+[643/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-arithmetic-thread-sanitized.dir/MatrixGraphArithmeticTests.cpp.o
+[644/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-multiple-reductions-optimized.dir/MultipleReductionTests.cpp.o
+[645/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-reduction-feedback-debug.dir/ReductionFeedbackTests.cpp.o
+[646/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-multiple-reductions-thread-sanitized.dir/MultipleReductionTests.cpp.o
+[647/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-matrix-graph-arithmetic-sanitized.dir/MatrixGraphArithmeticTests.cpp.o
+[648/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-reduction-feedback-optimized.dir/ReductionFeedbackTests.cpp.o
+[649/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-multiple-reductions-sanitized.dir/MultipleReductionTests.cpp.o
+[650/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-reduction-feedback-thread-sanitized.dir/ReductionFeedbackTests.cpp.o
+[651/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-feedback-debug.dir/TensorFeedbackTests.cpp.o
+[652/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-reduction-feedback-sanitized.dir/ReductionFeedbackTests.cpp.o
+[653/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-feedback-optimized.dir/TensorFeedbackTests.cpp.o
+[654/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-feedback-thread-sanitized.dir/TensorFeedbackTests.cpp.o
+[655/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-scalar-control-debug.dir/ScalarControlTests.cpp.o
+[656/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-scalar-control-optimized.dir/ScalarControlTests.cpp.o
+[657/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-feedback-sanitized.dir/TensorFeedbackTests.cpp.o
+[658/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-scalar-control-thread-sanitized.dir/ScalarControlTests.cpp.o
+[659/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-control-debug.dir/TensorControlTests.cpp.o
+[660/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-scalar-control-sanitized.dir/ScalarControlTests.cpp.o
+[661/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-control-optimized.dir/TensorControlTests.cpp.o
+[662/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-sources-debug.dir/TensorSourceTests.cpp.o
+[663/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-control-thread-sanitized.dir/TensorControlTests.cpp.o
+[664/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-sources-optimized.dir/TensorSourceTests.cpp.o
+[665/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-control-sanitized.dir/TensorControlTests.cpp.o
+[666/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-dynamic-choices-debug.dir/DynamicChoiceTests.cpp.o
+[667/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-sources-thread-sanitized.dir/TensorSourceTests.cpp.o
+[668/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-tensor-sources-sanitized.dir/TensorSourceTests.cpp.o
+[669/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-dynamic-choices-optimized.dir/DynamicChoiceTests.cpp.o
+[670/898] Linking CXX executable native/kalandra-uint32-tests-debug
+[671/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-dynamic-choices-thread-sanitized.dir/DynamicChoiceTests.cpp.o
+[672/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-nary-choices-debug.dir/NaryChoiceTests.cpp.o
+[673/898] Linking CXX executable native/kalandra-int64-tests-debug
+[674/898] Linking CXX executable native/kalandra-float64-tests-debug
+[675/898] Linking CXX executable native/kalandra-uint64-tests-debug
+[676/898] Linking CXX executable native/kalandra-conversion-tests-debug
+[677/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-dynamic-choices-sanitized.dir/DynamicChoiceTests.cpp.o
+[678/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-nary-choices-optimized.dir/NaryChoiceTests.cpp.o
+[679/898] Linking CXX executable native/kalandra-conversion-tests-sanitized
+[680/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-nary-choices-thread-sanitized.dir/NaryChoiceTests.cpp.o
+[681/898] Linking CXX executable native/kalandra-string-tests-debug
+[682/898] Linking CXX executable native/kalandra-boolean-tests-debug
+[683/898] Linking CXX executable native/kalandra-control-flow-tests-debug
+[684/898] Linking CXX executable native/kalandra-tensor-inference-tests-debug
+[685/898] Linking CXX executable native/kalandra-arrays-tests-debug
+[686/898] Linking CXX executable native/kalandra-array-map-tests-debug
+[687/898] Linking CXX executable native/kalandra-array-tensor-tests-debug
+[688/898] Linking CXX executable native/kalandra-reshape-tests-debug
+[689/898] Linking CXX executable native/kalandra-array-index-tests-debug
+[690/898] Building CXX object native/metal-source/CMakeFiles/kalandra-metal-nary-choices-sanitized.dir/NaryChoiceTests.cpp.o
+[691/898] Linking CXX executable native/kalandra-tensor-reshape-tests-debug
+[692/898] Linking CXX executable native/kalandra-tensor-index-tests-debug
+[693/898] Linking CXX executable native/kalandra-tensor-array-tests-debug
+[694/898] Linking CXX executable native/kalandra-collection-query-tests-debug
+[695/898] Linking CXX executable native/kalandra-module-tests-debug
+[696/898] Linking CXX executable native/kalandra-record-array-tests-debug
+[697/898] Linking CXX executable native/kalandra-record-tests-debug
+[698/898] Linking CXX executable native/kalandra-bool-array-tests-debug
+[699/898] Linking CXX executable native/kalandra-nested-record-tests-debug
+[700/898] Linking CXX executable native/kalandra-record-worker-tests-debug
+[701/898] Linking CXX executable native/kalandra-record-closure-tests-debug
+[702/898] Linking CXX executable native/kalandra-record-bool-field-tests-debug
+[703/898] Linking CXX executable native/kalandra-record-string-field-tests-debug
+[704/898] Linking CXX executable native/kalandra-type-export-tests-debug
+[705/898] Linking CXX executable native/kalandra-string-array-tests-debug
+[706/898] Linking CXX executable native/kalandra-record-string-array-field-tests-debug
+[707/898] Linking CXX executable native/kalandra-reexport-tests-debug
+[708/898] Linking CXX executable native/kalandra-scoped-package-tests-debug
+[709/898] Linking CXX executable native/kalandra-project-tests-debug
+[710/898] Linking CXX executable native/kalandra-local-package-tests-debug
+[711/898] Linking CXX executable native/kalandra-git-snapshot-tests-debug
+[712/898] Linking CXX executable native/kalandra-array-concat-tests-debug
+[713/898] Linking CXX executable native/kalandra-array-slice-tests-debug
+[714/898] Linking CXX executable native/kalandra-int8-tests-debug
+[715/898] Linking CXX executable native/kalandra-int16-tests-debug
+[716/898] Linking CXX executable native/kalandra-narrow-array-tests-debug
+[717/898] Linking CXX executable native/kalandra-narrow-tensor-tests-debug
+[718/898] Linking CXX executable native/kalandra-enum-tests-debug
+[719/898] Linking CXX executable native/kalandra-record-physical-layout-tests-debug
+[720/898] Linking CXX executable native/kalandra-application-error-tests-debug
+[721/898] Linking CXX executable native/kalandra-task-value-layout-tests-debug
+[722/898] Linking CXX executable native/kalandra-recursive-source-tests-debug
+[723/898] Linking CXX executable native/kalandra-recursive-record-emitter-tests
+[724/898] Linking CXX executable native/kalandra-mixed-error-tests-debug
+[725/898] Linking CXX executable native/kalandra-record-array-field-tests-debug
+[726/898] Linking CXX executable native/kalandra-error-union-tests-debug
+[727/898] Linking CXX executable native/kalandra-error-narrowing-tests-debug
+[728/898] Linking CXX executable native/kalandra-error-payload-field-tests-debug
+[729/898] Linking CXX executable native/kalandra-function-value-tests-debug
+[730/898] Linking CXX executable native/kalandra-closure-tests-debug
+[731/898] Linking CXX executable native/kalandra-block-closure-tests-debug
+[732/898] Linking CXX executable native/kalandra-anonymous-error-tests-debug
+[733/898] Linking CXX executable native/kalandra-callable-field-tests-debug
+[734/898] Linking CXX executable native/kalandra-fallible-function-tests-debug
+[735/898] Linking CXX executable native/metal-source/kalandra-metal-source-placed-optimized
+[736/898] Linking CXX executable native/metal-source/kalandra-metal-source-placed-sanitized
+[737/898] Linking CXX executable native/metal-source/kalandra-metal-source-placed-debug
+[738/898] Linking CXX executable native/metal-source/kalandra-metal-source-placed-thread-sanitized
+[739/898] Linking CXX executable native/metal-source/kalandra-metal-source-composed-debug
+[740/898] Linking CXX executable native/kalandra-function-array-tests-debug
+[741/898] Linking CXX executable native/install-bin/kalandra
+[742/898] Linking CXX executable native/metal-install-bin/kalandra
+[743/898] Linking CXX executable native/metal-source/kalandra-metal-source-composed-optimized
+[744/898] Linking CXX executable native/metal-source/kalandra-metal-source-composed-sanitized
+[745/898] Linking CXX executable native/metal-source/kalandra-metal-interop-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/cpu-consumer-optimized.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[746/898] Linking CXX executable native/metal-source/kalandra-metal-interop-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/cpu-consumer-sanitized.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[747/898] Linking CXX executable native/metal-source/kalandra-metal-source-composed-thread-sanitized
+[748/898] Linking CXX executable native/metal-source/kalandra-metal-interop-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/cpu-consumer-debug.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[749/898] Linking CXX executable native/metal-source/kalandra-metal-interop-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/cpu-consumer-thread-sanitized.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[750/898] Linking CXX executable native/metal-source/kalandra-metal-mixed-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/mixed-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[751/898] Linking CXX executable native/metal-source/kalandra-metal-mixed-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/mixed-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[752/898] Linking CXX executable native/metal-source/kalandra-metal-source-compiler-sanitized
+ld: warning: ignoring duplicate libraries: 'native/libkalandra-semantics-sanitized.a'
+[753/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-results-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-results-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[754/898] Linking CXX executable native/metal-source/kalandra-metal-mixed-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/mixed-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[755/898] Linking CXX executable native/metal-source/kalandra-metal-mixed-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/mixed-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[756/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-results-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-results-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[757/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-results-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-results-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[758/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-results-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-results-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[759/898] Linking CXX executable native/metal-source/kalandra-metal-shared-helpers-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/shared-helpers-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[760/898] Linking CXX executable native/metal-source/kalandra-metal-shared-helpers-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/shared-helpers-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[761/898] Linking CXX executable native/metal-source/kalandra-metal-shared-helpers-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/shared-helpers-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[762/898] Linking CXX executable native/metal-source/kalandra-metal-shared-helpers-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/shared-helpers-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[763/898] Linking CXX executable native/metal-source/kalandra-metal-scalar-entry-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/scalar-entry-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[764/898] Linking CXX executable native/metal-source/kalandra-metal-scalar-entry-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/scalar-entry-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[765/898] Linking CXX executable native/metal-source/kalandra-metal-scalar-entry-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/scalar-entry-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[766/898] Linking CXX executable native/metal-source/kalandra-metal-scalar-entry-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/scalar-entry-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[767/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-elementwise-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-elementwise-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[768/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-elementwise-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-elementwise-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[769/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-elementwise-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-elementwise-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[770/898] Linking CXX executable native/metal-source/kalandra-metal-differences-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/differences-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[771/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-elementwise-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-elementwise-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[772/898] Linking CXX executable native/metal-source/kalandra-metal-differences-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/differences-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[773/898] Linking CXX executable native/metal-source/kalandra-metal-differences-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/differences-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[774/898] Linking CXX executable native/metal-source/kalandra-metal-differences-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/differences-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[775/898] Linking CXX executable native/metal-source/kalandra-metal-arguments-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/arguments-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[776/898] Linking CXX executable native/metal-source/kalandra-metal-arguments-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/arguments-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[777/898] Linking CXX executable native/metal-source/kalandra-metal-arguments-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/arguments-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[778/898] Linking CXX executable native/metal-source/kalandra-metal-arguments-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/arguments-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[779/898] Linking CXX executable native/metal-source/kalandra-metal-unused-inputs-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/unused-inputs-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[780/898] Linking CXX executable native/metal-source/kalandra-metal-unused-inputs-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/unused-inputs-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[781/898] Linking CXX executable native/metal-source/kalandra-metal-unused-inputs-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/unused-inputs-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[782/898] Linking CXX executable native/metal-source/kalandra-metal-unused-inputs-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/unused-inputs-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[783/898] Linking CXX executable native/metal-source/kalandra-metal-indirect-arguments-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/indirect-arguments-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[784/898] Linking CXX executable native/metal-source/kalandra-metal-indirect-arguments-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/indirect-arguments-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[785/898] Linking CXX executable native/metal-source/kalandra-metal-indirect-arguments-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/indirect-arguments-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[786/898] Linking CXX executable native/metal-source/kalandra-metal-indirect-arguments-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/indirect-arguments-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[787/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-negation-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-negation-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[788/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-negation-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-negation-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[789/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-negation-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-negation-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[790/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-negation-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-negation-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[791/898] Linking CXX executable native/metal-source/kalandra-metal-division-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/division-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[792/898] Linking CXX executable native/metal-source/kalandra-metal-division-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/division-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[793/898] Linking CXX executable native/metal-source/kalandra-metal-division-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/division-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[794/898] Linking CXX executable native/metal-source/kalandra-metal-host-expressions-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/host-expressions-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[795/898] Linking CXX executable native/metal-source/kalandra-metal-host-expressions-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/host-expressions-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[796/898] Linking CXX executable native/metal-source/kalandra-metal-division-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/division-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[797/898] Linking CXX executable native/metal-source/kalandra-metal-host-expressions-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/host-expressions-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[798/898] Linking CXX executable native/metal-source/kalandra-metal-host-expressions-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/host-expressions-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[799/898] Linking CXX executable native/metal-source/kalandra-metal-cpu-spawn-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/cpu-spawn-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[800/898] Linking CXX executable native/metal-source/kalandra-metal-cpu-spawn-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/cpu-spawn-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[801/898] Linking CXX executable native/metal-source/kalandra-metal-cpu-spawn-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/cpu-spawn-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[802/898] Linking CXX executable native/metal-source/kalandra-metal-cpu-spawn-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/cpu-spawn-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[803/898] Linking CXX executable native/metal-source/kalandra-metal-nested-parallel-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/nested-parallel-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[804/898] Linking CXX executable native/metal-source/kalandra-metal-nested-parallel-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/nested-parallel-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[805/898] Linking CXX executable native/metal-source/kalandra-metal-nested-parallel-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/nested-parallel-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[806/898] Linking CXX executable native/metal-source/kalandra-metal-nested-parallel-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/nested-parallel-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[807/898] Linking CXX executable native/metal-source/kalandra-metal-recovery-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/recovery-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[808/898] Linking CXX executable native/metal-source/kalandra-metal-recovery-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/recovery-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[809/898] Linking CXX executable native/metal-source/kalandra-metal-recovery-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/recovery-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[810/898] Linking CXX executable native/metal-source/kalandra-metal-recovery-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/recovery-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[811/898] Linking CXX executable native/metal-source/kalandra-metal-resumable-helpers-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/resumable-helpers-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[812/898] Linking CXX executable native/metal-source/kalandra-metal-resumable-helpers-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/resumable-helpers-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[813/898] Linking CXX executable native/metal-source/kalandra-metal-resumable-helpers-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/resumable-helpers-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[814/898] Linking CXX executable native/metal-source/kalandra-metal-resumable-helpers-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/resumable-helpers-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[815/898] Linking CXX executable native/metal-source/kalandra-metal-spawned-helpers-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/spawned-helpers-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[816/898] Linking CXX executable native/metal-source/kalandra-metal-spawned-helpers-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/spawned-helpers-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[817/898] Linking CXX executable native/metal-source/kalandra-metal-spawned-helpers-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/spawned-helpers-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[818/898] Linking CXX executable native/metal-source/kalandra-metal-spawned-helpers-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/spawned-helpers-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[819/898] Linking CXX executable native/metal-source/kalandra-metal-reduction-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[820/898] Linking CXX executable native/metal-source/kalandra-metal-reduction-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[821/898] Linking CXX executable native/metal-source/kalandra-metal-reduction-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[822/898] Linking CXX executable native/metal-source/kalandra-metal-reduction-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[823/898] Linking CXX executable native/metal-source/kalandra-metal-pre-reduction-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-reduction-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[824/898] Linking CXX executable native/metal-source/kalandra-metal-pre-reduction-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-reduction-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[825/898] Linking CXX executable native/metal-source/kalandra-metal-pre-reduction-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-reduction-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[826/898] Linking CXX executable native/metal-source/kalandra-metal-pre-reduction-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-reduction-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[827/898] Linking CXX executable native/metal-source/kalandra-metal-post-reduction-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/post-reduction-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[828/898] Linking CXX executable native/metal-source/kalandra-metal-post-reduction-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/post-reduction-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[829/898] Linking CXX executable native/metal-source/kalandra-metal-post-reduction-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/post-reduction-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[830/898] Linking CXX executable native/metal-source/kalandra-metal-post-reduction-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/post-reduction-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[831/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[832/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[833/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[834/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[835/898] Linking CXX executable native/metal-source/kalandra-metal-post-matmul-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/post-matmul-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[836/898] Linking CXX executable native/metal-source/kalandra-metal-post-matmul-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/post-matmul-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[837/898] Linking CXX executable native/metal-source/kalandra-metal-post-matmul-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/post-matmul-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[838/898] Linking CXX executable native/metal-source/kalandra-metal-post-matmul-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/post-matmul-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[839/898] Linking CXX executable native/metal-source/kalandra-metal-pre-matmul-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-matmul-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[840/898] Linking CXX executable native/metal-source/kalandra-metal-pre-matmul-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-matmul-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[841/898] Linking CXX executable native/metal-source/kalandra-metal-pre-matmul-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-matmul-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[842/898] Linking CXX executable native/metal-source/kalandra-metal-pre-matmul-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/pre-matmul-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[843/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-reduction-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-reduction-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[844/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-reduction-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-reduction-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[845/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-adjust-reduction-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-adjust-reduction-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[846/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-reduction-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-reduction-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[847/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-adjust-reduction-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-adjust-reduction-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[848/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-reduction-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-reduction-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[849/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-adjust-reduction-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-adjust-reduction-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[850/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-scalar-reduction-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-scalar-reduction-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[851/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-adjust-reduction-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-adjust-reduction-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[852/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-scalar-reduction-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-scalar-reduction-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[853/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-scalar-reduction-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-scalar-reduction-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[854/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[855/898] Linking CXX executable native/metal-source/kalandra-metal-matmul-scalar-reduction-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matmul-scalar-reduction-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[856/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-reduction-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-reduction-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[857/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[858/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[859/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-reduction-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-reduction-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[860/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[861/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-reduction-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-reduction-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[862/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-reduction-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-reduction-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[863/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-arithmetic-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-arithmetic-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[864/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-arithmetic-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-arithmetic-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[865/898] Linking CXX executable native/metal-source/kalandra-metal-multiple-reductions-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/multiple-reductions-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[866/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-arithmetic-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-arithmetic-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[867/898] Linking CXX executable native/metal-source/kalandra-metal-matrix-graph-arithmetic-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/matrix-graph-arithmetic-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[868/898] Linking CXX executable native/metal-source/kalandra-metal-multiple-reductions-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/multiple-reductions-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[869/898] Linking CXX executable native/metal-source/kalandra-metal-multiple-reductions-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/multiple-reductions-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[870/898] Linking CXX executable native/metal-source/kalandra-metal-reduction-feedback-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-feedback-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[871/898] Linking CXX executable native/metal-source/kalandra-metal-multiple-reductions-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/multiple-reductions-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[872/898] Linking CXX executable native/metal-source/kalandra-metal-reduction-feedback-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-feedback-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[873/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-feedback-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-feedback-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[874/898] Linking CXX executable native/metal-source/kalandra-metal-reduction-feedback-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-feedback-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[875/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-feedback-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-feedback-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[876/898] Linking CXX executable native/metal-source/kalandra-metal-reduction-feedback-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/reduction-feedback-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[877/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-feedback-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-feedback-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[878/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-feedback-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-feedback-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[879/898] Linking CXX executable native/metal-source/kalandra-metal-scalar-control-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/scalar-control-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[880/898] Linking CXX executable native/metal-source/kalandra-metal-scalar-control-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/scalar-control-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[881/898] Linking CXX executable native/metal-source/kalandra-metal-scalar-control-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/scalar-control-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[882/898] Linking CXX executable native/metal-source/kalandra-metal-scalar-control-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/scalar-control-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[883/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-control-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-control-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[884/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-control-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-control-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[885/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-control-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-control-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[886/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-control-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-control-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[887/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-sources-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-sources-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[888/898] Linking CXX executable native/metal-source/kalandra-metal-dynamic-choices-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/dynamic-choices-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[889/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-sources-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-sources-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[890/898] Linking CXX executable native/metal-source/kalandra-metal-dynamic-choices-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/dynamic-choices-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[891/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-sources-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-sources-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[892/898] Linking CXX executable native/metal-source/kalandra-metal-tensor-sources-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/tensor-sources-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[893/898] Linking CXX executable native/metal-source/kalandra-metal-dynamic-choices-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/dynamic-choices-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[894/898] Linking CXX executable native/metal-source/kalandra-metal-dynamic-choices-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/dynamic-choices-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[895/898] Linking CXX executable native/metal-source/kalandra-metal-nary-choices-debug
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/nary-choices-debug/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[896/898] Linking CXX executable native/metal-source/kalandra-metal-nary-choices-thread-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/nary-choices-thread-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[897/898] Linking CXX executable native/metal-source/kalandra-metal-nary-choices-optimized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/nary-choices-optimized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)
+[898/898] Linking CXX executable native/metal-source/kalandra-metal-nary-choices-sanitized
+ld: warning: object file (/Users/pouya/Projects/kalandra.dev/build/native/native/metal-source/nary-choices-sanitized/cpu.o) was built for newer 'macOS' version (27.0) than being linked (26.0)

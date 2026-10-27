@@ -1,0 +1,105 @@
+Test project /Users/pouya/Projects/kalandra.dev/benchmarks/.build/entry-costs-2026-10-27/metal-ctest
+      Start 1364: native-metal-numeric-programs-cli-sanitized
+      Start  906: native-matmul-epilogue-codegen
+ 1/50 Test  #906: native-matmul-epilogue-codegen ..........................   Passed    0.11 sec
+ 2/50 Test #1364: native-metal-numeric-programs-cli-sanitized .............   Passed  143.68 sec
+      Start 1363: native-metal-numeric-programs-cli-optimized
+ 3/50 Test #1363: native-metal-numeric-programs-cli-optimized .............   Passed  120.36 sec
+      Start 1376: native-metal-numeric-matrix-control-cli-sanitized
+ 4/50 Test #1376: native-metal-numeric-matrix-control-cli-sanitized .......   Passed   69.07 sec
+      Start 1382: native-metal-graph-batching
+ 5/50 Test #1382: native-metal-graph-batching .............................   Passed   54.46 sec
+      Start 1375: native-metal-numeric-matrix-control-cli-optimized
+ 6/50 Test #1375: native-metal-numeric-matrix-control-cli-optimized .......   Passed   45.50 sec
+      Start 1106: native-metal-matrix-graph-arithmetic-thread-sanitized
+ 7/50 Test #1106: native-metal-matrix-graph-arithmetic-thread-sanitized ...   Passed    5.02 sec
+      Start 1122: native-metal-scalar-control-thread-sanitized
+ 8/50 Test #1122: native-metal-scalar-control-thread-sanitized ............   Passed    4.43 sec
+      Start 1126: native-metal-tensor-control-thread-sanitized
+ 9/50 Test #1126: native-metal-tensor-control-thread-sanitized ............   Passed    3.92 sec
+      Start 1110: native-metal-multiple-reductions-thread-sanitized
+10/50 Test #1110: native-metal-multiple-reductions-thread-sanitized .......   Passed    3.80 sec
+      Start 1090: native-metal-matmul-adjust-reduction-thread-sanitized
+11/50 Test #1090: native-metal-matmul-adjust-reduction-thread-sanitized ...   Passed    4.09 sec
+      Start 1094: native-metal-matmul-scalar-reduction-thread-sanitized
+12/50 Test #1094: native-metal-matmul-scalar-reduction-thread-sanitized ...   Passed    4.03 sec
+      Start 1086: native-metal-matmul-reduction-thread-sanitized
+13/50 Test #1086: native-metal-matmul-reduction-thread-sanitized ..........   Passed    3.68 sec
+      Start 1102: native-metal-matrix-graph-reduction-thread-sanitized
+14/50 Test #1102: native-metal-matrix-graph-reduction-thread-sanitized ....   Passed    3.68 sec
+      Start 1114: native-metal-reduction-feedback-thread-sanitized
+15/50 Test #1114: native-metal-reduction-feedback-thread-sanitized ........   Passed    3.25 sec
+      Start 1098: native-metal-matrix-graph-thread-sanitized
+16/50 Test #1098: native-metal-matrix-graph-thread-sanitized ..............   Passed    3.09 sec
+      Start 1118: native-metal-tensor-feedback-thread-sanitized
+17/50 Test #1118: native-metal-tensor-feedback-thread-sanitized ...........   Passed    3.21 sec
+      Start 1105: native-metal-matrix-graph-arithmetic-sanitized
+18/50 Test #1105: native-metal-matrix-graph-arithmetic-sanitized ..........   Passed    2.80 sec
+      Start 1121: native-metal-scalar-control-sanitized
+19/50 Test #1121: native-metal-scalar-control-sanitized ...................   Passed    1.80 sec
+      Start 1103: native-metal-matrix-graph-arithmetic-debug
+20/50 Test #1103: native-metal-matrix-graph-arithmetic-debug ..............   Passed    1.62 sec
+      Start 1125: native-metal-tensor-control-sanitized
+21/50 Test #1125: native-metal-tensor-control-sanitized ...................   Passed    1.36 sec
+      Start 1089: native-metal-matmul-adjust-reduction-sanitized
+22/50 Test #1089: native-metal-matmul-adjust-reduction-sanitized ..........   Passed    1.12 sec
+      Start 1104: native-metal-matrix-graph-arithmetic-optimized
+23/50 Test #1104: native-metal-matrix-graph-arithmetic-optimized ..........   Passed    1.27 sec
+      Start 1109: native-metal-multiple-reductions-sanitized
+24/50 Test #1109: native-metal-multiple-reductions-sanitized ..............   Passed    1.29 sec
+      Start 1107: native-metal-multiple-reductions-debug
+25/50 Test #1107: native-metal-multiple-reductions-debug ..................   Passed    0.78 sec
+      Start 1124: native-metal-tensor-control-optimized
+26/50 Test #1124: native-metal-tensor-control-optimized ...................   Passed    0.74 sec
+      Start 1093: native-metal-matmul-scalar-reduction-sanitized
+27/50 Test #1093: native-metal-matmul-scalar-reduction-sanitized ..........   Passed    1.28 sec
+      Start 1119: native-metal-scalar-control-debug
+28/50 Test #1119: native-metal-scalar-control-debug .......................   Passed    1.09 sec
+      Start 1085: native-metal-matmul-reduction-sanitized
+29/50 Test #1085: native-metal-matmul-reduction-sanitized .................   Passed    1.23 sec
+      Start 1120: native-metal-scalar-control-optimized
+30/50 Test #1120: native-metal-scalar-control-optimized ...................   Passed    1.03 sec
+      Start 1087: native-metal-matmul-adjust-reduction-debug
+31/50 Test #1087: native-metal-matmul-adjust-reduction-debug ..............   Passed    0.94 sec
+      Start 1091: native-metal-matmul-scalar-reduction-debug
+32/50 Test #1091: native-metal-matmul-scalar-reduction-debug ..............   Passed    0.89 sec
+      Start 1088: native-metal-matmul-adjust-reduction-optimized
+33/50 Test #1088: native-metal-matmul-adjust-reduction-optimized ..........   Passed    0.74 sec
+      Start 1123: native-metal-tensor-control-debug
+34/50 Test #1123: native-metal-tensor-control-debug .......................   Passed    0.97 sec
+      Start 1099: native-metal-matrix-graph-reduction-debug
+35/50 Test #1099: native-metal-matrix-graph-reduction-debug ...............   Passed    0.79 sec
+      Start 1101: native-metal-matrix-graph-reduction-sanitized
+36/50 Test #1101: native-metal-matrix-graph-reduction-sanitized ...........   Passed    0.96 sec
+      Start 1083: native-metal-matmul-reduction-debug
+37/50 Test #1083: native-metal-matmul-reduction-debug .....................   Passed    0.85 sec
+      Start 1092: native-metal-matmul-scalar-reduction-optimized
+38/50 Test #1092: native-metal-matmul-scalar-reduction-optimized ..........   Passed    0.89 sec
+      Start 1113: native-metal-reduction-feedback-sanitized
+39/50 Test #1113: native-metal-reduction-feedback-sanitized ...............   Passed    0.76 sec
+      Start 1108: native-metal-multiple-reductions-optimized
+40/50 Test #1108: native-metal-multiple-reductions-optimized ..............   Passed    0.70 sec
+      Start 1084: native-metal-matmul-reduction-optimized
+41/50 Test #1084: native-metal-matmul-reduction-optimized .................   Passed    0.76 sec
+      Start 1100: native-metal-matrix-graph-reduction-optimized
+42/50 Test #1100: native-metal-matrix-graph-reduction-optimized ...........   Passed    0.68 sec
+      Start 1117: native-metal-tensor-feedback-sanitized
+43/50 Test #1117: native-metal-tensor-feedback-sanitized ..................   Passed    0.72 sec
+      Start 1097: native-metal-matrix-graph-sanitized
+44/50 Test #1097: native-metal-matrix-graph-sanitized .....................   Passed    0.67 sec
+      Start 1096: native-metal-matrix-graph-optimized
+45/50 Test #1096: native-metal-matrix-graph-optimized .....................   Passed    0.40 sec
+      Start 1111: native-metal-reduction-feedback-debug
+46/50 Test #1111: native-metal-reduction-feedback-debug ...................   Passed    0.46 sec
+      Start 1095: native-metal-matrix-graph-debug
+47/50 Test #1095: native-metal-matrix-graph-debug .........................   Passed    0.44 sec
+      Start 1112: native-metal-reduction-feedback-optimized
+48/50 Test #1112: native-metal-reduction-feedback-optimized ...............   Passed    0.44 sec
+      Start 1115: native-metal-tensor-feedback-debug
+49/50 Test #1115: native-metal-tensor-feedback-debug ......................   Passed    0.44 sec
+      Start 1116: native-metal-tensor-feedback-optimized
+50/50 Test #1116: native-metal-tensor-feedback-optimized ..................   Passed    0.40 sec
+
+100% tests passed out of 50
+
+Total Test time (real) = 506.63 sec

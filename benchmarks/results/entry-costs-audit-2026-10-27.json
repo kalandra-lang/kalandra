@@ -1,0 +1,29 @@
+[
+  {
+    "path": "benchmarks/results/entry-costs-ordinary-2026-10-27.json",
+    "sha256": "51e1a9f8c934ae3c49504e2d0d808ffae458571df87eb02c3a7ef1a082434c59",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 891,
+    "artifact_files_verified": true
+  },
+  {
+    "path": "benchmarks/results/entry-costs-repeat-2026-10-27.json",
+    "sha256": "1006a07182cfc1e08bf194d13bc59b1555b9c20b3cbf7c2973382d9d3acb16d9",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 891,
+    "artifact_files_verified": true
+  },
+  {
+    "path": "benchmarks/results/entry-costs-cancellable-2026-10-27.json",
+    "sha256": "ca101c132c41de4cd97f41847d2660af1bb1070f2d55c2922f7f36e07a578bf9",
+    "execution_contract": "cancellable",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 891,
+    "artifact_files_verified": true
+  }
+]

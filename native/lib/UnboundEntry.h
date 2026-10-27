@@ -262,6 +262,8 @@ inline bool addUnboundEntries(llvm::Module &module,
       llvm_unreachable("unbound callback must inline");
     if (body->use_empty())
       body->eraseFromParent();
+    // Mark before simplification: it may merge/delete the originating block.
+    before->getParent()->addFnAttr("kalandra.unbound.host-entry");
     simplify(*before->getParent(), true);
     changed = true;
   }

@@ -7,6 +7,7 @@
 #include "IntegerRanges.h"
 #include "BoundedEntry.h"
 #include "UnboundEntry.h"
+#include "LeafEntry.h"
 #include "../runtime/Runtime.h"
 #include "RecordLLVMTypes.h"
 #include "RecordLayout.h"
@@ -170,6 +171,7 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   }
   addBoundedEntries(*candidate, simplifyLeaf);
   addUnboundEntries(*candidate, simplifyLeaf);
+  outlineCheckedEntryFrames(*candidate, simplifyLeaf);
   lowerAArch64CheckedRemainders(*candidate);
   if (auto error = normalizeWindowsTailPackets(*candidate)) return error;
   bool fits = !llvm::verifyModule(*candidate);

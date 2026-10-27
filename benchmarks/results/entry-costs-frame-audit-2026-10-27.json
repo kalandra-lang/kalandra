@@ -1,0 +1,11 @@
+[
+  {
+    "path": "benchmarks/results/entry-costs-frame-ordinary-2026-10-27.json",
+    "sha256": "c5cdbfba87402552f9a3528d46f5eef979d75e8f9522a8cee6510f1ec1fdf3e1",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 891,
+    "artifact_files_verified": true
+  }
+]

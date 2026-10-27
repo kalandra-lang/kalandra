@@ -1,0 +1,520 @@
+Start testing: Oct 27 01:54 CET
+----------------------------------------------------------
+889/1382 Testing: native-task-native-helpers
+889/1382 Test: native-task-native-helpers
+Command: "/opt/homebrew/Frameworks/Python.framework/Versions/3.15/bin/python3.15" "/Users/pouya/Projects/kalandra.dev/native/tests/TaskNativeHelpersTests.py" "--compiler" "/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra" "--clang" "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++" "--output" "/Users/pouya/Projects/kalandra.dev/build/native/native/task-native-helpers"
+Directory: /Users/pouya/Projects/kalandra.dev/build/native/native
+"native-task-native-helpers" start time: Oct 27 01:54 CET
+Output:
+----------------------------------------------------------
+debug
+Native task helpers: 180 exact oracle/immutable/aliased-view/shape cases, million-step constant-space recursion, exact/rejected budgets, cancellation/deadline and balanced ownership with 1/2/4 workers passed
+Local closures: 60 exact oracle/mode cases; clear-worker allocation elimination, checked overflow, observed polls and settled ownership passed
+41940 captured integer cases: exact values, overflow boundaries, fault locations/order and execution modes passed
+720 exact integer width/division boundary cases passed
+720 exact integer width/division boundary cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+Array tail lifetimes: 60 exact oracle/mode cases through 100,000 steps, every allocation fault, cooperative/native cancellation, at most four live backings, observed polls and balanced cleanup passed
+Array spin: divergent source stays divergent until cancellation; cooperative and actual native redirects (where supported) settle borrowed inputs safely
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+true
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+optimized
+Native task helpers: 180 exact oracle/immutable/aliased-view/shape cases, million-step constant-space recursion, exact/rejected budgets, cancellation/deadline and balanced ownership with 1/2/4 workers passed
+Local closures: 60 exact oracle/mode cases; clear-worker allocation elimination, checked overflow, observed polls and settled ownership passed
+41940 captured integer cases: exact values, overflow boundaries, fault locations/order and execution modes passed
+720 exact integer width/division boundary cases passed
+720 exact integer width/division boundary cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+Array tail lifetimes: 60 exact oracle/mode cases through 100,000 steps, every allocation fault, cooperative/native cancellation, at most four live backings, observed polls and balanced cleanup passed
+Array spin: divergent source stays divergent until cancellation; cooperative and actual native redirects (where supported) settle borrowed inputs safely
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+true
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+sanitized
+Native task helpers: 180 exact oracle/immutable/aliased-view/shape cases, million-step constant-space recursion, exact/rejected budgets, cancellation/deadline and balanced ownership with 1/2/4 workers passed
+Local closures: 60 exact oracle/mode cases; clear-worker allocation elimination, checked overflow, observed polls and settled ownership passed
+41940 captured integer cases: exact values, overflow boundaries, fault locations/order and execution modes passed
+720 exact integer width/division boundary cases passed
+720 exact integer width/division boundary cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+Array tail lifetimes: 60 exact oracle/mode cases through 100,000 steps, every allocation fault, cooperative/native cancellation, at most four live backings, observed polls and balanced cleanup passed
+Array spin: divergent source stays divergent until cancellation; cooperative and actual native redirects (where supported) settle borrowed inputs safely
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+true
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+thread-sanitized
+Native task helpers: 180 exact oracle/immutable/aliased-view/shape cases, million-step constant-space recursion, exact/rejected budgets, cancellation/deadline and balanced ownership with 1/2/4 workers passed
+Local closures: 60 exact oracle/mode cases; clear-worker allocation elimination, checked overflow, observed polls and settled ownership passed
+41940 captured integer cases: exact values, overflow boundaries, fault locations/order and execution modes passed
+720 exact integer width/division boundary cases passed
+720 exact integer width/division boundary cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+680 exact signed recurrence and range-fallback cases passed
+Array tail lifetimes: 60 exact oracle/mode cases through 100,000 steps, every allocation fault, cooperative/native cancellation, at most four live backings, observed polls and balanced cleanup passed
+Array spin: divergent source stays divergent until cancellation; cooperative and actual native redirects (where supported) settle borrowed inputs safely
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+Array float tail: 160 exact bit-pattern/mode cases preserve zero signs, subnormals, infinities, NaN payloads and immutable borrowed inputs
+true
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+26
+Large native subgraph falls back to checked continuation execution
+<end of output>
+Test time = 146.04 sec
+----------------------------------------------------------
+Test Passed.
+"native-task-native-helpers" end time: Oct 27 01:57 CET
+"native-task-native-helpers" time elapsed: 00:02:26
+----------------------------------------------------------
+
+14/1382 Testing: native-leaf-entry
+14/1382 Test: native-leaf-entry
+Command: "/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra-leaf-entry-tests"
+Directory: /Users/pouya/Projects/kalandra.dev/build/native/native
+"native-leaf-entry" start time: Oct 27 01:57 CET
+Output:
+----------------------------------------------------------
+10 leaf-entry frame, external-effect, token, dynamic-stack, protected-code and tail ABI cases passed
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"native-leaf-entry" end time: Oct 27 01:57 CET
+"native-leaf-entry" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/1382 Testing: native-bounded-entry
+15/1382 Test: native-bounded-entry
+Command: "/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra-bounded-entry-tests"
+Directory: /Users/pouya/Projects/kalandra.dev/build/native/native
+"native-bounded-entry" start time: Oct 27 01:57 CET
+Output:
+----------------------------------------------------------
+17 bounded and 24 unbound entry admission/rejection cases passed
+<end of output>
+Test time =   0.25 sec
+----------------------------------------------------------
+Test Passed.
+"native-bounded-entry" end time: Oct 27 01:57 CET
+"native-bounded-entry" time elapsed: 00:00:00
+----------------------------------------------------------
+
+733/1382 Testing: native-block-closures-thread-sanitized
+733/1382 Test: native-block-closures-thread-sanitized
+Command: "/opt/homebrew/bin/cmake" "-DCOMPILER=/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra" "-DCLANGXX=/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++" "-DSOURCE_DIR=/Users/pouya/Projects/kalandra.dev/native" "-DLLVM_ROOT=/opt/homebrew/Cellar/llvm/23.1.3_2" "-DRUNTIME=/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-native-runtime-thread-sanitized.a" "-DVARIANT=thread-sanitized" "-DOUTPUT_DIR=/Users/pouya/Projects/kalandra.dev/build/native/native/block-closures-thread-sanitized" "-P" "/Users/pouya/Projects/kalandra.dev/native/cmake/VerifyBlockClosures.cmake"
+Directory: /Users/pouya/Projects/kalandra.dev/build/native/native
+"native-block-closures-thread-sanitized" start time: Oct 27 01:54 CET
+Output:
+----------------------------------------------------------
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- Closure context: 2 allocation probes; settled ownership and stopped contexts passed
+
+-- 
+-- Closure context: 10 allocation probes; settled ownership and stopped contexts passed
+
+-- 
+-- Returned closure: 64 calls after creator exit; 8 creation allocation probes and settled captures passed
+
+-- 
+-- Block closure fault: 2 allocation probes; source location and settled storage passed
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 
+-- 42
+
+-- Block closures: ordered immutable bindings, nested captures, typed errors, faults and managed lifetimes passed
+-- 
+-- 42
+
+<end of output>
+Test time = 158.04 sec
+----------------------------------------------------------
+Test Passed.
+"native-block-closures-thread-sanitized" end time: Oct 27 01:57 CET
+"native-block-closures-thread-sanitized" time elapsed: 00:02:38
+----------------------------------------------------------
+
+751/1382 Testing: native-function-arrays-thread-sanitized
+751/1382 Test: native-function-arrays-thread-sanitized
+Command: "/opt/homebrew/bin/cmake" "-DCOMPILER=/Users/pouya/Projects/kalandra.dev/build/native/native/kalandra" "-DCLANGXX=/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++" "-DSOURCE_DIR=/Users/pouya/Projects/kalandra.dev/native" "-DLLVM_ROOT=/opt/homebrew/Cellar/llvm/23.1.3_2" "-DRUNTIME=/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-native-runtime-thread-sanitized.a" "-DVARIANT=thread-sanitized" "-DOUTPUT_DIR=/Users/pouya/Projects/kalandra.dev/build/native/native/function-arrays-thread-sanitized" "-P" "/Users/pouya/Projects/kalandra.dev/native/cmake/VerifyFunctionArrays.cmake"
+Directory: /Users/pouya/Projects/kalandra.dev/build/native/native
+"native-function-arrays-thread-sanitized" start time: Oct 27 01:54 CET
+Output:
+----------------------------------------------------------
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- Closure context: 10 allocation probes; settled ownership and stopped contexts passed
+
+-- 
+-- Function array: 128 calls after creator exit; 10 creation allocation probes and settled transitive captures passed
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 42
+
+-- 
+-- 1
+
+-- 
+-- 1
+
+-- 
+-- 1
+
+-- 
+-- 0
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 42
+
+-- 
+-- 42
+
+-- Function arrays: signatures, checked indexing, maps, owned captures and worker boundaries passed
+<end of output>
+Test time = 165.84 sec
+----------------------------------------------------------
+Test Passed.
+"native-function-arrays-thread-sanitized" end time: Oct 27 01:57 CET
+"native-function-arrays-thread-sanitized" time elapsed: 00:02:45
+----------------------------------------------------------
+
+End testing: Oct 27 01:57 CET

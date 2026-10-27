@@ -146,7 +146,13 @@ int main() {
       pipeline.run(function, functions);
     };
     auto unbound = CloneModule(*module);
-    const bool unboundChanged = kalandra::addUnboundEntries(*unbound, simplify);
+    auto simplifyUnbound = [&](llvm::Function &function, bool compact) {
+      if (function.getName() == "entry" &&
+          !function.hasFnAttribute("kalandra.unbound.host-entry"))
+        throw std::runtime_error("host marker must precede CFG simplification");
+      simplify(function, compact);
+    };
+    const bool unboundChanged = kalandra::addUnboundEntries(*unbound, simplifyUnbound);
     const bool unboundExpected = kind == 0 || kind == 1 || kind == 4 || kind == 5 || kind == 6 ||
                                  kind == 9 || kind == 12 || kind == 17 || kind == 19;
     if (verifyModule(*unbound, &errs()) || unboundChanged != unboundExpected) {

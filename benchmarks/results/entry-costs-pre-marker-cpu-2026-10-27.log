@@ -1,0 +1,105 @@
+Test project /Users/pouya/Projects/kalandra.dev/build/native
+        Start  583: native-int16-thread-sanitized
+        Start  720: native-function-collections-thread-sanitized
+        Start  904: native-total-hardware-casts
+        Start  443: native-record-closures-thread-sanitized
+        Start  353: native-array-closures-thread-sanitized
+        Start  751: native-function-arrays-thread-sanitized
+        Start  733: native-block-closures-thread-sanitized
+        Start  727: native-closures-thread-sanitized
+  1/420 Test  #733: native-block-closures-thread-sanitized ...................   Passed  172.54 sec
+        Start  576: native-int8-thread-sanitized
+  2/420 Test  #727: native-closures-thread-sanitized .........................   Passed  178.57 sec
+        Start  832: native-resumable-callables-thread-sanitized
+  3/420 Test  #751: native-function-arrays-thread-sanitized ..................   Passed  179.99 sec
+        Start  814: native-parallel-map-thread-sanitized
+  4/420 Test  #353: native-array-closures-thread-sanitized ...................   Passed  211.54 sec
+        Start  582: native-int16-sanitized
+  5/420 Test  #904: native-total-hardware-casts ..............................   Passed  217.09 sec
+        Start  721: native-fallible-functions-thread-sanitized
+  6/420 Test  #443: native-record-closures-thread-sanitized ..................   Passed  229.70 sec
+        Start  580: native-int16-debug
+  7/420 Test  #583: native-int16-thread-sanitized ............................   Passed  244.90 sec
+        Start  817: native-worker-callable-maps-thread-sanitized
+  8/420 Test  #720: native-function-collections-thread-sanitized .............   Passed  262.02 sec
+        Start  815: native-worker-error-functions-thread-sanitized
+  9/420 Test  #814: native-parallel-map-thread-sanitized .....................   Passed  160.41 sec
+        Start  816: native-worker-callable-collections-thread-sanitized
+ 10/420 Test  #832: native-resumable-callables-thread-sanitized ..............   Passed  163.61 sec
+        Start  639: native-recursive-workers-thread-sanitized
+ 11/420 Test  #576: native-int8-thread-sanitized .............................   Passed  180.32 sec
+        Start  821: native-worker-callable-aggregates-thread-sanitized
+ 12/420 Test  #582: native-int16-sanitized ...................................   Passed  147.22 sec
+        Start  153: native-int64-tensor-tasks-thread-sanitized
+ 13/420 Test  #580: native-int16-debug .......................................   Passed  142.15 sec
+        Start  157: native-uint64-tensor-tasks-thread-sanitized
+ 14/420 Test  #721: native-fallible-functions-thread-sanitized ...............   Passed  157.12 sec
+        Start  581: native-int16-optimized
+ 15/420 Test  #817: native-worker-callable-maps-thread-sanitized .............   Passed  133.92 sec
+        Start  574: native-int8-sanitized
+ 16/420 Test  #815: native-worker-error-functions-thread-sanitized ...........   Passed  127.29 sec
+        Start  227: native-float64-reductions-thread-sanitized
+ 17/420 Test  #816: native-worker-callable-collections-thread-sanitized ......   Passed  120.49 sec
+        Start  693: native-worker-errors-thread-sanitized
+ 18/420 Test  #821: native-worker-callable-aggregates-thread-sanitized .......   Passed  114.19 sec
+        Start  819: native-worker-indirect-provenance-thread-sanitized
+ 19/420 Test  #639: native-recursive-workers-thread-sanitized ................   Passed  133.23 sec
+        Start  820: native-worker-parameters-thread-sanitized
+ 20/420 Test  #153: native-int64-tensor-tasks-thread-sanitized ...............   Passed  117.68 sec
+        Start  813: native-worker-function-results-thread-sanitized
+ 21/420 Test  #581: native-int16-optimized ...................................   Passed  107.18 sec
+        Start  812: native-worker-nested-closures-thread-sanitized
+ 22/420 Test  #157: native-uint64-tensor-tasks-thread-sanitized ..............   Passed  114.16 sec
+        Start  572: native-int8-optimized
+ 23/420 Test  #574: native-int8-sanitized ....................................   Passed  111.61 sec
+        Start  223: native-float64-tensor-tasks-thread-sanitized
+ 24/420 Test  #227: native-float64-reductions-thread-sanitized ...............   Passed  104.12 sec
+        Start  215: native-float64-tasks-thread-sanitized
+ 25/420 Test  #693: native-worker-errors-thread-sanitized ....................   Passed   96.78 sec
+        Start  811: native-worker-closures-thread-sanitized
+ 26/420 Test  #819: native-worker-indirect-provenance-thread-sanitized .......   Passed   95.71 sec
+        Start  351: native-array-closures-sanitized
+ 27/420 Test  #812: native-worker-nested-closures-thread-sanitized ...........   Passed   83.16 sec
+        Start  197: native-uint16-matmul-thread-sanitized
+ 28/420 Test  #820: native-worker-parameters-thread-sanitized ................   Passed   89.82 sec
+        Start  570: native-int8-debug
+ 29/420 Test  #813: native-worker-function-results-thread-sanitized ..........   Passed   92.84 sec
+        Start  189: native-uint8-matmul-thread-sanitized
+ 30/420 Test  #223: native-float64-tensor-tasks-thread-sanitized .............   Passed   81.50 sec
+        Start  141: native-uint64-runtime-thread-sanitized
+ 31/420 Test  #572: native-int8-optimized ....................................   Passed   86.84 sec
+        Start  125: native-uint32-tensor-tasks-thread-sanitized
+ 32/420 Test  #215: native-float64-tasks-thread-sanitized ....................   Passed   84.41 sec
+        Start  895: native-recursive-scalars
+ 33/420 Test  #811: native-worker-closures-thread-sanitized ..................   Passed   76.45 sec
+        Start  205: native-uint64-matmul-thread-sanitized
+ 34/420 Test  #197: native-uint16-matmul-thread-sanitized ....................   Passed   73.25 sec
+        Start  193: native-int16-matmul-thread-sanitized
+ 35/420 Test  #570: native-int8-debug ........................................   Passed   75.70 sec
+        Start  185: native-int8-matmul-thread-sanitized
+ 36/420 Test  #189: native-uint8-matmul-thread-sanitized .....................   Passed   73.57 sec
+        Start  717: native-function-collections-sanitized
+ 37/420 Test  #141: native-uint64-runtime-thread-sanitized ...................   Passed   75.76 sec
+        Start  219: native-float64-tensors-thread-sanitized
+ 38/420 Test  #125: native-uint32-tensor-tasks-thread-sanitized ..............   Passed   77.57 sec
+        Start  201: native-int64-matmul-thread-sanitized
+ 39/420 Test  #895: native-recursive-scalars .................................   Passed   76.24 sec
+        Start  636: native-recursive-workers-sanitized
+ 40/420 Test  #351: native-array-closures-sanitized ..........................   Passed   91.73 sec
+        Start  441: native-record-closures-optimized
+ 41/420 Test  #205: native-uint64-matmul-thread-sanitized ....................   Passed   74.93 sec
+        Start  117: native-uint32-runtime-thread-sanitized
+ 42/420 Test  #193: native-int16-matmul-thread-sanitized .....................   Passed   71.26 sec
+        Start  810: native-worker-functions-thread-sanitized
+ 43/420 Test  #185: native-int8-matmul-thread-sanitized ......................   Passed   72.22 sec
+        Start  231: native-float64-matmul-thread-sanitized
+ 44/420 Test  #717: native-function-collections-sanitized ....................   Passed   77.66 sec
+        Start  161: native-int8-reductions-thread-sanitized
+ 45/420 Test  #201: native-int64-matmul-thread-sanitized .....................   Passed   71.72 sec
+        Start  169: native-int16-reductions-thread-sanitized
+ 46/420 Test  #219: native-float64-tensors-thread-sanitized ..................   Passed   74.69 sec
+        Start  165: native-uint8-reductions-thread-sanitized
+ 47/420 Test  #636: native-recursive-workers-sanitized .......................   Passed   75.75 sec
+        Start  173: native-uint16-reductions-thread-sanitized
+ 48/420 Test  #441: native-record-closures-optimized .........................   Passed   94.12 sec
+        Start  181: native-uint64-reductions-thread-sanitized

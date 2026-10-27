@@ -12,16 +12,22 @@ from runtime_workloads import oracle
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output', required=True, type=Path)
 parser.add_argument('--build-dir', type=Path)
+parser.add_argument('--array-rounds',type=int,default=256)
+parser.add_argument('--array-count',type=int,default=1000000)
+parser.add_argument('--ready-marker',action='store_true',help='Wait for diagnostic driver startup marker before sampling')
+parser.add_argument('--skip-task-diagnostic',action='store_true')
 parser.add_argument('--closure-rounds',type=int,default=0)
 parser.add_argument('--closure-count',type=int,default=60000000)
 args = parser.parse_args()
 assert 0 <= args.closure_rounds <= 4096 and args.closure_count > 0
+assert 0 <= args.array_rounds <= 4096 and args.array_count > 0
 assert not args.output.exists()
 build = args.build_dir.resolve() if args.build_dir else p.BUILD/'runtime-workloads'
 records = []
-for name,kind,size,count in [('arrays',0,256,1000000),
+cases=[('arrays',0,args.array_rounds,args.array_count),
                              ('closure',1,args.closure_rounds,args.closure_count),
-                             ('scheduled-256',1,256,50000)]:
+                             *([] if args.skip_task_diagnostic else [('scheduled-256',1,256,50000)])]
+for name,kind,size,count in cases:
     binary = build/name
     sample_path = args.output.with_suffix('.'+name+'.sample.txt')
     assert not sample_path.exists()
@@ -30,7 +36,10 @@ for name,kind,size,count in [('arrays',0,256,1000000),
     child = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,
                              env=dict(os.environ,KALANDRA_WORKERS='1'))
     try:
-        time.sleep(0.1)
+        if args.ready_marker:
+            assert child.stderr.readline() == 'kalandra-profile-ready\n'
+        else:
+            time.sleep(0.1)
         sampler = ['/usr/bin/sample',str(child.pid),'2','-file',str(sample_path)]
         sampled = subprocess.run(sampler,capture_output=True,text=True,timeout=30)
         assert sampled.returncode == 0, sampled.stderr

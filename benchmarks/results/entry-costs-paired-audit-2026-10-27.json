@@ -1,0 +1,204 @@
+[
+  {
+    "path": "benchmarks/results/entry-costs-paired-2026-10-27.json",
+    "sha256": "f168d08cf9e8ebd86810810dae2576f210b379691604e4ccf5cb1dcd5d745581",
+    "measured_processes": 612,
+    "groups": [
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          0
+        ],
+        "median_time_reduction": -0.001085907126272767,
+        "min_time_reduction": -0.039373532856948,
+        "max_time_reduction": 0.01934375872977101
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          16
+        ],
+        "median_time_reduction": 0.0009659990504474747,
+        "min_time_reduction": -0.031227490096174204,
+        "max_time_reduction": 0.02698044359245988
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          64
+        ],
+        "median_time_reduction": -0.005814237006973588,
+        "min_time_reduction": -0.027032931690989415,
+        "max_time_reduction": 0.0024597890980542214
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          256
+        ],
+        "median_time_reduction": 0.004282416901228325,
+        "min_time_reduction": -0.0018468914012912396,
+        "max_time_reduction": 0.0391453810244452
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.10004341940592043,
+        "min_time_reduction": 0.0394168285656864,
+        "max_time_reduction": 0.20971198578223815
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          16
+        ],
+        "median_time_reduction": -0.016573451471253442,
+        "min_time_reduction": -0.04223779225691837,
+        "max_time_reduction": 0.018236471259119313
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.0006279880368558199,
+        "min_time_reduction": -0.020433103420792964,
+        "max_time_reduction": 0.008250658022690427
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          4096
+        ],
+        "median_time_reduction": 0.002890012049109325,
+        "min_time_reduction": -0.0758261596178953,
+        "max_time_reduction": 0.07635783237320692
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.0,
+        "min_time_reduction": -0.16456616800920587,
+        "max_time_reduction": 0.13145397180136065
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.034250580131191755,
+        "min_time_reduction": -0.045399487319129905,
+        "max_time_reduction": 0.08645582971659782
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          256
+        ],
+        "median_time_reduction": -0.0007179038318378961,
+        "min_time_reduction": -0.028018358435558666,
+        "max_time_reduction": 0.0386340860048805
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          0
+        ],
+        "median_time_reduction": -0.005875789987509483,
+        "min_time_reduction": -0.08267841786216024,
+        "max_time_reduction": 0.02189387430462042
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          16
+        ],
+        "median_time_reduction": -0.021208308174050616,
+        "min_time_reduction": -0.08436429009814805,
+        "max_time_reduction": 0.0049407559968736026
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.00844061583463862,
+        "min_time_reduction": -0.040521652435361766,
+        "max_time_reduction": 0.030271583209275366
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.0011992135860336983,
+        "min_time_reduction": -0.07513086278943937,
+        "max_time_reduction": 0.037181724200226474
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.004394588184637893,
+        "min_time_reduction": -0.015325425371263135,
+        "max_time_reduction": 0.033784376859750664
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          256
+        ],
+        "median_time_reduction": -0.0009510322739587629,
+        "min_time_reduction": -0.013510062370689191,
+        "max_time_reduction": 0.010264215511665897
+      }
+    ],
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/entry-costs-ordinary-2026-10-27.json",
+    "sha256": "51e1a9f8c934ae3c49504e2d0d808ffae458571df87eb02c3a7ef1a082434c59",
+    "verification_workloads": 99,
+    "verified": true
+  }
+]
