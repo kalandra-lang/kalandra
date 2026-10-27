@@ -1,7 +1,9 @@
 """Qualify private ordinary buffers, replay and unchanged allocation failures."""
 import argparse,json,os,subprocess,sys
 from pathlib import Path
+from OrdinaryTestEnvironment import configure
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--direct-entry',action='store_true');a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True);root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32'
+configure(a.clang)
 def run(cmd,env=None):
  r=subprocess.run(list(map(str,cmd)),env=env,text=True,capture_output=True)
  if r.returncode:raise RuntimeError(str(cmd)+'\n'+r.stdout+r.stderr)

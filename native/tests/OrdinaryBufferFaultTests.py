@@ -1,7 +1,9 @@
 """Process parity for live private buffers, settled replay and ambiguous values."""
 import argparse, json, os, subprocess, sys
 from pathlib import Path
+from OrdinaryTestEnvironment import configure
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
+configure(a.clang)
 root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32';suffix='.exe' if windows else ''
 def run(args,env=None):
  r=subprocess.run(list(map(str,args)),capture_output=True,text=True,env=env)

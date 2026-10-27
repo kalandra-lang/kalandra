@@ -1,7 +1,9 @@
 """Process-level parity of direct failure reporting and recoverable boundaries."""
 import argparse,json,os,subprocess,sys
 from pathlib import Path
+from OrdinaryTestEnvironment import configure
 q=argparse.ArgumentParser();q.add_argument('--compiler',type=Path,required=True);q.add_argument('--clang',type=Path,required=True);q.add_argument('--output',type=Path,required=True);a=q.parse_args();a.output.mkdir(parents=True,exist_ok=True)
+configure(a.clang)
 root=Path(__file__).resolve().parents[2]
 windows=sys.platform=='win32'
 suffix='.exe' if windows else ''

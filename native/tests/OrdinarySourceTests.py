@@ -2,7 +2,9 @@
 import argparse, json, os, subprocess, sys
 from OrdinaryPairChecks import pair_checks
 from pathlib import Path
+from OrdinaryTestEnvironment import configure
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--buffer-entry',action='store_true');p.add_argument('--pair-entry',action='store_true');p.add_argument('--direct-entry',action='store_true');a=p.parse_args();a.pair_entry|=a.direct_entry
+configure(a.clang)
 root=Path(__file__).resolve().parents[2];a.output.mkdir(parents=True,exist_ok=True);windows=sys.platform=='win32'
 def run(cmd, expected=0):
  r=subprocess.run(list(map(str,cmd)),text=True,capture_output=True)
