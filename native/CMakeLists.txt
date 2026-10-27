@@ -1160,6 +1160,11 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-arrays")
   set_tests_properties(native-ordinary-arrays PROPERTIES TIMEOUT 900)
+  add_test(NAME native-ordinary-reductions
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryReductionSourceTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-reductions")
+  set_tests_properties(native-ordinary-reductions PROPERTIES TIMEOUT 900)
   add_test(NAME native-ordinary-loops
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryLoopSourceTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

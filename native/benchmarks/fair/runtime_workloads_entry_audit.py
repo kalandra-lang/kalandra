@@ -30,6 +30,14 @@ def audit(path, verify_artifacts):
         assert all(s['checksum'] == expected and math.isfinite(s['ns']) for s in row['samples'])
     samples = 0
     for study in [data, data['task_scope_diagnostic']]:
+        for row in study.get('calibration', []):
+            _, kind, rounds = row['cell']
+            expected = oracle(kind, 17, rounds) * row['iterations']
+            assert row['iterations'] > 0
+            assert [sample['round'] for sample in row['samples']] == list(range(-2, 3))
+            assert all(sample['checksum'] == expected and math.isfinite(sample['ns']) and sample['ns'] >= 0
+                       for sample in row['samples'])
+            samples += len(row['samples'])
         for row in study['observations']:
             _, kind, rounds = row['cell']
             expected = oracle(kind, 17, rounds) * row['iterations']

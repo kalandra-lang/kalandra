@@ -405,3 +405,55 @@ elements, including remaining misses. Four buffer slots are necessary for some
 nested immutable borrows: a three-slot prototype exhausted capacity on the second
 map and replayed through the heap. That experiment is retained as a rejected
 control rather than presented as a sustained local-buffer speedup.
+
+### Guarded private-array reductions
+
+[OrdinaryReductions.h](../../native/lib/OrdinaryReductions.h) versions an ordinary
+entry containing an isolated, read-only, two-block signed-int64 sum. Its initial
+accumulator and index must be zero; the index advances by exactly one to a
+positive constant of at most 65,536. The recognizer accepts only the reduction's
+exact instructions, overflow predicate, induction and predictable load address.
+Extra arithmetic, additional phis, memory effects, volatile/atomic loads and
+data-dependent addresses reject it. Task entries remain on their checked path.
+
+Each speculative term is frozen and masked to unsigned 32 bits. An independent
+OR reduction records every discarded high bit. Up to 65,536 such terms sum to
+less than 2^48, so intermediate signed-int64 overflow is impossible. A zero
+witness therefore proves the exact original sum; a nonzero witness transfers
+to the original unrestricted implementation with the original scalar arguments
+and fault-output pointer. It does not return the masked answer. Integer
+reassociation is exact within this proven bound; floating-point evaluation is
+unchanged.
+
+Deferred checking can reach loads after an original early arithmetic fault.
+The base must be loop-invariant, rooted in a fixed private allocation of at
+most 8 KiB, with an eight-byte stride. A pre-loop unsigned offset guard proves
+the entire read region is inside that allocation. The speculative loads drop
+UB-implying metadata and alignment promises, use alignment one and freeze their
+values before either reduction. Thus extra reads neither cross the allocation
+nor introduce a poison dependency or a new alignment requirement. Otherwise the
+entry replays before reading. The normal stack-budget check still applies.
+
+Replay is permitted only before caller-visible writes. Fresh replay blocks are
+constructed separately for every reduction: simplifying one predecessor can
+specialize its arguments, which would be invalid for a later predecessor. Every
+transfer uses `musttail` and carries no private-buffer pointer. This releases the
+speculative frame before the original worker runs. The checked entry, source
+fault locations, allocation-failure behavior and task cancellation remain.
+
+[OrdinaryInputs.h](../../native/lib/OrdinaryInputs.h) can additionally version
+expensive reduced entries for scalar int64 arguments in `[0, 65536)`. A public
+runtime guard checks every such argument before an internal range attribute is
+used; the public ABI gains no range restriction. The candidate must remove at
+least 32 instructions and ten percent of its body after starting with at least
+16 out-of-loop wide-constant argument comparisons. Other inputs tail-transfer
+to the unrestricted worker. Inlining can introduce lifetime markers and return
+phis around a replay; those transfers are restored only after verifying an
+effect-free, exact return-forwarding path. Both candidate versions must satisfy
+verification and the existing conservative 16 KiB stack budget.
+
+The [reduction study](../../benchmarks/results/reduction-ranges-2026-10-27.md)
+retains the complete fair corpus, fallback diagnostics and qualification. A
+prototype shared replay block incorrectly substituted a zero round count on a
+negative nonzero-round input. The existing wide-map matrix rejected it; fresh
+per-reduction blocks and original-argument diagnostics cover the correction.

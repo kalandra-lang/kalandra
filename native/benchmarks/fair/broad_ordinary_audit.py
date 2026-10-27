@@ -24,6 +24,10 @@ def audit(path,artifacts):
  for row in d.get('verification',[]):
   _,name,n=row['cell'];expected=bits(oracle(name,row['seed'],n));assert [s['round'] for s in row['samples']]==[-2,-1,0]
   for sample in row['samples']:assert sample['checksum']==expected and math.isfinite(sample['ns']) and sample['ns']>=0;count+=1
+ for row in d.get('calibration',[]):
+  _,name,n=row['cell'];expected=(bits(oracle(name,17,n))*row['iterations'])&((1<<64)-1)
+  assert row['iterations']>0 and [s['round'] for s in row['samples']]==list(range(-2,3))
+  for sample in row['samples']:assert sample['checksum']==expected and math.isfinite(sample['ns']) and sample['ns']>=0;count+=1
  rounds=d['protocol']['rounds'];blocks=d['protocol'].get('blocks');medians={}
  for row in d['observations']:
   _,name,n=row['cell'];expected=(bits(oracle(name,17,n))*row['iterations'])&((1<<64)-1)

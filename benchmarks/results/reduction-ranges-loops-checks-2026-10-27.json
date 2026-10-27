@@ -1,0 +1,146 @@
+[
+  {
+    "mode": "debug",
+    "type": "float32",
+    "fixture": "finite",
+    "result": "50 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float32",
+    "fixture": "external",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float32",
+    "fixture": "zero",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "fixture": "finite",
+    "result": "50 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "fixture": "external",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "fixture": "zero",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float32",
+    "fixture": "finite",
+    "result": "50 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float32",
+    "fixture": "external",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float32",
+    "fixture": "zero",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "fixture": "finite",
+    "result": "50 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "fixture": "external",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "fixture": "zero",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float32",
+    "fixture": "finite",
+    "result": "50 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float32",
+    "fixture": "external",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float32",
+    "fixture": "zero",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "fixture": "finite",
+    "result": "50 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "fixture": "external",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "fixture": "zero",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float32",
+    "fixture": "finite",
+    "result": "50 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float32",
+    "fixture": "external",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float32",
+    "fixture": "zero",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "fixture": "finite",
+    "result": "50 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "fixture": "external",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "fixture": "zero",
+    "result": "98 strict recurrence/countdown/fault cases passed"
+  }
+]

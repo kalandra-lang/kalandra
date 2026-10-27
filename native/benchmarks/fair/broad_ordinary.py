@@ -75,7 +75,7 @@ def main():
             for seed in (1,17,31):
                 for size in (0,1,2,16,257):verification.append(dict(cell=[lang,name,size],seed=seed,samples=invoke([lang,name,size],1,1,seed)))
     cells=[[lang,name,size] for lang in ('kalandra','cpp','rust') for name in PROGRAMS for size in (0,1,16,256)]
-    result=p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=10)
+    result=p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=10,adaptive=True,max_iterations=20000000)
     result.update(entry_abi=saved['entry_abi'],verification=verification,execution_contract='ordinary',contract='Identical source-level algorithms, separate per-program entry points, immutable fresh vector maps, strict binary64 multiply then add without FMA or reassociation. Ordinary Kalandra uses its proven companion when emitted, fresh checked unbound Invocation otherwise. No forced allocation or inlining controls for references. Every returned bit and wrapping integer checksum validated; independent Decimal per-operation binary64 and Python integer/GCD oracles. No build/test/profiler overlap during measurements.',source_snapshots={p.key(f):f.read_text() for f in sources})
     assert signature=={p.key(f):p.sha(f) for f in [*sources,compiler,runtime]}
     assert all(p.sha(f)==h for f,h in saved['hashes'].items())

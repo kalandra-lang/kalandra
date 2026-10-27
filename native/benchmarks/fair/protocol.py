@@ -23,12 +23,32 @@ def observations(output,expected,count,rounds):
         assert type(row['checksum']) in (int,float) and math.isfinite(row['checksum']) and float(row['checksum'])==expected*count,(row,expected,count)
     return rows
 
-def measure(cells,invoke,reference,processes=3,rounds=7,target_ms=50):
-    counts={}
+def calibrate_batch(cells,invoke,target_ms,max_iterations,adaptive):
+    """Use validated warm batches, including the faster member of a pair."""
+    assert target_ms>0 and max_iterations>0
+    count=1;history=[]
+    for _ in range(12 if adaptive else 1):
+        costs=[]
+        for cell in cells:
+            samples=invoke(cell,count,3)
+            elapsed=statistics.median(r['ns'] for r in samples if r['round']>=0)
+            assert math.isfinite(elapsed) and elapsed>=0
+            costs.append(elapsed)
+            history.append(dict(cell=cell,iterations=count,samples=samples))
+        elapsed=min(costs) if adaptive else max(costs)
+        if not adaptive:
+            return max(1,min(max_iterations,math.ceil(target_ms*1e6/max(1,elapsed)))),history
+        if elapsed>=target_ms*1e6*.8 or count==max_iterations:
+            assert elapsed>0, 'batch remains below timer resolution at cap'
+            return count,history
+        count=min(max_iterations,max(count+1,math.ceil(count*min(32,target_ms*1e6/max(1,elapsed)))))
+    raise AssertionError('batch calibration did not converge')
+
+def measure(cells,invoke,reference,processes=3,rounds=7,target_ms=50,adaptive=False,max_iterations=20000):
+    counts={};calibration=[]
     for cell in cells:
-        samples=invoke(cell,1,3)
-        elapsed=statistics.median(r['ns'] for r in samples if r['round']>=0)
-        counts[tuple(cell)]=max(1,min(20000,math.ceil(target_ms*1e6/max(1,elapsed))))
+        counts[tuple(cell)],probes=calibrate_batch([cell],invoke,target_ms,max_iterations,adaptive)
+        calibration.extend(probes)
     records=[];rng=random.Random(20261024)
     for trial in range(processes):
         order=list(cells);rng.shuffle(order)
@@ -44,22 +64,19 @@ def measure(cells,invoke,reference,processes=3,rounds=7,target_ms=50):
         groups=[r for r in records if r['cell']==cell]
         medians=[statistics.median(s['ns']/r['iterations'] for s in r['samples'] if s['round']>=0) for r in groups]
         summary.append(dict(cell=cell,expected=reference(cell),median_ns=statistics.median(medians),process_medians_ns=medians))
-    return dict(protocol=dict(processes=processes,rounds=rounds,warmups=2,target_ms=target_ms,max_iterations=20000,seed=20261024),observations=records,summary=summary)
+    return dict(protocol=dict(processes=processes,rounds=rounds,warmups=2,target_ms=target_ms,max_iterations=max_iterations,adaptive_batching=adaptive,seed=20261024),calibration=calibration,observations=records,summary=summary)
 
-def measure_paired(cells,invoke,reference,blocks=9,rounds=3,target_ms=10):
+def measure_paired(cells,invoke,reference,blocks=9,rounds=3,target_ms=10,adaptive=False,max_iterations=20000):
     """Adjacent ABBA processes reduce drift; retain every sample and paired ratio."""
     groups={}
     for cell in cells:
         assert cell[0] in ('baseline','current')
         groups.setdefault(tuple(cell[1:]),{})[cell[0]]=cell
     assert all(set(g)=={'baseline','current'} for g in groups.values())
-    counts={}
+    counts={};calibration=[]
     for key,group in groups.items():
-        costs=[]
-        for cell in group.values():
-            rows=invoke(cell,1,3)
-            costs.append(statistics.median(r['ns'] for r in rows if r['round']>=0))
-        counts[key]=max(1,min(20000,math.ceil(target_ms*1e6/max(1,max(costs)))))
+        counts[key],probes=calibrate_batch(list(group.values()),invoke,target_ms,max_iterations,adaptive)
+        calibration.extend(probes)
     records=[];pairs=[];rng=random.Random(20261024)
     for block in range(blocks):
         order=list(groups);rng.shuffle(order)
@@ -84,8 +101,8 @@ def measure_paired(cells,invoke,reference,blocks=9,rounds=3,target_ms=10):
         summary.append(dict(cell=cell,expected=reference(cell),median_ns=statistics.median(medians),
                             process_medians_ns=medians))
     return dict(protocol=dict(blocks=blocks,rounds=rounds,warmups=2,target_ms=target_ms,
-        max_iterations=20000,seed=20261024,ordering='Adjacent ABBA/BAAB fresh processes; identical iterations per pair'),
-        observations=records,summary=summary,pairs=pairs)
+        max_iterations=max_iterations,adaptive_batching=adaptive,seed=20261024,ordering='Adjacent ABBA/BAAB fresh processes; identical iterations per pair'),
+        calibration=calibration,observations=records,summary=summary,pairs=pairs)
 
 def evidence(output,data,sources,binaries,compiler):
     assert not output.exists() and not output.with_suffix('.md').exists(),'choose new output paths'

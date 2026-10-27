@@ -1,0 +1,18 @@
+{
+  "source": "benchmarks/results/reduction-ranges-adaptive-final-2026-10-27.json",
+  "source_sha256": "fd4fc0ca05308685ef7bc750e4e43e190c4efe6b87f2d0686dbecb79327ffa5c",
+  "results": [
+    {
+      "tampered_calibration_field": "checksum",
+      "rejected": true
+    },
+    {
+      "tampered_calibration_field": "duration",
+      "rejected": true
+    },
+    {
+      "tampered_calibration_field": "iterations",
+      "rejected": true
+    }
+  ]
+}

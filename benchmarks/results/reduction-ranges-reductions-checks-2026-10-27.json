@@ -1,0 +1,2018 @@
+[
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 2,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 8,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 32,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 0,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 1,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 2,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 3,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 5,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "width": 128,
+    "failure": 17,
+    "result": "225 deferred reduction/range replay/first-fault cases passed"
+  }
+]

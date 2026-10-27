@@ -1,0 +1,294 @@
+[
+  {
+    "mode": "debug",
+    "type": "int8",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int16",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int32",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "int64",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "uint8",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "uint16",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "uint32",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "uint64",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float32",
+    "result": "12 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "result": "12 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "result": "2 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int8",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int16",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int32",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "int64",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "uint8",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "uint16",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "uint32",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "uint64",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float32",
+    "result": "12 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "result": "12 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "result": "2 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int8",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int16",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int32",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "int64",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "uint8",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "uint16",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "uint32",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "uint64",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float32",
+    "result": "12 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "result": "12 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "result": "2 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int8",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int16",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int32",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "int64",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "uint8",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "uint16",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "uint32",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "uint64",
+    "result": "49 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float32",
+    "result": "12 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "result": "12 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "result": "2 ordinary exact/first-fault/payload cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "Bool",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float32",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "debug",
+    "type": "float64",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "Bool",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float32",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "optimized",
+    "type": "float64",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "Bool",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float32",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "sanitized",
+    "type": "float64",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "Bool",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float32",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  },
+  {
+    "mode": "thread-sanitized",
+    "type": "float64",
+    "projection": true,
+    "result": "6 ordinary projected arithmetic fault/ABI cases passed"
+  }
+]

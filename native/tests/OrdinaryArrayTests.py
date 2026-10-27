@@ -72,7 +72,7 @@ void test(I seed,I rounds,bool independent) {
  context.settle();if(context.live() || context.allocations()!=context.releases())std::abort();++cases;
 }
 int main(){
- for(I seed:std::array<I,7>{-31,-1,0,1,17,31,1000004})
+ for(I seed:std::array<I,9>{-31,-1,0,1,17,31,65535,65536,1000004})
   for(I rounds:std::array<I,6>{0,1,2,16,64,257})test(seed,rounds,true);
  for(I seed:std::array<I,4>{std::numeric_limits<I>::min(),std::numeric_limits<I>::max(),std::numeric_limits<I>::max()/13,std::numeric_limits<I>::min()/13})
   for(I rounds:std::array<I,3>{0,1,16})test(seed,rounds,false);

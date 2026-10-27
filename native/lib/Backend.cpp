@@ -11,6 +11,8 @@
 #include "OrdinaryEntry.h"
 #include "OrdinaryBaseCase.h"
 #include "OrdinaryLoops.h"
+#include "OrdinaryReductions.h"
+#include "OrdinaryInputs.h"
 #include "../runtime/Runtime.h"
 #include "RecordLLVMTypes.h"
 #include "RecordLayout.h"
@@ -175,6 +177,8 @@ std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &mo
   addBoundedEntries(*candidate, simplifyLeaf);
   addUnboundEntries(*candidate, simplifyLeaf);
   addOrdinaryScalarEntries(*candidate, simplifyLeaf);
+  specializeOrdinaryReductions(*candidate, simplifyLeaf);
+  specializeOrdinaryInputs(*candidate, simplifyLeaf);
   optimizeOrdinaryLoops(*candidate, simplifyLeaf);
   specializeOrdinaryBaseCases(*candidate, simplifyLeaf);
   outlineCheckedEntryFrames(*candidate, simplifyLeaf);

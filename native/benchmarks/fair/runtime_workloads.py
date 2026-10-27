@@ -23,6 +23,7 @@ def main():
                         help='Keep cancellable embedding as default; ordinary uses an unbound invocation')
     parser.add_argument('--ordinary-entry',action='store_true',help='Use compiler-proven ordinary companion when present; checked entry otherwise')
     parser.add_argument('--reuse-build', action='store_true')
+    parser.add_argument('--adaptive-batching',action='store_true',help='Calibrate warm batches up to 20 million calls for short CPU entries')
     parser.add_argument('--target-ms',type=float,default=20,
                         help='Calibration duration shared by every language and task diagnostic')
     parser.add_argument('--build-dir', type=Path,
@@ -105,9 +106,9 @@ def main():
     diagnostic = [[mode,1,size] for mode in ('direct','scheduled','scheduled-serial') for size in (0,16,256)]
     for cell in diagnostic:
         verification.append(dict(cell=cell,seed=17,samples=invoke(cell,1,1)))
-    result = p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=args.target_ms)
+    result = p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=args.target_ms,adaptive=args.adaptive_batching,max_iterations=20000000 if args.adaptive_batching else 20000)
     result['entry_abi'] = saved.get('selected_abi',{})
-    result['task_scope_diagnostic'] = p.measure(diagnostic,invoke,lambda c:oracle(1,17,c[2]),target_ms=args.target_ms)
+    result['task_scope_diagnostic'] = p.measure(diagnostic,invoke,lambda c:oracle(1,17,c[2]),target_ms=args.target_ms,adaptive=args.adaptive_batching,max_iterations=20000000 if args.adaptive_batching else 20000)
     result['verification'] = verification
     result['execution_contract'] = args.execution_contract
     result['contract'] = ('Equivalent runtime-input algorithms: eight-element immutable array maps with a fresh output each pass, and a scalar-capturing closure repeatedly passed through a tail-recursive helper. Each language may optimize normally; C++/Rust use templates/generics, with no forced dynamic calls. Kalandra includes fresh invocation, cancellation, checked arithmetic, allocation/ownership and settlement. C++/Rust retain normal semantics. Identical external C++ timing/validation harness; separate objects/no LTO. Exact independent integer oracle checked every call. Task diagnostic is Kalandra-only, fixed-input complete parallel-scope creation/spawn/await/destruction versus a fixed-input synchronous entry; scheduled explicitly uses 8 workers, scheduled-serial uses the host-driven 1-worker scheduler. It is not a steady-state scheduler microbenchmark or a cross-language ranking.')
