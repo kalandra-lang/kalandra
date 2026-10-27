@@ -326,8 +326,51 @@ and stack requirements. No public callable ABI or cancellation opt-out is added.
 
 The [isolated study](../../benchmarks/results/entry-costs-2026-10-27.md) records
 both the zero-round gain and short-case regression, the ABI defect found by broad
-source qualification, and the rejected compact backing experiment. The scalar
-context/entry ABI and array allocation/ownership parity targets remain open.
+source qualification, and the rejected compact backing experiment. At that stage, the scalar
+context/entry ABI and array allocation/ownership parity targets remained open.
+The ordinary ABI below addresses the recorded eight-case corpus.
 
 The unbound host marker is installed before CFG simplification, which may delete
 the originating basic block. The proof unit checks this optimizer-callback order.
+
+### Prove an ordinary entry's resource and fault ABI
+
+[OrdinaryEntry.h](../../native/lib/OrdinaryEntry.h) adds a private scalar
+`_ordinary_v1` companion when the final closed graph has no task/foreign effects,
+borrowed pointers, escaping resources, atomic/volatile operations or growing
+source calls. The original checked entry remains available. The CLI selects the
+companion for an eligible parameterless scalar main; emitted library IR retains
+the original entries. Mixed CPU/Metal programs and unsupported graphs continue
+through their existing paths.
+
+A companion receives scalar arguments and a 24-byte fault output, without an
+Invocation. Integer results with only their high bit set (true for Bool), and
+any floating NaN, require consulting that output. Failure publishes the original
+first code/line/column and returns that integer pattern or a quiet NaN. Successful
+ambiguous values publish code zero and retain their exact value bits; other
+successes leave the output untouched. Callers use `ordinaryFaulted` rather than
+reading an uninitialized output. No valid numeric value is reserved. ABI extension
+attributes survive; result range/NaN refinements from the checked failure
+representation do not transfer. All ten numeric types and Bool are covered.
+
+[OrdinaryPool.h](../../native/lib/OrdinaryPool.h) permits four aligned 128-byte
+private slots for constant-size numeric allocations. The final graph must prove
+all memory private (apart from the fault output) and the static allocation total
+at most 2048 bytes. Unknown effects or pointer escape reject the entire companion.
+If slots are exhausted or a release cannot be represented, the entry replays the
+original checked graph with original scalar arguments in a fresh real Invocation.
+Stack pointers never enter replay. Allocation-failure injection selects that heap
+path at the first logical allocation, preserving failure order and location.
+The original allocator, ownership ledger and Invocation layout are unchanged.
+
+[OrdinaryBaseCase.h](../../native/lib/OrdinaryBaseCase.h) can version an ordinary
+scalar entry when substituting zero for an integer argument removes every loop
+and yields a body of at most 32 instructions and at most one third of the original
+size. Specialization evaluates the whole body, retaining checks before the base
+return. Other inputs tail-transfer to the original ordinary worker with matching
+return/parameter attributes. Buffered entries are excluded. There are no workload
+names or round-count ranges in this transformation.
+
+Task/cancellable entries retain cancellation, physical-stack admission, ownership
+and settlement. This private ABI accepts no cancellation token or caller resources;
+it is compiler-selected ordinary execution, not an opt-out within a task.

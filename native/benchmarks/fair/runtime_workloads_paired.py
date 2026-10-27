@@ -27,6 +27,10 @@ def main():
         files.extend(items)
     contracts={m.get('execution_contract','cancellable') for m in manifests.values()}
     assert len(contracts)==1, 'Compare matching execution contracts'
+    for name in ('native/benchmarks/fair/RuntimeWorkloads.k','native/benchmarks/fair/RuntimeWorkloads.cpp',
+                 'native/benchmarks/fair/runtime_workloads.rs','native/benchmarks/fair/RuntimeWorkloadDriver.cpp',
+                 'native/benchmarks/fair/protocol.py'):
+        assert manifests['baseline']['signature'][name]==manifests['current']['signature'][name],name
     compiler=p.ROOT/'build/native/native/kalandra'
     for version,manifest in manifests.items():
         legacy=directories[version].parent
@@ -60,6 +64,8 @@ def main():
                          'Task measurements include fresh scope/pool/monitor construction and settlement, with 1 or 8 '
                          'workers; they are not steady-state scheduler timings or cross-language comparisons. '
                          'No profiler/build/test overlap; no CPU affinity/frequency/desktop isolation.')
+    result['entry_abi_by_version']={version:manifest.get('selected_abi',{}) for version,manifest in manifests.items()}
+    result['contract']+=' Compiler-selected ordinary companions may replace the checked Invocation ABI; source algorithms and execution contract are identical, and manifests identify the ABI per version/program.'
     for directory in directories.values(): artifacts(directory)
     sources=[Path(__file__),Path(__file__).with_name('runtime_workloads.py'),
              Path(__file__).with_name('protocol.py'),Path(__file__).with_name('RuntimeWorkloadDriver.cpp'),
@@ -67,6 +73,9 @@ def main():
              p.ROOT/'native/lib/LocalStorage.h',p.ROOT/'native/lib/Backend.cpp',
              p.ROOT/'native/lib/UnboundEntry.h',
              p.ROOT/'native/runtime/Runtime.cpp',p.ROOT/'native/runtime/Runtime.h']
+    sources.extend(p.ROOT/name for name in ('native/lib/OrdinaryEntry.h','native/lib/OrdinaryPool.h',
+        'native/lib/OrdinaryBaseCase.h','native/lib/OrdinaryMain.h','native/runtime/OrdinaryEntry.cpp',
+        'native/runtime/OrdinaryFault.h'))
     result['source_snapshots']={p.key(f):f.read_text() for f in sources[:5]}
     p.evidence(args.output,result,sources,files,compiler)
 

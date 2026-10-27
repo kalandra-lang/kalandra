@@ -207,6 +207,15 @@ if(BUILD_TESTING)
   endif()
   add_test(NAME native-integer-ranges COMMAND kalandra-integer-ranges-tests)
   set_tests_properties(native-integer-ranges PROPERTIES TIMEOUT 30)
+  add_executable(kalandra-ordinary-entry-tests tests/OrdinaryEntryTests.cpp)
+  target_include_directories(kalandra-ordinary-entry-tests SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+  target_link_libraries(kalandra-ordinary-entry-tests PRIVATE LLVM)
+  target_compile_options(kalandra-ordinary-entry-tests PRIVATE -Wall -Wextra -Werror)
+  if(NOT LLVM_ENABLE_RTTI)
+    target_compile_options(kalandra-ordinary-entry-tests PRIVATE -fno-rtti)
+  endif()
+  add_test(NAME native-ordinary-entry COMMAND kalandra-ordinary-entry-tests)
+  set_tests_properties(native-ordinary-entry PROPERTIES TIMEOUT 30)
   add_executable(kalandra-leaf-entry-tests tests/LeafEntryTests.cpp)
   target_include_directories(kalandra-leaf-entry-tests SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
   target_link_libraries(kalandra-leaf-entry-tests PRIVATE LLVM)
@@ -392,6 +401,9 @@ endif()
 
 # Keep optimized external/Metal tests optimized through the scheduler boundary.
 add_library(kalandra-task-core-optimized STATIC EXCLUDE_FROM_ALL runtime/Runtime.cpp runtime/Tasks.cpp)
+foreach(ORDINARY_RUNTIME IN ITEMS kalandra-native-runtime kalandra-native-runtime-sanitized kalandra-native-runtime-thread-sanitized kalandra-task-core-optimized)
+  target_sources(${ORDINARY_RUNTIME} PRIVATE runtime/OrdinaryEntry.cpp)
+endforeach()
 target_compile_options(kalandra-task-core-optimized PRIVATE -Wall -Wextra -Werror -O2)
 target_link_libraries(kalandra-task-core-optimized PUBLIC Threads::Threads)
 if(BUILD_TESTING AND APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
@@ -1143,6 +1155,16 @@ if(WIN32)
 endif()
 
 if(BUILD_TESTING)
+  add_test(NAME native-ordinary-arrays
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinaryArrayTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-arrays")
+  set_tests_properties(native-ordinary-arrays PROPERTIES TIMEOUT 900)
+  add_test(NAME native-ordinary-source
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/OrdinarySourceTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/ordinary-source")
+  set_tests_properties(native-ordinary-source PROPERTIES TIMEOUT 900)
   add_test(NAME native-task-native-helpers
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TaskNativeHelpersTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

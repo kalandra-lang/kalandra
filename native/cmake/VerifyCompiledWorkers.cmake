@@ -41,6 +41,7 @@ endif()
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror ${FLAGS} -ffp-contract=off -Wno-override-module
   "${SOURCE_ROOT}/native/tests/CompiledWorkerTests.cpp" "${IR}"
   "${SOURCE_ROOT}/native/runtime/Runtime.cpp" "${SOURCE_ROOT}/native/runtime/Tasks.cpp"
+  "${SOURCE_ROOT}/native/runtime/OrdinaryEntry.cpp"
   -o "${OUTPUT_DIR}/compiled-workers")
 RUN_OK("${OUTPUT_DIR}/compiled-workers")
 if(NOT OUTPUT MATCHES "PASS generated CPU kernels")

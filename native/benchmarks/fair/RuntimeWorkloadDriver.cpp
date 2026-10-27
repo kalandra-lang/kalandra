@@ -1,5 +1,6 @@
 #include "../../runtime/NativeCancellation.h"
 #include "../../runtime/Runtime.h"
+#include "../../runtime/OrdinaryFault.h"
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -8,6 +9,9 @@
 using kalandra::runtime::Invocation;
 #if defined(FIXED_ENTRY)
 extern "C" double ENTRY_NAME(Invocation *);
+#elif defined(KALANDRA_ORDINARY_DIRECT)
+extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_v1(std::int64_t,std::int64_t,
+                                                             kalandra::runtime::OrdinaryFault *);
 #elif defined(KALANDRA_KERNEL)
 extern "C" double _mlir_ciface_kalandra_test_entry(std::int64_t, std::int64_t, Invocation *);
 #else
@@ -28,7 +32,11 @@ int main(int argc, char **argv) {
     double checksum = 0;
     const auto start = std::chrono::steady_clock::now();
     for (long long i = 0; i < count; ++i) {
-#if defined(KALANDRA_KERNEL) || defined(FIXED_ENTRY)
+#if defined(KALANDRA_ORDINARY_DIRECT)
+      kalandra::runtime::OrdinaryFault fault;
+      const auto value = _mlir_ciface_kalandra_test_entry_ordinary_v1(seed,rounds,&fault);
+      if (kalandra::runtime::ordinaryFaulted(value,fault)) std::abort();
+#elif defined(KALANDRA_KERNEL) || defined(FIXED_ENTRY)
       Invocation invocation;
 #ifndef KALANDRA_ORDINARY_EXECUTION
       std::atomic<bool> token{false};

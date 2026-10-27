@@ -268,6 +268,22 @@ void Invocation::fault(std::int64_t code, std::int64_t line, std::int64_t column
     column_ = column;
   }
 }
+namespace {
+std::uint64_t processAllocationFailure() noexcept {
+  static const auto processFailure = []() noexcept -> std::uint64_t {
+    if (const auto *text = std::getenv("KALANDRA_TEST_FAIL_ALLOC_AT")) {
+      char *end = nullptr;
+      const auto failure = std::strtoull(text, &end, 10);
+      if (end != text && *end == '\0') return failure;
+    }
+    return 0;
+  }();
+  return processFailure;
+}
+}
+extern "C" std::uint64_t kalandra_ordinary_local_enabled_v1() noexcept {
+  return processAllocationFailure() == 0;
+}
 bool Invocation::reserve() noexcept {
   // Private callers have already admitted/materialized this ledger.
   auto &ledgerState = storage_.value;
@@ -279,15 +295,7 @@ bool Invocation::reserve() noexcept {
     flags_ |= AllocationConfigured;
     // Immutable process test configuration, resolved once on first resource
     // use. Explicit per-invocation settings (including zero) bypass this default.
-    static const auto processFailure = []() noexcept -> std::uint64_t {
-      if (const auto *text = std::getenv("KALANDRA_TEST_FAIL_ALLOC_AT")) {
-        char *end = nullptr;
-        const auto failure = std::strtoull(text, &end, 10);
-        if (end != text && *end == '\0') return failure;
-      }
-      return 0;
-    }();
-    ledgerState.failAt_ = processFailure;
+    ledgerState.failAt_ = processAllocationFailure();
   }
   if (++ledgerState.attempts_ == ledgerState.failAt_) {
     fault(2);

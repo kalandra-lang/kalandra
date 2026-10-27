@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Darwin-clang++"
+	tests="4"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname="alucard.home"
+	time="12"
+	timestamp="2026-10-27T04:43:26"
+	>
+	<testcase name="native-compiled-workers-debug" classname="native-compiled-workers-debug" time="5.41144" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="native-compiled-workers-optimized" classname="native-compiled-workers-optimized" time="10.4235" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="native-compiled-workers-sanitized" classname="native-compiled-workers-sanitized" time="12.7302" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="native-compiled-workers-thread-sanitized" classname="native-compiled-workers-thread-sanitized" time="10.05" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+</testsuite>

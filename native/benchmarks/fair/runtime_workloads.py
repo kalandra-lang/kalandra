@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--build-only', action='store_true')
     parser.add_argument('--execution-contract', choices=('cancellable', 'ordinary'), default='cancellable',
                         help='Keep cancellable embedding as default; ordinary uses an unbound invocation')
+    parser.add_argument('--ordinary-entry',action='store_true',help='Use compiler-proven ordinary companion when present; checked entry otherwise')
     parser.add_argument('--reuse-build', action='store_true')
     parser.add_argument('--target-ms',type=float,default=20,
                         help='Calibration duration shared by every language and task diagnostic')
@@ -28,9 +29,10 @@ def main():
                         help='Keep candidate artifacts separate from a frozen baseline')
     args = parser.parse_args()
     assert args.target_ms > 0
+    assert not args.ordinary_entry or args.execution_contract == "ordinary"
     assert not args.output.exists()
     root, src = p.ROOT, Path(__file__).resolve().parent
-    build = args.build_dir.resolve() if args.build_dir else p.BUILD/('runtime-workloads'+('-ordinary' if args.execution_contract == 'ordinary' else ''))
+    build = args.build_dir.resolve() if args.build_dir else p.BUILD/('runtime-workloads'+('-ordinary' if args.execution_contract == 'ordinary' else '')+('-direct' if args.ordinary_entry else ''))
     build.mkdir(parents=True, exist_ok=True)
     compiler = args.compiler.resolve() if args.compiler else root/'build/native/native/kalandra'
     runtime = compiler.parent/'libkalandra-task-core-optimized.a'
@@ -39,13 +41,14 @@ def main():
     if args.execution_contract == 'ordinary': flags.append('-DKALANDRA_ORDINARY_EXECUTION')
     paths = [Path(__file__), source, driver, src/'RuntimeWorkloads.cpp', src/'runtime_workloads.rs',
              src/'protocol.py', root/'native/runtime/TaskABI.cpp',
-             root/'native/runtime/Runtime.h',root/'native/runtime/NativeCancellation.h',compiler,runtime]
+             root/'native/runtime/Runtime.h',root/'native/runtime/NativeCancellation.h',root/'native/runtime/OrdinaryFault.h',compiler,runtime]
     signature = {p.key(f):p.sha(f) for f in paths}
     manifest = build/'manifest.json'
     if args.reuse_build:
         saved = json.loads(manifest.read_text())
         assert saved['signature'] == signature
         assert saved['execution_contract'] == args.execution_contract
+        assert saved.get('ordinary_entry',False) == args.ordinary_entry
         assert all(p.sha(f) == h for f,h in saved['hashes'].items())
         p.COMMANDS.extend(saved['commands'])
     else:
@@ -54,10 +57,13 @@ def main():
         p.run([p.RUST,'--edition=2021','--crate-type=staticlib','-C','opt-level=2','-C','lto=off',
                src/'runtime_workloads.rs','-o',build/'rust.a'])
         p.run([p.CLANG,*flags,driver,build/'rust.a','-o',build/'rust'])
+        selected_abi = {}
         for name in ('arrays','closure'):
             ir = build/(name+'.ll')
             p.run([compiler,source,'--test-entry',name,'--emit-llvm',ir,'-O2','-o',build/(name+'-standalone')])
-            p.run([p.CLANG,*flags,'-DKALANDRA_KERNEL',driver,ir,runtime,'-o',build/name])
+            direct = args.ordinary_entry and '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text()
+            selected_abi[name] = 'ordinary-v1' if direct else 'checked-v4'
+            p.run([p.CLANG,*flags,*(['-DKALANDRA_ORDINARY_DIRECT'] if direct else []),'-DKALANDRA_KERNEL',driver,ir,runtime,'-o',build/name])
         for rounds in (0,16,256):
             for mode in ('direct','scheduled'):
                 name = f'{mode}-{rounds}'
@@ -77,7 +83,7 @@ def main():
                 p.run([p.CLANG,*flags,'-DFIXED_ENTRY','-DENTRY_NAME='+entry,driver,ir,
                        root/'native/runtime/TaskABI.cpp',runtime,'-o',build/name])
         artifacts = [f for f in build.iterdir() if f.is_file() and f != manifest]
-        saved = dict(compiler=str(compiler),runtime=str(runtime),execution_contract=args.execution_contract,signature=signature,hashes={str(f):p.sha(f) for f in artifacts},commands=p.COMMANDS)
+        saved = dict(ordinary_entry=args.ordinary_entry,selected_abi=selected_abi,compiler=str(compiler),runtime=str(runtime),execution_contract=args.execution_contract,signature=signature,hashes={str(f):p.sha(f) for f in artifacts},commands=p.COMMANDS)
         manifest.write_text(json.dumps(saved,indent=2)+'\n')
     if args.build_only: return
     def invoke(cell,count,rounds,seed=17):
@@ -100,6 +106,7 @@ def main():
     for cell in diagnostic:
         verification.append(dict(cell=cell,seed=17,samples=invoke(cell,1,1)))
     result = p.measure(cells,invoke,lambda c:oracle(c[1],17,c[2]),target_ms=args.target_ms)
+    result['entry_abi'] = saved.get('selected_abi',{})
     result['task_scope_diagnostic'] = p.measure(diagnostic,invoke,lambda c:oracle(1,17,c[2]),target_ms=args.target_ms)
     result['verification'] = verification
     result['execution_contract'] = args.execution_contract
@@ -107,6 +114,9 @@ def main():
     if args.execution_contract == 'ordinary':
         result['contract'] = result['contract'].replace('fresh invocation, cancellation, checked arithmetic',
             'fresh unbound invocation (no cancellation token or native-interrupt capability), checked arithmetic')
+    if args.ordinary_entry:
+        result['contract'] += ' Compiler-proven ordinary-v1 companions omit Invocation construction and use private bounded local buffers where proven safe, replaying through the checked heap path if needed. Per-program entry_abi records selection. Task diagnostics retain checked-v4. All arithmetic checks remain; no cancellation capability is supplied.'
+        result['contract'] = result['contract'].replace('Kalandra includes fresh unbound invocation (no cancellation token or native-interrupt capability), checked arithmetic, allocation/ownership and settlement.', 'Kalandra includes checked arithmetic and compiler-proven ordinary resource/fault handling; unsupported entries use a fresh unbound invocation.')
     assert {p.key(f):p.sha(f) for f in paths} == signature
     assert all(p.sha(f) == h for f,h in saved['hashes'].items())
     result['source_snapshots'] = {p.key(f):f.read_text() for f in paths[:-2]}

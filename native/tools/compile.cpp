@@ -1,4 +1,5 @@
 #include "../lib/NativeSanitizerFrames.h"
+#include "../lib/OrdinaryMain.h"
 #include "../lib/PlatformFileSystem.h"
 #include "kalandra/Backend.h"
 #include "kalandra/PackageInstall.h"
@@ -423,6 +424,24 @@ int main(int argc, char **argv) {
     std::cerr << "cannot write LLVM IR\n";
     return 1;
   }
+  // Standalone execution is ordinary. Keep the checked emitted library entry
+  // unchanged; only the executable link copy may acquire this context-free main.
+  std::string linkerIR = lowered->llvm;
+  {
+    llvm::LLVMContext context;
+    llvm::SMDiagnostic diagnostic;
+    auto module = llvm::parseAssemblyString(linkerIR, diagnostic, context);
+    if (!module) return 1;
+    if (auto *ordinaryMain = kalandra::addOrdinaryMain(*module)) {
+      if (sanitize || threadSanitize)
+        ordinaryMain->addFnAttr(threadSanitize ? llvm::Attribute::SanitizeThread
+                                               : llvm::Attribute::SanitizeAddress);
+      if (llvm::verifyModule(*module, &llvm::errs())) return 1;
+      linkerIR.clear();
+      llvm::raw_string_ostream text(linkerIR);
+      module->print(text,nullptr);
+    }
+  }
   llvm::SmallString<256> temporary;
   int descriptor = -1;
   if (auto error = llvm::sys::fs::createTemporaryFile("kalandra", "ll", descriptor, temporary)) {
@@ -432,7 +451,7 @@ int main(int argc, char **argv) {
   llvm::FileRemover removeIR(temporary);
   {
     llvm::raw_fd_ostream file(descriptor, true);
-    file << lowered->llvm;
+    file << linkerIR;
     file.close();
     if (file.has_error()) {
       std::cerr << "cannot write linker input\n";

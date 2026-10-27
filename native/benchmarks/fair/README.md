@@ -76,3 +76,13 @@ python3 native/benchmarks/fair/runtime_workloads.py \
 
 `--compiler PATH` can select a frozen compiler beside its matching
 `libkalandra-task-core-optimized.a` for a reproducible same-contract baseline.
+
+`runtime_workloads.py --execution-contract ordinary --ordinary-entry` exercises
+compiler-proven ordinary scalar companions, falling back to the checked entry
+when none is emitted. `entry_abi` records the selection per program. The default
+cancellable comparison and checked ordinary mode remain available. Source
+algorithms, reference libraries, external timing/validation and exact oracles are
+unchanged. The ordinary companion eliminates Invocation construction only where
+the compiler proves the graph's resource and fault behavior; it preserves checked
+arithmetic and replays through the checked heap path if its local buffers cannot
+serve the invocation. Fixed-input task diagnostics retain their checked entries.

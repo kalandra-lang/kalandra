@@ -1,0 +1,29 @@
+[
+  {
+    "path": "benchmarks/results/ordinary-abi-runtime-2026-10-27.json",
+    "sha256": "0870dcc295080de765822b58fc3e01b61551218f717a442d208c3607e3d0eb46",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 891,
+    "artifact_files_verified": true
+  },
+  {
+    "path": "benchmarks/results/ordinary-abi-runtime-repeat-2026-10-27.json",
+    "sha256": "ea282126fa5c6cb73f4de1c5ff9d90d2da0555f2cd53b7629a308404fcfa7a23",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 891,
+    "artifact_files_verified": true
+  },
+  {
+    "path": "benchmarks/results/ordinary-abi-cancellable-2026-10-27.json",
+    "sha256": "5e2c1e76bdc0fb11702744110e6791947b10ce9de7a1948bb7914b696505f51f",
+    "execution_contract": "cancellable",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 891,
+    "artifact_files_verified": true
+  }
+]
