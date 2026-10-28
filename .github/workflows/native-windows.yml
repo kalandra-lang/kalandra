@@ -82,6 +82,12 @@ jobs:
           name: windows-ordinary-qualification
           path: build/windows/ordinary*/**/*.json
           if-no-files-found: warn
+      - name: Qualify CPU tensor transforms
+        run: >-
+          python native/tests/TensorTransformTests.py
+          --compiler build/windows/native/kalandra.exe
+          --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          --output build/windows/tensor-transforms --quick
       - name: Verify documented PowerShell starter commands
         shell: pwsh
         run: |

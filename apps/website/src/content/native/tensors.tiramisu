@@ -48,6 +48,36 @@ ReLU uses integer-bit selection, including for float64 on Metal. It does not req
 
 Compose relu(matmul(input, weights) + bias) inside an eligible GPU function. Bias must have the complete output shape; implicit row or column broadcasting is not provided. Keep tensors resident between operations and read back only the final result when possible.
 
+h2 { "Transpose a matrix" }
+
+transpose swaps the two dimensions of a rank-two tensor. It preserves the exact bits of every cell, including integer values, signed zero, and NaN payloads. All ten numeric types are supported on CPU and Metal; transpose performs no floating arithmetic.
+
+codeblock { language = kalandra, """fn main() -> int64:
+  values: Tensor[int64, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+  swapped = transpose(values)
+  swapped[2, 1]
+""" }
+
+h2 { "Normalize rows" }
+
+softmaxRows converts each row into probabilities. It subtracts the row maximum before exponentiation, then divides by an adjacent-pair sum of exponentials. Each output has the same shape as its input. Empty dimensions remain empty. A row containing NaN, or consisting entirely of negative infinity, produces NaNs. Positive infinities share the row's probability equally; other entries receive zero.
+
+codeblock { language = kalandra, """fn main() -> float32:
+  scores: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [-1, 0, 1]])
+  probabilities = softmaxRows(scores)
+  reduceSum(probabilities)
+""" }
+
+rmsNormRows(values, epsilon) divides each cell by sqrt(mean(square(row)) + epsilon). Epsilon must be a finite, strictly positive scalar of the same numeric type; invalid epsilon causes an arithmetic failure even for an empty tensor. This primitive has unit gain. Multiply by an explicitly shaped gain tensor when a model requires learned scaling.
+
+codeblock { language = kalandra, """fn main() -> float64:
+  values: Tensor[float64, 1, 2] = tensor([[3, 4]])
+  normalized = rmsNormRows(values, 0.00001)
+  reduceSum(normalized)
+""" }
+
+Both row operations require rank-two float32 or float64 tensors and hardware arithmetic on CPU. Metal currently supports hardware float32 row math. Explicit software arithmetic and GPU float64 row math are rejected rather than silently changing precision. Exponentials have a bounded approximation error; CPU and GPU probabilities need not be bit-identical. Metal hardware may flush subnormal values according to its documented floating-point behavior.
+
 h2 { "Move to a GPU" }
 
 Building a tensor does not place it on a device. Transfer data explicitly and dispatch an eligible numerical function on the chosen GPU. A tensor result can remain resident for later numerical work.

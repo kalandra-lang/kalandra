@@ -1102,6 +1102,9 @@ class Compiler {
                                std::is_same_v<T, TensorBinary> || std::is_same_v<T, Matmul>) {
               op.left += values;
               op.right += values;
+            } else if constexpr (std::is_same_v<T, TensorTransform>) {
+              op.input += values;
+              if (op.epsilon) *op.epsilon += values;
             } else if constexpr (std::is_same_v<T, ReduceSum> || std::is_same_v<T, NumericConvert>)
               op.input += values;
             else
@@ -1473,6 +1476,17 @@ class Compiler {
       if (instruction == program.code.end())
         reject(span, "unreferenced typed numerical program kernel");
       const auto kind = instruction->kind;
+      if (kernel.transform) {
+        const char *label = *kernel.transform == TensorTransformKind::Transpose ? "Transpose"
+                            : *kernel.transform == TensorTransformKind::SoftmaxRows ? "SoftmaxRows"
+                                                                                   : "RmsNormRows";
+        code += "auto " + name + "=r.loadTensorTransformKernel(f.directory+\"/" + path +
+                "\",*target,kalandra::TensorTransformKind::" + label + "," +
+                elementName(kernel.element) + "," +
+                (kernel.scalarBuffers.size() > 1 && kernel.scalarBuffers[1] ? "true" : "false") +
+                ");if(!" + name + "){" + error(name + ".error()") + "}\n";
+        continue;
+      }
       code += "auto " + name + "=r." +
               (kind == NumericProgramKind::Reduce   ? "loadNumericReductionKernel"
                : kind == NumericProgramKind::Matmul ? "loadNumericMatmulKernel"
@@ -1661,7 +1675,7 @@ class Compiler {
     if (!target.gpu)
       return cpuCall(function, inputs, span, false, true);
     bool mixed = false;
-    bool conditional = false, primitive = false;
+    bool conditional = false, primitive = false, transform = false;
     std::set<FunctionId> inspected;
     std::vector<FunctionId> pending{function};
     while (!pending.empty()) {
@@ -1672,6 +1686,7 @@ class Compiler {
       for (auto value : cpu.functions.at(id).expressions) {
         const auto &node = cpu.expressions.at(value);
         conditional |= std::holds_alternative<ConditionalOperation>(node.operation);
+        transform |= std::holds_alternative<TensorTransform>(node.operation);
         primitive |= std::holds_alternative<Matmul>(node.operation) ||
                      std::holds_alternative<ReduceSum>(node.operation);
         if (std::holds_alternative<NumericConvert>(node.operation) ||
@@ -1682,9 +1697,9 @@ class Compiler {
           pending.push_back(call->function);
       }
     }
-    bool selectedProgram = false;
+    bool selectedProgram = transform;
     if ((conditional || primitive) && !matrixGraph(function) && !primitiveEntry(function))
-      selectedProgram =
+      selectedProgram |=
           primitive || !emitNumericShader(cpu, function, {.arithmetic = arithmetic_}).has_value();
     // A legacy graph may recognize the primitives while its fused map cannot
     // prove branch-local shapes. Preflight those maps before generating host
@@ -2230,6 +2245,8 @@ class Compiler {
       return arithmetic(binary->operation, args, span);
     if (std::holds_alternative<NumericConvert>(typed.operation))
       return hostOperation(std::string(describeNumeric(typed.type.element)->name), args, span);
+    if (const auto *transform = std::get_if<TensorTransform>(&typed.operation))
+      return hostOperation(tensorTransformName(transform->kind), args, span);
     if (const auto *unary = std::get_if<TensorUnary>(&typed.operation))
       return hostOperation(unary->operation == TokenKind::Relu    ? "relu"
                            : unary->operation == TokenKind::Minus ? "neg"
@@ -3462,9 +3479,12 @@ public:
     for (auto [function, index] : entries) {
       auto base = "kernel" + std::to_string(index);
       if (auto found = numericPrograms.find(function); found != numericPrograms.end()) {
-        for (std::size_t stage = 0; stage < found->second.kernels.size(); ++stage)
-          outputs[base + (stage ? "-stage" + std::to_string(stage) : "") + ".mlir"] =
-              found->second.kernels[stage].mlir;
+        for (std::size_t stage = 0; stage < found->second.kernels.size(); ++stage) {
+          const auto &shader = found->second.kernels[stage];
+          auto name = base + (stage ? "-stage" + std::to_string(stage) : "");
+          outputs[name + (shader.nativeMetal.empty() ? ".mlir" : ".native.metal")] =
+              shader.nativeMetal.empty() ? shader.mlir : shader.nativeMetal;
+        }
         continue;
       }
       if (auto found = numericShaders.find(function); found != numericShaders.end()) {
@@ -3974,6 +3994,11 @@ int kalandra::compileMetalCommand(int argc, char **argv) {
         for (const auto *suffix : {".lowered.mlir", ".converted.mlir", ".kernel.mlir", ".spv",
                                    ".metal", ".air", ".metallib"})
           paths.push_back(std::filesystem::path(name).stem().string() + suffix);
+      if (build && name.starts_with("kernel") && name.ends_with(".native.metal")) {
+        const auto base = name.substr(0, name.size() - std::string(".native.metal").size());
+        paths.push_back(base + ".air");
+        paths.push_back(base + ".metallib");
+      }
     }
     if (build)
       paths.push_back("program");

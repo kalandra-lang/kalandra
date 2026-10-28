@@ -16,3 +16,12 @@ benchmarks/results/entry-proof-*-2026-10-28.json linguist-generated=true
 benchmarks/results/wide-input-*-2026-10-28.json linguist-generated=true
 benchmarks/results/wide-input-*-qualification-2026-10-28.log -whitespace linguist-generated=true
 benchmarks/results/wide-input-*-qualification-2026-10-28.xml -whitespace linguist-generated=true
+benchmarks/results/ai-*-2026-10-28.json linguist-generated=true
+benchmarks/results/residual-ffn*-2026-10-28.json linguist-generated=true
+benchmarks/results/transformer-*-2026-10-28.json linguist-generated=true
+benchmarks/results/native-ai-performance-2026-10-28.json linguist-generated=true
+benchmarks/results/ordinary-ir-controls-2026-10-28.json linguist-generated=true
+benchmarks/results/docs-ai-operations-2026-10-28.json linguist-generated=true
+benchmarks/results/cpu-comparison-2026-10-28.json linguist-generated=true
+# Preserve the renderer's byte-exact SVG, including path whitespace.
+benchmarks/results/*.svg -whitespace linguist-generated=true

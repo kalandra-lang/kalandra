@@ -1,5 +1,6 @@
 #pragma once
 #include "kalandra/NumericType.h"
+#include "kalandra/TensorTransform.h"
 #include "kalandra/Syntax.h"
 
 namespace kalandra {
@@ -229,6 +230,14 @@ struct ReduceSum {
   ReductionOrder order = ReductionOrder::BalancedAdjacent;
   bool rowMajor = true;
 };
+// Non-pointwise immutable rank-two operations. Keeping this distinct from
+// TensorUnary prevents elementwise/reduction fusion from discarding row or
+// layout dependencies.
+struct TensorTransform {
+  TensorTransformKind kind;
+  ValueId input;
+  std::optional<ValueId> epsilon = {};
+};
 struct ExtentRequirement {
   std::size_t axis;
   std::uint64_t extent;
@@ -334,6 +343,7 @@ struct TypedExpr {
                UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
                BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary,
                TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum,
+               TensorTransform,
                ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat, ArraySlice,
                ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection, Transfer,
                TaskOperation, ParallelOperation, ConditionalOperation, CatchOperation,

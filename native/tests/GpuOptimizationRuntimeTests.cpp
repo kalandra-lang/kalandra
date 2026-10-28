@@ -132,7 +132,8 @@ static void reduction(m::Runtime &r, TaskCore &core, m::Kernel map, m::Kernel re
   retire(core, group);
 }
 static void matrix(m::Runtime &r, TaskCore &core, m::Kernel kernel, m::Kernel reduce,
-                   std::size_t rows, std::size_t k, std::size_t columns, unsigned pattern) {
+                   std::size_t rows, std::size_t k, std::size_t columns, unsigned pattern,
+                   bool typed = false) {
   ++cases;
   std::vector<Bits> a(rows * k), b(k * columns), expected(rows * columns), products(k);
   for (std::size_t i = 0; i < a.size(); ++i)
@@ -163,7 +164,8 @@ static void matrix(m::Runtime &r, TaskCore &core, m::Kernel kernel, m::Kernel re
     std::memcpy(&actual, bytes->data() + i * 4, 4);
     equal(actual, expected[i], i);
   }
-  auto total = r.matmulReduceSum(core, group, kernel, reduce, da, db);
+  auto total = typed ? r.reduceSum(core, group, reduce, result)
+                     : r.matmulReduceSum(core, group, kernel, reduce, da, db);
   CHECK(total && core.drain());
   Invocation context;
   float scalar = 0;
@@ -263,7 +265,7 @@ static void lifetime(m::Runtime &r, TaskCore &core, m::Kernel map, m::Kernel red
   }
 }
 int main(int argc, char **argv) {
-  CHECK(argc == 2);
+  CHECK(argc == 2 || argc == 3);
   auto runtime = m::Runtime::create({.profile = true, .maxBytes = 512ull * 1024 * 1024});
   CHECK(runtime);
   auto &r = **runtime;
@@ -275,6 +277,20 @@ int main(int argc, char **argv) {
   auto reduce = r.loadReductionKernel(base + "/kernel0-reduce.metallib", *r.device());
   auto mul = r.loadMatmulKernel(base + "/kernel2.metallib", *r.device());
   CHECK(dot && axpy && reduce && mul);
+  if(argc==3) {
+    auto typed=r.loadNumericMatmulKernel(argv[2],*r.device(),NumericType::Float32);
+    CHECK(typed);
+    for(auto k:{0,1,7,8,9,15,16,17,127,128,129,255,256,257,319,320,321,511,512,513})
+      for(auto rows:{0,1,2,7,8,9,15,16,17,31,32,33})
+        for(auto cols:{0,1,7,8,9,16,17})
+          matrix(r,*core,*typed,*reduce,rows,k,cols,0,true);
+    for(auto k:{1,7,17,127,128,129,256,257,512,513})
+      for(unsigned pattern:{1,2,3,4}) matrix(r,*core,*typed,*reduce,9,k,17,pattern,true);
+    for(auto n:{128,256,512,1024}) benchmarkMatrix(r,*core,*typed,n);
+    CHECK(!r.stats().bytes && !r.stats().inFlight && !r.stats().argumentBytes);
+    std::printf("Typed hardware float32 matrix qualification: %llu APFloat cases, %llu cell/aggregate checks passed\n",(unsigned long long)cases,(unsigned long long)comparisons);
+    return 0;
+  }
   for (auto n : {0, 1, 2, 3, 63, 64, 65, 127, 128, 129, 255, 256, 257, 16383, 16384, 16385, 262143,
                  262144, 262145})
     for (unsigned pattern : {0, 1, 2})

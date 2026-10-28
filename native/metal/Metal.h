@@ -1,6 +1,7 @@
 #pragma once
 #include "../runtime/Tasks.h"
 #include "../runtime/Tensor.h"
+#include "../include/kalandra/TensorTransform.h"
 #include "ElementwiseLayout.h"
 #include <cstddef>
 #include <cstdint>
@@ -253,6 +254,8 @@ public:
                                 Kernel reduction = {}, bool scalarResult = false) noexcept;
   std::expected<Kernel, Error> loadReductionKernel(std::string_view metallib, Device) noexcept;
   std::expected<Kernel, Error> loadMatmulKernel(std::string_view metallib, Device) noexcept;
+  std::expected<Kernel, Error> loadTensorTransformKernel(std::string_view metallib, Device,
+      TensorTransformKind, NumericType, bool deviceEpsilon = false) noexcept;
   // One task owns optional operand maps and a post stage. Map inputs are the
   // original immutable arguments; post slot zero selects the completed matrix.
   TaskHandle matmul(TaskCore &, GroupHandle, Kernel, Buffer, Buffer, Kernel post = {},

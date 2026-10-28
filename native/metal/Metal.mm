@@ -120,6 +120,7 @@ struct KernelState {
   id<MTLFunction> argumentFunction = nil;
   std::uint64_t encodedBytes = 0;
   std::optional<NumericType> numericType{};
+  std::optional<TensorTransformKind> transform{};
   std::vector<NumericType> tensorTypes{}, scalarTypes{};
   std::vector<std::uint8_t> scalarBuffers{};
   id<MTLComputePipelineState> blockReduction = nil, tiledMatrix = nil, block32Matrix = nil,
@@ -146,6 +147,8 @@ struct KernelState {
     return words;
   }
   std::uint64_t parameterWords() const {
+    if (transform)
+      return 6;
     return matrix && numericType ? 4
            : signature           ? 1 + scalarWords() + unsigned(numericType.has_value())
                                  : 2;
@@ -823,6 +826,10 @@ struct Bridge {
     Buffer matrixLeft{}, matrixRight{}, combinedSource{};
     Kernel combinedKernel{};
     std::shared_ptr<MetalAllocation> combinedParameters;
+    std::shared_ptr<MetalAllocation> transformScratch;
+    // A final graph stage may share the scalar reduction's command. Keep the
+    // graph's immutable captures and every deferred last-use owner through ACK.
+    std::shared_ptr<MatrixGraphArguments> combinedGraph;
     // A matrix and its pure post-map may share one uncommitted command.
     // Keep the first stage's owners and budget reservations until acknowledgement.
     Buffer batchedLeft{}, batchedRight{};
@@ -1409,6 +1416,122 @@ struct Bridge {
     // if another task consumes the available budget concurrently.
     return used <= state->options.maxBytes && needed <= state->options.maxBytes - used;
   }
+  static bool batchGraphReduction(const Frame &f) {
+    if (!f.packet.graph || f.graphPhase || f.packet.numericProgram ||
+        !f.packet.graph->reductions.empty() || f.packet.graph->tensorResult ||
+        !f.packet.reduction.state_ || !f.packet.reduction.state_->blockReduction ||
+        f.packet.kernel.state_->numericType || f.graphBatched > 2 ||
+        f.graphStage + 1 != f.packet.graph->products.size() || !f.result.bytes())
+      return false;
+    // Include the reduction as a logical stage. Its full tree requires fewer
+    // than twice as many element operations as leaves. No work/cancellation
+    // allowance is enlarged to remove this submission boundary.
+    const auto cells = f.result.bytes() / 4;
+    const auto work = graphStageWork(f, f.graphStage);
+    if (cells > graphWorkLimit / 2 || work > graphWorkLimit - 2 * cells ||
+        f.graphWork > graphWorkLimit - 2 * cells - work)
+      return false;
+    const auto used = f.packet.state->bytes.load();
+    const auto maximum = f.packet.state->options.maxBytes;
+    // Preserve the acknowledged path for tight budgets, which may require
+    // reclaiming the graph's last-use operands before reduction preparation.
+    return used <= maximum && 4 * f.result.bytes() + 4096 <= maximum - used;
+  }
+  static Buffer reusableGraphMapResult(const Frame &f) {
+    if (!f.packet.graph || f.graphPhase || f.packet.numericProgram ||
+        !f.packet.graph->reductions.empty() || f.packet.kind != Kind::Elementwise ||
+        f.packet.kernel.state_->numericType || f.packet.kernel.state_->projected ||
+        f.packet.kernel.state_->indirect())
+      return {};
+    const auto &graph = *f.packet.graph;
+    const auto &edge = graph.products[f.graphStage];
+    const auto candidate = [&](std::uint32_t value) -> Buffer {
+      // Original arguments remain immutable even if their backing happens to
+      // have no external alias. Only graph-private, single-consumer results
+      // with same-cell maps can safely donate their output storage.
+      if (value < graph.inputs)
+        return {};
+      const auto &buffer = graph.values[value];
+      const auto occurrences = edge.operands.empty() ? unsigned(edge.left == value) +
+                                                          unsigned(edge.right == value)
+                                                    : 1u;
+      if (graph.uses[value] != occurrences || !buffer.onDevice() ||
+          buffer.format() != Format::Float32 || !buffer.bytes() || buffer.shape().size() != 2 ||
+          f.packet.input.shape().size() != 2 ||
+          buffer.bytes() != f.packet.input.bytes() ||
+          !std::equal(buffer.shape().begin(), buffer.shape().end(), f.packet.input.shape().begin()))
+        return {};
+      return buffer;
+    };
+    if (edge.operands.empty()) {
+      if (auto result = candidate(edge.left))
+        return result;
+      return candidate(edge.right);
+    }
+    for (auto value : edge.operands)
+      if (auto result = candidate(value))
+        return result;
+    return {};
+  }
+  static id<MTLCommandBuffer> tensorTransformCommand(Frame &f) {
+    const auto &kernel = *f.packet.kernel.state_;
+    const auto &source = f.packet.input.storage_;
+    const auto state = f.packet.state;
+    f.error = Error::Invalid;
+    if (!kernel.transform || !source || source->rank != 2 || f.packet.numericScalar ||
+        std::uint64_t(source->dimensions[0]) > UINT32_MAX ||
+        std::uint64_t(source->dimensions[1]) > UINT32_MAX)
+      return nil;
+    const auto kind = *kernel.transform;
+    auto shape = std::array{source->dimensions[0], source->dimensions[1]};
+    if (kind == TensorTransformKind::Transpose)
+      std::swap(shape[0], shape[1]);
+    auto output = allocateStorage(state, shape, source->format, true, kernel.index);
+    if (!output) { f.error = output.error(); return nil; }
+    f.result = Buffer(*output);
+    if (!(*output)->metal) {
+      auto dummy = allocateMetal(state, kernel.index, 4, false);
+      if (!dummy) { f.error = dummy.error(); return nil; }
+      (*output)->metal = *dummy;
+    }
+    auto parameters = allocateMetal(state, kernel.index, 24, true);
+    if (!parameters) { f.error = parameters.error(); return nil; }
+    f.staging = *parameters;
+    auto *words = static_cast<std::uint32_t *>(f.staging->buffer.contents);
+    const auto count = source->size / describeNumeric(*kernel.numericType)->bytes();
+    words[0] = std::uint32_t(count);
+    words[1] = std::uint32_t(source->dimensions[0]);
+    words[2] = std::uint32_t(source->dimensions[1]);
+    words[3] = f.packet.arguments->scalarBits.empty() ? 0 : std::uint32_t(f.packet.arguments->scalarBits[0]);
+    words[4] = kernel.signature->tensors == 2;
+    words[5] = UINT32_MAX;
+    id<MTLBuffer> scratch = (*output)->metal->buffer;
+    if (kind != TensorTransformKind::Transpose) {
+      auto temporary = allocateMetal(state, kernel.index, std::max(std::uint64_t(4), source->size), false);
+      if (!temporary) { f.error = temporary.error(); return nil; }
+      f.transformScratch = *temporary;
+      scratch = f.transformScratch->buffer;
+    }
+    id<MTLBuffer> input = source->metal ? source->metal->buffer : (*output)->metal->buffer;
+    id<MTLBuffer> epsilon = words[4] ? tensor(f, 1).storage_->metal->buffer : input;
+    f.error = Error::Allocation;
+    auto command = state->permit() ? [state->queues[kernel.index] commandBuffer] : nil;
+    auto encoder = command && state->permit() ? [command computeCommandEncoder] : nil;
+    if (!encoder) return nil;
+    [encoder setComputePipelineState:kernel.pipeline];
+    [encoder setBuffer:input offset:0 atIndex:0];
+    [encoder setBuffer:epsilon offset:0 atIndex:1];
+    [encoder setBuffer:(*output)->metal->buffer offset:0 atIndex:2];
+    [encoder setBuffer:scratch offset:0 atIndex:3];
+    [encoder setBuffer:f.staging->buffer offset:0 atIndex:4];
+    const auto groups = kind == TensorTransformKind::Transpose ? std::max(UINT64_C(1), (count + 255) / 256)
+                        : count ? std::uint64_t(words[1]) : UINT64_C(1);
+    if (state->options.profile) ++state->dispatches;
+    [encoder dispatchThreadgroups:MTLSizeMake(groups, 1, 1) threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];
+    [encoder endEncoding];
+    if (!state->permit()) return nil;
+    return command;
+  }
   static void resume(Task &task) {
     for (;;) {
       @autoreleasepool {
@@ -1466,6 +1589,7 @@ struct Bridge {
             }
             f.staging.reset();
             f.resources.reset();
+            f.transformScratch.reset();
             f.scratch.reset();
             f.result = {};
             f.packet.input = {};
@@ -1634,6 +1758,7 @@ struct Bridge {
           nextGraphStage(f);
         }
         if (f.started) {
+          f.transformScratch.reset();
           f.fusedPostKernel = {};
           f.fusedParameters.reset();
           f.batchedLeft = {};
@@ -2117,7 +2242,10 @@ struct Bridge {
         const auto encodingStart = state->options.profile ? std::chrono::steady_clock::now()
                                                           : std::chrono::steady_clock::time_point{};
         id<MTLCommandBuffer> command = nil;
-        if (reduce) {
+        if (compute && f.packet.kernel.state_->transform) {
+          command = tensorTransformCommand(f);
+          if (!command) { task.fault(std::int64_t(f.error)); return; }
+        } else if (reduce) {
           f.error = Error::Allocation;
           command = f.packet.kernel.state_->numericType ? numericReductionCommand(f)
                                                         : reductionCommand(f);
@@ -2127,7 +2255,10 @@ struct Bridge {
           }
           f.error = Error::Device;
         } else {
-          auto result = allocateStorage(
+          auto reuse = reusableGraphMapResult(f);
+          auto result = reuse ? std::expected<std::shared_ptr<Storage>, Error>(
+                                    std::const_pointer_cast<Storage>(reuse.storage_))
+                              : allocateStorage(
               state, matrix ? std::span<const std::int64_t>(matrixShape) : f.packet.input.shape(),
               (compute || matrix) && f.packet.kernel.state_->numericType
                   ? *storageFormat(*f.packet.kernel.state_->numericType)
@@ -2514,10 +2645,13 @@ struct Bridge {
         // A pure hardware map/matrix followed by a sum has no observable host
         // boundary. Encode the reduction into the same command, retaining every
         // original resource and its budget reservation through acknowledgement.
+        const bool finalGraphReduction = batchGraphReduction(f);
         if ((compute || matrix) && f.packet.reduction.state_ &&
             f.packet.reduction.state_->blockReduction && !f.packet.kernel.state_->numericType &&
-            !f.packet.graph && !f.packet.numericProgram && !f.packet.matrixPost &&
+            (!f.packet.graph || finalGraphReduction) && !f.packet.numericProgram && !f.packet.matrixPost &&
             !f.packet.epilogue && !f.matrixStage) {
+          if (finalGraphReduction)
+            f.combinedGraph = std::move(f.packet.graph);
           f.combinedSource = std::move(f.packet.input);
           f.combinedKernel = std::move(f.packet.kernel);
           f.combinedParameters = std::move(f.staging);
@@ -2850,7 +2984,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
       id<MTLFunction> argumentFunction = nil;
       std::uint64_t encodedBytes = 0;
       auto prepare = [&](NSString *entry,
-                         bool fused = false) -> std::expected<id<MTLComputePipelineState>, Error> {
+                         bool fused = false, bool hardwareFloat32 = false) -> std::expected<id<MTLComputePipelineState>, Error> {
         id<MTLFunction> function = [library newFunctionWithName:entry];
         if (!function)
           return std::unexpected(Error::Invalid);
@@ -2868,7 +3002,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
         const auto tensors = physical;
         const auto parameterIndex = tensors + (fused ? 3 : 1),
                    bindingCount = tensors + (fused ? 4 : 2);
-        const auto words = matrix ? (numericType ? 4 : 3) : parameterWords;
+        const auto words = matrix ? (numericType && !hardwareFloat32 ? 4 : 3) : parameterWords;
 
         if (indirect) {
           if (reflection.bindings.count != 1)
@@ -2931,7 +3065,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
                                 ? tensorTypes[reads ? (*reads)[argument.index] : argument.index]
                                 : numericType.value_or(NumericType::Float32);
           const auto wireWidth = std::max(describeNumeric(type)->bytes(), 4u);
-          const auto wireType = !numericType     ? MTLDataTypeFloat
+          const auto wireType = !numericType || hardwareFloat32 ? MTLDataTypeFloat
                                 : wireWidth == 8 ? MTLDataTypeULong
                                                  : MTLDataTypeUInt;
           const bool shape = fused && argument.index == 3;
@@ -3020,20 +3154,21 @@ std::expected<Kernel, Error> Runtime::loadKernel(
           return std::unexpected(block.error());
         metadata->blockReduction = *block;
       }
-      if (!numericType && matrix &&
+      const bool nativeFloat32Matrix = matrix && (!numericType || *numericType == NumericType::Float32);
+      if (nativeFloat32Matrix &&
           [library newFunctionWithName:@"kalandra_matmul_hardware_tiled"]) {
-        auto tiled = prepare(@"kalandra_matmul_hardware_tiled");
+        auto tiled = prepare(@"kalandra_matmul_hardware_tiled", false, true);
         if (!tiled)
           return std::unexpected(tiled.error());
         metadata->tiledMatrix = *tiled;
         if ([library newFunctionWithName:@"kalandra_matmul_hardware_block32"]) {
-          auto block32 = prepare(@"kalandra_matmul_hardware_block32");
+          auto block32 = prepare(@"kalandra_matmul_hardware_block32", false, true);
           if (!block32)
             return std::unexpected(block32.error());
           metadata->block32Matrix = *block32;
         }
         if ([library newFunctionWithName:@"kalandra_matmul_hardware_block64"]) {
-          auto block64 = prepare(@"kalandra_matmul_hardware_block64");
+          auto block64 = prepare(@"kalandra_matmul_hardware_block64", false, true);
           if (!block64)
             return std::unexpected(block64.error());
           if ((*block64).maxTotalThreadsPerThreadgroup >= 128)
@@ -3043,7 +3178,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
             [library newFunctionWithName:@"kalandra_matmul_hardware_register16"]) {
           if (!state_->permit())
             return std::unexpected(Error::Allocation);
-          auto registers = prepare(@"kalandra_matmul_hardware_register16");
+          auto registers = prepare(@"kalandra_matmul_hardware_register16", false, true);
           if (!registers)
             return std::unexpected(registers.error());
           if ((*registers).maxTotalThreadsPerThreadgroup >= 256)
@@ -3054,19 +3189,19 @@ std::expected<Kernel, Error> Runtime::loadKernel(
           [library newFunctionWithName:@"kalandra_matmul_hardware_grouped16"]) {
         if (!state_->permit())
           return std::unexpected(Error::Allocation);
-        auto grouped = prepare(@"kalandra_matmul_hardware_grouped16");
+        auto grouped = prepare(@"kalandra_matmul_hardware_grouped16", false, true);
         if (!grouped)
           return std::unexpected(grouped.error());
         if ((*grouped).maxTotalThreadsPerThreadgroup >= 256)
           metadata->groupedMatrix = *grouped;
       }
       metadata->numericType = numericType;
-      if (!numericType && matrix &&
+      if (nativeFloat32Matrix &&
           [state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"] &&
           [library newFunctionWithName:@"kalandra_matmul_hardware_skinny32"]) {
         if (!state_->permit())
           return std::unexpected(Error::Allocation);
-        auto skinny = prepare(@"kalandra_matmul_hardware_skinny32");
+        auto skinny = prepare(@"kalandra_matmul_hardware_skinny32", false, true);
         if (!skinny)
           return std::unexpected(skinny.error());
         if ((*skinny).maxTotalThreadsPerThreadgroup >= 256)
@@ -3124,6 +3259,71 @@ std::expected<Kernel, Error> Runtime::loadKernel(
           metadata->reads[i] = reads ? (*reads)[i] : i;
       kernel.state_ = std::move(metadata);
       return kernel;
+    } catch (...) {
+      return std::unexpected(Error::Allocation);
+    }
+  }
+}
+std::expected<Kernel, Error>
+Runtime::loadTensorTransformKernel(std::string_view path, Device device,
+                                   TensorTransformKind kind, NumericType type,
+                                   bool deviceEpsilon) noexcept {
+  @autoreleasepool {
+    if (!describeNumeric(type) || unsigned(kind) > unsigned(TensorTransformKind::RmsNormRows) ||
+        (kind != TensorTransformKind::Transpose && type != NumericType::Float32) ||
+        (deviceEpsilon && kind != TensorTransformKind::RmsNormRows) ||
+        path.empty() || path.find('\0') != std::string_view::npos)
+      return std::unexpected(Error::Invalid);
+    if (device.state_ != state_ || device.index_ >= state_->devices.count)
+      return std::unexpected(Error::Residency);
+    try {
+      if (!state_->permit()) return std::unexpected(Error::Allocation);
+      NSString *name = [[NSString alloc] initWithBytes:path.data() length:path.size() encoding:NSUTF8StringEncoding];
+      if (!name) return std::unexpected(Error::Invalid);
+      NSError *error = nil;
+      id<MTLLibrary> library = [state_->devices[device.index_] newLibraryWithURL:[NSURL fileURLWithPath:name] error:&error];
+      if (!library) return std::unexpected(Error::Invalid);
+      if (!state_->permit()) return std::unexpected(Error::Allocation);
+      auto function = [library newFunctionWithName:@"kalandra_tensor_transform_v1"];
+      if (!function) return std::unexpected(Error::Invalid);
+      MTLComputePipelineReflection *reflection = nil;
+      auto pipeline = [state_->devices[device.index_] newComputePipelineStateWithFunction:function
+          options:MTLPipelineOptionBufferTypeInfo | MTLPipelineOptionBindingInfo reflection:&reflection error:&error];
+      if (!pipeline || pipeline.maxTotalThreadsPerThreadgroup < 256)
+        return std::unexpected(Error::Unavailable);
+      std::array<bool, 5> seen{};
+      for (id<MTLBinding> binding in reflection.bindings) {
+        if (binding.type != MTLBindingTypeBuffer || binding.index >= seen.size() || seen[binding.index])
+          return std::unexpected(Error::Invalid);
+        seen[binding.index] = true;
+      }
+      if (!seen[0] || !seen[2] || !seen[4] ||
+          (kind != TensorTransformKind::Transpose && !seen[3]) || (deviceEpsilon && !seen[1]))
+        return std::unexpected(Error::Invalid);
+      if (!state_->permit()) return std::unexpected(Error::Allocation);
+      auto metadata = std::make_shared<KernelState>();
+      metadata->registry = state_;
+      metadata->index = device.index_;
+      metadata->pipeline = pipeline;
+      metadata->elementwise = true;
+      metadata->matrix = metadata->reduction = false;
+      metadata->numericType = type;
+      metadata->transform = kind;
+      const bool rms = kind == TensorTransformKind::RmsNormRows;
+      metadata->signature = ElementwiseSignature{deviceEpsilon ? 2u : 1u, rms && !deviceEpsilon ? 1u : 0u};
+      metadata->readCount = deviceEpsilon ? 2 : 1;
+      metadata->reads[0] = 0;
+      metadata->tensorTypes = {type};
+      metadata->scalarBuffers = {0};
+      if (deviceEpsilon) {
+        metadata->reads[1] = 1;
+        metadata->tensorTypes.push_back(type);
+        metadata->scalarBuffers.push_back(1);
+      } else if (rms)
+        metadata->scalarTypes = {type};
+      Kernel result;
+      result.state_ = std::move(metadata);
+      return result;
     } catch (...) {
       return std::unexpected(Error::Allocation);
     }

@@ -138,6 +138,20 @@ void buildMetalProgram(const std::filesystem::path &directory,
                              : variant == "sanitized"        ? KALANDRA_GPU_CORE_SANITIZED
                              : variant == "thread-sanitized" ? KALANDRA_GPU_CORE_THREAD_SANITIZED
                                                              : KALANDRA_GPU_CORE_DEBUG);
+  // Trusted native row/layout intrinsics are compiled directly from the typed
+  // backend's Metal output, rather than represented by a misleading identity
+  // MLIR kernel. They have their own reflected runtime interface.
+  for (const auto &[name, contents] : outputs) {
+    (void)contents;
+    if (!name.starts_with("kernel") || !name.ends_with(".native.metal"))
+      continue;
+    const auto base = (directory / name.substr(0, name.size() - std::string(".native.metal").size())).string();
+    run({metalCompiler, "-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM, "-isysroot", sdk,
+         std::string("-std=") + KALANDRA_GPU_TYPED_METAL_LANGUAGE, "-fno-fast-math", "-ffp-contract=off",
+         "-fmodules-cache-path=" + (directory / "module-cache").string(), "-c", (directory / name).string(),
+         "-o", base + ".air"});
+    run({metalCompiler, base + ".air", "-o", base + ".metallib"});
+  }
   for (const auto &[name, contents] : outputs) {
     if (!name.starts_with("kernel") || !name.ends_with(".mlir"))
       continue;
@@ -171,7 +185,8 @@ void buildMetalProgram(const std::filesystem::path &directory,
                                  "--msl-device-argument-buffer", "0",
                                  "--msl-force-active-argument-buffer-resources"});
     run(std::move(cross));
-    if (!numeric && arithmetic != kalandra::ArithmeticMode::Software) {
+    if ((!numeric || contents.find("// kalandra-hardware-float32-matrix") != std::string::npos) &&
+        arithmetic != kalandra::ArithmeticMode::Software) {
       if (contents.starts_with("// kalandra.matmul.epilogue ")) {
         std::istringstream marker(contents.substr(28));
         unsigned tensors = 0, scalars = 0;
@@ -190,7 +205,8 @@ void buildMetalProgram(const std::filesystem::path &directory,
       std::ofstream optimized(base + ".metal", std::ios::app);
       if (contents.find("@kalandra_reduce_sum(") != std::string::npos)
         optimized << hardwareReductionShader;
-      if (contents.find("@kalandra_matmul(") != std::string::npos)
+      if (contents.find("@kalandra_matmul(") != std::string::npos ||
+          contents.find("// kalandra-hardware-float32-matrix") != std::string::npos)
         optimized << hardwareMatmulShader << hardwareRegisterMatmulShader
                   << hardwareGroupedMatmulShader() << hardwareSkinnyMatmulShader;
       if (!optimized)

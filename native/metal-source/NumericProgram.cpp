@@ -1,4 +1,5 @@
 #include "NumericProgram.h"
+#include "TensorTransformShader.h"
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -76,13 +77,16 @@ class Builder {
                              std::is_same_v<T, ScalarCompare> || std::is_same_v<T, Matmul>) {
             visit(op.left);
             visit(op.right);
+          } else if constexpr (std::is_same_v<T, TensorTransform>) {
+            visit(op.input);
+            if (op.epsilon) visit(*op.epsilon);
           } else if constexpr (std::is_same_v<T, NumericConvert> || std::is_same_v<T, ReduceSum>)
             visit(op.input);
         },
         normalized.expressions.at(id).operation);
   }
   std::uint32_t kernel(NumericShader shader) {
-    auto key = shader.mlir + "\n#schema:" + std::to_string(static_cast<unsigned>(shader.element));
+    auto key = shader.mlir + shader.nativeMetal + "\n#schema:" + std::to_string(static_cast<unsigned>(shader.element));
     auto append = [&](const auto &values) {
       key += '|';
       for (auto value : values)
@@ -174,6 +178,41 @@ class Builder {
     return resident(ref.type, program.code.back().output);
   }
   Ref force(Ref ref) { return ref.buffer ? ref : map(std::move(ref)); }
+  Ref transform(const TypedExpr &original, const TensorTransform &operation, Ref input,
+                std::optional<Ref> epsilon) {
+    input = force(input);
+    if (operation.kind != TensorTransformKind::Transpose &&
+        (arithmetic_ == ArithmeticMode::Software || original.type.element != NumericType::Float32))
+      reject(original.span, "GPU row math requires hardware float32; no software transcendental fallback is implemented");
+    NumericShader shader{original.type.element, {}, {0}};
+    shader.transform = operation.kind;
+    shader.nativeMetal = tensorTransformMetal(operation.kind, original.type.element);
+    shader.tensorTypes = {original.type.element};
+    NumericProgramInstruction op{NumericProgramKind::Map};
+    op.inputs = {*input.buffer};
+    if (epsilon) {
+      shader.scalarTypes = {original.type.element};
+      const auto &scalar = normalized.expressions.at(epsilon->expression);
+      if (auto literal = std::get_if<Float32Literal>(&scalar.operation)) {
+        op.constants.push_back(literal->bits);
+        shader.scalarBuffers = {0};
+      } else if (auto read = std::get_if<SymbolRead>(&scalar.operation); read && hostScalars.contains(read->symbol)) {
+        op.scalarSources.push_back(hostScalars.at(read->symbol));
+        shader.scalarBuffers = {0};
+      } else {
+        auto scalar = force(*epsilon);
+        op.inputs.push_back(*scalar.buffer);
+        shader.reads.push_back(1);
+        shader.tensorTypes.push_back(original.type.element);
+        shader.scalarTypes.clear();
+        shader.scalarBuffers = {0, 1};
+      }
+    }
+    op.kernel = kernel(std::move(shader));
+    op.output = value();
+    program.code.push_back(std::move(op));
+    return resident(original.type, program.code.back().output);
+  }
   Ref primitive(NumericProgramKind kind, const TypedExpr &original, Ref left,
                 std::optional<Ref> right = {}) {
     if (!left.buffer || (right && !right->buffer))
@@ -340,6 +379,10 @@ class Builder {
         check(NumericProgramKind::Extent, {*out.buffer}, std::move(extents));
         out.type = node.type;
         out = resident(out.type, *out.buffer);
+      } else if (auto operation = std::get_if<TensorTransform>(&node.operation)) {
+        auto input = force(emit(operation->input));
+        auto epsilon = operation->epsilon ? std::optional<Ref>{emit(*operation->epsilon)} : std::nullopt;
+        out = transform(node, *operation, input, epsilon);
       } else if (auto sum = std::get_if<ReduceSum>(&node.operation)) {
         auto a = emit(sum->input);
         out = primitive(NumericProgramKind::Reduce, node, a);

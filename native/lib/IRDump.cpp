@@ -817,6 +817,37 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           !numericReductionAvailable(expression.type.element, target))
         return "unsupported reduction element type";
     }
+    if (const auto *transform = std::get_if<TensorTransform>(&expression.operation)) {
+      if (transform->input >= module.expressions.size() ||
+          (transform->epsilon && *transform->epsilon >= module.expressions.size()) ||
+          unsigned(transform->kind) > unsigned(TensorTransformKind::RmsNormRows))
+        return "invalid tensor transform operands";
+      const auto &input = module.expressions[transform->input].type;
+      const auto &output = expression.type;
+      if (!input.tensor || input.array || input.task || input.fallible || input.shape.size() != 2 ||
+          !output.tensor || output.array || output.task || output.fallible || output.shape.size() != 2 ||
+          input.builtin != BuiltinValue::Numeric || output.builtin != BuiltinValue::Numeric ||
+          input.element != output.element)
+        return "tensor transforms require matching rank-two numeric storage";
+      const bool transpose = transform->kind == TensorTransformKind::Transpose;
+      for (unsigned axis = 0; axis < 2; ++axis) {
+        const auto &a = input.shape[transpose ? 1 - axis : axis], &b = output.shape[axis];
+        if (a.constant != b.constant || a.identity != b.identity)
+          return "tensor transform result shape differs";
+      }
+      if (!transpose && input.element != NumericType::Float32 && input.element != NumericType::Float64)
+        return "row math requires floating-point elements";
+      if (target != NumericTarget::Cpu && !transpose && input.element != NumericType::Float32)
+        return "GPU row math currently requires float32";
+      if ((transform->kind == TensorTransformKind::RmsNormRows) != transform->epsilon.has_value())
+        return "RMS normalization requires one epsilon operand";
+      if (transform->epsilon) {
+        const auto &e = module.expressions[*transform->epsilon].type;
+        if (e.tensor || e.array || e.task || e.fallible || e.builtin != BuiltinValue::Numeric ||
+            e.element != input.element)
+          return "RMS epsilon must be a matching floating scalar";
+      }
+    }
     if (const auto *multiply = std::get_if<Matmul>(&expression.operation)) {
       if (expression.type.element != module.expressions[multiply->left].type.element ||
           expression.type.element != module.expressions[multiply->right].type.element ||
@@ -958,6 +989,13 @@ std::string dumpTypedIR(const TypedModule &module) {
               else
                 out << (node.type.element == NumericType::Float64 ? "f64 " : "f32 ");
               value(operation.operand);
+            } else if constexpr (std::is_same_v<T, TensorTransform>) {
+              out << tensorTransformName(operation.kind) << " ";
+              value(operation.input);
+              if (operation.epsilon) {
+                out << ", ";
+                value(*operation.epsilon);
+              }
             } else if constexpr (std::is_same_v<T, TensorUnary>) {
               if (operation.operation == TokenKind::Relu)
                 out << "elementwise relu." << describeNumeric(node.type.element)->name

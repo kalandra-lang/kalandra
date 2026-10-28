@@ -2,6 +2,26 @@ meta { title = "GPU numerical graphs", description = "Compose resident numerical
 
 Place an eligible numerical function on the GPU, then compose operations inside that function. The graph determines device stages and intermediate lifetimes; it is not a promise that a whole function becomes one hardware kernel.
 
+h2 { "Row math for attention" }
+
+transpose, softmaxRows, and rmsNormRows compose with matrix multiplication inside numerical GPU programs. Transpose preserves bits for all ten numeric types. The two row-math operations currently require hardware float32 on Metal; their CPU implementations also support hardware float64. RMS normalization takes an explicit finite, positive epsilon of the same type as its tensor. It has unit gain. These operations do not move data between CPU and GPU implicitly.
+
+codeblock { language = kalandra, """fn normalize(scores: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+  softmaxRows(scores)
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    cpu = devices.cpu()
+    scores: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [-1, 0, 1]])
+    a = try await transfer(scores, gpu)
+    b = try await spawn normalize(a) on gpu
+    result = try await transfer(b, cpu)
+    reduceSum(result)
+""" }
+
+Each row operation is a device stage with owned output and temporary storage retained through completion. The runtime still acknowledges individual stages in a typed program; composing a whole attention block does not currently imply one command submission. Softmax uses stable row maxima and adjacent-pair sums, with bounded exp approximation error. Do not assume CPU/GPU bit identity for transcendentals or identical subnormal handling on different devices.
+
 h2 { "Compose two matrix products" }
 
 codeblock { language = kalandra, """fn multiply(a: Tensor[float32, ?, ?], b: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:

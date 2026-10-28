@@ -1,5 +1,9 @@
 # Kalandra native benchmarks
 
+Latest AI study: [verified CPU/GPU optimization sequence and complete transformer block](results/native-ai-performance-2026-10-28.md), with the [comparison chart](results/native-ai-performance-2026-10-28.png). It includes paired baselines, CPU numerical libraries, benchmark-only MPSGraph, per-cell correctness and the remaining typed GPU lifecycle gap.
+
+Earlier numerical study: [residual feed-forward CPU/GPU and optimized libraries](results/residual-ffn-2026-10-28.md). Two complete runs compare a bias-free expanding/contracting ReLU block with a residual connection, including resident, activation-upload and all-upload Metal modes. Each run checks 2,159,464 output cells. The study identifies CPU matrix execution and GPU residency/submission costs as follow-up areas; it does not establish full LLM or vendor-GPU-library parity. The [updated CPU comparison chart](results/cpu-comparison-2026-10-28.png) separately visualizes the committed wide/signed source-algorithm results ([editable SVG](results/cpu-comparison-2026-10-28.svg)).
+
 Latest follow-up: [wide and signed CPU inputs](results/wide-input-final-2026-10-28.md). A new 54-case corpus crosses signed, 16-bit and 32-bit data boundaries with cyclic runtime inputs and up to 4096 rounds. Both final runs qualify all 54; the six-process aggregate beats both references in 29, with a worst gap of 6.6%. Fixing unsigned-only reduction replay cuts negative-array time 50–59%; count-only floating unrolling and signed one-round proofs improve short scalar work. Existing small-input and legacy controls still qualify. 432 selected CPU checks passed after one unchanged serial rerun of a documented observer-thread race; 50 Metal checks and Windows/Linux/macOS qualification, including notarization, passed.
 
 Earlier follow-up: [stable integer recurrences and constant-round buffers](results/steady-loop-final-2026-10-28.md). The expanded 36-case corpus qualifies in both complete runs; aggregate process medians put 31/36 cases ahead of both references, with a worst gap of 4.8%. Paired one-round arrays improve 94.0–98.6%; a changing-state GCD control improves 12.9%/6.3% at 16/256 rounds. Repeated-GCD convergence gains are reported separately. Exact one-round proofs retain small-workload performance; 432 selected CPU and 50 selected Metal checks passed, as did Windows/Linux packages and macOS signing/notarization.
@@ -52,3 +56,11 @@ Latest recursive-call results: [proven call-chain contexts](results/recursive-co
 The [tail-return follow-up](results/tail-return-2026-10-24.md) records pure scalar token-return bookkeeping, safe signed remainder, exact baseline qualification and adjacent paired timing controls.
 
 The [private recursive-state follow-up](results/recursive-register-2026-10-24.md) records the new default-path gains, six-depth comparison, typed correctness qualification and remaining phase/GCD gaps.
+## Verified native AI sequence
+
+The [28 October report](results/native-ai-performance-2026-10-28.md) covers the
+paired CPU/GPU FFN changes, numerical-library controls, a complete transformer
+block, per-cell qualification and the remaining typed GPU lifecycle gap.
+The [chart](results/native-ai-performance-2026-10-28.png) includes regressions and
+the MPSGraph control. Executables, IR, toolchains and frozen experiment builds
+remain in ignored storage; tracked evidence contains measurements and digests.

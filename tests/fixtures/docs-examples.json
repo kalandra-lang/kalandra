@@ -60,6 +60,10 @@
   "gpu-numerics": [
     {
       "kind": "gpu",
+      "expected": "40000000"
+    },
+    {
+      "kind": "gpu",
       "expected": "[42d40000,431c0000,43710000,43b10000]"
     }
   ],
@@ -184,6 +188,18 @@
     {
       "kind": "cpu",
       "expected": "6"
+    },
+    {
+      "kind": "cpu",
+      "expected": "6"
+    },
+    {
+      "kind": "cpu",
+      "expected": "2"
+    },
+    {
+      "kind": "cpu",
+      "expected": "1.9798981953632135"
     }
   ],
   "tooling": [],

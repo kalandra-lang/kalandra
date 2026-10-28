@@ -31,7 +31,7 @@ install(FILES metal/Metal.h metal/ElementwiseLayout.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/metal" COMPONENT NativeMetalCompiler)
 install(FILES runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/runtime" COMPONENT NativeMetalCompiler)
-install(FILES include/kalandra/NumericType.h
+install(FILES include/kalandra/NumericType.h include/kalandra/TensorTransform.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/include/kalandra" COMPONENT NativeMetalCompiler)
 install(FILES packaging/Metal-README.md
   DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/kalandra-native-metal"

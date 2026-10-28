@@ -43,12 +43,17 @@ int main() {
     check(!context.status() && calls == 2);
     std::uint64_t scratch = 0;
     if (m && n) {
-      const bool wide = m >= 4 && n >= 16;
+      const bool wide = (m >= 4 && n >= 16) || (k >= 128 && n >= 32);
+      const auto roots = (k + 31) / 32;
+      const bool stream = m < 4 && k >= 128 && n >= 32 && n % 16 == 0 &&
+                          roots <= (1024 * 1024 - 512) / n;
       auto width = wide ? 16 : n >= 4 ? 4 : n >= 2 ? 2 : 1;
-      // Two rows by eight columns; thirty-two register-reduced leaves plus
+      // Four rows by four columns; thirty-two register-reduced leaves plus
       // stored subtree roots. Empty contractions still reserve the tile area.
       auto count = wide ? 33 + k / 32 : k;
       scratch = std::uint64_t(count) * width * sizeof(float);
+      if (stream)
+        scratch = std::uint64_t(512 + roots * n) * sizeof(float);
     }
     // Bufferization requests 64 extra bytes to align tensor output; product
     // scratch remains a plain float memref without that output padding.

@@ -1153,4 +1153,10 @@ if(BUILD_TESTING)
       --output "${CMAKE_CURRENT_BINARY_DIR}/graph-batching")
   set_tests_properties(native-metal-graph-batching PROPERTIES TIMEOUT 900
     RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
+  add_test(NAME native-metal-tensor-transforms
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/TensorTransformTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}" --gpu
+      --output "${CMAKE_CURRENT_BINARY_DIR}/tensor-transforms")
+  set_tests_properties(native-metal-tensor-transforms PROPERTIES TIMEOUT 1200
+    RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
 endif()

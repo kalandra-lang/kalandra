@@ -93,6 +93,11 @@ jobs:
           cmake --build build/native --target kalandra-checked-inlining-tests -j2
           ctest --test-dir build/native --output-on-failure -j2 \
             -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|call-foundation-source|windows-tail-codegen|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
+      - name: Qualify CPU tensor transforms
+        run: >-
+          python3 native/tests/TensorTransformTests.py
+          --compiler build/native/native/kalandra --clang "$KALANDRA_LLVM_ROOT/bin/clang++"
+          --output build/native/tensor-transforms --quick
       - name: Remove archive staging copies before the independent build
         run: |
           python3 - <<'PY'

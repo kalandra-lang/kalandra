@@ -308,6 +308,16 @@ int main() {
       matrix(33, k, 35, 1, corpus, 17);
   matrix(33, 129, 35, 1, 2, 17, true);
   matrix(33, 129, 35, 2, 2, 17);
+  // Small-row streaming GEMV, its K/column admission edges and the fallback.
+  // Padded/negative row pitches still have contiguous columns; stride two
+  // must preserve the general descriptor path. Exercise both exact tree
+  // witnesses and exceptional operands rather than checking only a final sum.
+  for (auto rows : {1, 2, 3})
+    for (auto k : {127, 128, 129, 255, 256, 257, 513})
+      for (auto columns : {31, 32, 33, 40})
+        for (unsigned corpus : {1, 2, 3})
+          matrix(rows, k, columns, 1, corpus, 17, k % 2);
+  matrix(3, 257, 40, 2, 2, 17);
   for (auto k : {1, 3, 17, 257})
     matrix(5, k, 17, 2, 1);
   for (auto k : {1, 3, 17, 255, 256, 257, 513})

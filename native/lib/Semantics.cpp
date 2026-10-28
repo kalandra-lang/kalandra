@@ -249,6 +249,7 @@ private:
       // Insert last so lexical and module bindings retain their normal priority.
       for (const auto *label :
            {"array", "tensor", "reshape", "map", "parallelMap", "matmul", "reduceSum", "relu",
+            "transpose", "softmaxRows", "rmsNormRows",
             "length", "byteLength", "shape", "slice", "concat"})
         insert(label, ScopeNameKind::Function);
       if (allowTransfer && options_.placement && !frame.groups.empty())
@@ -4006,7 +4007,8 @@ private:
                                  const std::optional<ValueType> &expected) {
     if (callee == "tensor")
       return tensor(frame, span, arguments, expected);
-    const auto arity = callee == "matmul" ? 2u : 1u;
+    const bool transform = callee == "transpose" || callee == "softmaxRows" || callee == "rmsNormRows";
+    const auto arity = callee == "matmul" || callee == "rmsNormRows" ? 2u : 1u;
     if (arguments.size() != arity) {
       error("S027", callee + " expects " + std::to_string(arity) + " arguments", span);
       return {};
@@ -4020,10 +4022,42 @@ private:
       return {};
     }
     if (leftType.task || leftType.fallible || leftType.array || !leftType.tensor ||
-        (callee == "matmul" && leftType.shape.size() != 2)) {
-      error("S028", callee + " requires " + (callee == "matmul" ? "rank-two tensors" : "a tensor"),
+        ((callee == "matmul" || transform) && leftType.shape.size() != 2)) {
+      error("S028", callee + " requires " + (callee == "matmul" || transform ? "rank-two tensors" : "a tensor"),
             syntax_.expressions[arguments[0]].span);
       return {};
+    }
+    if (transform) {
+      if (leftType.builtin != BuiltinValue::Numeric || !describeNumeric(leftType.element)) {
+        error("S053", callee + " requires a numeric tensor", span);
+        return {};
+      }
+      if (callee != "transpose" && leftType.element != NumericType::Float32 &&
+          leftType.element != NumericType::Float64) {
+        error("S053", callee + " requires a floating-point tensor", span);
+        return {};
+      }
+      auto result = leftType;
+      const auto kind = callee == "transpose" ? TensorTransformKind::Transpose
+                        : callee == "softmaxRows" ? TensorTransformKind::SoftmaxRows
+                                                    : TensorTransformKind::RmsNormRows;
+      std::optional<ValueId> epsilon;
+      if (kind == TensorTransformKind::Transpose)
+        std::swap(result.shape[0], result.shape[1]);
+      if (kind == TensorTransformKind::RmsNormRows) {
+        ValueType scalar;
+        scalar.element = leftType.element;
+        epsilon = expression(frame, arguments[1], scalar);
+        if (!epsilon)
+          return {};
+        const auto &type = node(*epsilon).type;
+        if (type.tensor || type.array || type.task || type.fallible ||
+            type.builtin != BuiltinValue::Numeric || type.element != leftType.element) {
+          error("S017", "rmsNormRows epsilon must be a matching floating scalar", span);
+          return {};
+        }
+      }
+      return add(frame, result, span, TensorTransform{kind, *left, epsilon});
     }
     if (callee == "relu") {
       if (!describeNumeric(leftType.element)) {
@@ -4264,7 +4298,8 @@ private:
         return collectionQuery(frame, span, callee, arguments);
       if (callee == "map" || callee == "parallelMap")
         return arrayMap(frame, span, arguments, callee == "parallelMap");
-      if (callee == "tensor" || callee == "matmul" || callee == "reduceSum" || callee == "relu")
+      if (callee == "tensor" || callee == "matmul" || callee == "reduceSum" || callee == "relu" ||
+          callee == "transpose" || callee == "softmaxRows" || callee == "rmsNormRows")
         return builtin(frame, span, callee, arguments, expected);
       error("S031", "unknown function '" + callee + "'", calleeSpan);
       return {};

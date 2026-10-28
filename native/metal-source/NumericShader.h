@@ -14,6 +14,8 @@ struct NumericShader {
   std::vector<NumericType> tensorTypes{}, scalarTypes{};
   std::vector<std::uint8_t> scalarBuffers{};
   bool indirect = false;
+  std::optional<TensorTransformKind> transform = {};
+  std::string nativeMetal = {};
 };
 // Typed map and primitive shaders use integer bit carriers at the task boundary.
 std::string numericReductionShader(NumericType);

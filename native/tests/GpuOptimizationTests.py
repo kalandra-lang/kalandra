@@ -8,6 +8,7 @@ parser.add_argument('--compiler', required=True, type=Path)
 parser.add_argument('--clang', required=True, type=Path)
 parser.add_argument('--output', required=True, type=Path)
 parser.add_argument('--quick', action='store_true')
+parser.add_argument('--typed-only', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
 compiler = args.compiler.resolve()
@@ -27,6 +28,21 @@ run([compiler, source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '
 assert 'kalandra_matmul_hardware_tiled' in (bundle / 'kernel2.metal').read_text()
 assert 'kalandra_matmul_hardware_block64' in (bundle / 'kernel2.metal').read_text()
 assert 'kalandra_reduce_sum_hardware_block' in (bundle / 'kernel0-reduce.metal').read_text()
+typed_source=args.output/'typed.k'
+typed_source.write_text('''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
+  transpose(transpose(matmul(a,b)))
+fn main()->Tensor[float32,?,?] ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    cpu=devices.cpu()
+    x:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
+    a=try await transfer(x,gpu)
+    b=try await spawn work(a,a) on gpu
+    try await transfer(b,cpu)
+''')
+typed=args.output/'typed'
+run([compiler,typed_source,'--target','metal','--arithmetic','hardware','-O2','-o',typed])
+assert 'kalandra_matmul_hardware_tiled' in (typed/'kernel0.metal').read_text()
 variants = [('optimized', ['-O2'], 'libkalandra-task-core-optimized.a')]
 if not args.quick:
     variants += [('debug', ['-O0'], 'libkalandra-native-runtime.a'),
@@ -39,4 +55,6 @@ for variant, flags, runtime in variants:
          compiler.parent / 'metal' / f'libkalandra-metal-{variant}.a', compiler.parent / runtime,
          '-L' + str(llvm / 'lib'), '-lLLVM', '-Wl,-rpath,' + str(llvm / 'lib'),
          '-framework', 'Foundation', '-framework', 'Metal', '-o', binary])
-    print(variant + ': ' + run([binary, bundle]).strip(), flush=True)
+    if not args.typed_only:
+        print(variant + ': ' + run([binary, bundle]).strip(), flush=True)
+    print(variant + ' typed: ' + run([binary,bundle,typed/'kernel0.metallib']).strip(),flush=True)

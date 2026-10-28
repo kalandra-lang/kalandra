@@ -66,6 +66,15 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     source = cwd / "placed.k"
     source.write_bytes((fixtures / "placed.k").read_bytes())
     applications = []
+    assert (resources / "headers/include/kalandra/TensorTransform.h").is_file()
+    # The installed compiler must compile direct native transform kernels and
+    # its relocated private Metal.h must find the transform type declaration.
+    transform_source = cwd / "row-transform.k"
+    transform_source.write_text("fn work(x:Tensor[float32,?,?])->float32:\n  reduceSum(transpose(softmaxRows(x)))\nfn main()->float32 ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n    x:Tensor[float32,2,3]=tensor([[1,2,3],[-1,0,1]])\n    a=try await transfer(x,gpu)\n    try await spawn work(a) on gpu\n")
+    transform_app = cwd / "transform application"
+    run([compiler, transform_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", transform_app], cwd)
+    assert run([transform_app / "program"], cwd).stdout.strip() == "40000000"
+    applications.append((transform_app, "40000000"))
     for name, flags in (("debug", []), ("optimized", ["-O2"]),
                         ("sanitized", ["--sanitize"]), ("thread-sanitized", ["--thread-sanitize"])):
         app = cwd / ("application " + name)

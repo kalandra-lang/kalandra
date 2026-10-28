@@ -1301,6 +1301,11 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
       --output "${CMAKE_CURRENT_BINARY_DIR}/cpu-optimization")
   set_tests_properties(native-cpu-optimization PROPERTIES TIMEOUT 600)
+  add_test(NAME native-tensor-transforms
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/TensorTransformTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/tensor-transforms")
+  set_tests_properties(native-tensor-transforms PROPERTIES TIMEOUT 1200)
   add_test(NAME native-static-numerical-shapes
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/StaticNumericalShapeTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/static-numerical-shapes")

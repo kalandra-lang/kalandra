@@ -1,5 +1,17 @@
 # Fair comparisons
 
+Latest: [verified native AI sequence and complete transformer block](../../../benchmarks/results/native-ai-performance-2026-10-28.md).
+
+The [residual feed-forward study](../../../benchmarks/results/residual-ffn-2026-10-28.md) adds `ReLU(X W_up) W_down + X` with 4× hidden expansion, two distinct weight matrices and an observed scalar sum. It measures compiled Kalandra CPU source, the matching source-generated Metal graph, and OpenBLAS/Accelerate API controls. Metal modes separate resident inputs, activation upload with resident weights, and all uploads. Every timed shape gets full cell validation with an independent strict float32 tree oracle; optimized libraries may use FMA/reassociation and receive explicit propagated error bounds. This is one bias-free AI building block, not a full transformer or a compiler-language ranking. Accelerate is reference-only.
+
+```sh
+python3 native/benchmarks/residual_ffn.py --output benchmarks/results/NEW-FFN.json
+python3 native/benchmarks/residual_ffn.py --reuse-build --output benchmarks/results/NEW-FFN-REPEAT.json
+python3 native/benchmarks/residual_ffn.py --reuse-build --profile-only --output benchmarks/results/NEW-FFN-PROFILE.json
+```
+
+Physical Metal access, the pinned native build, NumPy and Homebrew OpenBLAS are required. Keep profiling, builds and plots separate from acceptance timings. Generated artifacts stay in ignored `benchmarks/.build/residual-ffn`. `ffn_report.py` audits the recorded October 28 studies and regenerates their report. `wide_chart.py` independently renders the committed CPU source-comparison PNG/SVG and plotted JSON; it requires Matplotlib and does not run benchmarks.
+
 The additional `runtime_workloads.py` suite compares runtime-input array and closure algorithms with C++/Rust; its separate task-scope diagnostic is Kalandra-only. See the reproduction and contract below.
 
 Run from the repository root on an Apple Silicon Mac with the pinned LLVM/native build, Go, Rust, NumPy and Homebrew OpenBLAS installed:
@@ -118,3 +130,21 @@ measure frozen artifacts with `--reuse-build`, or compare `--baseline DIR
 --current DIR` in nine paired ABBA/BAAB blocks. Retain wide and small-input
 controls, every miss and every prototype; guarded private versions do not
 change the unrestricted source language or promise universal performance.
+## Native AI sequence and full-block controls
+
+`../ai_cpu.py` and `../ai_gpu.py` compare frozen baseline/current implementations
+with paired ordering. `../residual_ffn.py --cpu-only` refreshes OpenBLAS/Accelerate
+controls. These library controls permit their usual FMA/reassociation; strict
+Kalandra products/trees are retained and every output cell is checked.
+
+`../transformer_block.py --build-dir PATH --output RESULTS.json` builds and
+measures the source-level block against benchmark-only MPSGraph. Run
+`../transformer_stages.py --full-build PATH --build-dir STAGES --output CHECKS.json`
+for observable source prefixes. Profiling is separate:
+`../transformer_block.py --profile-only --acceptance-evidence RESULTS.json --build-dir PATH --output PROFILE.json`.
+The profiler explicitly enables counters and rejects missing/zero instrumentation.
+
+`ai_report.py` audits source/artifact digests and draws the final chart. The exact
+measured runner is snapshotted in the results before its profiling CLI correction;
+raw acceptance samples and frozen kernels remain unchanged. No production
+Accelerate or MPS dependency is introduced.

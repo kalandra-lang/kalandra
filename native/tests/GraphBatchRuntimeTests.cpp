@@ -1,6 +1,7 @@
 #include "../metal-proof/FloatOracle.h"
 #include "../metal/Metal.h"
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <new>
@@ -380,6 +381,83 @@ int main(int argc, char **argv) {
     retire(*core, group);
     empty(r, baseline);
   }
+  // A graph-private single-consumer map reuses one output backing, but keeps
+  // its matrix/map encoders, input owners and parameter reservations through
+  // the actual ACK, including cancellation/deadline/device-failure settlement.
+  {
+    auto plain = r.loadElementwiseKernel(std::string(argv[4]) + "/kernel0.metallib", *device, {1, 0});
+    CHECK(plain);
+    const Plan plan(1, *plain);
+    for (unsigned scenario = 0; scenario < 4; ++scenario) {
+      auto core = TaskCore::create();
+      auto group = core->openRoot();
+      const auto backings = r.stats().deviceBackings;
+      const auto submissions = r.stats().submissions;
+      r.holdCompletions(true);
+      auto t = r.matmulGraph(*core, group, *kernel, std::array{a, a}, plan.edges, plan.maps);
+      CHECK(t);
+      until(*core, [&] { return core->stats().externalPending == 1; });
+      CHECK(r.stats().submissions == submissions + 1);
+      CHECK(r.stats().deviceBackings == backings + 1);
+      if (scenario == 1 || scenario == 2)
+        CHECK(core->cancel(group, scenario == 2));
+      else if (scenario == 3)
+        r.failNextCompletion();
+      CHECK(r.stats().deviceBackings == backings + 1);
+      r.holdCompletions(false);
+      CHECK(core->drain());
+      if (!scenario) {
+        auto d = r.download(*core, group, observe(*core, t));
+        CHECK(d && core->drain());
+        compare(observe(*core, d), std::vector<std::uint32_t>(4, 0x40000000u));
+      } else {
+        CHECK(core->failure(t).kind == (scenario == 3 ? TaskFailure::Fault : TaskFailure::Cancelled));
+        if (scenario == 2)
+          CHECK(core->failure(group).kind == TaskFailure::DeadlineExceeded);
+      }
+      retire(*core, group);
+      empty(r, baseline);
+    }
+    for (unsigned layers = 1; layers <= 5; ++layers) {
+      const Plan p(layers, *plain);
+      auto core = TaskCore::create();
+      auto group = core->openRoot();
+      const auto submissions = r.stats().submissions;
+      auto t = r.matmulGraphReduceSum(*core, group, *kernel, std::array{a, a}, p.edges,
+                                      *reduction, {}, {}, p.maps);
+      CHECK(t && core->drain());
+      CHECK(r.stats().submissions - submissions == (p.edges.size() + 4) / 4);
+      Invocation context;
+      float value = 0;
+      CHECK(core->observe(t, m::Runtime::scalarLayout(), context, &value));
+      CHECK(value == std::ldexp(4.0f, layers));
+      retire(*core, group);
+      empty(r, baseline);
+    }
+    // Sharing must prevent recycling even when a map changes a negative cell.
+    const std::vector<std::uint32_t> bits{0x3f800000u, 0xc0000000u, 0u, 0x3f800000u};
+    const std::vector<std::uint32_t> identity{0x3f800000u, 0u, 0u, 0x3f800000u};
+    auto x = upload(r, bits, {2, 2}), id = upload(r, identity, {2, 2});
+    const std::array<m::MatrixProduct, 3> edges{{{0, 1}, {2, 2}, {2, 3}}};
+    const std::array<m::Kernel, 3> maps{{{}, *plain, {}}};
+    auto first = multiply(bits, identity, 2, 2, 2), positive = first;
+    for (auto &value : positive)
+      if ((value & 0x80000000u) && (value & 0x7fffffffu) <= 0x7f800000u)
+        value = 0;
+    auto expected = multiply(first, positive, 2, 2, 2);
+    auto core = TaskCore::create();
+    auto group = core->openRoot();
+    auto t = r.matmulGraph(*core, group, *kernel, std::array{x, id}, edges, maps);
+    CHECK(t && core->drain());
+    auto d = r.download(*core, group, observe(*core, t));
+    CHECK(d && core->drain());
+    compare(observe(*core, d), expected);
+    auto original = r.download(*core, group, x);
+    CHECK(original && core->drain());
+    compare(observe(*core, original), bits);
+    retire(*core, group);
+  }
+  empty(r, baseline);
   // Cancellation before admission must not submit even the first batch.
   {
     auto core = TaskCore::create();
@@ -539,7 +617,7 @@ int main(int argc, char **argv) {
     empty(large);
   }
   std::printf("Graph batching: %llu APFloat cases, %llu output checks, %llu allocation "
-              "checkpoints, 9 held failures, 121 budgets; pre-cancel, 16 concurrent graphs, "
+              "checkpoints, 9 held failures plus 3 reuse failures, 121 budgets; pre-cancel, 16 concurrent graphs, "
               "input immutability, indirect arguments, empty intermediates, work cap, cleanup "
               "and teardown passed\n",
               (unsigned long long)cases, (unsigned long long)comparisons,

@@ -37,7 +37,11 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return {op.input};
         else if constexpr (std::is_same_v<T, TensorLiteral>)
           return op.elements;
-        else if constexpr (std::is_same_v<T, TensorUnary> || std::is_same_v<T, ScalarUnary>)
+        else if constexpr (std::is_same_v<T, TensorTransform>) {
+          std::vector<ValueId> result{op.input};
+          if (op.epsilon) result.push_back(*op.epsilon);
+          return result;
+        } else if constexpr (std::is_same_v<T, TensorUnary> || std::is_same_v<T, ScalarUnary>)
           return {op.operand};
         else if constexpr (std::is_same_v<T, Matmul> || std::is_same_v<T, TensorBinary> ||
                            std::is_same_v<T, ScalarBinary> || std::is_same_v<T, ScalarCompare> ||
@@ -226,7 +230,10 @@ private:
           using T = std::decay_t<decltype(op)>;
           if constexpr (std::is_same_v<T, SymbolRead>)
             op.symbol = importSymbol(op.symbol);
-          else if constexpr (std::is_same_v<T, ScalarUnary> || std::is_same_v<T, TensorUnary>)
+          else if constexpr (std::is_same_v<T, TensorTransform>) {
+            op.input = importValue(op.input);
+            if (op.epsilon) op.epsilon = importValue(*op.epsilon);
+          } else if constexpr (std::is_same_v<T, ScalarUnary> || std::is_same_v<T, TensorUnary>)
             op.operand = importValue(op.operand);
           else if constexpr (std::is_same_v<T, ScalarBinary> || std::is_same_v<T, TensorBinary> ||
                              std::is_same_v<T, ScalarCompare> || std::is_same_v<T, Matmul> ||
@@ -422,6 +429,9 @@ private:
     else if (auto *multiply = std::get_if<Matmul>(&op)) {
       multiply->left = reads[0];
       multiply->right = reads[1];
+    } else if (auto *transform = std::get_if<TensorTransform>(&op)) {
+      transform->input = reads[0];
+      if (transform->epsilon) transform->epsilon = reads[1];
     } else if (auto *unary = std::get_if<TensorUnary>(&op)) {
       unary->operand = reads[0];
     } else if (auto *elementwise = std::get_if<TensorBinary>(&op)) {

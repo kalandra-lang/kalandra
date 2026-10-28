@@ -746,6 +746,8 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
     if (ir.empty())
       return std::unexpected(
           Diagnostic{"G001", "typed matrix shader failed verification", root.declaration});
+    if (root.resultType.element == NumericType::Float32 && options.arithmetic == ArithmeticMode::Hardware)
+      ir = "// kalandra-hardware-float32-matrix\n" + ir;
     return NumericShader{root.resultType.element, std::move(ir), {0, 1}, {}, true};
   }
   if (auto reduction = std::get_if<ReduceSum>(&input.expressions.at(root.result).operation)) {
