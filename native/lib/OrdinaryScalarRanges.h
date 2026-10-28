@@ -127,6 +127,59 @@ inline std::optional<OrdinaryExactScale> ordinaryExactScale(llvm::Value *v, unsi
   }
   return std::nullopt;
 }
+// Count-only versioning can unroll strict floating chains for arbitrary data.
+// It does not use the small-domain exact-scaling proof or alter FP flags/order.
+inline llvm::Function *
+ordinaryWideCountedBody(llvm::Function &original, unsigned count,
+                        const std::function<void(llvm::Function &, bool)> &simplify) {
+  using namespace llvm;
+  ValueToValueMapTy map;
+  auto *fn = CloneFunction(&original, map);
+  fn->setLinkage(GlobalValue::InternalLinkage);
+  fn->setName(original.getName() + ".wide-counted");
+  fn->removeFnAttr("kalandra.ordinary.entry");
+  fn->addParamAttr(count, Attribute::get(fn->getContext(), Attribute::Range,
+                                         ConstantRange(APInt(64, 2), APInt(64, 65536))));
+  simplify(*fn, true);
+  bool changed = false;
+  if (fn->getInstructionCount() <= 128) {
+    DominatorTree dom(*fn);
+    LoopInfo loops(dom);
+    AssumptionCache ac(*fn);
+    TargetLibraryInfoImpl impl(fn->getParent()->getTargetTriple());
+    TargetLibraryInfo tli(impl);
+    ScalarEvolution se(*fn, tli, ac, dom, loops);
+    TargetTransformInfo tti(fn->getParent()->getDataLayout());
+    for (auto *loop : loops.getLoopsInPreorder()) {
+      unsigned size = 0, fp = 0;
+      bool pure = loop->getSubLoops().empty();
+      for (auto *block : loop->blocks())
+        for (auto &i : *block) {
+          ++size;
+          fp += i.getOpcode() == Instruction::FAdd || i.getOpcode() == Instruction::FMul;
+          if (!i.isTerminator() &&
+              (i.mayHaveSideEffects() || i.mayReadFromMemory() || isa<CallBase>(i)))
+            pure = false;
+        }
+      if (pure && size <= 12 && fp > 0 && fp <= 2) {
+        formLCSSARecursively(*loop, dom, &loops, &se);
+        UnrollLoopOptions options{4, true, true, false, true, false, nullptr, 128};
+        changed = UnrollLoop(loop, options, &loops, &se, &dom, &ac, &tti, nullptr, true) !=
+                  LoopUnrollResult::Unmodified;
+        break;
+      }
+    }
+  }
+  if (changed)
+    simplify(*fn, true);
+  if (!changed || verifyFunction(*fn) ||
+      nativeStackBudgetError(*fn, fn->getParent()->getDataLayout())) {
+    fn->eraseFromParent();
+    return nullptr;
+  }
+  fn->addFnAttr(Attribute::NoInline);
+  return fn;
+}
 inline bool
 specializeOrdinaryScalarRanges(llvm::Module &module,
                                const std::function<void(llvm::Function &, bool)> &simplify) {
@@ -425,6 +478,21 @@ specializeOrdinaryScalarRanges(llvm::Module &module,
     b.CreateCondBr(b.CreateICmpULT(bits, b.getInt64(65536)), fast, wide,
                    MDBuilder(ctx).createBranchWeights(2, 1));
     b.SetInsertPoint(wide);
+    auto *wideCounted = ordinaryWideCountedBody(*original, count, simplify);
+    if (wideCounted) {
+      auto *counted = BasicBlock::Create(ctx, "ordinary.wide-counted", wrapper);
+      auto *full = BasicBlock::Create(ctx, "ordinary.unrestricted", wrapper);
+      b.CreateCondBr(
+          b.CreateICmpULT(b.CreateSub(wrapper->getArg(count), b.getInt64(2)), b.getInt64(65534)),
+          counted, full);
+      b.SetInsertPoint(counted);
+      auto *call = b.CreateCall(wideCounted, args);
+      call->setCallingConv(wideCounted->getCallingConv());
+      call->setAttributes(wideCounted->getAttributes().removeFnAttributes(ctx));
+      call->setTailCallKind(CallInst::TCK_MustTail);
+      b.CreateRet(call);
+      b.SetInsertPoint(full);
+    }
     auto *tail = b.CreateCall(original, args);
     tail->setCallingConv(original->getCallingConv());
     tail->setAttributes(original->getAttributes().removeFnAttributes(ctx));
@@ -433,6 +501,8 @@ specializeOrdinaryScalarRanges(llvm::Module &module,
     simplify(*wrapper, true);
     if (verifyFunction(*wrapper) || nativeStackBudgetError(*wrapper, module.getDataLayout())) {
       wrapper->eraseFromParent();
+      if (wideCounted)
+        wideCounted->eraseFromParent();
       continue;
     }
     auto name = original->getName().str();
@@ -442,6 +512,8 @@ specializeOrdinaryScalarRanges(llvm::Module &module,
     original->addFnAttr(Attribute::NoInline);
     wrapper->setName(name);
     wrapper->addFnAttr("kalandra.ordinary.scalar-ranges");
+    if (wideCounted)
+      wrapper->addFnAttr("kalandra.ordinary.wide-counted");
     changed = true;
   }
   return changed;

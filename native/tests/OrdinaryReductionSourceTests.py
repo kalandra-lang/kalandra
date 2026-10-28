@@ -37,7 +37,8 @@ extern "C" Result _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
 extern "C" Result _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::runtime::OrdinaryFault*);
 int main(){
  using namespace kalandra::runtime;constexpr I lo=std::numeric_limits<I>::min(),hi=std::numeric_limits<I>::max();
- std::array<I,15> inputs={lo,lo+1,-4294967296LL,-1,0,1,65535,65536,2147483647LL,2147483648LL,4294967295LL,4294967296LL,1099511627776LL,hi/128,hi};
+ constexpr I bound=I(1)<<(63-std::bit_width(unsigned(WIDTH-1)));
+ std::array<I,22> inputs={-bound-1,-bound,bound-1,bound,lo,lo+1,-4294967297LL,-4294967296LL,-2147483649LL,-2147483648LL,-1,0,1,65535,65536,2147483647LL,2147483648LL,4294967295LL,4294967296LL,1099511627776LL,hi/128,hi};
  unsigned cases=0;
  for(auto a:inputs)for(auto b:inputs) {
   Invocation context;auto expected=_mlir_ciface_kalandra_test_entry(a,b,&context);

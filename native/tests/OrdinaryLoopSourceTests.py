@@ -63,7 +63,7 @@ void test(Input input,I rounds){
 }
 int main(){
  constexpr I lo=std::numeric_limits<I>::min();
- for(Input value:std::array<Input,8>{Input(-31),Input(-1),Input(0),Input(1),Input(31),Input(65535),Input(65536),Input(65537)})
+ for(Input value:std::array<Input,12>{Input(-31),Input(-1),Input(0),Input(1),Input(31),Input(65535),Input(65536),Input(65537),Input(I(1)<<32),Input(-(I(1)<<32)),Input((I(1)<<40)+17),Input(-(I(1)<<40)-17)})
   for(I rounds:std::array<I,12>{0,1,2,16,64,257,50000,65535,65536,lo,lo+1,lo+2})test(value,rounds);
  if constexpr(FINITE && EXHAUSTIVE && !CHECKED_INTEGER) {
   for(I value=0;value<65536;++value)for(I rounds:std::array<I,3>{0,1,2})test(Input(value),rounds);

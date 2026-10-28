@@ -581,3 +581,35 @@ it measures continued arithmetic work instead of convergence alone. Correctness
 tests additionally cover cycles, negative/wide data, overflow faults, all
 nonnegative 16-bit seeds, and direct calls with trillion-round and `INT64_MAX`
 counts where an independent oracle establishes convergence.
+
+
+### Signed, length-derived reduction witnesses
+
+A deferred reduction no longer rejects every negative term. For N terms,
+let k = ceil(log2(N)) and M = 2^(63-k). If every term is in [-M,M), every
+partial sum fits int64, regardless of term order: the minimum is at least
+-N*M >= INT64_MIN, and the maximum is at most N*(M-1) < 2^63. A one-term
+reduction accepts the complete int64 domain.
+
+Speculative accumulation keeps defined modular arithmetic and validates an
+OR witness of unsigned `(raw + M) >> (64-k)` for N > 1 before any result escapes. The
+bias has no overflow flags. A rejected term still tail-replays the original
+checked computation, preserving intermediate overflow and first-fault order.
+The complete memory extent, private/read-only loop and unchanged fault-output
+requirements still apply. This removes whole-computation replay for ordinary
+negative reductions; it adds no input-type or language size restrictions.
+
+### Decouple count proofs from small-data proofs
+
+Four-way source-ordered floating unrolling needs a positive bounded count,
+not a 16-bit data assumption. An additional private version guards counts
+2 through 65535 and retains the original floating operations for all data;
+no reassociation, FMA or new floating flags are introduced. Existing exact
+small-domain zero/one proofs remain separate. Other counts use their original
+implementation, so this optimization interval is not a language count limit.
+
+Integer one-round versions likewise fix the count before simplifying the
+state recurrence. A separately guarded signed data window [-2^46,2^46)
+allows LLVM to prove safe first-iteration arithmetic for wider/negative values.
+The public ABI gains no range promise. Small positive one-round paths remain
+in place, and values outside either guard retain full checked behavior.

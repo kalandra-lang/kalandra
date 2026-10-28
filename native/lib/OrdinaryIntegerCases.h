@@ -331,6 +331,42 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     if (single)
       single->eraseFromParent();
     b.SetInsertPoint(wide);
+    // Preserve exact first-iteration ranges for signed/wide data as well. The
+    // runtime guard, not any public argument promise, admits this private body.
+    ValueToValueMapTy wideOneMap;
+    auto *wideOne = CloneFunction(original, wideOneMap);
+    wideOne->setLinkage(GlobalValue::InternalLinkage);
+    wideOne->setName(original->getName() + ".wide-single");
+    for (auto &arg : wideOne->args())
+      if (arg.getArgNo() != count)
+        wideOne->addParamAttr(arg.getArgNo(), Attribute::get(ctx, Attribute::Range,
+                                                             ConstantRange(-APInt(64, 1).shl(46),
+                                                                           APInt(64, 1).shl(46))));
+    wideOne->getArg(count)->replaceAllUsesWith(b.getInt64(1));
+    simplify(*wideOne, true);
+    if (wideOne->getInstructionCount() > 256 || verifyFunction(*wideOne) ||
+        nativeStackBudgetError(*wideOne, module.getDataLayout())) {
+      wideOne->eraseFromParent();
+      wideOne = nullptr;
+    }
+    if (wideOne) {
+      wideOne->addFnAttr(Attribute::NoInline);
+      auto *once = BasicBlock::Create(ctx, "ordinary.integer.wide-single", wrapper);
+      auto *full = BasicBlock::Create(ctx, "ordinary.integer.unrestricted", wrapper);
+      Value *valid = b.CreateICmpEQ(wrapper->getArg(count), b.getInt64(1));
+      for (auto &arg : wrapper->args())
+        if (arg.getArgNo() != count)
+          valid = b.CreateAnd(valid, b.CreateICmpULT(b.CreateAdd(&arg, b.getInt64(1ULL << 46)),
+                                                     b.getInt64(1ULL << 47)));
+      b.CreateCondBr(valid, once, full);
+      b.SetInsertPoint(once);
+      auto *call = b.CreateCall(wideOne, args);
+      call->setCallingConv(wideOne->getCallingConv());
+      call->setAttributes(wideOne->getAttributes().removeFnAttributes(ctx));
+      call->setTailCallKind(CallInst::TCK_MustTail);
+      b.CreateRet(call);
+      b.SetInsertPoint(full);
+    }
     auto *tail = b.CreateCall(original, args);
     tail->setCallingConv(original->getCallingConv());
     tail->setAttributes(original->getAttributes().removeFnAttributes(ctx));
@@ -339,6 +375,8 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     simplify(*wrapper, true);
     if (verifyFunction(*wrapper) || nativeStackBudgetError(*wrapper, module.getDataLayout())) {
       wrapper->eraseFromParent();
+      if (wideOne)
+        wideOne->eraseFromParent();
       continue;
     }
     auto name = original->getName().str();
@@ -351,6 +389,8 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
       wrapper->addFnAttr("kalandra.ordinary.stable-countdown");
     if (hasSingle)
       wrapper->addFnAttr("kalandra.ordinary.integer-single-case");
+    if (wideOne)
+      wrapper->addFnAttr("kalandra.ordinary.integer-wide-single");
     changed = true;
   }
   return changed;

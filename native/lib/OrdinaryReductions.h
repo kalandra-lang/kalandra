@@ -9,6 +9,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include <bit>
 #include <functional>
 
 namespace kalandra {
@@ -182,10 +183,12 @@ inline std::optional<OrdinaryReduction> findOrdinaryReduction(llvm::Function &fn
   return std::nullopt;
 }
 // Deferred range validation is limited to a read-only, constant-trip reduction.
-// Masked unsigned 32-bit terms have a sum < 2^48 for at most 65536 iterations.
-// A witness OR preserves every discarded high bit. The exit validates that
-// witness before any result escapes, otherwise tail-replaying the original
-// ordinary graph. No range metadata/assumptions are attached to untrusted loads.
+// For N terms and k=ceil(log2(N)), terms in [-2^(63-k),2^(63-k)) have every
+// partial sum in int64. Accumulation is modular until the exit validates a witness
+// for every term; rejected values tail-replay the original checked graph.
+// This includes the previous unsigned-32 domain and wide signed terms without
+// replaying an otherwise valid signed reduction. No range promises are attached
+// to untrusted loads, and no overflow flags are added to speculative arithmetic.
 inline bool
 specializeOrdinaryReductions(llvm::Module &module,
                              const std::function<void(llvm::Function &, bool)> &simplify) {
@@ -243,11 +246,18 @@ specializeOrdinaryReductions(llvm::Module &module,
       q.load->dropUBImplyingAttrsAndMetadata();
       q.load->setAlignment(Align(1));
       auto *raw = b.CreateFreeze(q.load, "range.raw");
-      auto *masked = b.CreateAnd(raw, b.getInt64(0xffffffffULL), "range.term");
-      auto *high = b.CreateLShr(raw, b.getInt64(32));
+      // N<=2^k, so N times either endpoint fits int64 (the upper is exclusive).
+      // Unsigned modular bias validates the whole signed window without UB,
+      // including for rejected INT64_MIN/MAX terms. A single term always fits.
+      const unsigned magnitude = 63 - std::bit_width(q.bytes / 8 - 1);
+      Value *high = b.getInt64(0);
+      if (magnitude < 63) {
+        auto *biased = b.CreateAdd(raw, b.getInt64(1ULL << magnitude), "range.biased");
+        high = b.CreateLShr(biased, b.getInt64(magnitude + 1));
+      }
       auto *nextWitness = b.CreateOr(witness, high);
       witness->addIncoming(nextWitness, q.latch);
-      q.extend->setOperand(0, masked);
+      q.extend->setOperand(0, raw);
       auto *old = q.overflow;
       auto *bad = old->getSuccessor(0) == q.latch ? old->getSuccessor(1) : old->getSuccessor(0);
       bad->removePredecessor(q.header);

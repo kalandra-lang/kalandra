@@ -101,3 +101,20 @@ directories in nine adjacent ABBA/BAAB blocks; `broad_ordinary_audit.py` uses
 independent Fraction/modular-power/divisor oracles and verifies raw statistics.
 Keep builds/tests/profiling separate from acceptance timings. All cases,
 including zero/one-round misses, belong in the report.
+
+
+`wide_ordinary.py` adds a separate 54-case CPU corpus: affine/polynomial
+recurrences, repeated/changing-state GCD and 32/128-element immutable arrays,
+with 1/16/4096 rounds. Fixed positive and negative seeds near 2^40 and an
+8-lane rotating bank cross the 16-bit and 32-bit boundaries. Every call uses
+the same cyclic-input driver in all languages; exact output bits and wrapping
+checksums are verified during calibration, warmups and timing. The integer
+oracle uses signed truncating remainder, including negative GCD results from
+the source algorithm, and rejects overflowing inputs. The independent auditor
+uses Fraction rounding/quotients and also checks GCD magnitudes. Timings include
+the common seed-selection and validation cost; they measure warm calls, not
+process startup. Build with `--compiler CLI --build-dir DIR --build-only`,
+measure frozen artifacts with `--reuse-build`, or compare `--baseline DIR
+--current DIR` in nine paired ABBA/BAAB blocks. Retain wide and small-input
+controls, every miss and every prototype; guarded private versions do not
+change the unrestricted source language or promise universal performance.

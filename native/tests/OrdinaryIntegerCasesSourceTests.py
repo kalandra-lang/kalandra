@@ -22,7 +22,7 @@ for mode,extra,flags,library in variants:
    run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
    if mode=='optimized' and fixture in ('positive','other-positive'):assert 'kalandra.ordinary.integer-cases' in ir.read_text(),name
    if fixture=='positive':
-    for marker in ('kalandra.ordinary.stable-countdown','kalandra.ordinary.integer-single-case'):assert marker in ir.read_text(),(name,marker)
+    for marker in ('kalandra.ordinary.stable-countdown','kalandra.ordinary.integer-single-case','kalandra.ordinary.integer-wide-single'):assert marker in ir.read_text(),(name,marker)
    if mode=='optimized' and fixture=='negative-divisor':assert 'kalandra.ordinary.integer-cases' not in ir.read_text(),name
    text=r'''
 #include "RUNTIME"
@@ -77,7 +77,7 @@ int main(int argc,char**){
   }
   std::puts("6 huge-countdown fixed-point cases passed");return 0;
  }
- for(I seed:std::array<I,12>{lo,lo+1,hi,hi-1,-65536,-31,-1,0,1,65535,65536,65537})
+ for(I seed:std::array<I,20>{lo,lo+1,hi,hi-1,-65536,-31,-1,0,1,65535,65536,65537,I(1)<<32,-(I(1)<<32),(I(1)<<40)+17,-(I(1)<<40)-17,(I(1)<<46)-1,-(I(1)<<46),I(1)<<46,-(I(1)<<46)-1})
   for(I n:std::array<I,8>{0,1,2,16,257,lo,lo+1,lo+2})test(seed,n);
  for(I seed=0;seed<65536;++seed)for(I n:std::array<I,3>{0,1,2})test(seed,n);
  for(I seed:std::array<I,5>{0,1,17,65534,65535})
