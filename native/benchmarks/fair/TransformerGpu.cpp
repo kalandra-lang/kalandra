@@ -21,6 +21,7 @@ int main(int argc,char**argv) {
   ffn::check(rows && d && rows<=512 && d<=2048 && mode<=2);
   auto made=m::Runtime::create();ffn::check(bool(made));auto&r=**made;auto device=r.device();ffn::check(bool(device));
   auto core=TaskCore::create();ffn::check(bool(core));Program program(r,argv[1]);
+  const auto preparedPacks=r.stats().argumentPacks,preparedBytes=r.stats().argumentBytes;
   transformer::Inputs data(rows,d,pattern);
   {
     std::array<m::Buffer,7> host,resident;
@@ -47,8 +48,8 @@ int main(int argc,char**argv) {
       auto before=r.stats();double checksum=0;auto start=std::chrono::steady_clock::now();
       for(unsigned i=0;i<count;++i) checksum+=call(false);
       const double ns=ffn::elapsed(start);auto after=r.stats();
-      ffn::check(after.bytes==baseline && !after.inFlight && !after.argumentPacks);
-      std::printf("{\"round\":%d,\"ns\":%.0f,\"checksum\":%.17g,\"submissions\":%llu,\"dispatches\":%llu,\"gpu_ns\":%llu,\"encoding_ns\":%llu,\"attempts\":%llu,\"resident_bytes\":%llu,\"peak_bytes\":%llu}\n",round,ns,checksum,(unsigned long long)(after.submissions-before.submissions),(unsigned long long)(after.dispatches-before.dispatches),(unsigned long long)(after.gpuNanoseconds-before.gpuNanoseconds),(unsigned long long)(after.encodingNanoseconds-before.encodingNanoseconds),(unsigned long long)(after.attempts-before.attempts),(unsigned long long)baseline,(unsigned long long)after.peakBytes);
+      ffn::check(after.bytes==baseline && !after.inFlight && after.argumentPacks==preparedPacks && after.argumentBytes==preparedBytes);
+      std::printf("{\"preparation_ns\":%.0f,\"round\":%d,\"ns\":%.0f,\"checksum\":%.17g,\"submissions\":%llu,\"dispatches\":%llu,\"gpu_ns\":%llu,\"encoding_ns\":%llu,\"attempts\":%llu,\"resident_bytes\":%llu,\"peak_bytes\":%llu}\n",program.preparationNanoseconds,round,ns,checksum,(unsigned long long)(after.submissions-before.submissions),(unsigned long long)(after.dispatches-before.dispatches),(unsigned long long)(after.gpuNanoseconds-before.gpuNanoseconds),(unsigned long long)(after.encodingNanoseconds-before.encodingNanoseconds),(unsigned long long)(after.attempts-before.attempts),(unsigned long long)baseline,(unsigned long long)after.peakBytes);
     }
   }
   auto s=r.stats();ffn::check(!s.bytes && !s.hostBackings && !s.deviceBackings && !s.metalBuffers && !s.stagingBuffers);

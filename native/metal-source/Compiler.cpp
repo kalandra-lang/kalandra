@@ -1104,7 +1104,8 @@ class Compiler {
               op.right += values;
             } else if constexpr (std::is_same_v<T, TensorTransform>) {
               op.input += values;
-              if (op.epsilon) *op.epsilon += values;
+              if (op.epsilon)
+                *op.epsilon += values;
             } else if constexpr (std::is_same_v<T, ReduceSum> || std::is_same_v<T, NumericConvert>)
               op.input += values;
             else
@@ -1465,8 +1466,27 @@ class Compiler {
       return "std::uint64_t(std::bit_cast<std::uint" +
              std::to_string(describeNumeric(value.element)->bits) + "_t>(" + ref(value) + "))";
     };
-    std::string code =
-        "auto target=" + device(target) + ";if(!target){" + error("target.error()") + "}\n";
+    const auto executable = field("m::NumericExecutable");
+    std::string bindings, captureList;
+    std::size_t captureCount = 0;
+    for (std::size_t i = 0; i < program.code.size(); ++i) {
+      const auto &op = program.code[i];
+      const auto suffix = std::to_string(i);
+      bindings += "auto scalars" + suffix + "=std::array<std::uint64_t," +
+                  std::to_string(op.scalarSources.size() + op.constants.size()) + ">{";
+      for (auto source : op.scalarSources)
+        bindings += capture(scalars.at(source)) + ",";
+      for (auto value : op.constants)
+        bindings += std::to_string(value) + "ull,";
+      bindings += "};\n";
+      if (op.kind == NumericProgramKind::Map)
+        for (std::size_t j = 0; j < op.scalarSources.size() + op.constants.size(); ++j) {
+          captureList += "scalars" + suffix + "[" + std::to_string(j) + "],";
+          ++captureCount;
+        }
+    }
+    std::string code = bindings + "auto target=" + device(target) + ";if(!target){" +
+                       error("target.error()") + "}\n" + "if(!f." + executable + ".on(*target)){\n";
     for (std::size_t i = 0; i < program.kernels.size(); ++i) {
       const auto &kernel = program.kernels[i];
       const auto name = "kernel" + std::to_string(i);
@@ -1477,9 +1497,9 @@ class Compiler {
         reject(span, "unreferenced typed numerical program kernel");
       const auto kind = instruction->kind;
       if (kernel.transform) {
-        const char *label = *kernel.transform == TensorTransformKind::Transpose ? "Transpose"
+        const char *label = *kernel.transform == TensorTransformKind::Transpose     ? "Transpose"
                             : *kernel.transform == TensorTransformKind::SoftmaxRows ? "SoftmaxRows"
-                                                                                   : "RmsNormRows";
+                                                                                    : "RmsNormRows";
         code += "auto " + name + "=r.loadTensorTransformKernel(f.directory+\"/" + path +
                 "\",*target,kalandra::TensorTransformKind::" + label + "," +
                 elementName(kernel.element) + "," +
@@ -1507,13 +1527,6 @@ class Compiler {
       const auto &op = program.code[i];
       const auto suffix = std::to_string(i);
       code += "auto operands" + suffix + "=" + indices(op.inputs, "std::uint32_t") + ";\n";
-      std::string captures = "std::array<std::uint64_t," +
-                             std::to_string(op.scalarSources.size() + op.constants.size()) + ">{";
-      for (auto source : op.scalarSources)
-        captures += capture(scalars.at(source)) + ",";
-      for (auto value : op.constants)
-        captures += std::to_string(value) + "ull,";
-      code += "auto scalars" + suffix + "=" + captures + "};\n";
     }
     code += "std::array<m::NumericInstruction," + std::to_string(program.code.size()) + "> code{{";
     for (std::size_t i = 0; i < program.code.size(); ++i) {
@@ -1523,14 +1536,22 @@ class Compiler {
           "{m::NumericInstructionKind::" + std::string(names.at(static_cast<unsigned>(op.kind))) +
           "," + (op.kernel == UINT32_MAX ? "m::Kernel{}" : "*kernel" + std::to_string(op.kernel)) +
           ",operands" + suffix + ",scalars" + suffix + "," + std::to_string(op.output) + "u," +
-          std::to_string(op.target) + "u},";
+          std::to_string(op.kind == NumericProgramKind::Map && op.kernel != UINT32_MAX &&
+                                 program.kernels[op.kernel].noArithmeticFault
+                             ? 1u
+                             : op.target) +
+          "u},";
     }
-    code += "}};\nf." + out + "=r.numericProgram(task," + activeGroup + ",std::array<m::Buffer," +
-            std::to_string(tensors.size()) + ">{";
+    code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
+            "u,code," + std::to_string(program.result) + "u," + elementName(program.type.element) +
+            "," + (result.scalarTask ? "true" : "false") + ");if(!prepared){" +
+            error("prepared.error()") + "}f." + executable + "=*prepared;\n}\nf." + out +
+            "=r.executeNumericProgram(task," + activeGroup + ",f." + executable +
+            ",std::array<m::Buffer," + std::to_string(tensors.size()) + ">{";
     for (const auto &value : tensors)
       code += ref(value) + ",";
-    code += "},code," + std::to_string(program.result) + "u," + elementName(program.type.element) +
-            "," + (result.scalarTask ? "true" : "false") + ");\n" + admitted("f." + out);
+    code += "},std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
+            "});\n" + admitted("f." + out);
     steps.push_back(std::move(code));
     return result;
   }

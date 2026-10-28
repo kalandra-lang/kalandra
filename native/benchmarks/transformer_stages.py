@@ -8,6 +8,7 @@ import sys
 os.environ['OPENBLAS_NUM_THREADS']='1'
 sys.path.insert(0,str(Path(__file__).resolve().parent/'fair'))
 import protocol as p
+import prepared_program
 import transformer_reference as r
 
 def references(m,d):
@@ -44,7 +45,7 @@ def main():
     assignments=[line for line in signature.splitlines() if line.startswith('  ') and '=' in line]
     assert len(assignments)==7
     assignments+=['  hidden=relu(matmul(feed,up))']
-    sources=[Path(__file__),source,fair/'TransformerCpu.cpp',fair/'TransformerGpu.cpp',fair/'TransformerBlock.h',fair/'ResidualFfn.h',fair/'transformer_reference.py',fair/'ffn_reference.py']
+    sources=[Path(__file__),source,fair/'TransformerCpu.cpp',fair/'TransformerGpu.cpp',fair/'TransformerBlock.h',fair/'ResidualFfn.h',fair/'transformer_reference.py',fair/'ffn_reference.py',fair/'prepared_program.py']
     initial={str(f):p.sha(f) for f in sources+[compiler,native,metal,task]};artifacts=[];records=[]
     for index,line in enumerate(assignments):
         stage=line.strip().split('=',1)[0];directory=build/stage;directory.mkdir(exist_ok=True)
@@ -53,16 +54,8 @@ def main():
         ir=directory/'cpu.ll';p.run([compiler,cpu_source,'--test-entry','block','--arithmetic','hardware','-O2','--emit-llvm',ir,'-o',directory/'standalone'])
         gpu_source=directory/'gpu.k';gpu_source.write_text(body+gpu_main);bundle=directory/'bundle'
         p.run([compiler,gpu_source,'--target','metal','--arithmetic','hardware','-O2','-o',bundle])
-        host=(bundle/'host.cpp').read_text();loads=re.findall(r'auto (kernel\d+)=(r\.load[^;]+);if\(!kernel\d+\)\{[^\n]+',host)
-        start=host.index('auto operands0=');end=host.index('=r.numericProgram',start);code=host[start:host.rfind('\nf.',start,end)]
-        slots=list(dict.fromkeys(re.findall(r'f\.v\d+','\n'.join(s for s in code.splitlines() if s.startswith('auto scalars')))));assert 1<=len(slots)<=2
-        for old,new in zip(slots,('epsilon','scale')):code=code.replace(old,new)
-        result=re.search(r'\.numericProgram\(task,f\.v\d+,std::array<m::Buffer,7>\{[^\n]*?\},code,(\d+)u,kalandra::NumericType::Float32,false\)',host);assert result
-        text=f'struct Program {{std::array<m::Kernel,{len(loads)}> kernels;\nProgram(m::Runtime&r,std::string directory){{auto target=r.device();ffn::check(bool(target));\n'
-        for name,call in loads:text+=f'auto {name}='+call.replace('f.directory','directory')+f';ffn::check(bool({name}));\n'
-        text+='kernels={'+','.join('*'+name for name,_ in loads)+'};}\nTaskHandle launch(m::Runtime&r,TaskCore&core,GroupHandle group,const std::array<m::Buffer,7>&inputs,float epsilon,float scale){\n'
-        for i in range(len(loads)):text+=f'auto*kernel{i}=&kernels[{i}];\n'
-        text+=code+f'\nreturn r.numericProgram(core,group,inputs,code,{result[1]}u,kalandra::NumericType::Float32,false);\n'+'}\n};\n'
+        host=(bundle/'host.cpp').read_text()
+        text=prepared_program.header(host)
         generated=directory/'TransformerProgram.h';generated.write_text(text)
         cols='m' if stage=='probabilities' else '4*d' if stage=='hidden' else 'd'
         cpu=(fair/'TransformerCpu.cpp').read_text().replace('../../runtime/Tensor.h',str(root/'native/runtime/Tensor.h'))

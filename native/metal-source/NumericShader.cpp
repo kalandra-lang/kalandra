@@ -12,6 +12,7 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <exception>
@@ -746,7 +747,8 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
     if (ir.empty())
       return std::unexpected(
           Diagnostic{"G001", "typed matrix shader failed verification", root.declaration});
-    if (root.resultType.element == NumericType::Float32 && options.arithmetic == ArithmeticMode::Hardware)
+    if (root.resultType.element == NumericType::Float32 &&
+        options.arithmetic == ArithmeticMode::Hardware)
       ir = "// kalandra-hardware-float32-matrix\n" + ir;
     return NumericShader{root.resultType.element, std::move(ir), {0, 1}, {}, true};
   }
@@ -904,6 +906,47 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
     if ((reads.empty() && root.resultType.tensor) || reads.size() > UINT32_MAX - 2)
       return std::unexpected(Diagnostic{
           "G001", "typed GPU maps need a supported live-buffer binding layout", root.declaration});
+    // Prove the emitted checked-fault predicates, rather than guessing from
+    // input/output types: an f32 map may contain a checked integer conversion.
+    llvm::DenseMap<Value, bool> proven;
+    auto alwaysTrue = [&](Value rootValue) {
+      std::vector<Value> pending{rootValue};
+      while (!pending.empty()) {
+        const auto value = pending.back();
+        if (proven.contains(value)) {
+          pending.pop_back();
+          continue;
+        }
+        if (auto constant = value.getDefiningOp<arith::ConstantOp>()) {
+          auto integer = dyn_cast<IntegerAttr>(constant.getValue());
+          proven[value] = integer && integer.getType().isInteger(1) && integer.getValue().isOne();
+        } else {
+          Value left, right;
+          if (auto conjunction = value.getDefiningOp<arith::AndIOp>()) {
+            left = conjunction.getLhs();
+            right = conjunction.getRhs();
+          } else if (auto choice = value.getDefiningOp<arith::SelectOp>()) {
+            left = choice.getTrueValue();
+            right = choice.getFalseValue();
+          } else {
+            proven[value] = false;
+            continue;
+          }
+          if (!proven.contains(left)) {
+            pending.push_back(left);
+            continue;
+          }
+          if (!proven.contains(right)) {
+            pending.push_back(right);
+            continue;
+          }
+          proven[value] = proven.lookup(left) && proven.lookup(right);
+        }
+      }
+      return proven.lookup(rootValue);
+    };
+    const bool noArithmeticFault =
+        element == NumericType::Float32 && alwaysTrue(result.valid) && alwaysTrue(result.uniform);
     placeholder.getResult().replaceAllUsesWith(result.value);
     validity.getResult().replaceAllUsesWith(result.valid);
     uniform.getResult().replaceAllUsesWith(result.uniform);
@@ -935,7 +978,10 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
                          std::move(tensorTypes),
                          std::move(scalarTypes),
                          std::move(scalarBuffers),
-                         indirect};
+                         indirect,
+                         {},
+                         {},
+                         noArithmeticFault};
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }

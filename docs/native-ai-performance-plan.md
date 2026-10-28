@@ -208,3 +208,15 @@ performance gains and losses, remaining gaps and the next evidence-backed target
   not use FMA, reassociate reductions or pack/copy the full weight matrix. A
   bounded root workspace and unit-column-stride/multiple-of-vector-width guards
   retain the original path outside the admitted domain.
+
+
+## Prepared typed GPU execution follow-up
+
+Completed after stages 0–5: immutable prepared plans, per-call scalar binding,
+compiler-emitted non-faulting arithmetic proofs, bounded four-stage/64 Mi-work
+chunks and ACK-scoped retirement. All 27 paired case medians improved 18–66%;
+CPU LLVM and generated GPU shader source are unchanged. Correctness, first-fault,
+cancellation, sanitizer, all-ten-type and relocated distribution gates passed.
+See the [detailed report](../benchmarks/results/gpu-prepared-execution-2026-10-28.md).
+Projection/pointwise fusion and invocation-local temporary/parameter reuse are
+next; MPSGraph remains faster and small workloads still favor CPU.

@@ -154,3 +154,22 @@ path. Typed multilevel reductions preserve checked tree additions and acknowledg
 all pending resources before cancellation/deadline settlement. The private
 [typed runtime tests](NumericTests.cpp) cover malformed interfaces, allocation
 and device failures, byte/capture budgets, cancellation, deadlines and cleanup.
+
+`prepareNumericProgram` owns immutable validated instructions, scalar schemas and
+initial use counts. `executeNumericProgram` allocates separate invocation values,
+use counts and captures, so the same executable supports concurrent calls. Raw
+capture words follow Map instruction order; shape-check constants stay in the
+plan. An empty capture span uses the values supplied at preparation. Generated
+host frames cache plans by registry/device and bind scalar values on every call.
+
+Prepared float32 programs can batch up to four proven non-faulting stages with a
+64 Mi estimated-work budget. A single larger dispatch keeps its individual
+boundary. Proofs follow emitted arithmetic-fault predicates, including both
+conditional branches. Host RMS epsilon also requires a valid positive finite
+binding. Device epsilon, checked/unproved arithmetic, readbacks and branches
+acknowledge separately. Tight workspace budgets retain individual stages.
+Parameters, scratch, indirect resources and deferred last-use owners stay charged
+through acknowledgement; a later host preparation/shape error waits for prior
+encoded work, preserving a preceding device failure. Inputs are never donated.
+See [the prepared execution design](../../docs/design/prepared-numeric-execution.md)
+and [lifecycle qualification](../tests/PreparedNumericProgramTests.py).

@@ -1,7 +1,7 @@
 #pragma once
+#include "../include/kalandra/TensorTransform.h"
 #include "../runtime/Tasks.h"
 #include "../runtime/Tensor.h"
-#include "../include/kalandra/TensorTransform.h"
 #include "ElementwiseLayout.h"
 #include <cstddef>
 #include <cstdint>
@@ -10,12 +10,14 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <utility>
 
 namespace kalandra::runtime::metal {
 struct State;
 struct Storage;
 struct Bridge;
 struct KernelState;
+struct NumericProgramArguments;
 enum class Error : std::int64_t {
   Allocation = 2,
   Invalid = 3,
@@ -105,6 +107,7 @@ private:
   Device(std::shared_ptr<State>, std::uint32_t) noexcept;
   friend class Runtime;
   friend struct Bridge;
+  friend class NumericExecutable;
 };
 // Private native bridge values. No writable bytes, Metal objects, or forged
 // descriptors are exposed. Copies retain immutable backing independently.
@@ -178,7 +181,24 @@ struct NumericInstruction {
   Kernel kernel{};
   std::span<const std::uint32_t> inputs{};
   std::span<const std::uint64_t> scalars{};
+  // Map target bit 0 is a compiler proof that checked arithmetic cannot fault.
+  // Branch/Jump target remains a forward instruction index. Other bits reserved.
   std::uint32_t output = UINT32_MAX, target = 0;
+};
+// Immutable validated code. Captured words are supplied separately for each
+// invocation, in Map instruction order; empty captures reuse prepared values.
+// Shape-check constants stay immutable. Registry and device identity are retained.
+class NumericExecutable final {
+public:
+  NumericExecutable() = default;
+  explicit operator bool() const noexcept { return bool(plan_); }
+  bool on(Device) const noexcept;
+
+private:
+  std::shared_ptr<const NumericProgramArguments> plan_;
+  explicit NumericExecutable(std::shared_ptr<const NumericProgramArguments> p) noexcept
+      : plan_(std::move(p)) {}
+  friend class Runtime;
 };
 class Runtime final {
 public:
@@ -240,6 +260,16 @@ public:
       std::string_view, Device, NumericType, ElementwiseSignature,
       std::span<const NumericType> tensorTypes, std::span<const NumericType> scalarTypes,
       std::span<const std::uint32_t> reads, std::span<const std::uint8_t> scalarBuffers) noexcept;
+  std::expected<NumericExecutable, Error> prepareNumericProgram(std::uint32_t inputCount,
+                                                                std::span<const NumericInstruction>,
+                                                                std::uint32_t result, NumericType,
+                                                                bool scalarResult) noexcept;
+  TaskHandle executeNumericProgram(TaskCore &, GroupHandle, const NumericExecutable &,
+                                   std::span<const Buffer>,
+                                   std::span<const std::uint64_t> captures = {}) noexcept;
+  TaskHandle executeNumericProgram(Task &, GroupHandle, const NumericExecutable &,
+                                   std::span<const Buffer>,
+                                   std::span<const std::uint64_t> captures = {}) noexcept;
   TaskHandle numericProgram(TaskCore &, GroupHandle, std::span<const Buffer>,
                             std::span<const NumericInstruction>, std::uint32_t result, NumericType,
                             bool scalarResult) noexcept;
@@ -255,7 +285,8 @@ public:
   std::expected<Kernel, Error> loadReductionKernel(std::string_view metallib, Device) noexcept;
   std::expected<Kernel, Error> loadMatmulKernel(std::string_view metallib, Device) noexcept;
   std::expected<Kernel, Error> loadTensorTransformKernel(std::string_view metallib, Device,
-      TensorTransformKind, NumericType, bool deviceEpsilon = false) noexcept;
+                                                         TensorTransformKind, NumericType,
+                                                         bool deviceEpsilon = false) noexcept;
   // One task owns optional operand maps and a post stage. Map inputs are the
   // original immutable arguments; post slot zero selects the completed matrix.
   TaskHandle matmul(TaskCore &, GroupHandle, Kernel, Buffer, Buffer, Kernel post = {},

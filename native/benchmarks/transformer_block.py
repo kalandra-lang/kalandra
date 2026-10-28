@@ -12,6 +12,7 @@ os.environ['OPENBLAS_NUM_THREADS']='1'
 sys.path.insert(0,str(Path(__file__).resolve().parent/'fair'))
 import protocol as p
 import transformer_reference as ref
+import prepared_program
 
 CASES=[(1,64),(16,64),(64,64),(1,256),(16,256),(64,256),(1,512),(16,512),(64,512)]
 def main():
@@ -36,7 +37,7 @@ def main():
     fair=Path(__file__).parent/'fair';compiler=root/'build/native/native/kalandra'
     native=compiler.parent/'libkalandra-native-runtime.a';task=compiler.parent/'libkalandra-task-core-optimized.a';metal=compiler.parent/'metal/libkalandra-metal-optimized.a'
     source=Path(__file__).parent/'TransformerBlock.k';bundle=build/'bundle'
-    sources=[Path(__file__),source,*[fair/f for f in ('TransformerBlock.h','TransformerCpu.cpp','TransformerGpu.cpp','TransformerMps.mm','ResidualFfn.h','ffn_reference.py','transformer_reference.py','protocol.py')],*[root/f for f in ('native/lib/Backend.cpp','native/lib/CheckedABI.cpp','native/metal/Metal.mm','native/metal/Metal.h','native/metal-source/Compiler.cpp','native/metal-source/Build.cpp','native/metal-source/NumericProgram.cpp','native/metal-source/NumericShader.cpp','native/metal-source/TensorTransformShader.h','native/include/kalandra/TensorTransform.h')]]
+    sources=[Path(__file__),source,*[fair/f for f in ('TransformerBlock.h','TransformerCpu.cpp','TransformerGpu.cpp','TransformerMps.mm','ResidualFfn.h','ffn_reference.py','transformer_reference.py','protocol.py','prepared_program.py')],*[root/f for f in ('native/lib/Backend.cpp','native/lib/CheckedABI.cpp','native/metal/Metal.mm','native/metal/Metal.h','native/metal-source/Compiler.cpp','native/metal-source/Build.cpp','native/metal-source/NumericProgram.cpp','native/metal-source/NumericShader.cpp','native/metal-source/TensorTransformShader.h','native/include/kalandra/TensorTransform.h')]]
     signature={str(f):p.sha(f) for f in sources+[compiler,native,task,metal]}
     manifest=build/'manifest.json'
     if args.reuse_build:
@@ -64,20 +65,8 @@ def main():
 ''')
         p.run([compiler,gpu_source,'--target','metal','--arithmetic','hardware','-O2','-o',bundle])
         host=(bundle/'host.cpp').read_text()
-        loads=re.findall(r'auto (kernel\d+)=(r\.load[^;]+);if\(!kernel\d+\)\{[^\n]+',host)
-        assert len(loads)==7
-        start=host.index('auto operands0=');end=host.index('=r.numericProgram',start)
-        code=host[start:host.rfind('\nf.',start,end)]
-        assert code.count('m::NumericInstructionKind::Map,')==8 and code.count('m::NumericInstructionKind::Matmul,')==8
-        slots=list(dict.fromkeys(re.findall(r'f\.v\d+','\n'.join(line for line in code.splitlines() if line.startswith('auto scalars')))))
-        assert len(slots)==2
-        for old,new in zip(slots,('epsilon','scale')):code=code.replace(old,new)
-        match=re.search(r'\.numericProgram\(task,f\.v\d+,std::array<m::Buffer,7>\{[^\n]*?\},code,(\d+)u,kalandra::NumericType::Float32,false\)',host);assert match
-        text='struct Program { std::array<m::Kernel,7> kernels;\nProgram(m::Runtime&r,std::string directory){auto target=r.device();ffn::check(bool(target));\n'
-        for name,call in loads:text+=f'auto {name}='+call.replace('f.directory','directory')+f';ffn::check(bool({name}));\n'
-        text+='kernels={'+','.join('*'+name for name,_ in loads)+'};}\nTaskHandle launch(m::Runtime&r,TaskCore&core,GroupHandle group,const std::array<m::Buffer,7>&inputs,float epsilon,float scale){\n'
-        for i in range(7):text+=f'auto*kernel{i}=&kernels[{i}];\n'
-        text+=code+f'\nreturn r.numericProgram(core,group,inputs,code,{match[1]}u,kalandra::NumericType::Float32,false);\n'+'}\n};\n'
+        assert host.count('m::NumericInstructionKind::Map,')==8 and host.count('m::NumericInstructionKind::Matmul,')==8
+        text=prepared_program.header(host)
         (build/'TransformerProgram.h').write_text(text)
         p.run([p.CLANG,'-std=c++23','-O2','-pthread','-ffp-contract=off','-I'+str(build),fair/'TransformerGpu.cpp',metal,task,'-framework','Foundation','-framework','Metal','-o',build/'gpu'])
         p.run([p.CLANG,'-std=c++23','-O2','-fobjc-arc','-fblocks','-ffp-contract=off','-mmacosx-version-min=26.0',fair/'TransformerMps.mm','-framework','Foundation','-framework','Metal','-framework','MetalPerformanceShaders','-framework','MetalPerformanceShadersGraph','-o',build/'mps'])
