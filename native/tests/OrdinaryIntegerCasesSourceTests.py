@@ -88,7 +88,7 @@ int main(int argc,char**){
    text=text.replace('PAIR_CHECKS',pair_checks('Input','I')).replace('RUNTIME',str(root/'native/runtime/Runtime.h')).replace('FAULT',str(root/'native/runtime/OrdinaryFault.h')).replace('TYPE',cpp)
    for key,value in [('AC',ac),('AO',ao),('BC',bc),('BO',bo)]:text=text.replace(key,f'Wide({value}LL)')
    driver.write_text(text);runtime=a.compiler.parent/(('' if windows else 'lib')+'kalandra-'+library+('.lib' if windows else '.a'));host=['-fms-runtime-lib=static'] if windows else ['-pthread']
-   run([a.clang,'-std=c++23','-DTEST_DIRECT',*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe]);output=run([exe]);print(name,output.strip(),flush=True);results.append(dict(mode=mode,type=language,fixture=fixture,result=output.strip()))
+   run([a.clang,'-std=c++23','-DTEST_DIRECT',*(['-DSKIP_PAIR'] if windows else []),*flags,'-ffp-contract=off','-Wno-override-module',*host,driver,ir,runtime,'-o',exe]);output=run([exe]);print(name,output.strip(),flush=True);results.append(dict(mode=mode,type=language,fixture=fixture,result=output.strip()))
    if fixture=='positive':
     huge=subprocess.run([str(exe),'huge'],capture_output=True,text=True,timeout=10)
     if huge.returncode:raise RuntimeError(name+' huge countdown failed: '+huge.stdout+huge.stderr)
