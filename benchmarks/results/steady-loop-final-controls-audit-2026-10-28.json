@@ -1,0 +1,204 @@
+[
+  {
+    "path": "benchmarks/results/steady-loop-final-controls-paired-2026-10-28.json",
+    "sha256": "577463ee93fa4a756675e720b53220c753dbf14cb79be32857d0c5a33c2c1445",
+    "measured_processes": 476,
+    "groups": [
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          0
+        ],
+        "median_time_reduction": -0.014358974358974486,
+        "min_time_reduction": -0.04208563384401631,
+        "max_time_reduction": 0.012729424421732083
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          16
+        ],
+        "median_time_reduction": -0.005729390708345328,
+        "min_time_reduction": -0.015598224088529733,
+        "max_time_reduction": 0.03360292772186635
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          64
+        ],
+        "median_time_reduction": -0.0003389580013366533,
+        "min_time_reduction": -0.020740654442153783,
+        "max_time_reduction": 0.05047807143192207
+      },
+      {
+        "section": "source",
+        "group": [
+          "arrays",
+          0,
+          256
+        ],
+        "median_time_reduction": -0.0006582981205784932,
+        "min_time_reduction": -0.1124159872036985,
+        "max_time_reduction": 0.018811519347063377
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.009633587143998978,
+        "min_time_reduction": 0.0017715165446992032,
+        "max_time_reduction": 0.19365333135038665
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.0027314340240200963,
+        "min_time_reduction": -0.04349517274395587,
+        "max_time_reduction": 0.07200430854492401
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          256
+        ],
+        "median_time_reduction": -0.003143814334905626,
+        "min_time_reduction": -0.018898855873386244,
+        "max_time_reduction": 0.05809793290081722
+      },
+      {
+        "section": "source",
+        "group": [
+          "closure",
+          1,
+          4096
+        ],
+        "median_time_reduction": 0.006839824115132731,
+        "min_time_reduction": -0.08595981943394126,
+        "max_time_reduction": 0.016698483275875642
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.024418604651162745,
+        "min_time_reduction": -0.06525391103489309,
+        "max_time_reduction": 0.07253503184713372
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          16
+        ],
+        "median_time_reduction": -0.006262910798122245,
+        "min_time_reduction": -0.07985308760262266,
+        "max_time_reduction": 0.10124119651003749
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "direct",
+          1,
+          256
+        ],
+        "median_time_reduction": 0.009332143986981345,
+        "min_time_reduction": -0.004106657392491053,
+        "max_time_reduction": 0.029983397331039052
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          0
+        ],
+        "median_time_reduction": -0.010815107256163525,
+        "min_time_reduction": -0.1855430679369161,
+        "max_time_reduction": 0.02378837890609309
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.0038732179953919754,
+        "min_time_reduction": -0.01097921724120332,
+        "max_time_reduction": 0.026065777780186372
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled",
+          1,
+          256
+        ],
+        "median_time_reduction": -0.008106565176022817,
+        "min_time_reduction": -0.018981772190603152,
+        "max_time_reduction": 0.035745658095033606
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          0
+        ],
+        "median_time_reduction": 0.02204418823334653,
+        "min_time_reduction": -0.08381679892002225,
+        "max_time_reduction": 0.27875108977582275
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          16
+        ],
+        "median_time_reduction": 0.0058887737622294045,
+        "min_time_reduction": -0.0233644592911455,
+        "max_time_reduction": 0.05923062100704357
+      },
+      {
+        "section": "task_scope",
+        "group": [
+          "scheduled-serial",
+          1,
+          256
+        ],
+        "median_time_reduction": -0.0017006339025882333,
+        "min_time_reduction": -0.02244740446955862,
+        "max_time_reduction": 0.05844509872352632
+      }
+    ],
+    "artifact_files_verified": true,
+    "verified": true
+  },
+  {
+    "path": "benchmarks/results/steady-loop-final-controls-2026-10-28.json",
+    "sha256": "1e22fcd6b2642df8062ea364cf9fc0a035d83e97b7f0763070bf9a655d6a4c15",
+    "verification_workloads": 99,
+    "verified": true
+  }
+]
