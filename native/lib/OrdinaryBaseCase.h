@@ -36,12 +36,13 @@ simplifyOrdinaryBufferedCase(llvm::Function &fn,
   bool bounded = true;
   unsigned expansion = 0;
   for (auto *loop : li.getLoopsInPreorder()) {
-    const auto trips = se.getSmallConstantTripCount(loop);
+    const auto exact = se.getSmallConstantTripCount(loop);
+    const auto trips = exact ? exact : se.getSmallConstantMaxTripCount(loop);
     unsigned instructions = 0;
     for (auto *block : loop->blocks())
       instructions += block->size();
     if (!loop->getSubLoops().empty() || !trips || trips > 128 || instructions > 32 ||
-        expansion + trips * instructions > 4096) {
+        expansion + trips * instructions > 8192) {
       bounded = false;
       break;
     }
@@ -56,8 +57,11 @@ simplifyOrdinaryBufferedCase(llvm::Function &fn,
       loop->setLoopID(id);
     }
     FunctionPassManager unroll;
-    unroll.addPass(LoopUnrollPass(
-        LoopUnrollOptions(2, true).setFullUnrollMaxCount(128).setPartial(false).setRuntime(false)));
+    unroll.addPass(LoopUnrollPass(LoopUnrollOptions(2, true)
+                                      .setFullUnrollMaxCount(128)
+                                      .setUpperBound(true)
+                                      .setPartial(false)
+                                      .setRuntime(false)));
     unroll.run(fn, fam);
   }
   fam.clear();
@@ -74,6 +78,10 @@ inline bool ordinaryCompactBaseCase(llvm::Function &fn, unsigned originalSize, b
       ++size;
       returns |= isa<ReturnInst>(i);
       if (isa<AllocaInst>(i) || isa<InvokeInst>(i) || i.isAtomic())
+        pure = false;
+      if (auto *load = dyn_cast<LoadInst>(&i); load && load->isVolatile())
+        pure = false;
+      if (auto *store = dyn_cast<StoreInst>(&i); store && store->isVolatile())
         pure = false;
       if (auto *call = dyn_cast<CallBase>(&i);
           call && (!call->getCalledFunction() || !call->getCalledFunction()->isIntrinsic())) {
@@ -162,6 +170,23 @@ specializeOrdinaryBaseCases(llvm::Module &module,
         continue;
       }
       ValueToValueMapTy workMap;
+      llvm::Function *single = nullptr;
+      if (fn->hasFnAttribute("kalandra.ordinary.local-buffers") && type->getIntegerBitWidth() > 1) {
+        ValueToValueMapTy singleMap;
+        single = CloneFunction(fn, singleMap);
+        single->setName(fn->getName() + ".single");
+        single->setLinkage(GlobalValue::InternalLinkage);
+        single->removeFnAttr("kalandra.ordinary.entry");
+        single->getArg(argument)->replaceAllUsesWith(ConstantInt::get(type, 1));
+        simplify(*single, true);
+        simplifyOrdinaryBufferedCase(*single, simplify);
+        if (!ordinaryCompactBaseCase(*single, originalSize, true)) {
+          single->eraseFromParent();
+          single = nullptr;
+        } else {
+          single->addFnAttr(Attribute::NoInline);
+        }
+      }
       auto *work = CloneFunction(fn, workMap);
       work->setName(fn->getName() + ".work");
       work->setLinkage(GlobalValue::InternalLinkage);
@@ -169,10 +194,10 @@ specializeOrdinaryBaseCases(llvm::Module &module,
       work->addFnAttr(Attribute::NoInline);
       // The dispatch proves the outlined worker's argument is nonzero. Carry
       // that fact across its ABI so its cloned entry test is not repeated.
-      work->addParamAttr(argument,
-                         Attribute::get(module.getContext(), Attribute::Range,
-                                        ConstantRange(APInt(type->getIntegerBitWidth(), 1),
-                                                      APInt(type->getIntegerBitWidth(), 0))));
+      work->addParamAttr(
+          argument, Attribute::get(module.getContext(), Attribute::Range,
+                                   ConstantRange(APInt(type->getIntegerBitWidth(), single ? 2 : 1),
+                                                 APInt(type->getIntegerBitWidth(), 0))));
       simplify(*work, true);
 
       fn->deleteBody();
@@ -180,8 +205,10 @@ specializeOrdinaryBaseCases(llvm::Module &module,
       auto *entry = BasicBlock::Create(ctx, "ordinary.entry", fn);
       auto *base = BasicBlock::Create(ctx, "ordinary.base", fn);
       auto *more = BasicBlock::Create(ctx, "ordinary.work", fn);
+      auto *singleGuard = single ? BasicBlock::Create(ctx, "ordinary.single-guard", fn) : more;
       IRBuilder<> b(entry);
-      b.CreateCondBr(b.CreateICmpEQ(fn->getArg(argument), ConstantInt::get(type, 0)), base, more);
+      b.CreateCondBr(b.CreateICmpEQ(fn->getArg(argument), ConstantInt::get(type, 0)), base,
+                     singleGuard);
       SmallVector<Value *, 8> args;
       for (auto &arg : fn->args())
         args.push_back(&arg);
@@ -201,6 +228,18 @@ specializeOrdinaryBaseCases(llvm::Module &module,
           llvm_unreachable("ordinary base must inline");
         if (empty->use_empty())
           empty->eraseFromParent();
+      }
+      if (single) {
+        b.SetInsertPoint(singleGuard);
+        auto *body = BasicBlock::Create(ctx, "ordinary.single", fn);
+        b.CreateCondBr(b.CreateICmpEQ(fn->getArg(argument), ConstantInt::get(type, 1)), body, more);
+        b.SetInsertPoint(body);
+        auto *oneCall = b.CreateCall(single, args);
+        oneCall->setCallingConv(single->getCallingConv());
+        oneCall->setAttributes(single->getAttributes().removeFnAttributes(ctx));
+        oneCall->setTailCallKind(CallInst::TCK_MustTail);
+        b.CreateRet(oneCall);
+        fn->addFnAttr("kalandra.ordinary.single-case");
       }
       b.SetInsertPoint(more);
       auto *tail = b.CreateCall(work, args);

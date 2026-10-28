@@ -29,11 +29,16 @@ extern "C" double broad_entry(I seed,I rounds) {
   return recurrence(double(seed)*0.015625,double(seed)*0.00390625,rounds);
 #endif
 }
-#elif defined(EUCLID)
+#elif defined(EUCLID) || defined(EUCLID_MIXED)
 static I gcd(I a,I b) {if(!b)return a;return gcd(b,a%b);}
 static double recurrence(I x,I seed,I rounds) {
   if(!rounds)return double(x);
-  return recurrence(gcd(x*13+7,seed*7+11)+seed,seed,rounds-1);
+#if defined(EUCLID_MIXED)
+  I next=(x*48271+gcd(x*13+7,seed*7+11)+seed)%2147483647;
+#else
+  I next=gcd(x*13+7,seed*7+11)+seed;
+#endif
+  return recurrence(next,seed,rounds-1);
 }
 extern "C" double broad_entry(I seed,I rounds) {return recurrence(seed,seed,rounds);}
 #endif

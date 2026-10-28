@@ -60,7 +60,7 @@ jobs:
         run: |
           cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j2
           ctest --test-dir build/linux --output-on-failure -j2 \
-            -R '^native-(ordinary-(entry|source|pair-source|arrays|reductions|buffer-types|buffer-faults|direct-faults|scalar-exact)|windows-ordinary-codegen)$'
+            -R '^native-(ordinary-(entry|source|pair-source|arrays|reductions|buffer-types|buffer-faults|direct-faults|scalar-exact|integer-cases)|windows-ordinary-codegen)$'
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version

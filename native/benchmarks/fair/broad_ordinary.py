@@ -6,16 +6,18 @@ standalone main. Recoverable and checked exports are validated separately.
 import argparse,decimal,functools,json,math,os,struct
 from pathlib import Path
 import protocol as p
-PROGRAMS=['affine','polynomial','euclid']+[f'array{n}' for n in (8,16,32,64,128)]
+PROGRAMS=['affine','polynomial','euclid','euclid_mixed']+[f'array{n}' for n in (8,16,32,64,128)]
 @functools.cache
 def oracle(program,seed,rounds):
     if program.startswith('array'):
         n=int(program[5:]);values=list(range(seed,seed+n))
         for _ in range(rounds):values=[(x*13+7)%1000003 for x in values]
         return float(sum(values))
-    if program=='euclid':
+    if program in ('euclid','euclid_mixed'):
         x=seed
-        for _ in range(rounds):x=math.gcd(x*13+7,seed*7+11)+seed
+        for _ in range(rounds):
+            next=math.gcd(x*13+7,seed*7+11)+seed
+            x=(x*48271+next)%2147483647 if program=='euclid_mixed' else next
         return float(x)
     # Independent Decimal operations, rounded explicitly to binary64 after each
     # source multiply/add. Dyadic constants exactly match all source literals.
@@ -44,7 +46,7 @@ def main():
     a=parser.parse_args();assert not a.output.exists()
     src=Path(__file__).resolve().parent;root=p.ROOT;build=a.build_dir.resolve();build.mkdir(parents=True,exist_ok=True)
     compiler=a.compiler.resolve() if a.compiler else root/'build/native/native/kalandra';runtime=compiler.parent/'libkalandra-task-core-optimized.a'
-    sources=[Path(__file__).resolve(),src/'BroadScalar.k',src/'BroadDriver.cpp',src/'BroadReference.cpp',src/'broad_reference.rs',src/'protocol.py',root/'native/runtime/OrdinaryFault.h',root/'native/runtime/Runtime.h']
+    sources=[Path(__file__).resolve(),src/'BroadScalar.k',src/'BroadMixed.k',src/'BroadDriver.cpp',src/'BroadReference.cpp',src/'broad_reference.rs',src/'protocol.py',root/'native/runtime/OrdinaryFault.h',root/'native/runtime/Runtime.h']
     signature={p.key(f):p.sha(f) for f in [*sources,compiler,runtime]};manifest=build/'manifest.json'
     if a.reuse_build:
         saved=json.loads(manifest.read_text());assert saved['signature']==signature
@@ -58,7 +60,7 @@ def main():
                 source.write_text(f'fn total(values:[int],index:int,acc:int)->float64:\n  if index == {width}:\n    float64(acc)\n  else:\n    total(values,index+1,acc+values[index])\nfn iterate(values:[int],rounds:int)->float64:\n  if rounds == 0:\n    total(values,0,0)\n  else:\n    iterate(map(values,fn(value:int):(value*13+7)%1000003),rounds-1)\nfn value(seed:int,rounds:int)->float64:\n  iterate([{values}],rounds)\nfn main()->float64:\n  value(17,16)\n')
                 entry='value';defines=[f'-DARRAY_WIDTH={width}',f'-DARRAY_VALUES={values}'];cfg='array';rust.write_text((src/'broad_reference.rs').read_text().replace('ARRAY_VALUES',values))
             else:
-                source.write_text((src/'BroadScalar.k').read_text());entry=name;defines=['-D'+name.upper()];cfg=name;rust.write_text((src/'broad_reference.rs').read_text())
+                source.write_text((src/('BroadMixed.k' if name=='euclid_mixed' else 'BroadScalar.k')).read_text());entry=name;defines=['-D'+name.upper()];cfg=name;rust.write_text((src/'broad_reference.rs').read_text())
             p.run([compiler,source,'--test-entry',entry,'--emit-llvm',ir,'-O2','-o',folder/'standalone'])
             failstop='_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text();paired='_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(' in ir.read_text();direct='_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text();abi[name]='ordinary-direct-v1' if failstop else 'ordinary-pair-v1' if paired else 'ordinary-v1' if direct else 'checked-v4'
             p.run([p.CLANG,*flags,'-DDIRECT_ENTRY' if failstop else '-DPAIR_ENTRY' if paired else '-DORDINARY_ENTRY' if direct else '-DCHECKED_ENTRY',src/'BroadDriver.cpp',ir,runtime,'-o',folder/'kalandra'])

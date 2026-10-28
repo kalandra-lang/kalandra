@@ -3,6 +3,7 @@
 #include "../lib/OrdinaryDirect.h"
 #include "../lib/OrdinaryEntry.h"
 #include "../lib/OrdinaryInputs.h"
+#include "../lib/OrdinaryIntegerCases.h"
 #include "../lib/OrdinaryLoops.h"
 #include "../lib/OrdinaryMain.h"
 #include "../lib/OrdinaryPair.h"
@@ -239,6 +240,98 @@ int main(int argc, char **argv) {
     if (supported != (size <= 2048) ||
         (supported && (pool.bytes < size || pool.bytes % 64 || pool.slots < 2 || pool.slots > 4 ||
                        pool.slots * pool.bytes > 8192)))
+      return 1;
+  }
+
+  {
+    LLVMContext ctx;
+    SMDiagnostic diagnostic;
+    auto module = parseAssemblyString(R"(
+      define i64 @sample_ordinary_direct_v1(i64 %seed,i64 %rounds) #0 {
+      entry:
+        %zero=icmp eq i64 %rounds,0
+        br i1 %zero,label %done,label %outer
+      outer:
+        %x=phi i64 [%seed,%entry],[%next,%inner.exit]
+        %n=phi i64 [%rounds,%entry],[%n1,%inner.exit]
+        %a0=mul nsw i64 %x,13
+        %a1=add nsw i64 %a0,7
+        %b0=mul nsw i64 %seed,7
+        %b1=add nsw i64 %b0,11
+        br label %inner
+      inner:
+        %a=phi i64 [%a1,%outer],[%b,%remainder]
+        %b=phi i64 [%b1,%outer],[%r,%remainder]
+        %end=icmp eq i64 %b,0
+        br i1 %end,label %inner.exit,label %remainder
+      remainder:
+        %r=srem i64 %a,%b
+        br label %inner
+      inner.exit:
+        %next=add nsw i64 %a,%seed
+        %n1=add nsw i64 %n,-1
+        %last=icmp eq i64 %n1,0
+        br i1 %last,label %done,label %outer
+      done:
+        %result=phi i64 [%seed,%entry],[%next,%inner.exit]
+        ret i64 %result
+      }
+      attributes #0 = { "kalandra.ordinary.direct" }
+    )",
+                                      diagnostic, ctx);
+    if (!module || !kalandra::specializeOrdinaryIntegerCases(*module, simplify) ||
+        verifyModule(*module, &errs()) ||
+        !module->getFunction("sample_ordinary_direct_v1")
+             ->hasFnAttribute("kalandra.ordinary.integer-cases") ||
+        kalandra::specializeOrdinaryIntegerCases(*module, simplify))
+      return 1;
+  }
+
+  for (unsigned kind = 0; kind < 9; ++kind) {
+    LLVMContext ctx;
+    SMDiagnostic diagnostic;
+    const std::string extra = kind == 4   ? "%unused=load volatile i64,ptr @observed\n"
+                              : kind == 5 ? "call void @observe()\n"
+                                          : "";
+    auto module = parseAssemblyString(
+        R"(
+      @observed=global i64 0
+      declare void @observe()
+      define i64 @stable(i64 %seed,i64 %rounds) #0 {
+      entry:
+        br label %loop
+      loop:
+        %x=phi i64 [%seed,%entry],[%next,%loop]
+        %n=phi i64 [%rounds,%entry],[%n1,%loop]
+      )" + extra +
+            "%r=urem i64 %x," +
+            (kind == 3   ? "%n"
+             : kind == 7 ? "poison"
+                         : "17") +
+            R"(
+        %n1=add nsw i64 %n,-1
+        %done=icmp eq i64 %n1,0
+      )" + (kind == 6 ? "%next=select i1 %done,i64 %r,i64 %x\n" : "%next=add i64 %r,0\n") +
+            R"(
+        br i1 %done,label %exit,label %loop
+      exit:
+      )" + (kind == 8 ? "ret i64 %n1\n" : "ret i64 %next\n") +
+            R"(
+      }
+      attributes #0 = { "kalandra.ordinary.direct" }
+    )",
+        diagnostic, ctx);
+    if (!module)
+      return 1;
+    auto *fn = module->getFunction("stable");
+    fn->addParamAttr(
+        1, Attribute::get(ctx, Attribute::Range,
+                          ConstantRange(APInt(64, kind == 2 ? 0 : 1), APInt::getSignMask(64))));
+    if (kind == 1)
+      fn->removeFnAttr("kalandra.ordinary.direct");
+    if (verifyModule(*module, &errs()) ||
+        kalandra::accelerateOrdinaryStableLoop(*fn) != (kind == 0) ||
+        verifyModule(*module, &errs()) || kalandra::accelerateOrdinaryStableLoop(*fn))
       return 1;
   }
 

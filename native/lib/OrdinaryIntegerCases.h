@@ -1,5 +1,6 @@
 #pragma once
 #include "OrdinaryScalarRanges.h"
+#include "OrdinaryStableLoops.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/MDBuilder.h"
@@ -54,6 +55,7 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
   SmallVector<llvm::Function *, 8> roots;
   for (auto &fn : module)
     if (fn.hasFnAttribute("kalandra.ordinary.direct") &&
+        !fn.hasFnAttribute("kalandra.ordinary.integer-cases") &&
         fn.getName().ends_with("_ordinary_direct_v1") && fn.arg_size() && fn.arg_size() <= 4)
       roots.push_back(&fn);
   bool changed = false;
@@ -89,39 +91,57 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
       continue;
     const unsigned count = counter->getArgNo();
     ValueToValueMapTy map;
-    auto *one = CloneFunction(original, map);
-    one->setLinkage(GlobalValue::InternalLinkage);
-    one->setName(original->getName() + ".small-integer-candidate");
-    for (auto &arg : one->args())
-      one->addParamAttr(arg.getArgNo(),
-                        Attribute::get(module.getContext(), Attribute::Range,
-                                       ConstantRange(APInt(64, 0), APInt(64, 65536))));
-    one->getArg(count)->replaceAllUsesWith(ConstantInt::get(counter->getType(), 1));
-    simplify(*one, true);
+    auto *bounded = CloneFunction(original, map);
+    bounded->setLinkage(GlobalValue::InternalLinkage);
+    bounded->setName(original->getName() + ".small-integer-candidate");
+    for (auto &arg : bounded->args())
+      bounded->addParamAttr(
+          arg.getArgNo(),
+          Attribute::get(
+              module.getContext(), Attribute::Range,
+              ConstantRange(APInt(64, arg.getArgNo() == count ? 1 : 0),
+                            arg.getArgNo() == count ? APInt::getSignMask(64) : APInt(64, 65536))));
+    simplify(*bounded, true);
     {
-      DominatorTree peelDom(*one);
+      DominatorTree peelDom(*bounded);
       LoopInfo peelLoops(peelDom);
-      AssumptionCache ac(*one);
+      AssumptionCache ac(*bounded);
       TargetLibraryInfoImpl impl(module.getTargetTriple());
       TargetLibraryInfo tli(impl);
-      ScalarEvolution se(*one, tli, ac, peelDom, peelLoops);
+      ScalarEvolution se(*bounded, tli, ac, peelDom, peelLoops);
       for (auto *loop : peelLoops.getLoopsInPreorder())
-        if (canPeel(loop)) {
+        if (loop->getSubLoops().empty() && canPeel(loop)) {
           formLCSSARecursively(*loop, peelDom, &peelLoops, &se);
           ValueToValueMapTy peeled;
           peelLoop(loop, 1, false, &peelLoops, &se, peelDom, &ac, true, peeled);
           break;
         }
     }
-    if (verifyFunction(*one)) {
-      one->eraseFromParent();
+    if (verifyFunction(*bounded)) {
+      bounded->eraseFromParent();
       continue;
     }
-    simplify(*one, true);
-    DominatorTree dom(*one);
+    simplify(*bounded, true);
+    SmallVector<BinaryOperator *, 8> positiveRemainders;
+    for (auto &block : *bounded)
+      for (auto &i : block)
+        if (i.getOpcode() == Instruction::SRem) {
+          auto *rem = cast<BinaryOperator>(&i);
+          SmallPtrSet<Value *, 32> path;
+          if (ordinaryNonnegative(rem->getOperand(0), path) &&
+              ordinaryNonnegative(rem->getOperand(1), path))
+            positiveRemainders.push_back(rem);
+        }
+    for (auto *rem : positiveRemainders) {
+      IRBuilder<> at(rem);
+      rem->replaceAllUsesWith(at.CreateURem(rem->getOperand(0), rem->getOperand(1)));
+      rem->eraseFromParent();
+    }
+    simplify(*bounded, true);
+    DominatorTree dom(*bounded);
     LoopInfo inner(dom);
     SmallVector<BinaryOperator *, 8> remainders;
-    for (auto &block : *one)
+    for (auto &block : *bounded)
       for (auto &i : block)
         if (i.getOpcode() == Instruction::SRem || i.getOpcode() == Instruction::URem)
           remainders.push_back(cast<BinaryOperator>(&i));
@@ -157,8 +177,39 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
                     SimplifyQuery(module.getDataLayout()));
               }
             }
-      if (!divisor || initial.isFullSet() || initial.getUnsignedMax().getActiveBits() > 32)
+      if (!divisor || initial.isFullSet() || initial.isEmptySet() ||
+          initial.getUnsignedMax().getActiveBits() > 32)
         continue;
+      // For the Euclidean pair (a,b) -> (b,a%b), b never grows. If both
+      // initial edges fit u32, neither recurrence can acquire high bits.
+      // Express that proof with narrow arithmetic rather than an identity
+      // mask that InstCombine may discard before narrowing the cyclic phis.
+      auto *dividend = dyn_cast<PHINode>(rem->getOperand(0));
+      bool boundedDividend = false;
+      if (dividend && dividend->getParent() == loop->getHeader() &&
+          dividend->getNumIncomingValues() == 2)
+        for (unsigned k = 0; k < 2; ++k)
+          if (loop->contains(dividend->getIncomingBlock(k)) &&
+              dividend->getIncomingValue(k) == divisor &&
+              !loop->contains(dividend->getIncomingBlock(1 - k))) {
+            auto a = computeConstantRangeIncludingKnownBits(
+                WithCache<const Value *>(dividend->getIncomingValue(1 - k)), false,
+                SimplifyQuery(module.getDataLayout()));
+            boundedDividend =
+                !a.isFullSet() && !a.isEmptySet() && a.getUnsignedMax().getActiveBits() <= 32;
+          }
+      if (boundedDividend) {
+        IRBuilder<> at(rem);
+        auto *value = at.CreateURem(at.CreateTrunc(rem->getOperand(0), at.getInt32Ty()),
+                                    at.CreateTrunc(rem->getOperand(1), at.getInt32Ty()));
+        const unsigned bits = std::max(1u, initial.getUnsignedMax().getActiveBits());
+        value =
+            at.CreateAnd(value, ConstantInt::get(at.getInt32Ty(), APInt::getLowBitsSet(32, bits)));
+        rem->replaceAllUsesWith(at.CreateZExt(value, rem->getType()));
+        rem->eraseFromParent();
+        ++narrowed;
+        continue;
+      }
       const unsigned bits = std::max(1u, initial.getUnsignedMax().getActiveBits());
       IRBuilder<> b(&*loop->getHeader()->getFirstInsertionPt());
       auto *bounded = cast<Instruction>(
@@ -174,15 +225,18 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
       rem->eraseFromParent();
       ++narrowed;
     }
-    if (!narrowed || one->getInstructionCount() > 256) {
-      one->eraseFromParent();
+    if (!narrowed || bounded->getInstructionCount() > 256) {
+      bounded->eraseFromParent();
       continue;
     }
-    simplify(*one, true);
-    if (verifyFunction(*one) || nativeStackBudgetError(*one, module.getDataLayout())) {
-      one->eraseFromParent();
+    simplify(*bounded, true);
+    if (verifyFunction(*bounded) || nativeStackBudgetError(*bounded, module.getDataLayout())) {
+      bounded->eraseFromParent();
       continue;
     }
+    const bool stable = accelerateOrdinaryStableLoop(*bounded);
+    if (stable)
+      simplify(*bounded, true);
     ValueToValueMapTy zeroMap;
     auto *zero = CloneFunction(original, zeroMap);
     zero->setLinkage(GlobalValue::InternalLinkage);
@@ -196,7 +250,7 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
           pure = false;
     if (!pure || zero->getInstructionCount() > 24) {
       zero->eraseFromParent();
-      one->eraseFromParent();
+      bounded->eraseFromParent();
       continue;
     }
     auto &ctx = module.getContext();
@@ -206,7 +260,7 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     auto *entry = BasicBlock::Create(ctx, "ordinary.integer.entry", wrapper);
     auto *base = BasicBlock::Create(ctx, "ordinary.integer.zero", wrapper);
     auto *guard = BasicBlock::Create(ctx, "ordinary.integer.guard", wrapper);
-    auto *fast = BasicBlock::Create(ctx, "ordinary.integer.one", wrapper);
+    auto *fast = BasicBlock::Create(ctx, "ordinary.integer.bounded", wrapper);
     auto *wide = BasicBlock::Create(ctx, "ordinary.integer.wide", wrapper);
     IRBuilder<> b(entry);
     b.CreateCondBr(b.CreateICmpEQ(wrapper->getArg(count), b.getInt64(0)), base, guard);
@@ -220,29 +274,28 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     if (!InlineFunction(*baseCall, baseInfo).isSuccess()) {
       wrapper->eraseFromParent();
       zero->eraseFromParent();
-      one->eraseFromParent();
+      bounded->eraseFromParent();
       continue;
     }
     zero->eraseFromParent();
     b.SetInsertPoint(guard);
-    Value *invalid = b.CreateXor(wrapper->getArg(count), b.getInt64(1));
+    Value *invalid = b.getInt64(0);
     for (auto &arg : wrapper->args())
-      if (arg.getArgNo() != count)
-        invalid = b.CreateOr(invalid, b.CreateLShr(&arg, 16));
+      invalid = b.CreateOr(invalid, b.CreateLShr(&arg, arg.getArgNo() == count ? 63 : 16));
     // Keep the compact success leaf on the fall-through path. A taken
     // dispatch branch costs as much as the arithmetic in very short entries.
     b.CreateCondBr(b.CreateICmpEQ(invalid, b.getInt64(0)), fast, wide,
                    MDBuilder(ctx).createBranchWeights(2, 1));
     b.SetInsertPoint(fast);
-    auto *oneCall = b.CreateCall(one, args);
+    auto *oneCall = b.CreateCall(bounded, args);
     b.CreateRet(oneCall);
-    InlineFunctionInfo oneInfo;
-    if (!InlineFunction(*oneCall, oneInfo).isSuccess()) {
+    InlineFunctionInfo boundedInfo;
+    if (!InlineFunction(*oneCall, boundedInfo).isSuccess()) {
       wrapper->eraseFromParent();
-      one->eraseFromParent();
+      bounded->eraseFromParent();
       continue;
     }
-    one->eraseFromParent();
+    bounded->eraseFromParent();
     b.SetInsertPoint(wide);
     auto *tail = b.CreateCall(original, args);
     tail->setCallingConv(original->getCallingConv());
@@ -260,6 +313,8 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     original->addFnAttr(Attribute::NoInline);
     wrapper->setName(name);
     wrapper->addFnAttr("kalandra.ordinary.integer-cases");
+    if (stable)
+      wrapper->addFnAttr("kalandra.ordinary.stable-countdown");
     changed = true;
   }
   return changed;

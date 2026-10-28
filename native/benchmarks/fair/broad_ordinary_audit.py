@@ -7,9 +7,11 @@ def oracle(name,seed,n):
  if name.startswith('array'):
   modulus=1000003;scale=pow(13,n,modulus);offset=7*(scale-1)*pow(12,-1,modulus)%modulus
   return float(sum((scale*x+offset)%modulus for x in range(seed,seed+int(name[5:]))))
- if name=='euclid':
+ if name in ('euclid','euclid_mixed'):
   b=seed*7+11;divisors=[d for d in range(1,b+1) if b%d==0];x=seed
-  for _ in range(n):x=max(d for d in divisors if (x*13+7)%d==0)+seed
+  for _ in range(n):
+   next=max(d for d in divisors if (x*13+7)%d==0)+seed
+   x=(x*48271+next)%2147483647 if name=='euclid_mixed' else next
   return float(x)
  x=float(Fraction(seed,4 if name=='affine' else 64));scale=Fraction(1,2) if name=='affine' else Fraction(65,64);offset=Fraction(seed,16 if name=='affine' else 256)
  for _ in range(n):x=float(Fraction.from_float(float(Fraction.from_float(x)*scale))+offset)

@@ -514,13 +514,13 @@ per-reduction blocks and original-argument diagnostics cover the correction.
 
 `OrdinaryBaseCase.h` tries standard LLVM unrolling and scalar replacement on a
 speculative copy of an already-proven ordinary buffer entry. It first tries the
-whole fixed-work graph, then a zero integer-argument version. This is independent
+whole fixed-work graph, then zero and one integer-argument versions. This is independent
 of function names or benchmark inputs. If constant private-buffer construction,
 copying and reduction disappear, their result can become ordinary scalar
 arithmetic. Floating operations retain their original ordering and flags.
 
-Forced expansion requires non-nested loops with statically proven trip counts
-of at most 128, at most 32 instructions per loop and a combined 4,096-instruction
+Forced expansion requires non-nested loops with statically proven exact or maximum
+trip counts of at most 128, at most 32 instructions per loop and a combined 8,192-instruction
 expansion budget. These are optimization budgets: rejected programs keep their
 original implementation. Admission requires every loop and allocation to vanish,
 a result of at most 64 instructions, at least a threefold size reduction and the
@@ -535,3 +535,46 @@ mandatory tail transfers. The dispatch has no save area for the base worker's
 runtime query; the nonzero worker retains the unrestricted graph. No new range promises are placed on public arguments.
 Out-of-domain inputs retain the original wide/recoverable behavior, including
 intermediate overflow and first-fault locations.
+
+A proven maximum permits early exits: unrolling retains their original order,
+and ordinary constant propagation removes them only where their conditions are
+proven. A one-round worker must satisfy the same compactness and frame checks as
+the zero-round worker. Its dispatch is another mandatory tail transfer; no
+private-buffer frame is reserved before the zero-round decision. For example,
+one 32-element affine construction and integer reduction can become
+`416 * seed + 6672`, followed by the original integer-to-float conversion, while
+allocation-failure policy and unrestricted-input replay remain available.
+
+### Prove integer widths and stable countdown state
+
+`OrdinaryIntegerCases.h` guards a private clone with nonnegative 16-bit data
+arguments and a positive signed iteration count. The count can extend through
+`INT64_MAX`; the data guard is not an iteration limit. Zero, negative counts and
+out-of-domain data retain their original implementations. Signed remainder is
+converted to unsigned arithmetic only after proving both operands nonnegative.
+For a Euclidean recurrence `(a, b) -> (b, a % b)`, a proven 32-bit initial pair
+remains 32-bit: the new dividend is the previous divisor, and the remainder is
+smaller than that divisor. Other division/remainder expressions keep their wide
+arithmetic unless independently proven narrow.
+
+`OrdinaryStableLoops.h` can exit an expensive pure integer countdown when every
+loop-carried data value is unchanged. The counter must have a proven positive
+initial range, decrement only toward zero, and be used solely for its update and
+termination test. The remaining integer state must compare equal across an
+iteration. That makes subsequent iterations repeat the same computation with
+the same result; their counter values cannot influence data or escape the loop.
+
+Admission excludes memory reads/writes, calls, allocation, floating state,
+explicit undefined/poison operands, and freeze instructions in the body. State
+comparisons freeze their operands so the new branch cannot introduce a poison
+condition. The transform applies only to proven ordinary computations. Managed
+task progress and cancellation checks, observable effects, arithmetic faults and
+cleanup responsibilities do not enter this proof.
+
+Repeated GCD reaches a fixed value quickly, so that workload measures the
+compiler's ability to recognize stable state. The fair corpus also includes a
+GCD-based recurrence whose state changes through all 256 measured iterations;
+it measures continued arithmetic work instead of convergence alone. Correctness
+tests additionally cover cycles, negative/wide data, overflow faults, all
+nonnegative 16-bit seeds, and direct calls with trillion-round and `INT64_MAX`
+counts where an independent oracle establishes convergence.
