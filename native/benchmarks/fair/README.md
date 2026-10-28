@@ -89,7 +89,10 @@ serve the invocation. Fixed-input task diagnostics retain their checked entries.
 
 
 `broad_ordinary.py --build-dir DIR --output FILE` adds strict binary64
-recurrences, repeated Euclidean GCD and immutable-array maps at 8–128 elements.
+recurrences, repeated Euclidean GCD, changing-state GCD and immutable-array maps
+at 8–128 elements. The nine programs run at 0/1/16/256 rounds (36 cases).
+Repeated GCD converges quickly; the changing-state recurrence visits 257 distinct
+states through the measured 256 rounds, so convergence cannot replace that work.
 The references use separate entry points per program. `--compiler` selects a
 frozen compiler beside its matching runtime; `--build-only` and `--reuse-build`
 freeze and validate artifacts. Result bits and wrapping integer checksums are

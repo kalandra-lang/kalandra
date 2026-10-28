@@ -283,6 +283,8 @@ int main(int argc, char **argv) {
         verifyModule(*module, &errs()) ||
         !module->getFunction("sample_ordinary_direct_v1")
              ->hasFnAttribute("kalandra.ordinary.integer-cases") ||
+        !module->getFunction("sample_ordinary_direct_v1")
+             ->hasFnAttribute("kalandra.ordinary.integer-single-case") ||
         kalandra::specializeOrdinaryIntegerCases(*module, simplify))
       return 1;
   }

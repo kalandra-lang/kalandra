@@ -90,153 +90,164 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     if (!hasRemainder)
       continue;
     const unsigned count = counter->getArgNo();
-    ValueToValueMapTy map;
-    auto *bounded = CloneFunction(original, map);
-    bounded->setLinkage(GlobalValue::InternalLinkage);
-    bounded->setName(original->getName() + ".small-integer-candidate");
-    for (auto &arg : bounded->args())
-      bounded->addParamAttr(
-          arg.getArgNo(),
-          Attribute::get(
-              module.getContext(), Attribute::Range,
-              ConstantRange(APInt(64, arg.getArgNo() == count ? 1 : 0),
-                            arg.getArgNo() == count ? APInt::getSignMask(64) : APInt(64, 65536))));
-    simplify(*bounded, true);
-    {
-      DominatorTree peelDom(*bounded);
-      LoopInfo peelLoops(peelDom);
-      AssumptionCache ac(*bounded);
-      TargetLibraryInfoImpl impl(module.getTargetTriple());
-      TargetLibraryInfo tli(impl);
-      ScalarEvolution se(*bounded, tli, ac, peelDom, peelLoops);
-      for (auto *loop : peelLoops.getLoopsInPreorder())
-        if (loop->getSubLoops().empty() && canPeel(loop)) {
-          formLCSSARecursively(*loop, peelDom, &peelLoops, &se);
-          ValueToValueMapTy peeled;
-          peelLoop(loop, 1, false, &peelLoops, &se, peelDom, &ac, true, peeled);
-          break;
-        }
-    }
-    if (verifyFunction(*bounded)) {
-      bounded->eraseFromParent();
-      continue;
-    }
-    simplify(*bounded, true);
-    SmallVector<BinaryOperator *, 8> positiveRemainders;
-    for (auto &block : *bounded)
-      for (auto &i : block)
-        if (i.getOpcode() == Instruction::SRem) {
-          auto *rem = cast<BinaryOperator>(&i);
-          SmallPtrSet<Value *, 32> path;
-          if (ordinaryNonnegative(rem->getOperand(0), path) &&
-              ordinaryNonnegative(rem->getOperand(1), path))
-            positiveRemainders.push_back(rem);
-        }
-    for (auto *rem : positiveRemainders) {
-      IRBuilder<> at(rem);
-      rem->replaceAllUsesWith(at.CreateURem(rem->getOperand(0), rem->getOperand(1)));
-      rem->eraseFromParent();
-    }
-    simplify(*bounded, true);
-    DominatorTree dom(*bounded);
-    LoopInfo inner(dom);
-    SmallVector<BinaryOperator *, 8> remainders;
-    for (auto &block : *bounded)
-      for (auto &i : block)
-        if (i.getOpcode() == Instruction::SRem || i.getOpcode() == Instruction::URem)
-          remainders.push_back(cast<BinaryOperator>(&i));
-    unsigned narrowed = 0;
-    for (auto *rem : remainders) {
-      SmallPtrSet<Value *, 32> path;
-      if (!ordinaryNonnegative(rem->getOperand(0), path) ||
-          !ordinaryNonnegative(rem->getOperand(1), path))
-        continue;
-      auto *loop = inner.getLoopFor(rem->getParent());
-      if (!loop)
-        continue;
-      PHINode *divisor = nullptr;
-      ConstantRange initial = ConstantRange::getFull(64);
-      for (auto &phi : loop->getHeader()->phis())
-        if (phi.getType()->isIntegerTy(64) && phi.getNumIncomingValues() == 2)
-          for (unsigned k = 0; k < 2; ++k)
-            if (phi.getIncomingValue(k) == rem && !loop->contains(phi.getIncomingBlock(1 - k))) {
-              Value *rhs = rem->getOperand(1);
-              bool same = rhs == &phi;
-              if (auto *select = dyn_cast<SelectInst>(rhs)) {
-                auto *cmp = dyn_cast<ICmpInst>(select->getCondition());
-                auto *oneValue = dyn_cast<ConstantInt>(select->getTrueValue());
-                if (cmp && cmp->getPredicate() == ICmpInst::ICMP_EQ && cmp->getOperand(0) == &phi &&
-                    select->getFalseValue() == &phi && oneValue && oneValue->isOne())
-                  if (auto *minusOne = dyn_cast<ConstantInt>(cmp->getOperand(1)))
-                    same = minusOne->isMinusOne();
-              }
-              if (same) {
-                divisor = &phi;
-                initial = computeConstantRangeIncludingKnownBits(
-                    WithCache<const Value *>(phi.getIncomingValue(1 - k)), false,
-                    SimplifyQuery(module.getDataLayout()));
-              }
-            }
-      if (!divisor || initial.isFullSet() || initial.isEmptySet() ||
-          initial.getUnsignedMax().getActiveBits() > 32)
-        continue;
-      // For the Euclidean pair (a,b) -> (b,a%b), b never grows. If both
-      // initial edges fit u32, neither recurrence can acquire high bits.
-      // Express that proof with narrow arithmetic rather than an identity
-      // mask that InstCombine may discard before narrowing the cyclic phis.
-      auto *dividend = dyn_cast<PHINode>(rem->getOperand(0));
-      bool boundedDividend = false;
-      if (dividend && dividend->getParent() == loop->getHeader() &&
-          dividend->getNumIncomingValues() == 2)
-        for (unsigned k = 0; k < 2; ++k)
-          if (loop->contains(dividend->getIncomingBlock(k)) &&
-              dividend->getIncomingValue(k) == divisor &&
-              !loop->contains(dividend->getIncomingBlock(1 - k))) {
-            auto a = computeConstantRangeIncludingKnownBits(
-                WithCache<const Value *>(dividend->getIncomingValue(1 - k)), false,
-                SimplifyQuery(module.getDataLayout()));
-            boundedDividend =
-                !a.isFullSet() && !a.isEmptySet() && a.getUnsignedMax().getActiveBits() <= 32;
+    auto makeBounded = [&](bool single) -> llvm::Function * {
+      ValueToValueMapTy map;
+      auto *bounded = CloneFunction(original, map);
+      bounded->setLinkage(GlobalValue::InternalLinkage);
+      bounded->setName(original->getName() + ".small-integer-candidate");
+      for (auto &arg : bounded->args())
+        bounded->addParamAttr(
+            arg.getArgNo(),
+            Attribute::get(module.getContext(), Attribute::Range,
+                           ConstantRange(APInt(64, arg.getArgNo() == count ? 1 : 0),
+                                         arg.getArgNo() == count
+                                             ? (single ? APInt(64, 2) : APInt::getSignMask(64))
+                                             : APInt(64, 65536))));
+      if (single)
+        bounded->getArg(count)->replaceAllUsesWith(ConstantInt::get(counter->getType(), 1));
+      simplify(*bounded, true);
+      {
+        DominatorTree peelDom(*bounded);
+        LoopInfo peelLoops(peelDom);
+        AssumptionCache ac(*bounded);
+        TargetLibraryInfoImpl impl(module.getTargetTriple());
+        TargetLibraryInfo tli(impl);
+        ScalarEvolution se(*bounded, tli, ac, peelDom, peelLoops);
+        for (auto *loop : peelLoops.getLoopsInPreorder())
+          if (loop->getSubLoops().empty() && canPeel(loop)) {
+            formLCSSARecursively(*loop, peelDom, &peelLoops, &se);
+            ValueToValueMapTy peeled;
+            peelLoop(loop, 1, false, &peelLoops, &se, peelDom, &ac, true, peeled);
+            break;
           }
-      if (boundedDividend) {
+      }
+      if (verifyFunction(*bounded)) {
+        bounded->eraseFromParent();
+        return nullptr;
+      }
+      simplify(*bounded, true);
+      SmallVector<BinaryOperator *, 8> positiveRemainders;
+      for (auto &block : *bounded)
+        for (auto &i : block)
+          if (i.getOpcode() == Instruction::SRem) {
+            auto *rem = cast<BinaryOperator>(&i);
+            SmallPtrSet<Value *, 32> path;
+            if (ordinaryNonnegative(rem->getOperand(0), path) &&
+                ordinaryNonnegative(rem->getOperand(1), path))
+              positiveRemainders.push_back(rem);
+          }
+      for (auto *rem : positiveRemainders) {
         IRBuilder<> at(rem);
-        auto *value = at.CreateURem(at.CreateTrunc(rem->getOperand(0), at.getInt32Ty()),
-                                    at.CreateTrunc(rem->getOperand(1), at.getInt32Ty()));
+        rem->replaceAllUsesWith(at.CreateURem(rem->getOperand(0), rem->getOperand(1)));
+        rem->eraseFromParent();
+      }
+      simplify(*bounded, true);
+      DominatorTree dom(*bounded);
+      LoopInfo inner(dom);
+      SmallVector<BinaryOperator *, 8> remainders;
+      for (auto &block : *bounded)
+        for (auto &i : block)
+          if (i.getOpcode() == Instruction::SRem || i.getOpcode() == Instruction::URem)
+            remainders.push_back(cast<BinaryOperator>(&i));
+      unsigned narrowed = 0;
+      for (auto *rem : remainders) {
+        SmallPtrSet<Value *, 32> path;
+        if (!ordinaryNonnegative(rem->getOperand(0), path) ||
+            !ordinaryNonnegative(rem->getOperand(1), path))
+          continue;
+        auto *loop = inner.getLoopFor(rem->getParent());
+        if (!loop)
+          continue;
+        PHINode *divisor = nullptr;
+        ConstantRange initial = ConstantRange::getFull(64);
+        for (auto &phi : loop->getHeader()->phis())
+          if (phi.getType()->isIntegerTy(64) && phi.getNumIncomingValues() == 2)
+            for (unsigned k = 0; k < 2; ++k)
+              if (phi.getIncomingValue(k) == rem && !loop->contains(phi.getIncomingBlock(1 - k))) {
+                Value *rhs = rem->getOperand(1);
+                bool same = rhs == &phi;
+                if (auto *select = dyn_cast<SelectInst>(rhs)) {
+                  auto *cmp = dyn_cast<ICmpInst>(select->getCondition());
+                  auto *oneValue = dyn_cast<ConstantInt>(select->getTrueValue());
+                  if (cmp && cmp->getPredicate() == ICmpInst::ICMP_EQ &&
+                      cmp->getOperand(0) == &phi && select->getFalseValue() == &phi && oneValue &&
+                      oneValue->isOne())
+                    if (auto *minusOne = dyn_cast<ConstantInt>(cmp->getOperand(1)))
+                      same = minusOne->isMinusOne();
+                }
+                if (same) {
+                  divisor = &phi;
+                  initial = computeConstantRangeIncludingKnownBits(
+                      WithCache<const Value *>(phi.getIncomingValue(1 - k)), false,
+                      SimplifyQuery(module.getDataLayout()));
+                }
+              }
+        if (!divisor || initial.isFullSet() || initial.isEmptySet() ||
+            initial.getUnsignedMax().getActiveBits() > 32)
+          continue;
+        // For the Euclidean pair (a,b) -> (b,a%b), b never grows. If both
+        // initial edges fit u32, neither recurrence can acquire high bits.
+        // Express that proof with narrow arithmetic rather than an identity
+        // mask that InstCombine may discard before narrowing the cyclic phis.
+        auto *dividend = dyn_cast<PHINode>(rem->getOperand(0));
+        bool boundedDividend = false;
+        if (dividend && dividend->getParent() == loop->getHeader() &&
+            dividend->getNumIncomingValues() == 2)
+          for (unsigned k = 0; k < 2; ++k)
+            if (loop->contains(dividend->getIncomingBlock(k)) &&
+                dividend->getIncomingValue(k) == divisor &&
+                !loop->contains(dividend->getIncomingBlock(1 - k))) {
+              auto a = computeConstantRangeIncludingKnownBits(
+                  WithCache<const Value *>(dividend->getIncomingValue(1 - k)), false,
+                  SimplifyQuery(module.getDataLayout()));
+              boundedDividend =
+                  !a.isFullSet() && !a.isEmptySet() && a.getUnsignedMax().getActiveBits() <= 32;
+            }
+        if (boundedDividend) {
+          IRBuilder<> at(rem);
+          auto *value = at.CreateURem(at.CreateTrunc(rem->getOperand(0), at.getInt32Ty()),
+                                      at.CreateTrunc(rem->getOperand(1), at.getInt32Ty()));
+          const unsigned bits = std::max(1u, initial.getUnsignedMax().getActiveBits());
+          value = at.CreateAnd(value,
+                               ConstantInt::get(at.getInt32Ty(), APInt::getLowBitsSet(32, bits)));
+          rem->replaceAllUsesWith(at.CreateZExt(value, rem->getType()));
+          rem->eraseFromParent();
+          ++narrowed;
+          continue;
+        }
         const unsigned bits = std::max(1u, initial.getUnsignedMax().getActiveBits());
-        value =
-            at.CreateAnd(value, ConstantInt::get(at.getInt32Ty(), APInt::getLowBitsSet(32, bits)));
-        rem->replaceAllUsesWith(at.CreateZExt(value, rem->getType()));
+        IRBuilder<> b(&*loop->getHeader()->getFirstInsertionPt());
+        auto *bounded = cast<Instruction>(b.CreateAnd(
+            divisor, ConstantInt::get(divisor->getType(), APInt::getLowBitsSet(64, bits)),
+            "ordinary.euclid.bound"));
+        // For nonnegative a,b, remainder(a,b) is in [0,b). This recurrence
+        // never exceeds its initial bound; clearing high bits is an identity.
+        divisor->replaceAllUsesWith(bounded);
+        bounded->setOperand(0, divisor);
+        IRBuilder<> at(rem);
+        auto *positive = at.CreateURem(rem->getOperand(0), rem->getOperand(1));
+        rem->replaceAllUsesWith(positive);
         rem->eraseFromParent();
         ++narrowed;
-        continue;
       }
-      const unsigned bits = std::max(1u, initial.getUnsignedMax().getActiveBits());
-      IRBuilder<> b(&*loop->getHeader()->getFirstInsertionPt());
-      auto *bounded = cast<Instruction>(
-          b.CreateAnd(divisor, ConstantInt::get(divisor->getType(), APInt::getLowBitsSet(64, bits)),
-                      "ordinary.euclid.bound"));
-      // For nonnegative a,b, remainder(a,b) is in [0,b). This recurrence
-      // never exceeds its initial bound; clearing high bits is an identity.
-      divisor->replaceAllUsesWith(bounded);
-      bounded->setOperand(0, divisor);
-      IRBuilder<> at(rem);
-      auto *positive = at.CreateURem(rem->getOperand(0), rem->getOperand(1));
-      rem->replaceAllUsesWith(positive);
-      rem->eraseFromParent();
-      ++narrowed;
-    }
-    if (!narrowed || bounded->getInstructionCount() > 256) {
-      bounded->eraseFromParent();
+      if (!narrowed || bounded->getInstructionCount() > 256) {
+        bounded->eraseFromParent();
+        return nullptr;
+      }
+      simplify(*bounded, true);
+      if (verifyFunction(*bounded) || nativeStackBudgetError(*bounded, module.getDataLayout())) {
+        bounded->eraseFromParent();
+        return nullptr;
+      }
+      return bounded;
+    };
+    auto *bounded = makeBounded(false);
+    if (!bounded)
       continue;
-    }
-    simplify(*bounded, true);
-    if (verifyFunction(*bounded) || nativeStackBudgetError(*bounded, module.getDataLayout())) {
-      bounded->eraseFromParent();
-      continue;
-    }
     const bool stable = accelerateOrdinaryStableLoop(*bounded);
     if (stable)
       simplify(*bounded, true);
+    auto *single = stable ? makeBounded(true) : nullptr;
     ValueToValueMapTy zeroMap;
     auto *zero = CloneFunction(original, zeroMap);
     zero->setLinkage(GlobalValue::InternalLinkage);
@@ -251,6 +262,8 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     if (!pure || zero->getInstructionCount() > 24) {
       zero->eraseFromParent();
       bounded->eraseFromParent();
+      if (single)
+        single->eraseFromParent();
       continue;
     }
     auto &ctx = module.getContext();
@@ -275,6 +288,8 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
       wrapper->eraseFromParent();
       zero->eraseFromParent();
       bounded->eraseFromParent();
+      if (single)
+        single->eraseFromParent();
       continue;
     }
     zero->eraseFromParent();
@@ -286,16 +301,35 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     // dispatch branch costs as much as the arithmetic in very short entries.
     b.CreateCondBr(b.CreateICmpEQ(invalid, b.getInt64(0)), fast, wide,
                    MDBuilder(ctx).createBranchWeights(2, 1));
-    b.SetInsertPoint(fast);
-    auto *oneCall = b.CreateCall(bounded, args);
-    b.CreateRet(oneCall);
-    InlineFunctionInfo boundedInfo;
-    if (!InlineFunction(*oneCall, boundedInfo).isSuccess()) {
+    auto inlineBounded = [&](BasicBlock *block, llvm::Function *target) {
+      b.SetInsertPoint(block);
+      auto *call = b.CreateCall(target, args);
+      b.CreateRet(call);
+      InlineFunctionInfo info;
+      return InlineFunction(*call, info).isSuccess();
+    };
+    bool inlined;
+    if (single) {
+      // Prove the exact count before generalizing the loop's state ranges.
+      // Otherwise the first iteration inherits unnecessarily wide operands.
+      auto *once = BasicBlock::Create(ctx, "ordinary.integer.single", wrapper);
+      auto *many = BasicBlock::Create(ctx, "ordinary.integer.many", wrapper);
+      b.SetInsertPoint(fast);
+      b.CreateCondBr(b.CreateICmpEQ(wrapper->getArg(count), b.getInt64(1)), once, many);
+      inlined = inlineBounded(once, single) && inlineBounded(many, bounded);
+    } else
+      inlined = inlineBounded(fast, bounded);
+    if (!inlined) {
       wrapper->eraseFromParent();
       bounded->eraseFromParent();
+      if (single)
+        single->eraseFromParent();
       continue;
     }
+    const bool hasSingle = single != nullptr;
     bounded->eraseFromParent();
+    if (single)
+      single->eraseFromParent();
     b.SetInsertPoint(wide);
     auto *tail = b.CreateCall(original, args);
     tail->setCallingConv(original->getCallingConv());
@@ -315,6 +349,8 @@ specializeOrdinaryIntegerCases(llvm::Module &module,
     wrapper->addFnAttr("kalandra.ordinary.integer-cases");
     if (stable)
       wrapper->addFnAttr("kalandra.ordinary.stable-countdown");
+    if (hasSingle)
+      wrapper->addFnAttr("kalandra.ordinary.integer-single-case");
     changed = true;
   }
   return changed;

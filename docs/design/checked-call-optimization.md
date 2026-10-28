@@ -550,7 +550,10 @@ allocation-failure policy and unrestricted-input replay remain available.
 `OrdinaryIntegerCases.h` guards a private clone with nonnegative 16-bit data
 arguments and a positive signed iteration count. The count can extend through
 `INT64_MAX`; the data guard is not an iteration limit. Zero, negative counts and
-out-of-domain data retain their original implementations. Signed remainder is
+out-of-domain data retain their original behavior. An exact one-round clone is
+proven separately before widening loop-carried state ranges; specializing the
+already-widened recurrence loses useful first-iteration width information.
+Signed remainder is
 converted to unsigned arithmetic only after proving both operands nonnegative.
 For a Euclidean recurrence `(a, b) -> (b, a % b)`, a proven 32-bit initial pair
 remains 32-bit: the new dividend is the previous divisor, and the remainder is

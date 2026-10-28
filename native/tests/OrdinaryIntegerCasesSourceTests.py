@@ -21,7 +21,8 @@ for mode,extra,flags,library in variants:
    source.write_text(f'fn gcd(a:int64,b:int64)->int64:\n  if b == 0:\n    a\n  else:\n    gcd(b,a % b)\nfn iterate(x:int64,seed:int64,rounds:int64)->{language}:\n  if rounds == 0:\n    {language}(x)\n  else:\n    iterate(gcd(x*{ac}+{ao},seed*{bc}+{bo})+seed,seed,rounds-1)\nfn value(seed:int64,rounds:int64)->{language}:\n  iterate(seed,seed,rounds)\nfn main()->{language}:\n  {language}(0)\n')
    run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
    if mode=='optimized' and fixture in ('positive','other-positive'):assert 'kalandra.ordinary.integer-cases' in ir.read_text(),name
-   if fixture=='positive':assert 'kalandra.ordinary.stable-countdown' in ir.read_text(),name
+   if fixture=='positive':
+    for marker in ('kalandra.ordinary.stable-countdown','kalandra.ordinary.integer-single-case'):assert marker in ir.read_text(),(name,marker)
    if mode=='optimized' and fixture=='negative-divisor':assert 'kalandra.ordinary.integer-cases' not in ir.read_text(),name
    text=r'''
 #include "RUNTIME"
