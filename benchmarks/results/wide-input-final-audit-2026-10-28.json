@@ -1,0 +1,26 @@
+[
+  {
+    "path": "benchmarks/results/wide-input-final-2026-10-28.json",
+    "sha256": "dde3a12beada9874554eb485778f640564816d819aecb20ad69d2776f7664e4b",
+    "verified": true,
+    "artifacts_verified": true,
+    "samples": 8350,
+    "processes": 486
+  },
+  {
+    "path": "benchmarks/results/wide-input-final-repeat-2026-10-28.json",
+    "sha256": "2d4dee04e488e7af6b8bb670eb548885ecb869e34c57e91468e5d89ac013d951",
+    "verified": true,
+    "artifacts_verified": true,
+    "samples": 8280,
+    "processes": 486
+  },
+  {
+    "path": "benchmarks/results/wide-input-final-paired-2026-10-28.json",
+    "sha256": "9bfcf47e58c258f8701620ff5d71b96bb2df13216d14e0d2a69d2b3fefd39e4e",
+    "verified": true,
+    "artifacts_verified": true,
+    "samples": 12040,
+    "processes": 1944
+  }
+]

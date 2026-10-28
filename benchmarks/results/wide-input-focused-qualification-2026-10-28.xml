@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Darwin-clang++"
+	tests="3"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname="alucard.home"
+	time="65"
+	timestamp="2026-10-28T14:35:53"
+	>
+	<testcase name="native-ordinary-entry" classname="native-ordinary-entry" time="0.0453392" status="run">
+		<properties/>
+		<system-out>10 ordinary-entry proof/fault/effect/ABI cases, generic loop-free base version, 9 IEEE/countdown cases, 19 exact floating proof cases and 262144 exhaustive values, 19 deferred reduction cases, 3 guarded-input cases, pool budgets, Win64 scalar ABI, buffer tail/settlement proofs and idempotence passed
+</system-out>
+	</testcase>
+	<testcase name="native-ordinary-integer-cases" classname="native-ordinary-integer-cases" time="65.4644" status="run">
+		<properties/>
+		<system-out>debug-float32-positive 196803 integer-domain/IEEE/first-fault cases passed
+debug-float32-other-positive 196803 integer-domain/IEEE/first-fault cases passed
+debug-float32-cycle 196803 integer-domain/IEEE/first-fault cases passed
+debug-float32-u32-divisor 196803 integer-domain/IEEE/first-fault cases passed
+debug-float32-wide-divisor 196803 integer-domain/IEEE/first-fault cases passed
+debug-float32-zero-divisor 196803 integer-domain/IEEE/first-fault cases passed
+debug-float32-negative-divisor 196803 integer-domain/IEEE/first-fault cases passed
+debug-float32-overflowing-divisor 196803 integer-domain/IEEE/first-fault cases passed
+debug-float64-positive 196803 integer-domain/IEEE/first-fault cases passed
+debug-float64-other-positive 196803 integer-domain/IEEE/first-fault cases passed
+debug-float64-cycle 196803 integer-domain/IEEE/first-fault cases passed
+debug-float64-u32-divisor 196803 integer-domain/IEEE/first-fault cases passed
+debug-float64-wide-divisor 196803 integer-domain/IEEE/first-fault cases passed
+debug-...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="native-ordinary-scalar-exact" classname="native-ordinary-scalar-exact" time="42.6421" status="run">
+		<properties/>
+		<system-out>debug-float32-finite 196768 strict recurrence/countdown/fault cases passed
+debug-float32-scaled 196768 strict recurrence/countdown/fault cases passed
+debug-float32-affine 196768 strict recurrence/countdown/fault cases passed
+debug-float32-faulting 160 strict recurrence/countdown/fault cases passed
+debug-float32-external 192 strict recurrence/countdown/fault cases passed
+debug-float32-zero 192 strict recurrence/countdown/fault cases passed
+debug-float64-finite 196768 strict recurrence/countdown/fault cases passed
+debug-float64-scaled 196768 strict recurrence/countdown/fault cases passed
+debug-float64-affine 196768 strict recurrence/countdown/fault cases passed
+debug-float64-faulting 160 strict recurrence/countdown/fault cases passed
+debug-float64-external 192 strict recurrence/countdown/fault cases passed
+debug-float64-zero 192 strict recurrence/countdown/fault cases passed
+optimized-float32-finite 196768 strict recurrence/countdown/fault cases passed
+optimized-float32-scaled 196768 strict recurrence/countdown...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+</testsuite>

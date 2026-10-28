@@ -1,0 +1,11 @@
+[
+  {
+    "path": "benchmarks/results/wide-input-final-small-controls-2026-10-28.json",
+    "sha256": "6b4d585ad7f0f94c3162969b1422f9b4211cdc8b1465ed0d28756ee31049743b",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 405,
+    "samples": 6751,
+    "measured_processes": 324
+  }
+]

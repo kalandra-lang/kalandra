@@ -1,0 +1,9 @@
+Test project /Users/pouya/Projects/kalandra.dev/build/native
+    Start  14: native-ordinary-entry
+1/2 Test  #14: native-ordinary-entry ............   Passed    0.24 sec
+    Start 894: native-ordinary-reductions
+2/2 Test #894: native-ordinary-reductions .......   Passed   69.59 sec
+
+100% tests passed out of 2
+
+Total Test time (real) =  69.85 sec
