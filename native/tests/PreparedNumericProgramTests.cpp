@@ -45,10 +45,13 @@ static std::vector<std::uint32_t> download(m::Runtime &r, TaskCore &c, GroupHand
   std::memcpy(result.data(), bytes->data(), bytes->size());
   return result;
 }
-static void test(const char *path, std::uint64_t budget, bool full) {
+static void test(const char *path, std::uint64_t budget, bool full, bool preencoded,
+                 unsigned rows = 3, unsigned width = 7) {
   m::Options options;
   options.maxBytes = budget;
   options.profile = true;
+  options.preencodedProgression = preencoded;
+  options.retainedProgressionReferences = false;
   auto made = m::Runtime::create(options);
   CHECK(made);
   auto &r = **made;
@@ -56,7 +59,7 @@ static void test(const char *path, std::uint64_t budget, bool full) {
     Program prepared(r, path);
     LegacyProgram legacy(r, path);
     CHECK(prepared.executable.on(*r.device()));
-    transformer::Inputs data(3, 7, 1);
+    transformer::Inputs data(rows, width, 1);
     std::array<m::Buffer, 7> input;
     for (unsigned i = 0; i < 7; ++i) {
       auto core = TaskCore::create();
@@ -73,7 +76,8 @@ static void test(const char *path, std::uint64_t budget, bool full) {
     auto clean = [&] {
       auto s = r.stats();
       CHECK(s.bytes == baseline.bytes && !s.inFlight && !s.stagingBuffers &&
-            s.argumentBytes == baseline.argumentBytes && s.argumentPacks == baseline.argumentPacks);
+            s.argumentBytes == baseline.argumentBytes &&
+            s.argumentPacks == baseline.argumentPacks && !r.progressionCommandReservations());
     };
     auto run = [&](auto &program, float epsilon, float scale) {
       auto c = TaskCore::create();
@@ -101,7 +105,7 @@ static void test(const char *path, std::uint64_t budget, bool full) {
     CHECK(after.dispatches - before.dispatches == (full ? 14 : 16));
     CHECK(commands >= 4 && commands <= 16);
     if (full)
-      CHECK(commands == 4);
+      CHECK(commands == (rows == 3 ? 4 : 7));
     else if (budget <= 65536)
       CHECK(commands == 16);
     // Shared immutable code, separate values/captures/parameter storage.
@@ -214,6 +218,52 @@ static void test(const char *path, std::uint64_t budget, bool full) {
         retire(*verify, vg);
         clean();
       }
+      // Prepared same-cell chains also preserve higher-rank tensor metadata,
+      // private-backing reuse, and immutable original inputs.
+      for (unsigned stages : {5u, 513u})
+        for (const auto &shape :
+             std::vector<std::vector<std::int64_t>>{{24}, {2, 3, 4}, {1, 2, 1, 3, 1, 1, 1, 4}}) {
+          {
+            std::vector<float> cells(24);
+            std::vector<std::uint32_t> original(24), expected(24);
+            for (unsigned i = 0; i < cells.size(); ++i) {
+              cells[i] = float(int(i) - 12);
+              original[i] = std::bit_cast<std::uint32_t>(cells[i]);
+              float value = cells[i];
+              for (unsigned stage = 0; stage < stages; ++stage)
+                value = value + value;
+              expected[i] = std::bit_cast<std::uint32_t>(value);
+            }
+            auto c = TaskCore::create();
+            auto g = c->openRoot();
+            auto h = r.hostTensor(std::as_bytes(std::span(cells)), shape, m::Format::Float32);
+            CHECK(h);
+            auto upload = r.upload(*c, g, *h, *r.device());
+            CHECK(upload && c->drain());
+            auto source = observe(*c, upload);
+            std::vector<std::array<std::uint32_t, 2>> operands(stages);
+            std::vector<m::NumericInstruction> code(stages);
+            for (unsigned i = 0; i < code.size(); ++i) {
+              operands[i] = {i, i};
+              code[i] = {K::Map, *add, operands[i], {}, i + 1, 1};
+            }
+            auto plan = r.prepareNumericProgram(1, code, stages, f32, false);
+            CHECK(plan);
+            auto before = r.stats();
+            auto task = r.executeNumericProgram(*c, g, *plan, std::array{source});
+            CHECK(task && c->drain() && c->failure(task).kind == TaskFailure::None);
+            auto after = r.stats();
+            CHECK(after.submissions - before.submissions == (stages + 3) / 4 &&
+                  after.dispatches - before.dispatches == stages);
+            auto result = observe(*c, task);
+            CHECK(std::equal(result.shape().begin(), result.shape().end(), shape.begin(),
+                             shape.end()));
+            CHECK(download(r, *c, g, result) == expected);
+            CHECK(download(r, *c, g, source) == original);
+            retire(*c, g);
+          }
+          clean();
+        }
     }
     // Fused projections retain the staged bit patterns, including odd reductions,
     // cancellation-sensitive values, signed zeros, subnormals, infinities and NaNs.
@@ -358,31 +408,21 @@ static void test(const char *path, std::uint64_t budget, bool full) {
         auto c = TaskCore::create();
         auto g = c->openRoot();
         auto start = r.stats().submissions;
-        r.holdCompletions(true);
+        r.holdCompletionAt(start + boundary + 1);
         auto t = prepared.launch(r, *c, g, input, transformer::epsilon, data.scale);
-        for (unsigned i = 0; i < boundary; ++i) {
-          until(*c, [&] {
-            return r.stats().submissions == start + i + 1 && c->stats().externalPending == 1;
-          });
-          r.holdCompletions(false);
-          auto end = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-          while (r.stats().completions < start + i + 1) {
-            CHECK(std::chrono::steady_clock::now() < end);
-            std::this_thread::yield();
-          }
-          r.holdCompletions(true);
-        }
         until(*c, [&] {
           return r.stats().submissions == start + boundary + 1 && c->stats().externalPending == 1;
         });
         auto held = r.stats();
-        CHECK(held.inFlight == 1 && held.stagingBuffers == 4 && held.bytes > baseline.bytes);
+        CHECK(held.inFlight == 1 && held.stagingBuffers == (preencoded ? 16 : 4) &&
+              held.bytes > baseline.bytes);
+        CHECK(r.progressionCommandReservations() == (preencoded ? 15 : 0));
         if (scenario < 2)
           CHECK(c->cancel(g, scenario == 1));
         else
           r.failNextCompletion();
         CHECK(r.stats().bytes == held.bytes && c->stats().externalPending == 1);
-        r.holdCompletions(false);
+        r.holdCompletionAt(0);
         CHECK(c->drain());
         CHECK(c->failure(t).kind == (scenario < 2 ? TaskFailure::Cancelled : TaskFailure::Fault));
         if (scenario == 1)
@@ -420,9 +460,10 @@ static void test(const char *path, std::uint64_t budget, bool full) {
       retire(*c, g);
       clean();
     }
-    std::printf("prepared: %llu allocation checkpoints, %llu commands/14 dispatches, 12 held "
+    std::printf("prepared: %llu allocation checkpoints, %llu commands/14 dispatches, %llu held "
                 "failure boundaries, changing captures and 8 concurrent calls passed\n",
-                (unsigned long long)attempts, (unsigned long long)commands);
+                (unsigned long long)attempts, (unsigned long long)commands,
+                (unsigned long long)(commands * 3));
   }
   auto s = r.stats();
   CHECK(!s.bytes && !s.argumentBytes && !s.argumentPacks && !s.metalBuffers && !s.hostBackings &&
@@ -430,7 +471,9 @@ static void test(const char *path, std::uint64_t budget, bool full) {
 }
 int main(int argc, char **argv) {
   CHECK(argc == 2);
-  test(argv[1], UINT64_C(512) * 1024 * 1024, true);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, false);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, true);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 64, 512);
   for (auto budget : {16384u, 32768u, 65536u})
-    test(argv[1], budget, false);
+    test(argv[1], budget, false, true);
 }

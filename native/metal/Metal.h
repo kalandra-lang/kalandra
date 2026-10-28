@@ -83,6 +83,9 @@ constexpr std::optional<Format> storageFormat(NumericType element) {
 }
 struct Options {
   bool profile = false;
+  // Pre-encode bounded pure chunks; completion callbacks submit the next chunk.
+  bool preencodedProgression = true;
+  bool retainedProgressionReferences = false;
   std::uint64_t maxBytes = 64 * 1024 * 1024;
   std::uint32_t maxInFlight = 64, defaultDevice = 0;
   std::uint64_t maxArgumentBytes = 1024 * 1024;
@@ -389,6 +392,8 @@ public:
   void failAllocationAt(std::uint64_t attempt) noexcept;
   void failNextCompletion() noexcept;
   void holdCompletions(bool hold) noexcept;
+  void holdCompletionAt(std::uint64_t submission) noexcept;
+  std::uint64_t progressionCommandReservations() const noexcept;
 
 private:
   std::shared_ptr<State> state_;

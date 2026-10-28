@@ -44,7 +44,7 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None,exp
             if fault:
                 assert ran.returncode!=0 and ran.stdout=='' and f'Metal task failed: 1/{fault_code}' in ran.stderr,(path,ran)
             else:
-                assert ran.returncode==0 and ran.stdout==output and all(line.endswith('Metal API Validation Enabled') for line in ran.stderr.splitlines()),(path,ran,output)
+                assert ran.returncode==0 and ran.stdout==output and all(line.endswith(('Metal API Validation Enabled','Metal GPU Validation Enabled')) for line in ran.stderr.splitlines()),(path,ran,output)
     programs+=1
 
 for name,width in (('int8',8),('uint8',8),('int16',16),('uint16',16),('int32',32),('uint32',32),('int64',64),('uint64',64),('float32',32),('float64',64)):

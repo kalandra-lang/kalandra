@@ -111,6 +111,7 @@ void clean(TaskCore &core, GroupHandle group) {
         !stats.externalPending);
 }
 int main() {
+  CHECK(ExternalCompletion{}.cancelled());
   for (unsigned workers : {1u, 2u, 4u}) {
     TaskLimits limits;
     limits.workers = workers;
@@ -133,7 +134,9 @@ int main() {
       int value = 0;
       CHECK(core->observe(plain, layout, context, &value) && value == 9);
       auto completion = token(s);
+      CHECK(!completion.cancelled());
       CHECK(completion.signal());
+      CHECK(completion.cancelled());
       CHECK(!completion.signal());
       CHECK(core->drain());
       CHECK(core->observe(task, layout, context, &value) && value == 42);
@@ -147,7 +150,9 @@ int main() {
       auto group = core->openRoot();
       auto task = submit(*core, group, s);
       CHECK(core->step());
+      CHECK(!token(s).cancelled());
       CHECK(core->cancel(group, deadline));
+      CHECK(token(s).cancelled());
       CHECK(!core->drain(0));
       CHECK(!core->settled(task) && s.destroyed == 0);
       auto completion = token(s);
@@ -210,6 +215,8 @@ int main() {
         CHECK(first.signal());
         CHECK(core->step());
         CHECK(!first.signal());
+        CHECK(first.cancelled());
+        CHECK(!token(s).cancelled());
         CHECK(token(s).signal());
         CHECK(core->drain());
       }

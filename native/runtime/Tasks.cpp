@@ -1118,6 +1118,15 @@ bool Task::cancelled() const noexcept {
 ExternalCompletion::ExternalCompletion(const std::shared_ptr<TaskCore::Impl> &core,
                                        TaskHandle handle, std::uint64_t epoch) noexcept
     : core_(core), handle_(handle), epoch_(epoch) {}
+bool ExternalCompletion::cancelled() const noexcept {
+  auto core = core_.lock();
+  if (!core)
+    return true;
+  TaskCore::Impl::Guard guard(*core);
+  auto *record = core->get(handle_);
+  return !record || !record->externalPending || record->externalEpoch != epoch_ ||
+         record->cancel.load(std::memory_order_acquire);
+}
 bool ExternalCompletion::signal() const noexcept {
   auto core = core_.lock();
   if (!core)

@@ -28,3 +28,6 @@ benchmarks/results/*.svg -whitespace linguist-generated=true
 
 benchmarks/results/gpu-prepared-execution-2026-10-28.json linguist-generated=true
 benchmarks/results/gpu-fusion-execution-2026-10-28.json linguist-generated=true
+benchmarks/results/gpu-progression-execution-2026-10-28.json linguist-generated=true
+# Historical benchmark-only prototype; preserve patch context whitespace.
+native/benchmarks/fair/event_progression.patch -whitespace linguist-generated=true

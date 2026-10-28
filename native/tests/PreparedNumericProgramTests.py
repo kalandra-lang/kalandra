@@ -57,6 +57,11 @@ for name,flags,task in variants:
     result=run([binary,bundle]);print(name+': '+result.strip(),flush=True);records.append(dict(mode=name,result=result))
     checked=out/('checked-'+name)
     flag={'optimized':'-O2','debug':'-O0','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[name]
+    # Run the actual compiler-generated source entry through its Task overload,
+    # in addition to the per-cell production-API drivers above.
+    model_bundle=bundle if name=='optimized' else out/('source-model-'+name)
+    if name!='optimized':run([compiler,source,'--target','metal','--arithmetic','hardware',flag,'-o',model_bundle])
+    run([model_bundle/'program'])
     run([compiler,unsafe,'--target','metal','--arithmetic','hardware',flag,'-o',checked])
     generated=(checked/'host.cpp').read_text()
     assert len(__import__('re').findall(r'NumericInstructionKind::Map,[^}]*,0u\}',generated))>=3

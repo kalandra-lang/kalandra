@@ -121,6 +121,9 @@ class ExternalCompletion final {
 public:
   ExternalCompletion() = default;
   bool signal() const noexcept;
+  // Read-only cancellation probe for a still-leased external operation.
+  // An expired or stale capability is stopped as well.
+  bool cancelled() const noexcept;
   explicit operator bool() const noexcept { return bool(handle_); }
 
 private:

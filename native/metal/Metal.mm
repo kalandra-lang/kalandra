@@ -34,10 +34,12 @@ struct State {
       completions{0};
   std::atomic<std::uint64_t> argumentBytes{0}, peakArgumentBytes{0}, argumentPacks{0};
   std::atomic<std::uint64_t> attempts{0}, failAt{0};
+  std::atomic<std::uint64_t> progressionCommandCredits{0};
   std::atomic<bool> failCompletion{false};
   std::mutex gateMutex;
   std::condition_variable gate;
   bool hold = false;
+  std::uint64_t holdSubmission = 0;
   bool permit() noexcept {
     auto n = ++attempts;
     return !failAt || n != failAt;
@@ -922,6 +924,27 @@ struct Bridge {
     std::array<std::shared_ptr<MetalAllocation>, 32> counts{};
     std::shared_ptr<MetalAllocation> seed, postOutput, postParameters;
   };
+  struct Progression {
+    struct Owner {
+      std::shared_ptr<MetalAllocation> parameters, resources, scratch;
+      std::uint64_t flagWord;
+    };
+    struct Checkpoint {
+      id<MTLCommandBuffer> command = nil;
+      std::size_t parameters;
+    };
+    std::shared_ptr<State> state;
+    std::vector<Owner> owners;
+    std::vector<Checkpoint> checkpoints;
+    std::uint64_t reserved = 0, commandCredits = 0;
+    ~Progression() {
+      // Return pool reservations only after dropping unsubmitted commands.
+      checkpoints.clear();
+      state->progressionCommandCredits -= commandCredits;
+      state->argumentBytes -= reserved;
+      --state->argumentPacks;
+    }
+  };
   struct Frame {
     PacketData packet;
     Buffer result;
@@ -948,6 +971,8 @@ struct Bridge {
     std::array<std::shared_ptr<MetalAllocation>, 4> numericParameters{}, numericResources{},
         numericScratch{};
     std::array<std::uint64_t, 4> numericFlagWords{};
+    std::unique_ptr<Progression> progression;
+    bool progressionTried = false;
     unsigned numericBatched = 0;
     std::uint64_t numericWork = 0;
     bool numericEligible = false, numericAcknowledging = false;
@@ -1575,6 +1600,36 @@ struct Bridge {
         return result;
     return {};
   }
+  static void retainProgressionChunk(Frame &f) {
+    auto &p = *f.progression;
+    for (unsigned i = 0; i < f.numericBatched; ++i)
+      p.owners.push_back({std::move(f.numericParameters[i]), std::move(f.numericResources[i]),
+                          std::move(f.numericScratch[i]), f.numericFlagWords[i]});
+    f.numericBatched = 0;
+    f.numericWork = 0;
+  }
+  static void checkpointProgression(Frame &f) {
+    retainProgressionChunk(f);
+    auto &p = *f.progression;
+    p.checkpoints.push_back({f.pendingCommand, p.owners.size()});
+    f.pendingCommand = nil;
+  }
+  static bool progressionFault(const Progression &p, std::size_t end) {
+    for (std::size_t i = 0; i < end; ++i)
+      if (static_cast<const std::uint32_t *>(
+              p.owners[i].parameters->buffer.contents)[p.owners[i].flagWord] != UINT32_MAX)
+        return true;
+    return false;
+  }
+  static id<MTLCommandBuffer> numericCommandBuffer(Frame &f, std::uint32_t index) {
+    auto queue = f.packet.state->queues[index];
+    // Every pipeline and tensor lives in the immutable plan / leased value
+    // table; the retained owners cover parameter, indirect and scratch buffers.
+    // This proof applies only to a preflight-admitted prepared chain.
+    return f.progression && !f.packet.state->options.retainedProgressionReferences
+               ? [queue commandBufferWithUnretainedReferences]
+               : [queue commandBuffer];
+  }
   static id<MTLCommandBuffer> tensorTransformCommand(Frame &f) {
     const auto &kernel = *f.packet.kernel.state_;
     const auto &source = f.packet.input.storage_;
@@ -1640,7 +1695,7 @@ struct Bridge {
     f.error = Error::Allocation;
     auto command = f.pendingCommand;
     if (!command)
-      command = state->permit() ? [state->queues[kernel.index] commandBuffer] : nil;
+      command = state->permit() ? numericCommandBuffer(f, kernel.index) : nil;
     auto encoder = command && state->permit() ? [command computeCommandEncoder] : nil;
     if (!encoder)
       return nil;
@@ -1671,6 +1726,7 @@ struct Bridge {
     auto completion = task.suspendExternal();
     if (!completion)
       return;
+    const auto ordinal = ++state->submissions;
     auto *frame = &f;
     [command addCompletedHandler:^(id<MTLCommandBuffer> finished) {
 #if __has_feature(thread_sanitizer)
@@ -1683,7 +1739,10 @@ struct Bridge {
         // The external lease pins frame. Never access it after signal().
         {
           std::unique_lock lock(frame->packet.state->gateMutex);
-          frame->packet.state->gate.wait(lock, [&] { return !frame->packet.state->hold; });
+          frame->packet.state->gate.wait(lock, [&] {
+            return !frame->packet.state->hold && (!frame->packet.state->holdSubmission ||
+                                                  frame->packet.state->holdSubmission != ordinal);
+          });
         }
         if (frame->packet.state->options.profile && finished.GPUEndTime >= finished.GPUStartTime)
           frame->packet.state->gpuNanoseconds +=
@@ -1696,7 +1755,49 @@ struct Bridge {
         completion.signal();
       }
     }];
-    ++state->submissions;
+#if __has_feature(thread_sanitizer)
+    __tsan_release((__bridge void *)command);
+#endif
+    [command commit];
+  }
+  static void submitProgression(Frame &f, ExternalCompletion completion, std::size_t index) {
+    auto *frame = &f;
+    auto command = f.progression->checkpoints[index].command;
+    const auto ordinal = ++f.packet.state->submissions;
+    [command addCompletedHandler:^(id<MTLCommandBuffer> finished) {
+#if __has_feature(thread_sanitizer)
+      __tsan_acquire((__bridge void *)finished);
+#endif
+      @autoreleasepool {
+        {
+          auto state = frame->packet.state;
+          std::unique_lock lock(state->gateMutex);
+          state->gate.wait(lock, [&] {
+            return !state->hold && (!state->holdSubmission || state->holdSubmission != ordinal);
+          });
+        }
+        auto state = frame->packet.state;
+        if (state->options.profile && finished.GPUEndTime >= finished.GPUStartTime)
+          state->gpuNanoseconds +=
+              std::uint64_t((finished.GPUEndTime - finished.GPUStartTime) * 1e9);
+        const auto succeeded = finished.status == MTLCommandBufferStatusCompleted &&
+                               !state->failCompletion.exchange(false);
+        ++state->completions;
+        auto &p = *frame->progression;
+        if (succeeded && index + 1 < p.checkpoints.size() && !completion.cancelled() &&
+            !progressionFault(p, p.checkpoints[index].parameters)) {
+          // The next command is already encoded. No source or task frame code
+          // executes on this callback. Keep the same external lease across the
+          // chain, and never access frame after handing off to the next command.
+          submitProgression(*frame, completion, index + 1);
+          return;
+        }
+        frame->succeeded = succeeded;
+        frame->active = false;
+        --state->inFlight;
+        completion.signal(); // Every submitted access ended; unsubmitted chunks are inert.
+      }
+    }];
 #if __has_feature(thread_sanitizer)
     __tsan_release((__bridge void *)command);
 #endif
@@ -1704,10 +1805,21 @@ struct Bridge {
   }
   static void flushNumeric(Task &task, Frame &f) {
     f.numericAcknowledging = true;
-    submitCommand(task, f, f.pendingCommand);
+    if (f.progression) {
+      if (f.pendingCommand)
+        checkpointProgression(f);
+      f.started = true;
+      f.error = Error::Device;
+      auto completion = task.suspendExternal();
+      if (completion)
+        submitProgression(f, completion, 0);
+    } else
+      submitCommand(task, f, f.pendingCommand);
   }
   static void fail(Task &task, Frame &f, std::int64_t error) {
-    if (f.numericBatched && !f.numericAcknowledging) {
+    if ((f.numericBatched ||
+         (f.progression && (f.pendingCommand || !f.progression->checkpoints.empty()))) &&
+        !f.numericAcknowledging) {
       f.numericDeferredError = error;
       flushNumeric(task, f);
     } else
@@ -1871,6 +1983,187 @@ struct Bridge {
            parameters <= (maximum - used - output * 3) / 3 &&
            maximum - used - output * 3 - parameters * 3 >= 64 * 1024;
   }
+  static std::expected<void, Error> prepareProgression(Task &task, Frame &f) {
+    f.progressionTried = true;
+    auto &program = *f.packet.numericProgram;
+    auto state = program.state;
+    using K = NumericInstructionKind;
+    if (!state->options.preencodedProgression || !program.definition || program.scalar ||
+        program.element != NumericType::Float32 || program.code.size() < 5)
+      return {};
+    std::size_t computes = 0;
+    for (const auto &op : program.code) {
+      if (task.cancelled())
+        return {};
+      if (op.kind == K::Map || op.kind == K::Matmul)
+        ++computes;
+      if (op.kind != K::Map && op.kind != K::Matmul && op.kind != K::Alias &&
+          op.kind != K::EqualShape && op.kind != K::MatrixShape && op.kind != K::Extent)
+        return {};
+      if (op.kind == K::Map || op.kind == K::Matmul) {
+        const auto &k = op.kernel.state_;
+        if (!k || k->numericType != NumericType::Float32 ||
+            (op.kind == K::Map && (!k->transform && op.target != 1)) || k->indirect() ||
+            std::any_of(k->scalarBuffers.begin(), k->scalarBuffers.end(),
+                        [](auto x) { return x; }) ||
+            std::any_of(k->scalarTypes.begin(), k->scalarTypes.end(),
+                        [](auto t) { return t != NumericType::Float32; }))
+          return {};
+      }
+    }
+    if (computes < 5 || computes - 1 > state->options.maxInFlight)
+      return {};
+    struct Shape {
+      std::array<std::int64_t, 8> dimensions{};
+      std::uint32_t rank = 0;
+      bool valid = false;
+      auto operator<=>(const Shape &) const = default;
+    };
+    const std::uint64_t metadata =
+        sizeof(Progression) + program.values.size() * sizeof(Shape) +
+        program.code.size() * (sizeof(Progression::Owner) + sizeof(Progression::Checkpoint));
+    auto used = state->argumentBytes.load();
+    do {
+      if (used > state->options.maxArgumentBytes ||
+          metadata > state->options.maxArgumentBytes - used)
+        return {};
+    } while (!state->argumentBytes.compare_exchange_weak(used, used + metadata));
+    std::unique_ptr<Progression> candidate;
+    try {
+      if (!state->permit()) {
+        state->argumentBytes -= metadata;
+        return std::unexpected(Error::Allocation);
+      }
+      candidate = std::make_unique<Progression>();
+    } catch (...) {
+      state->argumentBytes -= metadata;
+      return std::unexpected(Error::Allocation);
+    }
+    candidate->state = state;
+    candidate->reserved = metadata;
+    ++state->argumentPacks;
+    try {
+      if (!state->permit())
+        return std::unexpected(Error::Allocation);
+      std::vector<Shape> shapes(program.values.size());
+      for (std::size_t i = 0; i < program.inputs; ++i) {
+        const auto &v = program.values[i];
+        if (!v || !v.onDevice() || v.format() != Format::Float32 || !v.bytes() ||
+            v.storage_->state != state || v.storage_->deviceIndex != program.index)
+          return {};
+        shapes[i].valid = true;
+        shapes[i].rank = v.shape().size();
+        std::copy(v.shape().begin(), v.shape().end(), shapes[i].dimensions.begin());
+      }
+      std::uint64_t bytes = 0;
+      auto add = [&](std::uint64_t n) {
+        if (n > state->options.maxBytes || bytes > state->options.maxBytes - n)
+          return false;
+        bytes += n;
+        return true;
+      };
+      for (const auto &op : program.code) {
+        if (task.cancelled() || op.inputs.empty())
+          return {};
+        for (auto input : op.inputs)
+          if (!shapes[input].valid)
+            return {};
+        const auto &a = shapes[op.inputs[0]];
+        if (op.kind == K::Alias) {
+          if (shapes[op.output].valid)
+            return {};
+          shapes[op.output] = a;
+          continue;
+        }
+        if (op.kind == K::Extent) {
+          if (op.inputs.size() == 1) {
+            for (std::size_t i = 0; i < op.scalars.size(); i += 2)
+              if (op.scalars[i] >= a.rank ||
+                  std::uint64_t(a.dimensions[op.scalars[i]]) != op.scalars[i + 1])
+                return {};
+          } else {
+            const auto &b = shapes[op.inputs[1]];
+            if (op.scalars[0] >= a.rank || op.scalars[1] >= b.rank ||
+                a.dimensions[op.scalars[0]] != b.dimensions[op.scalars[1]])
+              return {};
+          }
+          continue;
+        }
+        if (op.kind == K::EqualShape) {
+          if (a != shapes[op.inputs[1]])
+            return {};
+          continue;
+        }
+        if (op.kind == K::MatrixShape) {
+          const auto &b = shapes[op.inputs[1]];
+          if (a.rank != 2 || b.rank != 2 || a.dimensions[1] != b.dimensions[0])
+            return {};
+          continue;
+        }
+        if (shapes[op.output].valid)
+          return {};
+        auto output = a;
+        const auto &k = *op.kernel.state_;
+        if (op.kind == K::Matmul) {
+          const auto &b = shapes[op.inputs[1]];
+          if (a.rank != 2 || b.rank != 2 || a.dimensions[1] != b.dimensions[0])
+            return {};
+          output.dimensions[1] = b.dimensions[1];
+        } else {
+          if (!k.readCount)
+            return {};
+          for (auto input : op.inputs)
+            if (shapes[input] != a)
+              return {};
+          if (k.transform) {
+            if (a.rank != 2)
+              return {};
+            if (*k.transform == TensorTransformKind::Transpose)
+              std::swap(output.dimensions[0], output.dimensions[1]);
+            if (*k.transform == TensorTransformKind::RmsNormRows) {
+              if (op.inputs.size() != 1 || op.scalars.size() != 1)
+                return {};
+              const auto epsilon = std::uint32_t(numericScalar(program, op, 0));
+              if (!epsilon || epsilon >> 31 || (epsilon & 0x7f800000u) == 0x7f800000u)
+                return {};
+            }
+          }
+        }
+        std::uint64_t cells = 1;
+        for (std::size_t i = 0; i < output.rank; ++i) {
+          const auto n = output.dimensions[i];
+          if (n <= 0 || std::uint64_t(n) > UINT32_MAX / cells)
+            return {};
+          cells *= n;
+        }
+        if (!add(cells * 4) || !add(k.parameterWords() * 4) || (k.transform && !add(cells * 4)))
+          return {};
+        shapes[op.output] = output;
+      }
+      const auto usedBytes = state->bytes.load();
+      if (usedBytes > state->options.maxBytes || bytes > state->options.maxBytes - usedBytes ||
+          state->options.maxBytes - usedBytes - bytes < 64 * 1024)
+        return {};
+      auto credits = state->progressionCommandCredits.load();
+      do {
+        if (credits > state->options.maxInFlight ||
+            computes - 1 > state->options.maxInFlight - credits)
+          return {};
+      } while (
+          !state->progressionCommandCredits.compare_exchange_weak(credits, credits + computes - 1));
+      candidate->commandCredits = computes - 1;
+      if (!state->permit())
+        return std::unexpected(Error::Allocation);
+      candidate->owners.reserve(program.code.size());
+      if (!state->permit())
+        return std::unexpected(Error::Allocation);
+      candidate->checkpoints.reserve(program.code.size());
+      f.progression = std::move(candidate);
+      return {};
+    } catch (...) {
+      return std::unexpected(Error::Allocation);
+    }
+  }
   static void resume(Task &task) {
     for (;;) {
       @autoreleasepool {
@@ -1884,6 +2177,11 @@ struct Bridge {
               return;
             }
             if (f.numericAcknowledging) {
+              if (f.progression && progressionFault(*f.progression, f.progression->owners.size())) {
+                fail(task, f, 4);
+                return;
+              }
+              f.progression.reset();
               for (unsigned i = 0; i < f.numericBatched; ++i)
                 if (static_cast<const std::uint32_t *>(
                         f.numericParameters[i]->buffer.contents)[f.numericFlagWords[i]] !=
@@ -1967,11 +2265,23 @@ struct Bridge {
             if (task.cancelled())
               return;
           }
+          if (!f.progressionTried) {
+            auto prepared = prepareProgression(task, f);
+            if (!prepared) {
+              fail(task, f, std::int64_t(prepared.error()));
+              return;
+            }
+          }
           bool scheduled = false;
           while (!scheduled) {
             if (task.cancelled())
               return;
-            if (f.numericBatched == 4 || (f.numericBatched && program.pc == program.code.size())) {
+            if (f.numericBatched == 4 ||
+                ((f.numericBatched || f.progression) && program.pc == program.code.size())) {
+              if (f.progression && program.pc != program.code.size()) {
+                checkpointProgression(f);
+                continue;
+              }
               flushNumeric(task, f);
               return;
             }
@@ -2015,6 +2325,14 @@ struct Bridge {
                 op.kind == K::Branch || (op.kind == K::Alias && program.values[op.output])) {
               const auto work = numericBatchWork(f);
               f.numericEligible = work && numericHeadroom(f, *work);
+              if (f.progression && work) {
+                constexpr auto limit = UINT64_C(64) * 1024 * 1024;
+                if (f.numericBatched && (*work > limit || f.numericWork > limit - *work)) {
+                  checkpointProgression(f);
+                  continue;
+                }
+                f.numericEligible = true; // A large singleton keeps the original quantum.
+              }
               if (f.numericBatched && !f.numericEligible) {
                 flushNumeric(task, f);
                 return;
@@ -2777,8 +3095,7 @@ struct Bridge {
               [arguments setArgumentBuffer:f.resources->buffer offset:0];
             }
             command = f.pendingCommand;
-            if (!command &&
-                (!state->permit() || !(command = [state->queues[index] commandBuffer]))) {
+            if (!command && (!state->permit() || !(command = numericCommandBuffer(f, index)))) {
               fail(task, f, std::int64_t(Error::Allocation));
               return;
             }
@@ -3199,7 +3516,10 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
       NSMutableArray<id<MTLCommandQueue>> *queues = [NSMutableArray array];
       for (id<MTLDevice> device in state->devices) {
         state->names.emplace_back(device.name.UTF8String);
-        id<MTLCommandQueue> queue = [device newCommandQueue];
+        // One base slot per admitted frame plus a bounded pool of extra
+        // pre-encoded commands. Both classes reserve before creating commands.
+        id<MTLCommandQueue> queue = [device
+            newCommandQueueWithMaxCommandBufferCount:std::uint64_t(state->options.maxInFlight) * 2];
         if (!queue)
           return std::unexpected(Error::Allocation);
         [queues addObject:queue];
@@ -4455,6 +4775,14 @@ void Runtime::failAllocationAt(std::uint64_t attempt) noexcept {
   state_->failAt = attempt;
 }
 void Runtime::failNextCompletion() noexcept { state_->failCompletion = true; }
+std::uint64_t Runtime::progressionCommandReservations() const noexcept {
+  return state_->progressionCommandCredits.load();
+}
+void Runtime::holdCompletionAt(std::uint64_t submission) noexcept {
+  std::lock_guard lock(state_->gateMutex);
+  state_->holdSubmission = submission;
+  state_->gate.notify_all();
+}
 void Runtime::holdCompletions(bool hold) noexcept {
   {
     std::lock_guard lock(state_->gateMutex);

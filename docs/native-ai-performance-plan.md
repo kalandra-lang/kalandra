@@ -232,3 +232,28 @@ setup costs about 0.42 ms more. All outcomes and qualification are in the
 [fusion report](../benchmarks/results/gpu-fusion-execution-2026-10-28.md).
 Device-side graph progression with cancellation/fault gates is the next
 architectural experiment; MPSGraph still has a substantial lead.
+
+## Command progression experiments
+
+Completed the device-progression experiment and its safer completion-driven
+alternative. Shared-event/indirect-grid progression is slower in every case in
+the isolated replay and remains benchmark-only. The accepted prepared float32
+path pre-encodes bounded chunks and commits the next chunk from the previous
+completion callback, keeping one external lease and the original cancellation
+quantum. Pool reservations prevent finite command-buffer capacity from becoming
+an execution limit; 513 maps execute through the 129-chunk streaming fallback.
+
+Against `090d4087`, 24/27 paired medians improve and six improve in all five
+blocks. Resident reductions range 1.8–9.3%; the largest resident case improves
+2.4%. Three all-upload medians are negative, including a 5.3% regression at
+64 × 256. A separate retained-reference control does not provide a general fix.
+All numerical, lifecycle, sanitizer, ten-format and relocated-install gates pass.
+The compiler and CPU LLVM are unchanged. See the
+[complete report](../benchmarks/results/gpu-progression-execution-2026-10-28.md)
+and [protocol/lifetime design](design/gpu-command-progression.md).
+
+The GPU result is still 4.1× the MPSGraph time for the largest resident block.
+Next targets are per-dispatch kernel profiling and broader fusion, plus a
+separate unified-memory transfer experiment with matched vendor controls.
+Changing GPU cancellation capabilities requires a compiler/effect proof;
+unbounded batching is not the accepted shortcut.
