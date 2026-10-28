@@ -1,0 +1,55 @@
+{
+  "contract": "Register-tile policy qualification; arithmetic shaders, cancellation quantum and ownership implementation unchanged.",
+  "modes": [
+    "optimized",
+    "debug",
+    "sanitized",
+    "thread-sanitized"
+  ],
+  "typed_cases_per_mode": 1737,
+  "typed_checks_per_mode": 1756075,
+  "fused_ieee_shape_cases_per_mode": 84,
+  "prepared": {
+    "contract": "Prepared typed programs: immutable plans, changing captures and bounded ACK ownership.",
+    "records": [
+      {
+        "mode": "optimized",
+        "result": "prepared: 112 allocation checkpoints, 4 commands/14 dispatches, 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 116 allocation checkpoints, 4 commands/14 dispatches, 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 119 allocation checkpoints, 7 commands/14 dispatches, 21 held failure boundaries, changing captures and 8 concurrent calls passed\n"
+      },
+      {
+        "mode": "debug",
+        "result": "prepared: 112 allocation checkpoints, 4 commands/14 dispatches, 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 116 allocation checkpoints, 4 commands/14 dispatches, 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 119 allocation checkpoints, 7 commands/14 dispatches, 21 held failure boundaries, changing captures and 8 concurrent calls passed\n"
+      },
+      {
+        "mode": "sanitized",
+        "result": "prepared: 112 allocation checkpoints, 4 commands/14 dispatches, 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 116 allocation checkpoints, 4 commands/14 dispatches, 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 119 allocation checkpoints, 7 commands/14 dispatches, 21 held failure boundaries, changing captures and 8 concurrent calls passed\n"
+      },
+      {
+        "mode": "thread-sanitized",
+        "result": "prepared: 112 allocation checkpoints, 4 commands/14 dispatches, 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 116 allocation checkpoints, 4 commands/14 dispatches, 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 119 allocation checkpoints, 7 commands/14 dispatches, 21 held failure boundaries, changing captures and 8 concurrent calls passed\n"
+      }
+    ]
+  },
+  "commands": [
+    "cmake --build build/native --target kalandra -j 2",
+    "MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 python3 native/tests/GpuOptimizationTests.py --compiler build/native/native/kalandra --clang /opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++ --output benchmarks/.build/gpu-dispatch-2026-10-28/typed-final --typed-only",
+    "MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 ctest --test-dir build/native -R ^native-metal-prepared-programs$ --output-on-failure -j 1"
+  ],
+  "logs": [
+    {
+      "path": "/private/tmp/kalandra-register-build.log",
+      "sha256": "81fb5fbdc0551c7caac362d299260f935634e24b609bec584e35fea4e466a0f6",
+      "tail": "[1/8] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-debug.dir/Metal.mm.o\n[2/8] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-optimized.dir/Metal.mm.o\n[3/8] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-thread-sanitized.dir/Metal.mm.o\n[4/8] Linking CXX static library native/metal/libkalandra-metal-debug.a\n[5/8] Linking CXX static library native/metal/libkalandra-metal-optimized.a\n[6/8] Linking CXX static library native/metal/libkalandra-metal-thread-sanitized.a\n[7/8] Building OBJCXX object native/metal/CMakeFiles/kalandra-metal-sanitized.dir/Metal.mm.o\n[8/8] Linking CXX static library native/metal/libkalandra-metal-sanitized.a\n"
+    },
+    {
+      "path": "/private/tmp/kalandra-register-typed-final.log",
+      "sha256": "a75cc7d1d7c83ad791f57ec8d2249d0d244f94e16a61a10e69dab70faf1d8a06",
+      "tail": "optimized typed: Typed hardware float32 matrix qualification: 1737 APFloat cases, 1756075 cell/aggregate checks passed\ndebug typed: Typed hardware float32 matrix qualification: 1737 APFloat cases, 1756075 cell/aggregate checks passed\nsanitized typed: Typed hardware float32 matrix qualification: 1737 APFloat cases, 1756075 cell/aggregate checks passed\nthread-sanitized typed: Typed hardware float32 matrix qualification: 1737 APFloat cases, 1756075 cell/aggregate checks passed\n"
+    },
+    {
+      "path": "/private/tmp/kalandra-register-prepared.log",
+      "sha256": "b5683c4cd3c12ce3487ddb29e612e75bbedeca99e2b0054fe32d0de1cf40d978",
+      "tail": "Test project /Users/pouya/Projects/kalandra.dev/build/native\n    Start 1396: native-metal-prepared-programs\n1/1 Test #1396: native-metal-prepared-programs ...   Passed   50.49 sec\n\n100% tests passed out of 1\n\nTotal Test time (real) =  50.51 sec\n"
+    }
+  ]
+}

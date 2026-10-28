@@ -210,6 +210,58 @@ static void benchmarkMatrix(m::Runtime &r, TaskCore &core, m::Kernel kernel, std
     }
   retire(core, group);
 }
+// Large rectangles have 17*13 repeating input phase pairs. Check every
+// output against an independent exact-dyadic or APFloat product/tree oracle.
+static void rectangularMatrix(m::Runtime &r, TaskCore &core, m::Kernel kernel, unsigned rows,
+                              unsigned inner, unsigned columns, unsigned pattern) {
+  ++cases;
+  std::vector<Bits> a(std::size_t(rows) * inner), b(std::size_t(inner) * columns);
+  auto left = [&](std::size_t i) {
+    return pattern ? sample(i % 17, pattern) : std::bit_cast<Bits>(float(int(i % 17) - 8) / 8);
+  };
+  auto right = [&](std::size_t i) {
+    return pattern ? sample(i % 13 + 9, pattern) : std::bit_cast<Bits>(float(int(i % 13) - 6) / 8);
+  };
+  for (std::size_t i = 0; i < a.size(); ++i)
+    a[i] = left(i);
+  for (std::size_t i = 0; i < b.size(); ++i)
+    b[i] = right(i);
+  std::array<std::array<Bits, 13>, 17> expected{};
+  std::vector<Bits> products(inner);
+  for (unsigned l = 0; l < 17; ++l)
+    for (unsigned c = 0; c < 13; ++c) {
+      if (!pattern) {
+        std::int64_t total = 0;
+        for (unsigned k = 0; k < inner; ++k)
+          total += (int((l + k) % 17) - 8) * (int((c + std::size_t(k) * columns) % 13) - 6);
+        expected[l][c] = std::bit_cast<Bits>(float(total) / 64);
+      } else {
+        for (unsigned k = 0; k < inner; ++k)
+          products[k] = op(left(l + k), right(c + std::size_t(k) * columns), 1);
+        expected[l][c] = sum(products);
+      }
+    }
+  const auto da = upload(r, core, a, std::array{std::int64_t(rows), std::int64_t(inner)});
+  const auto db = upload(r, core, b, std::array{std::int64_t(inner), std::int64_t(columns)});
+  const auto g = core.openRoot();
+  const auto task = r.matmul(core, g, kernel, da, db);
+  CHECK(task && core.drain());
+  const auto result = observe(core, task);
+  CHECK(result.shape().size() == 2 && result.shape()[0] == rows && result.shape()[1] == columns);
+  const auto transfer = r.download(core, g, result);
+  CHECK(transfer && core.drain());
+  const auto host = observe(core, transfer);
+  const auto bytes = host.hostBytes();
+  CHECK(bytes && bytes->size() == std::size_t(rows) * columns * 4);
+  for (unsigned row = 0; row < rows; ++row)
+    for (unsigned col = 0; col < columns; ++col) {
+      Bits actual;
+      auto index = std::size_t(row) * columns + col;
+      std::memcpy(&actual, bytes->data() + index * 4, 4);
+      equal(actual, expected[(std::size_t(row) * inner) % 17][col % 13], index);
+    }
+  retire(core, g);
+}
 static void lifetime(m::Runtime &r, TaskCore &core, m::Kernel map, m::Kernel reduce,
                      bool matrix = false) {
   const std::vector<Bits> values(16384, 0x3f800000);
@@ -287,6 +339,20 @@ int main(int argc, char **argv) {
     for(auto k:{1,7,17,127,128,129,256,257,512,513})
       for(unsigned pattern:{1,2,3,4}) matrix(r,*core,*typed,*reduce,9,k,17,pattern,true);
     for(auto n:{128,256,512,1024}) benchmarkMatrix(r,*core,*typed,n);
+    for (const auto &shape : {std::array{16u, 512u, 512u, 0u},
+                              {17u, 512u, 513u, 2u},
+                              {64u, 512u, 512u, 0u},
+                              {16u, 2048u, 512u, 4u},
+                              {17u, 2048u, 513u, 1u},
+                              {64u, 2048u, 512u, 0u},
+                              {15u, 2048u, 513u, 0u},
+                              {16u, 4096u, 511u, 0u},
+                              {17u, 4096u, 513u, 2u},
+                              {16u, 4160u, 512u, 0u},
+                              {16u, 1024u, 511u, 0u},
+                              {17u, 1536u, 513u, 2u},
+                              {16u, 2112u, 512u, 0u}})
+      rectangularMatrix(r, *core, *typed, shape[0], shape[1], shape[2], shape[3]);
     CHECK(!r.stats().bytes && !r.stats().inFlight && !r.stats().argumentBytes);
     std::printf("Typed hardware float32 matrix qualification: %llu APFloat cases, %llu cell/aggregate checks passed\n",(unsigned long long)cases,(unsigned long long)comparisons);
     return 0;

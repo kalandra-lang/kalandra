@@ -12,11 +12,13 @@ constexpr bool useSkinnyMatmul(std::uint32_t rows, std::uint32_t inner,
   return rows >= 1 && rows <= 2 && inner >= 512 && inner <= 16384 && inner % 32 == 0 &&
          columns >= 256 && columns <= 16384;
 }
-// A bounded specialization; all other contractions keep the general kernels.
+// M2 Max profile: admit at least 32 full 16x16 output tiles for K>=512.
+// Smaller rectangles were needlessly sent to the shared-root kernels; the
+// inner-size, alignment, and tail guards remain unchanged.
 constexpr bool useRegisterMatmul(std::uint32_t rows, std::uint32_t inner,
                                  std::uint32_t columns) noexcept {
   return rows >= 16 && columns >= 16 && inner >= 512 && inner <= 4096 && inner % 64 == 0 &&
-         std::uint64_t(rows) * columns >= 256u * 256u;
+         std::uint64_t(rows) * columns >= 8192u;
 }
 // Measured M2 Max tile-order profile: output at least 1M cells and
 // combined input storage at least 16 MiB. Selection happens on the host so

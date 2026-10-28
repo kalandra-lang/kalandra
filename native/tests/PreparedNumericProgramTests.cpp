@@ -290,8 +290,9 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
         retire(*c, g);
         return b;
       };
-      for (auto dims : std::array<std::array<unsigned, 3>, 5>{
-               {{1, 1, 1}, {1, 7, 9}, {3, 5, 7}, {17, 65, 9}, {16, 64, 16}}})
+      for (auto dims : std::array<std::array<unsigned, 3>, 7>{
+               {{1, 1, 1}, {1, 7, 9}, {3, 5, 7}, {17, 65, 9}, {16, 64, 16},
+                {16, 512, 512}, {17, 1024, 513}}})
         for (unsigned pattern = 0; pattern < 4; ++pattern) {
           std::vector<std::uint32_t> a(dims[0] * dims[1]), b(dims[1] * dims[2]);
           constexpr std::array<std::uint32_t, 12> corners{

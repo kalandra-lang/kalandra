@@ -257,3 +257,27 @@ Next targets are per-dispatch kernel profiling and broader fusion, plus a
 separate unified-memory transfer experiment with matched vendor controls.
 Changing GPU cancellation capabilities requires a compiler/effect proof;
 unbounded batching is not the accepted shortcut.
+
+## Dispatch profiling and register selection
+
+Completed stage-level profiling in an isolated instrumented runtime, with
+empirically checked CPU/GPU clock units and raw counter samples. Sampling
+perturbs execution, so acceptance timings are separate. The trace identified
+projection shapes unnecessarily excluded from the existing Register16 kernel.
+
+A general output-area threshold of 8,192 cells replaces 65,536 while preserving
+the inner-dimension, alignment and tail guards. All 15 newly admitted general
+rectangles improve 11.6–24.1% in five-block testing. All nine affected full-block
+case medians improve; resident reductions are 5.0%, 11.8% and 10.4% for 64×256,
+16×512 and 64×512. The 18 unchanged-selection controls retain their mixed
+positive/negative outcomes. Strict arithmetic, cancellation and ownership are
+unchanged; four-mode typed and prepared-graph qualification passes.
+
+The fresh largest resident block takes 1.94 ms on Kalandra Metal, 10.65 ms on
+Kalandra CPU and 0.52 ms on MPSGraph: 5.5× faster than our CPU, still 3.7× the
+MPSGraph time. MPSGraph's internal submission count and the separate cost of
+its arithmetic differences have not been established. See the
+[report and reproduction evidence](../benchmarks/results/gpu-register-selection-2026-10-28.md).
+Next: contraction-parallel attention scores, broader legal fusion, and a
+separate controlled unified-memory transfer experiment. Production keeps its
+own numerical kernels.
