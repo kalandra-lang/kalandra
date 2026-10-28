@@ -509,3 +509,29 @@ retains the complete fair corpus, fallback diagnostics and qualification. A
 prototype shared replay block incorrectly substituted a zero round count on a
 negative nonzero-round input. The existing wide-map matrix rejected it; fresh
 per-reduction blocks and original-argument diagnostics cover the correction.
+
+### Collapse bounded private-buffer work
+
+`OrdinaryBaseCase.h` tries standard LLVM unrolling and scalar replacement on a
+speculative copy of an already-proven ordinary buffer entry. It first tries the
+whole fixed-work graph, then a zero integer-argument version. This is independent
+of function names or benchmark inputs. If constant private-buffer construction,
+copying and reduction disappear, their result can become ordinary scalar
+arithmetic. Floating operations retain their original ordering and flags.
+
+Forced expansion requires non-nested loops with statically proven trip counts
+of at most 128, at most 32 instructions per loop and a combined 4,096-instruction
+expansion budget. These are optimization budgets: rejected programs keep their
+original implementation. Admission requires every loop and allocation to vanish,
+a result of at most 64 instructions, at least a threefold size reduction and the
+existing native frame-budget check. Atomic/volatile effects and foreign calls do
+not acquire a folding proof. Only the allocation-policy query and terminal
+compiler-generated replay transfers may remain as non-intrinsic calls.
+
+The allocation-policy check remains observable to failure injection; heap replay
+still executes and settles the checked computation. For an argument-dependent
+base case, both the compact base worker and the nonzero-argument worker use
+mandatory tail transfers. The dispatch has no save area for the base worker's
+runtime query; the nonzero worker retains the unrestricted graph. No new range promises are placed on public arguments.
+Out-of-domain inputs retain the original wide/recoverable behavior, including
+intermediate overflow and first-fault locations.

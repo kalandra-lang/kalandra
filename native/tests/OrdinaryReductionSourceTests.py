@@ -1,7 +1,9 @@
 """Deferred reduction validation against checked execution and a wide integer oracle."""
 import argparse,json,os,subprocess,sys
 from pathlib import Path
+from OrdinaryTestEnvironment import configure
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True);root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32'
+configure(a.clang)
 def run(args,env=None):
  r=subprocess.run(list(map(str,args)),env=env,capture_output=True,text=True)
  if r.returncode:raise RuntimeError(str(args)+'\n'+r.stdout+r.stderr)
@@ -16,7 +18,10 @@ for mode,extra,flags,library in variants:
    values=','.join('a' if i%2==0 else 'b' for i in range(width));value='acc' if lang=='int64' else 'acc != 0' if lang=='Bool' else 'float64(acc)';main='false' if lang=='Bool' else lang+'(0)'
    source.write_text(f'fn total(values:[int64],index:int64,acc:int64)->{lang}:\n  if index == {width}:\n    {value}\n  else:\n    total(values,index+1,acc+values[index])\nfn value(a:int64,b:int64)->{lang}:\n  total([{values}],0,0)\nfn main()->{lang}:\n  {main}\n')
    run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
-   if width>=32:assert 'kalandra.ordinary.reduction' in ir.read_text(),name
+   if width>=32:
+    assert 'kalandra.ordinary.reduction' in ir.read_text(),name
+    assert 'kalandra.ordinary.base-case' in ir.read_text(),name
+   assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text(),name
    text=r'''
 #include "RUNTIME"
 #include "FAULT"
@@ -28,6 +33,7 @@ for mode,extra,flags,library in variants:
 #include <limits>
 using I=std::int64_t;using Result=TYPE;
 extern "C" Result _mlir_ciface_kalandra_test_entry(I,I,kalandra::runtime::Invocation*);
+extern "C" Result _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
 extern "C" Result _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::runtime::OrdinaryFault*);
 int main(){
  using namespace kalandra::runtime;constexpr I lo=std::numeric_limits<I>::min(),hi=std::numeric_limits<I>::max();
@@ -39,7 +45,11 @@ int main(){
   auto value=_mlir_ciface_kalandra_test_entry_ordinary_v1(a,b,&info);bool failed=ordinaryFaulted(value,info);
   if(failed!=(context.status()!=0))std::abort();
   if(failed){if(info.code!=context.status() || info.line!=context.line() || info.column!=context.column())std::abort();}
-  else if(std::memcmp(&value,&expected,sizeof(Result)))std::abort();
+  else {
+   if(std::memcmp(&value,&expected,sizeof(Result)))std::abort();
+   auto direct=_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(a,b);
+   if(std::memcmp(&direct,&expected,sizeof(Result)))std::abort();
+  }
   __int128 sum=0;bool overflow=false;
   for(unsigned i=0;i<WIDTH;++i){sum+=i%2?b:a;if(sum<lo || sum>hi){overflow=true;break;}}
   // Explicit injected allocation failures precede arithmetic. Otherwise this

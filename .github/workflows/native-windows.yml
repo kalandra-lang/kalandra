@@ -66,6 +66,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Loop direct ABI qualification failed' }
           python native/tests/OrdinarySourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-types --direct-entry --buffer-entry
           if ($LASTEXITCODE -ne 0) { throw 'Typed buffer ABI qualification failed' }
+          python native/tests/OrdinaryReductionSourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-reductions
+          if ($LASTEXITCODE -ne 0) { throw 'Reduction folding qualification failed' }
           python native/tests/OrdinaryArrayTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-direct --direct-entry
           if ($LASTEXITCODE -ne 0) { throw 'Buffer direct ABI qualification failed' }
           python native/tests/OrdinaryDirectFaultTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-direct-faults

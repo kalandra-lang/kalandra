@@ -285,6 +285,144 @@ int main(int argc, char **argv) {
       return 1;
     }
   }
+
+  // Bounded folding must eliminate backing and loops; excessive trip counts,
+  // foreign effects and volatile reads do not acquire that proof.
+  for (unsigned kind = 0; kind < 4; ++kind) {
+    const unsigned width = kind == 1 ? 257 : 64;
+    std::string ir = R"(
+      target datalayout = "e-p:64:64-i64:64-i128:128-n32:64-S128"
+      declare void @observe(i64)
+      define i64 @buffered(i64 %seed,ptr %fault) #0 {
+      entry:
+        CHAIN
+        %storage=alloca [WIDTH x i64],align 8
+        br label %fill
+      fill:
+        %i=phi i64 [0,%entry],[%next,%fill]
+        %p=getelementptr [WIDTH x i64],ptr %storage,i64 0,i64 %i
+        %x=add i64 %v15,%i
+        store i64 %x,ptr %p
+        EFFECT
+        %next=add i64 %i,1
+        %end=icmp eq i64 %next,WIDTH
+        br i1 %end,label %start,label %fill
+      start:
+        br label %sum
+      sum:
+        %j=phi i64 [0,%start],[%nextj,%sum]
+        %acc=phi i64 [0,%start],[%added,%sum]
+        %q=getelementptr [WIDTH x i64],ptr %storage,i64 0,i64 %j
+        %value=load VOLATILE i64,ptr %q
+        %added=add i64 %acc,%value
+        %nextj=add i64 %j,1
+        %done=icmp eq i64 %nextj,WIDTH
+        br i1 %done,label %exit,label %sum
+      exit:
+        ret i64 %added
+      }
+      attributes #0 = { "kalandra.ordinary.entry" "kalandra.ordinary.local-buffers" }
+    )";
+    auto replace = [&](std::string from, std::string to) {
+      size_t at = 0;
+      while ((at = ir.find(from, at)) != std::string::npos) {
+        ir.replace(at, from.size(), to);
+        at += to.size();
+      }
+    };
+    std::string chain;
+    for (unsigned i = 0; i < 16; ++i)
+      chain += "%v" + std::to_string(i) + "=add i64 " +
+               (i ? "%v" + std::to_string(i - 1) : "%seed") + ", " + std::to_string(i + 1) + "\n";
+    replace("CHAIN", chain);
+    replace("WIDTH", std::to_string(width));
+    replace("EFFECT", kind == 2 ? "call void @observe(i64 %x)" : "");
+    replace("VOLATILE", kind == 3 ? "volatile" : "");
+    LLVMContext context;
+    SMDiagnostic diagnostic;
+    auto module = parseAssemblyString(ir, diagnostic, context);
+    if (!module) {
+      diagnostic.print("buffered base", errs());
+      return 1;
+    }
+    bool changed = kalandra::specializeOrdinaryBaseCases(*module, simplify);
+    if (changed != (kind == 0) || verifyModule(*module, &errs())) {
+      errs() << "buffered base " << kind << '\n';
+      return 1;
+    }
+    if (changed) {
+      auto *fn = module->getFunction("buffered");
+      DominatorTree dom(*fn);
+      LoopInfo loops(dom);
+      if (!loops.empty() || kalandra::specializeOrdinaryBaseCases(*module, simplify))
+        return 1;
+      for (auto &block : *fn)
+        for (auto &i : block)
+          if (isa<AllocaInst>(i))
+            return 1;
+    }
+  }
+
+  {
+    // The uncommon runtime query belongs to the base worker, not to a shared
+    // dispatch frame that every nonzero call would otherwise save/restore.
+    std::string ir = R"(
+      target datalayout = "e-p:64:64-i64:64-i128:128-n32:64-S128"
+      declare i64 @kalandra_ordinary_local_enabled_v1()
+      define i64 @dispatch(i64 %seed,i64 %rounds,ptr %fault) #0 {
+      entry:
+        %init=add i64 %seed,0
+        %data=alloca i64
+        %zero=icmp eq i64 %rounds,0
+        br i1 %zero,label %base,label %work
+      base:
+        %query=call i64 @kalandra_ordinary_local_enabled_v1()
+        %result=add i64 %seed,42
+        ret i64 %result
+      work:
+        br label %loop
+      loop:
+        %left=phi i64 [%rounds,%work],[%next,%step]
+        %acc=phi i64 [%init,%work],[%v15,%step]
+        %done=icmp eq i64 %left,0
+        br i1 %done,label %exit,label %step
+      step:
+        CHAIN
+        store volatile i64 %v15,ptr %data
+        %next=sub i64 %left,1
+        br label %loop
+      exit:
+        ret i64 %acc
+      }
+      attributes #0 = { "kalandra.ordinary.entry" "kalandra.ordinary.local-buffers" }
+    )";
+    std::string chain;
+    for (unsigned n = 0; n < 16; ++n)
+      chain += "%v" + std::to_string(n) + "=add i64 " +
+               (n ? "%v" + std::to_string(n - 1) : "%acc") + ", " + std::to_string(n + 1) + "\n";
+    ir.replace(ir.find("CHAIN"), 5, chain);
+    LLVMContext context;
+    SMDiagnostic diagnostic;
+    auto module = parseAssemblyString(ir, diagnostic, context);
+    if (!module || !kalandra::specializeOrdinaryBaseCases(*module, simplify) ||
+        verifyModule(*module, &errs()))
+      return 1;
+    auto *fn = module->getFunction("dispatch");
+    unsigned transfers = 0;
+    for (auto &block : *fn)
+      for (auto &i : block) {
+        if (isa<AllocaInst>(i))
+          return 1;
+        if (auto *call = dyn_cast<CallInst>(&i)) {
+          if (!call->isMustTailCall())
+            return 1;
+          ++transfers;
+        }
+      }
+    if (transfers != 2 || !module->getFunction("dispatch.base") ||
+        !module->getFunction("dispatch.work"))
+      return 1;
+  }
   auto exhaustive = []<class T>() {
     for (unsigned i = 0; i < 65536; ++i) {
       T x = T(i);
