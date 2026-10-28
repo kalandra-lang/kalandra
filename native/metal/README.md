@@ -173,3 +173,17 @@ through acknowledgement; a later host preparation/shape error waits for prior
 encoded work, preserving a preceding device failure. Inputs are never donated.
 See [the prepared execution design](../../docs/design/prepared-numeric-execution.md)
 and [lifecycle qualification](../tests/PreparedNumericProgramTests.py).
+
+
+The typed runtime can also fuse an adjacent single-consumer float32 product/map
+when the compiler supplies a non-faulting canonical epilogue. Both logical stages
+retain their cancellation-quantum and parameter-retirement accounting. A large
+fused dispatch remains isolated. Residual maps separated by shape guards retain
+separate dispatches.
+
+Invocation-local provenance permits pointwise reuse of a private last-use
+buffer. Original inputs and their aliases stay protected, live aliases block
+reuse, and the final result counts as an observation. Checked maps and transforms
+keep separate backing. See [fusion and private reuse](../../docs/design/gpu-projection-fusion.md)
+for the safety boundary and the benchmark report, including losing cases and
+additional pipeline setup cost.

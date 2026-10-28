@@ -9,6 +9,7 @@ parser.add_argument('--baseline-bundle',type=Path,required=True)
 parser.add_argument('--current-evidence',type=Path,required=True)
 parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--blocks',type=int,default=5)
+parser.add_argument('--allow-epilogue-extension',action='store_true',help='Require original shader prefix unchanged, allowing appended fused epilogues')
 args=parser.parse_args();assert not args.output.exists()
 for flag in ('MTL_DEBUG_LAYER','MTL_SHADER_VALIDATION','DYLD_INSERT_LIBRARIES','KALANDRA_GPU_PROFILE'):assert os.getenv(flag) in (None,'','0'),flag
 baseline=args.baseline.resolve();old=json.loads((baseline/'manifest.json').read_text())
@@ -20,8 +21,11 @@ for f in [build/'gpu',*bundle.glob('*.metallib')]:assert p.sha(f)==current['arti
 # Require the same generated shader source, not merely a similar operation count.
 shader_hashes={}
 for f in [*bundle.glob('*.metal'),*bundle.glob('*.native.metal')]:
-    previous=args.baseline_bundle/f.name;assert previous.exists() and p.sha(f)==p.sha(previous),f
-    shader_hashes[f.name]=p.sha(f)
+    previous=args.baseline_bundle/f.name;assert previous.exists(),f
+    same=p.sha(f)==p.sha(previous)
+    extension=args.allow_epilogue_extension and f.read_bytes().startswith(previous.read_bytes()) and b'inline float kalandra_fused_post' in f.read_bytes()
+    assert same or extension,f
+    shader_hashes[f.name]=dict(baseline=p.sha(previous),current=p.sha(f),relation='identical' if same else 'original prefix plus epilogue extension')
 assert len(shader_hashes)>=7
 binaries={'baseline':baseline/'gpu','current':build/'gpu'}
 bundles={'baseline':args.baseline_bundle,'current':bundle}
@@ -39,6 +43,6 @@ def invoke(cell,count,rounds):
     version,m,d,mode=cell
     return p.observations(p.run([binaries[version],bundles[version],m,d,count,rounds,mode,0,0]),m*d*4,count,rounds)
 data=p.measure_paired(cells,invoke,lambda cell:cell[1]*cell[2]*4,blocks=args.blocks,target_ms=20,adaptive=True,max_iterations=5000)
-data.update(contract=__doc__,timing='Warm synchronous tensor-result API, full ACK and retirement; no output readback in timing. Pipeline loading and immutable plan preparation excluded in both cases; current records preparation_ns separately. Modes: 0 resident, 1 activation upload, 2 all seven uploads. Same iterations per pair, calibrated to the faster implementation.',verification=verification,identical_shader_sources=shader_hashes,baseline_manifest=old,current_evidence_sha256=p.sha(args.current_evidence))
+data.update(contract=__doc__,timing='Warm synchronous tensor-result API, full ACK and retirement; no output readback in timing. Pipeline loading and immutable plan preparation excluded in both cases; current records preparation_ns separately. Modes: 0 resident, 1 activation upload, 2 all seven uploads. Same iterations per pair, calibrated to the faster implementation.',verification=verification,shader_source_relationship=shader_hashes,baseline_manifest=old,current_evidence_sha256=p.sha(args.current_evidence))
 sources=[Path(__file__),args.current_evidence,baseline/'manifest.json',baseline/'Driver.cpp',baseline/'Program.h',build/'TransformerProgram.h']
 p.evidence(args.output,data,sources,[*binaries.values(),*bundle.glob('*.metallib'),*args.baseline_bundle.glob('*.metallib'),baseline/'metal.a',baseline/'task.a'],p.ROOT/'build/native/native/kalandra')

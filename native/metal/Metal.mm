@@ -316,7 +316,7 @@ struct NumericProgramArguments {
   std::vector<std::uint64_t> captures;
   std::uint32_t captureCount = 0, slots = 0;
   std::vector<Buffer> values;
-  std::vector<std::uint32_t> uses, retired;
+  std::vector<std::uint32_t> uses, retired, origins;
   bool deferRetirement = false;
   std::uint32_t result = 0, index = 0, inputs = 0;
   NumericType element = NumericType::Float32;
@@ -549,7 +549,7 @@ struct Bridge {
               return std::unexpected(Error::Invalid);
           }
     const auto bytes = sizeof(NumericProgramArguments) +
-                       std::uint64_t(plan->slots) * (sizeof(Buffer) + 2 * sizeof(std::uint32_t)) +
+                       std::uint64_t(plan->slots) * (sizeof(Buffer) + 3 * sizeof(std::uint32_t)) +
                        captures.size_bytes();
     try {
       if (!state->permit())
@@ -583,6 +583,9 @@ struct Bridge {
       if (!state->permit())
         return std::unexpected(Error::Allocation);
       result->retired.reserve(plan->slots);
+      if (!state->permit())
+        return std::unexpected(Error::Allocation);
+      result->origins.assign(plan->slots, UINT32_MAX);
       if (!captures.empty()) {
         if (!state->permit())
           return std::unexpected(Error::Allocation);
@@ -948,6 +951,8 @@ struct Bridge {
     unsigned numericBatched = 0;
     std::uint64_t numericWork = 0;
     bool numericEligible = false, numericAcknowledging = false;
+    bool numericPostWanted = false, numericFused = false;
+    std::uint32_t numericResultOrigin = UINT32_MAX;
     std::optional<std::int64_t> numericDeferredError;
     unsigned graphBatched = 0;
     std::uint64_t graphWork = 0;
@@ -1715,6 +1720,81 @@ struct Bridge {
   }
   // Non-faulting arithmetic is a compiler proof; shapes, registry, residency,
   // domain and RMS epsilon are still checked from this invocation's bindings.
+  static bool numericPostCandidate(const Frame &f) {
+    const auto &p = *f.packet.numericProgram;
+    const auto &op = p.code[p.pc];
+    if (!p.definition || op.kind != NumericInstructionKind::Matmul ||
+        op.kernel.state_->numericType != NumericType::Float32 || p.pc + 1 >= p.code.size() ||
+        p.uses[op.output] != 1 || f.numericBatched > 2)
+      return false;
+    const auto &post = p.code[p.pc + 1];
+    const auto &k = post.kernel.state_;
+    if (post.kind != NumericInstructionKind::Map || post.target != 1 || !k || !post.arguments ||
+        k->numericType != NumericType::Float32 || k->transform || k->indirect() ||
+        k->readCount != 1 || k->reads[0] != 0 || post.inputs.size() != 1 ||
+        post.inputs[0] != op.output || p.values[post.output] ||
+        std::none_of(k->fusedMatrices.begin(), k->fusedMatrices.end(),
+                     [](auto x) { return x != nil; }))
+      return false;
+    const auto &a = p.values[op.inputs[0]], &b = p.values[op.inputs[1]];
+    if (!a.bytes() || !b.bytes() || a.format() != Format::Float32 ||
+        b.format() != Format::Float32 || a.shape().size() != 2 || b.shape().size() != 2 ||
+        a.shape()[1] != b.shape()[0])
+      return false;
+    const auto cells = std::uint64_t(a.shape()[0]) * b.shape()[1];
+    const auto used = p.state->bytes.load(), maximum = p.state->options.maxBytes;
+    return cells <= UINT32_MAX && used <= maximum && cells * 12 <= maximum - used &&
+           maximum - used - cells * 12 >= 64 * 1024 + k->parameterWords() * 4;
+  }
+  static void finishNumeric(Frame &f) {
+    auto &p = *f.packet.numericProgram;
+    const auto &op = p.code[p.pc];
+    const auto &last = f.numericFused ? p.code[p.pc + 1] : op;
+    p.values[last.output] = std::move(f.result);
+    if (!p.origins.empty())
+      p.origins[last.output] =
+          f.numericResultOrigin == UINT32_MAX ? last.output : f.numericResultOrigin;
+    for (auto input : op.inputs)
+      p.release(input);
+    if (f.numericFused)
+      for (auto input : last.inputs)
+        p.release(input);
+    p.pc += f.numericFused ? 2 : 1;
+  }
+  static Buffer reusableNumericMapResult(Frame &f) {
+    if (!f.packet.numericProgram || !f.packet.numericProgram->definition ||
+        f.packet.kind != Kind::Elementwise ||
+        f.packet.numericProgram->pc >= f.packet.numericProgram->code.size())
+      return {};
+    auto &p = *f.packet.numericProgram;
+    const auto &op = p.code[p.pc];
+    const auto &k = op.kernel.state_;
+    if (op.kind != NumericInstructionKind::Map || op.target != 1 || !k || k->transform ||
+        k->indirect() || k->numericType != NumericType::Float32 || !k->readCount ||
+        std::any_of(k->scalarBuffers.begin(), k->scalarBuffers.end(),
+                    [](auto role) { return role; }))
+      return {};
+    const auto &domain = tensor(f, k->tensorIndex(0));
+    for (auto id : op.inputs) {
+      const auto &value = p.values[id];
+      if (id == op.output || p.origins[id] == UINT32_MAX || !value.bytes() ||
+          value.format() != Format::Float32 || value.shape().size() != domain.shape().size() ||
+          !std::equal(value.shape().begin(), value.shape().end(), domain.shape().begin()) ||
+          p.uses[id] != std::count(op.inputs.begin(), op.inputs.end(), id))
+        continue;
+      bool alias = false;
+      for (std::size_t i = 0; i < p.values.size(); ++i)
+        if (i != id && p.uses[i] && p.values[i].storage_ == value.storage_) {
+          alias = true;
+          break;
+        }
+      if (!alias) {
+        f.numericResultOrigin = p.origins[id];
+        return value;
+      }
+    }
+    return {};
+  }
   static std::optional<std::uint64_t> numericBatchWork(const Frame &f) {
     constexpr std::uint64_t limit = UINT64_C(64) * 1024 * 1024;
     const auto &p = *f.packet.numericProgram;
@@ -1744,7 +1824,8 @@ struct Bridge {
       const auto inner = std::uint64_t(a.shape()[1]);
       if (cells > UINT32_MAX)
         return {};
-      return inner && cells > limit / 2 / inner ? limit + 1 : cells * inner * 2;
+      const auto matrixWork = inner && cells > limit / 2 / inner ? limit + 1 : cells * inner * 2;
+      return std::min(limit + 1, matrixWork + (f.numericPostWanted ? cells * 2 : 0));
     }
     if (k->indirect() || k->readCount == 0 ||
         std::any_of(k->scalarBuffers.begin(), k->scalarBuffers.end(), [](auto x) { return x; }) ||
@@ -1861,13 +1942,19 @@ struct Bridge {
                 fail(task, f, 4);
                 return;
               }
-              const auto &op = program.code[program.pc];
-              program.values[op.output] = std::move(f.result);
-              for (auto input : op.inputs)
-                program.release(input);
-              ++program.pc;
+              if (f.numericFused && f.fusedParameters &&
+                  static_cast<const std::uint32_t *>(
+                      f.fusedParameters->buffer
+                          .contents)[program.code[program.pc + 1].kernel.state_->parameterWords() -
+                                     1] != UINT32_MAX) {
+                fail(task, f, 4);
+                return;
+              }
+              finishNumeric(f);
             }
             f.staging.reset();
+            f.fusedParameters.reset();
+            f.fusedPostKernel = {};
             f.resources.reset();
             f.transformScratch.reset();
             f.scratch.reset();
@@ -1921,6 +2008,9 @@ struct Bridge {
             };
             using K = NumericInstructionKind;
             f.numericEligible = false;
+            f.numericFused = false;
+            f.numericResultOrigin = UINT32_MAX;
+            f.numericPostWanted = numericPostCandidate(f);
             if (op.kind == K::Map || op.kind == K::Matmul || op.kind == K::Reduce ||
                 op.kind == K::Branch || (op.kind == K::Alias && program.values[op.output])) {
               const auto work = numericBatchWork(f);
@@ -1945,6 +2035,8 @@ struct Bridge {
                 return;
               }
               program.values[op.output] = input(0);
+              if (!program.origins.empty())
+                program.origins[op.output] = program.origins[op.inputs[0]];
               program.release(op.inputs[0]);
               ++program.pc;
               continue;
@@ -2452,12 +2544,21 @@ struct Bridge {
             }
           }
         }
-        const auto &postKernel = graphPost ? graphPost : f.packet.matrixPost;
-        const auto &postArguments = graphPost ? graphPostArguments : f.packet.postArguments;
+        const auto numericPost =
+            f.packet.numericProgram && f.numericPostWanted
+                ? f.packet.numericProgram->code[f.packet.numericProgram->pc + 1].kernel
+                : Kernel{};
+        const auto &postKernel = numericPost ? numericPost
+                                 : graphPost ? graphPost
+                                             : f.packet.matrixPost;
+        const auto &postArguments =
+            numericPost ? f.packet.numericProgram->code[f.packet.numericProgram->pc + 1].arguments
+            : graphPost ? graphPostArguments
+                        : f.packet.postArguments;
         if (matrix && postKernel.state_ && postArguments && f.packet.kernel.state_->tiledMatrix &&
-            !f.packet.kernel.state_->numericType && (!f.packet.graph || graphPost) &&
-            !f.packet.numericProgram && !f.packet.epilogue && !f.matrixStage && matrixShape[0] &&
-            matrixShape[1]) {
+            (!f.packet.kernel.state_->numericType || numericPost) &&
+            (!f.packet.graph || graphPost) && (!f.packet.numericProgram || numericPost) &&
+            !f.packet.epilogue && !f.matrixStage && matrixShape[0] && matrixShape[1]) {
           const auto &base = f.packet.kernel.state_;
           const auto &post = postKernel.state_;
           auto layout = MatmulLayout::Scalar;
@@ -2488,7 +2589,8 @@ struct Bridge {
                                  source->dimensions[1] % 32 == 0
                              ? 1
                              : 0;
-          fusePost = !post->numericType && !post->indirect() && post->fusedMatrices[fusedVariant] &&
+          fusePost = (!post->numericType || numericPost) && !post->indirect() &&
+                     post->fusedMatrices[fusedVariant] &&
                      (layout != MatmulLayout::Quad || registers);
           if (fusePost && graphPost) {
             const auto used = state->bytes.load();
@@ -2558,6 +2660,8 @@ struct Bridge {
           f.error = Error::Device;
         } else {
           auto reuse = reusableGraphMapResult(f);
+          if (!reuse)
+            reuse = reusableNumericMapResult(f);
           auto result =
               reuse ? std::expected<std::shared_ptr<Storage>, Error>(
                           std::const_pointer_cast<Storage>(reuse.storage_))
@@ -2631,6 +2735,13 @@ struct Bridge {
               words[0] = std::uint32_t(std::uint64_t(matrixShape[0]) * matrixShape[1]);
               std::copy(postArguments->scalarBits.begin(), postArguments->scalarBits.end(),
                         words + 1);
+              if (numericPost) {
+                const auto &p = *f.packet.numericProgram;
+                const auto &post = p.code[p.pc + 1];
+                for (std::size_t i = 0; i < post.scalars.size(); ++i)
+                  words[i + 1] = std::uint32_t(numericScalar(p, post, i));
+                words[post.kernel.state_->parameterWords() - 1] = UINT32_MAX;
+              }
             }
             if ((f.packet.graph && f.graphPhase == 2) || f.packet.numericScalar) {
               auto readback =
@@ -2826,6 +2937,7 @@ struct Bridge {
             [encoder endEncoding];
             if (fusePost) {
               f.fusedPostKernel = postKernel;
+              f.numericFused = bool(numericPost);
               if (graphPost) {
                 f.graphWork += graphStageWork(f, f.graphStage);
                 ++f.graphStage;
@@ -2911,11 +3023,14 @@ struct Bridge {
           f.numericParameters[slot] = std::move(f.staging);
           f.numericResources[slot] = std::move(f.resources);
           f.numericScratch[slot] = std::move(f.transformScratch);
+          if (f.numericFused) {
+            const auto postSlot = f.numericBatched++;
+            f.numericFlagWords[postSlot] =
+                program.code[program.pc + 1].kernel.state_->parameterWords() - 1;
+            f.numericParameters[postSlot] = std::move(f.fusedParameters);
+          }
           program.deferRetirement = true;
-          program.values[op.output] = std::move(f.result);
-          for (auto input : op.inputs)
-            program.release(input);
-          ++program.pc;
+          finishNumeric(f);
           f.packet.input = {};
           f.packet.right = {};
           f.packet.kernel = {};
@@ -3374,9 +3489,10 @@ std::expected<Kernel, Error> Runtime::loadKernel(
                                 ? tensorTypes[reads ? (*reads)[argument.index] : argument.index]
                                 : numericType.value_or(NumericType::Float32);
           const auto wireWidth = std::max(describeNumeric(type)->bytes(), 4u);
-          const auto wireType = !numericType || hardwareFloat32 ? MTLDataTypeFloat
-                                : wireWidth == 8                ? MTLDataTypeULong
-                                                                : MTLDataTypeUInt;
+          const auto wireType = !numericType || hardwareFloat32 || (fused && argument.index < 3)
+                                    ? MTLDataTypeFloat
+                                : wireWidth == 8 ? MTLDataTypeULong
+                                                 : MTLDataTypeUInt;
           const bool shape = fused && argument.index == 3;
           const bool integer = shape || argument.index == parameterIndex;
           const auto count = shape ? 3u : argument.index == parameterIndex ? words : 1u;
@@ -3516,8 +3632,9 @@ std::expected<Kernel, Error> Runtime::loadKernel(
         if ((*skinny).maxTotalThreadsPerThreadgroup >= 256)
           metadata->skinnyMatrix = *skinny;
       }
-      if (!numericType && elementwise && !matrix && !reduction && !indirect && physical >= 1 &&
-          physical <= directBufferEntries - 4 && (!reads || (*reads)[0] == 0) &&
+      if ((!numericType || *numericType == NumericType::Float32) && elementwise && !matrix &&
+          !reduction && !indirect && physical >= 1 && physical <= directBufferEntries - 4 &&
+          (!reads || (*reads)[0] == 0) &&
           [library newFunctionWithName:@"kalandra_matmul_fused_tiled"]) {
         const std::array<NSString *, 6> names{
             @"kalandra_matmul_fused_tiled",     @"kalandra_matmul_fused_block32",

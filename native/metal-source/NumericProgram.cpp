@@ -79,14 +79,16 @@ class Builder {
             visit(op.right);
           } else if constexpr (std::is_same_v<T, TensorTransform>) {
             visit(op.input);
-            if (op.epsilon) visit(*op.epsilon);
+            if (op.epsilon)
+              visit(*op.epsilon);
           } else if constexpr (std::is_same_v<T, NumericConvert> || std::is_same_v<T, ReduceSum>)
             visit(op.input);
         },
         normalized.expressions.at(id).operation);
   }
   std::uint32_t kernel(NumericShader shader) {
-    auto key = shader.mlir + shader.nativeMetal + "\n#schema:" + std::to_string(static_cast<unsigned>(shader.element));
+    auto key = shader.mlir + shader.nativeMetal +
+               "\n#schema:" + std::to_string(static_cast<unsigned>(shader.element));
     auto append = [&](const auto &values) {
       key += '|';
       for (auto value : values)
@@ -172,6 +174,20 @@ class Builder {
     auto shader = emitNumericShader(normalized, id, options);
     if (!shader)
       throw Rejected{shader.error()};
+    // Emit optional matrix profiles only for an actual adjacent producer. Plain
+    // maps must not pay for creating unused matrix pipeline states at startup.
+    if (shader->noArithmeticFault && ref.type.tensor && !shader->indirect &&
+        shader->reads.size() == 1 && shader->reads[0] == 0 && shader->tensorTypes.size() == 1 &&
+        shader->tensorTypes[0] == NumericType::Float32 &&
+        std::all_of(shader->scalarTypes.begin(), shader->scalarTypes.end(),
+                    [](auto type) { return type == NumericType::Float32; }) &&
+        std::none_of(shader->scalarBuffers.begin(), shader->scalarBuffers.end(),
+                     [](auto role) { return role; }) &&
+        instruction.inputs.size() == 1 && !program.code.empty() &&
+        program.code.back().kind == NumericProgramKind::Matmul &&
+        instruction.inputs[0] == program.code.back().output)
+      shader->mlir = "// kalandra.numeric.matmul.epilogue 1 " +
+                     std::to_string(shader->scalarTypes.size()) + "\n" + shader->mlir;
     instruction.kernel = kernel(std::move(*shader));
     instruction.output = value();
     program.code.push_back(std::move(instruction));
@@ -183,7 +199,8 @@ class Builder {
     input = force(input);
     if (operation.kind != TensorTransformKind::Transpose &&
         (arithmetic_ == ArithmeticMode::Software || original.type.element != NumericType::Float32))
-      reject(original.span, "GPU row math requires hardware float32; no software transcendental fallback is implemented");
+      reject(original.span, "GPU row math requires hardware float32; no software transcendental "
+                            "fallback is implemented");
     NumericShader shader{original.type.element, {}, {0}};
     shader.transform = operation.kind;
     shader.nativeMetal = tensorTransformMetal(operation.kind, original.type.element);
@@ -196,7 +213,8 @@ class Builder {
       if (auto literal = std::get_if<Float32Literal>(&scalar.operation)) {
         op.constants.push_back(literal->bits);
         shader.scalarBuffers = {0};
-      } else if (auto read = std::get_if<SymbolRead>(&scalar.operation); read && hostScalars.contains(read->symbol)) {
+      } else if (auto read = std::get_if<SymbolRead>(&scalar.operation);
+                 read && hostScalars.contains(read->symbol)) {
         op.scalarSources.push_back(hostScalars.at(read->symbol));
         shader.scalarBuffers = {0};
       } else {
@@ -381,7 +399,8 @@ class Builder {
         out = resident(out.type, *out.buffer);
       } else if (auto operation = std::get_if<TensorTransform>(&node.operation)) {
         auto input = force(emit(operation->input));
-        auto epsilon = operation->epsilon ? std::optional<Ref>{emit(*operation->epsilon)} : std::nullopt;
+        auto epsilon =
+            operation->epsilon ? std::optional<Ref>{emit(*operation->epsilon)} : std::nullopt;
         out = transform(node, *operation, input, epsilon);
       } else if (auto sum = std::get_if<ReduceSum>(&node.operation)) {
         auto a = emit(sum->input);

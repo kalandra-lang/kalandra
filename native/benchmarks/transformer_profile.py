@@ -8,6 +8,8 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--evidence',type=Path,required=True)
 parser.add_argument('--build-dir',type=Path,required=True)
 parser.add_argument('--output',type=Path,required=True)
+parser.add_argument('--dispatches',type=int,default=16)
+parser.add_argument('--large-submissions',type=int,default=8)
 args=parser.parse_args();assert not args.output.exists()
 data=json.loads(args.evidence.read_text());build=args.build_dir.resolve();build.mkdir(parents=True,exist_ok=True)
 root=p.ROOT;fair=Path(__file__).parent/'fair'
@@ -30,8 +32,8 @@ for m,d in [(1,512),(64,512)]:
             command=[binary,bundle,m,d,3,3,mode,0,0]
             samples=p.observations(p.run(command),m*d*4,3,3)
             for sample in samples:
-                assert sample['gpu_ns']>0 and sample['encoding_ns']>0 and sample['dispatches']==16*3
-                assert sample['submissions']==((4 if m==1 else 8)+(0,1,7)[mode])*3
+                assert sample['gpu_ns']>0 and sample['encoding_ns']>0 and sample['dispatches']==args.dispatches*3
+                assert sample['submissions']==((4 if m==1 else args.large_submissions)+(0,1,7)[mode])*3
             rows.append(dict(m=m,d=d,mode=mode,process=process,iterations=3,samples=samples))
         print(f'{m}x{d} mode {mode}: nonzero device/encoding counters verified',flush=True)
 sources +=[args.evidence,cpp]

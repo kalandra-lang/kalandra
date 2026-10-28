@@ -1,9 +1,12 @@
 #include "../metal-source/MatmulEpilogue.h"
 #include <cstdlib>
 #include <iostream>
-static void check(bool value) {
-  if (!value)
+#include <source_location>
+static void check(bool value, std::source_location where = std::source_location::current()) {
+  if (!value) {
+    std::cerr << "Epilogue check failed: " << where.line() << "\n";
     std::abort();
+  }
 }
 static std::string map(unsigned tensors, unsigned scalars) {
   std::string text = "#include <metal_stdlib>\nusing namespace metal;\nstruct F { float _m0[1]; "
@@ -35,6 +38,35 @@ int main() {
       check(fused->find("return value;") != std::string::npos);
       check(fused->find("kalandra_matrix_value") != std::string::npos);
     }
+  auto replaceAll = [](std::string &text, const std::string &from, const std::string &to) {
+    std::size_t at = 0;
+    while ((at = text.find(from, at)) != std::string::npos) {
+      text.replace(at, from.size(), to);
+      at += to.size();
+    }
+  };
+  for (unsigned scalars : {0u, 1u, 7u}) {
+    auto typed = map(1, scalars);
+    replaceAll(typed, "kalandra_elementwise_v2", "kalandra_numeric_v1_float32");
+    replaceAll(typed, "float _m0[1]", "uint _m0[1]");
+    replaceAll(typed, "struct P { uint _m0[" + std::to_string(scalars + 1) + "]",
+               "struct P { uint _m0[" + std::to_string(scalars + 2) + "]");
+    replaceAll(typed, "float value = ", "uint value = ");
+    auto fused = matmulEpilogue(typed, 1, scalars, true);
+    check(bool(fused));
+    check(fused->find("as_type<uint>(kalandra_matrix_value)") != std::string::npos);
+    check(fused->find("return as_type<float>(value)") != std::string::npos);
+    check(!matmulEpilogue(typed, 1, scalars, false));
+    auto badIndex = typed;
+    replaceAll(badIndex, "arg_0._m0[ix]", "arg_0._m0[ix+1]");
+    check(!matmulEpilogue(badIndex, 1, scalars, true));
+    auto badWire = typed;
+    replaceAll(badWire, "uint _m0[1]", "float _m0[1]");
+    check(!matmulEpilogue(badWire, 1, scalars, true));
+    auto badControl = typed;
+    replaceAll(badControl, "uint value = ", "if(true) { uint value = ");
+    check(!matmulEpilogue(badControl, 1, scalars, true));
+  }
   auto valid = map(2, 1);
   check(!matmulEpilogue(valid, 0, 1));
   check(!matmulEpilogue(valid, 28, 1));

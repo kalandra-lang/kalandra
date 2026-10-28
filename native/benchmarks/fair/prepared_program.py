@@ -18,11 +18,11 @@ def header(host,prepared=True):
         text+='TaskHandle launch(m::Runtime&r,TaskCore&core,GroupHandle group,const std::array<m::Buffer,7>&inputs,float epsilon,float scale){\n'
         for i in range(len(loads)):text+=f'auto*kernel{i}=&kernels[{i}];\n'
         return text+scalars+code+f'return r.numericProgram(core,group,inputs,code,{match[1]}u,kalandra::NumericType::Float32,false);\n}}\n}};\n'
-    text='struct Program {m::NumericExecutable executable; double preparationNanoseconds=0;\nProgram(m::Runtime&r,std::string directory){auto target=r.device();ffn::check(bool(target));\n'
+    text='struct Program {m::NumericExecutable executable; double preparationNanoseconds=0; double pipelineNanoseconds=0;\nProgram(m::Runtime&r,std::string directory){auto target=r.device();ffn::check(bool(target));auto pipelineStart=std::chrono::steady_clock::now();\n'
     for name,call in loads:text+=f'auto {name}='+call.replace('f.directory','directory')+f';ffn::check(bool({name}));\n'
     # Captures are placeholders at preparation, rebound on every invocation.
     text+=scalars.replace('epsilon','0.0f').replace('scale','0.0f')+code
-    text+='auto preparationStart=std::chrono::steady_clock::now();\n'
+    text+='pipelineNanoseconds=ffn::elapsed(pipelineStart);auto preparationStart=std::chrono::steady_clock::now();\n'
     text+=f'auto prepared=r.prepareNumericProgram(7,code,{match[1]}u,kalandra::NumericType::Float32,false);ffn::check(bool(prepared));executable=*prepared;preparationNanoseconds=ffn::elapsed(preparationStart);}}\n'
     text+='TaskHandle launch(m::Runtime&r,TaskCore&core,GroupHandle group,const std::array<m::Buffer,7>&inputs,float epsilon,float scale){\n'+scalars
     count=len([v for v in captures[1].split(',') if v])

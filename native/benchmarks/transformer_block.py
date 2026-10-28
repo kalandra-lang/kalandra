@@ -37,7 +37,7 @@ def main():
     fair=Path(__file__).parent/'fair';compiler=root/'build/native/native/kalandra'
     native=compiler.parent/'libkalandra-native-runtime.a';task=compiler.parent/'libkalandra-task-core-optimized.a';metal=compiler.parent/'metal/libkalandra-metal-optimized.a'
     source=Path(__file__).parent/'TransformerBlock.k';bundle=build/'bundle'
-    sources=[Path(__file__),source,*[fair/f for f in ('TransformerBlock.h','TransformerCpu.cpp','TransformerGpu.cpp','TransformerMps.mm','ResidualFfn.h','ffn_reference.py','transformer_reference.py','protocol.py','prepared_program.py')],*[root/f for f in ('native/lib/Backend.cpp','native/lib/CheckedABI.cpp','native/metal/Metal.mm','native/metal/Metal.h','native/metal-source/Compiler.cpp','native/metal-source/Build.cpp','native/metal-source/NumericProgram.cpp','native/metal-source/NumericShader.cpp','native/metal-source/TensorTransformShader.h','native/include/kalandra/TensorTransform.h')]]
+    sources=[Path(__file__),source,*[fair/f for f in ('TransformerBlock.h','TransformerCpu.cpp','TransformerGpu.cpp','TransformerMps.mm','ResidualFfn.h','ffn_reference.py','transformer_reference.py','protocol.py','prepared_program.py')],*[root/f for f in ('native/lib/Backend.cpp','native/lib/CheckedABI.cpp','native/metal/Metal.mm','native/metal/Metal.h','native/metal-source/Compiler.cpp','native/metal-source/Build.cpp','native/metal-source/MatmulEpilogue.h','native/metal-source/NumericProgram.cpp','native/metal-source/NumericShader.cpp','native/metal-source/TensorTransformShader.h','native/include/kalandra/TensorTransform.h')]]
     signature={str(f):p.sha(f) for f in sources+[compiler,native,task,metal]}
     manifest=build/'manifest.json'
     if args.reuse_build:

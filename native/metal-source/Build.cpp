@@ -145,11 +145,12 @@ void buildMetalProgram(const std::filesystem::path &directory,
     (void)contents;
     if (!name.starts_with("kernel") || !name.ends_with(".native.metal"))
       continue;
-    const auto base = (directory / name.substr(0, name.size() - std::string(".native.metal").size())).string();
+    const auto base =
+        (directory / name.substr(0, name.size() - std::string(".native.metal").size())).string();
     run({metalCompiler, "-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM, "-isysroot", sdk,
-         std::string("-std=") + KALANDRA_GPU_TYPED_METAL_LANGUAGE, "-fno-fast-math", "-ffp-contract=off",
-         "-fmodules-cache-path=" + (directory / "module-cache").string(), "-c", (directory / name).string(),
-         "-o", base + ".air"});
+         std::string("-std=") + KALANDRA_GPU_TYPED_METAL_LANGUAGE, "-fno-fast-math",
+         "-ffp-contract=off", "-fmodules-cache-path=" + (directory / "module-cache").string(), "-c",
+         (directory / name).string(), "-o", base + ".air"});
     run({metalCompiler, base + ".air", "-o", base + ".metallib"});
   }
   for (const auto &[name, contents] : outputs) {
@@ -185,6 +186,23 @@ void buildMetalProgram(const std::filesystem::path &directory,
                                  "--msl-device-argument-buffer", "0",
                                  "--msl-force-active-argument-buffer-resources"});
     run(std::move(cross));
+    if (contents.starts_with("// kalandra.numeric.matmul.epilogue ") &&
+        arithmetic != kalandra::ArithmeticMode::Software) {
+      std::istringstream marker(
+          contents.substr(std::string("// kalandra.numeric.matmul.epilogue ").size()));
+      unsigned tensors = 0, scalars = 0;
+      if (marker >> tensors >> scalars) {
+        std::ifstream input(base + ".metal");
+        std::ostringstream text;
+        text << input.rdbuf();
+        if (auto fused = matmulEpilogue(text.str(), tensors, scalars, true)) {
+          std::ofstream append(base + ".metal", std::ios::app);
+          append << *fused;
+          if (!append)
+            throw std::runtime_error("cannot emit typed matrix epilogue");
+        }
+      }
+    }
     if ((!numeric || contents.find("// kalandra-hardware-float32-matrix") != std::string::npos) &&
         arithmetic != kalandra::ArithmeticMode::Software) {
       if (contents.starts_with("// kalandra.matmul.epilogue ")) {

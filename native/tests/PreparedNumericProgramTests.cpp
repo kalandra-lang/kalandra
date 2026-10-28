@@ -98,7 +98,7 @@ static void test(const char *path, std::uint64_t budget, bool full) {
     auto after = r.stats();
     const auto commands =
         after.submissions - before.submissions - 1; // readback is outside the program
-    CHECK(after.dispatches - before.dispatches == 16);
+    CHECK(after.dispatches - before.dispatches == (full ? 14 : 16));
     CHECK(commands >= 4 && commands <= 16);
     if (full)
       CHECK(commands == 4);
@@ -157,6 +157,143 @@ static void test(const char *path, std::uint64_t budget, bool full) {
       CHECK(!final.bytes && !final.argumentBytes && !final.argumentPacks && !final.metalBuffers &&
             !final.hostBackings && !final.deviceBackings);
       return;
+    }
+    // Provenance and live aliases: only invocation-produced, last-use buffers
+    // may be overwritten. An Alias of an input remains an input forever.
+    {
+      constexpr auto f32 = kalandra::NumericType::Float32;
+      auto add = r.loadNumericGraphKernel(std::string(path) + "/kernel0-stage5.metallib",
+                                          *r.device(), f32, {2, 0}, std::array{f32, f32}, {},
+                                          std::array<std::uint32_t, 2>{0, 1},
+                                          std::array<std::uint8_t, 2>{0, 0});
+      CHECK(add);
+      using K = m::NumericInstructionKind;
+      const std::array<std::uint32_t, 2> aa{0, 0}, ba{1, 0}, fork{2, 3};
+      const std::array<std::uint32_t, 1> one{1}, original{0};
+      for (unsigned scenario = 0; scenario < 4; ++scenario) {
+        std::vector<m::NumericInstruction> code;
+        std::uint32_t result = 2;
+        if (scenario == 0 || scenario == 3) {
+          code = {{K::Map, *add, aa, {}, 1, 1}, {K::Map, *add, ba, {}, 2, 1}};
+          if (scenario == 3)
+            result = 1; // Result observation is a live use.
+        } else if (scenario == 1) {
+          code = {{K::Map, *add, aa, {}, 1, 1},
+                  {K::Alias, {}, one, {}, 2},
+                  {K::Map, *add, ba, {}, 3, 1},
+                  {K::Map, *add, fork, {}, 4, 1}};
+          result = 4;
+        } else
+          code = {{K::Alias, {}, original, {}, 1}, {K::Map, *add, ba, {}, 2, 1}};
+        auto c = TaskCore::create();
+        auto g = c->openRoot();
+        auto legacyTask = r.numericProgram(*c, g, std::array{input[0]}, code, result, f32, false);
+        CHECK(c->drain() && c->failure(legacyTask).kind == TaskFailure::None);
+        const auto expected = download(r, *c, g, observe(*c, legacyTask));
+        retire(*c, g);
+        {
+          auto plan = r.prepareNumericProgram(1, code, result, f32, false);
+          CHECK(plan);
+          c = TaskCore::create();
+          g = c->openRoot();
+          r.holdCompletions(true);
+          const auto backing = r.stats().deviceBackings;
+          auto t = r.executeNumericProgram(*c, g, *plan, std::array{input[0]});
+          until(*c, [&] { return c->stats().externalPending == 1; });
+          CHECK(r.stats().deviceBackings == backing + (scenario == 1 || scenario == 3 ? 2 : 1));
+          r.holdCompletions(false);
+          CHECK(c->drain() && c->failure(t).kind == TaskFailure::None);
+          CHECK(download(r, *c, g, observe(*c, t)) == expected);
+          retire(*c, g);
+        }
+        auto verify = TaskCore::create();
+        auto vg = verify->openRoot();
+        auto originalBits = download(r, *verify, vg, input[0]);
+        CHECK(std::memcmp(originalBits.data(), data.values[0].data(), originalBits.size() * 4) ==
+              0);
+        retire(*verify, vg);
+        clean();
+      }
+    }
+    // Fused projections retain the staged bit patterns, including odd reductions,
+    // cancellation-sensitive values, signed zeros, subnormals, infinities and NaNs.
+    {
+      constexpr auto f32 = kalandra::NumericType::Float32;
+      auto matrix = r.loadNumericMatmulKernel(std::string(path) + "/kernel0-stage1.metallib",
+                                              *r.device(), f32);
+      auto scale = r.loadNumericGraphKernel(
+          std::string(path) + "/kernel0-stage3.metallib", *r.device(), f32, {1, 1}, std::array{f32},
+          std::array{f32}, std::array<std::uint32_t, 1>{0}, std::array<std::uint8_t, 1>{0});
+      auto relu = r.loadNumericGraphKernel(
+          std::string(path) + "/kernel0-stage6.metallib", *r.device(), f32, {1, 0}, std::array{f32},
+          {}, std::array<std::uint32_t, 1>{0}, std::array<std::uint8_t, 1>{0});
+      CHECK(matrix && scale && relu);
+      auto uploadBits = [&](const std::vector<std::uint32_t> &bits,
+                            std::array<std::int64_t, 2> shape) {
+        auto h = r.hostTensor(std::as_bytes(std::span(bits)), shape, m::Format::Float32);
+        CHECK(h);
+        auto c = TaskCore::create();
+        auto g = c->openRoot();
+        auto t = r.upload(*c, g, *h, *r.device());
+        CHECK(c->drain());
+        auto b = observe(*c, t);
+        retire(*c, g);
+        return b;
+      };
+      for (auto dims : std::array<std::array<unsigned, 3>, 5>{
+               {{1, 1, 1}, {1, 7, 9}, {3, 5, 7}, {17, 65, 9}, {16, 64, 16}}})
+        for (unsigned pattern = 0; pattern < 4; ++pattern) {
+          std::vector<std::uint32_t> a(dims[0] * dims[1]), b(dims[1] * dims[2]);
+          constexpr std::array<std::uint32_t, 12> corners{
+              0,          0x80000000, 1,          0x80000001, 0x7f7fffff, 0xff7fffff,
+              0x7f800000, 0xff800000, 0x7fc00001, 0xffc00031, 0x3f800001, 0xbf800001};
+          auto fill = [&](auto &v, unsigned salt) {
+            for (std::size_t j = 0; j < v.size(); ++j) {
+              if (!pattern)
+                v[j] = corners[(j * 7 + salt) % corners.size()];
+              else {
+                float n = float(int((j * 37 + salt) % 43) - 21);
+                float q = pattern == 1   ? n / 7.f
+                          : pattern == 2 ? n * 0x1p-140f
+                                         : n * 1.00000011920928955078125f;
+                v[j] = std::bit_cast<std::uint32_t>(q);
+              }
+            }
+          };
+          fill(a, 3);
+          fill(b, 11);
+          {
+            auto left = uploadBits(a, {dims[0], dims[1]}),
+                 right = uploadBits(b, {dims[1], dims[2]});
+            for (unsigned post = 0; post < 3; ++post) {
+              using K = m::NumericInstructionKind;
+              std::array<std::uint32_t, 2> operands{0, 1};
+              std::array<std::uint32_t, 1> produced{2};
+              std::array<std::uint64_t, 1> factor{post == 1 ? 0x80000000u : 0x3f000001u};
+              std::array<m::NumericInstruction, 2> code{
+                  {{K::Matmul, *matrix, operands, {}, 2},
+                   {K::Map, post == 2 ? *relu : *scale, produced,
+                    post == 2 ? std::span<const std::uint64_t>{} : factor, 3, 1}}};
+              auto c = TaskCore::create();
+              auto g = c->openRoot();
+              auto old = r.numericProgram(*c, g, std::array{left, right}, code, 3, f32, false);
+              CHECK(c->drain() && c->failure(old).kind == TaskFailure::None);
+              auto expected = download(r, *c, g, observe(*c, old));
+              retire(*c, g);
+              auto plan = r.prepareNumericProgram(2, code, 3, f32, false);
+              CHECK(plan);
+              c = TaskCore::create();
+              g = c->openRoot();
+              auto before = r.stats();
+              auto t = r.executeNumericProgram(*c, g, *plan, std::array{left, right});
+              CHECK(c->drain() && c->failure(t).kind == TaskFailure::None);
+              CHECK(r.stats().dispatches - before.dispatches == 1);
+              CHECK(download(r, *c, g, observe(*c, t)) == expected);
+              retire(*c, g);
+            }
+          }
+          clean();
+        }
     }
     // A later host shape fault waits for prior encoded work. Its device failure
     // has precedence; an earlier invalid epsilon keeps arithmetic fault 4.
@@ -283,7 +420,7 @@ static void test(const char *path, std::uint64_t budget, bool full) {
       retire(*c, g);
       clean();
     }
-    std::printf("prepared: %llu allocation checkpoints, %llu commands/16 dispatches, 12 held "
+    std::printf("prepared: %llu allocation checkpoints, %llu commands/14 dispatches, 12 held "
                 "failure boundaries, changing captures and 8 concurrent calls passed\n",
                 (unsigned long long)attempts, (unsigned long long)commands);
   }

@@ -1,0 +1,12 @@
+{
+  "evidence_sha256": {
+    "transformer-fusion-full-block-2026-10-28.json": "213513f630f63e66355a9c4fdebc74383676213703c373ff0eac43e6d52a949b",
+    "transformer-fusion-paired-2026-10-28.json": "9ea4f489a2b335903cdd12a21bfe2825dd8b45eebdd60a8ea275d1842d13514c",
+    "transformer-fusion-profile-2026-10-28.json": "b15adf6372a97294ac3956058ab053019c2156c1f937d7d0fef707eabddd43ae",
+    "transformer-fusion-setup-2026-10-28.json": "a7eee1f22ec6e3b7ee5dc0b05f8848ab1286aee53e7888048ba68e32ccaa799c"
+  },
+  "positive_medians": 22,
+  "negative_medians": 5,
+  "all_positive_blocks": 8,
+  "renderer_sha256": "88aab81352c2148f19425ec0f1ee5fe84aa593e082bbccb0aaeb008d5a01dfcf"
+}

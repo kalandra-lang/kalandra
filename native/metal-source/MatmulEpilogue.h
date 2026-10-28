@@ -12,10 +12,10 @@
 // This is a code-generation optimization over validated compiler output, not a
 // general MSL parser. Any unsupported spelling/control/indexing keeps the map.
 inline std::optional<std::string> matmulEpilogue(const std::string &source, unsigned tensors,
-                                                 unsigned scalars) {
+                                                 unsigned scalars, bool numeric = false) {
   if (!tensors || tensors > 27 || scalars == UINT32_MAX || source.size() > 16384)
     return {};
-  const std::string name = "kalandra_elementwise_v2";
+  const std::string name = numeric ? "kalandra_numeric_v1_float32" : "kalandra_elementwise_v2";
   const auto start = source.find("kernel void " + name + "(");
   if (start == std::string::npos)
     return {};
@@ -24,8 +24,7 @@ inline std::optional<std::string> matmulEpilogue(const std::string &source, unsi
   if (opening == std::string::npos || end == std::string::npos || opening >= end)
     return {};
   const auto signature = source.substr(start, opening - start);
-  std::regex argument(
-      R"(device\s+(\w+)&\s+(kalandra_elementwise_v2_arg_(\d+))\s*\[\[buffer\((\d+)\)\]\])");
+  std::regex argument("device\\s+(\\w+)&\\s+(" + name + R"(_arg_(\d+))\s*\[\[buffer\((\d+)\)\]\])");
   std::vector<std::string> types, names;
   for (auto it = std::sregex_iterator(signature.begin(), signature.end(), argument);
        it != std::sregex_iterator(); ++it) {
@@ -40,11 +39,13 @@ inline std::optional<std::string> matmulEpilogue(const std::string &source, unsi
     return {};
   for (unsigned i = 0; i <= tensors; ++i)
     if (!std::regex_search(source,
-                           std::regex("struct " + types[i] + R"(\s*\{\s*float _m0\[1\];\s*\};)")))
+                           std::regex("struct " + types[i] + "\\s*\\{\\s*" +
+                                      (numeric ? "uint" : "float") + R"( _m0\[1\];\s*\};)")))
       return {};
   if (!std::regex_search(source,
                          std::regex("struct " + types.back() + R"(\s*\{\s*uint _m0\[)" +
-                                    std::to_string(std::uint64_t(scalars) + 1) + R"(\];\s*\};)")))
+                                    std::to_string(std::uint64_t(scalars) + 1 + unsigned(numeric)) +
+                                    R"(\];\s*\};)")))
     return {};
   const auto parameter = names.back();
   const auto body = source.substr(opening + 1, end - opening - 1);
@@ -72,14 +73,16 @@ inline std::optional<std::string> matmulEpilogue(const std::string &source, unsi
         std::regex_search(probe, std::regex("\\b" + names[i] + "\\b")))
       return {};
     if (i == 0)
-      replace(code, load, "kalandra_matrix_value");
+      replace(code, load,
+              numeric ? "as_type<uint>(kalandra_matrix_value)" : "kalandra_matrix_value");
   }
   const auto output = names[tensors];
   const std::regex store(output + "\\._m0\\[" + index + R"(\] = ([^;]+);\s*$)");
   if (!std::regex_search(code, match, store))
     return {};
   const auto expression = match[1].str();
-  code.replace(match.position(), match.length(), "return " + expression + ";\n");
+  code.replace(match.position(), match.length(),
+               "return " + (numeric ? "as_type<float>(" + expression + ")" : expression) + ";\n");
   if (code.find(output) != std::string::npos || code.find("gl_") != std::string::npos)
     return {};
   std::string helper = "\ninline float kalandra_fused_post(float kalandra_matrix_value";

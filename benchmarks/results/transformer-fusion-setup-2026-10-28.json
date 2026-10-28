@@ -1,0 +1,141 @@
+{
+  "contract": "Separate fresh-process constructor diagnostics. Pipeline setup includes library loads, reflection/pipeline creation and local descriptor assembly; excludes Runtime creation, uploads, process launch and immutable plan preparation. Alternating version order; no concurrent test/build/timing work.",
+  "observations": [
+    {
+      "version": "baseline",
+      "process": 0,
+      "pipeline_ns": 3895958,
+      "plan_ns": 48458
+    },
+    {
+      "version": "current",
+      "process": 0,
+      "pipeline_ns": 3202917,
+      "plan_ns": 11291
+    },
+    {
+      "version": "current",
+      "process": 1,
+      "pipeline_ns": 2444958,
+      "plan_ns": 7667
+    },
+    {
+      "version": "baseline",
+      "process": 1,
+      "pipeline_ns": 1924416,
+      "plan_ns": 7709
+    },
+    {
+      "version": "baseline",
+      "process": 2,
+      "pipeline_ns": 1896833,
+      "plan_ns": 11542
+    },
+    {
+      "version": "current",
+      "process": 2,
+      "pipeline_ns": 2362625,
+      "plan_ns": 7791
+    },
+    {
+      "version": "current",
+      "process": 3,
+      "pipeline_ns": 2175416,
+      "plan_ns": 9333
+    },
+    {
+      "version": "baseline",
+      "process": 3,
+      "pipeline_ns": 1822917,
+      "plan_ns": 24292
+    },
+    {
+      "version": "baseline",
+      "process": 4,
+      "pipeline_ns": 1739792,
+      "plan_ns": 7667
+    },
+    {
+      "version": "current",
+      "process": 4,
+      "pipeline_ns": 2109833,
+      "plan_ns": 7834
+    },
+    {
+      "version": "current",
+      "process": 5,
+      "pipeline_ns": 2232459,
+      "plan_ns": 7666
+    },
+    {
+      "version": "baseline",
+      "process": 5,
+      "pipeline_ns": 1775750,
+      "plan_ns": 7292
+    },
+    {
+      "version": "baseline",
+      "process": 6,
+      "pipeline_ns": 1803583,
+      "plan_ns": 6708
+    },
+    {
+      "version": "current",
+      "process": 6,
+      "pipeline_ns": 2223875,
+      "plan_ns": 7875
+    },
+    {
+      "version": "current",
+      "process": 7,
+      "pipeline_ns": 2257458,
+      "plan_ns": 7708
+    },
+    {
+      "version": "baseline",
+      "process": 7,
+      "pipeline_ns": 1770333,
+      "plan_ns": 7958
+    },
+    {
+      "version": "baseline",
+      "process": 8,
+      "pipeline_ns": 1917625,
+      "plan_ns": 7458
+    },
+    {
+      "version": "current",
+      "process": 8,
+      "pipeline_ns": 2235500,
+      "plan_ns": 8417
+    },
+    {
+      "version": "current",
+      "process": 9,
+      "pipeline_ns": 2173750,
+      "plan_ns": 7542
+    },
+    {
+      "version": "baseline",
+      "process": 9,
+      "pipeline_ns": 1739541,
+      "plan_ns": 8167
+    }
+  ],
+  "source_sha256": {
+    "benchmarks/.build/gpu-fusion-2026-10-28/cold/BaselineSetup.cpp": "1a6d1fd3c8d17cbc10b5688207d49058cc42f1778f1a3ab031ddfda2125e3770",
+    "benchmarks/.build/gpu-fusion-2026-10-28/cold/TransformerProgram.h": "90303d91376617b6a0a782817a8708debd8eeb177bdf276b35950d9572783fba",
+    "native/benchmarks/fair/TransformerGpu.cpp": "78b6e786c917361822b65c61c4371678402289b1517bd5b84854b456c6b5b4e6"
+  },
+  "source_snapshots": {
+    "benchmarks/.build/gpu-fusion-2026-10-28/cold/BaselineSetup.cpp": "#include \"TransformerBlock.h\"\n#include \"/Users/pouya/Projects/kalandra.dev/native/metal/Metal.h\"\n#include <new>\nusing namespace kalandra::runtime;\nnamespace m=kalandra::runtime::metal;\nstatic m::Buffer observe(TaskCore &core,TaskHandle task) {\n  Invocation context;alignas(m::Buffer) std::byte slot[sizeof(m::Buffer)];\n  ffn::check(core.observe(task,m::Runtime::bufferLayout(),context,slot));\n  auto *value=std::launder(reinterpret_cast<m::Buffer*>(slot));auto result=*value;value->~Buffer();return result;\n}\nstatic void retire(TaskCore &core,GroupHandle group) {\n  ffn::check(core.close(group) && core.drain() && core.release(group));\n  auto s=core.stats();ffn::check(!s.groups && !s.records && !s.retainedBytes && !s.retainedOwners && !s.externalPending);\n}\n// Generated from the actual compiler's host.cpp. The runner validates source,\n// instruction sequence, scalar captures, library names, and artifact hashes.\n#include \"TransformerProgram.h\"\nint main(int argc,char**argv) {\n  ffn::check(argc==9);\n  const unsigned rows=std::stoul(argv[2]),d=std::stoul(argv[3]),count=std::stoul(argv[4]),rounds=std::stoul(argv[5]),mode=std::stoul(argv[6]),dump=std::stoul(argv[7]),pattern=std::stoul(argv[8]);\n  ffn::check(rows && d && rows<=512 && d<=2048 && mode<=2);\n  auto made=m::Runtime::create();ffn::check(bool(made));auto&r=**made;auto device=r.device();ffn::check(bool(device));\n  auto core=TaskCore::create();ffn::check(bool(core));Program program(r,argv[1]);\n  const auto preparedPacks=r.stats().argumentPacks,preparedBytes=r.stats().argumentBytes;\n  transformer::Inputs data(rows,d,pattern);\n  {\n    std::array<m::Buffer,7> host,resident;\n    auto upload=[&](m::Buffer buffer) {auto g=core->openRoot();auto t=r.upload(*core,g,buffer,*device);ffn::check(t && core->drain());auto result=observe(*core,t);retire(*core,g);return result;};\n    for(unsigned i=0;i<7;++i) {\n      auto h=r.hostTensor(std::as_bytes(std::span(data.values[i])),data.shapes[i],m::Format::Float32);ffn::check(bool(h));host[i]=*h;\n      if(!mode || (mode==1 && i)) resident[i]=upload(host[i]);\n    }\n    const auto baseline=r.stats().bytes;\n    auto call=[&](bool save) {\n      auto input=resident;\n      for(unsigned i=0;i<7;++i) if(mode==2 || (mode==1 && !i)) input[i]=upload(host[i]);\n      auto group=core->openRoot();auto task=program.launch(r,*core,group,input,transformer::epsilon,data.scale);\n      ffn::check(task && core->drain() && core->failure(task).kind==TaskFailure::None);\n      auto out=observe(*core,task);ffn::check(out.shape().size()==2 && out.shape()[0]==rows && out.shape()[1]==d && out.bytes()==rows*d*4ull);\n      if(save) {\n        auto t=r.download(*core,group,out);ffn::check(t && core->drain());auto h=observe(*core,t);auto bytes=h.hostBytes();ffn::check(bool(bytes));\n        std::vector<float> cells(rows*d);ffn::check(bytes->size()==cells.size()*4);std::memcpy(cells.data(),bytes->data(),bytes->size());ffn::dump(cells,ffn::sum(cells));\n      }\n      out={};retire(*core,group);return double(rows)*d*4;\n    };\n    if(dump) call(true);\n    else for(int round=-2;round<int(rounds);++round) {\n      auto before=r.stats();double checksum=0;auto start=std::chrono::steady_clock::now();\n      for(unsigned i=0;i<count;++i) checksum+=call(false);\n      const double ns=ffn::elapsed(start);auto after=r.stats();\n      ffn::check(after.bytes==baseline && !after.inFlight && after.argumentPacks==preparedPacks && after.argumentBytes==preparedBytes);\n      std::printf(\"{\\\"pipeline_setup_ns\\\":%.0f,\\\"preparation_ns\\\":%.0f,\\\"round\\\":%d,\\\"ns\\\":%.0f,\\\"checksum\\\":%.17g,\\\"submissions\\\":%llu,\\\"dispatches\\\":%llu,\\\"gpu_ns\\\":%llu,\\\"encoding_ns\\\":%llu,\\\"attempts\\\":%llu,\\\"resident_bytes\\\":%llu,\\\"peak_bytes\\\":%llu}\\n\",program.pipelineNanoseconds,program.preparationNanoseconds,round,ns,checksum,(unsigned long long)(after.submissions-before.submissions),(unsigned long long)(after.dispatches-before.dispatches),(unsigned long long)(after.gpuNanoseconds-before.gpuNanoseconds),(unsigned long long)(after.encodingNanoseconds-before.encodingNanoseconds),(unsigned long long)(after.attempts-before.attempts),(unsigned long long)baseline,(unsigned long long)after.peakBytes);\n    }\n  }\n  auto s=r.stats();ffn::check(!s.bytes && !s.hostBackings && !s.deviceBackings && !s.metalBuffers && !s.stagingBuffers);\n}\n",
+    "benchmarks/.build/gpu-fusion-2026-10-28/cold/TransformerProgram.h": "struct Program {m::NumericExecutable executable; double preparationNanoseconds=0; double pipelineNanoseconds=0;\nProgram(m::Runtime&r,std::string directory){auto target=r.device();ffn::check(bool(target));auto pipelineStart=std::chrono::steady_clock::now();\nauto kernel0=r.loadTensorTransformKernel(directory+\"/kernel0.metallib\",*target,kalandra::TensorTransformKind::RmsNormRows,kalandra::NumericType::Float32,false);ffn::check(bool(kernel0));\nauto kernel1=r.loadNumericMatmulKernel(directory+\"/kernel0-stage1.metallib\",*target,kalandra::NumericType::Float32);ffn::check(bool(kernel1));\nauto kernel2=r.loadTensorTransformKernel(directory+\"/kernel0-stage2.metallib\",*target,kalandra::TensorTransformKind::Transpose,kalandra::NumericType::Float32,false);ffn::check(bool(kernel2));\nauto kernel3=r.loadNumericGraphKernel(directory+\"/kernel0-stage3.metallib\",*target,kalandra::NumericType::Float32,m::ElementwiseSignature{1,1},std::array<kalandra::NumericType,1>{kalandra::NumericType::Float32,},std::array<kalandra::NumericType,1>{kalandra::NumericType::Float32,},std::array<std::uint32_t,1>{0,},std::array<std::uint8_t,1>{0,});ffn::check(bool(kernel3));\nauto kernel4=r.loadTensorTransformKernel(directory+\"/kernel0-stage4.metallib\",*target,kalandra::TensorTransformKind::SoftmaxRows,kalandra::NumericType::Float32,false);ffn::check(bool(kernel4));\nauto kernel5=r.loadNumericGraphKernel(directory+\"/kernel0-stage5.metallib\",*target,kalandra::NumericType::Float32,m::ElementwiseSignature{2,0},std::array<kalandra::NumericType,2>{kalandra::NumericType::Float32,kalandra::NumericType::Float32,},std::array<kalandra::NumericType,0>{},std::array<std::uint32_t,2>{0,1,},std::array<std::uint8_t,2>{0,0,});ffn::check(bool(kernel5));\nauto kernel6=r.loadNumericGraphKernel(directory+\"/kernel0-stage6.metallib\",*target,kalandra::NumericType::Float32,m::ElementwiseSignature{1,0},std::array<kalandra::NumericType,1>{kalandra::NumericType::Float32,},std::array<kalandra::NumericType,0>{},std::array<std::uint32_t,1>{0,},std::array<std::uint8_t,1>{0,});ffn::check(bool(kernel6));\nauto scalars0=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars1=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars2=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars3=std::array<std::uint64_t,2>{1ull,1ull,};\nauto scalars4=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars5=std::array<std::uint64_t,2>{1ull,1ull,};\nauto scalars6=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars7=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars8=std::array<std::uint64_t,2>{1ull,1ull,};\nauto scalars9=std::array<std::uint64_t,1>{std::uint64_t(std::bit_cast<std::uint32_t>(0.0f)),};\nauto scalars10=std::array<std::uint64_t,0>{};\nauto scalars11=std::array<std::uint64_t,0>{};\nauto scalars12=std::array<std::uint64_t,0>{};\nauto scalars13=std::array<std::uint64_t,0>{};\nauto scalars14=std::array<std::uint64_t,0>{};\nauto scalars15=std::array<std::uint64_t,0>{};\nauto scalars16=std::array<std::uint64_t,0>{};\nauto scalars17=std::array<std::uint64_t,0>{};\nauto scalars18=std::array<std::uint64_t,0>{};\nauto scalars19=std::array<std::uint64_t,1>{std::uint64_t(std::bit_cast<std::uint32_t>(0.0f)),};\nauto scalars20=std::array<std::uint64_t,0>{};\nauto scalars21=std::array<std::uint64_t,0>{};\nauto scalars22=std::array<std::uint64_t,0>{};\nauto scalars23=std::array<std::uint64_t,0>{};\nauto scalars24=std::array<std::uint64_t,0>{};\nauto scalars25=std::array<std::uint64_t,0>{};\nauto scalars26=std::array<std::uint64_t,0>{};\nauto scalars27=std::array<std::uint64_t,1>{std::uint64_t(std::bit_cast<std::uint32_t>(0.0f)),};\nauto scalars28=std::array<std::uint64_t,0>{};\nauto scalars29=std::array<std::uint64_t,0>{};\nauto scalars30=std::array<std::uint64_t,0>{};\nauto scalars31=std::array<std::uint64_t,0>{};\nauto scalars32=std::array<std::uint64_t,0>{};\nauto scalars33=std::array<std::uint64_t,0>{};\nauto scalars34=std::array<std::uint64_t,0>{};\nauto operands0=std::array<std::uint32_t,2>{0,1,};\nauto operands1=std::array<std::uint32_t,2>{0,2,};\nauto operands2=std::array<std::uint32_t,2>{0,3,};\nauto operands3=std::array<std::uint32_t,2>{1,2,};\nauto operands4=std::array<std::uint32_t,2>{3,4,};\nauto operands5=std::array<std::uint32_t,2>{0,4,};\nauto operands6=std::array<std::uint32_t,2>{0,5,};\nauto operands7=std::array<std::uint32_t,2>{5,6,};\nauto operands8=std::array<std::uint32_t,2>{0,6,};\nauto operands9=std::array<std::uint32_t,1>{0,};\nauto operands10=std::array<std::uint32_t,2>{7,1,};\nauto operands11=std::array<std::uint32_t,2>{7,1,};\nauto operands12=std::array<std::uint32_t,2>{7,2,};\nauto operands13=std::array<std::uint32_t,2>{7,2,};\nauto operands14=std::array<std::uint32_t,2>{7,3,};\nauto operands15=std::array<std::uint32_t,2>{7,3,};\nauto operands16=std::array<std::uint32_t,1>{9,};\nauto operands17=std::array<std::uint32_t,2>{8,11,};\nauto operands18=std::array<std::uint32_t,2>{8,11,};\nauto operands19=std::array<std::uint32_t,1>{12,};\nauto operands20=std::array<std::uint32_t,1>{13,};\nauto operands21=std::array<std::uint32_t,2>{14,10,};\nauto operands22=std::array<std::uint32_t,2>{14,10,};\nauto operands23=std::array<std::uint32_t,2>{15,4,};\nauto operands24=std::array<std::uint32_t,2>{15,4,};\nauto operands25=std::array<std::uint32_t,2>{0,16,};\nauto operands26=std::array<std::uint32_t,2>{0,16,};\nauto operands27=std::array<std::uint32_t,1>{17,};\nauto operands28=std::array<std::uint32_t,2>{18,5,};\nauto operands29=std::array<std::uint32_t,2>{18,5,};\nauto operands30=std::array<std::uint32_t,1>{19,};\nauto operands31=std::array<std::uint32_t,2>{20,6,};\nauto operands32=std::array<std::uint32_t,2>{20,6,};\nauto operands33=std::array<std::uint32_t,2>{17,21,};\nauto operands34=std::array<std::uint32_t,2>{17,21,};\nstd::array<m::NumericInstruction,35> code{{{m::NumericInstructionKind::Extent,m::Kernel{},operands0,scalars0,4294967295u,0u},{m::NumericInstructionKind::Extent,m::Kernel{},operands1,scalars1,4294967295u,0u},{m::NumericInstructionKind::Extent,m::Kernel{},operands2,scalars2,4294967295u,0u},{m::NumericInstructionKind::Extent,m::Kernel{},operands3,scalars3,4294967295u,0u},{m::NumericInstructionKind::Extent,m::Kernel{},operands4,scalars4,4294967295u,0u},{m::NumericInstructionKind::Extent,m::Kernel{},operands5,scalars5,4294967295u,0u},{m::NumericInstructionKind::Extent,m::Kernel{},operands6,scalars6,4294967295u,0u},{m::NumericInstructionKind::Extent,m::Kernel{},operands7,scalars7,4294967295u,0u},{m::NumericInstructionKind::Extent,m::Kernel{},operands8,scalars8,4294967295u,0u},{m::NumericInstructionKind::Map,*kernel0,operands9,scalars9,7u,0u},{m::NumericInstructionKind::MatrixShape,m::Kernel{},operands10,scalars10,4294967295u,0u},{m::NumericInstructionKind::Matmul,*kernel1,operands11,scalars11,8u,0u},{m::NumericInstructionKind::MatrixShape,m::Kernel{},operands12,scalars12,4294967295u,0u},{m::NumericInstructionKind::Matmul,*kernel1,operands13,scalars13,9u,0u},{m::NumericInstructionKind::MatrixShape,m::Kernel{},operands14,scalars14,4294967295u,0u},{m::NumericInstructionKind::Matmul,*kernel1,operands15,scalars15,10u,0u},{m::NumericInstructionKind::Map,*kernel2,operands16,scalars16,11u,0u},{m::NumericInstructionKind::MatrixShape,m::Kernel{},operands17,scalars17,4294967295u,0u},{m::NumericInstructionKind::Matmul,*kernel1,operands18,scalars18,12u,0u},{m::NumericInstructionKind::Map,*kernel3,operands19,scalars19,13u,1u},{m::NumericInstructionKind::Map,*kernel4,operands20,scalars20,14u,0u},{m::NumericInstructionKind::MatrixShape,m::Kernel{},operands21,scalars21,4294967295u,0u},{m::NumericInstructionKind::Matmul,*kernel1,operands22,scalars22,15u,0u},{m::NumericInstructionKind::MatrixShape,m::Kernel{},operands23,scalars23,4294967295u,0u},{m::NumericInstructionKind::Matmul,*kernel1,operands24,scalars24,16u,0u},{m::NumericInstructionKind::EqualShape,m::Kernel{},operands25,scalars25,4294967295u,0u},{m::NumericInstructionKind::Map,*kernel5,operands26,scalars26,17u,1u},{m::NumericInstructionKind::Map,*kernel0,operands27,scalars27,18u,0u},{m::NumericInstructionKind::MatrixShape,m::Kernel{},operands28,scalars28,4294967295u,0u},{m::NumericInstructionKind::Matmul,*kernel1,operands29,scalars29,19u,0u},{m::NumericInstructionKind::Map,*kernel6,operands30,scalars30,20u,1u},{m::NumericInstructionKind::MatrixShape,m::Kernel{},operands31,scalars31,4294967295u,0u},{m::NumericInstructionKind::Matmul,*kernel1,operands32,scalars32,21u,0u},{m::NumericInstructionKind::EqualShape,m::Kernel{},operands33,scalars33,4294967295u,0u},{m::NumericInstructionKind::Map,*kernel5,operands34,scalars34,22u,1u},}};\npipelineNanoseconds=ffn::elapsed(pipelineStart);auto preparationStart=std::chrono::steady_clock::now();\nauto prepared=r.prepareNumericProgram(7,code,22u,kalandra::NumericType::Float32,false);ffn::check(bool(prepared));executable=*prepared;preparationNanoseconds=ffn::elapsed(preparationStart);}\nTaskHandle launch(m::Runtime&r,TaskCore&core,GroupHandle group,const std::array<m::Buffer,7>&inputs,float epsilon,float scale){\nauto scalars0=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars1=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars2=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars3=std::array<std::uint64_t,2>{1ull,1ull,};\nauto scalars4=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars5=std::array<std::uint64_t,2>{1ull,1ull,};\nauto scalars6=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars7=std::array<std::uint64_t,2>{1ull,0ull,};\nauto scalars8=std::array<std::uint64_t,2>{1ull,1ull,};\nauto scalars9=std::array<std::uint64_t,1>{std::uint64_t(std::bit_cast<std::uint32_t>(epsilon)),};\nauto scalars10=std::array<std::uint64_t,0>{};\nauto scalars11=std::array<std::uint64_t,0>{};\nauto scalars12=std::array<std::uint64_t,0>{};\nauto scalars13=std::array<std::uint64_t,0>{};\nauto scalars14=std::array<std::uint64_t,0>{};\nauto scalars15=std::array<std::uint64_t,0>{};\nauto scalars16=std::array<std::uint64_t,0>{};\nauto scalars17=std::array<std::uint64_t,0>{};\nauto scalars18=std::array<std::uint64_t,0>{};\nauto scalars19=std::array<std::uint64_t,1>{std::uint64_t(std::bit_cast<std::uint32_t>(scale)),};\nauto scalars20=std::array<std::uint64_t,0>{};\nauto scalars21=std::array<std::uint64_t,0>{};\nauto scalars22=std::array<std::uint64_t,0>{};\nauto scalars23=std::array<std::uint64_t,0>{};\nauto scalars24=std::array<std::uint64_t,0>{};\nauto scalars25=std::array<std::uint64_t,0>{};\nauto scalars26=std::array<std::uint64_t,0>{};\nauto scalars27=std::array<std::uint64_t,1>{std::uint64_t(std::bit_cast<std::uint32_t>(epsilon)),};\nauto scalars28=std::array<std::uint64_t,0>{};\nauto scalars29=std::array<std::uint64_t,0>{};\nauto scalars30=std::array<std::uint64_t,0>{};\nauto scalars31=std::array<std::uint64_t,0>{};\nauto scalars32=std::array<std::uint64_t,0>{};\nauto scalars33=std::array<std::uint64_t,0>{};\nauto scalars34=std::array<std::uint64_t,0>{};\nreturn r.executeNumericProgram(core,group,executable,inputs,std::array<std::uint64_t,3>{scalars9[0],scalars19[0],scalars27[0],});\n}\n};\n",
+    "native/benchmarks/fair/TransformerGpu.cpp": "#include \"TransformerBlock.h\"\n#include \"../../metal/Metal.h\"\n#include <new>\nusing namespace kalandra::runtime;\nnamespace m=kalandra::runtime::metal;\nstatic m::Buffer observe(TaskCore &core,TaskHandle task) {\n  Invocation context;alignas(m::Buffer) std::byte slot[sizeof(m::Buffer)];\n  ffn::check(core.observe(task,m::Runtime::bufferLayout(),context,slot));\n  auto *value=std::launder(reinterpret_cast<m::Buffer*>(slot));auto result=*value;value->~Buffer();return result;\n}\nstatic void retire(TaskCore &core,GroupHandle group) {\n  ffn::check(core.close(group) && core.drain() && core.release(group));\n  auto s=core.stats();ffn::check(!s.groups && !s.records && !s.retainedBytes && !s.retainedOwners && !s.externalPending);\n}\n// Generated from the actual compiler's host.cpp. The runner validates source,\n// instruction sequence, scalar captures, library names, and artifact hashes.\n#include \"TransformerProgram.h\"\nint main(int argc,char**argv) {\n  ffn::check(argc==9);\n  const unsigned rows=std::stoul(argv[2]),d=std::stoul(argv[3]),count=std::stoul(argv[4]),rounds=std::stoul(argv[5]),mode=std::stoul(argv[6]),dump=std::stoul(argv[7]),pattern=std::stoul(argv[8]);\n  ffn::check(rows && d && rows<=512 && d<=2048 && mode<=2);\n  auto made=m::Runtime::create();ffn::check(bool(made));auto&r=**made;auto device=r.device();ffn::check(bool(device));\n  auto core=TaskCore::create();ffn::check(bool(core));Program program(r,argv[1]);\n  const auto preparedPacks=r.stats().argumentPacks,preparedBytes=r.stats().argumentBytes;\n  transformer::Inputs data(rows,d,pattern);\n  {\n    std::array<m::Buffer,7> host,resident;\n    auto upload=[&](m::Buffer buffer) {auto g=core->openRoot();auto t=r.upload(*core,g,buffer,*device);ffn::check(t && core->drain());auto result=observe(*core,t);retire(*core,g);return result;};\n    for(unsigned i=0;i<7;++i) {\n      auto h=r.hostTensor(std::as_bytes(std::span(data.values[i])),data.shapes[i],m::Format::Float32);ffn::check(bool(h));host[i]=*h;\n      if(!mode || (mode==1 && i)) resident[i]=upload(host[i]);\n    }\n    const auto baseline=r.stats().bytes;\n    auto call=[&](bool save) {\n      auto input=resident;\n      for(unsigned i=0;i<7;++i) if(mode==2 || (mode==1 && !i)) input[i]=upload(host[i]);\n      auto group=core->openRoot();auto task=program.launch(r,*core,group,input,transformer::epsilon,data.scale);\n      ffn::check(task && core->drain() && core->failure(task).kind==TaskFailure::None);\n      auto out=observe(*core,task);ffn::check(out.shape().size()==2 && out.shape()[0]==rows && out.shape()[1]==d && out.bytes()==rows*d*4ull);\n      if(save) {\n        auto t=r.download(*core,group,out);ffn::check(t && core->drain());auto h=observe(*core,t);auto bytes=h.hostBytes();ffn::check(bool(bytes));\n        std::vector<float> cells(rows*d);ffn::check(bytes->size()==cells.size()*4);std::memcpy(cells.data(),bytes->data(),bytes->size());ffn::dump(cells,ffn::sum(cells));\n      }\n      out={};retire(*core,group);return double(rows)*d*4;\n    };\n    if(dump) call(true);\n    else for(int round=-2;round<int(rounds);++round) {\n      auto before=r.stats();double checksum=0;auto start=std::chrono::steady_clock::now();\n      for(unsigned i=0;i<count;++i) checksum+=call(false);\n      const double ns=ffn::elapsed(start);auto after=r.stats();\n      ffn::check(after.bytes==baseline && !after.inFlight && after.argumentPacks==preparedPacks && after.argumentBytes==preparedBytes);\n      std::printf(\"{\\\"pipeline_setup_ns\\\":%.0f,\\\"preparation_ns\\\":%.0f,\\\"round\\\":%d,\\\"ns\\\":%.0f,\\\"checksum\\\":%.17g,\\\"submissions\\\":%llu,\\\"dispatches\\\":%llu,\\\"gpu_ns\\\":%llu,\\\"encoding_ns\\\":%llu,\\\"attempts\\\":%llu,\\\"resident_bytes\\\":%llu,\\\"peak_bytes\\\":%llu}\\n\",program.pipelineNanoseconds,program.preparationNanoseconds,round,ns,checksum,(unsigned long long)(after.submissions-before.submissions),(unsigned long long)(after.dispatches-before.dispatches),(unsigned long long)(after.gpuNanoseconds-before.gpuNanoseconds),(unsigned long long)(after.encodingNanoseconds-before.encodingNanoseconds),(unsigned long long)(after.attempts-before.attempts),(unsigned long long)baseline,(unsigned long long)after.peakBytes);\n    }\n  }\n  auto s=r.stats();ffn::check(!s.bytes && !s.hostBackings && !s.deviceBackings && !s.metalBuffers && !s.stagingBuffers);\n}\n"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-fusion-2026-10-28/cold/baseline": "dab7acf68ca94fe42e9e64be5d9eec32e1235b15b498b37b59de503c6d6a26c1",
+    "benchmarks/.build/gpu-fusion-2026-10-28/baseline/metal.a": "faf54064354e210011559ed6ad68090ccf4efe67560a885a4e9298a9505f55a6",
+    "benchmarks/.build/gpu-fusion-2026-10-28/baseline/task.a": "b4e865a05037644fbd332ecc127ed829199b2ad69c3e8c510987f48a7fae7d8c",
+    "benchmarks/.build/gpu-fusion-2026-10-28/acceptance/gpu": "46532b7641cf504375594c8b6c0d750a1b4a00e436bc7a9c6761b6088d08bf8e"
+  }
+}

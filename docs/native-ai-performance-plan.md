@@ -220,3 +220,15 @@ cancellation, sanitizer, all-ten-type and relocated distribution gates passed.
 See the [detailed report](../benchmarks/results/gpu-prepared-execution-2026-10-28.md).
 Projection/pointwise fusion and invocation-local temporary/parameter reuse are
 next; MPSGraph remains faster and small workloads still favor CPU.
+
+
+## Typed epilogues and private reuse follow-up
+
+Completed the next GPU step: adjacent non-faulting float32 matrix epilogues and
+private last-use backing reuse with live-alias/original-input protection.
+Profiling shows 14 dispatches and 4/7 submissions. The largest resident case
+improves 9.9%, but five of 27 case medians are slightly negative and pipeline
+setup costs about 0.42 ms more. All outcomes and qualification are in the
+[fusion report](../benchmarks/results/gpu-fusion-execution-2026-10-28.md).
+Device-side graph progression with cancellation/fault gates is the next
+architectural experiment; MPSGraph still has a substantial lead.
