@@ -1,0 +1,23 @@
+Test project /Users/pouya/Projects/kalandra.dev/build/native
+    Start 892: native-ordinary-buffer-faults
+    Start 891: native-ordinary-buffer-types
+    Start 894: native-ordinary-reductions
+    Start 890: native-ordinary-arrays
+1/6 Test #891: native-ordinary-buffer-types ......   Passed   50.96 sec
+    Start 893: native-windows-ordinary-codegen
+2/6 Test #893: native-windows-ordinary-codegen ...   Passed    0.25 sec
+    Start  14: native-ordinary-entry
+3/6 Test  #14: native-ordinary-entry .............   Passed    0.05 sec
+4/6 Test #890: native-ordinary-arrays ............   Passed   81.18 sec
+5/6 Test #894: native-ordinary-reductions ........   Passed   84.05 sec
+6/6 Test #892: native-ordinary-buffer-faults .....   Passed  490.06 sec
+
+100% tests passed out of 6
+
+Total Test time (real) = 490.09 sec
+
+Final rebuilt structural test harness, including the dispatch check:
+10 ordinary-entry proof/fault/effect/ABI cases, generic loop-free base version, 9 IEEE/countdown cases, 19 exact floating proof cases and 262144 exhaustive values, 19 deferred reduction cases, 3 guarded-input cases, pool budgets, Win64 scalar ABI, buffer tail/settlement proofs and idempotence passed
+
+Final Win64 code-generation rerun:
+Win64 scalar direct entries and private aggregate helpers compiled in all three modes

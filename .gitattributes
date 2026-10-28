@@ -6,3 +6,6 @@ benchmarks/results/scalar-entry-*-qualification-2026-10-27.xml -whitespace lingu
 benchmarks/results/buffer-direct-*-2026-10-27.json linguist-generated=true
 benchmarks/results/buffer-direct-*-qualification-2026-10-27.log -whitespace linguist-generated=true
 benchmarks/results/buffer-direct-*-qualification-2026-10-27.xml -whitespace linguist-generated=true
+benchmarks/results/wide-reduction-*-2026-10-28.json linguist-generated=true
+benchmarks/results/wide-reduction-*-qualification-2026-10-28.log -whitespace linguist-generated=true
+benchmarks/results/wide-reduction-*-qualification-2026-10-28.xml -whitespace linguist-generated=true

@@ -1,0 +1,38 @@
+[
+  {
+    "path": "benchmarks/results/wide-reduction-baseline-2026-10-28.json",
+    "sha256": "61e0141b705ba99ebdfffc682f4288f7ec9b13e3d0b60166f979bed88c00b948",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 360,
+    "samples": 5947,
+    "measured_processes": 288
+  },
+  {
+    "path": "benchmarks/results/wide-reduction-current-2026-10-28.json",
+    "sha256": "d060bcea3df09d3b0ef90fa419df3cceac10f91fb85382cbd1246c91173d7dc8",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 360,
+    "samples": 5952,
+    "measured_processes": 288
+  },
+  {
+    "path": "benchmarks/results/wide-reduction-repeat-2026-10-28.json",
+    "sha256": "63b6973c40622eea41d1405bfd57e13113220e9b0d0bd4b09ec087eb7f09d303",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 360,
+    "samples": 5952,
+    "measured_processes": 288
+  },
+  {
+    "path": "benchmarks/results/wide-reduction-paired-2026-10-28.json",
+    "sha256": "57a8f2e9f186e7679fe27bb954b41a584dcec7a0075eca67530a36bef3cd1d68",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 0,
+    "samples": 7340,
+    "measured_processes": 1152
+  }
+]

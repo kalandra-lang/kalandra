@@ -1,0 +1,30 @@
+{
+  "compiler_source_revision": "1691341d233e48675890fab6fc310e9a78ad5942",
+  "artifact": "benchmarks/.build/wide-reduction-2026-10-28/outlined/array128/kalandra",
+  "artifact_sha256": "e2b8720096cbc9bb5b4d5fe5dfe55ce3473ab5fdb4225c8df3fcd8b76bd55041",
+  "command": "/opt/homebrew/opt/llvm/bin/llvm-objdump --disassemble-symbols=__mlir_ciface_kalandra_test_entry_ordinary_direct_v1,__mlir_ciface_kalandra_test_entry_ordinary_v1.base.direct --no-show-raw-insn benchmarks/.build/wide-reduction-2026-10-28/outlined/array128/kalandra",
+  "disassembly": "\nbenchmarks/.build/wide-reduction-2026-10-28/outlined/array128/kalandra:\tfile format mach-o arm64\n\nDisassembly of section __TEXT,__text:\n\n0000000100006690 <__mlir_ciface_kalandra_test_entry_ordinary_direct_v1>:\n100006690:     \tcbz\tx1, 0x100006698 <__mlir_ciface_kalandra_test_entry_ordinary_direct_v1+0x8>\n100006694:     \tb\t0x1000066f4 <__mlir_ciface_kalandra_test_entry_ordinary_v1.work.direct>\n100006698:     \tb\t0x10000669c <__mlir_ciface_kalandra_test_entry_ordinary_v1.base.direct>\n\n000000010000669c <__mlir_ciface_kalandra_test_entry_ordinary_v1.base.direct>:\n10000669c:     \tstp\tx20, x19, [sp, #-0x20]!\n1000066a0:     \tstp\tx29, x30, [sp, #0x10]\n1000066a4:     \tlsr\tx8, x0, #16\n1000066a8:     \tcbnz\tx8, 0x1000066d0 <__mlir_ciface_kalandra_test_entry_ordinary_v1.base.direct+0x34>\n1000066ac:     \tmov\tx19, x0\n1000066b0:     \tbl\t0x10000afc0 <_kalandra_ordinary_local_enabled_v1>\n1000066b4:     \tcbz\tx0, 0x1000066e0 <__mlir_ciface_kalandra_test_entry_ordinary_v1.base.direct+0x44>\n1000066b8:     \tmov\tw8, #0x1fc0             ; =8128\n1000066bc:     \tadd\tx8, x8, x19, lsl #7\n1000066c0:     \tucvtf\td0, x8\n1000066c4:     \tldp\tx29, x30, [sp, #0x10]\n1000066c8:     \tldp\tx20, x19, [sp], #0x20\n1000066cc:     \tret\n1000066d0:     \tmov\tx1, #0x0                ; =0\n1000066d4:     \tldp\tx29, x30, [sp, #0x10]\n1000066d8:     \tldp\tx20, x19, [sp], #0x20\n1000066dc:     \tb\t0x10000714c <__mlir_ciface_kalandra_test_entry_ordinary_v1.full-input.direct>\n1000066e0:     \tmov\tx0, x19\n1000066e4:     \tmov\tx1, #0x0                ; =0\n1000066e8:     \tldp\tx29, x30, [sp, #0x10]\n1000066ec:     \tldp\tx20, x19, [sp], #0x20\n1000066f0:     \tb\t0x1000070dc <__mlir_ciface_kalandra_test_entry_ordinary_heap_v1.direct>\n",
+  "gcd_identical_text": {
+    "method": "Copy each frozen executable first; llvm-objcopy --dump-section __TEXT,__text=<destination> <copy>. Recheck original executable hashes afterward.",
+    "baseline_artifact": "benchmarks/.build/wide-reduction-2026-10-28/baseline/euclid/kalandra",
+    "final_artifact": "benchmarks/.build/wide-reduction-2026-10-28/outlined/euclid/kalandra",
+    "baseline_executable_sha256": "10433ee8d7029176cb4ab55d92754946550d43ce68894bc4bf339a3431aae590",
+    "final_executable_sha256": "7a48652d841459a19b095084ac76e76c596b91cb161e54fd003f1f09786166c2",
+    "text_bytes": 42312,
+    "text_sha256": "577e87c4b801feec26c543572d5015170da3d45becbbb572d74084d1aec90e2b",
+    "equal": true,
+    "inspection_records": {
+      "baseline": {
+        "executable_sha256": "e7423228302aeca599342839adad5cab3fecb12786923d9d72822b5665fdc2ba",
+        "text_sha256": "577e87c4b801feec26c543572d5015170da3d45becbbb572d74084d1aec90e2b",
+        "text_bytes": 42312
+      },
+      "outlined": {
+        "executable_sha256": "91f54594f9e272998ff3fabcd7dc4f8e79b3e30ffd7c8dcb697aeda2eb0eb122",
+        "text_sha256": "577e87c4b801feec26c543572d5015170da3d45becbbb572d74084d1aec90e2b",
+        "text_bytes": 42312
+      }
+    }
+  },
+  "inspection_recovery": "An initial objcopy invocation rewrote the two local executable files. Frozen-hash validation rejected reuse before any new timing. Relinking each recorded original command restored both original executable SHA-256 hashes exactly. Subsequent inspection used copies and checked originals afterward."
+}

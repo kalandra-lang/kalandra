@@ -1,0 +1,11 @@
+[
+  {
+    "path": "benchmarks/results/wide-reduction-outlined-confirmation-2026-10-28.json",
+    "sha256": "7112d04ed24dce8f1c2aea38bd1cb8a79865462aafa8093976a46789a0b01f88",
+    "verified": true,
+    "artifact_files_verified": true,
+    "verification_workloads": 360,
+    "samples": 5957,
+    "measured_processes": 288
+  }
+]

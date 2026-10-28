@@ -1,0 +1,11 @@
+[
+  {
+    "path": "benchmarks/results/wide-reduction-outlined-controls-2026-10-28.json",
+    "sha256": "b95e9179d1831cf4f0b5d6610d348fff5179a06b7dec47ac1871333f2dd1b412",
+    "execution_contract": "ordinary",
+    "verified": true,
+    "verification_workloads": 99,
+    "timed_and_warmup_samples": 1596,
+    "artifact_files_verified": true
+  }
+]

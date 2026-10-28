@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="50"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="584"
+	timestamp="2026-10-28T01:22:57"
+	>
+	<testcase name="native-matmul-epilogue-codegen" classname="native-matmul-epilogue-codegen" time="0.110562" status="run">
+		<properties/>
+		<system-out>Epilogue lifting: canonical arities, scalar blocks, physical binding limit and fail-closed indexing/control/store/type/size checks passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-reduction-debug" classname="native-metal-matmul-reduction-debug" time="0.74578" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:22:57.455 kalandra-metal-matmul-reduction-debug[61680:57392728] Metal API Validation Enabled
+43350000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 42 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-reduction-optimized" classname="native-metal-matmul-reduction-optimized" time="0.558007" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:22:58.134 kalandra-metal-matmul-reduction-optimized[61684:57393254] Metal API Validation Enabled
+43350000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 42 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-reduction-sanitized" classname="native-metal-matmul-reduction-sanitized" time="0.739287" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:22:58.740 kalandra-metal-matmul-reduction-sanitized[61687:57393730] Metal API Validation Enabled
+43350000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 42 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-reduction-thread-sanitized" classname="native-metal-matmul-reduction-thread-sanitized" time="3.07766" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:22:59.587 kalandra-metal-matmul-reduction-thread-sanitized[61688:57394216] Metal API Validation Enabled
+43350000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 42 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-adjust-reduction-debug" classname="native-metal-matmul-adjust-reduction-debug" time="0.701053" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:02.482 kalandra-metal-matmul-adjust-reduction-debug[61696:57394396] Metal API Validation Enabled
+43bf0000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 53 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-adjust-reduction-optimized" classname="native-metal-matmul-adjust-reduction-optimized" time="0.535609" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:03.162 kalandra-metal-matmul-adjust-reduction-optimized[61700:57394988] Metal API Validation Enabled
+43bf0000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 53 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-adjust-reduction-sanitized" classname="native-metal-matmul-adjust-reduction-sanitized" time="0.880881" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:03.835 kalandra-metal-matmul-adjust-reduction-sanitized[61701:57395569] Metal API Validation Enabled
+43bf0000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 53 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-adjust-reduction-thread-sanitized" classname="native-metal-matmul-adjust-reduction-thread-sanitized" time="3.16788" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:04.740 kalandra-metal-matmul-adjust-reduction-thread-sanitized[61714:57396197] Metal API Validation Enabled
+43bf0000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 53 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-scalar-reduction-debug" classname="native-metal-matmul-scalar-reduction-debug" time="0.717248" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:07.768 kalandra-metal-matmul-scalar-reduction-debug[61722:57396292] Metal API Validation Enabled
+c3400000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 62 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-scalar-reduction-optimized" classname="native-metal-matmul-scalar-reduction-optimized" time="0.634659" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:08.483 kalandra-metal-matmul-scalar-reduction-optimized[61725:57396916] Metal API Validation Enabled
+c3400000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 62 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-scalar-reduction-sanitized" classname="native-metal-matmul-scalar-reduction-sanitized" time="0.834493" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:09.170 kalandra-metal-matmul-scalar-reduction-sanitized[61727:57397516] Metal API Validation Enabled
+c3400000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 62 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matmul-scalar-reduction-thread-sanitized" classname="native-metal-matmul-scalar-reduction-thread-sanitized" time="3.27516" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:10.106 kalandra-metal-matmul-scalar-reduction-thread-sanitized[61729:57398127] Metal API Validation Enabled
+c3400000
+Matrix reduction: 192 CPU/GPU/separate/APFloat cases, 62 allocation checkpoints, all-stage cancellation/failure passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-debug" classname="native-metal-matrix-graph-debug" time="0.41036" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:13.237 kalandra-metal-matrix-graph-debug[61896:57398989] Metal API Validation Enabled
+[42d40000,431c0000,43710000,43b10000]
+Matrix graph conformance: 48 cases; 29 allocation checkpoints; 9 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-optimized" classname="native-metal-matrix-graph-optimized" time="0.3886" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:13.634 kalandra-metal-matrix-graph-optimized[61932:57399449] Metal API Validation Enabled
+[42d40000,431c0000,43710000,43b10000]
+Matrix graph conformance: 48 cases; 29 allocation checkpoints; 9 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-sanitized" classname="native-metal-matrix-graph-sanitized" time="0.571668" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:14.072 kalandra-metal-matrix-graph-sanitized[61949:57399835] Metal API Validation Enabled
+[42d40000,431c0000,43710000,43b10000]
+Matrix graph conformance: 48 cases; 29 allocation checkpoints; 9 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-thread-sanitized" classname="native-metal-matrix-graph-thread-sanitized" time="2.86491" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:14.754 kalandra-metal-matrix-graph-thread-sanitized[61990:57400327] Metal API Validation Enabled
+[42d40000,431c0000,43710000,43b10000]
+Matrix graph conformance: 48 cases; 29 allocation checkpoints; 9 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-reduction-debug" classname="native-metal-matrix-graph-reduction-debug" time="0.953443" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:17.467 kalandra-metal-matrix-graph-reduction-debug[62187:57401375] Metal API Validation Enabled
+c3d6c000
+Matrix graph reduction: 96 numerical cases; 50 allocation checkpoints; 12 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-reduction-optimized" classname="native-metal-matrix-graph-reduction-optimized" time="0.532218" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:18.408 kalandra-metal-matrix-graph-reduction-optimized[62254:57402300] Metal API Validation Enabled
+c3d6c000
+Matrix graph reduction: 96 numerical cases; 50 allocation checkpoints; 12 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-reduction-sanitized" classname="native-metal-matrix-graph-reduction-sanitized" time="0.927608" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:18.990 kalandra-metal-matrix-graph-reduction-sanitized[62301:57403139] Metal API Validation Enabled
+c3d6c000
+Matrix graph reduction: 96 numerical cases; 50 allocation checkpoints; 12 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-reduction-thread-sanitized" classname="native-metal-matrix-graph-reduction-thread-sanitized" time="3.29777" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:20.037 kalandra-metal-matrix-graph-reduction-thread-sanitized[62352:57404035] Metal API Validation Enabled
+c3d6c000
+Matrix graph reduction: 96 numerical cases; 50 allocation checkpoints; 12 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-arithmetic-debug" classname="native-metal-matrix-graph-arithmetic-debug" time="1.46184" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:23.222 kalandra-metal-matrix-graph-arithmetic-debug[62554:57405062] Metal API Validation Enabled
+[c2620000,c2a60000,c3000000,c33c0000]
+Mixed matrix graph: 288 numerical cases; 59 allocation checkpoints; 15 stage faults; 2048 empty stages
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-arithmetic-optimized" classname="native-metal-matrix-graph-arithmetic-optimized" time="1.39042" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:24.663 kalandra-metal-matrix-graph-arithmetic-optimized[62670:57407168] Metal API Validation Enabled
+[c2620000,c2a60000,c3000000,c33c0000]
+Mixed matrix graph: 288 numerical cases; 59 allocation checkpoints; 15 stage faults; 2048 empty stages
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-arithmetic-sanitized" classname="native-metal-matrix-graph-arithmetic-sanitized" time="2.90344" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:26.084 kalandra-metal-matrix-graph-arithmetic-sanitized[62759:57409165] Metal API Validation Enabled
+[c2620000,c2a60000,c3000000,c33c0000]
+Mixed matrix graph: 288 numerical cases; 59 allocation checkpoints; 15 stage faults; 2048 empty stages
+</system-out>
+	</testcase>
+	<testcase name="native-metal-matrix-graph-arithmetic-thread-sanitized" classname="native-metal-matrix-graph-arithmetic-thread-sanitized" time="5.00485" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:29.126 kalandra-metal-matrix-graph-arithmetic-thread-sanitized[62935:57411703] Metal API Validation Enabled
+[c2620000,c2a60000,c3000000,c33c0000]
+Mixed matrix graph: 288 numerical cases; 59 allocation checkpoints; 15 stage faults; 2048 empty stages
+</system-out>
+	</testcase>
+	<testcase name="native-metal-multiple-reductions-debug" classname="native-metal-multiple-reductions-debug" time="0.695454" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:33.944 kalandra-metal-multiple-reductions-debug[63243:57413712] Metal API Validation Enabled
+c3ad8000
+Multiple reductions: 96 numerical cases; 68 allocation checkpoints; 18 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-multiple-reductions-optimized" classname="native-metal-multiple-reductions-optimized" time="0.652213" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:34.620 kalandra-metal-multiple-reductions-optimized[63278:57414627] Metal API Validation Enabled
+c3ad8000
+Multiple reductions: 96 numerical cases; 68 allocation checkpoints; 18 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-multiple-reductions-sanitized" classname="native-metal-multiple-reductions-sanitized" time="0.942056" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:35.371 kalandra-metal-multiple-reductions-sanitized[63336:57415577] Metal API Validation Enabled
+c3ad8000
+Multiple reductions: 96 numerical cases; 68 allocation checkpoints; 18 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-multiple-reductions-thread-sanitized" classname="native-metal-multiple-reductions-thread-sanitized" time="4.14542" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:36.443 kalandra-metal-multiple-reductions-thread-sanitized[63392:57416579] Metal API Validation Enabled
+c3ad8000
+Multiple reductions: 96 numerical cases; 68 allocation checkpoints; 18 stage faults; 2048 empty products
+</system-out>
+	</testcase>
+	<testcase name="native-metal-reduction-feedback-debug" classname="native-metal-reduction-feedback-debug" time="0.589723" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:40.383 kalandra-metal-reduction-feedback-debug[63617:57417873] Metal API Validation Enabled
+402aaaab
+Reduction feedback: 96 numerical cases; 71 allocation checkpoints; 15 stage failures
+</system-out>
+	</testcase>
+	<testcase name="native-metal-reduction-feedback-optimized" classname="native-metal-reduction-feedback-optimized" time="0.47343" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:40.955 kalandra-metal-reduction-feedback-optimized[63654:57418475] Metal API Validation Enabled
+402aaaab
+Reduction feedback: 96 numerical cases; 71 allocation checkpoints; 15 stage failures
+</system-out>
+	</testcase>
+	<testcase name="native-metal-reduction-feedback-sanitized" classname="native-metal-reduction-feedback-sanitized" time="1.02468" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:41.496 kalandra-metal-reduction-feedback-sanitized[63676:57418970] Metal API Validation Enabled
+402aaaab
+Reduction feedback: 96 numerical cases; 71 allocation checkpoints; 15 stage failures
+</system-out>
+	</testcase>
+	<testcase name="native-metal-reduction-feedback-thread-sanitized" classname="native-metal-reduction-feedback-thread-sanitized" time="3.47216" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:42.702 kalandra-metal-reduction-feedback-thread-sanitized[63707:57419534] Metal API Validation Enabled
+402aaaab
+Reduction feedback: 96 numerical cases; 71 allocation checkpoints; 15 stage failures
+</system-out>
+	</testcase>
+	<testcase name="native-metal-tensor-feedback-debug" classname="native-metal-tensor-feedback-debug" time="0.378371" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:45.949 kalandra-metal-tensor-feedback-debug[63868:57420424] Metal API Validation Enabled
+[3f000000,3f800000,3fc00000]
+Tensor feedback: 96 numerical cases; 34 allocation checkpoints; six stage failures
+</system-out>
+	</testcase>
+	<testcase name="native-metal-tensor-feedback-optimized" classname="native-metal-tensor-feedback-optimized" time="0.361186" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:46.302 kalandra-metal-tensor-feedback-optimized[63881:57420847] Metal API Validation Enabled
+[3f000000,3f800000,3fc00000]
+Tensor feedback: 96 numerical cases; 34 allocation checkpoints; six stage failures
+</system-out>
+	</testcase>
+	<testcase name="native-metal-tensor-feedback-sanitized" classname="native-metal-tensor-feedback-sanitized" time="0.614027" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:46.722 kalandra-metal-tensor-feedback-sanitized[63896:57421242] Metal API Validation Enabled
+[3f000000,3f800000,3fc00000]
+Tensor feedback: 96 numerical cases; 34 allocation checkpoints; six stage failures
+</system-out>
+	</testcase>
+	<testcase name="native-metal-tensor-feedback-thread-sanitized" classname="native-metal-tensor-feedback-thread-sanitized" time="3.11682" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:47.473 kalandra-metal-tensor-feedback-thread-sanitized[63925:57421757] Metal API Validation Enabled
+[3f000000,3f800000,3fc00000]
+Tensor feedback: 96 numerical cases; 34 allocation checkpoints; six stage failures
+</system-out>
+	</testcase>
+	<testcase name="native-metal-scalar-control-debug" classname="native-metal-scalar-control-debug" time="1.1322" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:50.422 kalandra-metal-scalar-control-debug[64075:57422654] Metal API Validation Enabled
+[3e2aaaab,3eaaaaab,3f000000]
+Conditional graph: 33 allocation checkpoints; six stage failures
+Scalar control: 384 APFloat comparison/feedback pairs; all six predicates
+</system-out>
+	</testcase>
+	<testcase name="native-metal-scalar-control-optimized" classname="native-metal-scalar-control-optimized" time="1.46828" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:51.534 kalandra-metal-scalar-control-optimized[64122:57424420] Metal API Validation Enabled
+[3e2aaaab,3eaaaaab,3f000000]
+Conditional graph: 33 allocation checkpoints; six stage failures
+Scalar control: 384 APFloat comparison/feedback pairs; all six predicates
+</system-out>
+	</testcase>
+	<testcase name="native-metal-scalar-control-sanitized" classname="native-metal-scalar-control-sanitized" time="2.14297" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:53.068 kalandra-metal-scalar-control-sanitized[64183:57426226] Metal API Validation Enabled
+[3e2aaaab,3eaaaaab,3f000000]
+Conditional graph: 33 allocation checkpoints; six stage failures
+Scalar control: 384 APFloat comparison/feedback pairs; all six predicates
+</system-out>
+	</testcase>
+	<testcase name="native-metal-scalar-control-thread-sanitized" classname="native-metal-scalar-control-thread-sanitized" time="4.28343" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:55.357 kalandra-metal-scalar-control-thread-sanitized[64275:57428197] Metal API Validation Enabled
+[3e2aaaab,3eaaaaab,3f000000]
+Conditional graph: 33 allocation checkpoints; six stage failures
+Scalar control: 384 APFloat comparison/feedback pairs; all six predicates
+</system-out>
+	</testcase>
+	<testcase name="native-metal-tensor-control-debug" classname="native-metal-tensor-control-debug" time="0.846473" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:23:59.441 kalandra-metal-tensor-control-debug[64466:57429758] Metal API Validation Enabled
+[3e2aaaab,3eaaaaab,3f000000]
+Conditional graph: 33 allocation checkpoints; six stage failures
+Tensor control: 288 APFloat arithmetic/feedback cases
+</system-out>
+	</testcase>
+	<testcase name="native-metal-tensor-control-optimized" classname="native-metal-tensor-control-optimized" time="0.719792" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:24:00.282 kalandra-metal-tensor-control-optimized[64507:57431152] Metal API Validation Enabled
+[3e2aaaab,3eaaaaab,3f000000]
+Conditional graph: 33 allocation checkpoints; six stage failures
+Tensor control: 288 APFloat arithmetic/feedback cases
+</system-out>
+	</testcase>
+	<testcase name="native-metal-tensor-control-sanitized" classname="native-metal-tensor-control-sanitized" time="1.79501" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:24:01.076 kalandra-metal-tensor-control-sanitized[64539:57432459] Metal API Validation Enabled
+[3e2aaaab,3eaaaaab,3f000000]
+Conditional graph: 33 allocation checkpoints; six stage failures
+Tensor control: 288 APFloat arithmetic/feedback cases
+</system-out>
+	</testcase>
+	<testcase name="native-metal-tensor-control-thread-sanitized" classname="native-metal-tensor-control-thread-sanitized" time="3.65791" status="run">
+		<properties/>
+		<system-out>2026-10-28 01:24:03.006 kalandra-metal-tensor-control-thread-sanitized[64617:57433986] Metal API Validation Enabled
+[3e2aaaab,3eaaaaab,3f000000]
+Conditional graph: 33 allocation checkpoints; six stage failures
+Tensor control: 288 APFloat arithmetic/feedback cases
+</system-out>
+	</testcase>
+	<testcase name="native-metal-numeric-programs-cli-optimized" classname="native-metal-numeric-programs-cli-optimized" time="135.136" status="run">
+		<properties/>
+		<system-out>Typed numerical programs: 67 source cases, resident sums/feedback, selected primitives, conditional shapes, helpers, mixed conversions and checked faults passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-numeric-programs-cli-sanitized" classname="native-metal-numeric-programs-cli-sanitized" time="196.164" status="run">
+		<properties/>
+		<system-out>Typed numerical programs: 67 source cases, resident sums/feedback, selected primitives, conditional shapes, helpers, mixed conversions and checked faults passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-numeric-matrix-control-cli-optimized" classname="native-metal-numeric-matrix-control-cli-optimized" time="47.7551" status="run">
+		<properties/>
+		<system-out>Typed matrix control: 20 source cases, ten numeric types, selected post-product shape checks passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-numeric-matrix-control-cli-sanitized" classname="native-metal-numeric-matrix-control-cli-sanitized" time="77.0433" status="run">
+		<properties/>
+		<system-out>Typed matrix control: 20 source cases, ten numeric types, selected post-product shape checks passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-graph-batching" classname="native-metal-graph-batching" time="59.0434" status="run">
+		<properties/>
+		<system-out>optimized: Graph batching: 350 APFloat cases, 6790 output checks, 70 allocation checkpoints, 9 held failures, 121 budgets; pre-cancel, 16 concurrent graphs, input immutability, indirect arguments, empty intermediates, work cap, cleanup and teardown passed
+optimized: compiled source execution passed
+debug: Graph batching: 350 APFloat cases, 6790 output checks, 70 allocation checkpoints, 9 held failures, 121 budgets; pre-cancel, 16 concurrent graphs, input immutability, indirect arguments, empty intermediates, work cap, cleanup and teardown passed
+debug: compiled source execution passed
+sanitized: Graph batching: 350 APFloat cases, 6790 output checks, 70 allocation checkpoints, 9 held failures, 121 budgets; pre-cancel, 16 concurrent graphs, input immutability, indirect arguments, empty intermediates, work cap, cleanup and teardown passed
+sanitized: compiled source execution passed
+thread-sanitized: Graph batching: 350 APFloat cases, 6790 output checks, 70 allocation checkpoints, 9 held failures, 121 budgets; pr...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+</testsuite>

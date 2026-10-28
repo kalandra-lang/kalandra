@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Darwin-clang++"
+	tests="6"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname="alucard.home"
+	time="490"
+	timestamp="2026-10-28T01:06:46"
+	>
+	<testcase name="native-ordinary-entry" classname="native-ordinary-entry" time="0.0451772" status="run">
+		<properties/>
+		<system-out>10 ordinary-entry proof/fault/effect/ABI cases, generic loop-free base version, 9 IEEE/countdown cases, 19 exact floating proof cases and 262144 exhaustive values, 19 deferred reduction cases, 3 guarded-input cases, pool budgets, Win64 scalar ABI, buffer tail/settlement proofs and idempotence passed
+</system-out>
+	</testcase>
+	<testcase name="native-ordinary-arrays" classname="native-ordinary-arrays" time="81.182" status="run">
+		<properties/>
+		<system-out>debug closure 0 66 ordinary private-buffer/alias/fault/replay cases passed
+debug closure 1 66 ordinary private-buffer/alias/fault/replay cases passed
+debug closure 2 66 ordinary private-buffer/alias/fault/replay cases passed
+debug closure 3 66 ordinary private-buffer/alias/fault/replay cases passed
+debug closure 4 66 ordinary private-buffer/alias/fault/replay cases passed
+debug closure 5 66 ordinary private-buffer/alias/fault/replay cases passed
+debug closure 7 66 ordinary private-buffer/alias/fault/replay cases passed
+debug closure 20 66 ordinary private-buffer/alias/fault/replay cases passed
+debug rounds 0 66 ordinary private-buffer/alias/fault/replay cases passed
+debug rounds 1 66 ordinary private-buffer/alias/fault/replay cases passed
+debug rounds 2 66 ordinary private-buffer/alias/fault/replay cases passed
+debug rounds 3 66 ordinary private-buffer/alias/fault/replay cases passed
+debug rounds 4 66 ordinary private-buffer/alias/fault/replay cases passed
+debug rounds 5 66 ordinary private-buffer/alias/fault...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="native-ordinary-buffer-types" classname="native-ordinary-buffer-types" time="50.9606" status="run">
+		<properties/>
+		<system-out>debug int8 49 ordinary exact/first-fault/payload cases passed
+debug int16 49 ordinary exact/first-fault/payload cases passed
+debug int32 49 ordinary exact/first-fault/payload cases passed
+debug int64 49 ordinary exact/first-fault/payload cases passed
+debug uint8 49 ordinary exact/first-fault/payload cases passed
+debug uint16 49 ordinary exact/first-fault/payload cases passed
+debug uint32 49 ordinary exact/first-fault/payload cases passed
+debug uint64 49 ordinary exact/first-fault/payload cases passed
+debug float32 12 ordinary exact/first-fault/payload cases passed
+debug float64 12 ordinary exact/first-fault/payload cases passed
+debug Bool 2 ordinary exact/first-fault/payload cases passed
+optimized int8 49 ordinary exact/first-fault/payload cases passed
+optimized int16 49 ordinary exact/first-fault/payload cases passed
+optimized int32 49 ordinary exact/first-fault/payload cases passed
+optimized int64 49 ordinary exact/first-fault/payload cases passed
+optimized uint8 49 ordinary exact/first-fault/payload cases ...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="native-ordinary-buffer-faults" classname="native-ordinary-buffer-faults" time="490.063" status="run">
+		<properties/>
+		<system-out>debug-index 64 direct/recoverable buffer process outcomes match
+debug-map 64 direct/recoverable buffer process outcomes match
+debug-replay 64 direct/recoverable buffer process outcomes match
+debug-nan 64 direct/recoverable buffer process outcomes match
+debug-bool 64 direct/recoverable buffer process outcomes match
+debug-minimum 64 direct/recoverable buffer process outcomes match
+optimized-index 64 direct/recoverable buffer process outcomes match
+optimized-map 64 direct/recoverable buffer process outcomes match
+optimized-replay 64 direct/recoverable buffer process outcomes match
+optimized-nan 64 direct/recoverable buffer process outcomes match
+optimized-bool 64 direct/recoverable buffer process outcomes match
+optimized-minimum 64 direct/recoverable buffer process outcomes match
+sanitized-index 64 direct/recoverable buffer process outcomes match
+sanitized-map 64 direct/recoverable buffer process outcomes match
+sanitized-replay 64 direct/recoverable buffer process outcomes match
+sanitized-nan 64 direct/recoverab...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="native-windows-ordinary-codegen" classname="native-windows-ordinary-codegen" time="0.250367" status="run">
+		<properties/>
+		<system-out>Win64 scalar direct entries and private aggregate helpers compiled in all three modes
+</system-out>
+	</testcase>
+	<testcase name="native-ordinary-reductions" classname="native-ordinary-reductions" time="84.0516" status="run">
+		<properties/>
+		<system-out>debug-int64-2 0 225 deferred reduction/range replay/first-fault cases passed
+debug-int64-2 1 225 deferred reduction/range replay/first-fault cases passed
+debug-int64-2 2 225 deferred reduction/range replay/first-fault cases passed
+debug-int64-2 3 225 deferred reduction/range replay/first-fault cases passed
+debug-int64-2 5 225 deferred reduction/range replay/first-fault cases passed
+debug-int64-2 17 225 deferred reduction/range replay/first-fault cases passed
+debug-float64-2 0 225 deferred reduction/range replay/first-fault cases passed
+debug-float64-2 1 225 deferred reduction/range replay/first-fault cases passed
+debug-float64-2 2 225 deferred reduction/range replay/first-fault cases passed
+debug-float64-2 3 225 deferred reduction/range replay/first-fault cases passed
+debug-float64-2 5 225 deferred reduction/range replay/first-fault cases passed
+debug-float64-2 17 225 deferred reduction/range replay/first-fault cases passed
+debug-Bool-2 0 225 deferred reduction/range replay/first-fault cases passed
+debug-Bool...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+</testsuite>
