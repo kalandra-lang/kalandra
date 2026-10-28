@@ -1854,8 +1854,8 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert original_diagnostics
     start = transfer_completion_text.splitlines()[5].index('traSuffix')
     result = client.completion(signature_document, 5, start+3)['result']
-    assert [(item['label'],item['kind']) for item in result['items']] == [('transfer',3)], result
-    item = result['items'][0]
+    assert [(item['label'],item['kind']) for item in result['items']] == [('transfer',3),('transpose',3)], result
+    item = next(item for item in result['items'] if item['label']=='transfer')
     assert item['textEdit'] == {'newText':'transfer','range':{
         'start':{'line':5,'character':start}, 'end':{'line':5,'character':start+9}}}, item
     assert not client.barrier(), 'transfer completion published probe diagnostics'
