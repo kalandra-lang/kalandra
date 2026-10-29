@@ -105,6 +105,16 @@ for name,fmt,wire,width in types:
                 runtime=args.compiler.parent/(('' if sys.platform=='win32' else 'lib')+'kalandra-native-runtime'+('-'+variant if 'sanitized' in variant else '')+('.lib' if sys.platform=='win32' else '.a'))
                 link=[ir,runtime]
             run([args.clang,'-std=c++23','-pthread','-ffp-contract=off','-Wno-override-module',*cflags,*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),'-DELEMENT='+name,'-DOP='+str(op),root/'native/tests/TensorTransformDriver.cpp',*link,'-o',binary])
+            if not args.gpu:
+                # Keep numerical checks on the original LLVM/runtime. A second
+                # executable pauses an observed poll only for concurrent
+                # cancellation, so a late observer timeslice cannot miss the run.
+                gated_ir=binary.with_suffix('.cancel-gate.ll')
+                original_ir=ir.read_text()
+                assert '@kalandra_poll_slow_v1(' in original_ir
+                gated_ir.write_text(original_ir.replace('@kalandra_poll_slow_v1(', '@kalandra_transform_poll_gate_v1('))
+                gated_binary=Path(str(binary)+'-cancel-gate')
+                run([args.clang,'-std=c++23','-pthread','-ffp-contract=off','-Wno-override-module',*cflags,*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),'-DELEMENT='+name,'-DOP='+str(op),root/'native/tests/TensorTransformDriver.cpp',root/'native/tests/TensorTransformPollGate.cpp',gated_ir,runtime,'-o',gated_binary])
             epsilon=to_bits(0.00001,fmt,wire) if fmt else 0
             stderr=tempfile.TemporaryFile(mode='w+t')
             server=subprocess.Popen([str(binary),'--server'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=stderr,text=True)
@@ -112,6 +122,8 @@ for name,fmt,wire,width in types:
             def invoke(values,m,n,layout=0,eps=epsilon,fail=0,cancel=0):
                 path=args.output/'input.bin';path.write_bytes(struct.pack('<'+wire*len(values),*values))
                 command=[m,n,layout,eps,fail,cancel,path,'unused',*([bundle] if args.gpu else [])]
+                if not args.gpu and cancel==2:
+                    return json.loads(run([gated_binary,*command]))
                 server.stdin.write(' '.join(json.dumps(str(x),ensure_ascii=False) for x in command)+'\n');server.stdin.flush()
                 try:line=reader.submit(server.stdout.readline).result(timeout=240)
                 except BaseException:
