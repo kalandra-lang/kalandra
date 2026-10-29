@@ -1,5 +1,7 @@
 # Kalandra native benchmarks
 
+Latest GPU kernel study: [strict shape specialization](results/gpu-specialization-2026-10-29.md). Full-shape constants reduce allocated registers from 100 to 88 and reproduce 12–20% isolated time reductions. A bounded copied-runtime prototype passes 117 complete-transformer output checks; resident gains are smaller, upload controls are mixed, and background-load evidence is retained. This is not a production promotion.
+
 Latest GPU storage study: [invocation-private parameter arena](results/gpu-parameter-arena-2026-10-29.md), with [chart](results/gpu-parameter-arena-2026-10-29.png). It isolates host/driver costs, rejects three completion-worker alternatives, and qualifies shared argument backing with unchanged command boundaries. Primary resident medians improve 3.0–9.6%; the small all-upload regression, controls and replication are retained.
 
 Latest GPU scheduling study: [work-bounded resident progression](results/gpu-work-bounded-progression-2026-10-29.md), with [chart](results/gpu-work-bounded-progression-2026-10-29.png), compiler cost proofs, cancellation/lifetime qualification, same-binary control, replication, fresh CPU/MPSGraph comparisons and retained contended diagnostics. All 27 case medians improve; resident time falls 10.5–55.8%. The largest case is 7.10× our CPU speed but still takes 2.93× MPSGraph time.

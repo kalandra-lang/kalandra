@@ -1,0 +1,32 @@
+{
+  "source": "Manually transcribed from Xcode 27.1 GUI Shaders table and Pipeline State sidebar after full replay on Apple M2 Max. Distinct from exported encoder counters; replay durations are not acceptance.",
+  "shape": [
+    64,
+    2048,
+    512
+  ],
+  "records": [
+    {
+      "variant": "k",
+      "allocated_registers": 92,
+      "high_register": 92,
+      "temporary_registers": 48,
+      "spilled_bytes": 0,
+      "max_theoretical_occupancy_percent": 35.417,
+      "threadgroup_load_instructions": 80,
+      "static_alu_instructions": 230,
+      "capture": "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace"
+    },
+    {
+      "variant": "shape",
+      "allocated_registers": 88,
+      "high_register": 88,
+      "temporary_registers": 44,
+      "spilled_bytes": 0,
+      "max_theoretical_occupancy_percent": 35.417,
+      "threadgroup_load_instructions": 80,
+      "static_alu_instructions": 189,
+      "capture": "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace"
+    }
+  ]
+}

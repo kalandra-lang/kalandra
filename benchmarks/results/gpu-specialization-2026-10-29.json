@@ -1,0 +1,2056 @@
+{
+  "production_change": false,
+  "acceptance": false,
+  "isolated_checks": 144,
+  "full_model_checks": 117,
+  "compiler_observations": {
+    "source": "Manually transcribed from Xcode 27.1 GUI Shaders table and Pipeline State sidebar after full replay on Apple M2 Max. Distinct from exported encoder counters; replay durations are not acceptance.",
+    "shape": [
+      64,
+      2048,
+      512
+    ],
+    "records": [
+      {
+        "variant": "k",
+        "allocated_registers": 92,
+        "high_register": 92,
+        "temporary_registers": 48,
+        "spilled_bytes": 0,
+        "max_theoretical_occupancy_percent": 35.417,
+        "threadgroup_load_instructions": 80,
+        "static_alu_instructions": 230,
+        "capture": "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace"
+      },
+      {
+        "variant": "shape",
+        "allocated_registers": 88,
+        "high_register": 88,
+        "temporary_registers": 44,
+        "spilled_bytes": 0,
+        "max_theoretical_occupancy_percent": 35.417,
+        "threadgroup_load_instructions": 80,
+        "static_alu_instructions": 189,
+        "capture": "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace"
+      }
+    ]
+  },
+  "encoder_counters": {
+    "k": {
+      "Index": "0",
+      "Encoder Index": "0",
+      "CommandBuffer Index": "0",
+      "FunctionIndex": "7",
+      "CommandBuffer Label": "MTLCommandBuffer 1",
+      "Encoder Label": "MTLComputeCommandEncoder 1",
+      "Marker": "",
+      "GPU Time": "204086.8942668865",
+      "ALU Limiter": "25.47%",
+      "ALU Utilization": "23.96%",
+      "F32 Utilization": "13.88%",
+      "F16 Utilization": "0.00%",
+      "Integer and Complex Limiter": "9.83%",
+      "Integer and Complex Utilization": "7.34%",
+      "Integer and Conditional Utilization": "8.54%",
+      "Texture Read Limiter": "0.00%",
+      "Texture Read Utilization": "0.00%",
+      "Texture Write Limiter": "0.00%",
+      "Texture Write Utilization": "0.00%",
+      "Buffer Read Limiter": "3.34%",
+      "Buffer Read Utilization": "3.34%",
+      "Buffer Write Limiter": "0.03%",
+      "Buffer Write Utilization": "0.03%",
+      "MMU Limiter": "1.13%",
+      "MMU Utilization": "1.12%",
+      "ThreadGroup/ImageBlock Read Limiter": "33.29%",
+      "ThreadGroup/ImageBlock Read Utilization": "26.57%",
+      "ThreadGroup/ImageBlock Write Limiter": "1.68%",
+      "ThreadGroup/ImageBlock Write Utilization": "1.66%",
+      "ThreadGroup Atomic Utilization": "0.00%",
+      "FS Interpolation Limiter": "0.00%",
+      "FS Interpolation Utilization": "0.00%",
+      "Last Level Cache Limiter": "12.88%",
+      "Last Level Cache Utilization": "8.92%",
+      "Partial Render Count": "0",
+      "Shaded Vertex Read Limiter": "0.00%",
+      "Cull Unit Limiter": "0.00%",
+      "Clip Unit Limiter": "0.00%",
+      "GPU Read Bandwidth": "5.505534533805757",
+      "GPU Write Bandwidth": "0.02422948114352279",
+      "Bytes Read From Device Memory": "4726272",
+      "Bytes Written To Device Memory": "20800",
+      "Last Level Cache Bytes Read": "33545920",
+      "Last Level Cache Bytes Written": "154816",
+      "Last Level Cache Miss Rate": "14.50%",
+      "Buffer L1 Bytes Read": "8423808",
+      "Buffer L1 Bytes Written": "32768",
+      "Buffer L1 Miss Rate": "98.78%",
+      "Buffer Device Memory Bytes Read": "4723264",
+      "Buffer Device Memory Bytes Written": "0",
+      "Texture L1 Bytes Read": "0",
+      "Texture Cache Miss Rate": "0.00%",
+      "Texture Device Memory Bytes Read": "0",
+      "Texture Device Memory Bytes Written": "0",
+      "Thread Group Memory Bytes Read": "150994944",
+      "Thread Group Memory Bytes Written": "33554432",
+      "Atomic Thread Group Bytes": "0",
+      "Device Atomic Bytes Read": "0",
+      "Device Atomic Bytes Written": "0",
+      "Depth Texture Device Memory Bytes Written": "0",
+      "Depth Texture Device Memory Bytes Read": "0",
+      "MMU TLB Miss Rate": "3.96%",
+      "Vertices": "0",
+      "Vertices Reused": "0.00%",
+      "Pixels per Vertex": "0",
+      "Vertices per Nanosecond": "0",
+      "Vertex Shader Time": "-1.00%",
+      "Vertex Stage Time": "0.00%",
+      "VS Invocations": "0",
+      "Sampler Calls/VS Invocation": "0",
+      "VS Texture Cache Miss Rate": "0.00%",
+      "VS Occupancy": "0.00%",
+      "VS ALU Instructions": "0",
+      "VS ALU Float Instructions": "0.00%",
+      "VS ALU Half Instructions": "0.00%",
+      "VS ALU Integer and Conditional Instructions": "0.00%",
+      "VS ALU Integer and Complex Instructions": "0.00%",
+      "VS ALU Inefficiency": "0.00%",
+      "VS ALU Limiter": "0.00%",
+      "VS Texture Read Limiter": "0.00%",
+      "VS Buffer Read Limiter": "0.00%",
+      "VS Buffer Write Limiter": "0.00%",
+      "VS Invocation Utilization": "0.00%",
+      "VS Bytes Read From Device Memory": "0",
+      "VS Bytes Written To Device Memory": "0",
+      "VS Device Memory Bandwidth": "0",
+      "VS Buffer Device Memory Bytes Read": "0",
+      "VS Buffer Device Memory Bytes Written": "0",
+      "VS Device Atomic Bytes Read": "0",
+      "VS Device Atomic Bytes Written": "0",
+      "VS Last Level Cache Bytes Read": "0",
+      "VS Last Level Cache Bytes Written": "0",
+      "VS Texture L1 Bytes Read": "0",
+      "VS Buffer L1 Miss Rate": "0.00%",
+      "VS Buffer L1 Bytes Read": "0",
+      "VS Buffer L1 Bytes Written": "0",
+      "VS Arithmetic Intensity": "0",
+      "VS ALU Performance": "0",
+      "Primitives": "0",
+      "Post Clipped Primitives": "0",
+      "Primitives Culled (Zero-Area)": "0.00%",
+      "Primitives Culled (Back-Face)": "0.00%",
+      "Primitives Culled (Guard-Band)": "0.00%",
+      "Primitives Culled (Off-Screen)": "0.00%",
+      "Primitives Clipped": "0.00%",
+      "Primitives Rendered": "0.00%",
+      "Post Clip Cull Primitive Processing": "0.00%",
+      "Primitive Block Tile Intersections": "0.00%",
+      "Tiling Block Utilization": "0.00%",
+      "Tiled Vertex Buffer Bytes": "0",
+      "Tiled Vertex Buffer Primitive Blocks Bytes": "0",
+      "New Triangles Generated": "0",
+      "New Vertices Generated": "0",
+      "Back Face Clipped Primitives": "0",
+      "Small Triangles Clipped Pimitives": "0",
+      "Pre Cull Primitive Processing": "0.00%",
+      "Pixels Rasterized": "0",
+      "Fragments Rasterized per Primitive": "0",
+      "Fragment Generator Primitive Processing": "0.00%",
+      "Rasterizer Sample Processing": "0.00%",
+      "PreZ Test Fails": "0.00%",
+      "Depth Texture Bytes Loaded": "0",
+      "Depth Store Utilization": "0.00%",
+      "Depth Texture Bytes Stored": "0",
+      "Fragment Shader Time": "-1.00%",
+      "Fragment Stage Time": "0.00%",
+      "FS Invocations": "0",
+      "Average Pixel Overdraw": "0",
+      "FS Invocations per Primitive": "0",
+      "FS Tiles Processed": "0",
+      "Samples Shaded Per Tile": "0",
+      "Primitives Per Tile": "0",
+      "Pixels Rasterized per FS Invocation": "-1",
+      "Sampler Calls/FS Invocation": "0",
+      "Fragment Generator Pixel Processing": "0.00%",
+      "FS Texture Cache Miss Rate": "0.00%",
+      "FS Occupancy": "0.00%",
+      "FS ALU Instructions": "0",
+      "FS ALU Float Instructions": "0.00%",
+      "FS ALU Half Instructions": "0.00%",
+      "FS ALU Integer and Conditional Instructions": "0.00%",
+      "FS ALU Integer and Complex Instructions": "0.00%",
+      "FS Interpolation Instructions": "0",
+      "Varyings Per Fragment": "0",
+      "FS ALU Inefficiency": "0.00%",
+      "FS ALU Limiter": "0.00%",
+      "FS Texture Read Limiter": "0.00%",
+      "FS Texture Write Limiter": "0.00%",
+      "FS Buffer Read Limiter": "0.00%",
+      "FS Buffer Write Limiter": "0.00%",
+      "FS Bytes Read From Device Memory": "0",
+      "FS Bytes Written To Device Memory": "0",
+      "FS Buffer Device Memory Bytes Read": "0",
+      "FS Buffer Device Memory Bytes Written": "0",
+      "FS Device Atomic Bytes Read": "0",
+      "FS Device Atomic Bytes Written": "0",
+      "FS Device Memory Bandwidth": "0",
+      "FS Last Level Cache Bytes Read": "0",
+      "FS Last Level Cache Bytes Written": "0",
+      "FS Texture L1 Bytes Read": "0",
+      "FS Buffer L1 Miss Rate": "0.00%",
+      "FS Buffer L1 Bytes Read": "0",
+      "FS Buffer L1 Bytes Written": "0",
+      "FS Arithmetic Intensity": "0",
+      "FS ALU Performance": "0",
+      "Pixels Stored": "0",
+      "Pixel Write Stall": "-1.00%",
+      "Texture Pixels Stored": "0.00%",
+      "Attachment Pixels Stored": "0.00%",
+      "Lossless Compressed Pixels Stored": "0.00%",
+      "Lossy Compressed Pixels Stored": "0.00%",
+      "Compression Ratio of Texture Memory Written": "0",
+      "Predicated Texture Thread Writes": "0.00%",
+      "2X MSAA Resolved Pixels Stored": "0.00%",
+      "4X MSAA Resolved Pixels Stored": "0.00%",
+      "Average Samples Per Pixel": "0",
+      "Kernel Invocations": "32768",
+      "Kernel ALU Active Time": "25.47%",
+      "Sampler Calls/Kernel Invocation": "0",
+      "Kernel Occupancy": "24.85%",
+      "Kernel ALU Instructions": "240189440",
+      "Kernel ALU Float Instructions": "56.63%",
+      "Kernel ALU Half Instructions": "0.00%",
+      "Kernel ALU Integer and Conditional Instructions": "35.68%",
+      "Kernel ALU Integer and Complex Instructions": "7.69%",
+      "Kernel ALU Inefficiency": "0.00%",
+      "Kernel Arithmetic Intensity": "50.59738718940854",
+      "Kernel ALU Performance": "279.7916109304471",
+      "Texture Read Cache Limiter": "0.00%",
+      "Texture Read Cache Utilization": "0.00%",
+      "Texture Filtering Limiter": "0.00%",
+      "Texture Filtering Utilization": "0.00%",
+      "Texture Read Cache Miss Limiter": "0.00%",
+      "Texture Accesses": "0",
+      "Texture Sample Calls": "0",
+      "Texture Gather Calls": "0",
+      "Mipmap Linear Sampler Calls": "0.00%",
+      "Mipmap Nearest Sampler Calls": "0.00%",
+      "Block Compressed Texture Samples": "0.00%",
+      "Lossless Compressed Texture Samples": "0.00%",
+      "Lossy Compressed Texture Samples": "0.00%",
+      "Uncompressed Texture Samples": "0.00%",
+      "Lossy Compressed Texture Bytes From Cache": "0",
+      "Average Anisotropic Level": "0",
+      "Predicated Texture Thread Reads": "0.00%",
+      "Compression Ratio of Texture Memory Read": "0",
+      "Sparse Texture Translation Limiter": "0.00%",
+      "Sparse Texture Translation Requests": "0",
+      "Average Sparse Texture Tile Size": "0",
+      "Texture Quads": "0",
+      "Anisotropic Sampler Calls": "0.00%",
+      "Total Resolved Pixels": "0"
+    },
+    "shape": {
+      "Index": "0",
+      "Encoder Index": "0",
+      "CommandBuffer Index": "0",
+      "FunctionIndex": "7",
+      "CommandBuffer Label": "MTLCommandBuffer 1",
+      "Encoder Label": "MTLComputeCommandEncoder 1",
+      "Marker": "",
+      "GPU Time": "177135.3609768764",
+      "ALU Limiter": "30.63%",
+      "ALU Utilization": "28.84%",
+      "F32 Utilization": "16.34%",
+      "F16 Utilization": "0.00%",
+      "Integer and Complex Limiter": "9.97%",
+      "Integer and Complex Utilization": "8.78%",
+      "Integer and Conditional Utilization": "9.43%",
+      "Texture Read Limiter": "0.00%",
+      "Texture Read Utilization": "0.00%",
+      "Texture Write Limiter": "0.00%",
+      "Texture Write Utilization": "0.00%",
+      "Buffer Read Limiter": "3.92%",
+      "Buffer Read Utilization": "3.92%",
+      "Buffer Write Limiter": "0.03%",
+      "Buffer Write Utilization": "0.03%",
+      "MMU Limiter": "1.32%",
+      "MMU Utilization": "1.32%",
+      "ThreadGroup/ImageBlock Read Limiter": "41.07%",
+      "ThreadGroup/ImageBlock Read Utilization": "31.32%",
+      "ThreadGroup/ImageBlock Write Limiter": "2.21%",
+      "ThreadGroup/ImageBlock Write Utilization": "1.96%",
+      "ThreadGroup Atomic Utilization": "0.00%",
+      "FS Interpolation Limiter": "0.00%",
+      "FS Interpolation Utilization": "0.00%",
+      "Last Level Cache Limiter": "11.48%",
+      "Last Level Cache Utilization": "9.89%",
+      "Partial Render Count": "0",
+      "Shaded Vertex Read Limiter": "0.00%",
+      "Cull Unit Limiter": "0.00%",
+      "Clip Unit Limiter": "0.00%",
+      "GPU Read Bandwidth": "6.491057059463172",
+      "GPU Write Bandwidth": "0.0283939792823213",
+      "Bytes Read From Device Memory": "4725760",
+      "Bytes Written To Device Memory": "20672",
+      "Last Level Cache Bytes Read": "33632640",
+      "Last Level Cache Bytes Written": "152960",
+      "Last Level Cache Miss Rate": "14.46%",
+      "Buffer L1 Bytes Read": "8391040",
+      "Buffer L1 Bytes Written": "32768",
+      "Buffer L1 Miss Rate": "99.31%",
+      "Buffer Device Memory Bytes Read": "4722880",
+      "Buffer Device Memory Bytes Written": "0",
+      "Texture L1 Bytes Read": "0",
+      "Texture Cache Miss Rate": "0.00%",
+      "Texture Device Memory Bytes Read": "0",
+      "Texture Device Memory Bytes Written": "0",
+      "Thread Group Memory Bytes Read": "150994944",
+      "Thread Group Memory Bytes Written": "33554432",
+      "Atomic Thread Group Bytes": "0",
+      "Device Atomic Bytes Read": "0",
+      "Device Atomic Bytes Written": "0",
+      "Depth Texture Device Memory Bytes Written": "0",
+      "Depth Texture Device Memory Bytes Read": "0",
+      "MMU TLB Miss Rate": "3.03%",
+      "Vertices": "0",
+      "Vertices Reused": "0.00%",
+      "Pixels per Vertex": "0",
+      "Vertices per Nanosecond": "0",
+      "Vertex Shader Time": "-1.00%",
+      "Vertex Stage Time": "0.00%",
+      "VS Invocations": "0",
+      "Sampler Calls/VS Invocation": "0",
+      "VS Texture Cache Miss Rate": "0.00%",
+      "VS Occupancy": "0.00%",
+      "VS ALU Instructions": "0",
+      "VS ALU Float Instructions": "0.00%",
+      "VS ALU Half Instructions": "0.00%",
+      "VS ALU Integer and Conditional Instructions": "0.00%",
+      "VS ALU Integer and Complex Instructions": "0.00%",
+      "VS ALU Inefficiency": "0.00%",
+      "VS ALU Limiter": "0.00%",
+      "VS Texture Read Limiter": "0.00%",
+      "VS Buffer Read Limiter": "0.00%",
+      "VS Buffer Write Limiter": "0.00%",
+      "VS Invocation Utilization": "0.00%",
+      "VS Bytes Read From Device Memory": "0",
+      "VS Bytes Written To Device Memory": "0",
+      "VS Device Memory Bandwidth": "0",
+      "VS Buffer Device Memory Bytes Read": "0",
+      "VS Buffer Device Memory Bytes Written": "0",
+      "VS Device Atomic Bytes Read": "0",
+      "VS Device Atomic Bytes Written": "0",
+      "VS Last Level Cache Bytes Read": "0",
+      "VS Last Level Cache Bytes Written": "0",
+      "VS Texture L1 Bytes Read": "0",
+      "VS Buffer L1 Miss Rate": "0.00%",
+      "VS Buffer L1 Bytes Read": "0",
+      "VS Buffer L1 Bytes Written": "0",
+      "VS Arithmetic Intensity": "0",
+      "VS ALU Performance": "0",
+      "Primitives": "0",
+      "Post Clipped Primitives": "0",
+      "Primitives Culled (Zero-Area)": "0.00%",
+      "Primitives Culled (Back-Face)": "0.00%",
+      "Primitives Culled (Guard-Band)": "0.00%",
+      "Primitives Culled (Off-Screen)": "0.00%",
+      "Primitives Clipped": "0.00%",
+      "Primitives Rendered": "0.00%",
+      "Post Clip Cull Primitive Processing": "0.00%",
+      "Primitive Block Tile Intersections": "0.00%",
+      "Tiling Block Utilization": "0.00%",
+      "Tiled Vertex Buffer Bytes": "0",
+      "Tiled Vertex Buffer Primitive Blocks Bytes": "0",
+      "New Triangles Generated": "0",
+      "New Vertices Generated": "0",
+      "Back Face Clipped Primitives": "0",
+      "Small Triangles Clipped Pimitives": "0",
+      "Pre Cull Primitive Processing": "0.00%",
+      "Pixels Rasterized": "0",
+      "Fragments Rasterized per Primitive": "0",
+      "Fragment Generator Primitive Processing": "0.00%",
+      "Rasterizer Sample Processing": "0.00%",
+      "PreZ Test Fails": "0.00%",
+      "Depth Texture Bytes Loaded": "0",
+      "Depth Store Utilization": "0.00%",
+      "Depth Texture Bytes Stored": "0",
+      "Fragment Shader Time": "-1.00%",
+      "Fragment Stage Time": "0.00%",
+      "FS Invocations": "0",
+      "Average Pixel Overdraw": "0",
+      "FS Invocations per Primitive": "0",
+      "FS Tiles Processed": "0",
+      "Samples Shaded Per Tile": "0",
+      "Primitives Per Tile": "0",
+      "Pixels Rasterized per FS Invocation": "-1",
+      "Sampler Calls/FS Invocation": "0",
+      "Fragment Generator Pixel Processing": "0.00%",
+      "FS Texture Cache Miss Rate": "0.00%",
+      "FS Occupancy": "0.00%",
+      "FS ALU Instructions": "0",
+      "FS ALU Float Instructions": "0.00%",
+      "FS ALU Half Instructions": "0.00%",
+      "FS ALU Integer and Conditional Instructions": "0.00%",
+      "FS ALU Integer and Complex Instructions": "0.00%",
+      "FS Interpolation Instructions": "0",
+      "Varyings Per Fragment": "0",
+      "FS ALU Inefficiency": "0.00%",
+      "FS ALU Limiter": "0.00%",
+      "FS Texture Read Limiter": "0.00%",
+      "FS Texture Write Limiter": "0.00%",
+      "FS Buffer Read Limiter": "0.00%",
+      "FS Buffer Write Limiter": "0.00%",
+      "FS Bytes Read From Device Memory": "0",
+      "FS Bytes Written To Device Memory": "0",
+      "FS Buffer Device Memory Bytes Read": "0",
+      "FS Buffer Device Memory Bytes Written": "0",
+      "FS Device Atomic Bytes Read": "0",
+      "FS Device Atomic Bytes Written": "0",
+      "FS Device Memory Bandwidth": "0",
+      "FS Last Level Cache Bytes Read": "0",
+      "FS Last Level Cache Bytes Written": "0",
+      "FS Texture L1 Bytes Read": "0",
+      "FS Buffer L1 Miss Rate": "0.00%",
+      "FS Buffer L1 Bytes Read": "0",
+      "FS Buffer L1 Bytes Written": "0",
+      "FS Arithmetic Intensity": "0",
+      "FS ALU Performance": "0",
+      "Pixels Stored": "0",
+      "Pixel Write Stall": "-1.00%",
+      "Texture Pixels Stored": "0.00%",
+      "Attachment Pixels Stored": "0.00%",
+      "Lossless Compressed Pixels Stored": "0.00%",
+      "Lossy Compressed Pixels Stored": "0.00%",
+      "Compression Ratio of Texture Memory Written": "0",
+      "Predicated Texture Thread Writes": "0.00%",
+      "2X MSAA Resolved Pixels Stored": "0.00%",
+      "4X MSAA Resolved Pixels Stored": "0.00%",
+      "Average Samples Per Pixel": "0",
+      "Kernel Invocations": "32768",
+      "Kernel ALU Active Time": "30.63%",
+      "Sampler Calls/Kernel Invocation": "0",
+      "Kernel Occupancy": "23.08%",
+      "Kernel ALU Instructions": "230359040",
+      "Kernel ALU Float Instructions": "58.95%",
+      "Kernel ALU Half Instructions": "0.00%",
+      "Kernel ALU Integer and Conditional Instructions": "33.27%",
+      "Kernel ALU Integer and Complex Instructions": "7.78%",
+      "Kernel ALU Inefficiency": "0.00%",
+      "Kernel Arithmetic Intensity": "48.53309601823011",
+      "Kernel ALU Performance": "316.4091432495851",
+      "Texture Read Cache Limiter": "0.00%",
+      "Texture Read Cache Utilization": "0.00%",
+      "Texture Filtering Limiter": "0.00%",
+      "Texture Filtering Utilization": "0.00%",
+      "Texture Read Cache Miss Limiter": "0.00%",
+      "Texture Accesses": "0",
+      "Texture Sample Calls": "0",
+      "Texture Gather Calls": "0",
+      "Mipmap Linear Sampler Calls": "0.00%",
+      "Mipmap Nearest Sampler Calls": "0.00%",
+      "Block Compressed Texture Samples": "0.00%",
+      "Lossless Compressed Texture Samples": "0.00%",
+      "Lossy Compressed Texture Samples": "0.00%",
+      "Uncompressed Texture Samples": "0.00%",
+      "Lossy Compressed Texture Bytes From Cache": "0",
+      "Average Anisotropic Level": "0",
+      "Predicated Texture Thread Reads": "0.00%",
+      "Compression Ratio of Texture Memory Read": "0",
+      "Sparse Texture Translation Limiter": "0.00%",
+      "Sparse Texture Translation Requests": "0",
+      "Average Sparse Texture Tile Size": "0",
+      "Texture Quads": "0",
+      "Anisotropic Sampler Calls": "0.00%",
+      "Total Resolved Pixels": "0"
+    }
+  },
+  "isolated": {
+    "k": {
+      "cells": [
+        {
+          "shape": [
+            16,
+            512,
+            512
+          ],
+          "time_reduction_percent": 7.710615788899888,
+          "winning_blocks": 4,
+          "blocks": [
+            -23.720227320467036,
+            36.0114504794296,
+            7.710615788899888,
+            17.90547696060747,
+            -106.09295036678449,
+            -0.1308981046903135,
+            7.7977942075253
+          ],
+          "baseline_us": 22.84928515625,
+          "candidate_us": 21.471677734375
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2048
+          ],
+          "time_reduction_percent": 2.4852478505604014,
+          "winning_blocks": 5,
+          "blocks": [
+            -87.44446410967241,
+            -37.62850454779026,
+            16.71777973856734,
+            2.4852478505604014,
+            2.724453397685378,
+            4.156986993069922,
+            1.1971167564256757
+          ],
+          "baseline_us": 32.612873046875,
+          "candidate_us": 31.765462890625
+        },
+        {
+          "shape": [
+            16,
+            2048,
+            512
+          ],
+          "time_reduction_percent": 2.911147343317977,
+          "winning_blocks": 6,
+          "blocks": [
+            0.5203802376029576,
+            34.94694494495262,
+            28.018480229282694,
+            25.425862905673526,
+            2.0114241999259486,
+            -37.0392080012594,
+            2.911147343317977
+          ],
+          "baseline_us": 82.206298828125,
+          "candidate_us": 79.994875
+        },
+        {
+          "shape": [
+            64,
+            512,
+            512
+          ],
+          "time_reduction_percent": 4.702241076787095,
+          "winning_blocks": 7,
+          "blocks": [
+            1.2520146057274917,
+            4.082474822144477,
+            6.140597863286801,
+            4.702241076787095,
+            3.426344439580409,
+            7.150915123544566,
+            7.0376905512467225
+          ],
+          "baseline_us": 31.521646484375,
+          "candidate_us": 30.128826171875
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2048
+          ],
+          "time_reduction_percent": 4.250098151773296,
+          "winning_blocks": 6,
+          "blocks": [
+            15.328606875303862,
+            -14.060671912058043,
+            3.5262303661573124,
+            33.16296313633941,
+            3.3916089091263646,
+            4.250098151773296,
+            4.9682292307204
+          ],
+          "baseline_us": 113.36026953125,
+          "candidate_us": 108.366779296875
+        },
+        {
+          "shape": [
+            64,
+            2048,
+            512
+          ],
+          "time_reduction_percent": 2.906549410259085,
+          "winning_blocks": 7,
+          "blocks": [
+            2.9996465720755983,
+            30.976206625925407,
+            1.3931058809696473,
+            1.9519828262128391,
+            2.906549410259085,
+            2.664206093847843,
+            3.6437306776655465
+          ],
+          "baseline_us": 113.8228346456693,
+          "candidate_us": 110.91346653543307
+        }
+      ],
+      "load": {
+        "samples": 8,
+        "minimum": 283.0,
+        "median": 347.1,
+        "maximum": 416.5
+      }
+    },
+    "shape": {
+      "cells": [
+        {
+          "shape": [
+            16,
+            512,
+            512
+          ],
+          "time_reduction_percent": 18.32066292761234,
+          "winning_blocks": 7,
+          "blocks": [
+            12.649139472901238,
+            22.969017373321986,
+            18.32066292761234,
+            16.958887877121278,
+            18.822170358564062,
+            19.494843572332854,
+            14.69961363194059
+          ],
+          "baseline_us": 22.470216796875,
+          "candidate_us": 18.099771484375
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2048
+          ],
+          "time_reduction_percent": 14.732023461903609,
+          "winning_blocks": 6,
+          "blocks": [
+            16.9403591920247,
+            13.034434141462603,
+            14.732023461903609,
+            15.056412845685108,
+            -5.016783089902921,
+            15.687437948506599,
+            11.812617897222955
+          ],
+          "baseline_us": 32.2939453125,
+          "candidate_us": 27.542154296875
+        },
+        {
+          "shape": [
+            16,
+            2048,
+            512
+          ],
+          "time_reduction_percent": 18.44706671495,
+          "winning_blocks": 7,
+          "blocks": [
+            18.14221728399559,
+            18.14958370318268,
+            19.184933442493712,
+            18.822829338120574,
+            19.77482439390713,
+            17.407726889048913,
+            18.44706671495
+          ],
+          "baseline_us": 80.51513671875,
+          "candidate_us": 65.700357421875
+        },
+        {
+          "shape": [
+            64,
+            512,
+            512
+          ],
+          "time_reduction_percent": 13.433701716993497,
+          "winning_blocks": 6,
+          "blocks": [
+            13.433701716993497,
+            -72.89417523074925,
+            12.692471877732492,
+            12.789726292021154,
+            14.532675309137566,
+            52.70808027399806,
+            14.37963667898947
+          ],
+          "baseline_us": 31.431234375,
+          "candidate_us": 27.144693359375
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2048
+          ],
+          "time_reduction_percent": 17.194564978682347,
+          "winning_blocks": 7,
+          "blocks": [
+            17.194564978682347,
+            15.056966111028125,
+            17.526729051146926,
+            22.871073055508685,
+            16.50362389527541,
+            44.268298198786894,
+            13.830288479676778
+          ],
+          "baseline_us": 112.89908984375,
+          "candidate_us": 94.8443984375
+        },
+        {
+          "shape": [
+            64,
+            2048,
+            512
+          ],
+          "time_reduction_percent": 11.46417294396863,
+          "winning_blocks": 6,
+          "blocks": [
+            -32.13457840028484,
+            11.586662221215304,
+            25.658237815976204,
+            10.999149199873482,
+            11.46417294396863,
+            11.157380610916778,
+            18.16191432607055
+          ],
+          "baseline_us": 113.56640625,
+          "candidate_us": 100.9818515625
+        }
+      ],
+      "load": {
+        "samples": 8,
+        "minimum": 298.59999999999997,
+        "median": 336.55,
+        "maximum": 386.2
+      }
+    },
+    "shape-control": {
+      "cells": [
+        {
+          "shape": [
+            16,
+            512,
+            512
+          ],
+          "time_reduction_percent": 0.710899936793008,
+          "winning_blocks": 4,
+          "blocks": [
+            -1.1389669729761742,
+            0.766603520610798,
+            2.7063668618445447,
+            -2.395920384233108,
+            7.259308965872179,
+            0.710899936793008,
+            -116.63389802149999
+          ],
+          "baseline_us": 22.40283203125,
+          "candidate_us": 22.2435703125
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2048
+          ],
+          "time_reduction_percent": -0.0764703491596741,
+          "winning_blocks": 3,
+          "blocks": [
+            -0.44482437716857337,
+            1.6734709570566664,
+            -5.2477545559351135,
+            -39.08162245685578,
+            3.32118189751901,
+            0.06683879226162537,
+            -0.0764703491596741
+          ],
+          "baseline_us": 32.245443359375,
+          "candidate_us": 32.2701015625
+        },
+        {
+          "shape": [
+            16,
+            2048,
+            512
+          ],
+          "time_reduction_percent": 0.2144059033186374,
+          "winning_blocks": 4,
+          "blocks": [
+            0.2144059033186374,
+            0.49409900755091885,
+            -0.42708791336862895,
+            0.8174430778685515,
+            -2.452554341465163,
+            -0.1318584177923965,
+            1.8621988142433765
+          ],
+          "baseline_us": 81.66446875,
+          "candidate_us": 81.28995703125
+        },
+        {
+          "shape": [
+            64,
+            512,
+            512
+          ],
+          "time_reduction_percent": -4.126036052867987,
+          "winning_blocks": 2,
+          "blocks": [
+            0.33017210883307113,
+            -63.461272904591624,
+            0.04623196334391233,
+            -92.67895458392734,
+            -2.6995552571437154,
+            -4.126036052867987,
+            -88.0375178492225
+          ],
+          "baseline_us": 31.00903515625,
+          "candidate_us": 32.02392578125
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2048
+          ],
+          "time_reduction_percent": -0.3032029507751943,
+          "winning_blocks": 3,
+          "blocks": [
+            -0.7524696256739016,
+            -0.8227808421448435,
+            -17.07754148141436,
+            -0.3032029507751943,
+            9.248198592143419,
+            0.6359582282229659,
+            27.720590645758282
+          ],
+          "baseline_us": 112.941650390625,
+          "candidate_us": 112.9525546875
+        },
+        {
+          "shape": [
+            64,
+            2048,
+            512
+          ],
+          "time_reduction_percent": -0.31684915959719895,
+          "winning_blocks": 2,
+          "blocks": [
+            -0.8651985876308554,
+            -29.23278475909308,
+            28.009013205676492,
+            -12.536748646682172,
+            -0.19886047106656424,
+            19.41294231837333,
+            -0.31684915959719895
+          ],
+          "baseline_us": 114.450927734375,
+          "candidate_us": 114.860189453125
+        }
+      ],
+      "load": {
+        "samples": 8,
+        "minimum": 341.2,
+        "median": 413.25,
+        "maximum": 435.09999999999997
+      }
+    },
+    "shape-replication": {
+      "cells": [
+        {
+          "shape": [
+            16,
+            512,
+            512
+          ],
+          "time_reduction_percent": 19.579141869599315,
+          "winning_blocks": 7,
+          "blocks": [
+            19.579141869599315,
+            5.997762009335994,
+            28.95396274939993,
+            16.58009541608434,
+            22.60625745951421,
+            18.04468292694854,
+            21.77073701174509
+          ],
+          "baseline_us": 22.5443515625,
+          "candidate_us": 18.33056640625
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2048
+          ],
+          "time_reduction_percent": 15.781558076848013,
+          "winning_blocks": 7,
+          "blocks": [
+            16.688340204205264,
+            13.277943364764122,
+            18.577684222678847,
+            11.933083781619459,
+            12.139852823475373,
+            15.781558076848013,
+            24.13834994906332
+          ],
+          "baseline_us": 32.692220703125,
+          "candidate_us": 27.892986328125
+        },
+        {
+          "shape": [
+            16,
+            2048,
+            512
+          ],
+          "time_reduction_percent": 19.65755396363038,
+          "winning_blocks": 7,
+          "blocks": [
+            21.54957103610312,
+            20.130573420536702,
+            36.16226219767286,
+            17.476822205162755,
+            19.122826841129893,
+            16.318018208765615,
+            19.65755396363038
+          ],
+          "baseline_us": 81.557046875,
+          "candidate_us": 65.45906640625
+        },
+        {
+          "shape": [
+            64,
+            512,
+            512
+          ],
+          "time_reduction_percent": 12.102568161748838,
+          "winning_blocks": 5,
+          "blocks": [
+            -82.0183550376643,
+            -68.74475411619841,
+            52.72202872720469,
+            13.393490515615447,
+            13.598567676595863,
+            12.102568161748838,
+            10.38733059900504
+          ],
+          "baseline_us": 31.31005859375,
+          "candidate_us": 27.8388671875
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2048
+          ],
+          "time_reduction_percent": 16.97292715394787,
+          "winning_blocks": 6,
+          "blocks": [
+            16.97292715394787,
+            17.098712385666413,
+            36.37176580638485,
+            -2.2510173709394676,
+            17.096692982512764,
+            16.693192055701434,
+            16.084095922791654
+          ],
+          "baseline_us": 113.461669921875,
+          "candidate_us": 94.144693359375
+        },
+        {
+          "shape": [
+            64,
+            2048,
+            512
+          ],
+          "time_reduction_percent": 11.807581125443056,
+          "winning_blocks": 6,
+          "blocks": [
+            35.65434218293525,
+            10.849696935622333,
+            12.543818309918041,
+            11.909873710563645,
+            11.807581125443056,
+            11.754208016774314,
+            -23.027167417874207
+          ],
+          "baseline_us": 114.04760546875,
+          "candidate_us": 100.621013671875
+        }
+      ],
+      "load": {
+        "samples": 8,
+        "minimum": 320.7,
+        "median": 341.35,
+        "maximum": 351.0
+      }
+    }
+  },
+  "whole_model": {
+    "frozen": {
+      "cells": [
+        {
+          "shape": [
+            1,
+            512,
+            0
+          ],
+          "time_reduction_percent": -3.039327093453048,
+          "winning_blocks": 2,
+          "blocks": [
+            -6.142559247603407,
+            -3.039327093453048,
+            -9.262707339453158,
+            -0.13432000891204776,
+            18.68229027065499,
+            25.467292885016068,
+            -12.219909487210368
+          ],
+          "baseline_us": 454.4820887850467,
+          "candidate_us": 464.2365654205608
+        },
+        {
+          "shape": [
+            1,
+            512,
+            1
+          ],
+          "time_reduction_percent": -2.2111307918079914,
+          "winning_blocks": 2,
+          "blocks": [
+            6.385906149800236,
+            -39.215887532529806,
+            -0.9634556109195502,
+            -2.2111307918079914,
+            -2.3735101004898063,
+            -3.528224560234672,
+            7.920038602582446
+          ],
+          "baseline_us": 461.6540588235294,
+          "candidate_us": 470.0920882352941
+        },
+        {
+          "shape": [
+            1,
+            512,
+            2
+          ],
+          "time_reduction_percent": -0.4371695092104,
+          "winning_blocks": 3,
+          "blocks": [
+            -7.150420306756433,
+            -1.507644388382845,
+            0.07625631042333936,
+            5.472975478484754,
+            -15.23955232798897,
+            6.506659277826832,
+            -0.4371695092104
+          ],
+          "baseline_us": 1976.5434782608697,
+          "candidate_us": 1975.0362391304348
+        },
+        {
+          "shape": [
+            16,
+            512,
+            0
+          ],
+          "time_reduction_percent": 6.311560252168247,
+          "winning_blocks": 5,
+          "blocks": [
+            4.227728494107497,
+            8.433850418651634,
+            -14.48495311883442,
+            11.585224256394454,
+            6.311560252168247,
+            17.52588297905383,
+            -3.801806487485049
+          ],
+          "baseline_us": 713.2345844155844,
+          "candidate_us": 662.7002142857143
+        },
+        {
+          "shape": [
+            16,
+            512,
+            1
+          ],
+          "time_reduction_percent": 6.502019988199859,
+          "winning_blocks": 6,
+          "blocks": [
+            6.816161311897851,
+            13.391085316826523,
+            2.389637060635752,
+            6.502019988199859,
+            -3.226649347779742,
+            8.635450503116171,
+            6.185696777678129
+          ],
+          "baseline_us": 728.0652368421052,
+          "candidate_us": 682.876644736842
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2
+          ],
+          "time_reduction_percent": -3.340632747319905,
+          "winning_blocks": 1,
+          "blocks": [
+            -3.340632747319905,
+            -14.844089924750904,
+            -3.4784121818477454,
+            7.631453295807344,
+            -6.736972138169306,
+            -1.7170127611238373,
+            -0.1364261206151962
+          ],
+          "baseline_us": 2167.297269230769,
+          "candidate_us": 2212.181076923077
+        },
+        {
+          "shape": [
+            64,
+            256,
+            0
+          ],
+          "time_reduction_percent": 3.000801517144902,
+          "winning_blocks": 5,
+          "blocks": [
+            3.000801517144902,
+            -12.88979146357958,
+            14.5832931986954,
+            -4.274223242604758,
+            9.411162034594945,
+            2.5762176043024776,
+            9.209931603111333
+          ],
+          "baseline_us": 767.7315500000001,
+          "candidate_us": 740.4550642857143
+        },
+        {
+          "shape": [
+            64,
+            256,
+            1
+          ],
+          "time_reduction_percent": -2.88596009188391,
+          "winning_blocks": 2,
+          "blocks": [
+            2.5067511681081567,
+            7.481175923762018,
+            -10.587749787972033,
+            -1.549785947548843,
+            -11.7822674969849,
+            -2.88596009188391,
+            -17.290484581160538
+          ],
+          "baseline_us": 767.8323615384617,
+          "candidate_us": 849.1285307692308
+        },
+        {
+          "shape": [
+            64,
+            256,
+            2
+          ],
+          "time_reduction_percent": 1.6029078730576685,
+          "winning_blocks": 4,
+          "blocks": [
+            -12.819749887322484,
+            16.03451565133398,
+            -1.9956770676125668,
+            3.316633068385777,
+            1.6029078730576685,
+            -1.7640394913993829,
+            5.34310744769495
+          ],
+          "baseline_us": 1162.0250111111109,
+          "candidate_us": 1172.6171333333334
+        },
+        {
+          "shape": [
+            64,
+            512,
+            0
+          ],
+          "time_reduction_percent": 5.781373701561343,
+          "winning_blocks": 6,
+          "blocks": [
+            8.025796217231761,
+            5.243617944739953,
+            7.541797485236024,
+            0.7680832194591258,
+            -11.477582296297495,
+            7.993770703439074,
+            5.781373701561343
+          ],
+          "baseline_us": 989.2912857142857,
+          "candidate_us": 921.0576607142857
+        },
+        {
+          "shape": [
+            64,
+            512,
+            1
+          ],
+          "time_reduction_percent": 7.440587800616516,
+          "winning_blocks": 4,
+          "blocks": [
+            29.842827329769715,
+            -8.727637628558703,
+            -4.7726602824681,
+            19.495143680245274,
+            -11.13453422353583,
+            7.440587800616516,
+            24.78939405733067
+          ],
+          "baseline_us": 1028.8703265306124,
+          "candidate_us": 978.1666734693877
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2
+          ],
+          "time_reduction_percent": 1.4428157662812913,
+          "winning_blocks": 5,
+          "blocks": [
+            -4.576609464976666,
+            0.02824638306903049,
+            1.4428157662812913,
+            10.203511188938707,
+            -0.1303521827093146,
+            4.085602173698688,
+            2.318601358346173
+          ],
+          "baseline_us": 2386.0960555555557,
+          "candidate_us": 2371.708361111111
+        }
+      ],
+      "load": {
+        "samples": 24,
+        "minimum": 263.3,
+        "median": 323.9,
+        "maximum": 510.90000000000003
+      }
+    },
+    "control": {
+      "cells": [
+        {
+          "shape": [
+            1,
+            512,
+            0
+          ],
+          "time_reduction_percent": 0.24672939959415885,
+          "winning_blocks": 4,
+          "blocks": [
+            4.193339328060297,
+            -11.7566707965568,
+            0.24672939959415885,
+            11.237452660823733,
+            1.0048702944266852,
+            -3.76296449900706,
+            -2.9351847455021396
+          ],
+          "baseline_us": 456.96363636363634,
+          "candidate_us": 461.3128772727273
+        },
+        {
+          "shape": [
+            1,
+            512,
+            1
+          ],
+          "time_reduction_percent": -0.21829925636982495,
+          "winning_blocks": 3,
+          "blocks": [
+            2.8411772390533496,
+            4.822951921854946,
+            -0.21829925636982495,
+            -18.499906611901128,
+            -0.7415112082099329,
+            -7.815367522944849,
+            16.611564942664913
+          ],
+          "baseline_us": 477.1532889908257,
+          "candidate_us": 463.5965183486239
+        },
+        {
+          "shape": [
+            1,
+            512,
+            2
+          ],
+          "time_reduction_percent": 2.4814700778206245,
+          "winning_blocks": 5,
+          "blocks": [
+            1.459280416222275,
+            2.4814700778206245,
+            5.0241524088830865,
+            6.514806134411044,
+            11.854536709220087,
+            -1.5168817541455937,
+            -0.9728525345345851
+          ],
+          "baseline_us": 2036.8613620689655,
+          "candidate_us": 1951.7392241379312
+        },
+        {
+          "shape": [
+            16,
+            512,
+            0
+          ],
+          "time_reduction_percent": 7.332976697456973,
+          "winning_blocks": 6,
+          "blocks": [
+            7.332976697456973,
+            5.1849917174763505,
+            7.630979968828566,
+            -5.04782176156342,
+            4.387235626873121,
+            9.64559868634729,
+            11.402545392233044
+          ],
+          "baseline_us": 709.8795067567567,
+          "candidate_us": 667.9090743243243
+        },
+        {
+          "shape": [
+            16,
+            512,
+            1
+          ],
+          "time_reduction_percent": 6.129365051403813,
+          "winning_blocks": 5,
+          "blocks": [
+            -25.062689403399084,
+            -1.598872949995811,
+            3.9222405511443514,
+            21.36333892848952,
+            24.43232434543218,
+            6.129365051403813,
+            19.4398743974172
+          ],
+          "baseline_us": 747.3251811594203,
+          "candidate_us": 681.2934782608696
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2
+          ],
+          "time_reduction_percent": -0.2590644393567043,
+          "winning_blocks": 3,
+          "blocks": [
+            -2.027250727396357,
+            14.662334062976024,
+            1.6485171254177367,
+            -13.777950817452567,
+            5.242216337554462,
+            -7.000996265971637,
+            -0.2590644393567043
+          ],
+          "baseline_us": 2188.0791799999997,
+          "candidate_us": 2152.00832
+        },
+        {
+          "shape": [
+            64,
+            256,
+            0
+          ],
+          "time_reduction_percent": 1.9721060193934714,
+          "winning_blocks": 5,
+          "blocks": [
+            17.206541255447107,
+            -13.718607690265806,
+            -4.516956777033387,
+            0.46904263443003913,
+            5.540833327377237,
+            1.9721060193934714,
+            10.457459337523034
+          ],
+          "baseline_us": 745.22825,
+          "candidate_us": 741.5321617647057
+        },
+        {
+          "shape": [
+            64,
+            256,
+            1
+          ],
+          "time_reduction_percent": 0.6660767934607459,
+          "winning_blocks": 4,
+          "blocks": [
+            0.6660767934607459,
+            -1.48282203418455,
+            1.9520093308005526,
+            -4.694943975646204,
+            7.907610086945471,
+            -2.004724874474495,
+            1.232116517121995
+          ],
+          "baseline_us": 765.8370147058824,
+          "candidate_us": 772.3832794117646
+        },
+        {
+          "shape": [
+            64,
+            256,
+            2
+          ],
+          "time_reduction_percent": -1.2761110527149233,
+          "winning_blocks": 1,
+          "blocks": [
+            -1.2971885605492561,
+            -1.0079393695719308,
+            -3.889063410795468,
+            -4.754385840291797,
+            -1.2761110527149233,
+            2.6252307757300475,
+            -0.9564459759762833
+          ],
+          "baseline_us": 1136.0530340909093,
+          "candidate_us": 1150.1193181818182
+        },
+        {
+          "shape": [
+            64,
+            512,
+            0
+          ],
+          "time_reduction_percent": 7.581936204629303,
+          "winning_blocks": 5,
+          "blocks": [
+            6.163067801032973,
+            8.959758070446355,
+            -13.769024951215837,
+            -5.066055978226713,
+            8.281839961933313,
+            22.57914318086245,
+            7.581936204629303
+          ],
+          "baseline_us": 988.5375,
+          "candidate_us": 922.7416636363636
+        },
+        {
+          "shape": [
+            64,
+            512,
+            1
+          ],
+          "time_reduction_percent": -6.122890553844917,
+          "winning_blocks": 3,
+          "blocks": [
+            -10.710986397961907,
+            -16.375975021078748,
+            12.252403254966671,
+            3.7250793790616132,
+            -7.077050948060348,
+            7.499965753353233,
+            -6.122890553844917
+          ],
+          "baseline_us": 1002.7062040816327,
+          "candidate_us": 1060.6585816326533
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2
+          ],
+          "time_reduction_percent": 4.1868635949676385,
+          "winning_blocks": 5,
+          "blocks": [
+            0.44744433177175136,
+            9.350855480269981,
+            -3.9992448659370794,
+            -9.641576016558528,
+            20.480428021263542,
+            4.542927982572753,
+            4.1868635949676385
+          ],
+          "baseline_us": 2436.28125,
+          "candidate_us": 2367.8162727272725
+        }
+      ],
+      "load": {
+        "samples": 24,
+        "minimum": 282.7,
+        "median": 408.29999999999995,
+        "maximum": 553.0
+      }
+    },
+    "ordinary": {
+      "cells": [
+        {
+          "shape": [
+            1,
+            512,
+            0
+          ],
+          "time_reduction_percent": 6.296559236099197,
+          "winning_blocks": 6,
+          "blocks": [
+            32.60811449387092,
+            -4.178923995484052,
+            0.5202949447383198,
+            6.296559236099197,
+            8.66625706987243,
+            0.8745095875501319,
+            28.25469072692065
+          ],
+          "baseline_us": 494.6484830508474,
+          "candidate_us": 457.551906779661
+        },
+        {
+          "shape": [
+            1,
+            512,
+            1
+          ],
+          "time_reduction_percent": 1.5039453148402493,
+          "winning_blocks": 5,
+          "blocks": [
+            1.5039453148402493,
+            1.7142445644926951,
+            1.1786778811836207,
+            -15.927672562849416,
+            -12.43264036520706,
+            16.351892574886794,
+            13.203078421062376
+          ],
+          "baseline_us": 468.7821830357143,
+          "candidate_us": 466.3033883928572
+        },
+        {
+          "shape": [
+            1,
+            512,
+            2
+          ],
+          "time_reduction_percent": -3.5323998806754187,
+          "winning_blocks": 2,
+          "blocks": [
+            -11.235353988904318,
+            -3.5323998806754187,
+            -1.1419274531133894,
+            2.6468710466331147,
+            2.6798548649983434,
+            -6.105264952612788,
+            -7.122466689428464
+          ],
+          "baseline_us": 1949.4066599999999,
+          "candidate_us": 2016.7041800000002
+        },
+        {
+          "shape": [
+            16,
+            512,
+            0
+          ],
+          "time_reduction_percent": 8.560988656207236,
+          "winning_blocks": 5,
+          "blocks": [
+            6.548184517523314,
+            -0.8880852971312914,
+            -0.2733784962378305,
+            8.560988656207236,
+            19.007141892109026,
+            17.11083888847892,
+            29.977601465452587
+          ],
+          "baseline_us": 1118.9332448979592,
+          "candidate_us": 1051.0969285714286
+        },
+        {
+          "shape": [
+            16,
+            512,
+            1
+          ],
+          "time_reduction_percent": 5.778309592031916,
+          "winning_blocks": 5,
+          "blocks": [
+            5.778309592031916,
+            5.870337499624512,
+            3.3558580426062745,
+            -1.369670442646287,
+            -5.239921845339368,
+            14.697948734916055,
+            22.473824744864213
+          ],
+          "baseline_us": 1113.2015288461537,
+          "candidate_us": 1056.5516826923078
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2
+          ],
+          "time_reduction_percent": 8.60846217197776,
+          "winning_blocks": 5,
+          "blocks": [
+            8.60846217197776,
+            16.261830828460532,
+            3.7133017049682415,
+            -7.726540495081702,
+            10.470254443612802,
+            13.136629466184303,
+            -3.4091415576269712
+          ],
+          "baseline_us": 2808.56145,
+          "candidate_us": 2675.4135499999998
+        },
+        {
+          "shape": [
+            64,
+            256,
+            0
+          ],
+          "time_reduction_percent": -4.5743554010998055,
+          "winning_blocks": 2,
+          "blocks": [
+            22.37431657624388,
+            -1.2551288739401034,
+            -10.699326895367722,
+            -4.5743554010998055,
+            -16.153808278196657,
+            -15.083026670386989,
+            16.789990915827957
+          ],
+          "baseline_us": 1142.5893444444444,
+          "candidate_us": 1253.7851888888888
+        },
+        {
+          "shape": [
+            64,
+            256,
+            1
+          ],
+          "time_reduction_percent": -0.83861944653707,
+          "winning_blocks": 3,
+          "blocks": [
+            2.2956195752547703,
+            -2.2571037701505814,
+            5.147687679244262,
+            -10.906812436315061,
+            0.25470457712903904,
+            -0.83861944653707,
+            -5.466671868808914
+          ],
+          "baseline_us": 1166.7101063829787,
+          "candidate_us": 1180.388744680851
+        },
+        {
+          "shape": [
+            64,
+            256,
+            2
+          ],
+          "time_reduction_percent": 1.1992680709406733,
+          "winning_blocks": 5,
+          "blocks": [
+            -5.690917155178421,
+            10.429697330636367,
+            6.392060339681893,
+            -10.165494327767476,
+            1.1992680709406733,
+            1.5073141195949824,
+            0.8638571325549016
+          ],
+          "baseline_us": 1612.7541666666666,
+          "candidate_us": 1587.1888833333333
+        },
+        {
+          "shape": [
+            64,
+            512,
+            0
+          ],
+          "time_reduction_percent": 6.94388221873623,
+          "winning_blocks": 6,
+          "blocks": [
+            -13.460003958226885,
+            6.94388221873623,
+            2.0877893539377856,
+            12.240429767925843,
+            11.718896948202195,
+            1.9381946659529525,
+            33.255863827019716
+          ],
+          "baseline_us": 1800.6390967741934,
+          "candidate_us": 1675.6048387096776
+        },
+        {
+          "shape": [
+            64,
+            512,
+            1
+          ],
+          "time_reduction_percent": 8.047626916933348,
+          "winning_blocks": 6,
+          "blocks": [
+            14.759644250788229,
+            16.490599049752163,
+            -3.7720876953154736,
+            1.714578430299618,
+            8.047626916933348,
+            4.1914236161635365,
+            28.871435044938387
+          ],
+          "baseline_us": 1840.992828125,
+          "candidate_us": 1704.82878125
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2
+          ],
+          "time_reduction_percent": 2.2007107421289085,
+          "winning_blocks": 5,
+          "blocks": [
+            -1.3780751172280503,
+            2.2007107421289085,
+            6.917497686155327,
+            4.62141696770062,
+            10.655759483970362,
+            -5.673527659430966,
+            0.6776945476910878
+          ],
+          "baseline_us": 3335.8875,
+          "candidate_us": 3270.1
+        }
+      ],
+      "load": {
+        "samples": 24,
+        "minimum": 267.7,
+        "median": 339.45000000000005,
+        "maximum": 466.7
+      }
+    },
+    "repeat": {
+      "cells": [
+        {
+          "shape": [
+            1,
+            512,
+            0
+          ],
+          "time_reduction_percent": -0.5180028419220273,
+          "winning_blocks": 3,
+          "blocks": [
+            25.644980578458988,
+            13.114928730388343,
+            -19.320333467543737,
+            -1.2901237980387004,
+            12.876511972715265,
+            -0.5180028419220273,
+            -16.078934435492307
+          ],
+          "baseline_us": 460.3727477477477,
+          "candidate_us": 455.42379729729726
+        },
+        {
+          "shape": [
+            1,
+            512,
+            1
+          ],
+          "time_reduction_percent": -10.464663281695884,
+          "winning_blocks": 2,
+          "blocks": [
+            -21.435175554168694,
+            -11.85940496182154,
+            -10.464663281695884,
+            0.7882923340388981,
+            -8.695248996202821,
+            29.659203103242316,
+            -11.279868025773055
+          ],
+          "baseline_us": 467.9891826923077,
+          "candidate_us": 508.7680288461538
+        },
+        {
+          "shape": [
+            1,
+            512,
+            2
+          ],
+          "time_reduction_percent": -0.5767268632012712,
+          "winning_blocks": 1,
+          "blocks": [
+            -1.4831060630922321,
+            -10.110035239640936,
+            -0.5675590273392483,
+            -0.5767268632012712,
+            1.050170484986157,
+            -0.18678183854197172,
+            -2.9974924764316846
+          ],
+          "baseline_us": 1944.6903620689657,
+          "candidate_us": 1959.5172586206895
+        },
+        {
+          "shape": [
+            16,
+            512,
+            0
+          ],
+          "time_reduction_percent": 6.3313350532270825,
+          "winning_blocks": 6,
+          "blocks": [
+            23.074572970134312,
+            2.3148931600829536,
+            12.031481287236723,
+            8.167521235697873,
+            -5.6930259179790665,
+            6.3313350532270825,
+            2.562940451946949
+          ],
+          "baseline_us": 768.8387096774194,
+          "candidate_us": 676.3360241935484
+        },
+        {
+          "shape": [
+            16,
+            512,
+            1
+          ],
+          "time_reduction_percent": 5.013775502326078,
+          "winning_blocks": 4,
+          "blocks": [
+            7.096365842929386,
+            5.013775502326078,
+            6.777088586696623,
+            -3.0387587350216405,
+            -1.8335851820991733,
+            8.20654642479508,
+            -24.487028142691013
+          ],
+          "baseline_us": 730.0005384615386,
+          "candidate_us": 701.7670897435897
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2
+          ],
+          "time_reduction_percent": 3.0961655297152557,
+          "winning_blocks": 7,
+          "blocks": [
+            2.018477998653223,
+            3.0961655297152557,
+            5.448104299015277,
+            1.3582468005546522,
+            2.4690475627156427,
+            9.455508005652113,
+            4.645282716547017
+          ],
+          "baseline_us": 2227.54666,
+          "candidate_us": 2124.07082
+        },
+        {
+          "shape": [
+            64,
+            256,
+            0
+          ],
+          "time_reduction_percent": 0.6510293729745098,
+          "winning_blocks": 4,
+          "blocks": [
+            -1.8236793504096793,
+            -21.909157666789582,
+            9.245564998161138,
+            0.6510293729745098,
+            9.130676919816272,
+            0.6753157663606735,
+            -0.8286179618174794
+          ],
+          "baseline_us": 745.9556830985916,
+          "candidate_us": 746.4850352112677
+        },
+        {
+          "shape": [
+            64,
+            256,
+            1
+          ],
+          "time_reduction_percent": 4.452088943242427,
+          "winning_blocks": 5,
+          "blocks": [
+            7.848776681670611,
+            -7.284071288002769,
+            14.622590059043084,
+            9.733910644095179,
+            2.5501391459200273,
+            -23.51837064251614,
+            4.452088943242427
+          ],
+          "baseline_us": 847.8409015151515,
+          "candidate_us": 828.5713409090908
+        },
+        {
+          "shape": [
+            64,
+            256,
+            2
+          ],
+          "time_reduction_percent": 1.9940819073721583,
+          "winning_blocks": 5,
+          "blocks": [
+            25.869887267317214,
+            1.9940819073721583,
+            -14.912593586403577,
+            0.6146838322569459,
+            7.951002369613724,
+            2.4930905823335237,
+            -3.1945948550689884
+          ],
+          "baseline_us": 1171.2926136363637,
+          "candidate_us": 1155.9289772727273
+        },
+        {
+          "shape": [
+            64,
+            512,
+            0
+          ],
+          "time_reduction_percent": 14.768782916256617,
+          "winning_blocks": 5,
+          "blocks": [
+            25.320334491680374,
+            17.139271700088976,
+            -8.435265747064724,
+            22.31972574354212,
+            14.768782916256617,
+            -0.8426265761123597,
+            4.107926224331737
+          ],
+          "baseline_us": 1081.8823240740742,
+          "candidate_us": 931.4070185185185
+        },
+        {
+          "shape": [
+            64,
+            512,
+            1
+          ],
+          "time_reduction_percent": 5.432929326957236,
+          "winning_blocks": 5,
+          "blocks": [
+            6.5519971997330835,
+            7.518148456932005,
+            5.432929326957236,
+            -0.9581884163422982,
+            5.241435445174147,
+            6.079881439722989,
+            -2.8747183184832714
+          ],
+          "baseline_us": 1017.0184326923078,
+          "candidate_us": 956.1454326923077
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2
+          ],
+          "time_reduction_percent": 1.7591406072380744,
+          "winning_blocks": 4,
+          "blocks": [
+            -5.361766101003385,
+            4.397185609480769,
+            -1.9224051239779438,
+            19.592096277649706,
+            -37.15184207501705,
+            5.549958915204634,
+            1.7591406072380744
+          ],
+          "baseline_us": 2457.63335,
+          "candidate_us": 2376.59375
+        }
+      ],
+      "load": {
+        "samples": 24,
+        "minimum": 264.5,
+        "median": 341.45000000000005,
+        "maximum": 496.09999999999997
+      }
+    }
+  },
+  "evidence_sha256": {
+    "benchmarks/results/gpu-specialization-gui-2026-10-29.json": "ac68cf3e5f0a030790a09283ea3f275cd106efbdc673bdb34b0c956c053909fa",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/qualification.json": "991627f9aa23079988685ee7b6a2c6e408527f202500f6a5e9a895c3550a42ab",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/capture.json": "3661952aea764805a49fc7c6ddb3208f0115638937966b64251f3ed7c98f2ee2",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/D449A194DAB713C9": "261738d645e91acd7afb0cb65d36655962b3228f0a0fae4b06ec2f00b3e30c34",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/MTLBuffer-10-0": "6c79a077d96e03b3c4a1bbc2e0c561843a3af8c0246879d127e70dd8d7d72857",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/MTLBuffer-11-0": "ba0af0b18855a59a8aa9c5a4d00d72d6144f9305b108922ccd1de11ff799de10",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/MTLBuffer-12-0": "abb22855be3bff9800fa8ab531f92f4c65108d17280e986b921eb4c3ca1f7894",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/MTLBuffer-13-0": "7d1058c003e08889ed2f27886cccad1b6c38f77210b9099aa948ce66630285a6",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/MTLBuffer-14-0": "1b5def233c32a52451541552fcce3556f501cf5b6c7622ac9d171b165029069a",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/MTLBuffer-8-0": "6c79a077d96e03b3c4a1bbc2e0c561843a3af8c0246879d127e70dd8d7d72857",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/MTLBuffer-9-0": "ba0af0b18855a59a8aa9c5a4d00d72d6144f9305b108922ccd1de11ff799de10",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/capture": "9284e1f3467445e373bf30d78691342349beb6492e20f3d81658461711a7bb34",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/delta-device-resources-0x795909c000": "f126fbd2a956d144911cea987b209ee3e8c1cef575824d26132a830920bf30c6",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/device-resources-0x795909c000": "d0c3086b3ef023cbcd649eae5ec3da41cfdd1aebaa51583bf0e5a59224c7e134",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/index": "708c994eb303a95a27cd46dbd562a8363c4fbc71180edeffcbe118d907ad42d2",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/metadata": "b5b929482a710f33c639cb4ef683e8ca834a70366a11c68a174746c7bf31caa9",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/startup-0-platform": "95ec44496f18553d4eb03d17b294dc3468748d756faeef28f4ec8e4ea09b67d6",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/startup-1-platform": "307bca216804762e9741cc4d56a78333351e51a2b9ba29b1b623c5c07df79550",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/store0": "d63fc38863366d214bdd9ea7b1c990d1a61a5079b876de4859dded2b4199e3d8",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/unsorted-capture": "333fe9328e35c018d1f009cbdc97c9eaa4baf644b52e590e18ca8dc4d41b78ee",
+    "benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/unused-device-resources-0x795909c000": "d34c9868b77d88af76d02f9479a237388546a49569108e76e0002af457aca5bb",
+    "benchmarks/results/gpu-specialization-k-counters-2026-10-29.csv": "5b5911a38963fdf2654a85810691fc18136160df6769a1862d3594f7f101101c",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/qualification.json": "cf4e3af1c84dcacb8fb0ee2f01efcfc4da8994e1578f49ee127e5f417557aa32",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/capture.json": "748fcab21ab0701d6095a6a5cb36e6574f6a07a1cb680dcc2525ef07239f160d",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/D449A194DAB713C9": "261738d645e91acd7afb0cb65d36655962b3228f0a0fae4b06ec2f00b3e30c34",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/MTLBuffer-10-0": "6c79a077d96e03b3c4a1bbc2e0c561843a3af8c0246879d127e70dd8d7d72857",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/MTLBuffer-11-0": "ba0af0b18855a59a8aa9c5a4d00d72d6144f9305b108922ccd1de11ff799de10",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/MTLBuffer-12-0": "abb22855be3bff9800fa8ab531f92f4c65108d17280e986b921eb4c3ca1f7894",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/MTLBuffer-13-0": "7d1058c003e08889ed2f27886cccad1b6c38f77210b9099aa948ce66630285a6",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/MTLBuffer-14-0": "1b5def233c32a52451541552fcce3556f501cf5b6c7622ac9d171b165029069a",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/MTLBuffer-8-0": "6c79a077d96e03b3c4a1bbc2e0c561843a3af8c0246879d127e70dd8d7d72857",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/MTLBuffer-9-0": "ba0af0b18855a59a8aa9c5a4d00d72d6144f9305b108922ccd1de11ff799de10",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/capture": "75be9cd126cc8b3f768c90941813c62ad713b738c401261795fca41e0d881ec4",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/delta-device-resources-0x758f08c000": "861648d85604ed87c0ed036105656591618c495a9199993ad80d74d2f35b185a",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/device-resources-0x758f08c000": "701e417db15f08b5c791541c96e844c470cbcae4307f5cde6baa43f8e3a39159",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/index": "93ff8bb4af13fb464f348516167c75c4ed129bdcf8b87f73a3880f61e1fd6be2",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/metadata": "53c4dbfb376cf532f40d0c3db4b211d02b57bb9b4b22ef283ef0d118bf4dfd06",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/startup-0-platform": "93ec7943f39feba068be0847792a1d1532511e193e7a09462b92cfd7c8d3e898",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/startup-1-platform": "307bca216804762e9741cc4d56a78333351e51a2b9ba29b1b623c5c07df79550",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/store0": "2f5fa103b3821280690605292c46799c23ac07acdd298c29a1fb70464d10b0c9",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/unsorted-capture": "77c97e9b9111b8cea5468614585b38b3f947db7538b78436b045fccc8ba07475",
+    "benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/unused-device-resources-0x758f08c000": "2d65740189a3f0508232e7504256a85a837960b5acc31b97a4b512b7ec03b763",
+    "benchmarks/results/gpu-specialization-shape-counters-2026-10-29.csv": "3587ce6899a47e9368221062bbe0598e32064133a8dd41a3e30ea2593394a410",
+    "benchmarks/results/gpu-shape-runtime-verification-2026-10-29.json": "820d70e3d69ad5e38d2312f9f74135fd9875a025a28d2e8fa00544cf46270f5b",
+    "benchmarks/results/gpu-specialization-k-paired-2026-10-29.json": "246fb98bbf8addbd6edabe10e1de570e7f0ee5bcdc3e28e9a1c2242be1401f31",
+    "benchmarks/results/gpu-specialization-k-paired-2026-10-29-load.json": "320323ccddc59791801105a8b079dfc84e9d6150ad3a460708f03ac5ae71c088",
+    "benchmarks/results/gpu-specialization-shape-paired-2026-10-29.json": "17c414a13af1037577ca5fcf1bd6649e3318f238b8c2554310f1d07e4a00cc6a",
+    "benchmarks/results/gpu-specialization-shape-paired-2026-10-29-load.json": "ec48a49047fd44eb4a46d8c38610885cf262a4703abbeaf477a3cd5fd815fdb8",
+    "benchmarks/results/gpu-specialization-shape-control-paired-2026-10-29.json": "b0357ee7906fde3d46d9d78dd6945543aac6006785f56249809867b3ca294e1a",
+    "benchmarks/results/gpu-specialization-shape-control-paired-2026-10-29-load.json": "9cf7efbfe8b27897c41053957a9dd03c05c100a629f3de7c7f9e83c0edcce6e8",
+    "benchmarks/results/gpu-specialization-shape-replication-paired-2026-10-29.json": "1e1c31a98418b27c952a0749ab271b2d576f38d6106386749dfc2d00b27d77ab",
+    "benchmarks/results/gpu-specialization-shape-replication-paired-2026-10-29-load.json": "745acfa4ac17961656f1fafde2fe02b17eacf1302901b969f95c2e0021b68ecf",
+    "benchmarks/results/gpu-shape-runtime-frozen-2026-10-29.json": "0fe06da495a521f31ebce997018743b7fbdd06959315d7b354fea8166907bd5a",
+    "benchmarks/results/gpu-shape-runtime-frozen-2026-10-29-load.json": "ddcc14d20feb120b6db282206ac86b516a2ccdfe33f516178dbd77ceab86d83b",
+    "benchmarks/results/gpu-shape-runtime-control-2026-10-29.json": "6566710781730b534818b232134e5312480287d4193e4a298ac213176f71ec45",
+    "benchmarks/results/gpu-shape-runtime-control-2026-10-29-load.json": "6cccdb03c45f25162b4e5ca1f1a160644503c16647591bedf63b5de4778d1970",
+    "benchmarks/results/gpu-shape-runtime-ordinary-2026-10-29.json": "264df966a40e4911c0acf8071af43aee962594c8bcb2e4d7c333581238998b6a",
+    "benchmarks/results/gpu-shape-runtime-ordinary-2026-10-29-load.json": "a2c61715749f7a779197aacda6fa75f1d0885bf85c7547973dc1b8a7cd30456b",
+    "benchmarks/results/gpu-shape-runtime-repeat-2026-10-29.json": "b6042e07a6a6bf4731e82157335c804aa6a14293ff7e9e8cd4e85a3dbce6db67",
+    "benchmarks/results/gpu-shape-runtime-repeat-2026-10-29-load.json": "f75ae1c2e1fd50db7ef75abeeeaa7bf7e13f2ddcf2328d5c71c5bdd730ca93db",
+    "benchmarks/results/gpu-specialization-qualification-2026-10-29.json": "02d3211cdc1ef86d9e6638dedcd03a7bb09a1764dc5bac266f5c06d7126fe3ab",
+    "native/benchmarks/fair/specialization_report.py": "a910b97d894e041bcbf6eadfc16ff84ea13b956e4c74669edc2ef4d58b5a9f7a"
+  }
+}

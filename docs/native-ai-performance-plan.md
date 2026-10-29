@@ -700,3 +700,34 @@ records are retained. Production semantics, cancellation and ownership are
 unchanged. Next test compile-time contraction-shape specialization to remove
 generic bounds and unused reduction-root state, with direct resource measurements,
 a generic fallback and bounded pipeline caching before whole-model acceptance.
+
+### Shape-specialization controls and transformer prototype
+
+The [shape study](../benchmarks/results/gpu-specialization-2026-10-29.md)
+completes K-only/full-MKN controls, actual Xcode resources, an identical-kernel
+noise control, independent replication, and a bounded copied-runtime experiment
+covering fused matrix epilogues. Allocated/high registers fall from 100 to 92/88,
+temporaries from 52 to 48/44, without spills. The reported occupancy ceiling
+rises from 29.167% to 35.417%, but measured occupancy is 24.85%/23.08% versus
+24.70%; do not attribute the gains to achieved occupancy.
+
+All 144 isolated validation cases and 117 complete-transformer cases pass.
+Full-shape isolated time reductions repeat at 12–20%. Resident transformer
+M16/M64 width512 improves in frozen, same-runtime, ordinary and replication
+studies, generally around 6–8%; the final M64 replication is larger (14.77%).
+Upload results remain inconsistent: the same-runtime M64 input-upload control
+regresses 6.12%, and the unspecialized M1 input-upload replication regresses
+10.46%. External CPU medians span 324–413%; no idle-GPU claim is made. All 504
+paired comparisons, qualification records, exports and hashes are retained.
+
+No production promotion. Six fixed shapes at module load establish an
+experiment, not a language policy. Task-time compilation and cache growth are
+absent, but new PSO setup/memory cost and cancellation/fault-injection gates
+remain unqualified. Production semantics and cancellation behavior are unchanged.
+
+Next test a general two-dimensional threadgroup layout to remove runtime
+group/tile-column division and modulo. Separately test full-tile boundary
+predicate removal behind exact alignment guards. These may recover the index
+simplification benefit without exact-shape PSO caching. If shape specialization
+is still needed, design bounded preparation/cache ownership outside cancellable
+execution, then qualify cold setup, generic fallbacks, faults and cancellation.
