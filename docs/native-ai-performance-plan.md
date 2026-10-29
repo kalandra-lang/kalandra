@@ -412,3 +412,70 @@ reusable-storage or submission-service design. Changing that architecture must
 retain the same cancellation, ownership and concurrency qualification.
 
 See the [audited report, chart, all outcomes and reproduction](../benchmarks/results/gpu-work-bounded-progression-2026-10-29.md).
+
+## Invocation-private parameter arena and host-cost profile
+
+Completed against frozen `fb85c832`. On the large baseline, diagnostic median
+intervals are about 0.49 ms from submission to GPU start and 0.38 ms from GPU end
+to callback entry, compared with 0.08 ms in buffer allocation. Three completion
+worker prototypes (global default, global interactive and serial initiated)
+failed to provide a reliable improvement and remain benchmark-only. The earlier
+shared-event/indirect-grid experiment was also rejected; do not rediscover it
+without a materially different hypothesis.
+
+The accepted change packs parameters into one fresh invocation-owned Metal
+allocation with distinct aligned writable slices and fault words. It reduces
+16 parameter buffers to one and allocation checkpoints from 109 to 95 (small)
+and 113 to 99 (large). Budget padding retains the previous 64 KiB headroom; if
+it cannot fit, the same command policy uses separate buffers. Cancellation
+checkpoints, shader code, fault precedence and acknowledgement ownership are
+unchanged. No storage persists across invocations.
+
+Primary resident medians improve **3.0–9.6%**. **26/27** primary shape/mode
+medians and **119/135** paired blocks improve. The 16×512 all-upload median is
+**0.19% slower**, retained in the report; its same-binary control and independent
+repeat improve **1.25%/1.92%**. All control and repeat case medians improve, but
+resident replication ranges **0.49–10.73%** and the small gains are noisy. Fresh
+64×512 resident GPU/CPU/MPSGraph medians are **1.57/11.15/0.54 ms**: **7.09× our
+CPU speed**, still **2.92× MPSGraph time**. Do not compare absolute times between
+separate studies to attribute this change's gains.
+
+All 26 broader qualification groups plus four prepared modes pass, including
+ASan/UBSan and TSan, every held failure boundary, concurrent captures, exact
+budget-boundary fallback, allocation failure and cleanup. All Kalandra cells
+match across 13 regular/odd shapes and all residency modes; independent
+numerical bounds pass. Every acceptance sample retains the previous submission
+count. Tests/builds/profiling do not overlap acceptance timing.
+
+See the [audited report and reproduction](../benchmarks/results/gpu-parameter-arena-2026-10-29.md)
+and [storage contract](design/gpu-parameter-arena.md).
+
+## Autonomous continuation window — 29 October 2026
+
+The user authorized continuous work until approximately **10:54 UTC / 11:54
+Europe/Zurich**. A thread heartbeat (`kalandra-overnight-optimization`) resumes
+this chat every 15 minutes during that window; a timed caffeinate process keeps
+the Mac awake while permitting display sleep. Continue immediately between
+steps while active. Resume existing jobs rather than duplicating benchmarks.
+
+Sequence, adapting only to measured evidence:
+
+1. Commit/push the qualified parameter arena to `native`, update PR #260 to
+   `develop`, preserving Closes #13, #233 and #135; inspect hosted checks.
+2. Profile and screen compute-pass/encoder overhead within the current work
+   chunks. Test encoder reuse with explicit dependency barriers and complete
+   resource/fault handling. Keep command/cancellation boundaries fixed.
+3. Investigate avoidable data movement and kernel boundaries, particularly
+   transposed RHS consumption in attention and proven pointwise/row operations.
+   Preserve exact arithmetic trees, aliases and first-fault behavior.
+4. If handoff latency still dominates, test a materially different submission
+   or checkpoint architecture with an explicit semantic contract. Existing
+   event/indirect-grid and completion-worker variants have negative evidence.
+   Do not quietly trade cancellation guarantees for benchmark wins.
+5. After each candidate, independently verify results, use frozen interleaved
+   controls and replication, reject regressions, document architectural
+   decisions, and push only qualified improvements. Keep production numerical
+   code independent of vendor libraries. Fix CI regressions as they arise.
+6. Stop starting experiments near the end of the window; leave a coherent tested
+   state, disable the heartbeat and summarize commits, measured gains, rejected
+   experiments and remaining gaps. No merge or tagged release is authorized.

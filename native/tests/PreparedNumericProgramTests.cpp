@@ -46,9 +46,10 @@ static std::vector<std::uint32_t> download(m::Runtime &r, TaskCore &c, GroupHand
   return result;
 }
 static void test(const char *path, std::uint64_t budget, bool full, bool preencoded,
-                 unsigned rows = 3, unsigned width = 7) {
+                 unsigned rows = 3, unsigned width = 7, bool arena = true) {
   m::Options options;
   options.maxBytes = budget;
+  options.parameterArena = arena;
   options.profile = true;
   options.preencodedProgression = preencoded;
   options.retainedProgressionReferences = false;
@@ -261,7 +262,8 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
                   code.push_back({K::Alias, {}, aliasOperands[i], {}, previous + 2});
                 }
               }
-              auto plan = r.prepareNumericProgram(1, code, aliases ? stages * 2 : stages, f32, false);
+              auto plan =
+                  r.prepareNumericProgram(1, code, aliases ? stages * 2 : stages, f32, false);
               CHECK(plan);
               auto before = r.stats();
               auto task = r.executeNumericProgram(*c, g, *plan, std::array{source});
@@ -474,7 +476,7 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
           return r.stats().submissions == start + boundary + 1 && c->stats().externalPending == 1;
         });
         auto held = r.stats();
-        CHECK(held.inFlight == 1 && held.stagingBuffers == (preencoded ? 16 : 4) &&
+        CHECK(held.inFlight == 1 && held.stagingBuffers == (preencoded ? (arena ? 1 : 16) : 4) &&
               held.bytes > baseline.bytes);
         CHECK(r.progressionCommandReservations() == (preencoded ? 15 : 0));
         if (scenario < 2)
@@ -614,12 +616,64 @@ static void guardedResidual(const char *path) {
   std::puts("guarded residual: operand order, empty output, passing/failing guards and "
             "fault/cancel precedence passed");
 }
+static void parameterBudget(const char *path) {
+  std::vector<std::uint32_t> expected;
+  for (auto budget : {67584u, 73728u}) {
+    for (bool arena : {false, true}) {
+      m::Options options;
+      options.maxBytes = budget;
+      options.parameterArena = arena;
+      auto made = m::Runtime::create(options);
+      CHECK(made);
+      auto &r = **made;
+      {
+        Program program(r, path);
+        transformer::Inputs data(1, 1, 1);
+        std::array<m::Buffer, 7> input;
+        auto c = TaskCore::create();
+        for (unsigned i = 0; i < 7; ++i) {
+          auto h = r.hostTensor(std::as_bytes(std::span(data.values[i])), data.shapes[i],
+                                m::Format::Float32);
+          CHECK(h);
+          auto g = c->openRoot();
+          auto t = r.upload(*c, g, *h, *r.device());
+          CHECK(t && c->drain());
+          input[i] = observe(*c, t);
+          retire(*c, g);
+        }
+        const auto baseline = r.stats().bytes;
+        auto g = c->openRoot();
+        const auto submissions = r.stats().submissions;
+        r.holdCompletions(true);
+        auto t = program.launch(r, *c, g, input, transformer::epsilon, data.scale);
+        until(*c, [&] { return r.stats().submissions > submissions; });
+        // Padding cannot force a different submission policy or exceed budget.
+        CHECK(r.progressionCommandReservations() == 15);
+        CHECK(r.stats().stagingBuffers == (arena && budget == 73728 ? 1 : 16));
+        CHECK(r.stats().bytes <= budget && r.stats().peakBytes <= budget);
+        r.holdCompletions(false);
+        CHECK(c->drain() && c->failure(t).kind == TaskFailure::None);
+        auto actual = download(r, *c, g, observe(*c, t));
+        if (expected.empty())
+          expected = actual;
+        CHECK(actual == expected);
+        retire(*c, g);
+        CHECK(r.stats().bytes == baseline && !r.stats().stagingBuffers);
+      }
+      CHECK(!r.stats().bytes && !r.stats().metalBuffers);
+    }
+  }
+  std::puts(
+      "parameter arena: padding-budget fallback, exact output and one charged backing passed");
+}
 int main(int argc, char **argv) {
   CHECK(argc == 3);
+  parameterBudget(argv[1]);
   guardedResidual(argv[2]);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, false);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 64, 512);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 3, 7, false);
   for (auto budget : {16384u, 32768u, 65536u})
     test(argv[1], budget, false, true);
 }

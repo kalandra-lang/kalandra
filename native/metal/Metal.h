@@ -93,6 +93,8 @@ struct Options {
   // to qualify the private-buffer/blit fallback; no host alias is exposed.
   bool sharedUploads = true;
   bool workBoundedProgression = true;
+  // Invocation-private argument backing; false retains separate buffers.
+  bool parameterArena = true;
 };
 struct Stats {
   std::uint64_t gpuNanoseconds = 0, encodingNanoseconds = 0, dispatches = 0;

@@ -1,5 +1,7 @@
 # Kalandra native benchmarks
 
+Latest GPU storage study: [invocation-private parameter arena](results/gpu-parameter-arena-2026-10-29.md), with [chart](results/gpu-parameter-arena-2026-10-29.png). It isolates host/driver costs, rejects three completion-worker alternatives, and qualifies shared argument backing with unchanged command boundaries. Primary resident medians improve 3.0–9.6%; the small all-upload regression, controls and replication are retained.
+
 Latest GPU scheduling study: [work-bounded resident progression](results/gpu-work-bounded-progression-2026-10-29.md), with [chart](results/gpu-work-bounded-progression-2026-10-29.png), compiler cost proofs, cancellation/lifetime qualification, same-binary control, replication, fresh CPU/MPSGraph comparisons and retained contended diagnostics. All 27 case medians improve; resident time falls 10.5–55.8%. The largest case is 7.10× our CPU speed but still takes 2.93× MPSGraph time.
 
 Latest AI study: [verified CPU/GPU optimization sequence and complete transformer block](results/native-ai-performance-2026-10-28.md), with the [comparison chart](results/native-ai-performance-2026-10-28.png). It includes paired baselines, CPU numerical libraries, benchmark-only MPSGraph, per-cell correctness and the remaining typed GPU lifecycle gap.

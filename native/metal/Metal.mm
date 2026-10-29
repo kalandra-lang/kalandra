@@ -57,6 +57,17 @@ struct State {
   }
 };
 struct MetalAllocation {
+  // Parameter slices retain one charged allocation; they are never tensors.
+  // Their offsets cover CPU fault reads and every GPU argument binding.
+  std::shared_ptr<MetalAllocation> parent;
+  std::uint64_t offset = 0;
+  void *contents() const {
+    auto *base = static_cast<std::byte *>(buffer.contents);
+    return offset ? base + offset : base;
+  }
+  MetalAllocation(std::shared_ptr<MetalAllocation> p, std::uint64_t n, std::uint64_t at)
+      : parent(p), offset(at), state(p->state), buffer(p->buffer), bytes(n), staging(true) {}
+
   std::shared_ptr<State> state;
   id<MTLBuffer> buffer;
   std::uint64_t bytes;
@@ -68,6 +79,10 @@ struct MetalAllocation {
       ++state->stagingBuffers;
   }
   ~MetalAllocation() {
+    if (parent) {
+      buffer = nil;
+      return;
+    }
     buffer = nil;
     state->bytes -= bytes;
     --state->metalBuffers;
@@ -940,6 +955,8 @@ struct Bridge {
     std::vector<Checkpoint> checkpoints;
     std::uint64_t reserved = 0, commandCredits = 0;
     bool workChunks = false;
+    std::shared_ptr<MetalAllocation> arena;
+    std::uint64_t arenaUsed = 0, arenaCapacity = 0;
     ~Progression() {
       // Return pool reservations only after dropping unsubmitted commands.
       checkpoints.clear();
@@ -1114,7 +1131,7 @@ struct Bridge {
       return nil;
     }
     f.staging = *readback;
-    std::memset(f.staging->buffer.contents, 0, std::max(width, 4u));
+    std::memset(f.staging->contents(), 0, std::max(width, 4u));
     if (f.packet.numericProgram) {
       auto output =
           allocateStorage(state, std::array<std::int64_t, 1>{1}, *storageFormat(type), true, index);
@@ -1147,7 +1164,7 @@ struct Bridge {
         return nil;
       }
       f.scratch->counts[level] = *parameters;
-      auto words = static_cast<std::uint32_t *>((*parameters)->buffer.contents);
+      auto words = static_cast<std::uint32_t *>((*parameters)->contents());
       words[0] = std::uint32_t(length);
       words[1] = UINT32_MAX;
       length = next;
@@ -1253,7 +1270,7 @@ struct Bridge {
         return nil;
       }
       f.scratch->postParameters = *parameters;
-      auto *words = static_cast<std::uint32_t *>(f.scratch->postParameters->buffer.contents);
+      auto *words = static_cast<std::uint32_t *>(f.scratch->postParameters->contents());
       words[0] = 1;
       std::copy(bits.begin(), bits.end(), words + 1);
       if (!length) {
@@ -1264,7 +1281,7 @@ struct Bridge {
         }
         f.scratch->seed = *seed;
         std::uint32_t zero = 0;
-        std::memcpy(f.scratch->seed->buffer.contents, &zero, 4);
+        std::memcpy(f.scratch->seed->contents(), &zero, 4);
         input = f.scratch->seed->buffer;
         length = 1;
       }
@@ -1277,7 +1294,7 @@ struct Bridge {
       }
       f.scratch->seed = *seed;
       std::uint32_t zero = 0;
-      std::memcpy(f.scratch->seed->buffer.contents, &zero, 4);
+      std::memcpy(f.scratch->seed->contents(), &zero, 4);
       input = f.scratch->seed->buffer;
       length = 1;
     }
@@ -1623,9 +1640,36 @@ struct Bridge {
   static bool progressionFault(const Progression &p, std::size_t end) {
     for (std::size_t i = 0; i < end; ++i)
       if (static_cast<const std::uint32_t *>(
-              p.owners[i].parameters->buffer.contents)[p.owners[i].flagWord] != UINT32_MAX)
+              p.owners[i].parameters->contents())[p.owners[i].flagWord] != UINT32_MAX)
         return true;
     return false;
+  }
+  static std::expected<std::shared_ptr<MetalAllocation>, Error>
+  numericParameters(Frame &f, std::uint32_t index, std::uint64_t n) {
+    auto state = f.packet.state;
+    if (!f.progression || !f.progression->arenaCapacity)
+      return allocateMetal(state, index, n, true);
+    if (n > UINT64_MAX - 255)
+      return std::unexpected(Error::Invalid);
+    const auto stride = (n + 255) & ~UINT64_C(255);
+    auto &p = *f.progression;
+    if (!p.arena) {
+      auto allocation = allocateMetal(state, index, p.arenaCapacity, true);
+      if (!allocation)
+        return std::unexpected(allocation.error());
+      p.arena = *allocation;
+    }
+    if (!state->permit())
+      return std::unexpected(Error::Allocation);
+    if (p.arenaUsed > p.arena->bytes || stride > p.arena->bytes - p.arenaUsed)
+      return std::unexpected(Error::Budget);
+    try {
+      auto result = std::make_shared<MetalAllocation>(p.arena, n, p.arenaUsed);
+      p.arenaUsed += stride;
+      return result;
+    } catch (...) {
+      return std::unexpected(Error::Allocation);
+    }
   }
   static id<MTLCommandBuffer> numericCommandBuffer(Frame &f, std::uint32_t index) {
     auto queue = f.packet.state->queues[index];
@@ -1663,13 +1707,13 @@ struct Bridge {
       }
       (*output)->metal = *dummy;
     }
-    auto parameters = allocateMetal(state, kernel.index, 24, true);
+    auto parameters = numericParameters(f, kernel.index, 24);
     if (!parameters) {
       f.error = parameters.error();
       return nil;
     }
     f.staging = *parameters;
-    auto *words = static_cast<std::uint32_t *>(f.staging->buffer.contents);
+    auto *words = static_cast<std::uint32_t *>(f.staging->contents());
     const auto count = source->size / describeNumeric(*kernel.numericType)->bytes();
     words[0] = std::uint32_t(count);
     words[1] = std::uint32_t(source->dimensions[0]);
@@ -1710,7 +1754,7 @@ struct Bridge {
     [encoder setBuffer:epsilon offset:0 atIndex:1];
     [encoder setBuffer:(*output)->metal->buffer offset:0 atIndex:2];
     [encoder setBuffer:scratch offset:0 atIndex:3];
-    [encoder setBuffer:f.staging->buffer offset:0 atIndex:4];
+    [encoder setBuffer:f.staging->buffer offset:f.staging->offset atIndex:4];
     const auto groups = kind == TensorTransformKind::Transpose
                             ? std::max(UINT64_C(1), (count + 255) / 256)
                         : count ? std::uint64_t(words[1])
@@ -2104,7 +2148,7 @@ struct Bridge {
         shapes[i].rank = v.shape().size();
         std::copy(v.shape().begin(), v.shape().end(), shapes[i].dimensions.begin());
       }
-      std::uint64_t bytes = 0;
+      std::uint64_t bytes = 0, parameterBytes = 0, parameterCapacity = 0;
       auto add = [&](std::uint64_t n) {
         if (n > state->options.maxBytes || bytes > state->options.maxBytes - n)
           return false;
@@ -2185,7 +2229,13 @@ struct Bridge {
             return {};
           cells *= n;
         }
-        if (!add(cells * 4) || !add(k.parameterWords() * 4) || (k.transform && !add(cells * 4)))
+        const auto parameters = k.parameterWords() * 4;
+        if (parameters > UINT64_MAX - 255 ||
+            parameterCapacity > UINT64_MAX - ((parameters + 255) & ~UINT64_C(255)))
+          return {};
+        parameterBytes += parameters;
+        parameterCapacity += (parameters + 255) & ~UINT64_C(255);
+        if (!add(cells * 4) || !add(parameters) || (k.transform && !add(cells * 4)))
           return {};
         shapes[op.output] = output;
       }
@@ -2193,6 +2243,13 @@ struct Bridge {
       if (usedBytes > state->options.maxBytes || bytes > state->options.maxBytes - usedBytes ||
           state->options.maxBytes - usedBytes - bytes < 64 * 1024)
         return {};
+      // Padding must fit without consuming the old safety headroom. Otherwise
+      // keep separate parameters and the same progression policy. Every slice
+      // is private to this invocation and remains owned through acknowledgement.
+      if (costed && state->options.parameterArena &&
+          parameterCapacity - parameterBytes <=
+              state->options.maxBytes - usedBytes - bytes - 64 * 1024)
+        candidate->arenaCapacity = parameterCapacity;
       auto credits = state->progressionCommandCredits.load();
       do {
         if (credits > state->options.maxInFlight ||
@@ -2223,7 +2280,7 @@ struct Bridge {
     const auto &source = f.packet.input.storage_;
     const auto &destination = f.result.storage_->metal;
     const auto count = std::min(quantum, source->size - f.uploadOffset);
-    auto *bytes = static_cast<std::byte *>(destination->buffer.contents);
+    auto *bytes = static_cast<std::byte *>(destination->contents());
     std::memcpy(bytes + f.uploadOffset, source->hostView().data() + f.uploadOffset, count);
     f.uploadOffset += count;
     if (f.uploadOffset != source->size) {
@@ -2260,8 +2317,7 @@ struct Bridge {
               f.progression.reset();
               for (unsigned i = 0; i < f.numericBatched; ++i)
                 if (static_cast<const std::uint32_t *>(
-                        f.numericParameters[i]->buffer.contents)[f.numericFlagWords[i]] !=
-                    UINT32_MAX) {
+                        f.numericParameters[i]->contents())[f.numericFlagWords[i]] != UINT32_MAX) {
                   fail(task, f, 4);
                   return;
                 }
@@ -2280,7 +2336,7 @@ struct Bridge {
                 return;
               }
             } else if (program.reading || program.condition) {
-              auto bytes = static_cast<const std::byte *>(f.staging->buffer.contents);
+              auto bytes = static_cast<const std::byte *>(f.staging->contents());
               if (program.reading) {
                 completeNumeric(task, program.element, bytes);
                 return;
@@ -2304,23 +2360,22 @@ struct Bridge {
               const auto &kernel = f.packet.kernel.state_;
               if (f.packet.kind == Kind::Reduce) {
                 for (const auto &parameters : f.scratch->counts)
-                  if (parameters && static_cast<const std::uint32_t *>(
-                                        parameters->buffer.contents)[1] != UINT32_MAX) {
+                  if (parameters &&
+                      static_cast<const std::uint32_t *>(parameters->contents())[1] != UINT32_MAX) {
                     fail(task, f, 4);
                     return;
                   }
               } else if (kernel && kernel->numericType && f.staging &&
                          static_cast<const std::uint32_t *>(
-                             f.staging->buffer.contents)[kernel->parameterWords() - 1] !=
-                             UINT32_MAX) {
+                             f.staging->contents())[kernel->parameterWords() - 1] != UINT32_MAX) {
                 fail(task, f, 4);
                 return;
               }
               if (f.numericFused && f.fusedParameters &&
                   static_cast<const std::uint32_t *>(
-                      f.fusedParameters->buffer.contents)[program.code[numericPostIndex(program)]
-                                                              .kernel.state_->parameterWords() -
-                                                          1] != UINT32_MAX) {
+                      f.fusedParameters->contents())[program.code[numericPostIndex(program)]
+                                                         .kernel.state_->parameterWords() -
+                                                     1] != UINT32_MAX) {
                 fail(task, f, 4);
                 return;
               }
@@ -2564,27 +2619,26 @@ struct Bridge {
           if (f.packet.kind != Kind::Reduce && f.packet.kernel.state_ &&
               f.packet.kernel.state_->numericType && f.staging) {
             const auto words = f.packet.kernel.state_->parameterWords();
-            auto parameters = static_cast<const std::uint32_t *>(f.staging->buffer.contents);
+            auto parameters = static_cast<const std::uint32_t *>(f.staging->contents());
             if (parameters[words - 1] != UINT32_MAX) {
               fail(task, f, 4);
               return;
             }
           }
           if (f.packet.numericScalar) {
-            completeNumeric(task, *f.packet.kernel.state_->numericType,
-                            f.joinReadback->buffer.contents);
+            completeNumeric(task, *f.packet.kernel.state_->numericType, f.joinReadback->contents());
             return;
           }
           if (f.packet.kind == Kind::Reduce && f.packet.kernel.state_ &&
               f.packet.kernel.state_->numericType) {
             for (const auto &parameters : f.scratch->counts) {
-              if (parameters && static_cast<const std::uint32_t *>(
-                                    parameters->buffer.contents)[1] != UINT32_MAX) {
+              if (parameters &&
+                  static_cast<const std::uint32_t *>(parameters->contents())[1] != UINT32_MAX) {
                 fail(task, f, 4);
                 return;
               }
             }
-            completeNumeric(task, *f.packet.kernel.state_->numericType, f.staging->buffer.contents);
+            completeNumeric(task, *f.packet.kernel.state_->numericType, f.staging->contents());
             return;
           }
           if (f.packet.graph) {
@@ -2600,7 +2654,7 @@ struct Bridge {
             f.graphWork = 0;
             if (!graph.reductions.empty() && f.graphPhase > 0) {
               if (f.graphPhase == 2) {
-                std::memcpy(&f.scalar, f.joinReadback->buffer.contents, 4);
+                std::memcpy(&f.scalar, f.joinReadback->contents(), 4);
                 f.packet.arguments.reset();
                 f.packet.input = {};
                 f.packet.right = {};
@@ -2675,10 +2729,10 @@ struct Bridge {
             // callback.
             if (f.packet.kind == Kind::Download) {
               auto *destination = const_cast<Storage *>(f.result.storage_.get());
-              std::memcpy(destination->host.data(), f.staging->buffer.contents, destination->size);
+              std::memcpy(destination->host.data(), f.staging->contents(), destination->size);
             }
             if (f.packet.kind == Kind::Reduce)
-              std::memcpy(&f.scalar, f.staging->buffer.contents, 4);
+              std::memcpy(&f.scalar, f.staging->contents(), 4);
             f.staging.reset();
             f.resources.reset();
             f.scratch.reset();
@@ -3134,7 +3188,7 @@ struct Bridge {
             const auto tensors = kernel->readCount;
             const auto parameterBytes =
                 matrix && !kernel->numericType ? 12 : 4ull * kernel->parameterWords();
-            auto parametersBuffer = allocateMetal(state, index, parameterBytes, true);
+            auto parametersBuffer = numericParameters(f, index, parameterBytes);
             if (!parametersBuffer) {
               fail(task, f, std::int64_t(parametersBuffer.error()));
               return;
@@ -3142,13 +3196,13 @@ struct Bridge {
             f.staging = *parametersBuffer;
             if (fusePost) {
               const auto &post = postKernel.state_;
-              auto parameters = allocateMetal(state, index, 4ull * post->parameterWords(), true);
+              auto parameters = numericParameters(f, index, 4ull * post->parameterWords());
               if (!parameters) {
                 fail(task, f, std::int64_t(parameters.error()));
                 return;
               }
               f.fusedParameters = *parameters;
-              auto *words = static_cast<std::uint32_t *>((*parameters)->buffer.contents);
+              auto *words = static_cast<std::uint32_t *>((*parameters)->contents());
               words[0] = std::uint32_t(std::uint64_t(matrixShape[0]) * matrixShape[1]);
               std::copy(postArguments->scalarBits.begin(), postArguments->scalarBits.end(),
                         words + 1);
@@ -3277,7 +3331,7 @@ struct Bridge {
                            atIndex:1];
               [encoder setBuffer:(*result)->metal->buffer offset:0 atIndex:tensors];
             }
-            auto *parameters = static_cast<std::uint32_t *>(f.staging->buffer.contents);
+            auto *parameters = static_cast<std::uint32_t *>(f.staging->contents());
             std::fill_n(parameters, parameterBytes / 4, 0u);
             const auto width = describeNumeric(*storageNumericType(source->format))->bytes();
             parameters[0] = std::uint32_t(source->size / width);
@@ -3311,7 +3365,7 @@ struct Bridge {
                 [encoder useResource:buffer usage:MTLResourceUsageRead];
               }
               [arguments setBuffer:(*result)->metal->buffer offset:0 atIndex:tensors];
-              [arguments setBuffer:f.staging->buffer offset:0 atIndex:tensors + 1];
+              [arguments setBuffer:f.staging->buffer offset:f.staging->offset atIndex:tensors + 1];
               [encoder
                   useResource:(*result)->metal->buffer
                         usage:kernel->numericType ? MTLResourceUsageRead | MTLResourceUsageWrite
@@ -3322,14 +3376,16 @@ struct Bridge {
                                                   : MTLResourceUsageRead];
               [encoder setBuffer:f.resources->buffer offset:0 atIndex:0];
             } else
-              [encoder setBuffer:f.staging->buffer offset:0 atIndex:tensors + 1];
+              [encoder setBuffer:f.staging->buffer offset:f.staging->offset atIndex:tensors + 1];
             if (fusePost) {
               const auto &post = postKernel.state_;
               for (std::uint32_t i = 1; i < post->readCount; ++i) {
                 const auto &input = postTensor(post->tensorIndex(i)).storage_;
                 [encoder setBuffer:input->metal->buffer offset:0 atIndex:i + 3];
               }
-              [encoder setBuffer:f.fusedParameters->buffer offset:0 atIndex:post->readCount + 3];
+              [encoder setBuffer:f.fusedParameters->buffer
+                          offset:f.fusedParameters->offset
+                         atIndex:post->readCount + 3];
             }
             const auto threads = hardwareSkinny || hardwareRegister ? 256u
                                  : hardwareWide                     ? 128u
@@ -3388,7 +3444,7 @@ struct Bridge {
             }
             f.staging = *staging;
             if (upload)
-              std::memcpy(f.staging->buffer.contents, source->hostView().data(), source->size);
+              std::memcpy(f.staging->contents(), source->hostView().data(), source->size);
             if (!state->permit()) {
               fail(task, f, std::int64_t(Error::Allocation));
               return;

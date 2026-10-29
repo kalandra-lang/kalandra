@@ -41,6 +41,11 @@ its fused epilogue. Parameters, scratch, tensors and pipelines remain owned unti
 GPU acknowledgement. Checkpoint flag indices refer to the cumulative owner
 vector, including windows retained within the same command.
 
+Eligible plans can back their parameter slices with an
+[invocation-local arena](gpu-parameter-arena.md). That storage optimization
+preserves the per-slice fault words, owner lifetime and command policy; padding
+that cannot fit retains separate parameter buffers.
+
 Before encoding the next dispatch, the runtime checks the pending command's
 accumulated work. If adding the dispatch would exceed 64 Mi units, it closes the
 command first. Multiplication saturates safely above the limit. As before, an
