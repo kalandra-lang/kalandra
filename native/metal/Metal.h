@@ -97,6 +97,8 @@ struct Options {
   bool parameterArena = true;
   // Singleton/empty transpose views; false retains the device-copy control.
   bool contiguousTranspose = true;
+  // Encode later chunks while the first runs; false retains full pre-encoding.
+  bool overlappedEncoding = true;
 };
 struct Stats {
   std::uint64_t gpuNanoseconds = 0, encodingNanoseconds = 0, dispatches = 0;

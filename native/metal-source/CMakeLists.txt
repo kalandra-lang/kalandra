@@ -1164,6 +1164,12 @@ if(BUILD_TESTING)
       --output "${CMAKE_CURRENT_BINARY_DIR}/prepared-programs")
   set_tests_properties(native-metal-prepared-programs PROPERTIES TIMEOUT 1200
     RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
+  add_test(NAME native-metal-encoding-overlap
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/EncodingOverlapTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/encoding-overlap")
+  set_tests_properties(native-metal-encoding-overlap PROPERTIES TIMEOUT 1200
+    RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
   add_test(NAME native-metal-tensor-transforms
     COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/TensorTransformTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}" --gpu

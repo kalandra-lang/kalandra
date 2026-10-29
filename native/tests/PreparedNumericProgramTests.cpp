@@ -46,11 +46,13 @@ static std::vector<std::uint32_t> download(m::Runtime &r, TaskCore &c, GroupHand
   return result;
 }
 static void test(const char *path, std::uint64_t budget, bool full, bool preencoded,
-                 unsigned rows = 3, unsigned width = 7, bool arena = true, bool views = true) {
+                 unsigned rows = 3, unsigned width = 7, bool arena = true, bool views = true,
+                 bool overlap = true) {
   m::Options options;
   options.maxBytes = budget;
   options.parameterArena = arena;
   options.contiguousTranspose = views;
+  options.overlappedEncoding = overlap;
   options.profile = true;
   options.preencodedProgression = preencoded;
   options.retainedProgressionReferences = false;
@@ -478,8 +480,9 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
         });
         auto held = r.stats();
         const bool view = views && rows == 1;
-        const auto parameters = preencoded ? (arena ? 1 : 16 - unsigned(view))
-                                : 4 - unsigned(view && boundary + 1 == commands);
+        const auto parameters = preencoded
+                                    ? (arena ? (overlap ? commands : 1) : 16 - unsigned(view))
+                                    : 4 - unsigned(view && boundary + 1 == commands);
         CHECK(held.inFlight == 1 && held.stagingBuffers == parameters &&
               held.bytes > baseline.bytes);
         CHECK(r.progressionCommandReservations() == (preencoded ? 15 : 0));
@@ -747,10 +750,71 @@ static void parameterBudget(const char *path) {
   std::puts(
       "parameter arena: padding-budget fallback, exact output and one charged backing passed");
 }
+// Fixed budgets straddle overlap admission while preserving the existing
+// safety headroom. Upload larger captures first so this checks execution
+// ownership rather than transient host-upload duplication.
+static void overlapBudget(const char *path) {
+  std::vector<std::uint32_t> expected;
+  for (std::uint64_t budget : {UINT64_C(15732736), UINT64_C(15794176)}) {
+    m::Options options;
+    options.maxBytes = budget;
+    auto made = m::Runtime::create(options);
+    CHECK(made);
+    auto &r = **made;
+    {
+      Program program(r, path);
+      transformer::Inputs data(64, 512, 1);
+      std::array<m::Buffer, 7> input;
+      for (unsigned i : {5u, 6u, 1u, 2u, 3u, 4u, 0u}) {
+        auto c = TaskCore::create();
+        auto g = c->openRoot();
+        auto h = r.hostTensor(std::as_bytes(std::span(data.values[i])), data.shapes[i],
+                              m::Format::Float32);
+        CHECK(h);
+        auto t = r.upload(*c, g, *h, *r.device());
+        CHECK(t && c->drain() && c->failure(t).kind == TaskFailure::None);
+        input[i] = observe(*c, t);
+        retire(*c, g);
+      }
+      auto c = TaskCore::create();
+      auto g = c->openRoot();
+      const auto before = r.stats();
+      r.holdCompletions(true);
+      auto t = program.launch(r, *c, g, input, transformer::epsilon, data.scale);
+      CHECK(t);
+      while (!c->stats().externalPending && !c->settled(t))
+        c->step();
+      auto held = r.stats();
+      auto credits = r.progressionCommandReservations();
+      CHECK(credits == 15 && held.stagingBuffers == (budget == 15732736 ? 1 : 5));
+      r.holdCompletions(false);
+      CHECK(c->drain());
+      auto failure = c->failure(t);
+      auto commands = r.stats().submissions - before.submissions;
+      CHECK(failure.kind == TaskFailure::None && commands == 5);
+      {
+        auto actual = download(r, *c, g, observe(*c, t));
+        if (expected.empty())
+          expected = actual;
+        CHECK(actual == expected);
+      }
+      std::printf("%llu credits=%llu params=%llu commands=%llu peak=%llu failure=%u/%lld\n",
+                  (unsigned long long)budget, (unsigned long long)credits,
+                  (unsigned long long)held.stagingBuffers, (unsigned long long)commands,
+                  (unsigned long long)r.stats().peakBytes, unsigned(failure.kind),
+                  (long long)failure.code);
+      retire(*c, g);
+      CHECK(r.stats().peakBytes <= budget);
+    }
+    CHECK(!r.stats().bytes && !r.stats().metalBuffers && !r.stats().inFlight);
+  }
+}
+
 int main(int argc, char **argv) {
   CHECK(argc == 3);
   transposeViews(argv[1]);
   parameterBudget(argv[1]);
+  overlapBudget(argv[1]);
   guardedResidual(argv[2]);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, false, 1, 64);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 1, 64);
@@ -759,6 +823,7 @@ int main(int argc, char **argv) {
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, false);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 64, 512);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 64, 512, true, true, false);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 3, 7, false);
   for (auto budget : {16384u, 32768u, 65536u})
     test(argv[1], budget, false, true);

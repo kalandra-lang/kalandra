@@ -955,6 +955,12 @@ struct Bridge {
     std::vector<Checkpoint> checkpoints;
     std::uint64_t reserved = 0, commandCredits = 0;
     bool workChunks = false;
+    std::mutex progressionMutex;
+    ExternalCompletion progressionCompletion;
+    bool overlapAllowed = false;
+    bool liveEncoding = false, encodingDone = false, commandRunning = false;
+    bool stoppedEncoding = false, encodingSucceeded = true, signaledEncoding = false;
+    std::size_t nextCommand = 0;
     std::shared_ptr<MetalAllocation> arena;
     std::uint64_t arenaUsed = 0, arenaCapacity = 0;
     ~Progression() {
@@ -1624,6 +1630,9 @@ struct Bridge {
   }
   static void retainProgressionChunk(Frame &f, bool keepWork = false) {
     auto &p = *f.progression;
+    std::unique_lock progressionLock(p.progressionMutex, std::defer_lock);
+    if (p.liveEncoding)
+      progressionLock.lock();
     for (unsigned i = 0; i < f.numericBatched; ++i)
       p.owners.push_back({std::move(f.numericParameters[i]), std::move(f.numericResources[i]),
                           std::move(f.numericScratch[i]), f.numericFlagWords[i]});
@@ -1631,11 +1640,27 @@ struct Bridge {
     if (!keepWork)
       f.numericWork = 0;
   }
-  static void checkpointProgression(Frame &f) {
+  static void checkpointProgression(Task &task, Frame &f) {
     retainProgressionChunk(f);
     auto &p = *f.progression;
-    p.checkpoints.push_back({f.pendingCommand, p.owners.size()});
-    f.pendingCommand = nil;
+    {
+      std::lock_guard lock(p.progressionMutex);
+      p.checkpoints.push_back({f.pendingCommand, p.owners.size()});
+      f.pendingCommand = nil;
+    }
+    if (!p.overlapAllowed)
+      return;
+    // Seal all CPU-written parameters before publishing this command. Future
+    // encoding uses another physical resource, never this in-flight buffer.
+    p.arena.reset();
+    p.arenaUsed = 0;
+    if (!p.liveEncoding) {
+      p.progressionCompletion = task.suspendExternal();
+      if (!p.progressionCompletion)
+        return;
+      p.liveEncoding = true;
+    }
+    driveProgression(f);
   }
   static bool progressionFault(const Progression &p, std::size_t end) {
     for (std::size_t i = 0; i < end; ++i)
@@ -1810,7 +1835,8 @@ struct Bridge {
 #endif
     [command commit];
   }
-  static void submitProgression(Frame &f, ExternalCompletion completion, std::size_t index) {
+  static void submitPreencodedProgression(Frame &f, ExternalCompletion completion,
+                                          std::size_t index) {
     auto *frame = &f;
     auto command = f.progression->checkpoints[index].command;
     const auto ordinal = ++f.packet.state->submissions;
@@ -1839,7 +1865,7 @@ struct Bridge {
           // The next command is already encoded. No source or task frame code
           // executes on this callback. Keep the same external lease across the
           // chain, and never access frame after handing off to the next command.
-          submitProgression(*frame, completion, index + 1);
+          submitPreencodedProgression(*frame, completion, index + 1);
           return;
         }
         frame->succeeded = succeeded;
@@ -1853,16 +1879,121 @@ struct Bridge {
 #endif
     [command commit];
   }
+  static void driveProgression(Frame &f, std::size_t acknowledged = SIZE_MAX,
+                               bool succeeded = true) {
+    auto &p = *f.progression;
+    std::size_t index = 0;
+    bool submit = false, signal = false;
+    ExternalCompletion completion;
+    {
+      std::lock_guard lock(p.progressionMutex);
+      if (!p.liveEncoding || p.signaledEncoding || (acknowledged == SIZE_MAX && p.commandRunning))
+        return;
+      completion = p.progressionCompletion;
+      if (acknowledged != SIZE_MAX) {
+        // The callback retains commandRunning until it enters this decision.
+        // Clearing it earlier would let the builder signal/free the frame
+        // before the callback's final driveProgression access.
+        p.commandRunning = false;
+        p.encodingSucceeded &= succeeded;
+        p.stoppedEncoding |=
+            !succeeded || progressionFault(p, p.checkpoints[acknowledged].parameters);
+      }
+      if (completion.cancelled())
+        p.stoppedEncoding = true;
+      if (!p.stoppedEncoding && p.nextCommand < p.checkpoints.size()) {
+        index = p.nextCommand++;
+        p.commandRunning = true;
+        submit = true;
+      } else if (p.encodingDone) {
+        p.signaledEncoding = true;
+        f.succeeded = p.encodingSucceeded;
+        f.active = false;
+        --f.packet.state->inFlight;
+        signal = true;
+      }
+    }
+    if (submit)
+      submitProgression(f, index);
+    else if (signal)
+      completion.signal();
+    // Neither path may access the frame after handing off or signaling.
+  }
+  static void submitProgression(Frame &f, std::size_t index) {
+    auto *frame = &f;
+    id<MTLCommandBuffer> command;
+    {
+      std::lock_guard lock(f.progression->progressionMutex);
+      command = f.progression->checkpoints[index].command;
+    }
+    const auto ordinal = ++f.packet.state->submissions;
+    [command addCompletedHandler:^(id<MTLCommandBuffer> finished) {
+#if __has_feature(thread_sanitizer)
+      __tsan_acquire((__bridge void *)finished);
+#endif
+      @autoreleasepool {
+        auto state = frame->packet.state;
+        {
+          std::unique_lock lock(state->gateMutex);
+          state->gate.wait(lock, [&] {
+            return !state->hold && (!state->holdSubmission || state->holdSubmission != ordinal);
+          });
+        }
+        if (state->options.profile && finished.GPUEndTime >= finished.GPUStartTime)
+          state->gpuNanoseconds +=
+              std::uint64_t((finished.GPUEndTime - finished.GPUStartTime) * 1e9);
+        const bool succeeded = finished.status == MTLCommandBufferStatusCompleted &&
+                               !state->failCompletion.exchange(false);
+        ++state->completions;
+        driveProgression(*frame, index, succeeded);
+      }
+    }];
+#if __has_feature(thread_sanitizer)
+    __tsan_release((__bridge void *)command);
+#endif
+    [command commit];
+  }
+  static void finishProgressionEncoding(Frame &f, bool abort) {
+    if (!f.progression || !f.progression->liveEncoding)
+      return;
+    {
+      auto &p = *f.progression;
+      std::lock_guard lock(p.progressionMutex);
+      if (p.encodingDone)
+        return;
+      p.encodingDone = true;
+      p.stoppedEncoding |= abort;
+      f.numericAcknowledging = true;
+      f.started = true;
+      f.error = Error::Device;
+    }
+    driveProgression(f);
+  }
+  struct ProgressionEncodingExit {
+    Frame &frame;
+    ~ProgressionEncodingExit() { finishProgressionEncoding(frame, true); }
+  };
   static void flushNumeric(Task &task, Frame &f) {
     f.numericAcknowledging = true;
     if (f.progression) {
+      if (!f.progression->overlapAllowed) {
+        if (f.pendingCommand)
+          checkpointProgression(task, f);
+        f.started = true;
+        f.error = Error::Device;
+        auto completion = task.suspendExternal();
+        if (completion)
+          submitPreencodedProgression(f, completion, 0);
+        return;
+      }
+      if (!f.progression->liveEncoding) {
+        retainProgressionChunk(f);
+        submitCommand(task, f, f.pendingCommand);
+        return;
+      }
       if (f.pendingCommand)
-        checkpointProgression(f);
-      f.started = true;
-      f.error = Error::Device;
-      auto completion = task.suspendExternal();
-      if (completion)
-        submitProgression(f, completion, 0);
+        checkpointProgression(task, f);
+      finishProgressionEncoding(f, false);
     } else
       submitCommand(task, f, f.pendingCommand);
   }
@@ -2252,6 +2383,14 @@ struct Bridge {
           parameterCapacity - parameterBytes <=
               state->options.maxBytes - usedBytes - bytes - 64 * 1024)
         candidate->arenaCapacity = parameterCapacity;
+      candidate->overlapAllowed = candidate->workChunks && state->options.overlappedEncoding;
+      if (candidate->arenaCapacity) {
+        const auto spare = state->options.maxBytes - usedBytes - bytes - 64 * 1024;
+        const auto padding = parameterCapacity - parameterBytes;
+        // Bound a fresh full-capacity arena per possible command, preserving
+        // the previous safety headroom. Tight budgets keep full pre-encoding.
+        candidate->overlapAllowed &= computes - 1 <= (spare - padding) / parameterCapacity;
+      }
       auto credits = state->progressionCommandCredits.load();
       do {
         if (credits > state->options.maxInFlight ||
@@ -2296,6 +2435,7 @@ struct Bridge {
     task.complete(&f.result);
   }
   static void resume(Task &task) {
+    ProgressionEncodingExit encodingExit{*static_cast<Frame *>(task.frame())};
     for (;;) {
       @autoreleasepool {
         auto &f = *static_cast<Frame *>(task.frame());
@@ -2417,7 +2557,7 @@ struct Bridge {
                 if (f.progression->workChunks)
                   retainProgressionChunk(f, true);
                 else
-                  checkpointProgression(f);
+                  checkpointProgression(task, f);
                 continue;
               }
               flushNumeric(task, f);
@@ -2514,7 +2654,7 @@ struct Bridge {
               if (f.progression && work) {
                 constexpr auto limit = UINT64_C(64) * 1024 * 1024;
                 if (f.pendingCommand && (*work > limit || f.numericWork > limit - *work)) {
-                  checkpointProgression(f);
+                  checkpointProgression(task, f);
                   continue;
                 }
                 f.numericEligible = true; // A large singleton keeps the original quantum.

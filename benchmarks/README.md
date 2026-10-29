@@ -74,3 +74,9 @@ with singleton/empty alias qualification, exact output controls, streaming
 fallback, repeated whole-block timings and retained inactive-shape regressions.
 The general transposed-matrix kernels remain rejected. This follows the
 [private parameter arena](results/gpu-parameter-arena-2026-10-29.md).
+
+Latest scheduling study: [overlapped encoding](results/gpu-encoding-overlap-2026-10-29.md),
+with [longer-batch chart](results/gpu-encoding-overlap-2026-10-29.png). Largest resident
+gains reproduce at about 4%; smaller cases remain mixed, including 1–3% regressions.
+All outputs, command boundaries, four-mode lifetime gates and 27 qualification
+groups pass. Full negative results and ordinary background-load samples are retained.

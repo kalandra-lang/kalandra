@@ -515,3 +515,21 @@ Protect shared owner/checkpoint vectors; cover every early return and allocation
 failure with a builder-exit guard. This is an architectural experiment, not a
 production policy change. Qualify concurrent teardown and cancellation before
 acceptance. Intermediate-buffer arenas remain the following independent option.
+
+The overlap candidate now includes an atomic callback handoff, deterministic
+negative-control regression, and separate parameter backing for concurrently
+encoded commands. The original prototype's callback gap is retained as rejected
+evidence; no such version was promoted to production. Four-mode prototype
+fixtures and fixed budget boundaries pass. Production qualification passes all four prepared modes and 27 broader groups.
+Frozen/control/repeated and longer-batch acceptance are complete. Largest resident
+gains are consistently about 4%; smaller controls remain mixed, including roughly
+1–3% regressions. No blanket speedup is claimed. The complete
+[report](../benchmarks/results/gpu-encoding-overlap-2026-10-29.md) retains all
+negative results and background-load samples. See the
+[ownership and admission design](design/gpu-encoding-overlap.md).
+
+After acceptance, separate remaining device arithmetic from submission costs.
+A benchmark-only single-command or closed synchronous-entry lower bound may help
+quantify the architectural gap, but must explicitly disclose any cancellation
+policy difference and cannot be presented as the default language. Do not relax
+arithmetic or cancellation contracts merely to improve the comparison.
