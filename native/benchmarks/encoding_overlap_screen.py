@@ -157,6 +157,23 @@ def single_command_fastpath(source):
  assert source.count(old)==1
  return source.replace(old,new)
 
+def command_private_parameters(source, baseline):
+ source=source.replace('bool liveEncoding = false, encodingDone = false, commandRunning = false;',
+  'bool overlapAllowed = false;\n    bool liveEncoding = false, encodingDone = false, commandRunning = false;')
+ old='      candidate->arenaCapacity = parameterCapacity;\n      auto credits = state->progressionCommandCredits.load();'
+ new='      candidate->arenaCapacity = parameterCapacity;\n      candidate->overlapAllowed = candidate->workChunks;\n      if (candidate->arenaCapacity) {\n        const auto spare = state->options.maxBytes - usedBytes - bytes - 64 * 1024;\n        const auto padding = parameterCapacity - parameterBytes;\n        // Bound a fresh full-capacity arena per possible command, preserving\n        // the previous safety headroom. Tight budgets keep full pre-encoding.\n        candidate->overlapAllowed &= computes - 1 <= (spare - padding) / parameterCapacity;\n      }\n      auto credits = state->progressionCommandCredits.load();'
+ assert old in source;source=source.replace(old,new)
+ needle='    if (!p.liveEncoding) {\n      p.progressionCompletion = task.suspendExternal();'
+ replacement='    if (!p.overlapAllowed) return;\n    // Seal all CPU-written parameters before publishing this command. Future\n    // encoding uses another physical resource, never this in-flight buffer.\n    p.arena.reset();\n    p.arenaUsed = 0;\n    if (!p.liveEncoding) {\n      p.progressionCompletion = task.suspendExternal();'
+ assert needle in source;source=source.replace(needle,replacement)
+ begin=baseline.index('  static void submitProgression(')
+ end=baseline.index('  static void flushNumeric(',begin)
+ legacy=baseline[begin:end].replace('submitProgression','submitPreencodedProgression')
+ at=source.index('  static void driveProgression(');source=source[:at]+legacy+source[at:]
+ needle='    if (f.progression) {\n      if (!f.progression->liveEncoding) {'
+ replacement='    if (f.progression) {\n      if (!f.progression->overlapAllowed) {\n        if (f.pendingCommand) checkpointProgression(task, f);\n        f.started = true;\n        f.error = Error::Device;\n        auto completion = task.suspendExternal();\n        if (completion) submitPreencodedProgression(f, completion, 0);\n        return;\n      }\n      if (!f.progression->liveEncoding) {'
+ assert needle in source;return source.replace(needle,replacement)
+
 if __name__ == '__main__':
  import argparse,json,sys,os
  sys.path.insert(0,str(Path(__file__).resolve().parent/'fair'))
@@ -165,6 +182,7 @@ if __name__ == '__main__':
  parser.add_argument('--build',type=Path,required=True)
  parser.add_argument('--output',type=Path,required=True)
  parser.add_argument('--single-command-fastpath',action='store_true')
+ parser.add_argument('--command-private-parameters',action='store_true')
  a=parser.parse_args();assert not a.output.exists()
  build=a.build.resolve();build.mkdir(parents=True,exist_ok=True)
  accept=p.ROOT/'benchmarks/.build/gpu-transpose-view-2026-10-29/acceptance'
@@ -172,6 +190,9 @@ if __name__ == '__main__':
  source=p.ROOT/'native/metal/Metal.mm';generated=build/'overlap.mm'
  text=patch(source.read_text())
  if a.single_command_fastpath:text=single_command_fastpath(text)
+ if a.command_private_parameters:
+  assert a.single_command_fastpath
+  text=command_private_parameters(text,source.read_text())
  generated.write_text(text)
  obj=build/'overlap.o';binary=build/'overlap'
  p.run([p.CLANG,'-std=c++23','-O2','-fobjc-arc','-fblocks','-fno-objc-msgsend-class-selector-stubs','-mmacosx-version-min=26.0','-I'+str(p.ROOT/'native/metal'),'-c',generated,'-o',obj])
@@ -194,4 +215,4 @@ if __name__ == '__main__':
   assert all(s['submissions']==commands*count for s in samples)
   return samples
  result=p.measure_paired(cells,invoke,lambda c:c[1]*c[2]*4,blocks=3,target_ms=30,adaptive=True,max_iterations=5000)
- p.evidence(a.output,dict(contract=__doc__,single_command_fastpath=a.single_command_fastpath,checks=checks,result=result),[Path(__file__),source,p.ROOT/'native/metal/Metal.h',generated,accept/'Driver.cpp',accept/'TransformerProgram.h'],[accept/'gpu',binary,accept/'task.a',*bundle.glob('*.metallib')],accept/'kalandra')
+ p.evidence(a.output,dict(contract=__doc__,single_command_fastpath=a.single_command_fastpath,command_private_parameters=a.command_private_parameters,checks=checks,result=result),[Path(__file__),source,p.ROOT/'native/metal/Metal.h',generated,accept/'Driver.cpp',accept/'TransformerProgram.h'],[accept/'gpu',binary,accept/'task.a',*bundle.glob('*.metallib')],accept/'kalandra')
