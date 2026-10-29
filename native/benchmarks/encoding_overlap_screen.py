@@ -138,6 +138,23 @@ def patch(source):
  replace('  static void resume(Task &task) {\n    for (;;) {','  static void resume(Task &task) {\n    ProgressionEncodingExit encodingExit{*static_cast<Frame *>(task.frame())};\n    for (;;) {')
  return source
 
+def single_command_fastpath(source):
+ source=source.replace('std::lock_guard progressionLock(p.progressionMutex);',
+   'std::unique_lock progressionLock(p.progressionMutex, std::defer_lock);\n    if (p.liveEncoding) progressionLock.lock();')
+ old = """    if (f.progression) {
+      if (f.pendingCommand) checkpointProgression(task, f);
+      finishProgressionEncoding(f, false);"""
+ new = """    if (f.progression) {
+      if (!f.progression->liveEncoding) {
+        retainProgressionChunk(f);
+        submitCommand(task, f, f.pendingCommand);
+        return;
+      }
+      if (f.pendingCommand) checkpointProgression(task, f);
+      finishProgressionEncoding(f, false);"""
+ assert source.count(old)==1
+ return source.replace(old,new)
+
 if __name__ == '__main__':
  import argparse,json,sys,os
  sys.path.insert(0,str(Path(__file__).resolve().parent/'fair'))
@@ -145,12 +162,15 @@ if __name__ == '__main__':
  parser=argparse.ArgumentParser(description=__doc__)
  parser.add_argument('--build',type=Path,required=True)
  parser.add_argument('--output',type=Path,required=True)
+ parser.add_argument('--single-command-fastpath',action='store_true')
  a=parser.parse_args();assert not a.output.exists()
  build=a.build.resolve();build.mkdir(parents=True,exist_ok=True)
  accept=p.ROOT/'benchmarks/.build/gpu-transpose-view-2026-10-29/acceptance'
  bundle=p.ROOT/'benchmarks/.build/gpu-attention-2026-10-29/acceptance/bundle'
  source=p.ROOT/'native/metal/Metal.mm';generated=build/'overlap.mm'
- generated.write_text(patch(source.read_text()))
+ text=patch(source.read_text())
+ if a.single_command_fastpath:text=single_command_fastpath(text)
+ generated.write_text(text)
  obj=build/'overlap.o';binary=build/'overlap'
  p.run([p.CLANG,'-std=c++23','-O2','-fobjc-arc','-fblocks','-fno-objc-msgsend-class-selector-stubs','-mmacosx-version-min=26.0','-I'+str(p.ROOT/'native/metal'),'-c',generated,'-o',obj])
  p.run([p.CLANG,'-std=c++23','-O2','-pthread','-ffp-contract=off','-mmacosx-version-min=26.0','-I'+str(accept),'-I'+str(p.ROOT/'native/benchmarks/fair'),accept/'Driver.cpp',obj,accept/'task.a','-framework','Foundation','-framework','Metal','-o',binary])
@@ -172,4 +192,4 @@ if __name__ == '__main__':
   assert all(s['submissions']==commands*count for s in samples)
   return samples
  result=p.measure_paired(cells,invoke,lambda c:c[1]*c[2]*4,blocks=3,target_ms=30,adaptive=True,max_iterations=5000)
- p.evidence(a.output,dict(contract=__doc__,checks=checks,result=result),[Path(__file__),source,p.ROOT/'native/metal/Metal.h',generated,accept/'Driver.cpp',accept/'TransformerProgram.h'],[accept/'gpu',binary,accept/'task.a',*bundle.glob('*.metallib')],accept/'kalandra')
+ p.evidence(a.output,dict(contract=__doc__,single_command_fastpath=a.single_command_fastpath,checks=checks,result=result),[Path(__file__),source,p.ROOT/'native/metal/Metal.h',generated,accept/'Driver.cpp',accept/'TransformerProgram.h'],[accept/'gpu',binary,accept/'task.a',*bundle.glob('*.metallib')],accept/'kalandra')
