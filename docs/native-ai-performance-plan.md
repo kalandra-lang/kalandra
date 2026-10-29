@@ -479,3 +479,7 @@ Sequence, adapting only to measured evidence:
 6. Stop starting experiments near the end of the window; leave a coherent tested
    state, disable the heartbeat and summarize commits, measured gains, rejected
    experiments and remaining gaps. No merge or tagged release is authorized.
+
+### Encoder reuse screen — rejected
+
+Both serial encoder prototypes passed 72 exact output comparisons with Metal validation, but neither produced a reliable cross-case gain. Keep the existing per-dispatch encoders. [Full negative evidence](../benchmarks/results/gpu-encoder-reuse-screen-2026-10-29.md) is retained. Continue with transpose/matmul dataflow fusion, preserving the fixed arithmetic tree and shape guards.
