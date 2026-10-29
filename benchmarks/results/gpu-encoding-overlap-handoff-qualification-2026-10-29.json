@@ -1,0 +1,110 @@
+{
+  "scope": "Atomic callback handoff repair only. Full command-private parameter ownership still required before promotion.",
+  "prepared": {
+    "scope": "Prototype production-API prepared-program fixtures; compiler-generated entry and broader gates deferred until promotion",
+    "records": [
+      {
+        "mode": "optimized",
+        "result": "transpose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed\nparameter arena: padding-budget fallback, exact output and one charged backing passed\nguarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed\nprepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 108 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 99 allocation checkpoints, 5 commands (dispatch count checked), 15 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 109 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\n"
+      },
+      {
+        "mode": "debug",
+        "result": "transpose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed\nparameter arena: padding-budget fallback, exact output and one charged backing passed\nguarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed\nprepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 108 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 99 allocation checkpoints, 5 commands (dispatch count checked), 15 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 109 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\n"
+      },
+      {
+        "mode": "sanitized",
+        "result": "transpose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed\nparameter arena: padding-budget fallback, exact output and one charged backing passed\nguarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed\nprepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 108 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 99 allocation checkpoints, 5 commands (dispatch count checked), 15 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 109 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\n"
+      },
+      {
+        "mode": "thread-sanitized",
+        "result": "transpose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed\nparameter arena: padding-budget fallback, exact output and one charged backing passed\nguarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed\nprepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 108 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 99 allocation checkpoints, 5 commands (dispatch count checked), 15 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 109 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\n"
+      }
+    ]
+  },
+  "gate": {
+    "scope": "Prototype production-API prepared-program fixtures; compiler-generated entry and broader gates deferred until promotion",
+    "records": [
+      {
+        "mode": "optimized",
+        "result": "encoding overlap: GPU-first completion, cancellation, deadline, device failure and allocation failure passed\n"
+      },
+      {
+        "mode": "debug",
+        "result": "encoding overlap: GPU-first completion, cancellation, deadline, device failure and allocation failure passed\n"
+      },
+      {
+        "mode": "sanitized",
+        "result": "encoding overlap: GPU-first completion, cancellation, deadline, device failure and allocation failure passed\n"
+      },
+      {
+        "mode": "thread-sanitized",
+        "result": "encoding overlap: GPU-first completion, cancellation, deadline, device failure and allocation failure passed\n"
+      }
+    ]
+  },
+  "logs": {
+    "kalandra-overlap-gate-old-regression.log": "gate scenario 0: failure 0/0\ngate scenario 1: failure 2/0\ngate scenario 2: failure 2/0\ngate scenario 3: failure 1/105\ngate scenario 4: failure 1/2\nPrepared program check 90: r.stats().inFlight==1&&c->stats().externalPending==1&&!c->settled(t)\nTraceback (most recent call last):\n  File \"/private/tmp/kalandra-overlap-gate-old.py\", line 53, in <module>\n    result=run([exe,prepared/'bundle'])\n  File \"/private/tmp/kalandra-overlap-gate-old.py\", line 46, in run\n    assert p.returncode==0,(args,p.returncode)\n           ^^^^^^^^^^^^^^^\nAssertionError: ([PosixPath('/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-encoding-overlap-2026-10-29/gate-regression-old/optimized'), PosixPath('/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-transpose-view-2026-10-29/prepared/bundle')], -6)\n",
+    "kalandra-overlap-safe-gate.log": "encoding overlap: GPU-first completion, cancellation, deadline, device failure and allocation failure passed\ngate scenario 0: failure 0/0\ngate scenario 1: failure 2/0\ngate scenario 2: failure 2/0\ngate scenario 3: failure 1/105\ngate scenario 4: failure 1/2\ngate scenario 5: failure 2/0\noptimized completed\nencoding overlap: GPU-first completion, cancellation, deadline, device failure and allocation failure passed\ngate scenario 0: failure 0/0\ngate scenario 1: failure 2/0\ngate scenario 2: failure 2/0\ngate scenario 3: failure 1/105\ngate scenario 4: failure 1/2\ngate scenario 5: failure 2/0\ndebug completed\nencoding overlap: GPU-first completion, cancellation, deadline, device failure and allocation failure passed\ngate scenario 0: failure 0/0\ngate scenario 1: failure 2/0\ngate scenario 2: failure 2/0\ngate scenario 3: failure 1/105\ngate scenario 4: failure 1/2\ngate scenario 5: failure 2/0\nsanitized completed\nencoding overlap: GPU-first completion, cancellation, deadline, device failure and allocation failure passed\ngate scenario 0: failure 0/0\ngate scenario 1: failure 2/0\ngate scenario 2: failure 2/0\ngate scenario 3: failure 1/105\ngate scenario 4: failure 1/2\ngate scenario 5: failure 2/0\nthread-sanitized completed\n",
+    "kalandra-overlap-safe-qualification.log": "transpose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed\nparameter arena: padding-budget fallback, exact output and one charged backing passed\nguarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed\nprepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 108 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 99 allocation checkpoints, 5 commands (dispatch count checked), 15 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 109 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\noptimized completed\ntranspose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed\nparameter arena: padding-budget fallback, exact output and one charged backing passed\nguarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed\nprepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 108 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 99 allocation checkpoints, 5 commands (dispatch count checked), 15 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 109 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\ndebug completed\ntranspose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed\nparameter arena: padding-budget fallback, exact output and one charged backing passed\nguarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed\nprepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 108 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 99 allocation checkpoints, 5 commands (dispatch count checked), 15 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 109 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nsanitized completed\ntranspose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed\nparameter arena: padding-budget fallback, exact output and one charged backing passed\nguarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed\nprepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 108 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 99 allocation checkpoints, 5 commands (dispatch count checked), 15 held failure boundaries, changing captures and 8 concurrent calls passed\nprepared: 109 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed\nthread-sanitized completed\n"
+  },
+  "schema": 1,
+  "timestamp": "2026-10-29T04:11:19.231957+00:00",
+  "compiler_sha256": "ddd7075954e07158f0bd7758fd1389c2fb93cb42be4db45539ca693c7100d9c2",
+  "source_sha256": {
+    "native/benchmarks/encoding_overlap_screen.py": "b1aacfd399d8943b1c810ad2668d0d5b07cac424b3d2ca7e61b9d4539cd41c9a",
+    "native/benchmarks/EncodingOverlapGate.cpp": "d67b31483ab83f86d496dc0ce8191e39bfea9423dfd5b846eb3e8463589a87cd",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe/overlap.mm": "1e14acb613682114224157a4c63cd73523b8348d9ef0d7010815cc822efdc269",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-gate-qualification/gated.mm": "d75b351c44c65535e248ebf208bb5270eca092b33e10fcb0a136c08e5215b9c5",
+    "native/tests/PreparedNumericProgramTests.cpp": "5e7ba37b965a8034e2615afae41000ea027aa9deb65869bdd719e664ccd3d24e"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-qualification/optimized": "6b3775b1e2dfc25be73fc73763527b3ec6c4dbf6782ee5971ffdf60aa88b7601",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-qualification/debug": "0a7390d5187fa80f6c8d6eda88557cae712a2230b7143d9c13817e8574adcc99",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-qualification/sanitized": "9b83dcb448ec14288c0ecd692245d479fb7e417125e89b9a1b9cdd3d37ab1384",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-qualification/thread-sanitized": "7fac1f3924550db5e32654741d5f3a2ee090a5f2cd7b5f32648b7a7dfae8d2c1",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-gate-qualification/optimized": "aa94153bebaaa11bfd8fecc9439bb8eab9c144f8d68cc32a5e73e4001f33abde",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-gate-qualification/debug": "eb88cf4e4db7f46fbc31eeb5634e3448dbe5d53c4f2837b70ce61bf3c61fb546",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-gate-qualification/sanitized": "0086b8c1a182cc3c21d7c7ba1e6b750ae35c73b8c9b5b8bb495c5557d367ba51",
+    "benchmarks/.build/gpu-encoding-overlap-2026-10-29/safe-gate-qualification/thread-sanitized": "2ccd6c066d4885fbd0e9dc8e1b2838ece6bc5e9226d34518f1bdd44d0c48c567"
+  },
+  "commands": [
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "b5ff7d44effffe09164342e5af520404979506ff",
+  "worktree_status": " M native/benchmarks/EncodingOverlapGate.cpp\n M native/benchmarks/encoding_overlap_screen.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

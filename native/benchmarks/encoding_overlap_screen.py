@@ -42,15 +42,25 @@ def patch(source):
 '''+source[end:]
  source=source.replace('checkpointProgression(f);','checkpointProgression(task, f);')
  start=source.index('  static void submitProgression(');end=source.index('  static void fail(',start)
- source=source[:start]+'''  static void driveProgression(Frame &f) {
+ source=source[:start]+'''  static void driveProgression(Frame &f, std::size_t acknowledged = SIZE_MAX, bool succeeded = true) {
     auto &p = *f.progression;
     std::size_t index = 0;
     bool submit = false, signal = false;
     ExternalCompletion completion;
     {
       std::lock_guard lock(p.progressionMutex);
-      if (!p.liveEncoding || p.signaledEncoding || p.commandRunning) return;
+      if (!p.liveEncoding || p.signaledEncoding ||
+          (acknowledged == SIZE_MAX && p.commandRunning)) return;
       completion = p.progressionCompletion;
+      if (acknowledged != SIZE_MAX) {
+        // The callback retains commandRunning until it enters this decision.
+        // Clearing it earlier would let the builder signal/free the frame
+        // before the callback's final driveProgression access.
+        p.commandRunning = false;
+        p.encodingSucceeded &= succeeded;
+        p.stoppedEncoding |= !succeeded ||
+                             progressionFault(p, p.checkpoints[acknowledged].parameters);
+      }
       if (completion.cancelled()) p.stoppedEncoding = true;
       if (!p.stoppedEncoding && p.nextCommand < p.checkpoints.size()) {
         index = p.nextCommand++;
@@ -93,15 +103,7 @@ def patch(source):
         const bool succeeded = finished.status == MTLCommandBufferStatusCompleted &&
                                !state->failCompletion.exchange(false);
         ++state->completions;
-        {
-          auto &p = *frame->progression;
-          std::lock_guard lock(p.progressionMutex);
-          p.commandRunning = false;
-          p.encodingSucceeded &= succeeded;
-          p.stoppedEncoding |= !succeeded || completion.cancelled() ||
-                               progressionFault(p, p.checkpoints[index].parameters);
-        }
-        driveProgression(*frame);
+        driveProgression(*frame, index, succeeded);
       }
     }];
 #if __has_feature(thread_sanitizer)

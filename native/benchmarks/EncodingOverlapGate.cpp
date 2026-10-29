@@ -42,6 +42,8 @@ static std::vector<std::uint32_t> download(m::Runtime &r, TaskCore &c, GroupHand
 // production API or environment-variable gate is added.
 extern "C" void klOverlapPause(bool);
 extern "C" bool klOverlapPaused();
+extern "C" void klOverlapCallbackPause(bool);
+extern "C" bool klOverlapCallbackPaused();
 template<class F> static void waitFor(F done) {
   const auto end=std::chrono::steady_clock::now()+std::chrono::seconds(20);
   while(!done()) { CHECK(std::chrono::steady_clock::now()<end); std::this_thread::yield(); }
@@ -64,22 +66,31 @@ int main(int argc,char **argv) {
       auto t=legacy.launch(r,*c,g,input,transformer::epsilon,data.scale); CHECK(c->drain());
       expected=download(r,*c,g,observe(*c,t)); retire(*c,g); }
     const auto baseline=r.stats();
-    for(unsigned scenario=0;scenario<5;++scenario) {
+    for(unsigned scenario=0;scenario<6;++scenario) {
       auto c=TaskCore::create();auto g=c->openRoot();auto before=r.stats();
       klOverlapPause(true);
+      klOverlapCallbackPause(scenario==5);
       if(scenario==3) r.failNextCompletion();
       auto t=program.launch(r,*c,g,input,transformer::epsilon,data.scale);CHECK(t);
       std::thread worker([&]{CHECK(c->step());});
       waitFor([]{return klOverlapPaused();});
       waitFor([&]{return r.stats().completions==before.completions+1;});
+      if(scenario==5) waitFor([]{return klOverlapCallbackPaused();});
       // GPU work ended while the CPU builder is still paused. The lease and
       // owned intermediate resources must remain live until that builder ends.
       CHECK(r.stats().submissions==before.submissions+1);
       CHECK(r.stats().inFlight==1&&c->stats().externalPending==1);
       CHECK(r.stats().bytes>baseline.bytes&&r.progressionCommandReservations());
-      if(scenario==1||scenario==2) CHECK(c->cancel(g,scenario==2));
+      if(scenario==1||scenario==2||scenario==5) CHECK(c->cancel(g,scenario==2));
       if(scenario==4) r.failAllocationAt(1);
-      klOverlapPause(false);worker.join();CHECK(c->drain());r.failAllocationAt(0);
+      klOverlapPause(false);worker.join();
+      if(scenario==5) {
+        // The CPU builder has ended, but the callback has not reached its
+        // final handoff. It must still pin the frame despite the GPU ACK.
+        CHECK(r.stats().inFlight==1&&c->stats().externalPending==1&&!c->settled(t));
+        klOverlapCallbackPause(false);
+      }
+      CHECK(c->drain());r.failAllocationAt(0);
       auto failure=c->failure(t);
       std::fprintf(stderr,"gate scenario %u: failure %u/%lld\n",scenario,unsigned(failure.kind),(long long)failure.code);
       if(scenario==0) {
@@ -88,9 +99,9 @@ int main(int argc,char **argv) {
         CHECK(download(r,*c,g,observe(*c,t))==expected);
       } else {
         CHECK(r.stats().submissions==before.submissions+1);
-        if(scenario==1||scenario==2) {
+        if(scenario==1||scenario==2||scenario==5) {
           CHECK(failure.kind==TaskFailure::Cancelled);
-          CHECK(c->failure(g).kind==(scenario==1?TaskFailure::Cancelled:TaskFailure::DeadlineExceeded));
+          CHECK(c->failure(g).kind==(scenario==2?TaskFailure::DeadlineExceeded:TaskFailure::Cancelled));
         }
         else CHECK(failure.kind==TaskFailure::Fault&&failure.code==std::int64_t(scenario==3?m::Error::Device:m::Error::Allocation));
       }
