@@ -99,3 +99,10 @@ records exact artifacts, commands and hashes. Rebuild prerequisite frozen studie
 and the prepared-program qualification before reproducing on another machine.
 Do not overlap these studies with tests, builds or profiling. Counter probing and
 report rendering run only after acceptance ends; neither supplies acceptance times.
+
+The [sustained encoder follow-up](results/gpu-dispatch-sustained-summary-2026-10-29.md)
+reuses the frozen probe for 12,800 calls. Large-shape process medians vary about
+1.3%; FFN expansion/contraction remain 43.33–43.47% of summed inclusive intervals.
+This stabilizes the diagnostic target, not acceptance timing or a wall-time share.
+Full compressed captures stay in ignored experiment storage; tracked distributions
+and hashes preserve the audit without adding large diagnostic logs to the repo.

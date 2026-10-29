@@ -585,7 +585,7 @@ is retained and contributes no accepted paired samples. The resumed six-study
 series finished before 10:12 UTC with ordinary background apps active. All
 benchmark processes have stopped; no duplicate orchestration is needed.
 
-### Next: FFN kernels under sustained profiling
+### Measured next target: FFN kernels
 
 The [encoder counter diagnostic](../benchmarks/results/gpu-dispatch-counter-summary-2026-10-29.md)
 ran after acceptance. Eight full bit comparisons pass with Metal/shader validation.
@@ -595,8 +595,16 @@ signal, not a fraction of wall time: instrumentation increases overhead, interva
 can overlap, and absolute results drift roughly threefold. Pipeline labels are
 unavailable; instruction identities are checked against the frozen program.
 
-Next establish sustained-load encoder measurements, then test FFN tile/data reuse
-without changing per-cell multiplication or accumulation order. Compare whole-block
+A [sustained follow-up](../benchmarks/results/gpu-dispatch-sustained-summary-2026-10-29.md)
+uses the exact frozen executable, 256 warmup and 384 measured calls per process.
+Its largest-shape command interval varies about 1.3% across five process medians;
+FFN expansion/contraction account for 43.33–43.47% of summed median intervals.
+All 12,800 call/resource checks pass. Two collector assertion mistakes and their
+raw outputs remain retained; production and shaders are unchanged. This narrows
+the next target but still does not make instrumented intervals acceptance data.
+
+Next test FFN tile/data reuse without changing per-cell multiplication or
+accumulation order. Compare whole-block
 and upload timings, odd shapes, constrained budgets, source cancellation and all
 output bits. Batched Q/K/V dispatch is another independently measurable candidate.
 SIMD-group matrix arithmetic or reassociation requires a separate, explicit numeric
