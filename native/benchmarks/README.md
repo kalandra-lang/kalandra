@@ -380,3 +380,28 @@ arguments. The frozen atomic candidate is kept in
 `benchmarks/.build/gpu-upload-cache-atomic-2026-10-29`.
 `fair/upload_cache_atomic_report.py` audits and regenerates both reports, including
 all controls and unfavorable outcomes; it does not remove earlier cohorts.
+
+
+## Resident allocation and private-output feasibility
+
+The [host attribution and private-output report](../../benchmarks/results/gpu-private-output-2026-10-29.md)
+records copied-runtime diagnostics against accepted production `dd940e07`.
+`reuse_host_profile.py` captures inclusive allocation/encoding/submit/GPU/wake
+scopes and call counts. `reuse_host_verify.py` independently verifies every
+output with signed-zero-preserving decoding and high-precision oracles.
+
+`private_output_probe.py --phase prepare|verify|measure --frozen ACCEPTED --build PROBE --output NEW.json`
+tests completed, fully overwritten Float32 outputs of validated prepared plans.
+It keeps the accepted live-plus-idle budget and shares the 16 MiB/64-entry idle
+cap with uploads. This is a diagnostic copy, not a production option.
+`private_output_confirm.py` provides five one-second-target blocks for the
+largest resident case; `private_output_broad.py` replicates against production
+and checks four other workload/residency cases. `private_output_odd_verify.py`
+checks odd/small shapes. Both measurement wrappers accept the same arguments,
+with `--phase measure --study aa|production` for confirmation and `--study repeat`
+for broader replication. Run them sequentially after numerical qualification.
+
+`fair/private_output_report.py` audits hashes, all paired samples and resource
+bounds, including initial noisy controls and the failed gain replication. The
+interrupted first enabled screen has no completed measurement JSON and is
+explicitly excluded. No private-output reuse is promoted to production.

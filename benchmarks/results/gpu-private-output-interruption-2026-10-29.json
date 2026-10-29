@@ -1,0 +1,8 @@
+{
+  "status": "incomplete; not accepted timing evidence",
+  "completed_control": "gpu-private-output-aa-2026-10-29.json",
+  "partial_load": "gpu-private-output-screen-2026-10-29-load.json",
+  "partial_log": "gpu-private-output-screen-interrupted-2026-10-29.txt",
+  "app_crash": "EXC_BREAKPOINT/SIGTRAP; V8/Node buffer-allocation stack; cause not established",
+  "recovery": "No benchmark processes survived. Explicit user authorization preceded fresh confirmation. Production runtime unchanged."
+}

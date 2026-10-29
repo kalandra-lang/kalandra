@@ -1,0 +1,1889 @@
+{
+  "contract": "Diagnostic private-output reuse inside the accepted bounded cache.\n\nCopied runtime only. Eligible buffers are full float32 outputs of validated pure\nprepared progression. Retirement requires zero admissions and last ownership;\nno pending resource is cached. Every successful eligible operation overwrites\nall physical bytes. Scratch, flags, parameters, empty outputs, transforms and\nordinary/custom kernel execution keep original allocation. The probe shares the\n16 MiB/64-entry idle cap with uploads; counters named upload include both kinds\nonly in this diagnostic. This is not production API or qualification.\n",
+  "checks": [
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 3,
+      "d": 33,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 7,
+      "d": 65,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 1,
+      "d": 17,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 0,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 31,
+      "d": 31,
+      "enabled": 1,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    }
+  ],
+  "oracles": [
+    {
+      "shape": [
+        3,
+        33,
+        0
+      ],
+      "metrics": {
+        "cells": 99,
+        "max_abs_error": 2.9154877012604885e-08,
+        "max_forward_bound": 0.002513289310145064,
+        "max_error_bound_ratio": 1.4127585646131586e-05,
+        "nominal_matching_cells": 80,
+        "max_difference_nominal": 2.9802322387695312e-08
+      }
+    },
+    {
+      "shape": [
+        3,
+        33,
+        1
+      ],
+      "metrics": {
+        "cells": 99,
+        "max_abs_error": 4.569776407281623e-08,
+        "max_forward_bound": 0.0023892005933725583,
+        "max_error_bound_ratio": 2.2135281799420025e-05,
+        "nominal_matching_cells": 99,
+        "max_difference_nominal": 0.0
+      }
+    },
+    {
+      "shape": [
+        7,
+        65,
+        0
+      ],
+      "metrics": {
+        "cells": 455,
+        "max_abs_error": 6.229190396833673e-08,
+        "max_forward_bound": 0.1356527060648402,
+        "max_error_bound_ratio": 6.044890142122459e-07,
+        "nominal_matching_cells": 246,
+        "max_difference_nominal": 8.940696716308594e-08
+      }
+    },
+    {
+      "shape": [
+        7,
+        65,
+        1
+      ],
+      "metrics": {
+        "cells": 455,
+        "max_abs_error": 7.17274354355979e-08,
+        "max_forward_bound": 0.1287733922522391,
+        "max_error_bound_ratio": 7.818946048433913e-07,
+        "nominal_matching_cells": 229,
+        "max_difference_nominal": 7.450580596923828e-08
+      }
+    },
+    {
+      "shape": [
+        1,
+        17,
+        0
+      ],
+      "metrics": {
+        "cells": 17,
+        "max_abs_error": 1.2786019271127103e-08,
+        "max_forward_bound": 8.291485885530827e-05,
+        "max_error_bound_ratio": 0.00015420660961914587,
+        "nominal_matching_cells": 17,
+        "max_difference_nominal": 0.0
+      }
+    },
+    {
+      "shape": [
+        1,
+        17,
+        1
+      ],
+      "metrics": {
+        "cells": 17,
+        "max_abs_error": 2.8518677364086642e-08,
+        "max_forward_bound": 7.967995632522541e-05,
+        "max_error_bound_ratio": 0.0004527731588099989,
+        "nominal_matching_cells": 17,
+        "max_difference_nominal": 0.0
+      }
+    },
+    {
+      "shape": [
+        31,
+        31,
+        0
+      ],
+      "metrics": {
+        "cells": 961,
+        "max_abs_error": 3.671743697974961e-08,
+        "max_forward_bound": 0.0020178042041943713,
+        "max_error_bound_ratio": 2.451389936140034e-05,
+        "nominal_matching_cells": 730,
+        "max_difference_nominal": 2.9802322387695312e-08
+      }
+    },
+    {
+      "shape": [
+        31,
+        31,
+        1
+      ],
+      "metrics": {
+        "cells": 961,
+        "max_abs_error": 3.648901247821357e-08,
+        "max_forward_bound": 0.0019110401407439893,
+        "max_error_bound_ratio": 2.6715764832670495e-05,
+        "nominal_matching_cells": 787,
+        "max_difference_nominal": 2.9802322387695312e-08
+      }
+    }
+  ],
+  "odd_shape_qualification": true,
+  "schema": 1,
+  "timestamp": "2026-10-29T20:49:34.013676+00:00",
+  "compiler_sha256": "86a0870e10aaf1de4b001955fcebf7351b527634d9009a06f07053edaeaa95df",
+  "source_sha256": {
+    "native/benchmarks/private_output_probe.py": "36cda55c2fea4f1ed36be1691ba04ef3695154cb21963c097a7eebb0fe4f8b8f",
+    "native/metal/Metal.mm": "6df01630d8840645c63dce5d378fcc36a4c30e9b37ac878ac1265aa5ec0e804b",
+    "native/metal/Metal.h": "a8ff2f56573e160841e54d9fc5e346de6e3c883ef89c7738b80167b1f6d8b57d",
+    "native/benchmarks/fair/TransformerClosedMetal.cpp": "a78f6c2a43678f3aa7ebc8af2afbf95b59919489a90b7278a3f07e41c960a949",
+    "native/benchmarks/fair/TransformerBlock.h": "bf9ff95f14c9007ec84c66da1bd5639f1fed971278367b8496ceceeb9eea160c",
+    "native/benchmarks/fair/ResidualFfn.h": "6f4659c4e9a1dcdabbdd414f77de37359890f83a5444259e69181057c862aa6a",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "native/benchmarks/fair/transformer_reference.py": "4b4dbbd280403357dc88cdae4553b8ded1c309f28d5923f8756e6ce912c5d400",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate.json": "02a9e6d08b73da1c403a42fe91360171a33ff4d60eebbe2254b4bf77d02d6c5a",
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/manifest.json": "7eb4f1c27b24bcab8a205b6b1ad6280e926ece077ce77f72eeea4a5309ab702f",
+    "native/benchmarks/private_output_odd_verify.py": "e793109c73f30d6de5d88ae19b79cef01ac54ffe59790cf3a59f756a88e8e5f5"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/gpu": "67785437f3b24f5b900d66c121c0e3a86841e5ddefac4757db5e3e0123cb8bd7",
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/verify": "359d2761de92e7da9ff2b97d1e23bbd02f5068ab6bf781564d335e1d0605569c",
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/metal.o": "14a8ec30773f7a50fd791a7c2bc5789f965e11b40eeb3ad06ef9f4717da2889e",
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/Metal.mm": "a6d46e609cc94f4f3083b7aa24bfd7a16c7946f4341c68109d3b67a9403cec35",
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/Driver.cpp": "d2b7bac5391badda460f5e1f3adb608d1845144b7220d82c0cb2e8c8a9d9db09",
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/Verify.cpp": "a784f0ea15f0522f4853846d87d99436077a3c1baf83ec0950da14b959f7fe16",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate-task.a": "fddc23e893283c907b7a335130c9533cb9f3236de2fa2d85fa284813af7dec29",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate": "2711bb79eda259702db7b158089688be80ee5e405cdde398078503d2baa2645f",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage1.metallib": "93424a7da661cca9946b97f703f5c3f8c9d6bc8dd491a1fc2e7e4f93c6918494",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0.metallib": "a3a6cebdc4b68ee061aa02f7544508ac0b98f01907e3dc70ab9d2423f8653564",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage6.metallib": "ca314833a644bb8cdd3fff0ac812c57be6284a7b4151fb6adf31fa1c42b01741",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage3.metallib": "3baf8dd6fbe0230375656b0f95dfb0e493ae0fac149169b7fb613f51133fe84a",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage2.metallib": "a5ddf36fef339b26fb9f336581d2034e8512f9b7e2319ebf53a41d22bac0ce12",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage4.metallib": "b6a0e2e2e22c586e30d4031db6acef804df41518ccae2adb59391e2e2ce86459",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage5.metallib": "e9d31d56f908c607e8ea6841f3f3c1eca551b2b5d1748e37291bfa832b5f3313"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "3",
+      "33",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "7",
+      "65",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "1",
+      "17",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-output-probe-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "31",
+      "31",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "dd940e07bed87ae5d942874387cd050dac871d75",
+  "worktree_status": "?? benchmarks/results/gpu-private-output-2026-10-29.md\n?? benchmarks/results/gpu-private-output-aa-2026-10-29-load.json\n?? benchmarks/results/gpu-private-output-aa-2026-10-29.json\n?? benchmarks/results/gpu-private-output-broad-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-private-output-broad-repeat-2026-10-29.json\n?? benchmarks/results/gpu-private-output-confirm-aa-2026-10-29-load.json\n?? benchmarks/results/gpu-private-output-confirm-aa-2026-10-29.json\n?? benchmarks/results/gpu-private-output-confirm-production-2026-10-29-load.json\n?? benchmarks/results/gpu-private-output-confirm-production-2026-10-29.json\n?? benchmarks/results/gpu-private-output-screen-2026-10-29-load.json\n?? benchmarks/results/gpu-reuse-host-profile-2026-10-29.json\n?? benchmarks/results/gpu-reuse-host-verification-2026-10-29.json\n?? native/benchmarks/fair/private_output_report.py\n?? native/benchmarks/private_output_broad.py\n?? native/benchmarks/private_output_confirm.py\n?? native/benchmarks/private_output_odd_verify.py\n?? native/benchmarks/private_output_probe.py\n?? native/benchmarks/reuse_host_profile.py\n?? native/benchmarks/reuse_host_verify.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

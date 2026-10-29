@@ -852,3 +852,37 @@ reuse or command/submission experiment only from that evidence; uploaded-buffer
 retirement rules do not automatically make GPU-written output reuse safe. Keep
 the existing checkpoint/fault/cancellation contract and the spill-free aligned
 kernel as controls. Production remains independent of vendor numerical libraries.
+
+
+### Resident host attribution and private-output reuse screen
+
+The [audited follow-up](../benchmarks/results/gpu-private-output-2026-10-29.md)
+profiles the accepted runtime: resident calls allocate 15–16 Metal buffers,
+spending 26–57 µs in allocation and 13–21 µs in destruction scopes. The latter
+also include cheap parameter-slice wrappers. Total-budget CAS instrumentation
+is about 0.2 µs; it is not the measured bottleneck. Batch64/width512 spends about
+414 µs of 764 µs in GPU execution. Scopes overlap and are not additive.
+
+A copied runtime tests exact-size/device/private-kind reuse only for full
+Float32 outputs of validated pure prepared progression. It preserves last-owner,
+zero-admission retirement and the existing total reservation ledger, sharing a
+16 MiB/64-entry idle cap with uploads. Flags, scratch, parameters, transforms,
+empty outputs and ordinary primitive execution are excluded. Numerical
+qualification passes 576 changing-input full-output comparisons and 16
+independent oracles, including odd/small shapes. An independent profile check
+adds 24 signed-zero-preserving full-output comparisons and eight oracles.
+
+The first short enabled screen was interrupted by a desktop app crash; its
+partial logs/load data are retained and excluded from accepted timings. The
+preceding identical-build control spans up to 44.6% paired swings. After user
+authorization to resume, five longer blocks show a promising 10.86% largest-case
+gain, but the broader three-block replication gives a 2.96% median slowdown
+with mixed signs. Batch64/width256 improves 15.31%; the all-weight-upload guard
+improves only 1.09%. These cohorts do not establish a reliable general gain.
+
+The private-output candidate is not promoted; production remains `dd940e07`.
+Next perform paired intervals within one long-lived runtime, with identical-build
+controls and separate GPU/host counters, to isolate allocation/residency from
+driver/scheduling variance before expanding cache architecture. Any production
+promotion still requires held-ACK, concurrency, alias, failure, budget and
+cancellation qualification. No language contract change is accepted here.
