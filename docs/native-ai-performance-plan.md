@@ -640,3 +640,30 @@ retained alongside its large regressions. Inspect actual register/occupancy
 behavior before another layout proposal; batched Q/K/V dispatch remains an
 independent option. Prior benchmark head `8634a0bc` now has green Linux, Windows,
 website and signed/notarized macOS qualification; publication remains skipped.
+
+
+### Screened: independent Q/K/V dispatch and whole-model controls
+
+The [isolated study](../benchmarks/results/gpu-qkv-dispatch-2026-10-29.md)
+passes 162 numerical/guard cases. One-grid batching and three concurrent dispatches
+both improve selected isolated projections. The
+[whole-model follow-up](../benchmarks/results/gpu-independent-dispatch-2026-10-29.md)
+rejects promotion of the copied concurrent runtime: 117 exact full-output cases
+pass, but seven-block frozen and same-binary controls retain regressions and
+substantial variability. No production shader/runtime or cancellation contract changed.
+
+GPU command diagnostics localize most of the large penalty beyond CPU encoding.
+Separate parameter buffers do not remove it. Pipeline reflection exposes writable
+input/parameter declarations; a read-only shader control changes that metadata and
+passes 234 additional full-model cases, but does not reliably recover performance.
+These diagnostics do not establish occupancy, spilling or a specific hazard cause.
+The selected `gpudebug profile run` route requires M3/A17 Pro; capture works on M2,
+but this route returned no hardware resource measurements. Other profiling routes
+are not ruled out.
+
+Keep the rejected controls and default 64 MiB budget failure evidence. Next gate:
+try the one-grid batched projection shader in a copied full-model path, with
+separate graph admission, all output owners, failure/cleanup and cancellation
+qualification. Do not promote concurrent scheduling or relax numerical order on
+these results. Prior head `173f1748` has green Linux, Windows and website checks;
+macOS distribution qualification was still running at the last check.

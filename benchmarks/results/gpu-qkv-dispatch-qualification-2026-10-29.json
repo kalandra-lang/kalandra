@@ -1,0 +1,1806 @@
+{
+  "contract": "Frozen strict three-projection screen: separate encoders vs one batched dispatch.\n\nThe serial control uses three unchanged dispatches in one encoder. All three\noutputs, immutable inputs and guards are checked outside timings. This does not\nqualify graph admission, cancellation, ownership, or whole-transformer speed.\n",
+  "checks": [
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        576,
+        17
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        1024,
+        1024
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 0,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 1,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 2,
+      "version": "serial",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        1024,
+        1024
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    }
+  ],
+  "manifest": "benchmarks/.build/gpu-qkv-dispatch-2026-10-29/manifest.json",
+  "schema": 1,
+  "timestamp": "2026-10-29T11:56:44.941139+00:00",
+  "compiler_sha256": "6d334cc0970a05d196d0d2b52d892ee91837535ccf2faff0a86d93257bdb5d18",
+  "source_sha256": {
+    "native/benchmarks/qkv_dispatch_screen.py": "2882124d3b8006403e274718bee55822cbedf874458138e9cf59c12ea7f6cb0e",
+    "native/benchmarks/QkvDispatchStudy.mm": "2ae3509f10bd91f22e76bcf6459c59cf96aeaca35502863f4790e061786101d0",
+    "native/metal-source/HardwareShaders.h": "e032e15242f0488d1d8ebe2d6aead0daa4086aacaf9fd195e4c4cd927898d647",
+    "native/benchmarks/fair/output_reuse_shader.py": "fa380adb685317a8d6f08860df86cec9ac0d171c5e588c1e27009ac81d70a252",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "native/metal-proof/toolchain.json": "48b66a94754ff154fdc97a22ffc5ceb8f2c293726a9ad5db15d23b18c2b76ab8",
+    "benchmarks/.build/gpu-qkv-dispatch-2026-10-29/manifest.json": "e4854444d7f67a056c030da84877b772cf54ad7ee54fed1c43e53e3f012720fc"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen": "ac18618b706a31efbe71b74fac22aefe3018da511056b68e667af05c064c5298",
+    "benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib": "b216a3851bf2d40f63de171a146ae254aa068313130888363b05379358f2fa5c",
+    "benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metal": "20226b31a317fed8cd68a4014cd556c3adb0aa661e28bf3b8934d9942d868994"
+  },
+  "commands": [
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "-mmacosx-version-min=26.0",
+      "-std=macos-metal2.2",
+      "-fno-fast-math",
+      "-ffp-contract=off",
+      "-c",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.air"
+    ],
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.air",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-fobjc-arc",
+      "-fblocks",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/QkvDispatchStudy.mm",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "3",
+      "576",
+      "17",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "serial",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-qkv-dispatch-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "1024",
+      "1024",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "173f1748be781a34c93612fe2b598463b373b8db",
+  "worktree_status": "?? native/benchmarks/QkvDispatchStudy.mm\n?? native/benchmarks/qkv_dispatch_screen.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

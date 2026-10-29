@@ -1,0 +1,25 @@
+{
+  "acceptance": false,
+  "device": "Apple M2 Max",
+  "shape": [
+    64,
+    2048,
+    512
+  ],
+  "entry": "kalandra_matmul_hardware_register16",
+  "source_sha256": {
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/Driver.mm": "e9572b15cc873ce316c5cce7b9fdbdfa24a68bab90ffd07ee9d559a765ebb99e",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/capture": "165fac3771bfdb733d738db8e13d74f6c299a78b540a08d7d63fa5b0a1e6ed62",
+    "benchmarks/.build/gpu-output-reuse-2026-10-29/quad/Driver.mm": "6c43204a449b771676dca7210d6d7fc078de81031c22e4a9c48c1f12bf0ab136",
+    "benchmarks/.build/gpu-output-reuse-2026-10-29/quad/study.metallib": "28364cd6108054348aba8eb0fc9d0379e0853e2c82f7442e860c7b986f810d99"
+  },
+  "capture_output": "{\"round\":-2,\"ns\":894375.000,\"gpu_ns\":387375.010,\"checksum\":32768}\n{\"round\":-1,\"ns\":580834.000,\"gpu_ns\":363250.030,\"checksum\":32768}\n{\"round\":0,\"ns\":9676542.000,\"gpu_ns\":371999.922,\"checksum\":32768}\n",
+  "debugger_output": "{\"children\":[{\"actions\":\"info\",\"name\":\"pipeline\",\"values\":[{\"type\":\"string\",\"value\":\"\\\"MTLComputePipelineState 1\\\"\"},{\"type\":\"string\",\"value\":\"@cps0\"}]},{\"actions\":\"go\",\"name\":\"compute\",\"values\":[{\"type\":\"string\",\"value\":\"\\\"kalandra_matmul_hardware_register16\\\"\"},{\"type\":\"string\",\"value\":\"4 buffers\"}]}],\"links\":{\"a\":\"api_calls\\/api7\"},\"totalCount\":2}\n{\n  \"compute\" : \"kalandra_matmul_hardware_register16 (lib0 \\\"MTLLibrary 1\\\")\",\n  \"label\" : \"(none)\",\n  \"name\" : \"cps0\"\n}\n{\"notification\":\"GPU profiling requires Apple M3 / A17 Pro or later\",\"op\":1,\"elapsed_ms\":1,\"success\":false}\n",
+  "driver_patch": "--- quad/Driver.mm\n+++ capture/Driver.mm\n@@ -53,8 +53,16 @@\n   }\n   for(int round=-2;round<int(rounds);++round) {\n     auto poison=[queue commandBuffer];auto fill=[poison blitCommandEncoder];[fill fillBuffer:out range:NSMakeRange(0,out.length) value:0xa5];[fill endEncoding];[poison commit];[poison waitUntilCompleted];check(poison.status==MTLCommandBufferStatusCompleted);\n+    auto capture=[MTLCaptureManager sharedCaptureManager];\n+    bool capturing=round==0 && getenv(\"KALANDRA_PROBE_CAPTURE\");\n+    if(capturing) { auto desc=[MTLCaptureDescriptor new]; desc.captureObject=queue;\n+      desc.destination=MTLCaptureDestinationGPUTraceDocument;\n+      desc.outputURL=[NSURL fileURLWithPath:@(getenv(\"KALANDRA_PROBE_CAPTURE\"))];\n+      if(![capture startCaptureWithDescriptor:desc error:&error]) { fprintf(stderr,\"capture: %s\\n\",error.localizedDescription.UTF8String); return 2; }\n+    }\n     auto start=std::chrono::steady_clock::now();auto cb=[queue commandBuffer];for(unsigned j=0;j<count;++j)encode(cb,compute,out,candidate?32:16);[cb commit];[cb waitUntilCompleted];\n     double ns=std::chrono::duration<double,std::nano>(std::chrono::steady_clock::now()-start).count();check(cb.status==MTLCommandBufferStatusCompleted);\n+    if(capturing) [capture stopCapture];\n     auto actual=download(out);check(memcmp(actual,expected.data(),oc*4)==0);for(size_t i=oc;i<oc+16;++i)check(actual[i]==0xa5a5a5a5u);\n     check(memcmp(download(a),ah.contents,ac*4)==0);check(memcmp(download(b),bh.contents,bc*4)==0);\n     printf(\"{\\\"round\\\":%d,\\\"ns\\\":%.3f,\\\"gpu_ns\\\":%.3f,\\\"checksum\\\":%llu}\\n\",round,ns,(cb.GPUEndTime-cb.GPUStartTime)*1e9,(unsigned long long)oc*count);\n",
+  "compile_command": "xcrun clang++ -std=c++23 -O2 -ffp-contract=off -fobjc-arc -fblocks Driver.mm -framework Foundation -framework Metal -o capture",
+  "capture_command": "MTL_CAPTURE_ENABLED=1 KALANDRA_PROBE_CAPTURE=<absolute trace path> capture <quad/study.metallib> baseline 64 2048 512 1 1 0",
+  "debugger_command": "gpudebug --oneshot --json -t <trace> -c 'go commands/cb0/ce0/disp0' -c 'info pipeline --all' -c 'profile run'",
+  "conclusion": "Capture output checks passed. Pipeline identity confirmed. Requested profiling explicitly unsupported on M2 by gpudebug. Register counts, spills and occupancy remain unmeasured; no causal inference from this probe.",
+  "timing_warning": "Capture instrumentation perturbs execution. These timings are not acceptance data. Trace binary retained only in ignored build directory.",
+  "alternative": "Instruments can expose occupancy on supported configurations; its installed CLI recording-options listings did not expose those counters. This is not proof that all M2 profiling interfaces lack occupancy."
+}

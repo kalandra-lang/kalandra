@@ -113,3 +113,14 @@ No production change is accepted. Lower explicit traffic does not translate to
 faster execution in the tested layouts. Two small-chunk runs encountered load
 spikes and remain contended diagnostics. A subsequent lower-load confirmation
 also loses every paired block on every shape; production keeps 64-leaf chunks.
+
+
+The [independent projection screen](results/gpu-qkv-dispatch-2026-10-29.md)
+retains 162 numerical/guard checks and isolated batched/concurrent gains. The
+[whole-model gate](results/gpu-independent-dispatch-2026-10-29.md) does not qualify
+concurrent scheduling: 117 full-output cases pass, but whole-model controls
+regress or fluctuate substantially. Separate-parameter and read-only shader
+controls retain their unfavorable results; the latter passes 234 additional
+full-output cases. No production policy changes. These reports separate numerical
+qualification, unprofiled screening, GPU command diagnostics and remaining
+runtime safety gates. Reproduction commands and artifact/source digests are linked.
