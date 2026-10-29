@@ -124,3 +124,15 @@ controls retain their unfavorable results; the latter passes 234 additional
 full-output cases. No production policy changes. These reports separate numerical
 qualification, unprofiled screening, GPU command diagnostics and remaining
 runtime safety gates. Reproduction commands and artifact/source digests are linked.
+
+
+The [M2 resource profile](results/gpu-m2-resources-2026-10-29.md)
+closes the earlier measurement gap: Xcode GUI replay works on this M2 although
+`gpudebug profile run` does not. The original FFN contraction reports 100 allocated
+registers, no spills and 29.167% maximum theoretical occupancy; the rejected quad
+reports 254 registers, 592 spilled bytes and a 12.5% ceiling. Measured occupancy is
+24.81% versus 6.79%. Independent Instruments target-only samples give 24.58% for
+the baseline and show threadgroup reads as its largest measured limiter. These
+are diagnostics, not performance acceptance. Next reduce temporary lifetimes and
+threadgroup-load pressure while preserving the strict reduction tree; do not
+promote another larger output tile on reduced source-level loads alone.

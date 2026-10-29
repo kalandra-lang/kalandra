@@ -667,3 +667,17 @@ separate graph admission, all output owners, failure/cleanup and cancellation
 qualification. Do not promote concurrent scheduling or relax numerical order on
 these results. Prior head `173f1748` has green Linux, Windows and website checks;
 macOS distribution qualification was still running at the last check.
+
+
+### Measured M2 register/occupancy follow-up
+
+The [M2 resource profile](../benchmarks/results/gpu-m2-resources-2026-10-29.md)
+closes the earlier measurement gap: Xcode GUI replay works on this M2 although
+`gpudebug profile run` does not. The original FFN contraction reports 100 allocated
+registers, no spills and 29.167% maximum theoretical occupancy; the rejected quad
+reports 254 registers, 592 spilled bytes and a 12.5% ceiling. Measured occupancy is
+24.81% versus 6.79%. Independent Instruments target-only samples give 24.58% for
+the baseline and show threadgroup reads as its largest measured limiter. These
+are diagnostics, not performance acceptance. Next reduce temporary lifetimes and
+threadgroup-load pressure while preserving the strict reduction tree; do not
+promote another larger output tile on reduced source-level loads alone.

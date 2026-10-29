@@ -1,0 +1,1567 @@
+{
+  "acceptance": false,
+  "production_change": false,
+  "device": "Apple M2 Max",
+  "shape": [
+    64,
+    2048,
+    512
+  ],
+  "counter_catalog": [
+    {
+      "id": 0,
+      "name": "ALU Limiter",
+      "description": "Measures the time during which ALU work is attempted to execute as a percentage of peak ALU performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 1,
+      "name": "ALU Utilization",
+      "description": "ALU utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 2,
+      "name": "F32 Utilization",
+      "description": "F32 utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 3,
+      "name": "F16 Utilization",
+      "description": "F16 utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 4,
+      "name": "Texture Sample Limiter",
+      "description": "Measures the time during which texture samples are attempted to execute as a percentage of peak texture sample performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 5,
+      "name": "Texture Sample Utilization",
+      "description": "Texture sample utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 6,
+      "name": "Texture Filtering Limiter",
+      "description": "Measures the time during which texture filtering is attempted to execute as a percentage of peak texture filtering performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 7,
+      "name": "Texture Cache Limiter",
+      "description": "Texture cache limiter",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 8,
+      "name": "Texture Write Limiter",
+      "description": "Texture write limiter",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 9,
+      "name": "Texture Write Utilization",
+      "description": "Texture write utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 10,
+      "name": "Buffer Read Limiter",
+      "description": "Measures the time during which buffer loads are attempted to execute as a percentage of peak buffer load performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 11,
+      "name": "Buffer Load Utilization",
+      "description": "Buffer load utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 12,
+      "name": "Buffer Write Limiter",
+      "description": "Measures the time during which buffer stores are attempted to execute as a percentage of peak buffer load performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 13,
+      "name": "Buffer Store Utilization",
+      "description": "Buffer store utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 14,
+      "name": "Threadgroup/Imageblock Load Limiter",
+      "description": "Measures the time during which threadgroup and imageblock threadgroup loads are attempted to execute as a percentage of peak threadgroup and imageblock threadgroup performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 15,
+      "name": "Threadgroup/Imageblock Load Utilization",
+      "description": "Threadgroup/Imageblock load utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 16,
+      "name": "Threadgroup/Imageblock Store Limiter",
+      "description": "Measures the time during which threadgroup and imageblock threadgroup stores are attempted to execute as a percentage of peak threadgroup and imageblock threadgroup performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 17,
+      "name": "Threadgroup/Imageblock Store Utilization",
+      "description": "Threadgroup/Imageblock store utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 18,
+      "name": "Fragment Input Interpolation Limiter",
+      "description": "Measures the time during which fragment shader input interpolation work is attempted to execute as a percentage of peak input interpolation performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 19,
+      "name": "Fragment Input Interpolation Utilization",
+      "description": "Fragment input interpolation utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 20,
+      "name": "GPU Last Level Cache Limiter",
+      "description": "Measures the time during which GPU\u2019s last level cache is attempting to service read and write requests as a percentage of cache\u2019s peak performance.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 21,
+      "name": "GPU Last Level Cache Utilization",
+      "description": "GPU last level cache utilization",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 22,
+      "name": "Vertex Occupancy",
+      "description": "Measures how many vertex shader simdgroups are concurrently running in the GPU relative to the GPU\u2019s maximum number of concurrently running simdgroups.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 23,
+      "name": "Fragment Occupancy",
+      "description": "Measures how many fragment shader simdgroups are concurrently running in the GPU relative to the GPU\u2019s maximum number of concurrently running simdgroups.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 24,
+      "name": "Compute Occupancy",
+      "description": "Measures how many compute shader simdgroups are concurrently running in the GPU relative to the GPU\u2019s maximum number of concurrently running simdgroups.",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 25,
+      "name": "GPU Read Bandwidth",
+      "description": "Measures how much memory, in gigabytes per second, are read by the GPU from a memory external to the GPU (potentially main memory).",
+      "unit": "Value",
+      "sample_interval": 10000
+    },
+    {
+      "id": 26,
+      "name": "GPU Write Bandwidth",
+      "description": "Measures how much memory, in gigabytes per second, are written by the GPU to a memory external to the GPU (potentially main memory).",
+      "unit": "Value",
+      "sample_interval": 10000
+    },
+    {
+      "id": 27,
+      "name": "MMU Limiter",
+      "description": "Measures the time during which GPU is attempting to execute read and write requests through MMU due to last level cache misses as a percentage of peak MMU performance",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 28,
+      "name": "MMU Utilization",
+      "description": "Measures the time during which GPU performs read and write requests through MMU due to last level cache misses as a percentage of peak MMU performance",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 29,
+      "name": "MMU TLB Miss Rate",
+      "description": "MMU TLB Miss Rate",
+      "unit": "Percentage",
+      "sample_interval": 10000
+    },
+    {
+      "id": 30,
+      "name": "Partial Renders Count",
+      "description": "Count number of partial renders in the encoder",
+      "unit": "Value",
+      "sample_interval": 10000
+    }
+  ],
+  "total_counter_rows": 2225242,
+  "target_process": "capture (38823)",
+  "measured_batches": 20,
+  "warmup_batches_excluded": 2,
+  "batch_edge_trim_ns": 100000,
+  "other_gpu_edge_margin_ns": 20000,
+  "method": "Decode Instruments M2 counter samples with target-only interval controls.\n\nInstruments counter values are device-wide, not per-process. Restrict to interiors\nof the 20 measured compute batches and separately exclude overlapping GPU work.\nAll statistics are sample means, not percentages of whole-program elapsed time.\n",
+  "compiler_observation_source": "Xcode 27.1 GUI Shaders table and Pipeline State sidebar, manually transcribed; allocated and temporary registers are distinct displayed fields.",
+  "compiler": [
+    {
+      "shader": "kalandra_matmul_hardware_register16",
+      "allocated_registers": 100,
+      "high_register": 100,
+      "spilled_bytes": 0,
+      "temporary_registers": 52,
+      "max_theoretical_occupancy_percent": 29.167,
+      "wait_memory_instruction_cost_percent": 51.003
+    },
+    {
+      "shader": "kalandra_matmul_hardware_reuse_quad",
+      "allocated_registers": 254,
+      "high_register": 254,
+      "spilled_bytes": 592,
+      "temporary_registers": 128,
+      "max_theoretical_occupancy_percent": 12.5,
+      "wait_memory_instruction_cost_percent": 63.463
+    }
+  ],
+  "xcode_encoder_counters": {
+    "baseline": {
+      "Index": "0",
+      "Encoder Index": "0",
+      "CommandBuffer Index": "0",
+      "FunctionIndex": "7",
+      "CommandBuffer Label": "MTLCommandBuffer 1",
+      "Encoder Label": "MTLComputeCommandEncoder 1",
+      "Marker": "",
+      "GPU Time": "226312.851723567",
+      "ALU Limiter": "25.61%",
+      "ALU Utilization": "23.85%",
+      "F32 Utilization": "13.38%",
+      "F16 Utilization": "0.00%",
+      "Integer and Complex Limiter": "9.96%",
+      "Integer and Complex Utilization": "7.35%",
+      "Integer and Conditional Utilization": "9.06%",
+      "Texture Read Limiter": "0.00%",
+      "Texture Read Utilization": "0.00%",
+      "Texture Write Limiter": "0.00%",
+      "Texture Write Utilization": "0.00%",
+      "Buffer Read Limiter": "3.30%",
+      "Buffer Read Utilization": "3.30%",
+      "Buffer Write Limiter": "0.03%",
+      "Buffer Write Utilization": "0.03%",
+      "MMU Limiter": "1.11%",
+      "MMU Utilization": "1.11%",
+      "ThreadGroup/ImageBlock Read Limiter": "32.90%",
+      "ThreadGroup/ImageBlock Read Utilization": "26.30%",
+      "ThreadGroup/ImageBlock Write Limiter": "1.66%",
+      "ThreadGroup/ImageBlock Write Utilization": "1.64%",
+      "ThreadGroup Atomic Utilization": "0.00%",
+      "FS Interpolation Limiter": "0.00%",
+      "FS Interpolation Utilization": "0.00%",
+      "Last Level Cache Limiter": "11.46%",
+      "Last Level Cache Utilization": "7.77%",
+      "Partial Render Count": "0",
+      "Shaded Vertex Read Limiter": "0.00%",
+      "Cull Unit Limiter": "0.00%",
+      "Clip Unit Limiter": "0.00%",
+      "GPU Read Bandwidth": "5.450165465552033",
+      "GPU Write Bandwidth": "0.02553358316517728",
+      "Bytes Read From Device Memory": "4726656",
+      "Bytes Written To Device Memory": "22144",
+      "Last Level Cache Bytes Read": "33434816",
+      "Last Level Cache Bytes Written": "155008",
+      "Last Level Cache Miss Rate": "14.55%",
+      "Buffer L1 Bytes Read": "8407424",
+      "Buffer L1 Bytes Written": "32768",
+      "Buffer L1 Miss Rate": "99.07%",
+      "Buffer Device Memory Bytes Read": "4729792",
+      "Buffer Device Memory Bytes Written": "0",
+      "Texture L1 Bytes Read": "0",
+      "Texture Cache Miss Rate": "0.00%",
+      "Texture Device Memory Bytes Read": "0",
+      "Texture Device Memory Bytes Written": "905984",
+      "Thread Group Memory Bytes Read": "150994944",
+      "Thread Group Memory Bytes Written": "33554432",
+      "Atomic Thread Group Bytes": "0",
+      "Device Atomic Bytes Read": "0",
+      "Device Atomic Bytes Written": "0",
+      "Depth Texture Device Memory Bytes Written": "0",
+      "Depth Texture Device Memory Bytes Read": "0",
+      "MMU TLB Miss Rate": "5.11%",
+      "Vertices": "0",
+      "Vertices Reused": "0.00%",
+      "Pixels per Vertex": "0",
+      "Vertices per Nanosecond": "0",
+      "Vertex Shader Time": "-1.00%",
+      "Vertex Stage Time": "0.00%",
+      "VS Invocations": "0",
+      "Sampler Calls/VS Invocation": "0",
+      "VS Texture Cache Miss Rate": "0.00%",
+      "VS Occupancy": "0.00%",
+      "VS ALU Instructions": "0",
+      "VS ALU Float Instructions": "0.00%",
+      "VS ALU Half Instructions": "0.00%",
+      "VS ALU Integer and Conditional Instructions": "0.00%",
+      "VS ALU Integer and Complex Instructions": "0.00%",
+      "VS ALU Inefficiency": "0.00%",
+      "VS ALU Limiter": "0.00%",
+      "VS Texture Read Limiter": "0.00%",
+      "VS Buffer Read Limiter": "0.00%",
+      "VS Buffer Write Limiter": "0.00%",
+      "VS Invocation Utilization": "0.00%",
+      "VS Bytes Read From Device Memory": "0",
+      "VS Bytes Written To Device Memory": "0",
+      "VS Device Memory Bandwidth": "0",
+      "VS Buffer Device Memory Bytes Read": "0",
+      "VS Buffer Device Memory Bytes Written": "0",
+      "VS Device Atomic Bytes Read": "0",
+      "VS Device Atomic Bytes Written": "0",
+      "VS Last Level Cache Bytes Read": "0",
+      "VS Last Level Cache Bytes Written": "0",
+      "VS Texture L1 Bytes Read": "0",
+      "VS Buffer L1 Miss Rate": "0.00%",
+      "VS Buffer L1 Bytes Read": "0",
+      "VS Buffer L1 Bytes Written": "0",
+      "VS Arithmetic Intensity": "0",
+      "VS ALU Performance": "0",
+      "Primitives": "0",
+      "Post Clipped Primitives": "0",
+      "Primitives Culled (Zero-Area)": "0.00%",
+      "Primitives Culled (Back-Face)": "0.00%",
+      "Primitives Culled (Guard-Band)": "0.00%",
+      "Primitives Culled (Off-Screen)": "0.00%",
+      "Primitives Clipped": "0.00%",
+      "Primitives Rendered": "0.00%",
+      "Post Clip Cull Primitive Processing": "0.00%",
+      "Primitive Block Tile Intersections": "0.00%",
+      "Tiling Block Utilization": "0.00%",
+      "Tiled Vertex Buffer Bytes": "0",
+      "Tiled Vertex Buffer Primitive Blocks Bytes": "0",
+      "New Triangles Generated": "0",
+      "New Vertices Generated": "0",
+      "Back Face Clipped Primitives": "0",
+      "Small Triangles Clipped Pimitives": "0",
+      "Pre Cull Primitive Processing": "0.00%",
+      "Pixels Rasterized": "0",
+      "Fragments Rasterized per Primitive": "0",
+      "Fragment Generator Primitive Processing": "0.00%",
+      "Rasterizer Sample Processing": "0.00%",
+      "PreZ Test Fails": "0.00%",
+      "Depth Texture Bytes Loaded": "0",
+      "Depth Store Utilization": "0.00%",
+      "Depth Texture Bytes Stored": "0",
+      "Fragment Shader Time": "-1.00%",
+      "Fragment Stage Time": "0.00%",
+      "FS Invocations": "0",
+      "Average Pixel Overdraw": "0",
+      "FS Invocations per Primitive": "0",
+      "FS Tiles Processed": "0",
+      "Samples Shaded Per Tile": "0",
+      "Primitives Per Tile": "0",
+      "Pixels Rasterized per FS Invocation": "-1",
+      "Sampler Calls/FS Invocation": "0",
+      "Fragment Generator Pixel Processing": "0.00%",
+      "FS Texture Cache Miss Rate": "0.00%",
+      "FS Occupancy": "0.00%",
+      "FS ALU Instructions": "0",
+      "FS ALU Float Instructions": "0.00%",
+      "FS ALU Half Instructions": "0.00%",
+      "FS ALU Integer and Conditional Instructions": "0.00%",
+      "FS ALU Integer and Complex Instructions": "0.00%",
+      "FS Interpolation Instructions": "0",
+      "Varyings Per Fragment": "0",
+      "FS ALU Inefficiency": "0.00%",
+      "FS ALU Limiter": "0.00%",
+      "FS Texture Read Limiter": "0.00%",
+      "FS Texture Write Limiter": "0.00%",
+      "FS Buffer Read Limiter": "0.00%",
+      "FS Buffer Write Limiter": "0.00%",
+      "FS Bytes Read From Device Memory": "0",
+      "FS Bytes Written To Device Memory": "0",
+      "FS Buffer Device Memory Bytes Read": "0",
+      "FS Buffer Device Memory Bytes Written": "0",
+      "FS Device Atomic Bytes Read": "0",
+      "FS Device Atomic Bytes Written": "0",
+      "FS Device Memory Bandwidth": "0",
+      "FS Last Level Cache Bytes Read": "0",
+      "FS Last Level Cache Bytes Written": "0",
+      "FS Texture L1 Bytes Read": "0",
+      "FS Buffer L1 Miss Rate": "0.00%",
+      "FS Buffer L1 Bytes Read": "0",
+      "FS Buffer L1 Bytes Written": "0",
+      "FS Arithmetic Intensity": "0",
+      "FS ALU Performance": "0",
+      "Pixels Stored": "0",
+      "Pixel Write Stall": "-1.00%",
+      "Texture Pixels Stored": "0.00%",
+      "Attachment Pixels Stored": "0.00%",
+      "Lossless Compressed Pixels Stored": "0.00%",
+      "Lossy Compressed Pixels Stored": "0.00%",
+      "Compression Ratio of Texture Memory Written": "0",
+      "Predicated Texture Thread Writes": "0.00%",
+      "2X MSAA Resolved Pixels Stored": "0.00%",
+      "4X MSAA Resolved Pixels Stored": "0.00%",
+      "Average Samples Per Pixel": "0",
+      "Kernel Invocations": "0",
+      "Kernel ALU Active Time": "25.61%",
+      "Sampler Calls/Kernel Invocation": "0",
+      "Kernel Occupancy": "24.81%",
+      "Kernel ALU Instructions": "242024448",
+      "Kernel ALU Float Instructions": "55.96%",
+      "Kernel ALU Half Instructions": "0.00%",
+      "Kernel ALU Integer and Conditional Instructions": "36.39%",
+      "Kernel ALU Integer and Complex Instructions": "7.65%",
+      "Kernel ALU Inefficiency": "0.00%",
+      "Kernel Arithmetic Intensity": "50.96539083557951",
+      "Kernel ALU Performance": "279.0711421158836",
+      "Texture Read Cache Limiter": "0.00%",
+      "Texture Read Cache Utilization": "0.00%",
+      "Texture Filtering Limiter": "0.00%",
+      "Texture Filtering Utilization": "0.00%",
+      "Texture Read Cache Miss Limiter": "0.00%",
+      "Texture Accesses": "0",
+      "Texture Sample Calls": "0",
+      "Texture Gather Calls": "0",
+      "Mipmap Linear Sampler Calls": "0.00%",
+      "Mipmap Nearest Sampler Calls": "0.00%",
+      "Block Compressed Texture Samples": "0.00%",
+      "Lossless Compressed Texture Samples": "0.00%",
+      "Lossy Compressed Texture Samples": "0.00%",
+      "Uncompressed Texture Samples": "0.00%",
+      "Lossy Compressed Texture Bytes From Cache": "0",
+      "Average Anisotropic Level": "0",
+      "Predicated Texture Thread Reads": "0.00%",
+      "Compression Ratio of Texture Memory Read": "0",
+      "Sparse Texture Translation Limiter": "0.00%",
+      "Sparse Texture Translation Requests": "0",
+      "Average Sparse Texture Tile Size": "0",
+      "Texture Quads": "0",
+      "Anisotropic Sampler Calls": "0.00%",
+      "Total Resolved Pixels": "0"
+    },
+    "quad": {
+      "Index": "0",
+      "Encoder Index": "0",
+      "CommandBuffer Index": "0",
+      "FunctionIndex": "7",
+      "CommandBuffer Label": "MTLCommandBuffer 1",
+      "Encoder Label": "MTLComputeCommandEncoder 1",
+      "Marker": "",
+      "GPU Time": "962313.4128444013",
+      "ALU Limiter": "4.63%",
+      "ALU Utilization": "4.39%",
+      "F32 Utilization": "3.02%",
+      "F16 Utilization": "0.00%",
+      "Integer and Complex Limiter": "1.10%",
+      "Integer and Complex Utilization": "0.76%",
+      "Integer and Conditional Utilization": "1.33%",
+      "Texture Read Limiter": "0.00%",
+      "Texture Read Utilization": "0.00%",
+      "Texture Write Limiter": "0.00%",
+      "Texture Write Utilization": "0.00%",
+      "Buffer Read Limiter": "3.36%",
+      "Buffer Read Utilization": "3.32%",
+      "Buffer Write Limiter": "5.80%",
+      "Buffer Write Utilization": "5.80%",
+      "MMU Limiter": "0.25%",
+      "MMU Utilization": "0.25%",
+      "ThreadGroup/ImageBlock Read Limiter": "3.13%",
+      "ThreadGroup/ImageBlock Read Utilization": "2.89%",
+      "ThreadGroup/ImageBlock Write Limiter": "0.18%",
+      "ThreadGroup/ImageBlock Write Utilization": "0.18%",
+      "ThreadGroup Atomic Utilization": "0.00%",
+      "FS Interpolation Limiter": "0.00%",
+      "FS Interpolation Utilization": "0.00%",
+      "Last Level Cache Limiter": "14.93%",
+      "Last Level Cache Utilization": "14.81%",
+      "Partial Render Count": "0",
+      "Shaded Vertex Read Limiter": "0.00%",
+      "Cull Unit Limiter": "0.00%",
+      "Clip Unit Limiter": "0.00%",
+      "GPU Read Bandwidth": "1.229814620969103",
+      "GPU Write Bandwidth": "0.02731048455174742",
+      "Bytes Read From Device Memory": "4856128",
+      "Bytes Written To Device Memory": "107840",
+      "Last Level Cache Bytes Read": "156533632",
+      "Last Level Cache Bytes Written": "135387392",
+      "Last Level Cache Miss Rate": "3.34%",
+      "Buffer L1 Bytes Read": "38631424",
+      "Buffer L1 Bytes Written": "33685504",
+      "Buffer L1 Miss Rate": "99.76%",
+      "Buffer Device Memory Bytes Read": "4849856",
+      "Buffer Device Memory Bytes Written": "53440",
+      "Texture L1 Bytes Read": "0",
+      "Texture Cache Miss Rate": "0.00%",
+      "Texture Device Memory Bytes Read": "0",
+      "Texture Device Memory Bytes Written": "1792",
+      "Thread Group Memory Bytes Read": "75497472",
+      "Thread Group Memory Bytes Written": "16777216",
+      "Atomic Thread Group Bytes": "0",
+      "Device Atomic Bytes Read": "4096",
+      "Device Atomic Bytes Written": "4096",
+      "Depth Texture Device Memory Bytes Written": "0",
+      "Depth Texture Device Memory Bytes Read": "0",
+      "MMU TLB Miss Rate": "6.46%",
+      "Vertices": "0",
+      "Vertices Reused": "0.00%",
+      "Pixels per Vertex": "0",
+      "Vertices per Nanosecond": "0",
+      "Vertex Shader Time": "-1.00%",
+      "Vertex Stage Time": "0.00%",
+      "VS Invocations": "0",
+      "Sampler Calls/VS Invocation": "0",
+      "VS Texture Cache Miss Rate": "0.00%",
+      "VS Occupancy": "0.00%",
+      "VS ALU Instructions": "0",
+      "VS ALU Float Instructions": "0.00%",
+      "VS ALU Half Instructions": "0.00%",
+      "VS ALU Integer and Conditional Instructions": "0.00%",
+      "VS ALU Integer and Complex Instructions": "0.00%",
+      "VS ALU Inefficiency": "0.00%",
+      "VS ALU Limiter": "0.00%",
+      "VS Texture Read Limiter": "0.00%",
+      "VS Buffer Read Limiter": "0.00%",
+      "VS Buffer Write Limiter": "0.00%",
+      "VS Invocation Utilization": "0.00%",
+      "VS Bytes Read From Device Memory": "0",
+      "VS Bytes Written To Device Memory": "0",
+      "VS Device Memory Bandwidth": "0",
+      "VS Buffer Device Memory Bytes Read": "0",
+      "VS Buffer Device Memory Bytes Written": "0",
+      "VS Device Atomic Bytes Read": "0",
+      "VS Device Atomic Bytes Written": "0",
+      "VS Last Level Cache Bytes Read": "0",
+      "VS Last Level Cache Bytes Written": "0",
+      "VS Texture L1 Bytes Read": "0",
+      "VS Buffer L1 Miss Rate": "0.00%",
+      "VS Buffer L1 Bytes Read": "0",
+      "VS Buffer L1 Bytes Written": "0",
+      "VS Arithmetic Intensity": "0",
+      "VS ALU Performance": "0",
+      "Primitives": "0",
+      "Post Clipped Primitives": "0",
+      "Primitives Culled (Zero-Area)": "0.00%",
+      "Primitives Culled (Back-Face)": "0.00%",
+      "Primitives Culled (Guard-Band)": "0.00%",
+      "Primitives Culled (Off-Screen)": "0.00%",
+      "Primitives Clipped": "0.00%",
+      "Primitives Rendered": "0.00%",
+      "Post Clip Cull Primitive Processing": "0.00%",
+      "Primitive Block Tile Intersections": "0.00%",
+      "Tiling Block Utilization": "0.00%",
+      "Tiled Vertex Buffer Bytes": "0",
+      "Tiled Vertex Buffer Primitive Blocks Bytes": "0",
+      "New Triangles Generated": "0",
+      "New Vertices Generated": "0",
+      "Back Face Clipped Primitives": "0",
+      "Small Triangles Clipped Pimitives": "0",
+      "Pre Cull Primitive Processing": "0.00%",
+      "Pixels Rasterized": "0",
+      "Fragments Rasterized per Primitive": "0",
+      "Fragment Generator Primitive Processing": "0.00%",
+      "Rasterizer Sample Processing": "0.00%",
+      "PreZ Test Fails": "0.00%",
+      "Depth Texture Bytes Loaded": "0",
+      "Depth Store Utilization": "0.00%",
+      "Depth Texture Bytes Stored": "0",
+      "Fragment Shader Time": "-1.00%",
+      "Fragment Stage Time": "0.00%",
+      "FS Invocations": "0",
+      "Average Pixel Overdraw": "0",
+      "FS Invocations per Primitive": "0",
+      "FS Tiles Processed": "0",
+      "Samples Shaded Per Tile": "0",
+      "Primitives Per Tile": "0",
+      "Pixels Rasterized per FS Invocation": "-1",
+      "Sampler Calls/FS Invocation": "0",
+      "Fragment Generator Pixel Processing": "0.00%",
+      "FS Texture Cache Miss Rate": "0.00%",
+      "FS Occupancy": "0.00%",
+      "FS ALU Instructions": "0",
+      "FS ALU Float Instructions": "0.00%",
+      "FS ALU Half Instructions": "0.00%",
+      "FS ALU Integer and Conditional Instructions": "0.00%",
+      "FS ALU Integer and Complex Instructions": "0.00%",
+      "FS Interpolation Instructions": "0",
+      "Varyings Per Fragment": "0",
+      "FS ALU Inefficiency": "0.00%",
+      "FS ALU Limiter": "0.00%",
+      "FS Texture Read Limiter": "0.00%",
+      "FS Texture Write Limiter": "0.00%",
+      "FS Buffer Read Limiter": "0.00%",
+      "FS Buffer Write Limiter": "0.00%",
+      "FS Bytes Read From Device Memory": "0",
+      "FS Bytes Written To Device Memory": "0",
+      "FS Buffer Device Memory Bytes Read": "0",
+      "FS Buffer Device Memory Bytes Written": "0",
+      "FS Device Atomic Bytes Read": "0",
+      "FS Device Atomic Bytes Written": "0",
+      "FS Device Memory Bandwidth": "0",
+      "FS Last Level Cache Bytes Read": "0",
+      "FS Last Level Cache Bytes Written": "0",
+      "FS Texture L1 Bytes Read": "0",
+      "FS Buffer L1 Miss Rate": "0.00%",
+      "FS Buffer L1 Bytes Read": "0",
+      "FS Buffer L1 Bytes Written": "0",
+      "FS Arithmetic Intensity": "0",
+      "FS ALU Performance": "0",
+      "Pixels Stored": "0",
+      "Pixel Write Stall": "-1.00%",
+      "Texture Pixels Stored": "0.00%",
+      "Attachment Pixels Stored": "0.00%",
+      "Lossless Compressed Pixels Stored": "0.00%",
+      "Lossy Compressed Pixels Stored": "0.00%",
+      "Compression Ratio of Texture Memory Written": "0",
+      "Predicated Texture Thread Writes": "0.00%",
+      "2X MSAA Resolved Pixels Stored": "0.00%",
+      "4X MSAA Resolved Pixels Stored": "0.00%",
+      "Average Samples Per Pixel": "0",
+      "Kernel Invocations": "8192",
+      "Kernel ALU Active Time": "4.63%",
+      "Sampler Calls/Kernel Invocation": "0",
+      "Kernel Occupancy": "6.79%",
+      "Kernel ALU Instructions": "204701696",
+      "Kernel ALU Float Instructions": "65.74%",
+      "Kernel ALU Half Instructions": "0.00%",
+      "Kernel ALU Integer and Conditional Instructions": "29.95%",
+      "Kernel ALU Integer and Complex Instructions": "4.31%",
+      "Kernel ALU Inefficiency": "0.00%",
+      "Kernel Arithmetic Intensity": "41.23751321523427",
+      "Kernel ALU Performance": "51.84071315211886",
+      "Texture Read Cache Limiter": "0.00%",
+      "Texture Read Cache Utilization": "0.00%",
+      "Texture Filtering Limiter": "0.00%",
+      "Texture Filtering Utilization": "0.00%",
+      "Texture Read Cache Miss Limiter": "0.00%",
+      "Texture Accesses": "0",
+      "Texture Sample Calls": "0",
+      "Texture Gather Calls": "0",
+      "Mipmap Linear Sampler Calls": "0.00%",
+      "Mipmap Nearest Sampler Calls": "0.00%",
+      "Block Compressed Texture Samples": "0.00%",
+      "Lossless Compressed Texture Samples": "0.00%",
+      "Lossy Compressed Texture Samples": "0.00%",
+      "Uncompressed Texture Samples": "0.00%",
+      "Lossy Compressed Texture Bytes From Cache": "0",
+      "Average Anisotropic Level": "0",
+      "Predicated Texture Thread Reads": "0.00%",
+      "Compression Ratio of Texture Memory Read": "0",
+      "Sparse Texture Translation Limiter": "0.00%",
+      "Sparse Texture Translation Requests": "0",
+      "Average Sparse Texture Tile Size": "0",
+      "Texture Quads": "0",
+      "Anisotropic Sampler Calls": "0.00%",
+      "Total Resolved Pixels": "0"
+    }
+  },
+  "instruments": [
+    {
+      "scope": "target_batch",
+      "name": "ALU Limiter",
+      "samples": 58505,
+      "sample_mean": 36.802437009948534,
+      "minimum": 0.0,
+      "maximum": 67.800195964,
+      "batch_mean_median": 36.83463457407194,
+      "batch_mean_range": [
+        36.584361508361496,
+        36.98178065283091
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "ALU Utilization",
+      "samples": 58505,
+      "sample_mean": 33.59533894959986,
+      "minimum": 0.0,
+      "maximum": 48.481673298,
+      "batch_mean_median": 33.62033733050443,
+      "batch_mean_range": [
+        33.414931801830484,
+        33.72175956507015
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "F32 Utilization",
+      "samples": 58505,
+      "sample_mean": 18.802790012237374,
+      "minimum": 0.0,
+      "maximum": 32.1272171,
+      "batch_mean_median": 18.818493155718905,
+      "batch_mean_range": [
+        18.69805484658644,
+        18.88680636942358
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "F16 Utilization",
+      "samples": 58505,
+      "sample_mean": 0.0008142113510811046,
+      "minimum": 0.0,
+      "maximum": 1.982320707,
+      "batch_mean_median": 0.0009194726083280266,
+      "batch_mean_range": [
+        0.0,
+        0.0018339560508250823
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Texture Sample Limiter",
+      "samples": 58505,
+      "sample_mean": 0.15814943663486875,
+      "minimum": 0.0,
+      "maximum": 99.235345879,
+      "batch_mean_median": 0.14655694396107374,
+      "batch_mean_range": [
+        8.64904417763158e-05,
+        0.48386425732430655
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Texture Sample Utilization",
+      "samples": 58505,
+      "sample_mean": 0.0833937643615075,
+      "minimum": 0.0,
+      "maximum": 31.150515051,
+      "batch_mean_median": 0.09782913819811503,
+      "batch_mean_range": [
+        8.64904417763158e-05,
+        0.2320413598534653
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Texture Filtering Limiter",
+      "samples": 58505,
+      "sample_mean": 0.08443475547568577,
+      "minimum": 0.0,
+      "maximum": 31.256825682,
+      "batch_mean_median": 0.09766823978980521,
+      "batch_mean_range": [
+        9.126446480263158e-05,
+        0.23512158303993394
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Texture Cache Limiter",
+      "samples": 58505,
+      "sample_mean": 0.07792808750742666,
+      "minimum": 0.0,
+      "maximum": 56.056018777,
+      "batch_mean_median": 0.04234700964564009,
+      "batch_mean_range": [
+        2.6604969407894735e-05,
+        0.221358907010561
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Texture Write Limiter",
+      "samples": 58505,
+      "sample_mean": 0.15752731595247774,
+      "minimum": 0.0,
+      "maximum": 71.732359383,
+      "batch_mean_median": 0.19512143262755866,
+      "batch_mean_range": [
+        0.002108027990131575,
+        0.42594311538613744
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Texture Write Utilization",
+      "samples": 58505,
+      "sample_mean": 0.1465499794682618,
+      "minimum": 0.0,
+      "maximum": 59.2016,
+      "batch_mean_median": 0.18634621093751297,
+      "batch_mean_range": [
+        0.002108027990131575,
+        0.3874852339917481
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Buffer Read Limiter",
+      "samples": 58505,
+      "sample_mean": 4.662308189551817,
+      "minimum": 0.0,
+      "maximum": 5.843319172,
+      "batch_mean_median": 4.660768957703821,
+      "batch_mean_range": [
+        4.628619964341904,
+        4.683917055794489
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Buffer Load Utilization",
+      "samples": 58505,
+      "sample_mean": 4.662299844433129,
+      "minimum": 0.0,
+      "maximum": 5.842317249,
+      "batch_mean_median": 4.660757748429672,
+      "batch_mean_range": [
+        4.628614673079999,
+        4.683909840168992
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Buffer Write Limiter",
+      "samples": 58505,
+      "sample_mean": 0.03638318830156482,
+      "minimum": 0.0,
+      "maximum": 0.114312761,
+      "batch_mean_median": 0.0363631689068693,
+      "batch_mean_range": [
+        0.036227161719047565,
+        0.03656684040836665
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Buffer Store Utilization",
+      "samples": 58505,
+      "sample_mean": 0.0363831810846261,
+      "minimum": 0.0,
+      "maximum": 0.114312761,
+      "batch_mean_median": 0.0363631689068693,
+      "batch_mean_range": [
+        0.036227161719047565,
+        0.03656684040836665
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Threadgroup/Imageblock Load Limiter",
+      "samples": 58505,
+      "sample_mean": 43.29057579706155,
+      "minimum": 0.0,
+      "maximum": 53.807246357,
+      "batch_mean_median": 43.27234872635925,
+      "batch_mean_range": [
+        42.99960960446768,
+        43.48411028293123
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Threadgroup/Imageblock Load Utilization",
+      "samples": 58505,
+      "sample_mean": 37.21306097342626,
+      "minimum": 0.0,
+      "maximum": 45.560577376,
+      "batch_mean_median": 37.20196880235253,
+      "batch_mean_range": [
+        36.9486545708324,
+        37.390768515705204
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Threadgroup/Imageblock Store Limiter",
+      "samples": 58505,
+      "sample_mean": 2.511667188597027,
+      "minimum": 0.0,
+      "maximum": 10.40414148,
+      "batch_mean_median": 2.508773087780181,
+      "batch_mean_range": [
+        2.4857838556713814,
+        2.533485384932564
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Threadgroup/Imageblock Store Utilization",
+      "samples": 58505,
+      "sample_mean": 2.34022176225323,
+      "minimum": 0.0,
+      "maximum": 8.085484397,
+      "batch_mean_median": 2.3373961597761252,
+      "batch_mean_range": [
+        2.3162195106144687,
+        2.3620677375738857
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Fragment Input Interpolation Limiter",
+      "samples": 58505,
+      "sample_mean": 0.011660662694726943,
+      "minimum": 0.0,
+      "maximum": 14.855491329,
+      "batch_mean_median": 0.0021186971993666422,
+      "batch_mean_range": [
+        0.00010195746767810025,
+        0.04335713873428193
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Fragment Input Interpolation Utilization",
+      "samples": 58505,
+      "sample_mean": 0.00788695673174942,
+      "minimum": 0.0,
+      "maximum": 5.92608131,
+      "batch_mean_median": 0.0007581181967932591,
+      "batch_mean_range": [
+        2.8419347368421052e-05,
+        0.02704993506386499
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "GPU Last Level Cache Limiter",
+      "samples": 58505,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "GPU Last Level Cache Utilization",
+      "samples": 58505,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Vertex Occupancy",
+      "samples": 58505,
+      "sample_mean": 0.00013899952976668655,
+      "minimum": 0.0,
+      "maximum": 0.926453026,
+      "batch_mean_median": 9.88912177571105e-05,
+      "batch_mean_range": [
+        0.0,
+        0.0009947754798812665
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Fragment Occupancy",
+      "samples": 58505,
+      "sample_mean": 0.2366176349922744,
+      "minimum": 0.0,
+      "maximum": 97.288437693,
+      "batch_mean_median": 0.2356472434627515,
+      "batch_mean_range": [
+        0.0003747349207236842,
+        0.6574499058977573
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Compute Occupancy",
+      "samples": 58505,
+      "sample_mean": 24.542507043464095,
+      "minimum": 0.0,
+      "maximum": 32.144229761,
+      "batch_mean_median": 24.554156943658004,
+      "batch_mean_range": [
+        24.416889348738746,
+        24.627378699240055
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "GPU Read Bandwidth",
+      "samples": 58505,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "GPU Write Bandwidth",
+      "samples": 58505,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "MMU Limiter",
+      "samples": 58505,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "MMU Utilization",
+      "samples": 58505,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "MMU TLB Miss Rate",
+      "samples": 58505,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_batch",
+      "name": "Partial Renders Count",
+      "samples": 58505,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "ALU Limiter",
+      "samples": 57358,
+      "sample_mean": 36.81952081199446,
+      "minimum": 0.0,
+      "maximum": 44.679574267,
+      "batch_mean_median": 36.85354348722372,
+      "batch_mean_range": [
+        36.5496265203903,
+        36.95811254968607
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "ALU Utilization",
+      "samples": 57358,
+      "sample_mean": 33.63015230100231,
+      "minimum": 0.0,
+      "maximum": 40.239323789,
+      "batch_mean_median": 33.66138598995394,
+      "batch_mean_range": [
+        33.38024684142234,
+        33.755297238375206
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "F32 Utilization",
+      "samples": 57358,
+      "sample_mean": 18.818574026892612,
+      "minimum": 0.0,
+      "maximum": 22.885156681,
+      "batch_mean_median": 18.835985884611553,
+      "batch_mean_range": [
+        18.67701985627671,
+        18.888524995475212
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "F16 Utilization",
+      "samples": 57358,
+      "sample_mean": 1.0027311883259526e-05,
+      "minimum": 0.0,
+      "maximum": 0.495,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.00018817941502504172
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Texture Sample Limiter",
+      "samples": 57358,
+      "sample_mean": 0.0029090853656159547,
+      "minimum": 0.0,
+      "maximum": 36.1284,
+      "batch_mean_median": 4.5007395770457e-05,
+      "batch_mean_range": [
+        0.0,
+        0.019075484141541612
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Texture Sample Utilization",
+      "samples": 57358,
+      "sample_mean": 0.0009904246089821821,
+      "minimum": 0.0,
+      "maximum": 10.216,
+      "batch_mean_median": 4.5007395770457e-05,
+      "batch_mean_range": [
+        0.0,
+        0.005608351267735334
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Texture Filtering Limiter",
+      "samples": 57358,
+      "sample_mean": 0.0010905650932389553,
+      "minimum": 0.0,
+      "maximum": 10.797175,
+      "batch_mean_median": 4.61375060329585e-05,
+      "batch_mean_range": [
+        0.0,
+        0.006014040994884038
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Texture Cache Limiter",
+      "samples": 57358,
+      "sample_mean": 0.0015647021282994523,
+      "minimum": 0.0,
+      "maximum": 18.677625,
+      "batch_mean_median": 1.322064882799893e-05,
+      "batch_mean_range": [
+        0.0,
+        0.010160848884379263
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Texture Write Limiter",
+      "samples": 57358,
+      "sample_mean": 0.004241153473168643,
+      "minimum": 0.0,
+      "maximum": 21.7166,
+      "batch_mean_median": 0.0021230405444637532,
+      "batch_mean_range": [
+        0.0020072138883495154,
+        0.014751699538199206
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Texture Write Utilization",
+      "samples": 57358,
+      "sample_mean": 0.0042308978208272065,
+      "minimum": 0.0,
+      "maximum": 21.7166,
+      "batch_mean_median": 0.0021230405444637532,
+      "batch_mean_range": [
+        0.0020072138883495154,
+        0.014751699538199206
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Buffer Read Limiter",
+      "samples": 57358,
+      "sample_mean": 4.672345855963345,
+      "minimum": 0.0,
+      "maximum": 5.709891975,
+      "batch_mean_median": 4.676596098359651,
+      "batch_mean_range": [
+        4.637751100317476,
+        4.689580990128727
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Buffer Load Utilization",
+      "samples": 57358,
+      "sample_mean": 4.6723401569914635,
+      "minimum": 0.0,
+      "maximum": 5.709891975,
+      "batch_mean_median": 4.676590024825389,
+      "batch_mean_range": [
+        4.6377462143233,
+        4.6895750410140415
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Buffer Write Limiter",
+      "samples": 57358,
+      "sample_mean": 0.036396316670351835,
+      "minimum": 0.0,
+      "maximum": 0.114312761,
+      "batch_mean_median": 0.036412527155989,
+      "batch_mean_range": [
+        0.03611787187864074,
+        0.036562425950120464
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Buffer Store Utilization",
+      "samples": 57358,
+      "sample_mean": 0.036396316670351835,
+      "minimum": 0.0,
+      "maximum": 0.114312761,
+      "batch_mean_median": 0.036412527155989,
+      "batch_mean_range": [
+        0.03611787187864074,
+        0.036562425950120464
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Threadgroup/Imageblock Load Limiter",
+      "samples": 57358,
+      "sample_mean": 43.383377101162495,
+      "minimum": 0.0,
+      "maximum": 52.938993551,
+      "batch_mean_median": 43.42401607921339,
+      "batch_mean_range": [
+        43.053188885628224,
+        43.54371297432829
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Threadgroup/Imageblock Load Utilization",
+      "samples": 57358,
+      "sample_mean": 37.30011848449898,
+      "minimum": 0.0,
+      "maximum": 45.560577376,
+      "batch_mean_median": 37.33441361898052,
+      "batch_mean_range": [
+        37.019793343373806,
+        37.43741134105136
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Threadgroup/Imageblock Store Limiter",
+      "samples": 57358,
+      "sample_mean": 2.5021626975960283,
+      "minimum": 0.0,
+      "maximum": 3.729399999,
+      "batch_mean_median": 2.5041643917044714,
+      "batch_mean_range": [
+        2.483741007170877,
+        2.5113273578616955
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Threadgroup/Imageblock Store Utilization",
+      "samples": 57358,
+      "sample_mean": 2.331533586314634,
+      "minimum": 0.0,
+      "maximum": 3.726,
+      "batch_mean_median": 2.3333988751975814,
+      "batch_mean_range": [
+        2.3139695487427194,
+        2.340036338621357
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Fragment Input Interpolation Limiter",
+      "samples": 57358,
+      "sample_mean": 9.044433442588655e-05,
+      "minimum": 0.0,
+      "maximum": 2.045473736,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0007002648873673399
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Fragment Input Interpolation Utilization",
+      "samples": 57358,
+      "sample_mean": 4.0742769953624604e-05,
+      "minimum": 0.0,
+      "maximum": 0.797745867,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.00028325010629514963
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "GPU Last Level Cache Limiter",
+      "samples": 57358,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "GPU Last Level Cache Utilization",
+      "samples": 57358,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Vertex Occupancy",
+      "samples": 57358,
+      "sample_mean": 2.0208644984134732e-05,
+      "minimum": 0.0,
+      "maximum": 0.291831977,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.00019033754418928324
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Fragment Occupancy",
+      "samples": 57358,
+      "sample_mean": 0.0033269362611667063,
+      "minimum": 0.0,
+      "maximum": 36.178735416,
+      "batch_mean_median": 0.00028665445631237353,
+      "batch_mean_range": [
+        0.0,
+        0.019403627679399727
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Compute Occupancy",
+      "samples": 57358,
+      "sample_mean": 24.58153096645296,
+      "minimum": 0.0,
+      "maximum": 32.144229761,
+      "batch_mean_median": 24.596800890914245,
+      "batch_mean_range": [
+        24.401418948305786,
+        24.665935639408353
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "GPU Read Bandwidth",
+      "samples": 57358,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "GPU Write Bandwidth",
+      "samples": 57358,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "MMU Limiter",
+      "samples": 57358,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "MMU Utilization",
+      "samples": 57358,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "MMU TLB Miss Rate",
+      "samples": 57358,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "scope": "target_without_other_gpu",
+      "name": "Partial Renders Count",
+      "samples": 57358,
+      "sample_mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "batch_mean_median": 0.0,
+      "batch_mean_range": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "public_counters": {
+    "device": "Apple M2 Max",
+    "counterSets": [
+      {
+        "name": "timestamp",
+        "counters": [
+          "GPUTimestamp"
+        ]
+      }
+    ],
+    "dispatchBoundary": false,
+    "stageBoundary": true
+  },
+  "evidence_sha256": {
+    "native/benchmarks/fair/m2_counter_report.py": "c3ce09de1d77687410efa8c82a1e024cd655fbd8d8238793d02b61ebdfa04e2e",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/toc.xml": "6c4a57800bfbc684692059b4acdfeeab354b180df43c5d150b5f5db266d179f3",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/counter-info.xml": "3d53bea1571af774dad8bd52118ea5327a6a4020565094908cb526cfbc1950d2",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/values.xml": "07d159177d0d562fe2be02be770e8705fcc103cdab010d0d920a2f9c16d723e9",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/gpu-intervals.xml": "99e88a8537d35c1e301616b4281632bc5a2112cfcfa815600e3712f0d35d91d1",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/baseline-driver.jsonl": "1dcf6449ca220b8fd8cc7dbe5fd1d36715c00ab26d50f84faa77339f8f289462",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad-capture.log": "224a13872dcad1e305420d18fefa6385ab48fab8280981ce58cbd0fc32ab1b9a",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/public-counters.json": "75be1fd1c16f4a6c1519647ba5cf07af2b84b6a44aaf8651c1c2d02696017f60",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/Counters.mm": "c84f11677e7957819cb72b3f7b2c382b4ef714ba9b4efb01bb069860b24ba98b",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/baseline-counters.csv": "59a6fc3f7b81a89500b8967060c1bad5cdd5a991899720cef6f4ffe99bfef45a",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad-counters.csv": "ca6cf347865ac00b8716ff223708591876cba591f61a8c66191349f51ad35128",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/Driver.mm": "e9572b15cc873ce316c5cce7b9fdbdfa24a68bab90ffd07ee9d559a765ebb99e",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/capture": "165fac3771bfdb733d738db8e13d74f6c299a78b540a08d7d63fa5b0a1e6ed62",
+    "benchmarks/.build/gpu-output-reuse-2026-10-29/quad/study.metallib": "28364cd6108054348aba8eb0fc9d0379e0853e2c82f7442e860c7b986f810d99",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/unsorted-capture": "56efc1f80af4519252a1dfb45b994f49f79fd8d357b744e24f147828bb57c292",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/startup-1-platform": "307bca216804762e9741cc4d56a78333351e51a2b9ba29b1b623c5c07df79550",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/startup-0-platform": "b75d112d026c815280a922001e97c23584f7387318d63a82e614291023794431",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/capture": "f9af7a0a52607438c060f68171e677bed913003ff0c96ee3e69bc0970d7a1d1f",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/MTLBuffer-13-0": "1b5def233c32a52451541552fcce3556f501cf5b6c7622ac9d171b165029069a",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/device-resources-0x7bb104c000": "67c5fb8a058dac03bcff50ef494a9111ef79183f5a1d0762489bbac37f47d327",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/F5A508564DB5F02D": "28364cd6108054348aba8eb0fc9d0379e0853e2c82f7442e860c7b986f810d99",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/MTLBuffer-10-0": "ba0af0b18855a59a8aa9c5a4d00d72d6144f9305b108922ccd1de11ff799de10",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/MTLBuffer-8-0": "ba0af0b18855a59a8aa9c5a4d00d72d6144f9305b108922ccd1de11ff799de10",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/unused-device-resources-0x7bb104c000": "aa484aa9ebc207a1e890d40bec316f32aa3b6fee3c395d8619501b090b26e8c8",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/store0": "f4303a3f1654be567ef25526da7c9d9316818a6417afa1990d7453e091612d61",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/MTLBuffer-11-0": "abb22855be3bff9800fa8ab531f92f4c65108d17280e986b921eb4c3ca1f7894",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/MTLBuffer-9-0": "6c79a077d96e03b3c4a1bbc2e0c561843a3af8c0246879d127e70dd8d7d72857",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/MTLBuffer-7-0": "6c79a077d96e03b3c4a1bbc2e0c561843a3af8c0246879d127e70dd8d7d72857",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/index": "836fa57f972bd0aa4eb6bc21d54f999d77eec2ee90a8f080125631fffd4e2e03",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/MTLBuffer-12-0": "7d1058c003e08889ed2f27886cccad1b6c38f77210b9099aa948ce66630285a6",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/metadata": "80ad09902930fda95b8c3619d9f9c7d8f00c8c76ddd94eb9140545deb42dbf2a",
+    "benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/delta-device-resources-0x7bb104c000": "b16072d57186c12db6adff609507f76712c7c1a693db45fb0c4a5682eade192e",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/unsorted-capture": "72e998248ec6631ad77e67b67a209f445f0fcb60e32078f1554eb623a0a85426",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/startup-1-platform": "307bca216804762e9741cc4d56a78333351e51a2b9ba29b1b623c5c07df79550",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/startup-0-platform": "145b9a635b1b651f38d868663320668152195d31d1ad796d9bd346a13ccf757c",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/capture": "55f3cf39a5e86643e68b65ca1d2f0b077cfce4748e37cb0d3aeef679bb2c6870",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/MTLBuffer-13-0": "7d1058c003e08889ed2f27886cccad1b6c38f77210b9099aa948ce66630285a6",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/delta-device-resources-0x78ed450000": "8c8f9c6eca50e3a24fa42d52ba607247250c189b21fde0471431610ede473247",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/F5A508564DB5F02D": "28364cd6108054348aba8eb0fc9d0379e0853e2c82f7442e860c7b986f810d99",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/MTLBuffer-10-0": "6c79a077d96e03b3c4a1bbc2e0c561843a3af8c0246879d127e70dd8d7d72857",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/MTLBuffer-8-0": "6c79a077d96e03b3c4a1bbc2e0c561843a3af8c0246879d127e70dd8d7d72857",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/store0": "d5e11b57649d73b79a2ed18109b36aeb4ddc697765a573ff07ceb8bfa221e60c",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/MTLBuffer-14-0": "1b5def233c32a52451541552fcce3556f501cf5b6c7622ac9d171b165029069a",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/MTLBuffer-11-0": "ba0af0b18855a59a8aa9c5a4d00d72d6144f9305b108922ccd1de11ff799de10",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/MTLBuffer-9-0": "ba0af0b18855a59a8aa9c5a4d00d72d6144f9305b108922ccd1de11ff799de10",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/unused-device-resources-0x78ed450000": "d415d6dd8acd51f3aceba20cbdb10e05380ed04ab607bce455449348f552ca96",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/index": "799acc07950fef5c6473f464841a0e9ce84755cf0a532d49494d78a2bf595693",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/MTLBuffer-12-0": "abb22855be3bff9800fa8ab531f92f4c65108d17280e986b921eb4c3ca1f7894",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/metadata": "61df9b51bf59ee368f434f61eb246e4e76558ddc0c16383ef4c2995903ff9c46",
+    "benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/device-resources-0x78ed450000": "a000410c50848f34f5a821ebc4965f187338ebd085087241fa4876c821f04563"
+  },
+  "limitations": [
+    "One isolated FFN contraction shape; not whole-model acceptance.",
+    "Xcode full replay counters and instruction sampling alter timings; do not use replay durations as speedup benchmarks.",
+    "Instruments bandwidth/cache/MMU counters that remain zero are not evidence of zero traffic; Xcode replay reports nonzero values.",
+    "Memory-wait instruction cost is not a fraction of application wall time.",
+    "The quad changes several resource demands; these data do not isolate register allocation as its only cause."
+  ]
+}
