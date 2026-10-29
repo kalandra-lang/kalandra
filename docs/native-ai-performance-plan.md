@@ -632,7 +632,10 @@ runtime code changed. Larger layouts regress despite fewer explicit loads; the
 thread-limit control does not establish a spill/occupancy explanation.
 
 The two 32-leaf timing series have external-load spikes and remain contended
-diagnostics pending a quiet confirmation. The 128-leaf variant's small wins are
+diagnostics. After the user confirmed idle workloads, a seven-block confirmation
+peaked at 185% sampled external CPU load, versus roughly 600% earlier. It loses
+all seven blocks on each of six shapes, by median 7.90–12.31%, with all output
+checks passing. Keep the existing 64-leaf chunks. The 128-leaf variant's small wins are
 retained alongside its large regressions. Inspect actual register/occupancy
 behavior before another layout proposal; batched Q/K/V dispatch remains an
 independent option. Prior benchmark head `8634a0bc` now has green Linux, Windows,

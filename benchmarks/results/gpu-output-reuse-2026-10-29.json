@@ -1014,6 +1014,109 @@
           ]
         }
       ]
+    },
+    {
+      "variant": "leaf32-confirm",
+      "label": "32-leaf confirmation (lower load)",
+      "block_count": 7,
+      "shapes": [
+        {
+          "m": 16,
+          "k": 512,
+          "n": 512,
+          "reduction_percent": -12.313669001942419,
+          "positive_blocks": 0,
+          "blocks": [
+            -15.84309460866633,
+            -11.284518636740648,
+            -9.805425793397227,
+            -13.151308450817133,
+            -12.798800559650768,
+            -12.313669001942419,
+            -11.836943388694898
+          ]
+        },
+        {
+          "m": 16,
+          "k": 512,
+          "n": 2048,
+          "reduction_percent": -8.098117689637863,
+          "positive_blocks": 0,
+          "blocks": [
+            -11.866108489185013,
+            -8.098117689637863,
+            -12.033592546958594,
+            -7.54417230848019,
+            -7.88129499833119,
+            -7.58028188203228,
+            -9.683412707722393
+          ]
+        },
+        {
+          "m": 16,
+          "k": 2048,
+          "n": 512,
+          "reduction_percent": -12.1166518229606,
+          "positive_blocks": 0,
+          "blocks": [
+            -12.1166518229606,
+            -13.691977470028306,
+            -12.20562423417897,
+            -12.197987082765383,
+            -11.176869643914156,
+            -11.274347507705663,
+            -11.66406456690714
+          ]
+        },
+        {
+          "m": 64,
+          "k": 512,
+          "n": 512,
+          "reduction_percent": -10.835808019642656,
+          "positive_blocks": 0,
+          "blocks": [
+            -12.03537829473218,
+            -11.979473544188046,
+            -10.801514004542012,
+            -11.61819912827129,
+            -8.860513395613667,
+            -10.080223160317491,
+            -10.835808019642656
+          ]
+        },
+        {
+          "m": 64,
+          "k": 512,
+          "n": 2048,
+          "reduction_percent": -7.895435234763792,
+          "positive_blocks": 0,
+          "blocks": [
+            -9.087781576853814,
+            -8.238377679728547,
+            -6.762208707844897,
+            -8.17106415443012,
+            -7.497977440750447,
+            -7.895435234763792,
+            -7.2788440281030375
+          ]
+        },
+        {
+          "m": 64,
+          "k": 2048,
+          "n": 512,
+          "reduction_percent": -11.906685259751537,
+          "positive_blocks": 0,
+          "blocks": [
+            -12.537510909569916,
+            -12.077191567017254,
+            -11.070385405240879,
+            -11.906685259751537,
+            -12.67650854837119,
+            -11.514846249761046,
+            -11.61082506225779
+          ]
+        }
+      ]
     }
   ],
   "evidence_sha256": {
@@ -1028,6 +1131,7 @@
     "gpu-output-reuse-leaf32-2026-10-29.json": "1b4b5e76b9f72fd62715b9aa6a9b78b7de19a288a12edf00d344b0e63a6124a4",
     "gpu-output-reuse-leaf128-2026-10-29.json": "989538c11d399e10e041bd68b7dfc648b3a174808f227b6ab2c9679c0850a3ea",
     "gpu-output-reuse-leaf32-repeat-2026-10-29.json": "43b12198f9fe0c2101df08f160bae9a88df6a85ae365d9696904bcb826b59900",
+    "gpu-output-reuse-leaf32-confirm-2026-10-29.json": "c30bc26970bc160b625a1ee90c8557fd5affaabb0f6c1c1323f66030697d0961",
     "gpu-output-reuse-qualification-2026-10-29.json": "4bcbb9a27393fed05eb8d996c9ae21c03ceb33322d9c04f0650ac0fecc617d48",
     "gpu-output-reuse-screen-load-2026-10-29.json": "f837b4b1af50fe9c07863c646d29864e35988743d7bab723d822479bfb458c77",
     "gpu-output-reuse-spaced-load-2026-10-29.json": "971f0cfc991b328354a278168d5cabb0f8d913a4d8b52869fc282a68113bcdcc",
@@ -1040,6 +1144,7 @@
     "gpu-output-reuse-leaf32-load-2026-10-29.json": "42cb9d2535b234802c97954b5362c394d625f369224c5a51c33e7a827566db0d",
     "gpu-output-reuse-leaf128-load-2026-10-29.json": "51949b65422c0caf65d4676549b29fa5bd96b87fc5b999787d3e78c93b97d422",
     "gpu-output-reuse-leaf32-repeat-load-2026-10-29.json": "fe8f0f1c72fb9961b1a1f431fd9d79ceeb875729ad0f976c0e9019c144f2bc4c",
+    "gpu-output-reuse-leaf32-confirm-load-2026-10-29.json": "c1864e2ada35a43ee358e122370eb63673634f4f60bdc7ff06c52a3e821a55bd",
     "gpu-output-reuse-pipeline-resources-2026-10-29.json": "71edc4727cdc0e14da1da372c1b3e2a48cef1daef23b6512db9c4b2cee1f04cd"
   }
 }

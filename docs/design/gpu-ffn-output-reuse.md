@@ -63,6 +63,8 @@ do not directly measure register spilling or occupancy.
 
 The 128-leaf control improves two small cells by about 5% but regresses other
 shapes substantially. The 32-leaf control and its repeat encountered CPU-load
-spikes; their observed regressions remain diagnostic pending a quiet confirmation.
+spikes and remain labeled as contended. A subsequent lower-load seven-block
+confirmation loses every block on all six shapes, by median 7.90–12.31%, with
+all output checks passing; the smaller chunks are rejected for these shapes.
 Production continues to use register16 with 64-leaf chunks. No arithmetic,
 cancellation, resource-admission or default dispatch policy changes were made.

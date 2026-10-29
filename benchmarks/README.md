@@ -111,4 +111,5 @@ The [strict FFN tile screens](results/gpu-output-reuse-2026-10-29.md) retain ten
 controls, all 720 passing numerical/guard cases, and all paired regressions.
 No production change is accepted. Lower explicit traffic does not translate to
 faster execution in the tested layouts. Two small-chunk runs encountered load
-spikes and remain contended diagnostics pending confirmation.
+spikes and remain contended diagnostics. A subsequent lower-load confirmation
+also loses every paired block on every shape; production keeps 64-leaf chunks.
