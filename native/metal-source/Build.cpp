@@ -1,4 +1,5 @@
 #include "Build.h"
+#include "AlignedGridMatmul.h"
 #include "GroupedMatmul.h"
 #include "HardwareShaders.h"
 #include "MatmulEpilogue.h"
@@ -226,7 +227,8 @@ void buildMetalProgram(const std::filesystem::path &directory,
       if (contents.find("@kalandra_matmul(") != std::string::npos ||
           contents.find("// kalandra-hardware-float32-matrix") != std::string::npos)
         optimized << hardwareMatmulShader << hardwareRegisterMatmulShader
-                  << hardwareGroupedMatmulShader() << hardwareSkinnyMatmulShader;
+                  << hardwareGroupedMatmulShader() << hardwareSkinnyMatmulShader
+                  << hardwareAlignedGridMatmulShader();
       if (!optimized)
         throw std::runtime_error("cannot emit hardware Metal entries");
     }

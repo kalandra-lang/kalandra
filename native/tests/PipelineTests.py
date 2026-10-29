@@ -20,6 +20,8 @@ post=(bundle/'kernel0-post.metal').read_text()
 assert 'kalandra_matmul_fused_grouped16' in post, 'compiler must include grouped epilogue'
 assert 'kalandra_matmul_fused_skinny32' in post, 'compiler must include skinny epilogue'
 assert 'kalandra_matmul_fused_register16' in post, 'compiler must include current epilogue'
+assert 'kalandra_matmul_hardware_register16_grid2d_aligned' in (bundle/'kernel0.metal').read_text()
+assert 'kalandra_matmul_fused_register16_grid2d_aligned' in post
 # Simulate an existing bundle: same standalone map, no optional fused entries.
 legacy=a.output/'legacy';shutil.copytree(bundle,legacy,dirs_exist_ok=True)
 plain=a.output/'legacy-post.metal';plain.write_text(post.split('\ninline float kalandra_fused_post',1)[0])
@@ -31,7 +33,7 @@ run([*metal,a.output/'legacy-post.air','-o',legacy/'kernel0-post.metallib'])
 old_bundle=a.output/'old-bundle';shutil.copytree(bundle,old_bundle,dirs_exist_ok=True)
 for file,prefix in [('kernel0','kalandra_matmul_hardware_'),('kernel0-post','kalandra_matmul_fused_')]:
  text=(bundle/(file+'.metal')).read_text()
- for suffix in ('grouped16','skinny32'):
+ for suffix in ('grouped16','skinny32','register16_grid2d_aligned'):
   start=text.index('kernel void '+prefix+suffix+'(');body=text.index('{',start);depth=1;end=body+1
   while depth:
    depth+=(text[end]=='{')-(text[end]=='}');end+=1

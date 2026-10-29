@@ -731,3 +731,44 @@ predicate removal behind exact alignment guards. These may recover the index
 simplification benefit without exact-shape PSO caching. If shape specialization
 is still needed, design bounded preparation/cache ownership outside cancellable
 execution, then qualify cold setup, generic fallbacks, faults and cancellation.
+
+
+### Qualified general aligned-grid matrix dispatch
+
+The [2D dispatch experiment](../benchmarks/results/gpu-grid-dispatch-2026-10-29.md)
+rejects a blanket bounded-2D replacement: its replicated gains are mostly noise.
+The [production aligned-tile change](../benchmarks/results/gpu-grid-production-2026-10-29.md)
+instead removes runtime tile-coordinate division/modulo and redundant bounds
+predicates only when both output dimensions are multiples of sixteen, within the
+existing M2 Max register16 selection. Original 1D ragged and old-bundle paths,
+grouped/skinny selection and other devices retain their policies. There is one
+fixed additional pipeline per eligible plain/fused entry, prepared at module
+load; no shape whitelist, task-time compilation or growing cache.
+
+Actual Xcode resources fall from 100 to 94 allocated registers, without spills.
+The theoretical occupancy ceiling increases from 29.167% to 35.417%, but measured
+occupancy is 23.59% versus 24.70%; an achieved-occupancy improvement is not the
+explanation established by this experiment. Broad isolated reductions reproduce
+at 12.82–27.13% across five shapes, including irregular reductions and larger
+matrices. Final actual-production resident transformer reductions are 7.75% and
+7.08% at batches16/64, width512. Input uploads show 6.95%/5.07%; all-weight gains
+of 1.23%/1.84% are near the measured noise floor. The identical-build control spans
+-1.48% to +2.27%. Earlier short-batch regressions, including an unchanged fallback
+at -24.34%, are retained; longer-batch fallback results lie within about 2.2%.
+
+All 480 numerical executions across the experimental and production studies
+pass, plus four targeted CTest groups covering optimized, debug, address/undefined
+and thread-sanitized builds, allocation-failure sweeps, held cancellation/deadline/
+device failures, guards, ownership and legacy bundles. This is not a rerun of the
+entire compiler suite. Arithmetic order, fault precedence, cancellation contract,
+command boundaries and task-time resource bounds are unchanged. Warm-cache
+process startup adds roughly 0.4–0.5 ms; genuinely cold driver-cache preparation
+is still unmeasured. Production remains independent of vendor numerical libraries.
+
+Next re-profile the complete production block to separate remaining host/pass
+cost from shader time. The aligned contraction still reports threadgroup reads
+as its largest limiter (41.51%, versus 29.70% ALU), with 80 static shared-load
+instructions. A controlled lane-sharing/reuse experiment must preserve the exact
+reduction tree, avoid the earlier quad's spills and the padded/swizzled layout
+regressions, and repeat whole-model acceptance. Do not introduce exact-shape
+caching or a relaxed numerical contract to explain away this remaining gap.

@@ -1,4 +1,5 @@
 #pragma once
+#include "AlignedGridMatmul.h"
 #include "GroupedMatmul.h"
 #include "HardwareShaders.h"
 #include "SkinnyMatmul.h"
@@ -102,10 +103,13 @@ inline std::optional<std::string> matmulEpilogue(const std::string &source, unsi
   extra += "    device " + types.back() + "& " + parameter + " [[buffer(" +
            std::to_string(tensors + 3) + ")]],\n";
   std::string matrices = std::string(hardwareMatmulShader) + hardwareRegisterMatmulShader +
-                         hardwareGroupedMatmulShader() + hardwareSkinnyMatmulShader;
+                         hardwareGroupedMatmulShader() + hardwareSkinnyMatmulShader +
+                         hardwareAlignedGridMatmulShader();
   replace(matrices, "kalandra_matmul_hardware_", "kalandra_matmul_fused_");
   if (replace(matrices, "    uint lane [[thread_position_in_threadgroup]],",
-              extra + "    uint lane [[thread_position_in_threadgroup]],") != 6)
+              extra + "    uint lane [[thread_position_in_threadgroup]],") != 6 ||
+      replace(matrices, "    uint lane [[thread_index_in_threadgroup]],",
+              extra + "    uint lane [[thread_index_in_threadgroup]],") != 1)
     return {};
   unsigned stores = 0;
   for (auto cell : {std::string("row*n+col"), std::string("row * n + col")}) {
@@ -113,7 +117,7 @@ inline std::optional<std::string> matmulEpilogue(const std::string &source, unsi
     stores += replace(matrices, storeText + (cell == "row*n+col" ? "=value;" : " = value;"),
                       storeText + "=kalandra_fused_post(value" + arguments + "," + cell + ");");
   }
-  if (stores != 6)
+  if (stores != 7)
     return {};
   return helper + matrices;
 }

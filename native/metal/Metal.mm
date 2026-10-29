@@ -129,6 +129,7 @@ struct KernelState {
   std::optional<ElementwiseSignature> signature;
   std::array<id<MTLComputePipelineState>, 2> matrixTiles{};
   std::array<id<MTLComputePipelineState>, 6> fusedMatrices{};
+  id<MTLComputePipelineState> alignedGridMatrix = nil, alignedGridFusedMatrix = nil;
   // Backend resource bound, independent of logical signature arity.
   std::array<std::uint32_t, directBufferEntries - 2> reads{};
   std::uint32_t readCount = 2;
@@ -3530,6 +3531,17 @@ struct Bridge {
               pipeline = kernel->skinnyMatrix;
             if (fusePost)
               pipeline = postKernel.state_->fusedMatrices[fusedVariant];
+            bool alignedGrid = false;
+            if (matrix && matrixShape[0] % 16 == 0 && matrixShape[1] % 16 == 0 &&
+                ((!fusePost && pipeline == kernel->registerMatrix) ||
+                 (fusePost && fusedVariant == 3))) {
+              auto grid = fusePost ? postKernel.state_->alignedGridFusedMatrix
+                                   : kernel->alignedGridMatrix;
+              if (grid) {
+                pipeline = grid;
+                alignedGrid = true;
+              }
+            }
             [encoder setComputePipelineState:pipeline];
             if (!kernel->indirect()) {
               [encoder setBuffer:(matrix || kernel->numericType) && !source->size
@@ -3625,7 +3637,10 @@ struct Bridge {
                                       : std::uint64_t(parameters[0]);
             if (state->options.profile)
               ++state->dispatches;
-            [encoder dispatchThreadgroups:MTLSizeMake((lanes + threads - 1) / threads, 1, 1)
+            [encoder dispatchThreadgroups:(alignedGrid
+                                              ? MTLSizeMake(std::uint64_t(parameters[2]) / 16,
+                                                            std::uint64_t(parameters[0]) / 16, 1)
+                                              : MTLSizeMake((lanes + threads - 1) / threads, 1, 1))
                     threadsPerThreadgroup:MTLSizeMake(threads, 1, 1)];
             [encoder endEncoding];
             if (fusePost) {
@@ -4382,6 +4397,23 @@ std::expected<Kernel, Error> Runtime::loadKernel(
       } else
         for (std::uint32_t i = 0; i < physical; ++i)
           metadata->reads[i] = reads ? (*reads)[i] : i;
+      // One fixed optional specialization; no task-time compilation or shape cache.
+      for (unsigned fused = 0; fused < 2; ++fused) {
+        if (!(fused ? bool(metadata->fusedMatrices[3]) : bool(metadata->registerMatrix)))
+          continue;
+        NSString *entry = fused ? @"kalandra_matmul_fused_register16_grid2d_aligned"
+                                : @"kalandra_matmul_hardware_register16_grid2d_aligned";
+        if (![library.functionNames containsObject:entry])
+          continue;
+        if (!state_->permit())
+          return std::unexpected(Error::Allocation);
+        auto grid = prepare(entry, fused, !fused);
+        if (!grid)
+          return std::unexpected(grid.error());
+        if ((*grid).maxTotalThreadsPerThreadgroup < 256)
+          return std::unexpected(Error::Unavailable);
+        (fused ? metadata->alignedGridFusedMatrix : metadata->alignedGridMatrix) = *grid;
+      }
       kernel.state_ = std::move(metadata);
       return kernel;
     } catch (...) {

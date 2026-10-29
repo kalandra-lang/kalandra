@@ -1,6 +1,8 @@
 # Kalandra native benchmarks
 
-Latest GPU kernel study: [strict shape specialization](results/gpu-specialization-2026-10-29.md). Full-shape constants reduce allocated registers from 100 to 88 and reproduce 12–20% isolated time reductions. A bounded copied-runtime prototype passes 117 complete-transformer output checks; resident gains are smaller, upload controls are mixed, and background-load evidence is retained. This is not a production promotion.
+Latest GPU kernel change: [aligned 2D matrix tiles](results/gpu-grid-production-2026-10-29.md). The production compiler/runtime preserves exact arithmetic and improves resident transformer time by 7.8%/7.1% at batches16/64, width512, on M2 Max. Broader isolated kernels repeat 13–27% reductions. Numerical/fault/sanitizer gates pass; all controls, regressions and the extra roughly 0.5 ms warm startup cost are retained.
+
+Earlier GPU kernel study: [strict shape specialization](results/gpu-specialization-2026-10-29.md). Full-shape constants reduce allocated registers from 100 to 88 and reproduce 12–20% isolated time reductions. A bounded copied-runtime prototype passes 117 complete-transformer output checks; resident gains are smaller, upload controls are mixed, and background-load evidence is retained. This is not a production promotion.
 
 Latest GPU storage study: [invocation-private parameter arena](results/gpu-parameter-arena-2026-10-29.md), with [chart](results/gpu-parameter-arena-2026-10-29.png). It isolates host/driver costs, rejects three completion-worker alternatives, and qualifies shared argument backing with unchanged command boundaries. Primary resident medians improve 3.0–9.6%; the small all-upload regression, controls and replication are retained.
 

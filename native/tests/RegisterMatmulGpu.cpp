@@ -109,6 +109,8 @@ int main(int argc, char **argv) {
   std::size_t cells = 0, cases = 0, products = 0;
   for (auto shape : std::array{
            std::array{16, 512, 511},    std::array{16, 512, 512},
+           std::array{16, 576, 528},    std::array{17, 576, 528},
+           std::array{32, 2112, 528},   std::array{32, 2112, 527},
            std::array{256, 512, 256},    std::array{257, 576, 257},    std::array{257, 960, 257},
            std::array{257, 1024, 257},   std::array{257, 1984, 257},   std::array{257, 2048, 257},
            std::array{257, 2112, 257},   std::array{257, 4032, 257},   std::array{257, 4096, 257},

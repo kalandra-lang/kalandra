@@ -1,0 +1,245 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T15:45:33.488174+00:00",
+      "external_cpu_percent": 298.7,
+      "top": [
+        {
+          "cpu_percent": 108.6,
+          "exe": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "cpu_percent": 79.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 16.6,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 12.6,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 5.7,
+          "exe": "/usr/libexec/replayd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T15:45:38.569202+00:00",
+      "external_cpu_percent": 311.8,
+      "top": [
+        {
+          "cpu_percent": 108.2,
+          "exe": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "cpu_percent": 68.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 12.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 11.8,
+          "exe": "/usr/libexec/trustd"
+        },
+        {
+          "cpu_percent": 10.7,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 9.7,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T15:45:43.645636+00:00",
+      "external_cpu_percent": 308.59999999999997,
+      "top": [
+        {
+          "cpu_percent": 102.6,
+          "exe": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "cpu_percent": 72.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 12.0,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/usr/libexec/trustd"
+        },
+        {
+          "cpu_percent": 8.7,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T15:45:48.718979+00:00",
+      "external_cpu_percent": 342.4,
+      "top": [
+        {
+          "cpu_percent": 108.7,
+          "exe": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "cpu_percent": 74.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 12.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 12.1,
+          "exe": "/usr/libexec/trustd"
+        },
+        {
+          "cpu_percent": 11.3,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 10.1,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T15:45:53.796460+00:00",
+      "external_cpu_percent": 291.40000000000003,
+      "top": [
+        {
+          "cpu_percent": 111.7,
+          "exe": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "cpu_percent": 81.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 14.2,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 6.0,
+          "exe": "GoogleUpdater"
+        },
+        {
+          "cpu_percent": 5.5,
+          "exe": "/usr/libexec/replayd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T15:45:58.868284+00:00",
+      "external_cpu_percent": 408.4,
+      "top": [
+        {
+          "cpu_percent": 115.0,
+          "exe": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "cpu_percent": 100.0,
+          "exe": "tar"
+        },
+        {
+          "cpu_percent": 85.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 14.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.7,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T15:46:03.944152+00:00",
+      "external_cpu_percent": 313.8,
+      "top": [
+        {
+          "cpu_percent": 108.1,
+          "exe": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "cpu_percent": 78.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 17.8,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 13.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.3,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 6.1,
+          "exe": "/usr/libexec/syspolicyd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T15:46:09.017994+00:00",
+      "external_cpu_percent": 318.6,
+      "top": [
+        {
+          "cpu_percent": 111.0,
+          "exe": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "cpu_percent": 82.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 14.3,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 10.6,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 10.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "cpu_percent": 9.8,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential qualification then unprofiled measurements; no overlapping local builds/tests/profile. No new idle confirmation; monitor ordinary background applications. Open background apps retained."
+}

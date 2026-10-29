@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Darwin-clang++"
+	tests="4"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname="alucard.home"
+	time="546"
+	timestamp="2026-10-29T16:57:50"
+	>
+	<testcase name="native-matmul-epilogue-codegen" classname="native-matmul-epilogue-codegen" time="0.356992" status="run">
+		<properties/>
+		<system-out>Epilogue lifting: canonical arities, scalar blocks, physical binding limit and fail-closed indexing/control/store/type/size checks passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-arithmetic-policy" classname="native-metal-arithmetic-policy" time="44.551" status="run">
+		<properties/>
+		<system-out>CPU hardware/software arithmetic, workers, comparisons, checked casts, invalid flags: passed
+Metal hardware float32, explicit float64 fallback, software mode and hardware casts: passed
+Mixed policy keeps CPU float64 and Metal float32 native; only Metal float64 falls back: passed
+</system-out>
+	</testcase>
+	<testcase name="native-metal-pipeline" classname="native-metal-pipeline" time="340.552" status="run">
+		<properties/>
+		<system-out>optimized: Projection/bias/ReLU: 55 APFloat/integer-reference cases, 8819169 exact cells, 42 allocation failures; 18 preparation checkpoints; 60677948 immutable input cells; fused/legacy dispatches, capture validation, one-slot batching, tight-budget behavior, held cancellation/deadline/completion-failure and cleanup passed
+optimized old-bundle: Projection/bias/ReLU: 55 APFloat/integer-reference cases, 8819169 exact cells, 42 allocation failures; 12 preparation checkpoints; 60677948 immutable input cells; fused/legacy dispatches, capture validation, one-slot batching, tight-budget behavior, held cancellation/deadline/completion-failure and cleanup passed
+optimized mixed-bundle: Projection/bias/ReLU: 55 APFloat/integer-reference cases, 8819169 exact cells, 42 allocation failures; 12 preparation checkpoints; 60677948 immutable input cells; fused/legacy dispatches, capture validation, one-slot batching, tight-budget behavior, held cancellation/deadline/completion-failure and cleanup passed
+optimized legacy: Proj...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="native-metal-prepared-programs" classname="native-metal-prepared-programs" time="160.96" status="run">
+		<properties/>
+		<system-out>optimized: transpose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed
+parameter arena: padding-budget fallback, exact output and one charged backing passed
+15732736 credits=15 params=1 commands=5 peak=14733312 failure=0/0
+15794176 credits=15 params=5 commands=5 peak=14749696 failure=0/0
+guarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed
+prepared: 104 allocation checkpoints, 4 commands (dispatch count checked), 12 held failure boundaries, changing captures and 8 concurrent calls passed
+prepared: 90 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed
+prepared: 103 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent calls passed
+prepared: 95 allocation checkpoints, 1 commands (dispatch count checked), 3 held failure boundaries, changing captures and 8 concurrent ...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+</testsuite>

@@ -1,0 +1,1336 @@
+{
+  "production": true,
+  "tests": [
+    {
+      "name": "native-matmul-epilogue-codegen",
+      "seconds": 0.356992
+    },
+    {
+      "name": "native-metal-arithmetic-policy",
+      "seconds": 44.551
+    },
+    {
+      "name": "native-metal-pipeline",
+      "seconds": 340.552
+    },
+    {
+      "name": "native-metal-prepared-programs",
+      "seconds": 160.96
+    }
+  ],
+  "whole_model": {
+    "frozen": {
+      "protocol": {
+        "blocks": 7,
+        "rounds": 3,
+        "warmups": 2,
+        "target_ms": 50,
+        "max_iterations": 512,
+        "adaptive_batching": true,
+        "seed": 20261024,
+        "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+      },
+      "cells": [
+        {
+          "shape": [
+            1,
+            512,
+            0
+          ],
+          "baseline_us": 521.7474385964913,
+          "current_us": 630.1626447368421,
+          "time_reduction_percent": -24.339034611582488,
+          "winning_blocks": 3,
+          "blocks": [
+            -24.339034611582488,
+            -28.18476600991651,
+            8.602898949560133,
+            18.91318629292591,
+            -26.91910371813091,
+            -38.9901297746865,
+            11.61281098430228
+          ]
+        },
+        {
+          "shape": [
+            1,
+            512,
+            1
+          ],
+          "baseline_us": 631.5061534090909,
+          "current_us": 680.5456931818181,
+          "time_reduction_percent": -0.6535903090233885,
+          "winning_blocks": 3,
+          "blocks": [
+            -88.77965224625879,
+            27.25905507562173,
+            -0.6535903090233885,
+            5.224589253847734,
+            -8.80467701323342,
+            -46.93404525136664,
+            1.2867928669412998
+          ]
+        },
+        {
+          "shape": [
+            1,
+            512,
+            2
+          ],
+          "baseline_us": 2030.1987307692307,
+          "current_us": 2087.7572115384614,
+          "time_reduction_percent": -1.135420634275408,
+          "winning_blocks": 3,
+          "blocks": [
+            0.6543477237864748,
+            -4.217288521973961,
+            -1.135420634275408,
+            -2.835115592226889,
+            -9.982401996827761,
+            16.615682443206424,
+            1.3902975963996256
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            0
+          ],
+          "baseline_us": 709.1765512820513,
+          "current_us": 650.6979230769231,
+          "time_reduction_percent": 9.095055368567495,
+          "winning_blocks": 6,
+          "blocks": [
+            28.45766592636173,
+            17.89344886324562,
+            9.095055368567495,
+            9.745505157351142,
+            7.659089381873807,
+            8.33211845102506,
+            -13.796182010562807
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            1
+          ],
+          "baseline_us": 841.139325,
+          "current_us": 798.78020625,
+          "time_reduction_percent": 5.085437990820307,
+          "winning_blocks": 5,
+          "blocks": [
+            -15.566219514228518,
+            5.085437990820307,
+            18.863704484231757,
+            3.698786105895302,
+            5.474051744594566,
+            22.086471202917856,
+            -23.533331565794533
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2
+          ],
+          "baseline_us": 2519.890159090909,
+          "current_us": 2371.37025,
+          "time_reduction_percent": -1.4188089394227665,
+          "winning_blocks": 3,
+          "blocks": [
+            -4.915754965141361,
+            6.312091507379636,
+            -1.4188089394227665,
+            -2.5174594096527114,
+            -3.286692442430117,
+            5.703072542320731,
+            5.998469105159476
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            0
+          ],
+          "baseline_us": 947.9394025974026,
+          "current_us": 883.7034545454545,
+          "time_reduction_percent": 6.563986489524565,
+          "winning_blocks": 5,
+          "blocks": [
+            21.799936636994822,
+            4.72981422698755,
+            -17.915502466729837,
+            23.62999817938276,
+            6.563986489524565,
+            17.521889468766606,
+            -34.16365111009907
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            1
+          ],
+          "baseline_us": 948.3871527777777,
+          "current_us": 961.8081597222223,
+          "time_reduction_percent": 2.1531546249729527,
+          "winning_blocks": 4,
+          "blocks": [
+            17.82624798919519,
+            -1.9577006171581424,
+            13.19242744250687,
+            -3.7129447852291886,
+            2.1531546249729527,
+            -63.97855771580196,
+            21.789276750916663
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            2
+          ],
+          "baseline_us": 1293.5801630434783,
+          "current_us": 1150.4542608695651,
+          "time_reduction_percent": 3.3111848275866107,
+          "winning_blocks": 5,
+          "blocks": [
+            15.314738240119485,
+            -34.20241808681037,
+            36.21381012800351,
+            4.338826616509572,
+            3.222841730596937,
+            3.3111848275866107,
+            -17.17311257101526
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            0
+          ],
+          "baseline_us": 997.7138157894738,
+          "current_us": 899.1016140350878,
+          "time_reduction_percent": 11.717316927809518,
+          "winning_blocks": 5,
+          "blocks": [
+            32.250359659921834,
+            11.78141207078559,
+            -11.920564008726075,
+            -12.954477425905031,
+            6.165027708893356,
+            11.717316927809518,
+            23.581809719877423
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            1
+          ],
+          "baseline_us": 1191.250512195122,
+          "current_us": 1196.3866829268293,
+          "time_reduction_percent": -0.43115790332319825,
+          "winning_blocks": 3,
+          "blocks": [
+            -13.971526202099716,
+            3.143604355662233,
+            15.080499863540098,
+            0.20087053769084484,
+            -0.43115790332319825,
+            -1.096166432384016,
+            -15.864565437011224
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2
+          ],
+          "baseline_us": 2560.593117647059,
+          "current_us": 2741.170323529412,
+          "time_reduction_percent": -6.785635786659938,
+          "winning_blocks": 3,
+          "blocks": [
+            -14.522621847510585,
+            -6.785635786659938,
+            11.04410584293074,
+            16.373305112817636,
+            -17.503650432016936,
+            -12.818506150105247,
+            6.795539535268058
+          ]
+        }
+      ],
+      "load": {
+        "context": "Sequential qualification then unprofiled measurements; no overlapping local builds/tests/profile. User confirmed competing GPU/video/photo workloads were closed immediately before final acceptance. Monitor remaining OS/UI activity; this is not a direct GPU utilization measurement.",
+        "median": 142.9,
+        "maximum": 194.7
+      }
+    },
+    "repeat": {
+      "protocol": {
+        "blocks": 7,
+        "rounds": 3,
+        "warmups": 2,
+        "target_ms": 50,
+        "max_iterations": 512,
+        "adaptive_batching": true,
+        "seed": 20261024,
+        "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+      },
+      "cells": [
+        {
+          "shape": [
+            1,
+            512,
+            0
+          ],
+          "baseline_us": 466.1894956521739,
+          "current_us": 581.0827913043478,
+          "time_reduction_percent": -1.0037067534380828,
+          "winning_blocks": 2,
+          "blocks": [
+            8.87422356665677,
+            -1.0037067534380828,
+            2.6361588510229184,
+            -38.61465147086507,
+            -24.40936498230972,
+            -37.97429708127738,
+            -0.3512762456993279
+          ]
+        },
+        {
+          "shape": [
+            1,
+            512,
+            1
+          ],
+          "baseline_us": 606.7990591397848,
+          "current_us": 608.3879946236559,
+          "time_reduction_percent": -6.962110116222209,
+          "winning_blocks": 3,
+          "blocks": [
+            -30.232197704337516,
+            22.79454471999659,
+            -17.011035621365743,
+            6.986537795817815,
+            -29.406505359850364,
+            -6.962110116222209,
+            4.173461743370788
+          ]
+        },
+        {
+          "shape": [
+            1,
+            512,
+            2
+          ],
+          "baseline_us": 2008.9418541666664,
+          "current_us": 2015.2048541666668,
+          "time_reduction_percent": 0.5042610809771308,
+          "winning_blocks": 4,
+          "blocks": [
+            -4.102445361398521,
+            -8.56127370204469,
+            0.5042610809771308,
+            1.0015765472422,
+            0.8140686915724782,
+            -2.2386221009398133,
+            4.368926199754242
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            0
+          ],
+          "baseline_us": 879.2586120689656,
+          "current_us": 765.68175,
+          "time_reduction_percent": 8.595044678805074,
+          "winning_blocks": 6,
+          "blocks": [
+            -0.7269776908279235,
+            10.199396402681316,
+            7.743509665018589,
+            0.1903843034368191,
+            11.241674130259371,
+            15.056415196261952,
+            8.595044678805074
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            1
+          ],
+          "baseline_us": 867.6416642857142,
+          "current_us": 886.5702357142858,
+          "time_reduction_percent": -3.8150118285752876,
+          "winning_blocks": 3,
+          "blocks": [
+            21.22423350989542,
+            -18.916908923891306,
+            -3.8150118285752876,
+            -14.618507852820661,
+            -30.842532477336103,
+            4.626292009499067,
+            10.80961281662126
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2
+          ],
+          "baseline_us": 2476.548604166667,
+          "current_us": 2330.326375,
+          "time_reduction_percent": 4.798214961275016,
+          "winning_blocks": 5,
+          "blocks": [
+            1.351400210168563,
+            4.798214961275016,
+            12.962007534460795,
+            6.004412866790054,
+            -1.7579625039034985,
+            10.23188014553319,
+            -5.725898324985823
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            0
+          ],
+          "baseline_us": 899.4285714285713,
+          "current_us": 726.0770857142858,
+          "time_reduction_percent": 2.342069701392735,
+          "winning_blocks": 5,
+          "blocks": [
+            1.2180012226132853,
+            4.688061051192127,
+            -8.273803102148914,
+            2.342069701392735,
+            -3.4282679479034517,
+            22.74253459570351,
+            4.745951753819
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            1
+          ],
+          "baseline_us": 968.2404126984128,
+          "current_us": 944.6620396825397,
+          "time_reduction_percent": 0.9907235957608562,
+          "winning_blocks": 4,
+          "blocks": [
+            0.9907235957608562,
+            3.1756017961054095,
+            -12.644413981643666,
+            -7.457003639085036,
+            22.524981818434465,
+            22.404103426290114,
+            -13.296906648496364
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            2
+          ],
+          "baseline_us": 1615.1726888888888,
+          "current_us": 1294.4083333333333,
+          "time_reduction_percent": 0.7118504649640256,
+          "winning_blocks": 4,
+          "blocks": [
+            8.352363863507628,
+            23.96828228823493,
+            -12.791820670524935,
+            29.653876359098486,
+            -8.062277195175739,
+            -0.20541337920043645,
+            0.7118504649640256
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            0
+          ],
+          "baseline_us": 1135.7700892857142,
+          "current_us": 1097.9025267857144,
+          "time_reduction_percent": 5.267487298719409,
+          "winning_blocks": 4,
+          "blocks": [
+            7.39442205080334,
+            6.162209584713896,
+            -0.13789265772863324,
+            6.6879362733482495,
+            -23.297157368643862,
+            5.267487298719409,
+            -17.703548414032475
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            1
+          ],
+          "baseline_us": 1178.7201764705885,
+          "current_us": 959.9665,
+          "time_reduction_percent": 7.362123509816354,
+          "winning_blocks": 6,
+          "blocks": [
+            26.988130138864065,
+            -19.14605547616066,
+            21.202239716909332,
+            4.6653499843607555,
+            7.362123509816354,
+            0.7296876969355326,
+            19.308506224281707
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2
+          ],
+          "baseline_us": 2896.42825,
+          "current_us": 2724.275444444444,
+          "time_reduction_percent": 1.805160308088527,
+          "winning_blocks": 5,
+          "blocks": [
+            1.6274843565231456,
+            20.425855485395427,
+            -0.21667375573990455,
+            1.805160308088527,
+            3.3426855022954505,
+            5.015225551913249,
+            -5.157047208075327
+          ]
+        }
+      ],
+      "load": {
+        "context": "Sequential qualification then unprofiled measurements; no overlapping local builds/tests/profile. User confirmed competing GPU/video/photo workloads were closed immediately before final acceptance. Monitor remaining OS/UI activity; this is not a direct GPU utilization measurement.",
+        "median": 133.5,
+        "maximum": 451.5
+      }
+    },
+    "settled-aa": {
+      "protocol": {
+        "blocks": 7,
+        "rounds": 3,
+        "warmups": 2,
+        "target_ms": 200,
+        "max_iterations": 2048,
+        "adaptive_batching": true,
+        "seed": 20261024,
+        "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+      },
+      "cells": [
+        {
+          "shape": [
+            1,
+            512,
+            0
+          ],
+          "baseline_us": 461.12456797235023,
+          "current_us": 462.46495737327194,
+          "time_reduction_percent": 0.15815629057281955,
+          "winning_blocks": 4,
+          "blocks": [
+            -1.0364030465856544,
+            -13.751469705896358,
+            0.8269559695900153,
+            0.15815629057281955,
+            1.3761086104553621,
+            31.983314194487576,
+            -1.301288707944681
+          ]
+        },
+        {
+          "shape": [
+            1,
+            512,
+            1
+          ],
+          "baseline_us": 467.8552660550459,
+          "current_us": 466.535502293578,
+          "time_reduction_percent": 0.30919372579428783,
+          "winning_blocks": 5,
+          "blocks": [
+            -0.25095866763538144,
+            1.2164544539079003,
+            0.905322154308652,
+            0.30919372579428783,
+            -1.2110824453727131,
+            5.052039060918978,
+            0.28816381795042645
+          ]
+        },
+        {
+          "shape": [
+            1,
+            512,
+            2
+          ],
+          "baseline_us": 1981.6692961165047,
+          "current_us": 1986.1561456310678,
+          "time_reduction_percent": 0.13121810198370998,
+          "winning_blocks": 4,
+          "blocks": [
+            0.13121810198370998,
+            0.3904338412363484,
+            -2.9559063726710466,
+            1.848464889516821,
+            -0.0006821536232770598,
+            2.0096119630324205,
+            -0.6001831436785787
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            0
+          ],
+          "baseline_us": 652.9060115511551,
+          "current_us": 649.9050478547855,
+          "time_reduction_percent": 0.21865201124191547,
+          "winning_blocks": 5,
+          "blocks": [
+            13.585638630744212,
+            -14.664426117446272,
+            0.21865201124191547,
+            -1.2576732251095235,
+            0.7878889022541857,
+            3.4494368343089943,
+            0.07814280744895541
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            1
+          ],
+          "baseline_us": 669.2413367697594,
+          "current_us": 671.2921683848798,
+          "time_reduction_percent": -1.0076738026125076,
+          "winning_blocks": 3,
+          "blocks": [
+            -1.1986741845699145,
+            -25.810393242221718,
+            7.819449756001529,
+            -1.0076738026125076,
+            0.7655382835245916,
+            0.22484188184123122,
+            -1.8261307211645095
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2
+          ],
+          "baseline_us": 2240.5496489361703,
+          "current_us": 2178.490686170213,
+          "time_reduction_percent": 0.5930090603408877,
+          "winning_blocks": 4,
+          "blocks": [
+            -1.9221499120070318,
+            3.8667235846910453,
+            0.5930090603408877,
+            5.520845752826675,
+            -0.8049794754209305,
+            4.860728394616309,
+            -0.8841362785016793
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            0
+          ],
+          "baseline_us": 730.0324304029303,
+          "current_us": 721.7839597069596,
+          "time_reduction_percent": 0.03672862174946001,
+          "winning_blocks": 4,
+          "blocks": [
+            -8.36726205354028,
+            3.78478669564164,
+            12.889033351504754,
+            0.03672862174946001,
+            -2.123073122966712,
+            -1.0185556250402072,
+            1.7147926041631845
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            1
+          ],
+          "baseline_us": 736.4809283088235,
+          "current_us": 746.7750459558824,
+          "time_reduction_percent": -0.5157404069358273,
+          "winning_blocks": 3,
+          "blocks": [
+            0.2482238002905368,
+            -0.5157404069358273,
+            -2.0803588056792055,
+            -8.055383607396195,
+            3.507996384245027,
+            -1.8556629313429829,
+            2.621190927895356
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            2
+          ],
+          "baseline_us": 1110.976736111111,
+          "current_us": 1125.2179388888887,
+          "time_reduction_percent": -1.4804342247373814,
+          "winning_blocks": 0,
+          "blocks": [
+            -2.917938271557241,
+            -0.7196971261237861,
+            -1.4804342247373814,
+            -2.4121079324390893,
+            -2.024972440523065,
+            -1.0786724519496582,
+            -1.147057897225312
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            0
+          ],
+          "baseline_us": 897.0418511111111,
+          "current_us": 903.4517622222223,
+          "time_reduction_percent": -1.234051733028041,
+          "winning_blocks": 1,
+          "blocks": [
+            -53.12931874559681,
+            -1.120667226544314,
+            -1.2602851331930065,
+            -1.234051733028041,
+            9.299369619773312,
+            -2.4492536294117295,
+            -0.5686282448266189
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            1
+          ],
+          "baseline_us": 972.3565226244344,
+          "current_us": 923.0993597285068,
+          "time_reduction_percent": 2.2687887972664855,
+          "winning_blocks": 7,
+          "blocks": [
+            2.2687887972664855,
+            21.452822391273862,
+            1.1205941440557199,
+            1.6153419101007538,
+            5.385568392044404,
+            1.6336633689623459,
+            5.128922892910481
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2
+          ],
+          "baseline_us": 2418.0149529411765,
+          "current_us": 2433.0340647058824,
+          "time_reduction_percent": -0.09919822371298181,
+          "winning_blocks": 3,
+          "blocks": [
+            -6.826286678429283,
+            -0.09919822371298181,
+            0.4854169672496855,
+            -5.5818593072253675,
+            1.3231595952742037,
+            1.488800906951504,
+            -0.6211339490037826
+          ]
+        }
+      ],
+      "load": {
+        "context": "Sequential qualification then unprofiled measurements; no overlapping local builds/tests/profile. User confirmed competing GPU/video/photo workloads were closed immediately before final acceptance. Monitor remaining OS/UI activity; this is not a direct GPU utilization measurement.",
+        "median": 126.3,
+        "maximum": 242.6
+      }
+    },
+    "settled-confirm": {
+      "protocol": {
+        "blocks": 7,
+        "rounds": 3,
+        "warmups": 2,
+        "target_ms": 200,
+        "max_iterations": 2048,
+        "adaptive_batching": true,
+        "seed": 20261024,
+        "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+      },
+      "cells": [
+        {
+          "shape": [
+            1,
+            512,
+            0
+          ],
+          "baseline_us": 479.1143138173302,
+          "current_us": 464.43818384074945,
+          "time_reduction_percent": -0.12113702433997897,
+          "winning_blocks": 3,
+          "blocks": [
+            -0.5302401522282008,
+            -1.8248775877603318,
+            8.948512490308092,
+            -0.12113702433997897,
+            4.819781095691922,
+            15.255387315102864,
+            -55.01440851959545
+          ]
+        },
+        {
+          "shape": [
+            1,
+            512,
+            1
+          ],
+          "baseline_us": 470.2414302600473,
+          "current_us": 468.35121158392434,
+          "time_reduction_percent": 0.5159331898847874,
+          "winning_blocks": 5,
+          "blocks": [
+            9.60508737271505,
+            -17.69191227974889,
+            0.11816441552527923,
+            0.8949615313797565,
+            0.5159331898847874,
+            -1.9437817120150358,
+            26.723559064240256
+          ]
+        },
+        {
+          "shape": [
+            1,
+            512,
+            2
+          ],
+          "baseline_us": 1993.270835,
+          "current_us": 2004.363125,
+          "time_reduction_percent": -0.23375700410219746,
+          "winning_blocks": 3,
+          "blocks": [
+            -0.6898565104466403,
+            -0.23375700410219746,
+            0.20345529338081647,
+            0.42963033366316683,
+            3.1228821947821284,
+            -1.8441974527306781,
+            -2.1285499170384137
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            0
+          ],
+          "baseline_us": 709.1561143790849,
+          "current_us": 654.4110833333333,
+          "time_reduction_percent": 7.745222964101983,
+          "winning_blocks": 7,
+          "blocks": [
+            5.971609673368306,
+            17.895852730867613,
+            5.691177090109367,
+            10.7628305566407,
+            6.826777916059445,
+            15.249303175715012,
+            7.745222964101983
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            1
+          ],
+          "baseline_us": 724.6252859589041,
+          "current_us": 672.4809520547946,
+          "time_reduction_percent": 6.9526677964057315,
+          "winning_blocks": 5,
+          "blocks": [
+            -3.224475724365128,
+            7.141203991499346,
+            6.609515270353105,
+            6.9526677964057315,
+            11.215073496859917,
+            19.77335642352672,
+            -4.563716454794076
+          ]
+        },
+        {
+          "shape": [
+            16,
+            512,
+            2
+          ],
+          "baseline_us": 2269.32235483871,
+          "current_us": 2232.67114516129,
+          "time_reduction_percent": 1.2288294859586713,
+          "winning_blocks": 4,
+          "blocks": [
+            1.7309751723715516,
+            4.671539326840013,
+            -3.637185931145903,
+            -0.36029703130693314,
+            1.424757161823409,
+            1.2288294859586713,
+            -7.693282724838446
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            0
+          ],
+          "baseline_us": 740.2730887445888,
+          "current_us": 726.0274177489179,
+          "time_reduction_percent": 2.1207179078114424,
+          "winning_blocks": 6,
+          "blocks": [
+            0.5565743934508371,
+            -2.2378227576784315,
+            2.1207179078114424,
+            7.02025178969532,
+            1.924380503934009,
+            2.7290951955481924,
+            9.775291157899291
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            1
+          ],
+          "baseline_us": 787.9376549815498,
+          "current_us": 747.2473081180812,
+          "time_reduction_percent": -0.1850911257580634,
+          "winning_blocks": 3,
+          "blocks": [
+            -1.7822186131347229,
+            11.696108006804762,
+            -0.1850911257580634,
+            8.405883459199137,
+            2.2235378543454254,
+            -12.067562503522765,
+            -37.44343330100992
+          ]
+        },
+        {
+          "shape": [
+            64,
+            256,
+            2
+          ],
+          "baseline_us": 1141.0062127071824,
+          "current_us": 1120.5546740331492,
+          "time_reduction_percent": 2.1577187000126896,
+          "winning_blocks": 6,
+          "blocks": [
+            2.1577187000126896,
+            1.870635215521066,
+            1.0774766815737191,
+            8.74830098697339,
+            -0.1921495328576217,
+            2.431185894245491,
+            29.329875195511825
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            0
+          ],
+          "baseline_us": 987.9719185022027,
+          "current_us": 899.9732004405286,
+          "time_reduction_percent": 7.081887554815946,
+          "winning_blocks": 6,
+          "blocks": [
+            11.43140091039121,
+            6.546638177101027,
+            6.989995989046093,
+            16.030802723633087,
+            12.740453346349312,
+            7.081887554815946,
+            -3.4789686666685693
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            1
+          ],
+          "baseline_us": 984.9284113636364,
+          "current_us": 933.8037863636364,
+          "time_reduction_percent": 5.066104998224452,
+          "winning_blocks": 4,
+          "blocks": [
+            -4.916068672561891,
+            6.037930514577816,
+            -3.152036246532086,
+            5.066104998224452,
+            -0.06368677966179792,
+            5.6864617394054795,
+            22.935359025254108
+          ]
+        },
+        {
+          "shape": [
+            64,
+            512,
+            2
+          ],
+          "baseline_us": 2486.9551071428573,
+          "current_us": 2450.6505476190478,
+          "time_reduction_percent": 1.8404273145804617,
+          "winning_blocks": 7,
+          "blocks": [
+            3.7734445980761366,
+            1.8404273145804617,
+            0.6192493522425346,
+            0.5920297951582776,
+            10.977396385590177,
+            0.4385181690122697,
+            13.664886168956425
+          ]
+        }
+      ],
+      "load": {
+        "context": "Sequential qualification then unprofiled measurements; no overlapping local builds/tests/profile. User confirmed competing GPU/video/photo workloads were closed immediately before final acceptance. Monitor remaining OS/UI activity; this is not a direct GPU utilization measurement.",
+        "median": 119.9,
+        "maximum": 280.2
+      }
+    }
+  },
+  "broad": {
+    "paired": {
+      "protocol": {
+        "blocks": 7,
+        "rounds": 3,
+        "warmups": 2,
+        "target_ms": 30,
+        "max_iterations": 256,
+        "adaptive_batching": true,
+        "seed": 20261024,
+        "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+      },
+      "cells": [
+        {
+          "shape": [
+            16,
+            576,
+            528
+          ],
+          "baseline_us": 25.58585546875,
+          "current_us": 20.070880859375,
+          "time_reduction_percent": 21.157064213901688,
+          "winning_blocks": 7,
+          "blocks": [
+            21.26480343625171,
+            22.362032754648688,
+            20.591284308843917,
+            24.166005124120815,
+            21.157064213901688,
+            20.440897596770924,
+            20.943825678508745
+          ]
+        },
+        {
+          "shape": [
+            16,
+            4096,
+            4096
+          ],
+          "baseline_us": 652.8629112903227,
+          "current_us": 475.9435483870967,
+          "time_reduction_percent": 27.156445838349153,
+          "winning_blocks": 7,
+          "blocks": [
+            27.156445838349153,
+            26.39187664257855,
+            27.59152025921322,
+            27.248544491074266,
+            27.561992382270116,
+            25.797936607600025,
+            27.02920177044209
+          ]
+        },
+        {
+          "shape": [
+            32,
+            2112,
+            528
+          ],
+          "baseline_us": 93.58235546875,
+          "current_us": 74.951986328125,
+          "time_reduction_percent": 19.9428661661355,
+          "winning_blocks": 7,
+          "blocks": [
+            20.502805461586714,
+            18.85021548960757,
+            19.92225544365126,
+            19.596348891261584,
+            20.17936100286044,
+            20.344529259445686,
+            19.9428661661355
+          ]
+        },
+        {
+          "shape": [
+            256,
+            512,
+            256
+          ],
+          "baseline_us": 58.74422265625,
+          "current_us": 51.34334375,
+          "time_reduction_percent": 13.084913911464568,
+          "winning_blocks": 7,
+          "blocks": [
+            12.442248747850638,
+            12.785978471872795,
+            13.137526339700234,
+            12.890591248190619,
+            13.464375136919958,
+            13.084913911464568,
+            14.339568365798739
+          ]
+        },
+        {
+          "shape": [
+            1024,
+            1984,
+            1024
+          ],
+          "baseline_us": 3114.831625,
+          "current_us": 2543.517333333333,
+          "time_reduction_percent": 18.46335621217834,
+          "winning_blocks": 7,
+          "blocks": [
+            17.901600745642455,
+            19.00144767321127,
+            18.46335621217834,
+            17.369366717857737,
+            19.097924074440208,
+            16.642962303337683,
+            19.24233517496614
+          ]
+        }
+      ],
+      "load": {
+        "context": "Sequential production acceptance after the user confirmed competing workloads were closed. No overlapping builds/tests/profiling. CPU process monitoring does not establish idle GPU utilization.",
+        "median": 141.7,
+        "maximum": 226.9
+      }
+    },
+    "repeat": {
+      "protocol": {
+        "blocks": 7,
+        "rounds": 3,
+        "warmups": 2,
+        "target_ms": 30,
+        "max_iterations": 256,
+        "adaptive_batching": true,
+        "seed": 20261024,
+        "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+      },
+      "cells": [
+        {
+          "shape": [
+            16,
+            576,
+            528
+          ],
+          "baseline_us": 25.125326171875,
+          "current_us": 19.938884765625,
+          "time_reduction_percent": 20.91308782260557,
+          "winning_blocks": 7,
+          "blocks": [
+            17.49548615596065,
+            22.425344218182698,
+            23.605831057043357,
+            22.267617088456205,
+            20.91308782260557,
+            17.222372307320345,
+            20.642284883273042
+          ]
+        },
+        {
+          "shape": [
+            16,
+            4096,
+            4096
+          ],
+          "baseline_us": 655.5605158730159,
+          "current_us": 478.65476190476187,
+          "time_reduction_percent": 27.12818455958539,
+          "winning_blocks": 7,
+          "blocks": [
+            28.556080653317338,
+            27.16530112701674,
+            27.364093828482606,
+            26.005302017993202,
+            26.57034501029466,
+            27.12818455958539,
+            25.949699487891642
+          ]
+        },
+        {
+          "shape": [
+            32,
+            2112,
+            528
+          ],
+          "baseline_us": 93.2443046875,
+          "current_us": 74.728515625,
+          "time_reduction_percent": 20.052523315138803,
+          "winning_blocks": 7,
+          "blocks": [
+            19.879567393111074,
+            20.052523315138803,
+            19.49696751756479,
+            20.350057539466682,
+            20.251854153249294,
+            20.885212789675645,
+            20.021089163961147
+          ]
+        },
+        {
+          "shape": [
+            256,
+            512,
+            256
+          ],
+          "baseline_us": 58.828044921875,
+          "current_us": 51.34423828125,
+          "time_reduction_percent": 12.815204050711436,
+          "winning_blocks": 7,
+          "blocks": [
+            12.662134644708601,
+            13.44469794280222,
+            12.032167772871139,
+            13.416938781118848,
+            13.055878392924935,
+            12.815204050711436,
+            11.84916093580165
+          ]
+        },
+        {
+          "shape": [
+            1024,
+            1984,
+            1024
+          ],
+          "baseline_us": 3100.013916666667,
+          "current_us": 2545.4375,
+          "time_reduction_percent": 18.01518242771454,
+          "winning_blocks": 7,
+          "blocks": [
+            18.375183496819602,
+            16.68623284967765,
+            18.01518242771454,
+            18.30942375635796,
+            18.16333781512326,
+            17.907750135860965,
+            17.41025333376144
+          ]
+        }
+      ],
+      "load": {
+        "context": "Sequential production acceptance after the user confirmed competing workloads were closed. No overlapping builds/tests/profiling. CPU process monitoring does not establish idle GPU utilization.",
+        "median": 154.6,
+        "maximum": 254.0
+      }
+    }
+  },
+  "startup": [
+    {
+      "m": 16,
+      "baseline_ms": 38.695958000000005,
+      "current_ms": 39.186271000000005,
+      "time_reduction_percent": -1.1957732140571276
+    },
+    {
+      "m": 64,
+      "baseline_ms": 45.7226875,
+      "current_ms": 46.058604,
+      "time_reduction_percent": -1.618934758042978
+    }
+  ],
+  "evidence_sha256": {
+    "benchmarks/results/gpu-grid-production-verification-2026-10-29.json": "8314978e2a16fc1dbe9b0952afe56f258acd6dec4e9c40986a6708da60360896",
+    "benchmarks/.build/gpu-grid-broad-2026-10-29/qualification.json": "fb7398e961d1c74e774d0bda0669e6117aa9d3179621202d7f82a0b105e1ae50",
+    "benchmarks/.build/gpu-grid-production-2026-10-29/manifest.json": "26fdbf1cd3117b6e370c47b14bc1450f6e83215bcea9d56e7d57b17938e21c5b",
+    "benchmarks/results/gpu-grid-production-tests-2026-10-29.xml": "849c7d9f715ff0a561dc61312f1ef61b3bf9bc3b534629b7a8bfdaf3ec414c69",
+    "benchmarks/results/gpu-grid-production-tests-2026-10-29.log": "7315862e7c38a40a962d639ac9d995a4c24ef506ecf4a057666eb6faa2980a1e",
+    "benchmarks/results/gpu-grid-production-frozen-2026-10-29.json": "f8b6f2cf6362ceaa28124af0f92ddccfac13353532b86362bf949b2604d92e2e",
+    "benchmarks/results/gpu-grid-production-frozen-2026-10-29-load.json": "efe0ef736a17e36450662d9db325ee14c768d2e686a615355917dc7557a7dc34",
+    "benchmarks/results/gpu-grid-production-repeat-2026-10-29.json": "857866db539567a75c330ff432a5365b203097ede3d195aa950cb4489bed129d",
+    "benchmarks/results/gpu-grid-production-repeat-2026-10-29-load.json": "fa599ee63883e4f6fe068a18fe8752c4da1b6c5e81682d42bfd99cc3e752b6f4",
+    "benchmarks/results/gpu-grid-production-settled-aa-2026-10-29.json": "5b6c4027f7626e880a53308ee8a856f3947139ce5cbfa6e8c7cc9d798c2765d0",
+    "benchmarks/results/gpu-grid-production-settled-aa-2026-10-29-load.json": "c9802e56c4db4ee69a4c26faa0afecf632dee56cfbcecebf8c3f2b22a021d53e",
+    "benchmarks/results/gpu-grid-production-settled-confirm-2026-10-29.json": "17a482a6fc768244bcf6509e6de35bea670b394d378f32d78f06cc368094fd1a",
+    "benchmarks/results/gpu-grid-production-settled-confirm-2026-10-29-load.json": "4f05a4779628d493d601136ef89b4d45171dd46852793a557313c5dab05e5ad4",
+    "benchmarks/results/gpu-grid-broad-paired-2026-10-29.json": "f0e1acb4dd5abdb40eeff7dd8c29e5fa4151f7516a9ecc39374cb334c43505b6",
+    "benchmarks/results/gpu-grid-broad-paired-2026-10-29-load.json": "95381f4dcbba4ad346bc96aa8fc05c927707e78dbd5196378d15517f05b35d17",
+    "benchmarks/results/gpu-grid-broad-repeat-2026-10-29.json": "b091674f63afd457b63352742eccb16ca255ee3e02135ba70aa82cfb493f8d01",
+    "benchmarks/results/gpu-grid-broad-repeat-2026-10-29-load.json": "10749bf89e4cf44ebffb75b1e96346e0a6a5b9b26189371b6ab7eac6df8d3492",
+    "benchmarks/results/gpu-grid-production-startup-2026-10-29.json": "6492236be67547bacda897277b7791b530976d658185921882cefda9e9c6cbdf",
+    "benchmarks/results/gpu-grid-production-startup-2026-10-29-load.json": "d9bfd5a2346312215908869e00c6ea5dd2764160edaf2bf10f5170d56cf458ed",
+    "benchmarks/results/gpu-grid-production-qualification-2026-10-29.json": "d4c8361960cb16e40ed253ee01fff9a56c9544cb6aad5ea04a5efd93c6369cfb",
+    "native/benchmarks/fair/grid_production_report.py": "0be3295f5b7bfa57f75027703681c4049f8fc6a9058f6b76e22da9607ce0fb52"
+  }
+}

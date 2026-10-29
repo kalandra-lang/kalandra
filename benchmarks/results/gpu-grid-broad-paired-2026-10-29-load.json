@@ -1,0 +1,215 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T16:14:16.961642+00:00",
+      "external_cpu_percent": 141.7,
+      "top": [
+        {
+          "cpu_percent": 83.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/sbin/launchd"
+        },
+        {
+          "cpu_percent": 10.1,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 8.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 5.7,
+          "exe": "/usr/libexec/replayd"
+        },
+        {
+          "cpu_percent": 4.0,
+          "exe": "/Applications/Xcode.app/Contents/MacOS/Xcode"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:14:22.036246+00:00",
+      "external_cpu_percent": 226.9,
+      "top": [
+        {
+          "cpu_percent": 83.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 12.4,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 12.1,
+          "exe": "/System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/Resources/storeuid.app/Contents/MacOS/storeuid"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 9.1,
+          "exe": "/Applications/Grammarly Desktop.app/Contents/MacOS/Grammarly Desktop"
+        },
+        {
+          "cpu_percent": 8.9,
+          "exe": "/System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:14:27.110031+00:00",
+      "external_cpu_percent": 194.1,
+      "top": [
+        {
+          "cpu_percent": 85.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 11.6,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 10.3,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/System/Library/CoreServices/Siri.app/Contents/MacOS/Siri"
+        },
+        {
+          "cpu_percent": 9.0,
+          "exe": "/System/Applications/Siri AI.app/Contents/MacOS/Siri AI"
+        },
+        {
+          "cpu_percent": 8.2,
+          "exe": "/System/Library/CoreServices/UserNotificationCenter.app/Contents/MacOS/UserNotificationCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:14:32.180238+00:00",
+      "external_cpu_percent": 136.29999999999998,
+      "top": [
+        {
+          "cpu_percent": 77.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 12.1,
+          "exe": "/usr/libexec/replayd"
+        },
+        {
+          "cpu_percent": 9.3,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 7.9,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        },
+        {
+          "cpu_percent": 6.2,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 5.1,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:14:37.251744+00:00",
+      "external_cpu_percent": 187.0,
+      "top": [
+        {
+          "cpu_percent": 79.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 44.2,
+          "exe": "/Library/Apple/System/Library/PrivateFrameworks/RemotePairing.framework/Versions/A/XPCServices/remotepairingd.xpc/Contents/MacOS/remotepairingd"
+        },
+        {
+          "cpu_percent": 9.7,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 8.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 5.7,
+          "exe": "/Applications/Xcode.app/Contents/MacOS/Xcode"
+        },
+        {
+          "cpu_percent": 5.3,
+          "exe": "/usr/libexec/replayd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:14:42.320089+00:00",
+      "external_cpu_percent": 136.0,
+      "top": [
+        {
+          "cpu_percent": 71.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/usr/libexec/replayd"
+        },
+        {
+          "cpu_percent": 8.8,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 8.3,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        },
+        {
+          "cpu_percent": 6.0,
+          "exe": "/usr/libexec/trustd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:14:47.392326+00:00",
+      "external_cpu_percent": 132.0,
+      "top": [
+        {
+          "cpu_percent": 81.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.3,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 5.4,
+          "exe": "/usr/libexec/replayd"
+        },
+        {
+          "cpu_percent": 5.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 4.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.7,
+          "exe": "/usr/libexec/syspolicyd"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential production acceptance after the user confirmed competing workloads were closed. No overlapping builds/tests/profiling. CPU process monitoring does not establish idle GPU utilization."
+}

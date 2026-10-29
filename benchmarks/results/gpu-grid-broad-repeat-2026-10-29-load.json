@@ -1,0 +1,215 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T16:14:50.369305+00:00",
+      "external_cpu_percent": 169.1,
+      "top": [
+        {
+          "cpu_percent": 80.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 13.5,
+          "exe": "/usr/libexec/corebrightnessd"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 8.0,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 6.1,
+          "exe": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "cpu_percent": 5.6,
+          "exe": "/usr/libexec/replayd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:14:55.440712+00:00",
+      "external_cpu_percent": 152.1,
+      "top": [
+        {
+          "cpu_percent": 80.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 12.7,
+          "exe": "/usr/libexec/corebrightnessd"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 6.0,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 5.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 5.5,
+          "exe": "/usr/libexec/PerfPowerServices"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:15:00.515362+00:00",
+      "external_cpu_percent": 138.3,
+      "top": [
+        {
+          "cpu_percent": 84.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 7.5,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 5.5,
+          "exe": "/usr/libexec/replayd"
+        },
+        {
+          "cpu_percent": 5.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:15:05.584183+00:00",
+      "external_cpu_percent": 254.0,
+      "top": [
+        {
+          "cpu_percent": 98.2,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 79.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 16.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 9.8,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 7.0,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 6.5,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:15:10.655189+00:00",
+      "external_cpu_percent": 152.0,
+      "top": [
+        {
+          "cpu_percent": 77.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 12.0,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 10.7,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 6.6,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 5.8,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:15:15.722336+00:00",
+      "external_cpu_percent": 241.20000000000002,
+      "top": [
+        {
+          "cpu_percent": 78.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 42.7,
+          "exe": "/Library/Apple/System/Library/PrivateFrameworks/RemotePairing.framework/Versions/A/XPCServices/remotepairingd.xpc/Contents/MacOS/remotepairingd"
+        },
+        {
+          "cpu_percent": 13.6,
+          "exe": "/usr/libexec/corebrightnessd"
+        },
+        {
+          "cpu_percent": 13.6,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 9.7,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T16:15:20.790829+00:00",
+      "external_cpu_percent": 154.6,
+      "top": [
+        {
+          "cpu_percent": 76.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 14.1,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 9.3,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 6.6,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 6.0,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        },
+        {
+          "cpu_percent": 5.0,
+          "exe": "/usr/libexec/lsd"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential production acceptance after the user confirmed competing workloads were closed. No overlapping builds/tests/profiling. CPU process monitoring does not establish idle GPU utilization."
+}
