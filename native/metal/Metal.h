@@ -92,6 +92,7 @@ struct Options {
   // Owned CPU-populated device snapshots on unified-memory hardware. Disable
   // to qualify the private-buffer/blit fallback; no host alias is exposed.
   bool sharedUploads = true;
+  bool workBoundedProgression = true;
 };
 struct Stats {
   std::uint64_t gpuNanoseconds = 0, encodingNanoseconds = 0, dispatches = 0;
@@ -191,6 +192,10 @@ struct NumericInstruction {
   // Map target bit 0 is a compiler proof that checked arithmetic cannot fault.
   // Branch/Jump target remains a forward instruction index. Other bits reserved.
   std::uint32_t output = UINT32_MAX, target = 0;
+  // Trusted compiler scheduling proof: hardware map DAG cost per output cell;
+  // matrix value 2 denotes multiply/add work per contraction cell, transform 8.
+  // Zero means unknown: retain the four-stage compatibility path.
+  std::uint32_t workPerElement = 0;
 };
 // Immutable validated code. Captured words are supplied separately for each
 // invocation, in Map instruction order; empty captures reuse prepared values.

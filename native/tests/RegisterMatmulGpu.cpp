@@ -32,7 +32,9 @@ static_assert(m::useRegisterMatmul(257, 4032, 257));
 static_assert(m::useRegisterMatmul(16, 4096, 4096));
 static_assert(!m::useRegisterMatmul(15, 512, 8192));
 static_assert(!m::useRegisterMatmul(8192, 512, 15));
-static_assert(!m::useRegisterMatmul(255, 512, 257));
+static_assert(m::useRegisterMatmul(255, 512, 257));
+static_assert(m::useRegisterMatmul(16, 512, 512));
+static_assert(!m::useRegisterMatmul(16, 512, 511));
 static_assert(!m::useRegisterMatmul(256, 511, 256));
 static_assert(!m::useRegisterMatmul(256, 513, 256));
 static_assert(!m::useRegisterMatmul(256, 4097, 256));
@@ -106,6 +108,7 @@ int main(int argc, char **argv) {
   CHECK(core);
   std::size_t cells = 0, cases = 0, products = 0;
   for (auto shape : std::array{
+           std::array{16, 512, 511},    std::array{16, 512, 512},
            std::array{256, 512, 256},    std::array{257, 576, 257},    std::array{257, 960, 257},
            std::array{257, 1024, 257},   std::array{257, 1984, 257},   std::array{257, 2048, 257},
            std::array{257, 2112, 257},   std::array{257, 4032, 257},   std::array{257, 4096, 257},

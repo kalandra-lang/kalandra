@@ -358,3 +358,57 @@ Next: resident scheduling/dispatch latency, including whether work-bounded
 chunks can replace the fixed four-stage cap while retaining a clear cancellation
 and resource contract. Any change to that contract needs explicit qualification;
 unbounded graph submission is not the proposed shortcut.
+
+## Work-bounded resident progression
+
+Completed against frozen `c29e4b14`. Compiler-costed hardware float32 plans now
+fill the existing 64 Mi estimated-work budget without also stopping at four
+logical stages. The four local parameter slots rotate into retained ownership.
+Unknown or missing proofs, software arithmetic, tight budgets and long plans
+retain the compatibility path. Cheap stages can share a checkpoint: this changes
+cancellation granularity, while preserving cancellation/fault precedence and
+acknowledgement-before-cleanup. It is not a wall-clock deadline guarantee.
+See the [contract](design/gpu-work-bounded-progression.md).
+
+All 27 primary medians improve: **10.5–55.8% less resident time**, **10.7–54.9%
+less activation-upload time**, and **3.6–51.1% less all-upload time**. One of 135
+primary blocks regresses and remains included. Same-binary policy control has
+positive medians and blocks throughout; the independent repeat confirms
+**53.5–54.9%** resident reductions for the one-token cases, **25.2%** for 16×512,
+and **10.8%** for 64×512. Submission counts fall from 4 to 1 for small cases,
+5 to 3 for 16×512/64×256, and 6 to 5 for 64×512, retaining 12 dispatches.
+
+Fresh largest resident times are GPU **1.53 ms**, CPU **10.90 ms**, MPSGraph
+**0.52 ms**: **7.10× our CPU speed, still 2.93× MPSGraph time**. All-upload times
+are GPU/MPSGraph **3.13/1.97 ms**. Tiny workloads still favor CPU. MPSGraph is a
+benchmark reference only; no production numerical dependency is added.
+
+Optimized, debug, ASan/UBSan and TSan qualification covers every held
+cancellation/deadline/device-failure boundary, allocation failures, concurrency,
+changing captures, aliases spanning owner windows, rank-1/3/8 chains with
+5/9/65/513 stages, expensive/saturating costs and partially missing proofs.
+Broader arithmetic, pipeline, ReLU, graph-batching, tensor-transform, storage,
+upload and numeric checks pass. A stale register-selection assertion was fixed
+and numerical cases were added on both sides of that threshold. Compiler tests
+check growing aggregate expression costs and absence of software proofs.
+
+All 23 shader text artifacts and CPU LLVM remain unchanged; measurements reuse
+the original Metal binaries. Every Kalandra result cell matches the baseline
+across 13 regular/odd shapes and all residency modes. Independent CPU/MPSGraph
+numerical bounds pass. Diagnostic profiling separately confirms dispatch counts;
+acceptance timing leaves those counters disabled.
+
+An initial full run under Android Studio load and a subsequently interrupted
+attempt are retained as diagnostics, not acceptance. All four acceptance studies
+were restarted after the user's explicit idle confirmation, with process-load
+samples retained. No tests, builds, GPU profiling or plotting overlap them.
+
+A longer paired profile places **0.51 ms inside GPU command intervals out of
+1.56 ms wall time** for the largest candidate, with 113 allocation checkpoints.
+This leaves substantial setup, submission, acknowledgement and queue-gap costs,
+but does not isolate one cause. Next: measure command-buffer creation, buffer and
+argument allocation, and inter-command gaps separately before choosing a bounded
+reusable-storage or submission-service design. Changing that architecture must
+retain the same cancellation, ownership and concurrency qualification.
+
+See the [audited report, chart, all outcomes and reproduction](../benchmarks/results/gpu-work-bounded-progression-2026-10-29.md).

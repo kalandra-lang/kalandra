@@ -189,6 +189,38 @@ class Builder {
     auto shader = emitNumericShader(normalized, id, options);
     if (!shader)
       throw Rejected{shader.error()};
+    // Only a finite, hardware-float32 expression DAG receives a work proof.
+    // The shader emitter memoizes ValueIds; uniform nodes are conservatively
+    // charged per lane too. Unknown operations and software arithmetic retain
+    // the legacy bounded-stage path. These are scheduling units, not cycles.
+    if (arithmetic_ == ArithmeticMode::Hardware && shader->noArithmeticFault && !visited.empty() &&
+        visited.size() <= UINT32_MAX / 32 &&
+        std::all_of(visited.begin(), visited.end(), [&](auto value) {
+          const auto &node = normalized.expressions.at(value);
+          if (node.type.builtin != BuiltinValue::Numeric ||
+              node.type.element != NumericType::Float32)
+            return false;
+          if (std::holds_alternative<SymbolRead>(node.operation) ||
+              std::holds_alternative<Float32Literal>(node.operation))
+            return true;
+          auto unary = [](auto op) {
+            return op == TokenKind::Plus || op == TokenKind::Minus || op == TokenKind::Relu;
+          };
+          auto binary = [](auto op) {
+            return op == TokenKind::Plus || op == TokenKind::Minus || op == TokenKind::Star ||
+                   op == TokenKind::Slash;
+          };
+          if (auto op = std::get_if<ScalarUnary>(&node.operation))
+            return unary(op->operation);
+          if (auto op = std::get_if<TensorUnary>(&node.operation))
+            return unary(op->operation);
+          if (auto op = std::get_if<ScalarBinary>(&node.operation))
+            return binary(op->operation);
+          if (auto op = std::get_if<TensorBinary>(&node.operation))
+            return binary(op->operation);
+          return false;
+        }))
+      instruction.workPerElement = std::uint32_t(visited.size()) * 32;
     // Emit optional matrix profiles only for an actual adjacent producer. Plain
     // maps must not pay for creating unused matrix pipeline states at startup.
     if (shader->noArithmeticFault && ref.type.tensor && !shader->indirect &&
@@ -221,6 +253,8 @@ class Builder {
     shader.nativeMetal = tensorTransformMetal(operation.kind, original.type.element);
     shader.tensorTypes = {original.type.element};
     NumericProgramInstruction op{NumericProgramKind::Map};
+    if (arithmetic_ == ArithmeticMode::Hardware && original.type.element == NumericType::Float32)
+      op.workPerElement = 8;
     op.inputs = {*input.buffer};
     if (epsilon) {
       shader.scalarTypes = {original.type.element};
@@ -264,6 +298,9 @@ class Builder {
     auto node = original;
     const auto a = parameter(left);
     NumericProgramInstruction op{kind};
+    if (kind == NumericProgramKind::Matmul && arithmetic_ == ArithmeticMode::Hardware &&
+        original.type.element == NumericType::Float32)
+      op.workPerElement = 2;
     op.inputs.push_back(*left.buffer);
     if (right) {
       const auto b = parameter(*right);

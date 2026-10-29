@@ -26,8 +26,9 @@ from the matrix, optional guard and map exactly once. Batched retirement retains
 all backing until device acknowledgement. Original inputs remain immutable;
 no user-visible ownership or mutation rule changes.
 
-Both computational operations count toward the existing four-logical-stage and
-estimated 64 Mi-work cancellation quantum. The existing exception for a single
+Both computational operations count toward the estimated 64 Mi-work cancellation
+quantum. Compiler-costed plans use [work-bounded progression](gpu-work-bounded-progression.md);
+other paths also retain the four-logical-stage cap. The existing exception for a single
 oversized fused dispatch remains: the map's estimated work is charged with the
 matrix, and no unrelated work is appended. Cancellation cannot interrupt a
 running Metal dispatch. Fusion changes physical checkpoint placement within

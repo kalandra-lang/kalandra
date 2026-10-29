@@ -1,5 +1,7 @@
 # Kalandra native benchmarks
 
+Latest GPU scheduling study: [work-bounded resident progression](results/gpu-work-bounded-progression-2026-10-29.md), with [chart](results/gpu-work-bounded-progression-2026-10-29.png), compiler cost proofs, cancellation/lifetime qualification, same-binary control, replication, fresh CPU/MPSGraph comparisons and retained contended diagnostics. All 27 case medians improve; resident time falls 10.5–55.8%. The largest case is 7.10× our CPU speed but still takes 2.93× MPSGraph time.
+
 Latest AI study: [verified CPU/GPU optimization sequence and complete transformer block](results/native-ai-performance-2026-10-28.md), with the [comparison chart](results/native-ai-performance-2026-10-28.png). It includes paired baselines, CPU numerical libraries, benchmark-only MPSGraph, per-cell correctness and the remaining typed GPU lifecycle gap.
 
 Earlier numerical study: [residual feed-forward CPU/GPU and optimized libraries](results/residual-ffn-2026-10-28.md). Two complete runs compare a bias-free expanding/contracting ReLU block with a residual connection, including resident, activation-upload and all-upload Metal modes. Each run checks 2,159,464 output cells. The study identifies CPU matrix execution and GPU residency/submission costs as follow-up areas; it does not establish full LLM or vendor-GPU-library parity. The [updated CPU comparison chart](results/cpu-comparison-2026-10-28.png) separately visualizes the committed wide/signed source-algorithm results ([editable SVG](results/cpu-comparison-2026-10-28.svg)).

@@ -103,9 +103,9 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
     const auto commands =
         after.submissions - before.submissions - 1; // readback is outside the program
     CHECK(after.dispatches - before.dispatches == (full ? 12 : 16));
-    CHECK(commands >= 4 && commands <= 16);
+    CHECK(commands >= 1 && commands <= 16);
     if (full)
-      CHECK(commands == (rows == 3 ? 4 : 6));
+      CHECK(commands == (preencoded ? (rows == 3 ? 1 : 5) : (rows == 3 ? 4 : 6)));
     else if (budget <= 65536)
       CHECK(commands == 16);
     // Shared immutable code, separate values/captures/parameter storage.
@@ -220,49 +220,69 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
       }
       // Prepared same-cell chains also preserve higher-rank tensor metadata,
       // private-backing reuse, and immutable original inputs.
-      for (unsigned stages : {5u, 513u})
-        for (const auto &shape :
-             std::vector<std::vector<std::int64_t>>{{24}, {2, 3, 4}, {1, 2, 1, 3, 1, 1, 1, 4}}) {
-          {
-            std::vector<float> cells(24);
-            std::vector<std::uint32_t> original(24), expected(24);
-            for (unsigned i = 0; i < cells.size(); ++i) {
-              cells[i] = float(int(i) - 12);
-              original[i] = std::bit_cast<std::uint32_t>(cells[i]);
-              float value = cells[i];
-              for (unsigned stage = 0; stage < stages; ++stage)
-                value = value + value;
-              expected[i] = std::bit_cast<std::uint32_t>(value);
+      for (unsigned stages : {5u, 9u, 65u, 513u})
+        for (std::uint32_t cost : {0u, 1u, 2u, 96u, 1u << 20, UINT32_MAX & ~31u}) {
+          // Long plans exercise admission fallback without multiplying the
+          // exhaustive short-plan boundary cases.
+          if (stages > 9 && cost != 0 && cost != 96)
+            continue;
+          for (const auto &shape :
+               std::vector<std::vector<std::int64_t>>{{24}, {2, 3, 4}, {1, 2, 1, 3, 1, 1, 1, 4}}) {
+            {
+              std::vector<float> cells(24);
+              std::vector<std::uint32_t> original(24), expected(24);
+              for (unsigned i = 0; i < cells.size(); ++i) {
+                cells[i] = float(int(i) - 12);
+                original[i] = std::bit_cast<std::uint32_t>(cells[i]);
+                float value = cells[i];
+                for (unsigned stage = 0; stage < stages; ++stage)
+                  value = value + value;
+                expected[i] = std::bit_cast<std::uint32_t>(value);
+              }
+              auto c = TaskCore::create();
+              auto g = c->openRoot();
+              auto h = r.hostTensor(std::as_bytes(std::span(cells)), shape, m::Format::Float32);
+              CHECK(h);
+              auto upload = r.upload(*c, g, *h, *r.device());
+              CHECK(upload && c->drain());
+              auto source = observe(*c, upload);
+              const bool aliases = stages == 9 && cost == 96;
+              std::vector<std::array<std::uint32_t, 2>> operands(stages);
+              std::vector<std::array<std::uint32_t, 1>> aliasOperands(stages);
+              std::vector<m::NumericInstruction> code;
+              for (unsigned i = 0; i < stages; ++i) {
+                const auto previous = aliases ? 2 * i : i;
+                operands[i] = {previous, previous};
+                // A single missing proof keeps the entire plan compatible.
+                const auto proof = cost == 2 ? (i == 2 ? 0u : 96u) : cost;
+                code.push_back({K::Map, *add, operands[i], {}, previous + 1, 1, proof});
+                if (aliases) {
+                  aliasOperands[i] = {previous + 1};
+                  code.push_back({K::Alias, {}, aliasOperands[i], {}, previous + 2});
+                }
+              }
+              auto plan = r.prepareNumericProgram(1, code, aliases ? stages * 2 : stages, f32, false);
+              CHECK(plan);
+              auto before = r.stats();
+              auto task = r.executeNumericProgram(*c, g, *plan, std::array{source});
+              CHECK(task && c->drain() && c->failure(task).kind == TaskFailure::None);
+              auto after = r.stats();
+              const bool workBounded = preencoded && stages <= 65 && cost >= 32;
+              const auto chunk = !workBounded         ? 4u
+                                 : cost == 96         ? stages
+                                 : cost == (1u << 20) ? 2u
+                                                      : 1u;
+              CHECK(after.submissions - before.submissions == (stages + chunk - 1) / chunk &&
+                    after.dispatches - before.dispatches == stages);
+              auto result = observe(*c, task);
+              CHECK(std::equal(result.shape().begin(), result.shape().end(), shape.begin(),
+                               shape.end()));
+              CHECK(download(r, *c, g, result) == expected);
+              CHECK(download(r, *c, g, source) == original);
+              retire(*c, g);
             }
-            auto c = TaskCore::create();
-            auto g = c->openRoot();
-            auto h = r.hostTensor(std::as_bytes(std::span(cells)), shape, m::Format::Float32);
-            CHECK(h);
-            auto upload = r.upload(*c, g, *h, *r.device());
-            CHECK(upload && c->drain());
-            auto source = observe(*c, upload);
-            std::vector<std::array<std::uint32_t, 2>> operands(stages);
-            std::vector<m::NumericInstruction> code(stages);
-            for (unsigned i = 0; i < code.size(); ++i) {
-              operands[i] = {i, i};
-              code[i] = {K::Map, *add, operands[i], {}, i + 1, 1};
-            }
-            auto plan = r.prepareNumericProgram(1, code, stages, f32, false);
-            CHECK(plan);
-            auto before = r.stats();
-            auto task = r.executeNumericProgram(*c, g, *plan, std::array{source});
-            CHECK(task && c->drain() && c->failure(task).kind == TaskFailure::None);
-            auto after = r.stats();
-            CHECK(after.submissions - before.submissions == (stages + 3) / 4 &&
-                  after.dispatches - before.dispatches == stages);
-            auto result = observe(*c, task);
-            CHECK(std::equal(result.shape().begin(), result.shape().end(), shape.begin(),
-                             shape.end()));
-            CHECK(download(r, *c, g, result) == expected);
-            CHECK(download(r, *c, g, source) == original);
-            retire(*c, g);
+            clean();
           }
-          clean();
         }
     }
     // Fused projections retain the staged bit patterns, including odd reductions,
@@ -277,10 +297,10 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
       auto relu = r.loadNumericGraphKernel(
           std::string(path) + "/kernel0-stage6.metallib", *r.device(), f32, {1, 0}, std::array{f32},
           {}, std::array<std::uint32_t, 1>{0}, std::array<std::uint8_t, 1>{0});
-      auto add = r.loadNumericGraphKernel(
-          std::string(path) + "/kernel0-stage5.metallib", *r.device(), f32, {2, 0},
-          std::array{f32, f32}, {}, std::array<std::uint32_t, 2>{0, 1},
-          std::array<std::uint8_t, 2>{0, 0});
+      auto add = r.loadNumericGraphKernel(std::string(path) + "/kernel0-stage5.metallib",
+                                          *r.device(), f32, {2, 0}, std::array{f32, f32}, {},
+                                          std::array<std::uint32_t, 2>{0, 1},
+                                          std::array<std::uint8_t, 2>{0, 0});
       CHECK(matrix && scale && relu && add);
       auto uploadBits = [&](const std::vector<std::uint32_t> &bits,
                             std::array<std::int64_t, 2> shape) {
@@ -294,9 +314,13 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
         retire(*c, g);
         return b;
       };
-      for (auto dims : std::array<std::array<unsigned, 3>, 7>{
-               {{1, 1, 1}, {1, 7, 9}, {3, 5, 7}, {17, 65, 9}, {16, 64, 16},
-                {16, 512, 512}, {17, 1024, 513}}})
+      for (auto dims : std::array<std::array<unsigned, 3>, 7>{{{1, 1, 1},
+                                                               {1, 7, 9},
+                                                               {3, 5, 7},
+                                                               {17, 65, 9},
+                                                               {16, 64, 16},
+                                                               {16, 512, 512},
+                                                               {17, 1024, 513}}})
         for (unsigned pattern = 0; pattern < 4; ++pattern) {
           std::vector<std::uint32_t> a(dims[0] * dims[1]), b(dims[1] * dims[2]);
           constexpr std::array<std::uint32_t, 12> corners{
@@ -511,12 +535,12 @@ static void guardedResidual(const char *path) {
   auto made = m::Runtime::create({.profile = true});
   CHECK(made);
   auto &r = **made;
-  auto matrix = r.loadNumericMatmulKernel(std::string(path) + "/kernel0-stage1.metallib",
-                                        *r.device(), f32);
-  auto subtract = r.loadNumericGraphKernel(
-      std::string(path) + "/kernel0-stage2.metallib", *r.device(), f32, {2, 0},
-      std::array{f32, f32}, {}, std::array<std::uint32_t, 2>{0, 1},
-      std::array<std::uint8_t, 2>{0, 0});
+  auto matrix =
+      r.loadNumericMatmulKernel(std::string(path) + "/kernel0-stage1.metallib", *r.device(), f32);
+  auto subtract =
+      r.loadNumericGraphKernel(std::string(path) + "/kernel0-stage2.metallib", *r.device(), f32,
+                               {2, 0}, std::array{f32, f32}, {}, std::array<std::uint32_t, 2>{0, 1},
+                               std::array<std::uint8_t, 2>{0, 0});
   CHECK(matrix && subtract);
   auto c = TaskCore::create();
   auto upload = [&](std::vector<float> cells, std::array<std::int64_t, 2> shape) {
@@ -544,9 +568,9 @@ static void guardedResidual(const char *path) {
       if (!equal && (scenario == 1 || scenario >= 4))
         continue;
       const auto inputs = std::array{scenario == 3 ? empty : a, b,
-                                    scenario == 1 || (scenario >= 4 && scenario <= 6) ? mismatch
-                                    : scenario == 3                ? empty
-                                                                   : residual};
+                                     scenario == 1 || (scenario >= 4 && scenario <= 6) ? mismatch
+                                     : scenario == 3                                   ? empty
+                                                                                       : residual};
       auto plan = r.prepareNumericProgram(3, code, 4, f32, false);
       CHECK(plan);
       auto g = c->openRoot();
@@ -587,7 +611,8 @@ static void guardedResidual(const char *path) {
       CHECK(r.stats().bytes == baseline.bytes && !r.stats().inFlight &&
             r.stats().argumentBytes == baseline.argumentBytes);
     }
-  std::puts("guarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed");
+  std::puts("guarded residual: operand order, empty output, passing/failing guards and "
+            "fault/cancel precedence passed");
 }
 int main(int argc, char **argv) {
   CHECK(argc == 3);

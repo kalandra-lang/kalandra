@@ -32,7 +32,9 @@ source.write_text((root/'native/benchmarks/TransformerBlock.k').read_text().spli
 ''')
 bundle=out/'bundle';run([compiler,source,'--target','metal','--arithmetic','hardware','-O2','-o',bundle])
 host=(bundle/'host.cpp').read_text()
-assert len(__import__('re').findall(r'NumericInstructionKind::Map,[^}]*,1u\}',host))==4
+assert len(__import__('re').findall(r'NumericInstructionKind::Map,[^}]*,1u,\d+u\}',host))==4
+assert host.count(',0u,8u}') == 4 # structural transform work proofs
+assert host.count(',0u,2u}') == 8 # hardware matrix work proofs
 (out/'TransformerProgram.h').write_text(prepared_program.header(host))
 (out/'LegacyProgram.h').write_text(prepared_program.header(host,False))
 variants=[('optimized',['-O2'],'libkalandra-task-core-optimized.a')]
@@ -82,7 +84,7 @@ for name,flags,task in variants:
     run([model_bundle/'program'])
     run([compiler,unsafe,'--target','metal','--arithmetic','hardware',flag,'-o',checked])
     generated=(checked/'host.cpp').read_text()
-    assert len(__import__('re').findall(r'NumericInstructionKind::Map,[^}]*,0u\}',generated))>=3
+    assert len(__import__('re').findall(r'NumericInstructionKind::Map,[^}]*,0u(?:,8u)?\}',generated))>=3
     failed=subprocess.run([str(checked/'program')],capture_output=True,text=True,timeout=60)
     assert failed.returncode and 'Metal task failed: 1/4' in failed.stderr,failed
     assert not any(x in failed.stderr for x in ('AddressSanitizer','ThreadSanitizer','runtime error:')),failed.stderr

@@ -1153,6 +1153,11 @@ if(BUILD_TESTING)
       --output "${CMAKE_CURRENT_BINARY_DIR}/graph-batching")
   set_tests_properties(native-metal-graph-batching PROPERTIES TIMEOUT 900
     RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
+  add_test(NAME native-metal-work-proofs
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/NumericWorkProofTests.py"
+      --compiler "$<TARGET_FILE:kalandra>"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/work-proofs")
+  set_tests_properties(native-metal-work-proofs PROPERTIES TIMEOUT 900)
   add_test(NAME native-metal-prepared-programs
     COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/PreparedNumericProgramTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

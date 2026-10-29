@@ -1540,7 +1540,7 @@ class Compiler {
                                  program.kernels[op.kernel].noArithmeticFault
                              ? 1u
                              : op.target) +
-          "u},";
+          "u" + (op.workPerElement ? "," + std::to_string(op.workPerElement) + "u" : "") + "},";
     }
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
             "u,code," + std::to_string(program.result) + "u," + elementName(program.type.element) +

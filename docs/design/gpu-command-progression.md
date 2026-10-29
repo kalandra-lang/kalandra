@@ -30,7 +30,8 @@ host-bound valid epsilon. Shape guards and aliases are checked before encoding.
 Branching, downloads, scalar results, device scalar operands, checked conversions,
 other numerical formats and invalid or unproved regions retain the existing
 streaming path. This changes scheduling and ownership; generated numerical
-shader code and the instruction ABI are unchanged.
+shader code is unchanged. The later [work-bounded progression](gpu-work-bounded-progression.md)
+adds optional scheduling metadata to the private instruction structure.
 
 The preflight computes shapes and conservatively sums every output, transform
 scratch allocation and parameter buffer without assuming backing reuse or fusion.
@@ -50,9 +51,12 @@ in 129 chunks through the fallback.
 
 ## Cancellation, errors and lifetime
 
-The original four-logical-stage / 64 Mi-work quantum remains. An oversized
-matrix remains a singleton quantum, including its previously supported fused
-post-map. Fusion continues to count both logical instructions.
+Unproved plans and streaming execution retain the original four-logical-stage /
+64 Mi-work quantum. Compiler-costed hardware float32 plans now use the
+[work-bounded policy](gpu-work-bounded-progression.md), allowing more than four
+cheap stages in one command. An oversized kernel remains a singleton quantum,
+including its previously supported fused post-map. Fusion charges both logical
+instructions. These are structural work estimates, not wall-clock deadlines.
 
 `ExternalCompletion::cancelled()` is a synchronized, generation- and epoch-checked
 read of the leased task's cancellation state. Expired or stale capabilities stop

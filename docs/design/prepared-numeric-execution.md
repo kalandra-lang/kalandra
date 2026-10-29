@@ -1,5 +1,9 @@
 # Prepared typed GPU execution
 
+This records the initial implementation. The later
+[work-bounded progression policy](gpu-work-bounded-progression.md) replaces its
+four-stage cap for compiler-costed hardware float32 plans.
+
 Work continues on `native` from `27522768`. Baseline compiler, runtime, driver,
 generated instruction header and executable are frozen before edits.
 

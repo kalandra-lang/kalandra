@@ -1,5 +1,9 @@
 # Typed projection epilogues and private tensor reuse
 
+This records the initial fusion work. Compiler-costed hardware float32 plans now
+use [work-bounded progression](gpu-work-bounded-progression.md); other paths retain
+the four-stage quantum described below.
+
 Continue on `native` from the prepared-execution runtime at `ca7b5705`.
 The compiler, runtime archives, generated program header and GPU executable
 were frozen before edits in `benchmarks/.build/gpu-fusion-2026-10-28/baseline`.

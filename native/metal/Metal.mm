@@ -201,7 +201,7 @@ allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uin
     buffer = [state->devices[index]
         newBufferWithLength:n
                     options:(staging || shared) ? MTLResourceStorageModeShared
-                                               : MTLResourceStorageModePrivate];
+                                                : MTLResourceStorageModePrivate];
   if (!buffer) {
     state->bytes -= n;
     return std::unexpected(Error::Allocation);
@@ -213,11 +213,9 @@ allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uin
     return std::unexpected(Error::Allocation);
   }
 }
-std::expected<std::shared_ptr<Storage>, Error> allocateStorage(const std::shared_ptr<State> &state,
-                                                               std::span<const std::int64_t> shape,
-                                                               Format format, bool device,
-                                                               std::uint32_t index = 0,
-                                                               bool shared = false) {
+std::expected<std::shared_ptr<Storage>, Error>
+allocateStorage(const std::shared_ptr<State> &state, std::span<const std::int64_t> shape,
+                Format format, bool device, std::uint32_t index = 0, bool shared = false) {
   auto size = tensorBytes(shape, format);
   if (!size)
     return std::unexpected(size.error());
@@ -312,6 +310,7 @@ struct NumericProgramArguments {
     std::uint32_t output, target;
     std::uint32_t scalarOffset = 0;
     std::shared_ptr<const Arguments> arguments;
+    std::uint32_t workPerElement = 0;
   };
   std::shared_ptr<State> state;
   std::vector<Instruction> ownedCode;
@@ -509,7 +508,8 @@ struct Bridge {
                                      op.output,
                                      op.target,
                                      0,
-                                     {}});
+                                     {},
+                                     op.workPerElement});
         auto &instruction = result->ownedCode.back();
         instruction.scalarOffset = result->captureCount;
         if (op.kind == NumericInstructionKind::Map) {
@@ -939,6 +939,7 @@ struct Bridge {
     std::vector<Owner> owners;
     std::vector<Checkpoint> checkpoints;
     std::uint64_t reserved = 0, commandCredits = 0;
+    bool workChunks = false;
     ~Progression() {
       // Return pool reservations only after dropping unsubmitted commands.
       checkpoints.clear();
@@ -1604,13 +1605,14 @@ struct Bridge {
         return result;
     return {};
   }
-  static void retainProgressionChunk(Frame &f) {
+  static void retainProgressionChunk(Frame &f, bool keepWork = false) {
     auto &p = *f.progression;
     for (unsigned i = 0; i < f.numericBatched; ++i)
       p.owners.push_back({std::move(f.numericParameters[i]), std::move(f.numericResources[i]),
                           std::move(f.numericScratch[i]), f.numericFlagWords[i]});
     f.numericBatched = 0;
-    f.numericWork = 0;
+    if (!keepWork)
+      f.numericWork = 0;
   }
   static void checkpointProgression(Frame &f) {
     retainProgressionChunk(f);
@@ -1859,10 +1861,9 @@ struct Bridge {
                     [](auto type) { return type != NumericType::Float32; }) ||
         std::any_of(k->scalarTypes.begin(), k->scalarTypes.end(),
                     [](auto type) { return type != NumericType::Float32; }) ||
-        k->readCount != post.inputs.size() ||
-        !k->readCount || k->reads[0] != 0 || post.inputs.empty() || post.inputs.size() > 2 ||
-        post.inputs[0] != op.output || p.values[post.output] ||
-        p.uses[op.output] != 1u + unsigned(guarded) ||
+        k->readCount != post.inputs.size() || !k->readCount || k->reads[0] != 0 ||
+        post.inputs.empty() || post.inputs.size() > 2 || post.inputs[0] != op.output ||
+        p.values[post.output] || p.uses[op.output] != 1u + unsigned(guarded) ||
         std::count(post.inputs.begin(), post.inputs.end(), op.output) != 1 ||
         std::any_of(k->scalarBuffers.begin(), k->scalarBuffers.end(), [](auto x) { return x; }) ||
         std::none_of(k->fusedMatrices.begin(), k->fusedMatrices.end(),
@@ -1963,6 +1964,10 @@ struct Bridge {
           return {};
     }
     const auto &a = p.values[op.inputs[0]];
+    const bool costed = f.progression && f.progression->workChunks;
+    auto charge = [&](std::uint64_t cells, std::uint64_t unit) {
+      return unit && cells > limit / unit ? limit + 1 : cells * unit;
+    };
     if (op.kind == K::Matmul) {
       const auto &b = p.values[op.inputs[1]];
       if (a.shape().size() != 2 || b.shape().size() != 2 || a.shape()[1] != b.shape()[0])
@@ -1972,7 +1977,11 @@ struct Bridge {
       if (cells > UINT32_MAX)
         return {};
       const auto matrixWork = inner && cells > limit / 2 / inner ? limit + 1 : cells * inner * 2;
-      return std::min(limit + 1, matrixWork + (f.numericPostWanted ? cells * 2 : 0));
+      const auto postWork =
+          f.numericPostWanted
+              ? charge(cells, costed ? p.code[numericPostIndex(p)].workPerElement : 2)
+              : 0;
+      return std::min(limit + 1, matrixWork + postWork);
     }
     if (k->indirect() || k->readCount == 0 ||
         std::any_of(k->scalarBuffers.begin(), k->scalarBuffers.end(), [](auto x) { return x; }) ||
@@ -1998,7 +2007,7 @@ struct Bridge {
     }
     if (op.target != 1)
       return {};
-    return std::min(limit + 1, a.bytes() / 4 * 2);
+    return charge(a.bytes() / 4, costed ? op.workPerElement : 2);
   }
   static bool numericHeadroom(const Frame &f, std::uint64_t work) {
     constexpr auto limit = UINT64_C(64) * 1024 * 1024;
@@ -2027,6 +2036,7 @@ struct Bridge {
         program.element != NumericType::Float32 || program.code.size() < 5)
       return {};
     std::size_t computes = 0;
+    bool costed = state->options.workBoundedProgression;
     for (const auto &op : program.code) {
       if (task.cancelled())
         return {};
@@ -2044,6 +2054,9 @@ struct Bridge {
             std::any_of(k->scalarTypes.begin(), k->scalarTypes.end(),
                         [](auto t) { return t != NumericType::Float32; }))
           return {};
+        costed &= op.kind == K::Matmul ? op.workPerElement == 2
+                  : k->transform       ? op.workPerElement == 8
+                                       : op.workPerElement >= 32 && op.workPerElement % 32 == 0;
       }
     }
     if (computes < 5 || computes - 1 > state->options.maxInFlight)
@@ -2075,6 +2088,7 @@ struct Bridge {
       return std::unexpected(Error::Allocation);
     }
     candidate->state = state;
+    candidate->workChunks = costed;
     candidate->reserved = metadata;
     ++state->argumentPacks;
     try {
@@ -2304,9 +2318,9 @@ struct Bridge {
               }
               if (f.numericFused && f.fusedParameters &&
                   static_cast<const std::uint32_t *>(
-                      f.fusedParameters->buffer
-                          .contents)[program.code[numericPostIndex(program)].kernel.state_->parameterWords() -
-                                     1] != UINT32_MAX) {
+                      f.fusedParameters->buffer.contents)[program.code[numericPostIndex(program)]
+                                                              .kernel.state_->parameterWords() -
+                                                          1] != UINT32_MAX) {
                 fail(task, f, 4);
                 return;
               }
@@ -2341,7 +2355,10 @@ struct Bridge {
             if (f.numericBatched == 4 ||
                 ((f.numericBatched || f.progression) && program.pc == program.code.size())) {
               if (f.progression && program.pc != program.code.size()) {
-                checkpointProgression(f);
+                if (f.progression->workChunks)
+                  retainProgressionChunk(f, true);
+                else
+                  checkpointProgression(f);
                 continue;
               }
               flushNumeric(task, f);
@@ -2382,6 +2399,11 @@ struct Bridge {
             f.numericEligible = false;
             f.numericFused = false;
             f.numericResultOrigin = UINT32_MAX;
+            // The four slots are an owner-storage window, not a submission
+            // boundary for cost-proven plans. Leave two slots for an epilogue.
+            if (f.progression && f.progression->workChunks && f.numericBatched > 2 &&
+                op.kind == K::Matmul)
+              retainProgressionChunk(f, true);
             f.numericPostWanted = numericPostCandidate(f);
             if (op.kind == K::Map || op.kind == K::Matmul || op.kind == K::Reduce ||
                 op.kind == K::Branch || (op.kind == K::Alias && program.values[op.output])) {
@@ -2389,13 +2411,13 @@ struct Bridge {
               f.numericEligible = work && numericHeadroom(f, *work);
               if (f.progression && work) {
                 constexpr auto limit = UINT64_C(64) * 1024 * 1024;
-                if (f.numericBatched && (*work > limit || f.numericWork > limit - *work)) {
+                if (f.pendingCommand && (*work > limit || f.numericWork > limit - *work)) {
                   checkpointProgression(f);
                   continue;
                 }
                 f.numericEligible = true; // A large singleton keeps the original quantum.
               }
-              if (f.numericBatched && !f.numericEligible) {
+              if (f.pendingCommand && !f.numericEligible) {
                 flushNumeric(task, f);
                 return;
               }
@@ -2932,7 +2954,8 @@ struct Bridge {
                                  : graphPost ? graphPost
                                              : f.packet.matrixPost;
         const auto &postArguments =
-            numericPost ? f.packet.numericProgram->code[numericPostIndex(*f.packet.numericProgram)].arguments
+            numericPost ? f.packet.numericProgram->code[numericPostIndex(*f.packet.numericProgram)]
+                              .arguments
             : graphPost ? graphPostArguments
                         : f.packet.postArguments;
         auto postTensor = [&](std::size_t i) -> const Buffer & {

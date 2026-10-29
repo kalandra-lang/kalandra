@@ -19,6 +19,7 @@ struct NumericProgramInstruction {
   std::vector<std::uint32_t> inputs{}, scalarSources{};
   std::vector<std::uint64_t> constants{};
   std::uint32_t output = UINT32_MAX, target = 0;
+  std::uint32_t workPerElement = 0;
 };
 struct NumericProgram {
   std::vector<NumericShader> kernels;
