@@ -95,6 +95,8 @@ struct Options {
   bool workBoundedProgression = true;
   // Invocation-private argument backing; false retains separate buffers.
   bool parameterArena = true;
+  // Singleton/empty transpose views; false retains the device-copy control.
+  bool contiguousTranspose = true;
 };
 struct Stats {
   std::uint64_t gpuNanoseconds = 0, encodingNanoseconds = 0, dispatches = 0;

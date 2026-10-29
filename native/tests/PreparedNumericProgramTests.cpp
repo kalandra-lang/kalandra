@@ -46,10 +46,11 @@ static std::vector<std::uint32_t> download(m::Runtime &r, TaskCore &c, GroupHand
   return result;
 }
 static void test(const char *path, std::uint64_t budget, bool full, bool preencoded,
-                 unsigned rows = 3, unsigned width = 7, bool arena = true) {
+                 unsigned rows = 3, unsigned width = 7, bool arena = true, bool views = true) {
   m::Options options;
   options.maxBytes = budget;
   options.parameterArena = arena;
+  options.contiguousTranspose = views;
   options.profile = true;
   options.preencodedProgression = preencoded;
   options.retainedProgressionReferences = false;
@@ -103,10 +104,10 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
     auto after = r.stats();
     const auto commands =
         after.submissions - before.submissions - 1; // readback is outside the program
-    CHECK(after.dispatches - before.dispatches == (full ? 12 : 16));
+    CHECK(after.dispatches - before.dispatches == (full ? 12 : 16) - unsigned(views && rows == 1 && (!full || preencoded)));
     CHECK(commands >= 1 && commands <= 16);
     if (full)
-      CHECK(commands == (preencoded ? (rows == 3 ? 1 : 5) : (rows == 3 ? 4 : 6)));
+      CHECK(commands == (preencoded ? (rows <= 3 ? 1 : 5) : (rows <= 3 ? 4 : 6)));
     else if (budget <= 65536)
       CHECK(commands == 16);
     // Shared immutable code, separate values/captures/parameter storage.
@@ -476,7 +477,10 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
           return r.stats().submissions == start + boundary + 1 && c->stats().externalPending == 1;
         });
         auto held = r.stats();
-        CHECK(held.inFlight == 1 && held.stagingBuffers == (preencoded ? (arena ? 1 : 16) : 4) &&
+        const bool view = views && rows == 1;
+        const auto parameters = preencoded ? (arena ? 1 : 16 - unsigned(view))
+                                : 4 - unsigned(view && boundary + 1 == commands);
+        CHECK(held.inFlight == 1 && held.stagingBuffers == parameters &&
               held.bytes > baseline.bytes);
         CHECK(r.progressionCommandReservations() == (preencoded ? 15 : 0));
         if (scenario < 2)
@@ -522,7 +526,7 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
       retire(*c, g);
       clean();
     }
-    std::printf("prepared: %llu allocation checkpoints, %llu commands/12 dispatches, %llu held "
+    std::printf("prepared: %llu allocation checkpoints, %llu commands (dispatch count checked), %llu held "
                 "failure boundaries, changing captures and 8 concurrent calls passed\n",
                 (unsigned long long)attempts, (unsigned long long)commands,
                 (unsigned long long)(commands * 3));
@@ -616,6 +620,82 @@ static void guardedResidual(const char *path) {
   std::puts("guarded residual: operand order, empty output, passing/failing guards and "
             "fault/cancel precedence passed");
 }
+static void transposeViews(const char *path) {
+  using K = m::NumericInstructionKind;
+  constexpr auto f32 = kalandra::NumericType::Float32;
+  for (bool enabled : {false, true}) {
+    m::Options options;
+    options.profile = true;
+    options.contiguousTranspose = enabled;
+    auto made = m::Runtime::create(options);
+    CHECK(made);
+    auto &r = **made;
+    {
+      auto transpose = r.loadTensorTransformKernel(std::string(path) + "/kernel0-stage2.metallib",
+          *r.device(), kalandra::TensorTransformKind::Transpose, f32, false);
+      auto add = r.loadNumericGraphKernel(std::string(path) + "/kernel0-stage5.metallib",
+          *r.device(), f32, m::ElementwiseSignature{2, 0},
+          std::array{f32, f32}, std::array<kalandra::NumericType, 0>{},
+          std::array<std::uint32_t, 2>{0, 1}, std::array<std::uint8_t, 2>{0, 0});
+      CHECK(transpose && add);
+      for (const auto shape : {std::array<std::int64_t, 2>{1, 37}, {37, 1}, {1, 1},
+                               {0, 7}, {7, 0}, {2, 3}}) {
+        constexpr std::array<std::uint32_t, 8> bits{0, 0x80000000u, 1, 0x007fffffu,
+            0x7f800000u, 0xff800000u, 0x7fc00001u, 0x3f9e0652u};
+        std::vector<std::uint32_t> cells(shape[0] * shape[1]);
+        for (std::size_t i = 0; i < cells.size(); ++i) cells[i] = bits[i % bits.size()];
+        auto c = TaskCore::create(); auto g = c->openRoot();
+        auto h = r.hostTensor(std::as_bytes(std::span(cells)), shape, m::Format::Float32);
+        CHECK(h); auto upload = r.upload(*c, g, *h, *r.device());
+        CHECK(upload && c->drain()); auto input = observe(*c, upload);
+        std::array<std::array<std::uint32_t, 1>, 9> operands;
+        std::vector<m::NumericInstruction> code;
+        for (unsigned i = 0; i < operands.size(); ++i) {
+          operands[i] = {i}; code.push_back({K::Map, *transpose, operands[i], {}, i + 1, 0, 8});
+        }
+        auto plan = r.prepareNumericProgram(1, code, 9, f32, false); CHECK(plan);
+        auto before = r.stats(); auto t = r.executeNumericProgram(*c, g, *plan, std::array{input});
+        CHECK(t && c->drain() && c->failure(t).kind == TaskFailure::None);
+        auto after = r.stats(); auto result = observe(*c, t);
+        const bool view = enabled && (shape[0] <= 1 || shape[1] <= 1);
+        CHECK(after.dispatches - before.dispatches == (view ? 0 : 9));
+        if (view) CHECK(after.submissions == before.submissions && after.bytes == before.bytes);
+        CHECK(result.shape()[0] == shape[1] && result.shape()[1] == shape[0]);
+        std::vector<std::uint32_t> expected(cells.size());
+        for (std::int64_t a = 0; a < shape[0]; ++a)
+          for (std::int64_t b = 0; b < shape[1]; ++b) expected[b * shape[0] + a] = cells[a * shape[1] + b];
+        CHECK(download(r, *c, g, result) == expected);
+        CHECK(download(r, *c, g, input) == cells);
+        retire(*c, g);
+      }
+      for (bool costed : {false, true}) {
+        auto c = TaskCore::create(); auto g = c->openRoot();
+        std::array<float, 4> cells{1.25f, -2.5f, 3.f, 4.f};
+        auto h = r.hostTensor(std::as_bytes(std::span(cells)), std::array<std::int64_t, 2>{1, 4}, m::Format::Float32);
+        CHECK(h); auto upload = r.upload(*c, g, *h, *r.device());
+        CHECK(upload && c->drain()); auto input = observe(*c, upload);
+        std::array<std::uint32_t, 2> aa{0,0}, bb{2,2}, sum{1,4};
+        std::array<std::uint32_t, 1> first{1}, second{3};
+        const auto proof = costed ? 96u : 0u;
+        const std::array<m::NumericInstruction, 6> code{{
+          {K::Map,*add,aa,{},1,1,proof}, {K::Map,*transpose,first,{},2,0,8},
+          {K::Map,*add,bb,{},3,1,proof}, {K::Map,*transpose,second,{},4,0,8},
+          {K::EqualShape,{},sum}, {K::Map,*add,sum,{},5,1,proof}}};
+        auto plan = r.prepareNumericProgram(1,code,5,f32,false); CHECK(plan);
+        auto before = r.stats();auto task=r.executeNumericProgram(*c,g,*plan,std::array{input});
+        CHECK(task && c->drain() && c->failure(task).kind==TaskFailure::None);
+        CHECK(r.stats().dispatches-before.dispatches==(enabled?3:5));
+        auto result=download(r,*c,g,observe(*c,task));
+        for(unsigned i=0;i<4;++i)CHECK(result[i]==std::bit_cast<std::uint32_t>(cells[i]*6));
+        auto original=download(r,*c,g,input);
+        CHECK(std::memcmp(original.data(),cells.data(),sizeof(cells))==0);
+        retire(*c,g);
+      }
+    }
+    CHECK(!r.stats().bytes && !r.stats().metalBuffers && !r.stats().deviceBackings && !r.stats().inFlight);
+  }
+  std::puts("transpose views: exact bit payloads, zero device work, odd/empty shapes and backing alias safety passed");
+}
 static void parameterBudget(const char *path) {
   std::vector<std::uint32_t> expected;
   for (auto budget : {67584u, 73728u}) {
@@ -623,6 +703,7 @@ static void parameterBudget(const char *path) {
       m::Options options;
       options.maxBytes = budget;
       options.parameterArena = arena;
+      options.contiguousTranspose = false; // Isolate the parameter-padding boundary.
       auto made = m::Runtime::create(options);
       CHECK(made);
       auto &r = **made;
@@ -668,8 +749,13 @@ static void parameterBudget(const char *path) {
 }
 int main(int argc, char **argv) {
   CHECK(argc == 3);
+  transposeViews(argv[1]);
   parameterBudget(argv[1]);
   guardedResidual(argv[2]);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, false, 1, 64);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 1, 64);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 1, 64, false);
+  test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 1, 64, true, false);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, false);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 64, 512);

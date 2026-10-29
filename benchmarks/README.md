@@ -68,3 +68,9 @@ block, per-cell qualification and the remaining typed GPU lifecycle gap.
 The [chart](results/native-ai-performance-2026-10-28.png) includes regressions and
 the MPSGraph control. Executables, IR, toolchains and frozen experiment builds
 remain in ignored storage; tracked evidence contains measurements and digests.
+
+Latest Metal follow-up: [contiguous transpose views](results/gpu-transpose-view-2026-10-29.md),
+with singleton/empty alias qualification, exact output controls, streaming
+fallback, repeated whole-block timings and retained inactive-shape regressions.
+The general transposed-matrix kernels remain rejected. This follows the
+[private parameter arena](results/gpu-parameter-arena-2026-10-29.md).

@@ -96,7 +96,11 @@ static int oneCase(int argc, char **argv) {
   check(!context.live() && context.allocations()==context.releases());
 #else
   check(argc==10);
-  auto made=m::Runtime::create();check(bool(made));auto &runtime=**made;
+  m::Options options;
+  // Held-completion cases deliberately exercise the physical GPU path. A
+  // contiguous transpose view has no device completion to hold or fail.
+  options.contiguousTranspose=cancel<2;
+  auto made=m::Runtime::create(options);check(bool(made));auto &runtime=**made;
   auto device=runtime.device();check(bool(device));
   const auto kind=OP==0?TensorTransformKind::Transpose:OP==1?TensorTransformKind::SoftmaxRows:TensorTransformKind::RmsNormRows;
   auto kernel=runtime.loadTensorTransformKernel(std::string(argv[9])+"/kernel0.metallib",*device,kind,Element,OP==2 && layout==1);

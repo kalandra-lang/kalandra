@@ -1976,7 +1976,9 @@ struct Bridge {
         continue;
       bool alias = false;
       for (std::size_t i = 0; i < p.values.size(); ++i)
-        if (i != id && p.uses[i] && p.values[i].storage_ == value.storage_) {
+        if (i != id && p.uses[i] && p.values[i].storage_ &&
+            (p.values[i].storage_ == value.storage_ ||
+             (value.storage_->metal && p.values[i].storage_->metal == value.storage_->metal))) {
           alias = true;
           break;
         }
@@ -2408,7 +2410,9 @@ struct Bridge {
             if (task.cancelled())
               return;
             if (f.numericBatched == 4 ||
-                ((f.numericBatched || f.progression) && program.pc == program.code.size())) {
+                ((f.numericBatched ||
+                  (f.progression && (f.pendingCommand || !f.progression->checkpoints.empty()))) &&
+                 program.pc == program.code.size())) {
               if (f.progression && program.pc != program.code.size()) {
                 if (f.progression->workChunks)
                   retainProgressionChunk(f, true);
@@ -2451,6 +2455,49 @@ struct Bridge {
               return program.values[op.inputs[i]];
             };
             using K = NumericInstructionKind;
+            // A singleton/empty matrix transpose has the same contiguous byte
+            // order. Share immutable backing and change only private shape
+            // metadata; no device access is needed. Preserve origin identity
+            // so external captures never become eligible for destructive reuse.
+            if (state->options.contiguousTranspose && op.kind == K::Map &&
+                op.inputs.size() == 1 && op.scalars.empty() && !program.values[op.output]) {
+              const auto &kernel = op.kernel.state_;
+              const auto &source = input(0).storage_;
+              if (kernel && kernel->transform == TensorTransformKind::Transpose &&
+                  kernel->numericType && kernel->signature && kernel->signature->tensors == 1 &&
+                  kernel->signature->scalars == 0 && source && source->rank == 2 &&
+                  (source->dimensions[0] <= 1 || source->dimensions[1] <= 1) &&
+                  std::uint64_t(source->dimensions[0]) <= UINT32_MAX &&
+                  std::uint64_t(source->dimensions[1]) <= UINT32_MAX &&
+                  source->size / describeNumeric(*kernel->numericType)->bytes() <= UINT32_MAX &&
+                  source->format == *storageFormat(*kernel->numericType) && source->device &&
+                  kernel->registry == state && source->state == state &&
+                  source->deviceIndex == kernel->index) {
+                try {
+                  if (!state->permit()) {
+                    fail(task, f, std::int64_t(Error::Allocation));
+                    return;
+                  }
+                  auto view = std::make_shared<Storage>(state, true);
+                  view->rank = 2;
+                  view->dimensions[0] = source->dimensions[1];
+                  view->dimensions[1] = source->dimensions[0];
+                  view->format = source->format;
+                  view->deviceIndex = source->deviceIndex;
+                  view->size = source->size;
+                  view->metal = source->metal;
+                  program.values[op.output] = Buffer(std::move(view));
+                  if (!program.origins.empty())
+                    program.origins[op.output] = program.origins[op.inputs[0]];
+                  program.release(op.inputs[0]);
+                  ++program.pc;
+                  continue;
+                } catch (...) {
+                  fail(task, f, std::int64_t(Error::Allocation));
+                  return;
+                }
+              }
+            }
             f.numericEligible = false;
             f.numericFused = false;
             f.numericResultOrigin = UINT32_MAX;

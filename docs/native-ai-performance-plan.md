@@ -483,3 +483,35 @@ Sequence, adapting only to measured evidence:
 ### Encoder reuse screen — rejected
 
 Both serial encoder prototypes passed 72 exact output comparisons with Metal validation, but neither produced a reliable cross-case gain. Keep the existing per-dispatch encoders. [Full negative evidence](../benchmarks/results/gpu-encoder-reuse-screen-2026-10-29.md) is retained. Continue with transpose/matmul dataflow fusion, preserving the fixed arithmetic tree and shape guards.
+
+### Qualified: contiguous transpose views
+
+General direct/transposed matrix profiles regressed the larger workloads; retain
+those experiments without changing production kernels. The narrower singleton
+and empty transpose can share contiguous immutable backing. Backing alias safety, all ten types, four runtime modes and 26 broader test
+groups pass. Frozen/control/repeated timings plus 78 separate streaming output
+comparisons are retained in the [acceptance report](../benchmarks/results/gpu-transpose-view-2026-10-29.md).
+One-row resident gains are modest (primary 0.37–3.07%, replication 0.98–4.01%);
+confirmation includes a nearly flat 1×256 result. Inactive regression controls
+move both ways and remain published. No blanket speedup is claimed. See the
+[design and safety contract](design/gpu-contiguous-transpose.md).
+
+After this candidate is settled, investigate invocation-private intermediate
+buffer allocation. Any arena must keep escaped outputs independently owned,
+preserve physical offsets and live-alias checks, and fit the existing byte
+budget. Do not trade smaller allocation overhead for retaining an entire arena
+behind a small returned tensor. Submission handoffs remain the larger unresolved
+cost; a pipelined design requires an explicit cancellation and failure-order
+analysis before any production policy changes.
+
+
+### Next: overlap safe encoding with the first GPU chunk
+
+Screen an isolated runtime that submits the first complete checkpoint while the
+CPU encodes subsequent checkpoints. Keep one command in flight, the same work
+limits, and acknowledgement/fault/cancellation checks before each later commit.
+The completion lease must survive until both encoding and submitted work end.
+Protect shared owner/checkpoint vectors; cover every early return and allocation
+failure with a builder-exit guard. This is an architectural experiment, not a
+production policy change. Qualify concurrent teardown and cancellation before
+acceptance. Intermediate-buffer arenas remain the following independent option.
