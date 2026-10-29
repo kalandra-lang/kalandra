@@ -1,0 +1,6277 @@
+{
+  "protocol": {
+    "blocks": 3,
+    "rounds": 3,
+    "warmups": 2,
+    "target_ms": 30,
+    "max_iterations": 256,
+    "adaptive_batching": true,
+    "seed": 20261024,
+    "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+  },
+  "calibration": [
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 219417.0,
+          "gpu_ns": 25375.048,
+          "checksum": 8192
+        },
+        {
+          "round": -1,
+          "ns": 189750.0,
+          "gpu_ns": 23458.386,
+          "checksum": 8192
+        },
+        {
+          "round": 0,
+          "ns": 197583.0,
+          "gpu_ns": 23333.356,
+          "checksum": 8192
+        },
+        {
+          "round": 1,
+          "ns": 220625.0,
+          "gpu_ns": 27333.386,
+          "checksum": 8192
+        },
+        {
+          "round": 2,
+          "ns": 177459.0,
+          "gpu_ns": 23833.36,
+          "checksum": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 999166.0,
+          "gpu_ns": 103124.999,
+          "checksum": 8192
+        },
+        {
+          "round": -1,
+          "ns": 271250.0,
+          "gpu_ns": 88708.242,
+          "checksum": 8192
+        },
+        {
+          "round": 0,
+          "ns": 272667.0,
+          "gpu_ns": 88125.002,
+          "checksum": 8192
+        },
+        {
+          "round": 1,
+          "ns": 262042.0,
+          "gpu_ns": 98124.961,
+          "checksum": 8192
+        },
+        {
+          "round": 2,
+          "ns": 245292.0,
+          "gpu_ns": 91625.028,
+          "checksum": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1386417.0,
+          "gpu_ns": 673291.623,
+          "checksum": 262144
+        },
+        {
+          "round": -1,
+          "ns": 860458.0,
+          "gpu_ns": 671416.637,
+          "checksum": 262144
+        },
+        {
+          "round": 0,
+          "ns": 890417.0,
+          "gpu_ns": 711541.739,
+          "checksum": 262144
+        },
+        {
+          "round": 1,
+          "ns": 1374709.0,
+          "gpu_ns": 720416.661,
+          "checksum": 262144
+        },
+        {
+          "round": 2,
+          "ns": 2223375.0,
+          "gpu_ns": 838749.926,
+          "checksum": 262144
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7020500.0,
+          "gpu_ns": 5404624.972,
+          "checksum": 262144
+        },
+        {
+          "round": -1,
+          "ns": 5159291.0,
+          "gpu_ns": 4944291.664,
+          "checksum": 262144
+        },
+        {
+          "round": 0,
+          "ns": 4889125.0,
+          "gpu_ns": 4667999.921,
+          "checksum": 262144
+        },
+        {
+          "round": 1,
+          "ns": 5336625.0,
+          "gpu_ns": 5129458.266,
+          "checksum": 262144
+        },
+        {
+          "round": 2,
+          "ns": 4272000.0,
+          "gpu_ns": 4046250.018,
+          "checksum": 262144
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 9845041.0,
+          "gpu_ns": 9535999.969,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 6063917.0,
+          "gpu_ns": 5739374.901,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 6154375.0,
+          "gpu_ns": 5870624.911,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 5621250.0,
+          "gpu_ns": 5217249.971,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 5529750.0,
+          "gpu_ns": 5203166.627,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22928875.0,
+          "gpu_ns": 21628041.635,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 18564500.0,
+          "gpu_ns": 18263958.278,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 18263000.0,
+          "gpu_ns": 17939041.601,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 18546666.0,
+          "gpu_ns": 18239249.941,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 18440792.0,
+          "gpu_ns": 18137249.979,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 740834.0,
+          "gpu_ns": 44125.016,
+          "checksum": 32768
+        },
+        {
+          "round": -1,
+          "ns": 202167.0,
+          "gpu_ns": 30249.939,
+          "checksum": 32768
+        },
+        {
+          "round": 0,
+          "ns": 200541.0,
+          "gpu_ns": 29499.992,
+          "checksum": 32768
+        },
+        {
+          "round": 1,
+          "ns": 192250.0,
+          "gpu_ns": 29791.612,
+          "checksum": 32768
+        },
+        {
+          "round": 2,
+          "ns": 1751542.0,
+          "gpu_ns": 96625.066,
+          "checksum": 32768
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1112250.0,
+          "gpu_ns": 198625.028,
+          "checksum": 32768
+        },
+        {
+          "round": -1,
+          "ns": 375542.0,
+          "gpu_ns": 185500.016,
+          "checksum": 32768
+        },
+        {
+          "round": 0,
+          "ns": 360208.0,
+          "gpu_ns": 184458.331,
+          "checksum": 32768
+        },
+        {
+          "round": 1,
+          "ns": 375750.0,
+          "gpu_ns": 185750.076,
+          "checksum": 32768
+        },
+        {
+          "round": 2,
+          "ns": 372000.0,
+          "gpu_ns": 189125.072,
+          "checksum": 32768
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1566917.0,
+          "gpu_ns": 818375.032,
+          "checksum": 1048576
+        },
+        {
+          "round": -1,
+          "ns": 998666.0,
+          "gpu_ns": 796958.338,
+          "checksum": 1048576
+        },
+        {
+          "round": 0,
+          "ns": 1517375.0,
+          "gpu_ns": 804624.986,
+          "checksum": 1048576
+        },
+        {
+          "round": 1,
+          "ns": 978041.0,
+          "gpu_ns": 797041.692,
+          "checksum": 1048576
+        },
+        {
+          "round": 2,
+          "ns": 982375.0,
+          "gpu_ns": 800833.339,
+          "checksum": 1048576
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 6314042.0,
+          "gpu_ns": 5357875.023,
+          "checksum": 1048576
+        },
+        {
+          "round": -1,
+          "ns": 5703334.0,
+          "gpu_ns": 5508583.388,
+          "checksum": 1048576
+        },
+        {
+          "round": 0,
+          "ns": 5430583.0,
+          "gpu_ns": 5219791.667,
+          "checksum": 1048576
+        },
+        {
+          "round": 1,
+          "ns": 5510833.0,
+          "gpu_ns": 5333041.656,
+          "checksum": 1048576
+        },
+        {
+          "round": 2,
+          "ns": 5222000.0,
+          "gpu_ns": 5009999.964,
+          "checksum": 1048576
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7723417.0,
+          "gpu_ns": 6923750.043,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 7485125.0,
+          "gpu_ns": 6721208.338,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 7789167.0,
+          "gpu_ns": 7036208.292,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 6797625.0,
+          "gpu_ns": 6492374.931,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 7067875.0,
+          "gpu_ns": 6761833.327,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 43193750.0,
+          "gpu_ns": 42118708.254,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41298166.0,
+          "gpu_ns": 40737000.061,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41308250.0,
+          "gpu_ns": 41025916.58,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41314041.0,
+          "gpu_ns": 40803499.985,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41060250.0,
+          "gpu_ns": 40739999.968,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 329834.0,
+          "gpu_ns": 113458.373,
+          "checksum": 8192
+        },
+        {
+          "round": -1,
+          "ns": 533458.0,
+          "gpu_ns": 78208.395,
+          "checksum": 8192
+        },
+        {
+          "round": 0,
+          "ns": 835667.0,
+          "gpu_ns": 93416.66,
+          "checksum": 8192
+        },
+        {
+          "round": 1,
+          "ns": 265500.0,
+          "gpu_ns": 77708.275,
+          "checksum": 8192
+        },
+        {
+          "round": 2,
+          "ns": 239250.0,
+          "gpu_ns": 77416.771,
+          "checksum": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1200416.0,
+          "gpu_ns": 336125.027,
+          "checksum": 8192
+        },
+        {
+          "round": -1,
+          "ns": 490542.0,
+          "gpu_ns": 300333.37,
+          "checksum": 8192
+        },
+        {
+          "round": 0,
+          "ns": 1055083.0,
+          "gpu_ns": 315083.307,
+          "checksum": 8192
+        },
+        {
+          "round": 1,
+          "ns": 475041.0,
+          "gpu_ns": 299583.306,
+          "checksum": 8192
+        },
+        {
+          "round": 2,
+          "ns": 493583.0,
+          "gpu_ns": 299999.956,
+          "checksum": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 2155291.0,
+          "gpu_ns": 1898124.93,
+          "checksum": 262144
+        },
+        {
+          "round": -1,
+          "ns": 2613042.0,
+          "gpu_ns": 1892958.302,
+          "checksum": 262144
+        },
+        {
+          "round": 0,
+          "ns": 2157625.0,
+          "gpu_ns": 1919499.948,
+          "checksum": 262144
+        },
+        {
+          "round": 1,
+          "ns": 2037167.0,
+          "gpu_ns": 1861999.976,
+          "checksum": 262144
+        },
+        {
+          "round": 2,
+          "ns": 2277959.0,
+          "gpu_ns": 2086749.999,
+          "checksum": 262144
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 9667208.0,
+          "gpu_ns": 8720625.076,
+          "checksum": 262144
+        },
+        {
+          "round": -1,
+          "ns": 9694334.0,
+          "gpu_ns": 8922750.014,
+          "checksum": 262144
+        },
+        {
+          "round": 0,
+          "ns": 9732125.0,
+          "gpu_ns": 8987500.099,
+          "checksum": 262144
+        },
+        {
+          "round": 1,
+          "ns": 8921500.0,
+          "gpu_ns": 8707416.71,
+          "checksum": 262144
+        },
+        {
+          "round": 2,
+          "ns": 9206584.0,
+          "gpu_ns": 8990541.683,
+          "checksum": 262144
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 15552250.0,
+          "gpu_ns": 15218458.371,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 15389416.0,
+          "gpu_ns": 15078375.0,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 15516500.0,
+          "gpu_ns": 15167833.306,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 15752083.0,
+          "gpu_ns": 15327958.39,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 15199083.0,
+          "gpu_ns": 14900708.338,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 71973583.0,
+          "gpu_ns": 70738125.01,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 71387750.0,
+          "gpu_ns": 71073625.004,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 70994042.0,
+          "gpu_ns": 70666624.932,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 70929542.0,
+          "gpu_ns": 70611208.328,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 70930875.0,
+          "gpu_ns": 70597624.988,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 244083.0,
+          "gpu_ns": 40874.933,
+          "checksum": 32768
+        },
+        {
+          "round": -1,
+          "ns": 205708.0,
+          "gpu_ns": 30083.349,
+          "checksum": 32768
+        },
+        {
+          "round": 0,
+          "ns": 196833.0,
+          "gpu_ns": 28999.988,
+          "checksum": 32768
+        },
+        {
+          "round": 1,
+          "ns": 212292.0,
+          "gpu_ns": 29874.966,
+          "checksum": 32768
+        },
+        {
+          "round": 2,
+          "ns": 197459.0,
+          "gpu_ns": 29583.229,
+          "checksum": 32768
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1096584.0,
+          "gpu_ns": 186583.26,
+          "checksum": 32768
+        },
+        {
+          "round": -1,
+          "ns": 636875.0,
+          "gpu_ns": 361000.071,
+          "checksum": 32768
+        },
+        {
+          "round": 0,
+          "ns": 375042.0,
+          "gpu_ns": 180999.981,
+          "checksum": 32768
+        },
+        {
+          "round": 1,
+          "ns": 374000.0,
+          "gpu_ns": 181874.959,
+          "checksum": 32768
+        },
+        {
+          "round": 2,
+          "ns": 369166.0,
+          "gpu_ns": 179874.944,
+          "checksum": 32768
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1077667.0,
+          "gpu_ns": 833416.707,
+          "checksum": 1048576
+        },
+        {
+          "round": -1,
+          "ns": 1050458.0,
+          "gpu_ns": 852208.352,
+          "checksum": 1048576
+        },
+        {
+          "round": 0,
+          "ns": 1635084.0,
+          "gpu_ns": 803375.035,
+          "checksum": 1048576
+        },
+        {
+          "round": 1,
+          "ns": 1046417.0,
+          "gpu_ns": 847249.99,
+          "checksum": 1048576
+        },
+        {
+          "round": 2,
+          "ns": 970333.0,
+          "gpu_ns": 793874.962,
+          "checksum": 1048576
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 6017083.0,
+          "gpu_ns": 5112249.986,
+          "checksum": 1048576
+        },
+        {
+          "round": -1,
+          "ns": 5358417.0,
+          "gpu_ns": 5159999.942,
+          "checksum": 1048576
+        },
+        {
+          "round": 0,
+          "ns": 5269125.0,
+          "gpu_ns": 5090458.319,
+          "checksum": 1048576
+        },
+        {
+          "round": 1,
+          "ns": 5324458.0,
+          "gpu_ns": 5108541.693,
+          "checksum": 1048576
+        },
+        {
+          "round": 2,
+          "ns": 5523833.0,
+          "gpu_ns": 5312083.289,
+          "checksum": 1048576
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7018459.0,
+          "gpu_ns": 6697999.896,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 7135500.0,
+          "gpu_ns": 6832249.928,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 6994333.0,
+          "gpu_ns": 6662125.001,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 7313417.0,
+          "gpu_ns": 6909749.936,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 7008916.0,
+          "gpu_ns": 6714749.965,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 42014792.0,
+          "gpu_ns": 41014124.989,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41313166.0,
+          "gpu_ns": 40902583.278,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41566166.0,
+          "gpu_ns": 41266249.958,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41294292.0,
+          "gpu_ns": 40963333.333,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41929834.0,
+          "gpu_ns": 41606000.043,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 285166.0,
+          "gpu_ns": 92666.713,
+          "checksum": 131072
+        },
+        {
+          "round": -1,
+          "ns": 251709.0,
+          "gpu_ns": 92500.006,
+          "checksum": 131072
+        },
+        {
+          "round": 0,
+          "ns": 301500.0,
+          "gpu_ns": 97749.988,
+          "checksum": 131072
+        },
+        {
+          "round": 1,
+          "ns": 240458.0,
+          "gpu_ns": 92458.329,
+          "checksum": 131072
+        },
+        {
+          "round": 2,
+          "ns": 268041.0,
+          "gpu_ns": 93374.983,
+          "checksum": 131072
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1469833.0,
+          "gpu_ns": 545208.342,
+          "checksum": 131072
+        },
+        {
+          "round": -1,
+          "ns": 679792.0,
+          "gpu_ns": 488125.021,
+          "checksum": 131072
+        },
+        {
+          "round": 0,
+          "ns": 669125.0,
+          "gpu_ns": 494749.984,
+          "checksum": 131072
+        },
+        {
+          "round": 1,
+          "ns": 696584.0,
+          "gpu_ns": 467708.334,
+          "checksum": 131072
+        },
+        {
+          "round": 2,
+          "ns": 657042.0,
+          "gpu_ns": 486500.096,
+          "checksum": 131072
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3018625.0,
+          "gpu_ns": 2795583.336,
+          "checksum": 4194304
+        },
+        {
+          "round": -1,
+          "ns": 3389583.0,
+          "gpu_ns": 2940999.926,
+          "checksum": 4194304
+        },
+        {
+          "round": 0,
+          "ns": 3028667.0,
+          "gpu_ns": 2826874.959,
+          "checksum": 4194304
+        },
+        {
+          "round": 1,
+          "ns": 3177417.0,
+          "gpu_ns": 2975624.986,
+          "checksum": 4194304
+        },
+        {
+          "round": 2,
+          "ns": 3028625.0,
+          "gpu_ns": 2830541.693,
+          "checksum": 4194304
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 16412000.0,
+          "gpu_ns": 15488791.629,
+          "checksum": 4194304
+        },
+        {
+          "round": -1,
+          "ns": 15375917.0,
+          "gpu_ns": 15156749.985,
+          "checksum": 4194304
+        },
+        {
+          "round": 0,
+          "ns": 15131125.0,
+          "gpu_ns": 14915124.979,
+          "checksum": 4194304
+        },
+        {
+          "round": 1,
+          "ns": 15078541.0,
+          "gpu_ns": 14876041.678,
+          "checksum": 4194304
+        },
+        {
+          "round": 2,
+          "ns": 15232958.0,
+          "gpu_ns": 15012958.32,
+          "checksum": 4194304
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23069416.0,
+          "gpu_ns": 22737708.292,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 23366625.0,
+          "gpu_ns": 23048041.621,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 23172083.0,
+          "gpu_ns": 22863875.027,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 23075166.0,
+          "gpu_ns": 22723791.655,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 23031250.0,
+          "gpu_ns": 22670416.743,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 120657833.0,
+          "gpu_ns": 119572041.673,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 119379041.0,
+          "gpu_ns": 119000916.602,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 119666375.0,
+          "gpu_ns": 119341333.28,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 119762792.0,
+          "gpu_ns": 119427833.357,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 120054666.0,
+          "gpu_ns": 119658083.306,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 849667.0,
+          "gpu_ns": 121249.934,
+          "checksum": 32768
+        },
+        {
+          "round": -1,
+          "ns": 279000.0,
+          "gpu_ns": 96416.683,
+          "checksum": 32768
+        },
+        {
+          "round": 0,
+          "ns": 278208.0,
+          "gpu_ns": 96416.567,
+          "checksum": 32768
+        },
+        {
+          "round": 1,
+          "ns": 263708.0,
+          "gpu_ns": 97000.04,
+          "checksum": 32768
+        },
+        {
+          "round": 2,
+          "ns": 1718333.0,
+          "gpu_ns": 178791.699,
+          "checksum": 32768
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1566000.0,
+          "gpu_ns": 668250.024,
+          "checksum": 32768
+        },
+        {
+          "round": -1,
+          "ns": 841875.0,
+          "gpu_ns": 654583.331,
+          "checksum": 32768
+        },
+        {
+          "round": 0,
+          "ns": 810208.0,
+          "gpu_ns": 644208.398,
+          "checksum": 32768
+        },
+        {
+          "round": 1,
+          "ns": 1337500.0,
+          "gpu_ns": 665375.032,
+          "checksum": 32768
+        },
+        {
+          "round": 2,
+          "ns": 812250.0,
+          "gpu_ns": 645291.642,
+          "checksum": 32768
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3874875.0,
+          "gpu_ns": 3124541.719,
+          "checksum": 1048576
+        },
+        {
+          "round": -1,
+          "ns": 3838833.0,
+          "gpu_ns": 3645499.935,
+          "checksum": 1048576
+        },
+        {
+          "round": 0,
+          "ns": 3265709.0,
+          "gpu_ns": 3057291.615,
+          "checksum": 1048576
+        },
+        {
+          "round": 1,
+          "ns": 3260875.0,
+          "gpu_ns": 3055333.276,
+          "checksum": 1048576
+        },
+        {
+          "round": 2,
+          "ns": 3718667.0,
+          "gpu_ns": 2967749.955,
+          "checksum": 1048576
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 26017917.0,
+          "gpu_ns": 25012458.325,
+          "checksum": 1048576
+        },
+        {
+          "round": -1,
+          "ns": 20529417.0,
+          "gpu_ns": 20308208.303,
+          "checksum": 1048576
+        },
+        {
+          "round": 0,
+          "ns": 20318750.0,
+          "gpu_ns": 20098583.307,
+          "checksum": 1048576
+        },
+        {
+          "round": 1,
+          "ns": 20345042.0,
+          "gpu_ns": 20114375.046,
+          "checksum": 1048576
+        },
+        {
+          "round": 2,
+          "ns": 20691833.0,
+          "gpu_ns": 20475875.004,
+          "checksum": 1048576
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25205792.0,
+          "gpu_ns": 24458749.918,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 24464375.0,
+          "gpu_ns": 24148624.972,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 24629209.0,
+          "gpu_ns": 24336499.977,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 24597125.0,
+          "gpu_ns": 24252875.01,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 24894416.0,
+          "gpu_ns": 24502249.9,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 162124000.0,
+          "gpu_ns": 161015874.939,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 160844250.0,
+          "gpu_ns": 160492500.057,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 160829375.0,
+          "gpu_ns": 160453625.023,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 161120625.0,
+          "gpu_ns": 160670750.076,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 160811708.0,
+          "gpu_ns": 160439124.913,
+          "checksum": 8388608
+        }
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 15657375.0,
+          "gpu_ns": 15304208.267,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 15674958.0,
+          "gpu_ns": 15368624.94,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 15558417.0,
+          "gpu_ns": 15224874.951,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 15652875.0,
+          "gpu_ns": 15343000.065,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 15497083.0,
+          "gpu_ns": 15198958.339,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 71574042.0,
+          "gpu_ns": 70518249.995,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 70931791.0,
+          "gpu_ns": 70610624.971,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 71285791.0,
+          "gpu_ns": 70928749.978,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 72296042.0,
+          "gpu_ns": 71380250.04,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 71440667.0,
+          "gpu_ns": 71135333.274,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 72142333.0,
+          "gpu_ns": 71055124.979,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 71710917.0,
+          "gpu_ns": 71382833.296,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 71955000.0,
+          "gpu_ns": 71614541.579,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 72837334.0,
+          "gpu_ns": 71336124.907,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 71352459.0,
+          "gpu_ns": 71018916.671,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 16003000.0,
+          "gpu_ns": 15659624.944,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 15807041.0,
+          "gpu_ns": 15187916.695,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 15912875.0,
+          "gpu_ns": 15599916.689,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 15901833.0,
+          "gpu_ns": 15582000.022,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 15821833.0,
+          "gpu_ns": 15510458.266,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 6893709.0,
+          "gpu_ns": 6558374.967,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 7244291.0,
+          "gpu_ns": 6884125.061,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 6827375.0,
+          "gpu_ns": 6524749.915,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 7382625.0,
+          "gpu_ns": 7022624.952,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 6721083.0,
+          "gpu_ns": 6408041.576,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41846666.0,
+          "gpu_ns": 40729708.271,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41704792.0,
+          "gpu_ns": 40688499.925,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41051500.0,
+          "gpu_ns": 40731999.907,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 40991625.0,
+          "gpu_ns": 40682624.909,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41110875.0,
+          "gpu_ns": 40786625.003,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41696500.0,
+          "gpu_ns": 40627041.715,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 40900125.0,
+          "gpu_ns": 40560624.911,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41383375.0,
+          "gpu_ns": 41009333.334,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41017875.0,
+          "gpu_ns": 40647291.695,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41336458.0,
+          "gpu_ns": 41035083.355,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7264250.0,
+          "gpu_ns": 6515666.61,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 6885708.0,
+          "gpu_ns": 6567874.923,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 6887541.0,
+          "gpu_ns": 6572208.367,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 6950917.0,
+          "gpu_ns": 6650625.03,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 8093625.0,
+          "gpu_ns": 6475375.034,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25496667.0,
+          "gpu_ns": 24679083.377,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 24670916.0,
+          "gpu_ns": 24342791.643,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 24725500.0,
+          "gpu_ns": 24423541.618,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 24463917.0,
+          "gpu_ns": 24140666.588,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 24888584.0,
+          "gpu_ns": 24555874.988,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 163095791.0,
+          "gpu_ns": 160629666.643,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 160951917.0,
+          "gpu_ns": 160638791.625,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 161066084.0,
+          "gpu_ns": 160756250.028,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 161206584.0,
+          "gpu_ns": 160856249.975,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 161045416.0,
+          "gpu_ns": 160505083.273,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 161511250.0,
+          "gpu_ns": 160434875.055,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 161005167.0,
+          "gpu_ns": 160690958.262,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 161103458.0,
+          "gpu_ns": 160777458.223,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 160758375.0,
+          "gpu_ns": 160428250.092,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 160911041.0,
+          "gpu_ns": 160608125.036,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24822750.0,
+          "gpu_ns": 24512916.571,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 24577000.0,
+          "gpu_ns": 24278749.945,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 25087125.0,
+          "gpu_ns": 24207124.952,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 24598541.0,
+          "gpu_ns": 24242458.283,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 24712209.0,
+          "gpu_ns": 24408583.296,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 4927708.0,
+          "gpu_ns": 4196624.97,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 5816292.0,
+          "gpu_ns": 4234916.647,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 4648917.0,
+          "gpu_ns": 4395624.972,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 4279083.0,
+          "gpu_ns": 3997875.028,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 4908834.0,
+          "gpu_ns": 4625791.684,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19590542.0,
+          "gpu_ns": 18555624.993,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 18551458.0,
+          "gpu_ns": 18239749.945,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 18927750.0,
+          "gpu_ns": 18602041.644,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 18785833.0,
+          "gpu_ns": 18446291.68,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 18680333.0,
+          "gpu_ns": 18336041.714,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19410083.0,
+          "gpu_ns": 18396958.36,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 18895500.0,
+          "gpu_ns": 18464416.615,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 18539958.0,
+          "gpu_ns": 18224500.003,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 18569584.0,
+          "gpu_ns": 18249750.021,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 18790416.0,
+          "gpu_ns": 18456874.997,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 4589584.0,
+          "gpu_ns": 4272583.406,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 4918791.0,
+          "gpu_ns": 4623291.665,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 4669834.0,
+          "gpu_ns": 4338500.09,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 4954666.0,
+          "gpu_ns": 4255333.333,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 6125666.0,
+          "gpu_ns": 4412875.045,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7724750.0,
+          "gpu_ns": 6729874.993,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 7066667.0,
+          "gpu_ns": 6755583.221,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 7205584.0,
+          "gpu_ns": 6853250.088,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 7020125.0,
+          "gpu_ns": 6730083.376,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 6920333.0,
+          "gpu_ns": 6619249.936,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 42427291.0,
+          "gpu_ns": 41332875.029,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41533750.0,
+          "gpu_ns": 41224458.371,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41756167.0,
+          "gpu_ns": 41212541.75,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41347167.0,
+          "gpu_ns": 41023541.591,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 42223792.0,
+          "gpu_ns": 41495208.396,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41905416.0,
+          "gpu_ns": 40865250.048,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41560625.0,
+          "gpu_ns": 41230041.65,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41320750.0,
+          "gpu_ns": 41009666.631,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41406542.0,
+          "gpu_ns": 41060958.29,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41051917.0,
+          "gpu_ns": 40724624.996,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7753625.0,
+          "gpu_ns": 7036124.938,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 6754292.0,
+          "gpu_ns": 6434749.928,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 6615583.0,
+          "gpu_ns": 6326125.003,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 7047875.0,
+          "gpu_ns": 6789750.07,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 7180125.0,
+          "gpu_ns": 6338583.305,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23087209.0,
+          "gpu_ns": 22745583.323,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 23348458.0,
+          "gpu_ns": 23058749.968,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 22837375.0,
+          "gpu_ns": 22470999.975,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 22766875.0,
+          "gpu_ns": 22459666.71,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 23095625.0,
+          "gpu_ns": 22593625.006,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 120737250.0,
+          "gpu_ns": 119635208.277,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 119759958.0,
+          "gpu_ns": 119435749.948,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 119192541.0,
+          "gpu_ns": 118882125.011,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 119683417.0,
+          "gpu_ns": 119363291.655,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 119470834.0,
+          "gpu_ns": 119161291.746,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 120569333.0,
+          "gpu_ns": 119518249.994,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 119752958.0,
+          "gpu_ns": 119313208.27,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 119487542.0,
+          "gpu_ns": 119000750.012,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 120063541.0,
+          "gpu_ns": 119733833.359,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 119276834.0,
+          "gpu_ns": 118723624.968,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22971166.0,
+          "gpu_ns": 22602249.985,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 23508666.0,
+          "gpu_ns": 23154291.674,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 23061500.0,
+          "gpu_ns": 22740916.698,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 23136584.0,
+          "gpu_ns": 22854083.334,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 22880459.0,
+          "gpu_ns": 22542333.347,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 161647167.0,
+          "gpu_ns": 160569624.975,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 161007917.0,
+          "gpu_ns": 160670666.606,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 160608959.0,
+          "gpu_ns": 160305124.94,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 160478083.0,
+          "gpu_ns": 160169624.956,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 161036541.0,
+          "gpu_ns": 160710583.325,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25161584.0,
+          "gpu_ns": 24444916.635,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 24646417.0,
+          "gpu_ns": 24306458.421,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 24886167.0,
+          "gpu_ns": 24565499.974,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 24852291.0,
+          "gpu_ns": 24525708.403,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 25035750.0,
+          "gpu_ns": 24726375.006,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25078792.0,
+          "gpu_ns": 24315583.287,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 24686291.0,
+          "gpu_ns": 24366375.059,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 24597500.0,
+          "gpu_ns": 24285416.701,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 24621459.0,
+          "gpu_ns": 24313333.328,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 24756084.0,
+          "gpu_ns": 24447125.033,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 162592375.0,
+          "gpu_ns": 161465541.576,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 163614000.0,
+          "gpu_ns": 161887583.323,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 161556834.0,
+          "gpu_ns": 161175250.076,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 161161041.0,
+          "gpu_ns": 160735833.342,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 161361042.0,
+          "gpu_ns": 160686000.017,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41762750.0,
+          "gpu_ns": 40692291.688,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41298958.0,
+          "gpu_ns": 40939291.706,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41278459.0,
+          "gpu_ns": 40842124.959,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41046375.0,
+          "gpu_ns": 40661458.392,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41193375.0,
+          "gpu_ns": 40845916.723,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7274583.0,
+          "gpu_ns": 6561833.317,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 6606833.0,
+          "gpu_ns": 6307583.302,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 7031750.0,
+          "gpu_ns": 6749166.641,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 6589583.0,
+          "gpu_ns": 6307083.298,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 6601917.0,
+          "gpu_ns": 6311125.006,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 6774791.0,
+          "gpu_ns": 6443291.67,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 6609125.0,
+          "gpu_ns": 6304375.012,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 7167375.0,
+          "gpu_ns": 6879249.937,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 6797542.0,
+          "gpu_ns": 6513291.621,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 7146583.0,
+          "gpu_ns": 6847125.012,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 43215250.0,
+          "gpu_ns": 40630458.272,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41024833.0,
+          "gpu_ns": 40655541.699,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41550833.0,
+          "gpu_ns": 40894291.713,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 40870250.0,
+          "gpu_ns": 40547583.252,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41122750.0,
+          "gpu_ns": 40827874.909,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 71705500.0,
+          "gpu_ns": 70684749.982,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 71381375.0,
+          "gpu_ns": 71042541.647,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 71802708.0,
+          "gpu_ns": 71070375.037,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 70944959.0,
+          "gpu_ns": 70623000.036,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 70991750.0,
+          "gpu_ns": 70668375.003,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 15703166.0,
+          "gpu_ns": 15358958.393,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 15539000.0,
+          "gpu_ns": 15210999.991,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 15922125.0,
+          "gpu_ns": 15599874.896,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 15177833.0,
+          "gpu_ns": 14850833.337,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 15676334.0,
+          "gpu_ns": 15342375.031,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 15831458.0,
+          "gpu_ns": 15302250.045,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 15700125.0,
+          "gpu_ns": 15370749.985,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 15767250.0,
+          "gpu_ns": 15150125.022,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 15669500.0,
+          "gpu_ns": 15358124.976,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 15601458.0,
+          "gpu_ns": 15299583.32,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 71770542.0,
+          "gpu_ns": 70704666.665,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 71226125.0,
+          "gpu_ns": 70908625.028,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 70948208.0,
+          "gpu_ns": 70617749.938,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 71063542.0,
+          "gpu_ns": 70745166.624,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 71626708.0,
+          "gpu_ns": 70906874.957,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19300917.0,
+          "gpu_ns": 18360125.017,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 18321958.0,
+          "gpu_ns": 18016791.67,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 18451833.0,
+          "gpu_ns": 18124333.35,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 18722125.0,
+          "gpu_ns": 18384541.734,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 18597708.0,
+          "gpu_ns": 18259500.037,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 4946125.0,
+          "gpu_ns": 4175125.039,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 4871792.0,
+          "gpu_ns": 4374000.011,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 4597125.0,
+          "gpu_ns": 4315124.941,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 4702833.0,
+          "gpu_ns": 4419125.034,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 4633459.0,
+          "gpu_ns": 4326499.999,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 5020125.0,
+          "gpu_ns": 4202708.253,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 4746542.0,
+          "gpu_ns": 4448749.94,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 4576625.0,
+          "gpu_ns": 4299749.97,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 4264209.0,
+          "gpu_ns": 3995749.983,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 4749583.0,
+          "gpu_ns": 4457083.298,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19177084.0,
+          "gpu_ns": 18141541.63,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 18666875.0,
+          "gpu_ns": 18349416.67,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 18977166.0,
+          "gpu_ns": 18220250.029,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 18662833.0,
+          "gpu_ns": 18287041.69,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 18567334.0,
+          "gpu_ns": 18266666.681,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 120366875.0,
+          "gpu_ns": 119375249.953,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 119918709.0,
+          "gpu_ns": 119540750.049,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 119895458.0,
+          "gpu_ns": 118992166.71,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 120066375.0,
+          "gpu_ns": 119722625.008,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 119227709.0,
+          "gpu_ns": 118656374.98,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22969042.0,
+          "gpu_ns": 22615000.024,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 23395000.0,
+          "gpu_ns": 23081250.023,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 23298750.0,
+          "gpu_ns": 22969874.903,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 23473625.0,
+          "gpu_ns": 23177291.732,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 23814958.0,
+          "gpu_ns": 23512624.903,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23843042.0,
+          "gpu_ns": 23269625.031,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 23429166.0,
+          "gpu_ns": 23052374.949,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 23326208.0,
+          "gpu_ns": 23020124.994,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 23755583.0,
+          "gpu_ns": 23440833.32,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 23281875.0,
+          "gpu_ns": 22980791.633,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 120961666.0,
+          "gpu_ns": 119990375.009,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 121632166.0,
+          "gpu_ns": 121285083.354,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 119630208.0,
+          "gpu_ns": 119314000.01,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 119981375.0,
+          "gpu_ns": 119633083.232,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 119785167.0,
+          "gpu_ns": 119430916.733,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 42037459.0,
+          "gpu_ns": 40994166.629,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41474042.0,
+          "gpu_ns": 41139874.957,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41187875.0,
+          "gpu_ns": 40769124.986,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41204916.0,
+          "gpu_ns": 40865125.018,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41278625.0,
+          "gpu_ns": 40877291.7,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7901708.0,
+          "gpu_ns": 6721375.044,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 7190875.0,
+          "gpu_ns": 6643624.976,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 6910708.0,
+          "gpu_ns": 6573125.022,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 6993542.0,
+          "gpu_ns": 6686999.928,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 7018000.0,
+          "gpu_ns": 6759000.011,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7685667.0,
+          "gpu_ns": 6925749.942,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 7545208.0,
+          "gpu_ns": 6669000.024,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 7686541.0,
+          "gpu_ns": 6949458.388,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 7427333.0,
+          "gpu_ns": 6669958.355,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 7835625.0,
+          "gpu_ns": 6647249.917,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 42094375.0,
+          "gpu_ns": 41017999.989,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41319042.0,
+          "gpu_ns": 40984124.993,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41114750.0,
+          "gpu_ns": 40770124.993,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41399667.0,
+          "gpu_ns": 41023000.027,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41214458.0,
+          "gpu_ns": 40901041.706,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7028250.0,
+          "gpu_ns": 6675666.664,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 7124500.0,
+          "gpu_ns": 6812624.983,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 6809958.0,
+          "gpu_ns": 6526708.37,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 7024584.0,
+          "gpu_ns": 6747875.013,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 6796292.0,
+          "gpu_ns": 6498750.066,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41702250.0,
+          "gpu_ns": 40622749.948,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41700667.0,
+          "gpu_ns": 40897375.089,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41205209.0,
+          "gpu_ns": 40855916.683,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41172958.0,
+          "gpu_ns": 40813624.975,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41493333.0,
+          "gpu_ns": 41194124.962,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41882666.0,
+          "gpu_ns": 40699874.982,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41480750.0,
+          "gpu_ns": 41130375.001,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 40931833.0,
+          "gpu_ns": 40599875.036,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41165875.0,
+          "gpu_ns": 40566875.017,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41031083.0,
+          "gpu_ns": 40719875.018,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7180375.0,
+          "gpu_ns": 6423416.664,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 7485042.0,
+          "gpu_ns": 6748625.077,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 6808750.0,
+          "gpu_ns": 6518625.072,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 7018917.0,
+          "gpu_ns": 6343874.964,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 6816250.0,
+          "gpu_ns": 6514625.042,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 4813375.0,
+          "gpu_ns": 4027583.287,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 4286584.0,
+          "gpu_ns": 4002166.679,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 4485458.0,
+          "gpu_ns": 4184999.969,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 4480917.0,
+          "gpu_ns": 4180874.908,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 4879667.0,
+          "gpu_ns": 4577708.314,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19378292.0,
+          "gpu_ns": 18122416.688,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 18531042.0,
+          "gpu_ns": 18222708.371,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 18390125.0,
+          "gpu_ns": 18076499.924,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 18538417.0,
+          "gpu_ns": 18209000.002,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 18345291.0,
+          "gpu_ns": 18020250.02,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 19217291.0,
+          "gpu_ns": 18187750.014,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 18346459.0,
+          "gpu_ns": 18005000.078,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 18847667.0,
+          "gpu_ns": 18191416.748,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 18402750.0,
+          "gpu_ns": 18079499.947,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 18419334.0,
+          "gpu_ns": 18105374.998,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 4476959.0,
+          "gpu_ns": 4117541.597,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 4737583.0,
+          "gpu_ns": 4452666.617,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 4410167.0,
+          "gpu_ns": 3991208.272,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 4495416.0,
+          "gpu_ns": 4212500.062,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 4722292.0,
+          "gpu_ns": 4448625.026,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7517625.0,
+          "gpu_ns": 6800249.917,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 6840209.0,
+          "gpu_ns": 6536374.916,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 7097166.0,
+          "gpu_ns": 6798250.019,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 6739167.0,
+          "gpu_ns": 6444624.974,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 7096334.0,
+          "gpu_ns": 6786749.931,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 42798167.0,
+          "gpu_ns": 41476999.992,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41448416.0,
+          "gpu_ns": 41129458.23,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41922333.0,
+          "gpu_ns": 41613083.333,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41452084.0,
+          "gpu_ns": 41131458.362,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 42196208.0,
+          "gpu_ns": 41158458.334,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 42304292.0,
+          "gpu_ns": 40953833.261,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 41522250.0,
+          "gpu_ns": 41183250.025,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 41517584.0,
+          "gpu_ns": 41207625.065,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 41886000.0,
+          "gpu_ns": 41540999.897,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 41497750.0,
+          "gpu_ns": 41118833.353,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7337125.0,
+          "gpu_ns": 6960249.972,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 6885875.0,
+          "gpu_ns": 6578958.36,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 7259167.0,
+          "gpu_ns": 6908583.338,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 6894917.0,
+          "gpu_ns": 6610333.337,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 7354625.0,
+          "gpu_ns": 7065125.043,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24955916.0,
+          "gpu_ns": 24622624.973,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 24856208.0,
+          "gpu_ns": 24545125.081,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 24761333.0,
+          "gpu_ns": 24412958.301,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 24536167.0,
+          "gpu_ns": 24226916.605,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 24869875.0,
+          "gpu_ns": 24574249.983,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 161889500.0,
+          "gpu_ns": 160786416.731,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 160970083.0,
+          "gpu_ns": 160565249.971,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 161235625.0,
+          "gpu_ns": 160937624.983,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 161559875.0,
+          "gpu_ns": 161250416.655,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 160657000.0,
+          "gpu_ns": 160330375.074,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 162102708.0,
+          "gpu_ns": 160493458.272,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 161543625.0,
+          "gpu_ns": 161164208.315,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 162495375.0,
+          "gpu_ns": 162153791.636,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 162347125.0,
+          "gpu_ns": 162000000.011,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 161944167.0,
+          "gpu_ns": 161631666.706,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25094959.0,
+          "gpu_ns": 24732166.668,
+          "checksum": 8388608
+        },
+        {
+          "round": -1,
+          "ns": 24876334.0,
+          "gpu_ns": 24563374.929,
+          "checksum": 8388608
+        },
+        {
+          "round": 0,
+          "ns": 25199333.0,
+          "gpu_ns": 24858374.964,
+          "checksum": 8388608
+        },
+        {
+          "round": 1,
+          "ns": 24677958.0,
+          "gpu_ns": 24340625.037,
+          "checksum": 8388608
+        },
+        {
+          "round": 2,
+          "ns": 25443291.0,
+          "gpu_ns": 25095624.966,
+          "checksum": 8388608
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23348209.0,
+          "gpu_ns": 23040374.974,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 23356500.0,
+          "gpu_ns": 23048666.655,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 23148292.0,
+          "gpu_ns": 22837625.002,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 23109584.0,
+          "gpu_ns": 22697166.656,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 23022583.0,
+          "gpu_ns": 22687875.084,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 120589834.0,
+          "gpu_ns": 119306624.983,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 120171958.0,
+          "gpu_ns": 119823624.962,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 119850458.0,
+          "gpu_ns": 119536375.045,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 119927958.0,
+          "gpu_ns": 119603125.029,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 120061417.0,
+          "gpu_ns": 119759458.35,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 120248041.0,
+          "gpu_ns": 119237750.07,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 119835083.0,
+          "gpu_ns": 119502833.346,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 120070334.0,
+          "gpu_ns": 119714750.093,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 119895417.0,
+          "gpu_ns": 119471125.072,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 120089167.0,
+          "gpu_ns": 119754250.045,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22726209.0,
+          "gpu_ns": 22408999.968,
+          "checksum": 33554432
+        },
+        {
+          "round": -1,
+          "ns": 23237167.0,
+          "gpu_ns": 22924000.048,
+          "checksum": 33554432
+        },
+        {
+          "round": 0,
+          "ns": 23042667.0,
+          "gpu_ns": 22748499.992,
+          "checksum": 33554432
+        },
+        {
+          "round": 1,
+          "ns": 23788209.0,
+          "gpu_ns": 22895791.684,
+          "checksum": 33554432
+        },
+        {
+          "round": 2,
+          "ns": 22868791.0,
+          "gpu_ns": 22487374.954,
+          "checksum": 33554432
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 15539458.0,
+          "gpu_ns": 15198166.599,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 15745875.0,
+          "gpu_ns": 15391624.998,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 15424250.0,
+          "gpu_ns": 15129875.042,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 15729583.0,
+          "gpu_ns": 15447625.075,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 15883084.0,
+          "gpu_ns": 15596791.636,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 72143667.0,
+          "gpu_ns": 71057375.055,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 70998208.0,
+          "gpu_ns": 70654625.073,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 71073625.0,
+          "gpu_ns": 70750833.373,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 71031084.0,
+          "gpu_ns": 70727249.957,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 70930291.0,
+          "gpu_ns": 70583624.998,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 71749458.0,
+          "gpu_ns": 70643875.049,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 70980959.0,
+          "gpu_ns": 70645958.302,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 71151625.0,
+          "gpu_ns": 70828708.354,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 71288875.0,
+          "gpu_ns": 70800250.047,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 70921458.0,
+          "gpu_ns": 70610833.238,
+          "checksum": 2097152
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 15562292.0,
+          "gpu_ns": 15231875.004,
+          "checksum": 2097152
+        },
+        {
+          "round": -1,
+          "ns": 15819000.0,
+          "gpu_ns": 15474791.639,
+          "checksum": 2097152
+        },
+        {
+          "round": 0,
+          "ns": 15813625.0,
+          "gpu_ns": 15531875.077,
+          "checksum": 2097152
+        },
+        {
+          "round": 1,
+          "ns": 15300625.0,
+          "gpu_ns": 14997374.965,
+          "checksum": 2097152
+        },
+        {
+          "round": 2,
+          "ns": 15592750.0,
+          "gpu_ns": 15274874.982,
+          "checksum": 2097152
+        }
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        512
+      ],
+      "expected": 8192,
+      "median_ns": 17988.4453125,
+      "process_medians_ns": [
+        18159.83203125,
+        19354.1640625,
+        18099.44921875,
+        17877.44140625,
+        17521.3203125,
+        17560.21875
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        512
+      ],
+      "expected": 8192,
+      "median_ns": 72592.3671875,
+      "process_medians_ns": [
+        73382.16015625,
+        72537.4375,
+        72647.296875,
+        72901.69140625,
+        71836.42578125,
+        71950.5234375
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        512,
+        2048
+      ],
+      "expected": 32768,
+      "median_ns": 27625.408203125,
+      "process_medians_ns": [
+        27422.36328125,
+        27530.76171875,
+        27318.5234375,
+        30025.55078125,
+        27720.0546875,
+        28356.12109375
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        512,
+        2048
+      ],
+      "expected": 32768,
+      "median_ns": 161793.62109375,
+      "process_medians_ns": [
+        163110.02734375,
+        161409.1796875,
+        160956.703125,
+        160993.9765625,
+        163759.11328125,
+        162178.0625
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        16,
+        2048,
+        512
+      ],
+      "expected": 8192,
+      "median_ns": 61222.33203125,
+      "process_medians_ns": [
+        60775.06640625,
+        62116.53515625,
+        61235.6796875,
+        61208.984375,
+        61443.68359375,
+        60909.1796875
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        16,
+        2048,
+        512
+      ],
+      "expected": 8192,
+      "median_ns": 277763.998046875,
+      "process_medians_ns": [
+        279065.10546875,
+        281074.21875,
+        277311.5234375,
+        277591.9609375,
+        277465.171875,
+        277936.03515625
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        512
+      ],
+      "expected": 32768,
+      "median_ns": 26647.705078125,
+      "process_medians_ns": [
+        26669.43359375,
+        27152.01953125,
+        25788.73828125,
+        27916.33984375,
+        26601.3984375,
+        26625.9765625
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        512
+      ],
+      "expected": 32768,
+      "median_ns": 160773.681640625,
+      "process_medians_ns": [
+        160357.421875,
+        161470.5390625,
+        160911.62109375,
+        160635.7421875,
+        160957.84765625,
+        160277.66796875
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048
+      ],
+      "expected": 131072,
+      "median_ns": 90177.8984375,
+      "process_medians_ns": [
+        89208.49609375,
+        90083.984375,
+        91693.84765625,
+        91118.0,
+        90271.8125,
+        90010.41796875
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048
+      ],
+      "expected": 131072,
+      "median_ns": 468126.220703125,
+      "process_medians_ns": [
+        466682.9453125,
+        466748.2109375,
+        468341.6328125,
+        467910.80859375,
+        468468.5859375,
+        469024.7421875
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512
+      ],
+      "expected": 32768,
+      "median_ns": 96653.970703125,
+      "process_medians_ns": [
+        96583.984375,
+        96532.06640625,
+        97211.58984375,
+        96177.57421875,
+        96723.95703125,
+        98434.89453125
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512
+      ],
+      "expected": 32768,
+      "median_ns": 629495.525390625,
+      "process_medians_ns": [
+        629164.390625,
+        628558.75390625,
+        627378.74609375,
+        630316.5703125,
+        629826.66015625,
+        634168.45703125
+      ]
+    }
+  ],
+  "pairs": [
+    {
+      "group": [
+        16,
+        2048,
+        512
+      ],
+      "block": 0,
+      "baseline_ns": 61445.80078125,
+      "current_ns": 280069.662109375,
+      "speedup": 0.21939470458336793,
+      "time_reduction": -3.557995152613218
+    },
+    {
+      "group": [
+        64,
+        512,
+        512
+      ],
+      "block": 0,
+      "baseline_ns": 26910.7265625,
+      "current_ns": 160913.98046875,
+      "speedup": 0.16723672165779374,
+      "time_reduction": -4.979547972999846
+    },
+    {
+      "group": [
+        64,
+        2048,
+        512
+      ],
+      "block": 0,
+      "baseline_ns": 96558.025390625,
+      "current_ns": 628861.572265625,
+      "speedup": 0.15354416559872072,
+      "time_reduction": -5.51278409766116
+    },
+    {
+      "group": [
+        16,
+        512,
+        512
+      ],
+      "block": 0,
+      "baseline_ns": 18756.998046875,
+      "current_ns": 72959.798828125,
+      "speedup": 0.2570867566543294,
+      "time_reduction": -2.8897375073449147
+    },
+    {
+      "group": [
+        16,
+        512,
+        2048
+      ],
+      "block": 0,
+      "baseline_ns": 27476.5625,
+      "current_ns": 162259.603515625,
+      "speedup": 0.16933704942372863,
+      "time_reduction": -4.905382214955928
+    },
+    {
+      "group": [
+        64,
+        512,
+        2048
+      ],
+      "block": 0,
+      "baseline_ns": 89646.240234375,
+      "current_ns": 466715.578125,
+      "speedup": 0.19207895436986064,
+      "time_reduction": -4.2061924393571735
+    },
+    {
+      "group": [
+        64,
+        2048,
+        512
+      ],
+      "block": 1,
+      "baseline_ns": 96694.58203125,
+      "current_ns": 628847.658203125,
+      "speedup": 0.15376471673210326,
+      "time_reduction": -5.503442540347218
+    },
+    {
+      "group": [
+        64,
+        512,
+        512
+      ],
+      "block": 1,
+      "baseline_ns": 26852.5390625,
+      "current_ns": 160773.681640625,
+      "speedup": 0.1670207386462859,
+      "time_reduction": -4.9872804305924285
+    },
+    {
+      "group": [
+        16,
+        2048,
+        512
+      ],
+      "block": 1,
+      "baseline_ns": 61222.33203125,
+      "current_ns": 277451.7421875,
+      "speedup": 0.22065938944393568,
+      "time_reduction": -3.531871508028786
+    },
+    {
+      "group": [
+        16,
+        512,
+        512
+      ],
+      "block": 1,
+      "baseline_ns": 17988.4453125,
+      "current_ns": 72774.494140625,
+      "speedup": 0.24718063003969803,
+      "time_reduction": -3.045624448159213
+    },
+    {
+      "group": [
+        64,
+        512,
+        2048
+      ],
+      "block": 1,
+      "baseline_ns": 91405.923828125,
+      "current_ns": 468126.220703125,
+      "speedup": 0.19525914120092103,
+      "time_reduction": -4.1213991511465435
+    },
+    {
+      "group": [
+        16,
+        512,
+        2048
+      ],
+      "block": 1,
+      "baseline_ns": 28672.037109375,
+      "current_ns": 160975.33984375,
+      "speedup": 0.1781144685714308,
+      "time_reduction": -4.614367030486136
+    },
+    {
+      "group": [
+        64,
+        512,
+        512
+      ],
+      "block": 2,
+      "baseline_ns": 26613.6875,
+      "current_ns": 160617.7578125,
+      "speedup": 0.1656957976655854,
+      "time_reduction": -5.035156075703527
+    },
+    {
+      "group": [
+        16,
+        512,
+        512
+      ],
+      "block": 2,
+      "baseline_ns": 17540.76953125,
+      "current_ns": 71893.474609375,
+      "speedup": 0.24398277627497866,
+      "time_reduction": -3.0986499754923633
+    },
+    {
+      "group": [
+        16,
+        512,
+        2048
+      ],
+      "block": 2,
+      "baseline_ns": 28038.087890625,
+      "current_ns": 162968.587890625,
+      "speedup": 0.172045964523191,
+      "time_reduction": -4.812400208115342
+    },
+    {
+      "group": [
+        64,
+        2048,
+        512
+      ],
+      "block": 2,
+      "baseline_ns": 97579.42578125,
+      "current_ns": 631997.55859375,
+      "speedup": 0.15439842204196608,
+      "time_reduction": -5.476750129792105
+    },
+    {
+      "group": [
+        64,
+        512,
+        2048
+      ],
+      "block": 2,
+      "baseline_ns": 90141.115234375,
+      "current_ns": 468746.6640625,
+      "speedup": 0.1923024143855157,
+      "time_reduction": -4.200142718932605
+    },
+    {
+      "group": [
+        16,
+        2048,
+        512
+      ],
+      "block": 2,
+      "baseline_ns": 61176.431640625,
+      "current_ns": 277700.603515625,
+      "speedup": 0.2202963582583027,
+      "time_reduction": -3.5393396781778677
+    }
+  ],
+  "contract": "Isolated 32-lane operand sharing versus the current aligned production kernel.\n\nComplete 16x16 tiles and a 32-thread execution width are required. Virtual thread\nindices derive explicitly from SIMD group/lane attributes. Original 1D handles\nragged shapes. All output bits, inputs and guards are checked; the independent\nCPU tree samples dispersed cells plus corners above 32768 output cells.\n",
+  "acceptance": false,
+  "scope": "Isolated kernel screen; full-model/runtime qualification still required.",
+  "qualification_sha256": "0a5e685176e186640c402a0467e5291809b8e5d3266cf606002b650473492904",
+  "schema": 1,
+  "timestamp": "2026-10-29T17:23:01.439661+00:00",
+  "compiler_sha256": "86a0870e10aaf1de4b001955fcebf7351b527634d9009a06f07053edaeaa95df",
+  "source_sha256": {
+    "native/benchmarks/fixed_lane_screen.py": "9d1a93483264112b94c10eb67bab7f671f39d8b50b0b3c7e3e4d26a9b38db1bb",
+    "native/benchmarks/fair/grid_shader.py": "47e9b6f6b3d254c85140bb22f14ffe26022b5d1c6dbddb1efcbaf6c9950a8218",
+    "native/metal-source/HardwareShaders.h": "e032e15242f0488d1d8ebe2d6aead0daa4086aacaf9fd195e4c4cd927898d647",
+    "native/benchmarks/OutputReuseStudy.mm": "9bedcdc4ec9cedf1b779e1f21e949b38a69f922d1f4747463c584a775cae9a36",
+    "native/benchmarks/fair/output_reuse_shader.py": "fa380adb685317a8d6f08860df86cec9ac0d171c5e588c1e27009ac81d70a252",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "native/metal-proof/toolchain.json": "48b66a94754ff154fdc97a22ffc5ceb8f2c293726a9ad5db15d23b18c2b76ab8",
+    "native/benchmarks/fair/lane_share_shader.py": "9b4733a234b2b956684d36a0a6c5db1e2d4e67704f723575d0c7b37adebf3066",
+    "native/benchmarks/fair/fixed_lane_shader.py": "79617a4b06a79c92d44dc2553d076aa17c3360536709d794f8dbcbdf6e2dc8c3",
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/manifest.json": "71ac42ebb56e1d5ffa3a03d88acec0e5aa66df1ce0428941897921a06325c797"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metal": "e04f32e5c0891b87503e6a19cc1e65434fdab3b87a876ba31c87c8add90a08c8",
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/Driver.mm": "482e59e5b1e719b4f4bd9c880e8ad06cd9db82bc8333174ed2aae122b12b3729",
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/screen": "9a39e6c01f290c8077cc515276836b314039613c38da706eec86dca657b92161",
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib": "0eb1bd9add7f6c4a47fe2909d7372acfaf456399828e1e8a78c4efb56e2587a2"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "efbe33f30e60f49eb87eea7df55688751857697b",
+  "worktree_status": "?? benchmarks/results/gpu-aligned-host-profile-2026-10-29.json\n?? benchmarks/results/gpu-backing-reuse-paired-2026-10-29-load.json\n?? benchmarks/results/gpu-backing-reuse-paired-2026-10-29.json\n?? benchmarks/results/gpu-backing-reuse-qualification-2026-10-29.json\n?? benchmarks/results/gpu-lane-a-counters-2026-10-29.csv\n?? benchmarks/results/gpu-lane-a-paired-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-a-paired-2026-10-29.json\n?? benchmarks/results/gpu-lane-a-qualification-2026-10-29.json\n?? benchmarks/results/gpu-lane-a-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-a-repeat-2026-10-29.json\n?? benchmarks/results/gpu-lane-b-counters-2026-10-29.csv\n?? benchmarks/results/gpu-lane-b-paired-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-b-paired-2026-10-29.json\n?? benchmarks/results/gpu-lane-b-qualification-2026-10-29.json\n?? benchmarks/results/gpu-lane-b-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-b-repeat-2026-10-29.json\n?? benchmarks/results/gpu-lane-both-counters-2026-10-29.csv\n?? benchmarks/results/gpu-lane-both-paired-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-both-paired-2026-10-29.json\n?? benchmarks/results/gpu-lane-both-qualification-2026-10-29.json\n?? benchmarks/results/gpu-lane-both-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-both-repeat-2026-10-29.json\n?? benchmarks/results/gpu-lane-fixed-counters-2026-10-29.csv\n?? benchmarks/results/gpu-lane-fixed-paired-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-fixed-paired-2026-10-29.json\n?? benchmarks/results/gpu-lane-fixed-qualification-2026-10-29.json\n?? benchmarks/results/gpu-lane-fixed-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-mapping-counters-2026-10-29.csv\n?? benchmarks/results/gpu-lane-mapping-paired-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-mapping-paired-2026-10-29.json\n?? benchmarks/results/gpu-lane-mapping-qualification-2026-10-29.json\n?? benchmarks/results/gpu-lane-mapping-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-lane-mapping-repeat-2026-10-29.json\n?? benchmarks/results/gpu-lane-sharing-gui-2026-10-29.json\n?? native/benchmarks/aligned_host_profile.py\n?? native/benchmarks/backing_reuse_probe.py\n?? native/benchmarks/fair/fixed_lane_shader.py\n?? native/benchmarks/fair/host_lane_report.py\n?? native/benchmarks/fair/lane_share_shader.py\n?? native/benchmarks/fixed_lane_screen.py\n?? native/benchmarks/lane_share_screen.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

@@ -1,0 +1,35 @@
+{
+  "source": "Manually transcribed Xcode 27.1 GUI replay shader resource table; shape64x2048x512. Replay times are not acceptance.",
+  "records": [
+    {
+      "mode": "both",
+      "allocated_registers": 174,
+      "high_register": 174,
+      "spilled_bytes": 32
+    },
+    {
+      "mode": "a",
+      "allocated_registers": 254,
+      "high_register": 254,
+      "spilled_bytes": 848
+    },
+    {
+      "mode": "b",
+      "allocated_registers": 254,
+      "high_register": 254,
+      "spilled_bytes": 848
+    },
+    {
+      "mode": "mapping",
+      "allocated_registers": 92,
+      "high_register": 92,
+      "spilled_bytes": 0
+    },
+    {
+      "mode": "fixed",
+      "allocated_registers": 126,
+      "high_register": 126,
+      "spilled_bytes": 32
+    }
+  ]
+}

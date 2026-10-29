@@ -1,0 +1,72 @@
+{
+  "initial_series": [
+    {
+      "path": "gpu-lane-mapping-paired-2026-10-29.json",
+      "sha256": "448ac108d507e4c1707c29e4483672a8a72b29524c56809dfc1c89c44930caad",
+      "acceptance": false,
+      "disposition": "Potentially contaminated by retained Xcode GPU debugging session; superseded by repeats."
+    },
+    {
+      "path": "gpu-lane-a-paired-2026-10-29.json",
+      "sha256": "a993357feb28a75e481bbc527108d26f3aa22a6692ff0047b641bee53b24f7b5",
+      "acceptance": false,
+      "disposition": "Potentially contaminated by retained Xcode GPU debugging session; superseded by repeats."
+    },
+    {
+      "path": "gpu-lane-b-paired-2026-10-29.json",
+      "sha256": "450d11ebe26a95776e811f4efcbabcd2fc876cb3f237f9f5fc340c0cfe40cd7c",
+      "acceptance": false,
+      "disposition": "Potentially contaminated by retained Xcode GPU debugging session; superseded by repeats."
+    },
+    {
+      "path": "gpu-lane-both-paired-2026-10-29.json",
+      "sha256": "febc6aa9fb07b35079eb6dda9da4fcdf19b2dab3b651db1114ed363d94ac6be3",
+      "acceptance": false,
+      "disposition": "Potentially contaminated by retained Xcode GPU debugging session; superseded by repeats."
+    },
+    {
+      "path": "gpu-lane-fixed-paired-2026-10-29.json",
+      "sha256": "5d3287fdcae30c697a5481854e0adc2a076d255f515d8b190bf5fa6c2c447f89",
+      "acceptance": false,
+      "disposition": "Potentially contaminated by retained Xcode GPU debugging session; superseded by repeats."
+    }
+  ],
+  "correction": "A hidden A-sharing GPU debugging session was found after the initial series. It was stopped and all task capture windows closed before repeats and the backing-reuse screen. Original load-note assertions are superseded. No initial timing data were deleted.",
+  "repeat_series": [
+    {
+      "path": "gpu-lane-mapping-repeat-2026-10-29.json",
+      "sha256": "e8a59126b5963e91cf6cfbf83402a7df96ca72506407855798b752bc1c5861dd",
+      "blocks": 7,
+      "acceptance": false,
+      "disposition": "Isolated rejection screen after closing captures; not production acceptance."
+    },
+    {
+      "path": "gpu-lane-a-repeat-2026-10-29.json",
+      "sha256": "92b5062701dca1f79cf302d733f7f9b3454a4aa99114770dbdca726df4bab939",
+      "blocks": 1,
+      "acceptance": false,
+      "disposition": "Isolated rejection screen after closing captures; not production acceptance."
+    },
+    {
+      "path": "gpu-lane-b-repeat-2026-10-29.json",
+      "sha256": "6ffd1cf87505ec4b7e17cf34f0dc887a8d564a0e684cd14dfe12888aca9f560e",
+      "blocks": 1,
+      "acceptance": false,
+      "disposition": "Isolated rejection screen after closing captures; not production acceptance."
+    },
+    {
+      "path": "gpu-lane-both-repeat-2026-10-29.json",
+      "sha256": "f026661752a040ea97341a8725135553d4c1c28f3ce75c7b55725036b2512ae8",
+      "blocks": 1,
+      "acceptance": false,
+      "disposition": "Isolated rejection screen after closing captures; not production acceptance."
+    },
+    {
+      "path": "gpu-lane-fixed-repeat-2026-10-29.json",
+      "sha256": "d2ea932ce69ea0e0c9bddf31a65bccf0c0a9c1e8ee9438b98d0bdf4c46f97b11",
+      "blocks": 3,
+      "acceptance": false,
+      "disposition": "Isolated rejection screen after closing captures; not production acceptance."
+    }
+  ]
+}

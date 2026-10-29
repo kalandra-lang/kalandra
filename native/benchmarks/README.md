@@ -308,3 +308,27 @@ The [register/liveness and shared-layout study](../../benchmarks/results/gpu-res
 The [general 2D experiment](../../benchmarks/results/gpu-grid-dispatch-2026-10-29.md) rejects bounded 2D as a broad optimization and carries only whole-tile predicate removal into [production qualification](../../benchmarks/results/gpu-grid-production-2026-10-29.md). Actual compiler bodies match the isolated transformation. Four targeted CTest groups cover all four runtime modes, legacy bundles, allocation sweeps and held cancellation/deadline/device faults. Numerical execution checks total 480 across isolated, copied-runtime and actual-production studies; this count excludes the much larger CTest coverage.
 
 For reproduction, `grid_production_prepare.py --build DIR` freezes actual compiler/runtime artifacts and `grid_production_verify.py --build DIR --output FILE` verifies 117 full outputs. `grid_production_measure.py --verification FILE --build DIR --study frozen|repeat --output FILE` records seven paired blocks; `grid_settled_measure.py` provides 200 ms `aa|confirm` studies after the original short-batch runs exposed substantial noise. `grid_broad_screen.py --mode aligned --phase prepare|measure --build DIR --output FILE` extends matrix sizes; its CPU oracle samples dispersed cells above 32,768 output cells while every GPU output bit and guard is compared. `grid_startup_measure.py` measures fresh-process wall time with warm OS/Metal caches, not cold pipeline compilation. Run both `fair/grid_dispatch_report.py` and `fair/grid_production_report.py` to audit and regenerate the reports. Never overlap these timings with builds, tests or profiling; all adverse results and load records remain retained.
+
+## Host attribution and backing-reuse feasibility
+
+[The host/lane/reuse report](../../benchmarks/results/gpu-host-lane-reuse-2026-10-29.md)
+contains the inclusive host profile, five rejected shader controls and a bounded
+allocator diagnostic. `aligned_host_profile.py` instruments a copied runtime.
+`lane_share_screen.py --mode mapping|a|b|both` and
+`fixed_lane_screen.py --mode fixed` support `prepare|capture|measure` phases.
+`backing_reuse_probe.py --phase prepare|measure` tests a single-caller cache only
+after whole-invocation GPU quiescence; its idle bytes are outside the production
+budget ledger, so it must never be used as a production allocator.
+`backing_reuse_reference.py --study off|on` checks both diagnostic modes against
+the untouched frozen production executable. These tools depend on the preceding
+aligned-production frozen build and use fresh output paths. Preparation outputs
+must be `BUILD/qualification.json`.
+
+Run `python3 native/benchmarks/fair/host_lane_report.py` to verify frozen identities,
+recalculate paired observations and regenerate the report and timing-validity
+metadata. Initial lane timings are retained as potentially contaminated by a
+hidden Xcode GPU debugging session; their original load-note assertion is
+superseded by `gpu-lane-validity-2026-10-29.json`. Close **all** task capture windows
+before measuring, not just the frontmost replay. Do not overlap timings with
+builds, correctness tests or profiling. Raw resource counters and qualifications
+remain separate from performance acceptance.

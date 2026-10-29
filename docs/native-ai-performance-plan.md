@@ -772,3 +772,37 @@ instructions. A controlled lane-sharing/reuse experiment must preserve the exact
 reduction tree, avoid the earlier quad's spills and the padded/swizzled layout
 regressions, and repeat whole-model acceptance. Do not introduce exact-shape
 caching or a relaxed numerical contract to explain away this remaining gap.
+
+### Host attribution and operand-sharing follow-up
+
+The [host/lane/reuse investigation](../benchmarks/results/gpu-host-lane-reuse-2026-10-29.md)
+completes the profiling and shader-control step above. The instrumented resident
+batch64/width512 block spends about 412 µs of 783 µs in GPU execution; allocation,
+encoding and submit/wake measurements overlap and must not be added together.
+The five lane-mapping/sharing controls are rejected. Sharing reduces the shared-read
+limiter but adds instructions and spills (32–848 bytes); the spill-free mapping
+control is also slower in the repeat. All 420 numerical shader executions pass.
+A retained Xcode debug session was discovered after the initial timing series;
+those results remain retained as potentially contaminated, with explicit validity
+metadata and separate repeats after closing all task capture windows.
+
+A bounded, isolated backing-reuse probe passes 144 changing-input full-output
+comparisons across all runner policies/upload modes, plus eight untouched-production
+and independent forward-error checks. It retains at most 14.1 MiB in the timing
+screen. The report separates seven-block disabled/enabled results from independent
+untouched-production controls. Resident timings and disabled controls fluctuate;
+these are feasibility results, not an accepted production speedup. The independent
+all-weight-upload reductions are 54.74%/64.45% for batches16/64 at width512,
+with disabled controls near 2.22%/0.32%. The resident batch64 result cannot be
+attributed to caching because the disabled control improves similarly; batch1
+input regresses 3.25%. Retain these limits when selecting the next target.
+
+Next design completion-safe, bounded backing reuse with live **and idle** storage
+charged against the resource limit. Define eviction, initialization, cache statistics,
+concurrent invocation ownership, GPU retirement and teardown; preserve allocation
+failure injection and cancellation/fault precedence. The diagnostic global cache
+assumes one caller and keeps idle bytes outside the current ledger, so it is not
+an eligible production implementation. Qualify ownership/budget behavior first,
+then repeat frozen whole-model paired/control/replication timings. Production
+remains at the qualified aligned-grid implementation; no numerical or cancellation
+contract changed in this follow-up.

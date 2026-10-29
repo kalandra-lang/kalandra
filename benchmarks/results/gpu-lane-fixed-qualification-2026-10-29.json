@@ -1,0 +1,1872 @@
+{
+  "contract": "Isolated 32-lane operand sharing versus the current aligned production kernel.\n\nComplete 16x16 tiles and a 32-thread execution width are required. Virtual thread\nindices derive explicitly from SIMD group/lane attributes. Original 1D handles\nragged shapes. All output bits, inputs and guards are checked; the independent\nCPU tree samples dispersed cells plus corners above 32768 output cells.\n",
+  "checks": [
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        1,
+        512,
+        1
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        512,
+        17
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        512,
+        17
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        512,
+        17
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        512,
+        17
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        512,
+        17
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        3,
+        512,
+        17
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        15,
+        576,
+        31
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        15,
+        576,
+        31
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        15,
+        576,
+        31
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        15,
+        576,
+        31
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        15,
+        576,
+        31
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        15,
+        576,
+        31
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        1536,
+        33
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        17,
+        4096,
+        65
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        33,
+        2112,
+        63
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        32,
+        576,
+        48
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        32,
+        576,
+        48
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        32,
+        576,
+        48
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        32,
+        576,
+        48
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        32,
+        576,
+        48
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        32,
+        576,
+        48
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2112,
+        16
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2112,
+        16
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2112,
+        16
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2112,
+        16
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2112,
+        16
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2112,
+        16
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        2048
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        2048
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        2048
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        2048
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        2048
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        512,
+        2048
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2048,
+        512
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2048,
+        512
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2048,
+        512
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2048,
+        512
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2048,
+        512
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        16,
+        2048,
+        512
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        512
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        2048
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        2048
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        2048
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        2048
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        2048
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        512,
+        2048
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        2048,
+        512
+      ],
+      "pattern": 0,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        2048,
+        512
+      ],
+      "pattern": 0,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        2048,
+        512
+      ],
+      "pattern": 1,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        2048,
+        512
+      ],
+      "pattern": 1,
+      "version": "current",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        2048,
+        512
+      ],
+      "pattern": 2,
+      "version": "baseline",
+      "passed": true
+    },
+    {
+      "shape": [
+        64,
+        2048,
+        512
+      ],
+      "pattern": 2,
+      "version": "current",
+      "passed": true
+    }
+  ],
+  "schema": 1,
+  "timestamp": "2026-10-29T16:58:41.359960+00:00",
+  "compiler_sha256": "86a0870e10aaf1de4b001955fcebf7351b527634d9009a06f07053edaeaa95df",
+  "source_sha256": {
+    "native/benchmarks/fixed_lane_screen.py": "9d1a93483264112b94c10eb67bab7f671f39d8b50b0b3c7e3e4d26a9b38db1bb",
+    "native/benchmarks/fair/grid_shader.py": "47e9b6f6b3d254c85140bb22f14ffe26022b5d1c6dbddb1efcbaf6c9950a8218",
+    "native/metal-source/HardwareShaders.h": "e032e15242f0488d1d8ebe2d6aead0daa4086aacaf9fd195e4c4cd927898d647",
+    "native/benchmarks/OutputReuseStudy.mm": "9bedcdc4ec9cedf1b779e1f21e949b38a69f922d1f4747463c584a775cae9a36",
+    "native/benchmarks/fair/output_reuse_shader.py": "fa380adb685317a8d6f08860df86cec9ac0d171c5e588c1e27009ac81d70a252",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "native/metal-proof/toolchain.json": "48b66a94754ff154fdc97a22ffc5ceb8f2c293726a9ad5db15d23b18c2b76ab8",
+    "native/benchmarks/fair/lane_share_shader.py": "9b4733a234b2b956684d36a0a6c5db1e2d4e67704f723575d0c7b37adebf3066",
+    "native/benchmarks/fair/fixed_lane_shader.py": "79617a4b06a79c92d44dc2553d076aa17c3360536709d794f8dbcbdf6e2dc8c3",
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/manifest.json": "71ac42ebb56e1d5ffa3a03d88acec0e5aa66df1ce0428941897921a06325c797"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metal": "e04f32e5c0891b87503e6a19cc1e65434fdab3b87a876ba31c87c8add90a08c8",
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/Driver.mm": "482e59e5b1e719b4f4bd9c880e8ad06cd9db82bc8333174ed2aae122b12b3729",
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/screen": "9a39e6c01f290c8077cc515276836b314039613c38da706eec86dca657b92161",
+    "benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib": "0eb1bd9add7f6c4a47fe2909d7372acfaf456399828e1e8a78c4efb56e2587a2"
+  },
+  "commands": [
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "-mmacosx-version-min=26.0",
+      "-std=macos-metal2.2",
+      "-fno-fast-math",
+      "-ffp-contract=off",
+      "-c",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.air"
+    ],
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.air",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-fobjc-arc",
+      "-fblocks",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/Driver.mm",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "1",
+      "512",
+      "1",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "3",
+      "512",
+      "17",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "3",
+      "512",
+      "17",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "3",
+      "512",
+      "17",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "3",
+      "512",
+      "17",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "3",
+      "512",
+      "17",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "3",
+      "512",
+      "17",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "15",
+      "576",
+      "31",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "15",
+      "576",
+      "31",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "15",
+      "576",
+      "31",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "15",
+      "576",
+      "31",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "15",
+      "576",
+      "31",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "15",
+      "576",
+      "31",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "1536",
+      "33",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "17",
+      "4096",
+      "65",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "33",
+      "2112",
+      "63",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "32",
+      "576",
+      "48",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "32",
+      "576",
+      "48",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "32",
+      "576",
+      "48",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "32",
+      "576",
+      "48",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "32",
+      "576",
+      "48",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "32",
+      "576",
+      "48",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2112",
+      "16",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2112",
+      "16",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2112",
+      "16",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2112",
+      "16",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2112",
+      "16",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2112",
+      "16",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "16",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "16",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "512",
+      "2048",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/screen",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-fixed-2026-10-29/study.metallib",
+      "current",
+      "64",
+      "2048",
+      "512",
+      "1",
+      "1",
+      "2"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "efbe33f30e60f49eb87eea7df55688751857697b",
+  "worktree_status": "?? benchmarks/results/gpu-aligned-host-profile-2026-10-29.json\n?? benchmarks/results/gpu-lane-sharing-gui-2026-10-29.json\n?? native/benchmarks/aligned_host_profile.py\n?? native/benchmarks/fair/fixed_lane_shader.py\n?? native/benchmarks/fair/lane_share_shader.py\n?? native/benchmarks/fixed_lane_screen.py\n?? native/benchmarks/lane_share_screen.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}
