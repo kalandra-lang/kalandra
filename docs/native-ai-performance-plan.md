@@ -681,3 +681,22 @@ the baseline and show threadgroup reads as its largest measured limiter. These
 are diagnostics, not performance acceptance. Next reduce temporary lifetimes and
 threadgroup-load pressure while preserving the strict reduction tree; do not
 promote another larger output tile on reduced source-level loads alone.
+
+### Resource-guided strict kernel controls
+
+The [follow-up screen](../benchmarks/results/gpu-resource-guided-2026-10-29.md)
+qualifies 216 numerical/guard cases and records actual compiler resources before
+seven-block paired timing. Sequential 32-leaf subtrees increase registers from
+100 to 108. Transposed padded/swizzled right-hand tiles reduce static shared-load
+instructions from 80 to 32/35 but increase registers to 110/111; all remain
+spill-free. Measured contraction occupancy falls from 24.70% to about 17%, while
+the reported theoretical ceiling remains 29.167%. Reported shared bytes read do
+not fall. The exact allocation/scheduling cause is not isolated.
+
+No candidate is promoted. The padded layout improves two small cells by about
+8%, but regresses the other four by 23–43%; preserving 8 KiB with a swizzle does
+not recover broad performance. All unfavorable samples and background-load
+records are retained. Production semantics, cancellation and ownership are
+unchanged. Next test compile-time contraction-shape specialization to remove
+generic bounds and unused reduction-root state, with direct resource measurements,
+a generic fallback and bounded pipeline caching before whole-model acceptance.

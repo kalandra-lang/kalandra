@@ -1,0 +1,275 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T13:14:48.709055+00:00",
+      "external_cpu_percent": 200.6,
+      "top": [
+        {
+          "cpu_percent": 77.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 28.6,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        },
+        {
+          "cpu_percent": 7.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T13:14:53.784556+00:00",
+      "external_cpu_percent": 175.9,
+      "top": [
+        {
+          "cpu_percent": 70.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 11.8,
+          "exe": "/usr/libexec/trustd"
+        },
+        {
+          "cpu_percent": 11.4,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 10.5,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        },
+        {
+          "cpu_percent": 10.4,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 8.9,
+          "exe": "/usr/sbin/coreaudiod"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T13:14:58.862273+00:00",
+      "external_cpu_percent": 161.79999999999998,
+      "top": [
+        {
+          "cpu_percent": 76.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 11.1,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.9,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        },
+        {
+          "cpu_percent": 6.5,
+          "exe": "/usr/libexec/replayd"
+        },
+        {
+          "cpu_percent": 5.5,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T13:15:03.934515+00:00",
+      "external_cpu_percent": 230.20000000000002,
+      "top": [
+        {
+          "cpu_percent": 76.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 66.5,
+          "exe": "/Users/pouya/Projects/Arbiter/build-passkey-sdk/lib/QtWebEngineCore.framework/Versions/A/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
+        },
+        {
+          "cpu_percent": 11.4,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 10.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.0,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        },
+        {
+          "cpu_percent": 6.9,
+          "exe": "/usr/libexec/replayd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T13:15:09.010874+00:00",
+      "external_cpu_percent": 159.20000000000002,
+      "top": [
+        {
+          "cpu_percent": 73.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.6,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.7,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        },
+        {
+          "cpu_percent": 6.2,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 6.2,
+          "exe": "/usr/libexec/replayd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T13:15:14.086004+00:00",
+      "external_cpu_percent": 165.29999999999998,
+      "top": [
+        {
+          "cpu_percent": 75.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.8,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 10.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.6,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        },
+        {
+          "cpu_percent": 6.3,
+          "exe": "/usr/libexec/replayd"
+        },
+        {
+          "cpu_percent": 5.8,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T13:15:19.159796+00:00",
+      "external_cpu_percent": 279.0,
+      "top": [
+        {
+          "cpu_percent": 109.8,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 73.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 13.0,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 10.9,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 9.6,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        },
+        {
+          "cpu_percent": 6.7,
+          "exe": "/usr/libexec/replayd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T13:15:24.235391+00:00",
+      "external_cpu_percent": 187.5,
+      "top": [
+        {
+          "cpu_percent": 71.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 10.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.1,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 8.9,
+          "exe": "/usr/libexec/trustd"
+        },
+        {
+          "cpu_percent": 8.5,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T13:15:29.308269+00:00",
+      "external_cpu_percent": 181.6,
+      "top": [
+        {
+          "cpu_percent": 71.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 15.7,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/Users/pouya/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "cpu_percent": 9.8,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.6,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        },
+        {
+          "cpu_percent": 7.3,
+          "exe": "/usr/libexec/trustd"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential qualification then unprofiled measurements; no overlapping local builds/tests/profile. User reported idle workloads. Open background apps retained."
+}
