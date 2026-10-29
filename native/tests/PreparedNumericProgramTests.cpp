@@ -102,10 +102,10 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
     auto after = r.stats();
     const auto commands =
         after.submissions - before.submissions - 1; // readback is outside the program
-    CHECK(after.dispatches - before.dispatches == (full ? 14 : 16));
+    CHECK(after.dispatches - before.dispatches == (full ? 12 : 16));
     CHECK(commands >= 4 && commands <= 16);
     if (full)
-      CHECK(commands == (rows == 3 ? 4 : 7));
+      CHECK(commands == (rows == 3 ? 4 : 6));
     else if (budget <= 65536)
       CHECK(commands == 16);
     // Shared immutable code, separate values/captures/parameter storage.
@@ -277,7 +277,11 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
       auto relu = r.loadNumericGraphKernel(
           std::string(path) + "/kernel0-stage6.metallib", *r.device(), f32, {1, 0}, std::array{f32},
           {}, std::array<std::uint32_t, 1>{0}, std::array<std::uint8_t, 1>{0});
-      CHECK(matrix && scale && relu);
+      auto add = r.loadNumericGraphKernel(
+          std::string(path) + "/kernel0-stage5.metallib", *r.device(), f32, {2, 0},
+          std::array{f32, f32}, {}, std::array<std::uint32_t, 2>{0, 1},
+          std::array<std::uint8_t, 2>{0, 0});
+      CHECK(matrix && scale && relu && add);
       auto uploadBits = [&](const std::vector<std::uint32_t> &bits,
                             std::array<std::int64_t, 2> shape) {
         auto h = r.hostTensor(std::as_bytes(std::span(bits)), shape, m::Format::Float32);
@@ -341,6 +345,37 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
               CHECK(r.stats().dispatches - before.dispatches == 1);
               CHECK(download(r, *c, g, observe(*c, t)) == expected);
               retire(*c, g);
+            }
+            // Binary epilogues preserve the stored float32 result, operand
+            // order and bit patterns even across a passing shape guard.
+            std::vector<std::uint32_t> extra(dims[0] * dims[2]);
+            fill(extra, 19);
+            const auto residual = uploadBits(extra, {dims[0], dims[2]});
+            for (bool guarded : {false, true}) {
+              using K = m::NumericInstructionKind;
+              const std::array<std::uint32_t, 2> ab{0, 1}, shape{2, 3}, args{3, 2};
+              std::vector<m::NumericInstruction> code{{K::Matmul, *matrix, ab, {}, 3}};
+              if (guarded)
+                code.push_back({K::EqualShape, {}, shape});
+              code.push_back({K::Map, *add, args, {}, 4, 0});
+              std::vector<std::uint32_t> expected;
+              for (unsigned fused : {0u, 1u}) {
+                code.back().target = fused;
+                auto plan = r.prepareNumericProgram(3, code, 4, f32, false);
+                CHECK(plan);
+                auto c = TaskCore::create();
+                auto g = c->openRoot();
+                const auto start = r.stats().dispatches;
+                auto t = r.executeNumericProgram(*c, g, *plan, std::array{left, right, residual});
+                CHECK(t && c->drain() && c->failure(t).kind == TaskFailure::None);
+                CHECK(r.stats().dispatches - start == (fused ? 1 : 2));
+                auto bits = download(r, *c, g, observe(*c, t));
+                if (!fused)
+                  expected = bits;
+                else
+                  CHECK(bits == expected);
+                retire(*c, g);
+              }
             }
           }
           clean();
@@ -461,7 +496,7 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
       retire(*c, g);
       clean();
     }
-    std::printf("prepared: %llu allocation checkpoints, %llu commands/14 dispatches, %llu held "
+    std::printf("prepared: %llu allocation checkpoints, %llu commands/12 dispatches, %llu held "
                 "failure boundaries, changing captures and 8 concurrent calls passed\n",
                 (unsigned long long)attempts, (unsigned long long)commands,
                 (unsigned long long)(commands * 3));
@@ -470,8 +505,93 @@ static void test(const char *path, std::uint64_t budget, bool full, bool preenco
   CHECK(!s.bytes && !s.argumentBytes && !s.argumentPacks && !s.metalBuffers && !s.hostBackings &&
         !s.deviceBackings);
 }
+static void guardedResidual(const char *path) {
+  constexpr auto f32 = kalandra::NumericType::Float32;
+  using K = m::NumericInstructionKind;
+  auto made = m::Runtime::create({.profile = true});
+  CHECK(made);
+  auto &r = **made;
+  auto matrix = r.loadNumericMatmulKernel(std::string(path) + "/kernel0-stage1.metallib",
+                                        *r.device(), f32);
+  auto subtract = r.loadNumericGraphKernel(
+      std::string(path) + "/kernel0-stage2.metallib", *r.device(), f32, {2, 0},
+      std::array{f32, f32}, {}, std::array<std::uint32_t, 2>{0, 1},
+      std::array<std::uint8_t, 2>{0, 0});
+  CHECK(matrix && subtract);
+  auto c = TaskCore::create();
+  auto upload = [&](std::vector<float> cells, std::array<std::int64_t, 2> shape) {
+    auto h = r.hostTensor(std::as_bytes(std::span(cells)), shape, m::Format::Float32);
+    CHECK(h);
+    auto g = c->openRoot();
+    auto t = r.upload(*c, g, *h, *r.device());
+    CHECK(t && c->drain());
+    auto b = observe(*c, t);
+    retire(*c, g);
+    return b;
+  };
+  const auto a = upload({1, 2, 3, 4}, {2, 2}), b = upload({2, 0, 0, 2}, {2, 2});
+  const auto residual = upload({10, 20, 30, 40}, {2, 2});
+  const auto mismatch = upload({1, 2, 3, 4, 5, 6}, {3, 2});
+  const auto empty = upload({}, {0, 2});
+  const auto baseline = r.stats();
+  const std::array<std::uint32_t, 2> ab{0, 1}, guard{2, 3}, post{3, 2};
+  for (bool equal : {false, true})
+    for (unsigned scenario = 0; scenario < 8; ++scenario) {
+      std::vector<m::NumericInstruction> code{{K::Matmul, *matrix, ab, {}, 3}};
+      if (equal)
+        code.push_back({K::EqualShape, {}, guard});
+      code.push_back({K::Map, *subtract, post, {}, 4, scenario >= 6 ? 0u : 1u});
+      if (!equal && (scenario == 1 || scenario >= 4))
+        continue;
+      const auto inputs = std::array{scenario == 3 ? empty : a, b,
+                                    scenario == 1 || (scenario >= 4 && scenario <= 6) ? mismatch
+                                    : scenario == 3                ? empty
+                                                                   : residual};
+      auto plan = r.prepareNumericProgram(3, code, 4, f32, false);
+      CHECK(plan);
+      auto g = c->openRoot();
+      const auto before = r.stats();
+      const bool held = scenario == 2 || scenario == 4 || scenario == 5;
+      if (held)
+        r.holdCompletions(true);
+      auto t = r.executeNumericProgram(*c, g, *plan, inputs);
+      if (held) {
+        until(*c, [&] { return c->stats().externalPending == 1; });
+        if (scenario == 5)
+          CHECK(c->cancel(g));
+        else
+          r.failNextCompletion();
+        r.holdCompletions(false);
+      }
+      CHECK(c->drain());
+      const auto failure = c->failure(t);
+      if (scenario == 5)
+        CHECK(failure.kind == TaskFailure::Cancelled);
+      else if (scenario == 1 || scenario == 6)
+        CHECK(failure.kind == TaskFailure::Fault && failure.code == 1);
+      else if (scenario == 2 || scenario == 4)
+        CHECK(failure.kind == TaskFailure::Fault && failure.code == std::int64_t(m::Error::Device));
+      else {
+        CHECK(failure.kind == TaskFailure::None);
+        auto result = observe(*c, t);
+        if (scenario == 3)
+          CHECK(result.bytes() == 0);
+        else {
+          CHECK(r.stats().dispatches - before.dispatches == (scenario == 7 ? 2 : 1));
+          CHECK(download(r, *c, g, result) ==
+                (std::vector<std::uint32_t>{0x41000000, 0x41800000, 0x41c00000, 0x42000000}));
+        }
+      }
+      retire(*c, g);
+      plan = {};
+      CHECK(r.stats().bytes == baseline.bytes && !r.stats().inFlight &&
+            r.stats().argumentBytes == baseline.argumentBytes);
+    }
+  std::puts("guarded residual: operand order, empty output, passing/failing guards and fault/cancel precedence passed");
+}
 int main(int argc, char **argv) {
-  CHECK(argc == 2);
+  CHECK(argc == 3);
+  guardedResidual(argv[2]);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, false);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true);
   test(argv[1], UINT64_C(512) * 1024 * 1024, true, true, 64, 512);

@@ -281,3 +281,40 @@ its arithmetic differences have not been established. See the
 Next: contraction-parallel attention scores, broader legal fusion, and a
 separate controlled unified-memory transfer experiment. Production keeps its
 own numerical kernels.
+
+## Attention contraction parallelism and guarded residual fusion
+
+Completed the next two experiments against frozen `2fb73f53`. The existing
+contraction-parallel kernel now covers small output rectangles with a long inner
+dimension. All 12 newly selected general matrix cases improve 17.4–56.0% in
+five-block confirmation, with every block positive. The initial policy-only
+whole-transformer screen remains mixed and is retained.
+
+The compiler can reorder a map's parameter ABI while preserving expression
+operand order. Runtime fusion crosses an optional EqualShape only when it
+already passes from predicted output metadata, retaining staged fault order
+otherwise. Binary residual epilogues reduce 14 dispatches to 12 and the largest
+block from seven submissions to six. The existing logical/work cancellation
+budget and oversized-fused-dispatch rule remain; physical checkpoints move
+within that contract. See the [design](design/gpu-guarded-matrix-epilogues.md).
+
+The full-block five-block comparison improves 19/27 medians. The largest case
+uses 11.4% less resident time (all five blocks), 9.5% less with activation upload
+and 4.8% less with all uploads. A separate replication gives 12.8%, 7.6% and
+5.5%. Fresh resident times are CPU 10.72 ms, Kalandra Metal 1.71 ms and MPSGraph
+0.52 ms: 6.27× our CPU speed, still 3.26× MPSGraph time. A fusion-only control
+with identical new shaders/header and the same attention policy supports the
+large-case gain. Small-workload parity is not established: losses of 3.2%/4.4%
+in the first study shrink to 1.0%/2.0% in the replication. A single-row staging
+rule is mixed and does not solve them consistently, so it is rejected.
+
+Four-mode qualification passes 1,745 APFloat cases / 1,769,284 checks per mode,
+expanded binary IEEE and operand-order fixtures, every 4/6 failure boundary,
+allocation failures, aliases, concurrency, fallback and generated source entry.
+All-ten-type source integration passes in all four modes. A shader-validation
+notice filter was corrected without weakening numeric or exit checks. Old
+compiled program metadata is compatible with the new runtime, CPU LLVM and the
+task archive are unchanged, and the canonical shader ABI swap is checked exactly.
+Pipeline setup is about 0.28 ms higher in separate startup observations; warm
+acceptance excludes setup. Every outcome and the remaining transfer/latency gap
+are in the [report](../benchmarks/results/gpu-attention-fusion-2026-10-29.md).

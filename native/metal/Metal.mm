@@ -1832,19 +1832,35 @@ struct Bridge {
   }
   // Non-faulting arithmetic is a compiler proof; shapes, registry, residency,
   // domain and RMS epsilon are still checked from this invocation's bindings.
+  static std::size_t numericPostIndex(const NumericProgramArguments &p) {
+    const auto next = p.pc + 1;
+    return next + (p.code[next].kind == NumericInstructionKind::EqualShape);
+  }
   static bool numericPostCandidate(const Frame &f) {
     const auto &p = *f.packet.numericProgram;
     const auto &op = p.code[p.pc];
     if (!p.definition || op.kind != NumericInstructionKind::Matmul ||
         op.kernel.state_->numericType != NumericType::Float32 || p.pc + 1 >= p.code.size() ||
-        p.uses[op.output] != 1 || f.numericBatched > 2)
+        f.numericBatched > 2)
       return false;
-    const auto &post = p.code[p.pc + 1];
+    const auto postIndex = numericPostIndex(p);
+    if (postIndex >= p.code.size())
+      return false;
+    const auto &post = p.code[postIndex];
     const auto &k = post.kernel.state_;
+    const bool guarded = postIndex != p.pc + 1;
     if (post.kind != NumericInstructionKind::Map || post.target != 1 || !k || !post.arguments ||
         k->numericType != NumericType::Float32 || k->transform || k->indirect() ||
-        k->readCount != 1 || k->reads[0] != 0 || post.inputs.size() != 1 ||
+        std::any_of(k->tensorTypes.begin(), k->tensorTypes.end(),
+                    [](auto type) { return type != NumericType::Float32; }) ||
+        std::any_of(k->scalarTypes.begin(), k->scalarTypes.end(),
+                    [](auto type) { return type != NumericType::Float32; }) ||
+        k->readCount != post.inputs.size() ||
+        !k->readCount || k->reads[0] != 0 || post.inputs.empty() || post.inputs.size() > 2 ||
         post.inputs[0] != op.output || p.values[post.output] ||
+        p.uses[op.output] != 1u + unsigned(guarded) ||
+        std::count(post.inputs.begin(), post.inputs.end(), op.output) != 1 ||
+        std::any_of(k->scalarBuffers.begin(), k->scalarBuffers.end(), [](auto x) { return x; }) ||
         std::none_of(k->fusedMatrices.begin(), k->fusedMatrices.end(),
                      [](auto x) { return x != nil; }))
       return false;
@@ -1853,6 +1869,23 @@ struct Bridge {
         b.format() != Format::Float32 || a.shape().size() != 2 || b.shape().size() != 2 ||
         a.shape()[1] != b.shape()[0])
       return false;
+    // Peek only at a guard that already passes from output-shape metadata.
+    // Failed/unavailable captures retain staged execution and fault precedence.
+    for (std::size_t i = 1; i < post.inputs.size(); ++i) {
+      const auto &other = p.values[post.inputs[i]];
+      if (!other || !other.onDevice() || other.format() != Format::Float32 ||
+          other.storage_->state != p.state || other.storage_->deviceIndex != p.index ||
+          other.shape().size() != 2 || other.shape()[0] != a.shape()[0] ||
+          other.shape()[1] != b.shape()[1])
+        return false;
+    }
+    if (guarded) {
+      const auto &guard = p.code[p.pc + 1];
+      if (post.inputs.size() != 2 || guard.inputs.size() != 2 ||
+          std::count(guard.inputs.begin(), guard.inputs.end(), op.output) != 1 ||
+          std::count(guard.inputs.begin(), guard.inputs.end(), post.inputs[1]) != 1)
+        return false;
+    }
     const auto cells = std::uint64_t(a.shape()[0]) * b.shape()[1];
     const auto used = p.state->bytes.load(), maximum = p.state->options.maxBytes;
     return cells <= UINT32_MAX && used <= maximum && cells * 12 <= maximum - used &&
@@ -1860,18 +1893,16 @@ struct Bridge {
   }
   static void finishNumeric(Frame &f) {
     auto &p = *f.packet.numericProgram;
-    const auto &op = p.code[p.pc];
-    const auto &last = f.numericFused ? p.code[p.pc + 1] : op;
+    const auto lastIndex = f.numericFused ? numericPostIndex(p) : p.pc;
+    const auto &last = p.code[lastIndex];
     p.values[last.output] = std::move(f.result);
     if (!p.origins.empty())
       p.origins[last.output] =
           f.numericResultOrigin == UINT32_MAX ? last.output : f.numericResultOrigin;
-    for (auto input : op.inputs)
-      p.release(input);
-    if (f.numericFused)
-      for (auto input : last.inputs)
+    for (auto i = p.pc; i <= lastIndex; ++i)
+      for (auto input : p.code[i].inputs)
         p.release(input);
-    p.pc += f.numericFused ? 2 : 1;
+    p.pc = lastIndex + 1;
   }
   static Buffer reusableNumericMapResult(Frame &f) {
     if (!f.packet.numericProgram || !f.packet.numericProgram->definition ||
@@ -2243,7 +2274,7 @@ struct Bridge {
               if (f.numericFused && f.fusedParameters &&
                   static_cast<const std::uint32_t *>(
                       f.fusedParameters->buffer
-                          .contents)[program.code[program.pc + 1].kernel.state_->parameterWords() -
+                          .contents)[program.code[numericPostIndex(program)].kernel.state_->parameterWords() -
                                      1] != UINT32_MAX) {
                 fail(task, f, 4);
                 return;
@@ -2864,15 +2895,22 @@ struct Bridge {
         }
         const auto numericPost =
             f.packet.numericProgram && f.numericPostWanted
-                ? f.packet.numericProgram->code[f.packet.numericProgram->pc + 1].kernel
+                ? f.packet.numericProgram->code[numericPostIndex(*f.packet.numericProgram)].kernel
                 : Kernel{};
         const auto &postKernel = numericPost ? numericPost
                                  : graphPost ? graphPost
                                              : f.packet.matrixPost;
         const auto &postArguments =
-            numericPost ? f.packet.numericProgram->code[f.packet.numericProgram->pc + 1].arguments
+            numericPost ? f.packet.numericProgram->code[numericPostIndex(*f.packet.numericProgram)].arguments
             : graphPost ? graphPostArguments
                         : f.packet.postArguments;
+        auto postTensor = [&](std::size_t i) -> const Buffer & {
+          if (numericPost) {
+            const auto &p = *f.packet.numericProgram;
+            return p.values[p.code[numericPostIndex(p)].inputs[i]];
+          }
+          return postArguments->tensors[i];
+        };
         if (matrix && postKernel.state_ && postArguments && f.packet.kernel.state_->tiledMatrix &&
             (!f.packet.kernel.state_->numericType || numericPost) &&
             (!f.packet.graph || graphPost) && (!f.packet.numericProgram || numericPost) &&
@@ -2928,7 +2966,7 @@ struct Bridge {
             // Slot zero is the not-yet-materialized matrix, not its placeholder.
             // Validate every other logical capture exactly as the staged map.
             for (std::size_t i = 1; i < arguments->tensors.size(); ++i) {
-              const auto &other = arguments->tensors[i].storage_;
+              const auto &other = postTensor(i).storage_;
               const bool read =
                   std::binary_search(post->reads.begin(), post->reads.begin() + post->readCount, i);
               if (!other || other->format != Format::Float32 || other->rank < 1 ||
@@ -3055,7 +3093,7 @@ struct Bridge {
                         words + 1);
               if (numericPost) {
                 const auto &p = *f.packet.numericProgram;
-                const auto &post = p.code[p.pc + 1];
+                const auto &post = p.code[numericPostIndex(p)];
                 for (std::size_t i = 0; i < post.scalars.size(); ++i)
                   words[i + 1] = std::uint32_t(numericScalar(p, post, i));
                 words[post.kernel.state_->parameterWords() - 1] = UINT32_MAX;
@@ -3227,7 +3265,7 @@ struct Bridge {
             if (fusePost) {
               const auto &post = postKernel.state_;
               for (std::uint32_t i = 1; i < post->readCount; ++i) {
-                const auto &input = postArguments->tensors[post->tensorIndex(i)].storage_;
+                const auto &input = postTensor(post->tensorIndex(i)).storage_;
                 [encoder setBuffer:input->metal->buffer offset:0 atIndex:i + 3];
               }
               [encoder setBuffer:f.fusedParameters->buffer offset:0 atIndex:post->readCount + 3];
@@ -3343,7 +3381,7 @@ struct Bridge {
           if (f.numericFused) {
             const auto postSlot = f.numericBatched++;
             f.numericFlagWords[postSlot] =
-                program.code[program.pc + 1].kernel.state_->parameterWords() - 1;
+                program.code[numericPostIndex(program)].kernel.state_->parameterWords() - 1;
             f.numericParameters[postSlot] = std::move(f.fusedParameters);
           }
           program.deferRetirement = true;

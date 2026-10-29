@@ -132,6 +132,21 @@ class Builder {
       else
         reject(root.declaration, "unbound numerical program capture");
     }
+    // Parameter order is an ABI choice, not expression evaluation order. Put
+    // an adjacent matrix producer first so the canonical epilogue can consume
+    // its value directly. A passing EqualShape may separate the two operations.
+    auto producer = program.code.size();
+    if (producer && program.code[producer - 1].kind == NumericProgramKind::EqualShape)
+      --producer;
+    const auto matrix = producer && program.code[producer - 1].kind == NumericProgramKind::Matmul
+                            ? std::optional{program.code[producer - 1].output}
+                            : std::nullopt;
+    if (matrix && ref.type.tensor && ref.type.element == NumericType::Float32) {
+      const auto at = std::find_if(tensors.begin(), tensors.end(),
+                                   [&](auto symbol) { return buffers.at(symbol) == *matrix; });
+      if (at != tensors.end())
+        std::rotate(tensors.begin(), at, at + 1);
+    }
     NumericShaderOptions options;
     options.arithmetic = arithmetic_;
     options.boolResult = ref.type.builtin == BuiltinValue::Bool;
@@ -177,16 +192,16 @@ class Builder {
     // Emit optional matrix profiles only for an actual adjacent producer. Plain
     // maps must not pay for creating unused matrix pipeline states at startup.
     if (shader->noArithmeticFault && ref.type.tensor && !shader->indirect &&
-        shader->reads.size() == 1 && shader->reads[0] == 0 && shader->tensorTypes.size() == 1 &&
-        shader->tensorTypes[0] == NumericType::Float32 &&
+        !shader->reads.empty() && shader->reads[0] == 0 && shader->tensorTypes.size() <= 2 &&
+        std::all_of(shader->tensorTypes.begin(), shader->tensorTypes.end(),
+                    [](auto type) { return type == NumericType::Float32; }) &&
         std::all_of(shader->scalarTypes.begin(), shader->scalarTypes.end(),
                     [](auto type) { return type == NumericType::Float32; }) &&
         std::none_of(shader->scalarBuffers.begin(), shader->scalarBuffers.end(),
                      [](auto role) { return role; }) &&
-        instruction.inputs.size() == 1 && !program.code.empty() &&
-        program.code.back().kind == NumericProgramKind::Matmul &&
-        instruction.inputs[0] == program.code.back().output)
-      shader->mlir = "// kalandra.numeric.matmul.epilogue 1 " +
+        matrix && !instruction.inputs.empty() && instruction.inputs[0] == *matrix)
+      shader->mlir = "// kalandra.numeric.matmul.epilogue " +
+                     std::to_string(shader->tensorTypes.size()) + " " +
                      std::to_string(shader->scalarTypes.size()) + "\n" + shader->mlir;
     instruction.kernel = kernel(std::move(*shader));
     instruction.output = value();

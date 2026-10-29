@@ -351,7 +351,15 @@ int main(int argc, char **argv) {
                               {16u, 4160u, 512u, 0u},
                               {16u, 1024u, 511u, 0u},
                               {17u, 1536u, 513u, 2u},
-                              {16u, 2112u, 512u, 0u}})
+                              {16u, 2112u, 512u, 0u},
+                              {4u, 256u, 8u, 1u},
+                              {16u, 512u, 16u, 2u},
+                              {64u, 512u, 64u, 1u},
+                              {17u, 544u, 17u, 2u},
+                              {3u, 4096u, 8u, 1u},
+                              {64u, 4096u, 64u, 2u},
+                              {16u, 224u, 16u, 0u},
+                              {65u, 512u, 64u, 0u}})
       rectangularMatrix(r, *core, *typed, shape[0], shape[1], shape[2], shape[3]);
     CHECK(!r.stats().bytes && !r.stats().inFlight && !r.stats().argumentBytes);
     std::printf("Typed hardware float32 matrix qualification: %llu APFloat cases, %llu cell/aggregate checks passed\n",(unsigned long long)cases,(unsigned long long)comparisons);

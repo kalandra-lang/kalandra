@@ -5,12 +5,14 @@ namespace kalandra::runtime::metal {
 // Performance policy for the measured Apple M2 Max, not a language limit.
 // Callers enable this profile only after validating the complete kernel bundle.
 enum class MatmulLayout { Scalar, Rows2, Quad };
-// Contraction-parallel profile. More rows regress against shared multi-row
-// tiles; narrow/short and non-32-leaf contractions keep the original kernels.
+// Contraction-parallel profiles: one/two wide rows, or small output rectangles
+// with a long inner dimension. Other shapes keep the original kernels.
 constexpr bool useSkinnyMatmul(std::uint32_t rows, std::uint32_t inner,
                                std::uint32_t columns) noexcept {
-  return rows >= 1 && rows <= 2 && inner >= 512 && inner <= 16384 && inner % 32 == 0 &&
-         columns >= 256 && columns <= 16384;
+  return (rows >= 1 && rows <= 2 && inner >= 512 && inner <= 16384 && inner % 32 == 0 &&
+          columns >= 256 && columns <= 16384) ||
+         (rows >= 3 && rows <= 64 && columns >= 8 && columns <= 64 && inner >= 256 &&
+          inner <= 4096 && inner % 32 == 0);
 }
 // M2 Max profile: admit at least 32 full 16x16 output tiles for K>=512.
 // Smaller rectangles were needlessly sent to the shared-root kernels; the

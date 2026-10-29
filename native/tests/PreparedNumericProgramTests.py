@@ -50,11 +50,29 @@ fn main()->Tensor[float32,?,?] ! TaskError:
     y=try await spawn work(a) on gpu
     try await transfer(y,devices.cpu())
 ''')
+residual=out/'residual.k'
+residual.write_text('''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?],c:Tensor[float32,?,?])->Tensor[float32,?,?]:
+  c-matmul(transpose(a),b)
+fn main()->Tensor[float32,?,?] ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    a:Tensor[float32,2,2]=tensor([[1,3],[2,4]])
+    b:Tensor[float32,2,2]=tensor([[2,0],[0,2]])
+    c:Tensor[float32,2,2]=tensor([[10,20],[30,40]])
+    x=try await transfer(a,gpu)
+    y=try await transfer(b,gpu)
+    z=try await transfer(c,gpu)
+    w=try await spawn work(x,y,z) on gpu
+    try await transfer(w,devices.cpu())
+''')
+residual_bundle=out/'residual-bundle'
+run([compiler,residual,'--target','metal','--arithmetic','hardware','-O2','-o',residual_bundle])
+assert run([residual_bundle/'program']).strip()=='[41000000,41800000,41c00000,42000000]'
 records=[]
 for name,flags,task in variants:
     binary=out/name
     run([clang,'-std=c++23','-pthread','-ffp-contract=off',*flags,'-I'+str(out),root/'native/tests/PreparedNumericProgramTests.cpp',native/'metal'/f'libkalandra-metal-{name}.a',native/task,'-framework','Foundation','-framework','Metal','-o',binary])
-    result=run([binary,bundle]);print(name+': '+result.strip(),flush=True);records.append(dict(mode=name,result=result))
+    result=run([binary,bundle,residual_bundle]);print(name+': '+result.strip(),flush=True);records.append(dict(mode=name,result=result))
     checked=out/('checked-'+name)
     flag={'optimized':'-O2','debug':'-O0','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[name]
     # Run the actual compiler-generated source entry through its Task overload,

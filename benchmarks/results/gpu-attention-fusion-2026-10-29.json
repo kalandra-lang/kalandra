@@ -1,0 +1,18 @@
+{
+  "evidence_sha256": {
+    "transformer-attention-full-block-2026-10-29.json": "9bae2edf4dc65c7ab2300cc57da5cc35e80e684fdd8d058481832cb34f9e410f",
+    "transformer-attention-paired-2026-10-29.json": "4547ba53fc2f13aaa7083a6439d3d9a90169c985cec8271815a614721c5cc1ae",
+    "transformer-attention-profile-2026-10-29.json": "ea3563e0745083f5114b3c9d768ff2d07b2ac5603d83006455050d3b165a81e3",
+    "transformer-attention-qualification-2026-10-29.json": "e3f904011c0dd9a11ef2e035a13f9a8b6dcd4e9ae3376dbb1d1e46b3b0f53b3b",
+    "transformer-attention-isolation-2026-10-29.json": "064591f4a3486c0273bd1ec915382673ad11ef4f225fbc56398aab47051fd81a",
+    "transformer-attention-policy-screen-2026-10-29.json": "430217c6054b51e600cc51172d89d4205e99372e16d73d120b04909201f95489",
+    "gpu-attention-rectangles-screen-2026-10-29.json": "9c9c880e0d42cba362ec829db6e36decb94a42e8b9a7059997760195ac2c58e5",
+    "gpu-attention-rectangles-2026-10-29.json": "43fd20c48c1d299204e46800595b55bc00fecf0779438077d080882044442d21",
+    "transformer-attention-small-repeat-2026-10-29.json": "64389c5e2aabbde10a483a0cbf1c05e0e0732bea88fc4c2eec4c3e6edb4d28dd",
+    "transformer-attention-single-row-2026-10-29.json": "c973b54ce812f2905ea16fd4503c3d46c00ecc7274687dae185d197f58418599"
+  },
+  "positive_medians": 19,
+  "all_positive_blocks": 6,
+  "cpu_llvm_sha256": "cf977384ab3525b9b2f0293d0a085c071f440ab87a5fd73cd967266591b58750",
+  "renderer_sha256": "b5b4f10ea1b3a75ad007a78d1f53a1c615eb473190ff8c700343f1c6d33ead32"
+}
