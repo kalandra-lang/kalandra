@@ -120,8 +120,11 @@ const TaskEntry supervisorEntry{1,
                                 destroySupervisor,
                                 resumeSupervisor,
                                 &m::Runtime::bufferLayout()};
+// Keep the full externally acknowledged transfer suite on the private fallback.
+// Owned shared snapshots have their own bounded-copy lifecycle suite.
+m::Options privateUploads() { m::Options options; options.sharedUploads = false; return options; }
 int main() {
-  auto made = m::Runtime::create();
+  auto made = m::Runtime::create(privateUploads());
   CHECK(made);
   auto runtime = std::move(*made);
   CHECK(runtime->deviceCount() > 0);
@@ -377,7 +380,7 @@ int main() {
   runtime->failAllocationAt(0);
   // Shutdown cannot invalidate a pending callback; transfer packets own runtime state.
   {
-    auto local = m::Runtime::create();
+    auto local = m::Runtime::create(privateUploads());
     CHECK(local);
     auto core = TaskCore::create();
     auto group = core->openRoot();
@@ -389,7 +392,7 @@ int main() {
     auto retained = observe(*core, task);
     clean(*core, group);
     CHECK(retained.onDevice());
-    auto other = m::Runtime::create();
+    auto other = m::Runtime::create(privateUploads());
     CHECK(other);
     group = core->openRoot();
     task = (*other)->download(*core, group, retained);
@@ -399,7 +402,7 @@ int main() {
   }
   // Destroying a core with a committed transfer waits for the callback's acknowledgement.
   {
-    auto local = m::Runtime::create();
+    auto local = m::Runtime::create(privateUploads());
     CHECK(local);
     auto core = TaskCore::create();
     auto group = core->openRoot();
@@ -423,7 +426,7 @@ int main() {
   }
   // Byte and in-flight budgets reject transactionally, leaving the existing source intact.
   {
-    m::Options options;
+    m::Options options = privateUploads();
     options.maxBytes = 32;
     auto limited = m::Runtime::create(options);
     CHECK(limited);
@@ -438,7 +441,7 @@ int main() {
     empty(**limited);
   }
   {
-    m::Options options;
+    m::Options options = privateUploads();
     options.maxInFlight = 1;
     auto limited = m::Runtime::create(options);
     CHECK(limited);
@@ -460,7 +463,7 @@ int main() {
   }
   // Wrong-runtime device handles and forged-empty bridge values are rejected.
   {
-    auto other = m::Runtime::create();
+    auto other = m::Runtime::create(privateUploads());
     CHECK(other);
     auto core = TaskCore::create();
     auto input = host(*runtime, {1});

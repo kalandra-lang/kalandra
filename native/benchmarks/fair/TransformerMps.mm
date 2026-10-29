@@ -5,7 +5,8 @@
 #import <MetalPerformanceShadersGraph/MetalPerformanceShadersGraph.h>
 #include "TransformerBlock.h"
 int main(int argc,char**argv) { @autoreleasepool {
-  ffn::check(argc==8);
+  ffn::check(argc==8 || argc==9);
+  const bool sharedUpload=argc==9 && std::stoul(argv[8])==1;
   const unsigned m=std::stoul(argv[1]),d=std::stoul(argv[2]),count=std::stoul(argv[3]),rounds=std::stoul(argv[4]),mode=std::stoul(argv[5]),dump=std::stoul(argv[6]),pattern=std::stoul(argv[7]);
   ffn::check(m && d && m<=512 && d<=2048 && mode<=2);
   transformer::Inputs data(m,d,pattern);
@@ -33,6 +34,12 @@ int main(int argc,char**argv) { @autoreleasepool {
   NSMutableArray<id<MTLBuffer>>*host=[NSMutableArray new];
   NSMutableArray<MPSGraphTensorData*>*resident=[NSMutableArray new];
   auto upload=[&](unsigned i){
+    if(sharedUpload) {
+      // Matched owned-snapshot control: include allocation and CPU copy in
+      // timed uploads, with no alias to the original host backing.
+      id<MTLBuffer> buffer=[device newBufferWithBytes:host[i].contents length:host[i].length options:MTLResourceStorageModeShared];ffn::check(bool(buffer));
+      return [[MPSGraphTensorData alloc] initWithMTLBuffer:buffer shape:@[@(data.shapes[i][0]),@(data.shapes[i][1])] dataType:MPSDataTypeFloat32];
+    }
     id<MTLBuffer> buffer=[device newBufferWithLength:data.values[i].size()*4 options:MTLResourceStorageModePrivate];ffn::check(bool(buffer));
     auto cb=[queue commandBuffer];auto encoder=[cb blitCommandEncoder];
     [encoder copyFromBuffer:host[i] sourceOffset:0 toBuffer:buffer destinationOffset:0 size:buffer.length];[encoder endEncoding];[cb commit];[cb waitUntilCompleted];ffn::check(cb.status==MTLCommandBufferStatusCompleted);

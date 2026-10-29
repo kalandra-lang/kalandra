@@ -36,3 +36,4 @@ benchmarks/results/gpu-register-*-2026-10-28.json linguist-generated=true
 
 benchmarks/results/transformer-*-2026-10-29.json linguist-generated=true
 benchmarks/results/gpu-attention-*-2026-10-29.json linguist-generated=true
+benchmarks/results/gpu-owned-uploads-2026-10-29.json linguist-generated=true

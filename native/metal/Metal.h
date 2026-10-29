@@ -89,6 +89,9 @@ struct Options {
   std::uint64_t maxBytes = 64 * 1024 * 1024;
   std::uint32_t maxInFlight = 64, defaultDevice = 0;
   std::uint64_t maxArgumentBytes = 1024 * 1024;
+  // Owned CPU-populated device snapshots on unified-memory hardware. Disable
+  // to qualify the private-buffer/blit fallback; no host alias is exposed.
+  bool sharedUploads = true;
 };
 struct Stats {
   std::uint64_t gpuNanoseconds = 0, encodingNanoseconds = 0, dispatches = 0;
@@ -103,6 +106,7 @@ public:
   explicit operator bool() const noexcept { return bool(state_); }
   std::uint64_t identity() const noexcept;
   std::string_view name() const noexcept;
+  bool hasUnifiedMemory() const noexcept;
 
 private:
   std::shared_ptr<State> state_;

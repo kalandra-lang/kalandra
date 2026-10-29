@@ -318,3 +318,43 @@ task archive are unchanged, and the canonical shader ABI swap is checked exactly
 Pipeline setup is about 0.28 ms higher in separate startup observations; warm
 acceptance excludes setup. Every outcome and the remaining transfer/latency gap
 are in the [report](../benchmarks/results/gpu-attention-fusion-2026-10-29.md).
+
+## Owned shared-upload snapshots
+
+Completed the unified-memory upload experiment against frozen `dec5a66d`.
+CPU inputs now copy into owned shared Metal storage, without a staging/private
+blit or GPU submission. Copies yield every 1 MiB, retain the source allocation
+lease, check cancellation and publish only complete snapshots. Non-unified
+devices retain the acknowledged private-buffer fallback. Arithmetic, shaders,
+compiler, TaskCore and compute cancellation boundaries are unchanged. The
+[design](design/gpu-owned-upload-snapshots.md) records the lifecycle contract.
+
+Five paired blocks improve all-upload medians **26.4–56.0%**, with all five
+blocks positive in every case. Activation-upload medians improve **10.5–17.6%**.
+An independent repetition confirms **25.3–51.6%** all-upload reductions. The
+all-upload calls fall from 11–13 GPU submissions to 4–6. Resident results remain
+mixed: primary losses reach 2.7%; the repeated small cases change signs and
+include a 2.9% loss at 1×256. A same-binary private/shared control preserves
+these small tradeoffs rather than attributing every change to the new code.
+
+Both MPSGraph and Kalandra use fresh owned shared snapshots for the new matched
+comparison, including allocation and CPU copying inside timed uploads. The
+largest resident block takes 1.66 ms on Kalandra Metal, 10.62 ms on Kalandra CPU
+and 0.51 ms on MPSGraph: 6.42× our CPU speed, still 3.25× MPSGraph time. With all
+inputs uploaded per call, Metal/MPSGraph take 3.14/1.91 ms. Small GPU workloads
+still favor CPU, and this is one transformer block, not full-model inference.
+
+Four-mode upload, ten-format/rank-0–8 storage, compute, numeric and prepared-graph
+qualification passes, including partial-copy cancellation/deadlines, exact byte
+and admission budgets, allocation failures, source leases, independent snapshots,
+concurrency and teardown. APFloat again passes 1,745 cases / 1,769,284 checks per
+mode. A child/group deadline assertion was corrected without changing runtime
+behavior. The acknowledged and unbounded-copy screens remain benchmark-only.
+A five-block write-combined-cache experiment is rejected: 1×512/64×512 all-upload
+cases lose 20.8%/11.8%, with every block negative. Production uses default caching.
+
+See the [audited report, chart and all raw evidence](../benchmarks/results/gpu-owned-uploads-2026-10-29.md).
+Next: resident scheduling/dispatch latency, including whether work-bounded
+chunks can replace the fixed four-stage cap while retaining a clear cancellation
+and resource contract. Any change to that contract needs explicit qualification;
+unbounded graph submission is not the proposed shortcut.

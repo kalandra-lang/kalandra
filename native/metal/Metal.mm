@@ -189,7 +189,7 @@ std::expected<std::uint64_t, Error> tensorBytes(std::span<const std::int64_t> sh
 }
 std::expected<std::shared_ptr<MetalAllocation>, Error>
 allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uint64_t n,
-              bool staging) {
+              bool staging, bool shared = false) {
   if (!state->permit())
     return std::unexpected(Error::Allocation);
   if (n > state->devices[index].maxBufferLength)
@@ -200,7 +200,8 @@ allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uin
   if (state->permit())
     buffer = [state->devices[index]
         newBufferWithLength:n
-                    options:staging ? MTLResourceStorageModeShared : MTLResourceStorageModePrivate];
+                    options:(staging || shared) ? MTLResourceStorageModeShared
+                                               : MTLResourceStorageModePrivate];
   if (!buffer) {
     state->bytes -= n;
     return std::unexpected(Error::Allocation);
@@ -215,7 +216,8 @@ allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uin
 std::expected<std::shared_ptr<Storage>, Error> allocateStorage(const std::shared_ptr<State> &state,
                                                                std::span<const std::int64_t> shape,
                                                                Format format, bool device,
-                                                               std::uint32_t index = 0) {
+                                                               std::uint32_t index = 0,
+                                                               bool shared = false) {
   auto size = tensorBytes(shape, format);
   if (!size)
     return std::unexpected(size.error());
@@ -238,7 +240,7 @@ std::expected<std::shared_ptr<Storage>, Error> allocateStorage(const std::shared
       if (width < 4 && *size > UINT64_MAX - 3)
         return std::unexpected(Error::Invalid);
       const auto physical = width < 4 ? (*size + 3) & ~UINT64_C(3) : *size;
-      auto buffer = allocateMetal(state, index, physical, false);
+      auto buffer = allocateMetal(state, index, physical, false, shared);
       if (!buffer)
         return std::unexpected(buffer.error());
       storage->metal = *buffer;
@@ -991,6 +993,8 @@ struct Bridge {
     std::shared_ptr<MetalAllocation> staging, resources;
     Error error = Error::Device;
     bool succeeded = false, started = false, active = false;
+    bool copyingUpload = false;
+    std::uint64_t uploadOffset = 0;
     explicit Frame(PacketData p) : packet(std::move(p)) {}
     ~Frame() {
       if (active)
@@ -2195,11 +2199,38 @@ struct Bridge {
       return std::unexpected(Error::Allocation);
     }
   }
+  static void copySharedUpload(Task &task, Frame &f) {
+    // No GPU can observe the result before publication. The packet retains the
+    // source lease and the frame owns the new snapshot across scheduler yields.
+    // Bound CPU copy work just as device work is bounded between checkpoints.
+    if (task.cancelled())
+      return;
+    constexpr std::uint64_t quantum = 1024 * 1024;
+    const auto &source = f.packet.input.storage_;
+    const auto &destination = f.result.storage_->metal;
+    const auto count = std::min(quantum, source->size - f.uploadOffset);
+    auto *bytes = static_cast<std::byte *>(destination->buffer.contents);
+    std::memcpy(bytes + f.uploadOffset, source->hostView().data() + f.uploadOffset, count);
+    f.uploadOffset += count;
+    if (f.uploadOffset != source->size) {
+      task.yield();
+      return;
+    }
+    // Sub-word numeric storage is padded for shader word access.
+    if (destination->bytes > source->size)
+      std::memset(bytes + source->size, 0, destination->bytes - source->size);
+    // TaskCore checks cancellation again while publishing the result.
+    task.complete(&f.result);
+  }
   static void resume(Task &task) {
     for (;;) {
       @autoreleasepool {
         auto &f = *static_cast<Frame *>(task.frame());
         auto state = f.packet.state;
+        if (f.copyingUpload) {
+          copySharedUpload(task, f);
+          return;
+        }
         if (f.packet.numericProgram && !f.packet.preparation) {
           auto &program = *f.packet.numericProgram;
           if (f.started) {
@@ -3027,7 +3058,9 @@ struct Bridge {
                                       (compute || matrix) && f.packet.kernel.state_->numericType
                                           ? *storageFormat(*f.packet.kernel.state_->numericType)
                                           : source->format,
-                                      upload || compute || matrix, index);
+                                      upload || compute || matrix, index,
+                                      upload && state->options.sharedUploads &&
+                                          state->devices[index].hasUnifiedMemory);
           if (!result) {
             fail(task, f, std::int64_t(result.error()));
             return;
@@ -3068,6 +3101,11 @@ struct Bridge {
             return;
           }
 
+          if (upload && state->options.sharedUploads && state->devices[index].hasUnifiedMemory) {
+            f.copyingUpload = true;
+            copySharedUpload(task, f);
+            return;
+          }
           if (compute || matrix) {
             const auto &kernel = f.packet.kernel.state_;
             const auto tensors = kernel->readCount;
@@ -3517,6 +3555,9 @@ std::uint64_t Device::identity() const noexcept {
 }
 std::string_view Device::name() const noexcept {
   return state_ ? std::string_view(state_->names[index_]) : std::string_view{};
+}
+bool Device::hasUnifiedMemory() const noexcept {
+  return state_ && state_->devices[index_].hasUnifiedMemory;
 }
 Buffer::Buffer(std::shared_ptr<const Storage> storage) noexcept : storage_(std::move(storage)) {}
 std::uint64_t Buffer::bytes() const noexcept { return storage_ ? storage_->size : 0; }

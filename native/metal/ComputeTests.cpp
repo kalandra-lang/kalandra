@@ -223,7 +223,7 @@ int main(int argc, char **argv) {
         check(result, pairs, op);
         auto again = observe(*core, t);
         CHECK(again.hostBytes()->data() == result.hostBytes()->data());
-        CHECK(r->stats().submissions - before == (n ? 4 : 0));
+        CHECK(r->stats().submissions - before == (n ? (r->device()->hasUnifiedMemory() ? 2 : 4) : 0));
         clean(*core, group); // Result remains valid after producing group is gone.
         check(result, pairs, op);
       }
