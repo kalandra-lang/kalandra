@@ -99,6 +99,9 @@ struct Options {
   bool contiguousTranspose = true;
   // Encode later chunks while the first runs; false retains full pre-encoding.
   bool overlappedEncoding = true;
+  // Only an opaque closed runner with no independent progress can use this.
+  // Ordinary TaskCore callers always retain bounded asynchronous execution.
+  bool closedSynchronous = true;
 };
 struct Stats {
   std::uint64_t gpuNanoseconds = 0, encodingNanoseconds = 0, dispatches = 0;
@@ -288,6 +291,11 @@ public:
   TaskHandle executeNumericProgram(Task &, GroupHandle, const NumericExecutable &,
                                    std::span<const Buffer>,
                                    std::span<const std::uint64_t> captures = {}) noexcept;
+  // Reusable synchronous caller for tensor results. Scalar executables use
+  // their typed TaskEntry layout with ClosedTaskRunner::run instead.
+  std::expected<Buffer, Failure>
+  executeNumericProgram(ClosedTaskRunner &, const NumericExecutable &, std::span<const Buffer>,
+                        std::span<const std::uint64_t> captures = {}) noexcept;
   TaskHandle numericProgram(TaskCore &, GroupHandle, std::span<const Buffer>,
                             std::span<const NumericInstruction>, std::uint32_t result, NumericType,
                             bool scalarResult) noexcept;

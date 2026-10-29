@@ -551,10 +551,18 @@ int main() {
         "    resident=try await tra|Suffix(values,devices.gpu(1))\n"
         "    host=try await transfer(resident,devices.cpu())\n    reduceSum(host)\n";
     info = query(transferStart + transferCall, placement);
+    require(info.names.size() == 2 && has(info, "transfer") && has(info, "transpose") &&
+                info.names[0].kind == ScopeNameKind::Function &&
+                info.names[1].kind == ScopeNameKind::Function &&
+                info.replacement.end - info.replacement.begin == 9,
+            "transfer and transpose share a prefix and replace the whole call name");
+    auto transferOnly = transferCall;
+    transferOnly.replace(transferOnly.find("tra|Suffix"), 10, "transf|Suffix");
+    info = query(transferStart + transferOnly, placement);
     require(info.names.size() == 1 && has(info, "transfer") &&
                 info.names[0].kind == ScopeNameKind::Function &&
-                info.replacement.end - info.replacement.begin == 9,
-            "transfer completion replaces the whole call name in an owning placement group");
+                info.replacement.end - info.replacement.begin == 12,
+            "a distinct transfer prefix selects the owning-group builtin");
     require(!has(query(transferStart + transferCall), "transfer"),
             "CPU mode does not suggest the transfer builtin");
     require(
@@ -584,11 +592,13 @@ int main() {
             "prior errors suppress transfer candidates");
     info = query(transferStart + transferCall + "    missing\n", placement);
     require(has(info, "transfer"), "later errors preserve captured transfer completion");
-    info = query(transferStart + "    transfer=1\n    tra|(1)\n", placement);
-    require(info.names.size() == 1 && info.names[0].kind == ScopeNameKind::Variable,
+    info = query(transferStart + "    transfer=1\n    transf|(1)\n", placement);
+    require(info.names.size() == 1 && has(info, "transfer") &&
+                info.names[0].kind == ScopeNameKind::Variable,
             "local transfer binding keeps its own item kind");
-    info = query("fn transfer(value:int):\n  value\nfn main():\n  tra|(1)\n");
-    require(info.names.size() == 1 && info.names[0].kind == ScopeNameKind::Function,
+    info = query("fn transfer(value:int):\n  value\nfn main():\n  transf|(1)\n");
+    require(info.names.size() == 1 && has(info, "transfer") &&
+                info.names[0].kind == ScopeNameKind::Function,
             "CPU-mode source functions retain normal transfer completion");
     info = query(transferStart + "    try await tra|(values,devices.gpu()\n", placement);
     require(has(info, "transfer"), "callee recovery preserves trailing selector arguments");

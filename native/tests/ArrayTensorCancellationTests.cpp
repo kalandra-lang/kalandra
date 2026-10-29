@@ -9,6 +9,22 @@ constexpr auto element = static_cast<NumericType>(NUMERIC_TYPE);
 using Cell = NumericValue<element>;
 using Tensor = CpuTensor<element, 1>;
 extern "C" void _mlir_ciface_kalandra_test_entry(Tensor *, Tensor *, Invocation *);
+extern "C" std::int64_t kalandra_poll_slow_v1(Invocation *) noexcept;
+static thread_local bool waitForObserver = false;
+static thread_local unsigned activePolls = 0;
+// Only the cancellation driver's generated LLVM calls this shim. Keep the
+// active copy at its 128th real poll until the observer gets an OS timeslice.
+// Ordinary numerical and shape fixtures use the original generated LLVM.
+extern "C" std::int64_t kalandra_array_tensor_poll_gate_v1(Invocation *context) noexcept {
+  auto status = kalandra_poll_slow_v1(context);
+  if (waitForObserver && ++activePolls == 128) {
+    while (!status) {
+      std::this_thread::yield();
+      status = kalandra_poll_slow_v1(context);
+    }
+  }
+  return status;
+}
 static void require(bool ok, const char *message) {
   if (!ok)
     throw std::runtime_error(message);
@@ -47,7 +63,10 @@ static void cancellation(bool active) {
       if (!done.load())
         token.store(true);
     });
+  activePolls = 0;
+  waitForObserver = active;
   _mlir_ciface_kalandra_test_entry(&output, &input, &context);
+  waitForObserver = false;
   done.store(true);
   if (active)
     sender.join();

@@ -98,6 +98,10 @@ jobs:
           python3 native/tests/TensorTransformTests.py
           --compiler build/native/native/kalandra --clang "$KALANDRA_LLVM_ROOT/bin/clang++"
           --output build/native/tensor-transforms --quick
+      - name: Qualify opaque synchronous task ownership
+        run: |
+          cmake --build build/native --target kalandra-closed-task-tests-optimized -j2
+          ctest --test-dir build/native --output-on-failure -R '^native-closed-tasks-optimized$'
       - name: Remove archive staging copies before the independent build
         run: |
           python3 - <<'PY'

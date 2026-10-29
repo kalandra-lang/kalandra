@@ -283,14 +283,12 @@ int main(int argc, char **argv) {
     run(false);
   }
   runtime->failAllocationAt(0);
-  for (unsigned scenario : {0u, 1u, 2u}) {
-    auto core = TaskCore::create();
-    CHECK(core);
-    auto group = core->openRoot();
-    PacketData packet{runtime.get(), argv[1]};
-    auto before = runtime->stats().completions, submissions = runtime->stats().submissions;
-    auto task = core->submit(group, entry, {entry.packetLayout, &packet, sizeof(packet)});
-    CHECK(task);
+  for (bool sharedUploads : {false, true}) {
+    auto scenarioMade = m::Runtime::create({.sharedUploads = sharedUploads});
+    CHECK(scenarioMade);
+    auto runtime = std::move(*scenarioMade);
+    auto target = runtime->device();
+    CHECK(target);
 #if defined(KALANDRA_ARGUMENTS) || defined(KALANDRA_UNUSED_INPUTS)
     constexpr unsigned uploads = 3;
 #elif defined(KALANDRA_SCALAR_ENTRY)
@@ -298,21 +296,30 @@ int main(int argc, char **argv) {
 #else
     constexpr unsigned uploads = 2;
 #endif
-    until(*core, [&] { return runtime->stats().completions >= before + uploads; });
-    runtime->holdCompletions(true);
-    if (scenario == 2)
-      runtime->failNextCompletion();
-    until(*core, [&] {
-      return runtime->stats().submissions == submissions + uploads + 1 &&
-             core->stats().externalPending == 1;
-    });
-    if (scenario < 2)
-      CHECK(core->cancel(group, scenario == 1));
-    runtime->holdCompletions(false);
-    CHECK(core->drain());
-    CHECK(core->failure(task).kind != TaskFailure::None);
-    retire(*core, group);
-    empty(*runtime);
+    // A shared upload is a CPU copy, not a command-buffer completion.
+    const auto computeOffset = (sharedUploads && target->hasUnifiedMemory() ? 0u : uploads) + 1;
+    for (unsigned scenario : {0u, 1u, 2u}) {
+      auto core = TaskCore::create();
+      CHECK(core);
+      auto group = core->openRoot();
+      PacketData packet{runtime.get(), argv[1]};
+      const auto compute = runtime->stats().submissions + computeOffset;
+      runtime->holdCompletionAt(compute);
+      auto task = core->submit(group, entry, {entry.packetLayout, &packet, sizeof(packet)});
+      CHECK(task);
+      until(*core, [&] {
+        return runtime->stats().submissions == compute && core->stats().externalPending == 1;
+      });
+      if (scenario == 2)
+        runtime->failNextCompletion();
+      if (scenario < 2)
+        CHECK(core->cancel(group, scenario == 1));
+      runtime->holdCompletionAt(0);
+      CHECK(core->drain());
+      CHECK(core->failure(task).kind != TaskFailure::None);
+      retire(*core, group);
+      empty(*runtime);
+    }
   }
 #ifdef KALANDRA_MATRIX_ENTRY
   matrixConformance(*runtime, argv[1]);

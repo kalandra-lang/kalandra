@@ -125,55 +125,58 @@ int main(int argc, char **argv) {
     empty(*r);
   }
   r->failAllocationAt(0);
-  // Pause after both upload acknowledgements, then hold the actual source-generated compute.
-  for (unsigned scenario = 0; scenario < 4; ++scenario) {
-    auto core = TaskCore::create();
-    auto group = core->openRoot();
-    PacketData p{r.get(), argv[1]};
-    auto before = r->stats().completions, submissions = r->stats().submissions;
-    auto t = core->submit(group, entry, {entry.packetLayout, &p, sizeof(p)});
-    until([&] {
-      core->step();
-      return r->stats().completions >= before + 2;
-    });
-    CHECK(r->stats().submissions == submissions + 2);
-    r->holdCompletions(true);
-    if (scenario == 2)
-      r->failNextCompletion();
-    until([&] {
-      core->step();
-      return r->stats().submissions == submissions + 3 && core->stats().externalPending == 1;
-    });
-    CHECK(r->stats().submissions == submissions + 3);
-    if (scenario == 3) {
-      std::atomic<bool> entered{false}, done{false};
-      std::thread drop([&] {
-        entered = true;
-        core.reset();
-        done = true;
+  // Shared snapshots omit upload commands. Arm the actual compute before
+  // scheduling, and qualify both shared and private/blit upload policies.
+  for (bool sharedUploads : {false, true}) {
+    auto scenarioMade = m::Runtime::create({.sharedUploads = sharedUploads});
+    CHECK(scenarioMade);
+    auto r = std::move(*scenarioMade);
+    auto target = r->device();
+    CHECK(target);
+    const auto computeOffset = sharedUploads && target->hasUnifiedMemory() ? 1u : 3u;
+    for (unsigned scenario = 0; scenario < 4; ++scenario) {
+      auto core = TaskCore::create();
+      auto group = core->openRoot();
+      PacketData p{r.get(), argv[1]};
+      const auto compute = r->stats().submissions + computeOffset;
+      r->holdCompletionAt(compute);
+      auto t = core->submit(group, entry, {entry.packetLayout, &p, sizeof(p)});
+      until([&] {
+        core->step();
+        return r->stats().submissions == compute && core->stats().externalPending == 1;
       });
-      until([&] { return entered.load(); });
-      CHECK(!done);
-      CHECK(r->stats().bytes);
-      r->holdCompletions(false);
-      drop.join();
-      CHECK(done);
+      if (scenario == 2)
+        r->failNextCompletion();
+      if (scenario == 3) {
+        std::atomic<bool> entered{false}, done{false};
+        std::thread drop([&] {
+          entered = true;
+          core.reset();
+          done = true;
+        });
+        until([&] { return entered.load(); });
+        CHECK(!done);
+        CHECK(r->stats().bytes);
+        r->holdCompletionAt(0);
+        drop.join();
+        CHECK(done);
+        empty(*r);
+        continue;
+      }
+      if (scenario < 2) {
+        CHECK(core->cancel(group, scenario == 1));
+        CHECK(!core->drain(0));
+        CHECK(!core->settled(group));
+      }
+      r->holdCompletionAt(0);
+      CHECK(core->drain());
+      CHECK(core->failure(t).kind != TaskFailure::None);
+      if (scenario < 2)
+        CHECK(core->failure(group).kind ==
+              (scenario == 1 ? TaskFailure::DeadlineExceeded : TaskFailure::Cancelled));
+      clean(*core, group);
       empty(*r);
-      continue;
     }
-    if (scenario < 2) {
-      CHECK(core->cancel(group, scenario == 1));
-      CHECK(!core->drain(0));
-      CHECK(!core->settled(group));
-    }
-    r->holdCompletions(false);
-    CHECK(core->drain());
-    CHECK(core->failure(t).kind != TaskFailure::None);
-    if (scenario < 2)
-      CHECK(core->failure(group).kind ==
-            (scenario == 1 ? TaskFailure::DeadlineExceeded : TaskFailure::Cancelled));
-    clean(*core, group);
-    empty(*r);
   }
   // The source kernel accepts dynamic arrays; compare it against an independent IEEE oracle.
   auto kernel = r->loadElementwiseKernel(std::string(argv[1]) + "/kernel0.metallib", *r->device());

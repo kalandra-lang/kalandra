@@ -958,6 +958,7 @@ struct Bridge {
     std::mutex progressionMutex;
     ExternalCompletion progressionCompletion;
     bool overlapAllowed = false;
+    bool closedSynchronous = false;
     bool liveEncoding = false, encodingDone = false, commandRunning = false;
     bool stoppedEncoding = false, encodingSucceeded = true, signaledEncoding = false;
     std::size_t nextCommand = 0;
@@ -1802,6 +1803,27 @@ struct Bridge {
     if (!completion)
       return;
     const auto ordinal = ++state->submissions;
+    if (f.progression && f.progression->closedSynchronous) {
+      // The opaque caller owns this core, and admission proved no independent
+      // task/external operation can progress. Never block a general task worker.
+      [command commit];
+      [command waitUntilCompleted];
+      {
+        std::unique_lock lock(state->gateMutex);
+        state->gate.wait(lock, [&] {
+          return !state->hold && (!state->holdSubmission || state->holdSubmission != ordinal);
+        });
+      }
+      if (state->options.profile && command.GPUEndTime >= command.GPUStartTime)
+        state->gpuNanoseconds += std::uint64_t((command.GPUEndTime - command.GPUStartTime) * 1e9);
+      f.succeeded = command.status == MTLCommandBufferStatusCompleted &&
+                    !state->failCompletion.exchange(false);
+      ++state->completions;
+      --state->inFlight;
+      f.active = false;
+      completion.signal();
+      return;
+    }
     auto *frame = &f;
     [command addCompletedHandler:^(id<MTLCommandBuffer> finished) {
 #if __has_feature(thread_sanitizer)
@@ -1976,6 +1998,11 @@ struct Bridge {
   static void flushNumeric(Task &task, Frame &f) {
     f.numericAcknowledging = true;
     if (f.progression) {
+      if (f.progression->closedSynchronous) {
+        retainProgressionChunk(f);
+        submitCommand(task, f, f.pendingCommand);
+        return;
+      }
       if (!f.progression->overlapAllowed) {
         if (f.pendingCommand)
           checkpointProgression(task, f);
@@ -2383,7 +2410,10 @@ struct Bridge {
           parameterCapacity - parameterBytes <=
               state->options.maxBytes - usedBytes - bytes - 64 * 1024)
         candidate->arenaCapacity = parameterCapacity;
-      candidate->overlapAllowed = candidate->workChunks && state->options.overlappedEncoding;
+      candidate->closedSynchronous = candidate->workChunks && state->options.closedSynchronous &&
+                                     task.canExecuteSynchronously();
+      candidate->overlapAllowed = candidate->workChunks && state->options.overlappedEncoding &&
+                                  !candidate->closedSynchronous;
       if (candidate->arenaCapacity) {
         const auto spare = state->options.maxBytes - usedBytes - bytes - 64 * 1024;
         const auto padding = parameterCapacity - parameterBytes;
@@ -2391,14 +2421,15 @@ struct Bridge {
         // the previous safety headroom. Tight budgets keep full pre-encoding.
         candidate->overlapAllowed &= computes - 1 <= (spare - padding) / parameterCapacity;
       }
+      const auto extraCommands = candidate->closedSynchronous ? 0 : computes - 1;
       auto credits = state->progressionCommandCredits.load();
       do {
         if (credits > state->options.maxInFlight ||
-            computes - 1 > state->options.maxInFlight - credits)
+            extraCommands > state->options.maxInFlight - credits)
           return {};
-      } while (
-          !state->progressionCommandCredits.compare_exchange_weak(credits, credits + computes - 1));
-      candidate->commandCredits = computes - 1;
+      } while (!state->progressionCommandCredits.compare_exchange_weak(credits,
+                                                                       credits + extraCommands));
+      candidate->commandCredits = extraCommands;
       if (!state->permit())
         return std::unexpected(Error::Allocation);
       candidate->owners.reserve(program.code.size());
@@ -2652,7 +2683,10 @@ struct Bridge {
               const auto work = numericBatchWork(f);
               f.numericEligible = work && numericHeadroom(f, *work);
               if (f.progression && work) {
-                constexpr auto limit = UINT64_C(64) * 1024 * 1024;
+                // Cost saturation and fusion checks retain their original
+                // arithmetic policy. Only a proved closed region is indivisible.
+                const auto limit =
+                    f.progression->closedSynchronous ? UINT64_MAX : UINT64_C(64) * 1024 * 1024;
                 if (f.pendingCommand && (*work > limit || f.numericWork > limit - *work)) {
                   checkpointProgression(task, f);
                   continue;
@@ -4984,6 +5018,31 @@ TaskHandle Runtime::executeNumericProgram(Task &task, GroupHandle group,
                           ? Bridge::numericEntry(executable.plan_->element)
                           : Bridge::entry;
   return task.spawn(group, entry, {entry.packetLayout, &packet, sizeof(packet)});
+}
+std::expected<Buffer, Failure>
+Runtime::executeNumericProgram(ClosedTaskRunner &runner, const NumericExecutable &executable,
+                               std::span<const Buffer> inputs,
+                               std::span<const std::uint64_t> captures) noexcept {
+  if (executable.plan_ && executable.plan_->scalar)
+    return std::unexpected(Failure{TaskFailure::Fault, std::int64_t(Error::Invalid)});
+  Bridge::PacketData packet{state_, {}, {}, Bridge::Kind::Elementwise, {}, BinaryOperation::Add,
+                            {}};
+  auto program = Bridge::instantiateProgram(state_, executable.plan_, inputs, captures);
+  if (program)
+    packet.numericProgram = *program;
+  else
+    packet.preparation = program.error();
+  Invocation context;
+  alignas(Buffer) std::byte slot[sizeof(Buffer)];
+  const auto failure =
+      runner.run(Bridge::entry, {Bridge::entry.packetLayout, &packet, sizeof(packet)},
+                 bufferLayout(), context, slot);
+  if (failure.kind != TaskFailure::None)
+    return std::unexpected(failure);
+  auto *value = std::launder(reinterpret_cast<Buffer *>(slot));
+  Buffer result = std::move(*value);
+  value->~Buffer();
+  return result;
 }
 TaskHandle Runtime::numericProgram(TaskCore &core, GroupHandle group,
                                    std::span<const Buffer> inputs,

@@ -75,6 +75,9 @@ for name,flags,task in variants:
     binary=out/name
     run([clang,'-std=c++23','-pthread','-ffp-contract=off',*flags,'-I'+str(out),root/'native/tests/PreparedNumericProgramTests.cpp',native/'metal'/f'libkalandra-metal-{name}.a',native/task,'-framework','Foundation','-framework','Metal','-o',binary])
     result=run([binary,bundle,residual_bundle]);print(name+': '+result.strip(),flush=True);records.append(dict(mode=name,result=result))
+    closed=out/('closed-'+name)
+    run([clang,'-std=c++23','-pthread','-ffp-contract=off',*flags,'-I'+str(out),root/'native/tests/ClosedNumericProgramTests.cpp',native/'metal'/f'libkalandra-metal-{name}.a',native/task,'-framework','Foundation','-framework','Metal','-o',closed])
+    result=run([closed,bundle]);print(name+' closed: '+result.strip(),flush=True);records[-1]['closed_result']=result
     checked=out/('checked-'+name)
     flag={'optimized':'-O2','debug':'-O0','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[name]
     # Run the actual compiler-generated source entry through its Task overload,

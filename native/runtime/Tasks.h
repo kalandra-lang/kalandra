@@ -41,6 +41,7 @@ struct ValueLayout {
 };
 class Task;
 class ExternalCompletion;
+class ClosedTaskRunner;
 struct TaskEntry {
   std::uint32_t revision;
   std::uint64_t packetLayout;
@@ -110,8 +111,30 @@ private:
   struct Impl;
   std::shared_ptr<Impl> impl_;
   explicit TaskCore(std::shared_ptr<Impl>) noexcept;
+  static std::unique_ptr<TaskCore> create(TaskLimits, bool closedCaller) noexcept;
   friend class ExternalCompletion;
   friend class Task;
+  friend class ClosedTaskRunner;
+};
+// Ordinary synchronous entry. The scheduler and its cancellation capabilities
+// never escape this owner. Concurrent run calls are serialized; stats is read-only.
+// Source parallelism still uses the normal scheduler. A runtime leaf may omit
+// asynchronous checkpoints only after Task::canExecuteSynchronously() proves
+// that doing so cannot suppress independent progress in this private core.
+class ClosedTaskRunner final {
+public:
+  static std::unique_ptr<ClosedTaskRunner> create(TaskLimits limits = {}) noexcept;
+  ~ClosedTaskRunner();
+  ClosedTaskRunner(const ClosedTaskRunner &) = delete;
+  ClosedTaskRunner &operator=(const ClosedTaskRunner &) = delete;
+  Failure run(const TaskEntry &, Packet, const ValueLayout &, Invocation &, void *output) noexcept;
+  TaskStats stats() const noexcept;
+  void failAllocationAt(std::uint64_t attempt) noexcept;
+
+private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+  explicit ClosedTaskRunner(std::unique_ptr<Impl>) noexcept;
 };
 // A one-shot completion capability. Copies are safe on foreign callback threads.
 // Signal after external access ends, including on errors. The owning frame stays
@@ -153,6 +176,10 @@ public:
   // this private scheduler boundary. False preserves an earlier task failure.
   bool stopGroup(GroupHandle) noexcept;
   bool cancelled() const noexcept;
+  // Trusted runtime leaf proof, not a source-language cancellation opt-out.
+  // Valid only while this execution lease remains active and the leaf publishes
+  // no new independent work or externally usable capability before completion.
+  bool canExecuteSynchronously() const noexcept;
   ExternalCompletion suspendExternal() noexcept;
   void yield() noexcept;
   void complete(const void *value) noexcept;

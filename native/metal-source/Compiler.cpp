@@ -3664,26 +3664,32 @@ void resume(Task &task) {
     if (parsed.ec!=std::errc{} || parsed.ptr!=end || count<1 || count>64) return 2;
     limits.workers=count;
   }
-  auto core=TaskCore::create(limits); if (!core) return 1;
-  auto group=core->openRoot(); PacketData packet{runtime.get(),directory.c_str()};
-  auto child=core->submit(group,entry,{entry.packetLayout,&packet,sizeof(packet)});
-  if (!child || !core->drain()) return 1;
-  auto failure=core->failure(group); if (failure.kind==TaskFailure::None) failure=core->failure(child);
+  auto runner=ClosedTaskRunner::create(limits); if (!runner) return 1;
+  PacketData packet{runtime.get(),directory.c_str()};
+  Invocation context;
+)";
+    if (scalarResult)
+      host << scalarType(mainElement)
+           << " value{};\n"
+              "auto "
+              "failure=runner->run(entry,{entry.packetLayout,&packet,sizeof(packet)},scalarLayout,"
+              "context,&value);\n";
+    else
+      host << "alignas(m::Buffer) std::byte slot[sizeof(m::Buffer)];\n"
+              "auto "
+              "failure=runner->run(entry,{entry.packetLayout,&packet,sizeof(packet)},m::Runtime::"
+              "bufferLayout(),context,slot);\n";
+    host << R"(
   int status=0;
   if (failure.kind!=TaskFailure::None) { std::fprintf(stderr,"Metal task failed: %d/%lld\n",int(failure.kind),(long long)failure.code); status=1; }
   else {
 )";
     if (scalarResult) {
-      host << "Invocation context; " << scalarType(mainElement)
-           << " value{};\n"
-              "if(!core->observe(child,scalarLayout,context,&value))return 1;\n"
-              "std::printf(\"%0*llx\\n\","
-           << mainWidth * 2 << ",static_cast<unsigned long long>(std::bit_cast<std::uint"
-           << mainWidth * 8 << "_t>(value)));\n";
+      host << "std::printf(\"%0*llx\\n\"," << mainWidth * 2
+           << ",static_cast<unsigned long long>(std::bit_cast<std::uint" << mainWidth * 8
+           << "_t>(value)));\n";
     } else {
-      host << R"(    Invocation context; alignas(m::Buffer) std::byte slot[sizeof(m::Buffer)];
-    if (!core->observe(child,m::Runtime::bufferLayout(),context,slot)) return 1;
-    auto *value=std::launder(reinterpret_cast<m::Buffer *>(slot));
+      host << R"(    auto *value=std::launder(reinterpret_cast<m::Buffer *>(slot));
     auto cpu=runtime->toCpuTyped<)"
            << elementName(mainElement) << "," << fn.result->dimensions.size()
            << R"(>(context,*value);
@@ -3698,8 +3704,7 @@ void resume(Task &task) {
     }
     host << R"(
   }
-  core->close(group); if (!core->drain() || !core->release(group)) return 1;
-  auto s=runtime->stats(); auto t=core->stats();
+  auto s=runtime->stats(); auto t=runner->stats();
   if (s.bytes || s.metalBuffers || s.hostBackings || s.deviceBackings || s.inFlight || s.stagingBuffers || s.argumentBytes || s.argumentPacks || t.records || t.groups || t.externalPending || t.retainedBytes) return 1;
   return status;
 }

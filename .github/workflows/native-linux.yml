@@ -66,6 +66,10 @@ jobs:
           python3 native/tests/TensorTransformTests.py
           --compiler build/linux/native/kalandra --clang "$KALANDRA_LLVM_ROOT/bin/clang++"
           --output build/linux/tensor-transforms --quick
+      - name: Qualify opaque synchronous task ownership
+        run: |
+          cmake --build build/linux --target kalandra-closed-task-tests-optimized -j2
+          ctest --test-dir build/linux --output-on-failure -R '^native-closed-tasks-optimized$'
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version

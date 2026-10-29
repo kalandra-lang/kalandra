@@ -26,5 +26,7 @@ def header(host,prepared=True):
     text+=f'auto prepared=r.prepareNumericProgram(7,code,{match[1]}u,kalandra::NumericType::Float32,false);ffn::check(bool(prepared));executable=*prepared;preparationNanoseconds=ffn::elapsed(preparationStart);}}\n'
     text+='TaskHandle launch(m::Runtime&r,TaskCore&core,GroupHandle group,const std::array<m::Buffer,7>&inputs,float epsilon,float scale){\n'+scalars
     count=len([v for v in captures[1].split(',') if v])
-    text+=f'return r.executeNumericProgram(core,group,executable,inputs,std::array<std::uint64_t,{count}>{{'+captures[1]+'});\n}\n};\n'
+    text+=f'return r.executeNumericProgram(core,group,executable,inputs,std::array<std::uint64_t,{count}>{{'+captures[1]+'});\n}\n'
+    text+='std::expected<m::Buffer,Failure> launch(m::Runtime&r,ClosedTaskRunner&runner,const std::array<m::Buffer,7>&inputs,float epsilon,float scale){\n'+scalars
+    text+=f'return r.executeNumericProgram(runner,executable,inputs,std::array<std::uint64_t,{count}>{{'+captures[1]+'});\n}\n};\n'
     return text

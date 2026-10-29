@@ -167,6 +167,8 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   std::uint32_t running = 0, pumping = 0, preparing = 0;
   bool draining = false, controlling = false, stopping = false;
   bool externalControllerWaiting = false;
+  // Set before workers start; opaque ClosedTaskRunner is the only owner.
+  bool closedCaller = false;
   struct Guard {
     Impl &core;
     std::unique_lock<std::mutex> lock;
@@ -859,12 +861,16 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
   }
 };
 std::unique_ptr<TaskCore> TaskCore::create(TaskLimits limits) noexcept {
+  return create(limits, false);
+}
+std::unique_ptr<TaskCore> TaskCore::create(TaskLimits limits, bool closedCaller) noexcept {
   if (!limits.workers || limits.workers > 64 || !limits.records || !limits.groups ||
       !limits.ready || !limits.inFlight ||
       std::uint64_t(limits.records) + limits.groups >= UINT32_MAX || !limits.bytes)
     return {};
   try {
     auto impl = std::make_shared<Impl>(limits);
+    impl->closedCaller = closedCaller;
     if (!impl->start())
       return {};
     return std::unique_ptr<TaskCore>(new TaskCore(std::move(impl)));
@@ -873,6 +879,78 @@ std::unique_ptr<TaskCore> TaskCore::create(TaskLimits limits) noexcept {
   }
 }
 TaskCore::TaskCore(std::shared_ptr<Impl> impl) noexcept : impl_(std::move(impl)) {}
+struct ClosedTaskRunner::Impl {
+  std::unique_ptr<TaskCore> core;
+  std::mutex runMutex;
+  explicit Impl(std::unique_ptr<TaskCore> value) : core(std::move(value)) {}
+  bool drain() {
+    if (core->drain())
+      return true;
+    for (;;) {
+      const auto before = core->stats().resumes;
+      if (core->drain())
+        return true;
+      const auto after = core->stats();
+      // A scheduler step budget is not a language execution limit. Continue
+      // productive batches; reject a deadlock with no external progress source.
+      if (after.resumes == before && !after.externalPending)
+        return false;
+    }
+  }
+};
+std::unique_ptr<ClosedTaskRunner> ClosedTaskRunner::create(TaskLimits limits) noexcept {
+  try {
+    auto core = TaskCore::create(limits, true);
+    if (!core)
+      return {};
+    return std::unique_ptr<ClosedTaskRunner>(
+        new ClosedTaskRunner(std::make_unique<Impl>(std::move(core))));
+  } catch (...) {
+    return {};
+  }
+}
+ClosedTaskRunner::ClosedTaskRunner(std::unique_ptr<Impl> impl) noexcept : impl_(std::move(impl)) {}
+ClosedTaskRunner::~ClosedTaskRunner() = default;
+Failure ClosedTaskRunner::run(const TaskEntry &entry, Packet packet, const ValueLayout &layout,
+                              Invocation &context, void *output) noexcept {
+  std::lock_guard runLock(impl_->runMutex);
+  if (context.executionStatus())
+    return invocationFailure(context);
+  auto &core = *impl_->core;
+  const auto group = core.openRoot();
+  if (!group)
+    return {TaskFailure::AdmissionRejected};
+  const auto child = core.submit(group, entry, packet);
+  const bool drained = child && impl_->drain();
+  auto failure = core.failure(group);
+  if (failure.kind == TaskFailure::None)
+    failure = child ? core.failure(child) : Failure{TaskFailure::AdmissionRejected};
+  if (!drained && failure.kind == TaskFailure::None)
+    failure = {TaskFailure::Fault, 3};
+  bool copied = false;
+  if (failure.kind == TaskFailure::None) {
+    copied = core.observe(child, layout, context, output);
+    if (!copied)
+      failure = invocationFailure(context);
+  }
+  if (!drained)
+    core.cancel(group);
+  const bool closed = core.close(group);
+  const bool settled = impl_->drain();
+  const bool released = settled && core.release(group);
+  if (!closed || !settled || !released) {
+    if (copied)
+      layout.destroy(output);
+    if (failure.kind == TaskFailure::None)
+      failure = {TaskFailure::Fault, 3};
+  }
+  return failure;
+}
+TaskStats ClosedTaskRunner::stats() const noexcept { return impl_->core->stats(); }
+void ClosedTaskRunner::failAllocationAt(std::uint64_t attempt) noexcept {
+  std::lock_guard runLock(impl_->runMutex);
+  impl_->core->failAllocationAt(attempt);
+}
 TaskCore::~TaskCore() {
   {
     Impl::Guard guard(*impl_);
@@ -1114,6 +1192,32 @@ bool Task::stopGroup(GroupHandle group) noexcept {
 }
 bool Task::cancelled() const noexcept {
   return core_.tasks[slot_].cancel.load(std::memory_order_acquire);
+}
+bool Task::canExecuteSynchronously() const noexcept {
+  if (!core_.closedCaller)
+    return false;
+  std::lock_guard lock(core_.mutex);
+  auto &self = core_.tasks[slot_];
+  if (!self.executing || self.state != State::Running ||
+      self.runner != std::this_thread::get_id() || self.cancel.load() ||
+      self.execution.executionStatus() || core_.running != 1 || core_.preparing ||
+      core_.stats.externalPending || core_.stopping)
+    return false;
+  for (auto i = core_.liveTasks.next(0); i < core_.liveTasks.size();
+       i = core_.liveTasks.next(i + 1)) {
+    if (i == slot_)
+      continue;
+    const auto &other = core_.tasks[i];
+    if (other.executing || other.cleaning || other.readers || other.externalPending)
+      return false;
+    if (other.state != State::WaitingTask && other.state != State::WaitingGroup &&
+        other.state != State::Settled)
+      return false;
+  }
+  // Deadlines currently enter through explicit host/source cancellation. This
+  // owner exposes no host capability and no other source can run. If internal
+  // timers are added, their pending events must invalidate this proof too.
+  return true;
 }
 ExternalCompletion::ExternalCompletion(const std::shared_ptr<TaskCore::Impl> &core,
                                        TaskHandle handle, std::uint64_t epoch) noexcept

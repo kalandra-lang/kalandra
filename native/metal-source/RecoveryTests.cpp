@@ -118,44 +118,54 @@ int main(int argc, char **argv) {
   CHECK(recovered && stopped && recovered + stopped == attempts);
   std::printf("%llu Metal preparation positions: %u recovered, %u stopped safely\n",
               static_cast<unsigned long long>(attempts), recovered, stopped);
-  for (unsigned scenario : {0u, 1u, 2u}) {
-    auto core = TaskCore::create();
-    CHECK(core);
-    auto group = core->openRoot();
-    PacketData packet{runtime.get(), argv[1]};
-    auto before = runtime->stats().completions;
-    auto submissions = runtime->stats().submissions;
-    auto task = core->submit(group, entry, {entry.packetLayout, &packet, sizeof(packet)});
-    CHECK(task);
-    auto until = [&](auto condition) {
-      auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-      while (!condition()) {
-        core->step();
-        CHECK(std::chrono::steady_clock::now() < end);
-        std::this_thread::yield();
-      }
-    };
-    // Hold the compute inside the nested group, after its upload has finished.
-    until([&] { return runtime->stats().completions >= before + 1; });
-    runtime->holdCompletions(true);
-    if (scenario == 2)
-      runtime->failNextCompletion();
-    until([&] {
-      return runtime->stats().submissions == submissions + 2 && core->stats().externalPending == 1;
-    });
-    if (scenario < 2)
-      CHECK(core->cancel(group, scenario == 1));
-    runtime->holdCompletions(false);
-    CHECK(core->drain());
-    if (scenario == 2) {
-      CHECK(core->failure(task).kind == TaskFailure::None);
-      CHECK(resultBits(*core, task) == 0x43700000u);
-    } else
-      CHECK(core->failure(task).kind != TaskFailure::None);
-    CHECK(core->failure(group).kind == (scenario == 0   ? TaskFailure::Cancelled
-                                        : scenario == 1 ? TaskFailure::DeadlineExceeded
-                                                        : TaskFailure::None));
-    clean(*core, group, *runtime);
+  for (bool sharedUploads : {false, true}) {
+    auto scenarioMade = m::Runtime::create({.sharedUploads = sharedUploads});
+    CHECK(scenarioMade);
+    auto runtime = std::move(*scenarioMade);
+    auto target = runtime->device();
+    CHECK(target);
+    const auto computeOffset = sharedUploads && target->hasUnifiedMemory() ? 1u : 2u;
+    for (unsigned scenario : {0u, 1u, 2u}) {
+      auto core = TaskCore::create();
+      CHECK(core);
+      auto group = core->openRoot();
+      PacketData packet{runtime.get(), argv[1]};
+      auto submissions = runtime->stats().submissions;
+      // Arm the protected compute before work runs. Shared uploads have no
+      // command; private uploads contribute one blit. A completion count is
+      // not a barrier for installing a gate after submission.
+      runtime->holdCompletionAt(submissions + computeOffset);
+      auto task = core->submit(group, entry, {entry.packetLayout, &packet, sizeof(packet)});
+      CHECK(task);
+      auto until = [&](auto condition) {
+        auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        while (!condition()) {
+          core->step();
+          CHECK(std::chrono::steady_clock::now() < end);
+          std::this_thread::yield();
+        }
+      };
+      // Any private upload remains free to finish; only the nested compute is held.
+      until([&] {
+        return runtime->stats().submissions == submissions + computeOffset &&
+               core->stats().externalPending == 1;
+      });
+      if (scenario == 2)
+        runtime->failNextCompletion();
+      else
+        CHECK(core->cancel(group, scenario == 1));
+      runtime->holdCompletionAt(0);
+      CHECK(core->drain());
+      if (scenario == 2) {
+        CHECK(core->failure(task).kind == TaskFailure::None);
+        CHECK(resultBits(*core, task) == 0x43700000u);
+      } else
+        CHECK(core->failure(task).kind != TaskFailure::None);
+      CHECK(core->failure(group).kind == (scenario == 0   ? TaskFailure::Cancelled
+                                          : scenario == 1 ? TaskFailure::DeadlineExceeded
+                                                          : TaskFailure::None));
+      clean(*core, group, *runtime);
+    }
   }
   for (unsigned workers : {1u, 2u, 4u})
     for (unsigned kind : {1u, 2u}) {

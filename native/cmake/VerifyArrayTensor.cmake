@@ -9,8 +9,13 @@ foreach(INDEX RANGE 0 5)
   RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} "-DNUMERIC_TYPE=${ID}" -isystem "${LLVM_ROOT}/include"
     "${SOURCE_DIR}/tests/ArrayMapRuntimeTests.cpp" "${OUTPUT_DIR}/identity-${TYPE}.ll" "${RUNTIME}" "-L${LLVM_ROOT}/lib" "-Wl,-rpath,${LLVM_ROOT}/lib" -lLLVM -o "${OUTPUT_DIR}/identity-${TYPE}-harness")
   RUN_OK("${OUTPUT_DIR}/identity-${TYPE}-harness")
+  # Synchronize the observer in the cancellation fixture without changing the
+  # ordinary numerical driver or the production runtime's polling policy.
+  file(READ "${OUTPUT_DIR}/identity-${TYPE}.ll" CANCEL_LLVM)
+  string(REPLACE "@kalandra_poll_slow_v1(" "@kalandra_array_tensor_poll_gate_v1(" CANCEL_LLVM "${CANCEL_LLVM}")
+  file(WRITE "${OUTPUT_DIR}/cancel-${TYPE}.ll" "${CANCEL_LLVM}")
   RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} "-DNUMERIC_TYPE=${ID}"
-    "${SOURCE_DIR}/tests/ArrayTensorCancellationTests.cpp" "${OUTPUT_DIR}/identity-${TYPE}.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/cancel-${TYPE}-harness")
+    "${SOURCE_DIR}/tests/ArrayTensorCancellationTests.cpp" "${OUTPUT_DIR}/cancel-${TYPE}.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/cancel-${TYPE}-harness")
   RUN_OK("${OUTPUT_DIR}/cancel-${TYPE}-harness")
   COMPILE("shape-${TYPE}" "fn convert(input:[${TYPE}])->Tensor[${TYPE},2]:\n  tensor(input)\nfn main()->int64:\n  0\n" --test-entry convert)
   RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} "-DNUMERIC_TYPE=${ID}"
