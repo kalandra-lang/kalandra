@@ -1,0 +1,761 @@
+{
+  "acceptance": false,
+  "summary": [
+    {
+      "m": 1,
+      "d": 64,
+      "command_gpu_us": 390.624977,
+      "inclusive_sum_us": 498.666,
+      "instrumented_wall_us": 675.0,
+      "ffn_inclusive_share_percent": [
+        27.566807313642755,
+        27.324892675391627,
+        26.76354415956702,
+        26.727410173066858,
+        26.713841312690434
+      ],
+      "passes": [
+        {
+          "pc": 9,
+          "operation": "Attention RMSNorm",
+          "median_us": 20.458,
+          "process_medians_us": [
+            7.625,
+            8.917,
+            20.458,
+            20.541,
+            20.541
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 11,
+          "operation": "Q projection",
+          "median_us": 58.5,
+          "process_medians_us": [
+            20.667,
+            24.542,
+            58.583,
+            58.5,
+            58.5
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 13,
+          "operation": "K projection",
+          "median_us": 57.542,
+          "process_medians_us": [
+            19.792,
+            23.583,
+            58.375,
+            57.875,
+            57.542
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 15,
+          "operation": "V projection",
+          "median_us": 56.792,
+          "process_medians_us": [
+            19.5,
+            23.25,
+            56.792,
+            57.167,
+            57.0
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 18,
+          "operation": "QK\u1d40 + scale",
+          "median_us": 57.042,
+          "process_medians_us": [
+            20.333,
+            24.458,
+            57.042,
+            57.375,
+            58.583
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 20,
+          "operation": "Softmax",
+          "median_us": 15.667,
+          "process_medians_us": [
+            6.041,
+            7.083,
+            16.0,
+            15.667,
+            15.917
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 22,
+          "operation": "Probabilities \u00d7 V",
+          "median_us": 20.083,
+          "process_medians_us": [
+            7.084,
+            8.458,
+            20.083,
+            20.167,
+            20.333
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 24,
+          "operation": "Output projection + residual",
+          "median_us": 59.292,
+          "process_medians_us": [
+            21.042,
+            25.167,
+            59.292,
+            59.625,
+            59.834
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 27,
+          "operation": "FFN RMSNorm",
+          "median_us": 18.458,
+          "process_medians_us": [
+            6.666,
+            7.917,
+            18.458,
+            18.5,
+            18.792
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 29,
+          "operation": "FFN expansion + ReLU",
+          "median_us": 58.208,
+          "process_medians_us": [
+            20.375,
+            24.542,
+            58.208,
+            58.25,
+            58.417
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 32,
+          "operation": "FFN contraction + residual",
+          "median_us": 75.042,
+          "process_medians_us": [
+            28.625,
+            33.125,
+            75.208,
+            75.042,
+            75.375
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        }
+      ]
+    },
+    {
+      "m": 1,
+      "d": 512,
+      "command_gpu_us": 406.375038,
+      "inclusive_sum_us": 468.084,
+      "instrumented_wall_us": 716.333,
+      "ffn_inclusive_share_percent": [
+        28.134789801593353,
+        28.035408989020173,
+        27.35346736640125,
+        27.627140199647783,
+        27.231454277392825
+      ],
+      "passes": [
+        {
+          "pc": 9,
+          "operation": "Attention RMSNorm",
+          "median_us": 26.875,
+          "process_medians_us": [
+            10.083,
+            14.875,
+            27.292,
+            26.875,
+            27.0
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 11,
+          "operation": "Q projection",
+          "median_us": 38.792,
+          "process_medians_us": [
+            15.667,
+            23.792,
+            39.125,
+            38.792,
+            43.584
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 13,
+          "operation": "K projection",
+          "median_us": 39.042,
+          "process_medians_us": [
+            15.583,
+            22.334,
+            42.833,
+            39.042,
+            39.833
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 15,
+          "operation": "V projection",
+          "median_us": 32.708,
+          "process_medians_us": [
+            11.583,
+            18.083,
+            32.708,
+            32.708,
+            32.75
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 18,
+          "operation": "QK\u1d40 + scale",
+          "median_us": 95.792,
+          "process_medians_us": [
+            32.166,
+            52.917,
+            96.792,
+            95.792,
+            96.459
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 20,
+          "operation": "Softmax",
+          "median_us": 15.667,
+          "process_medians_us": [
+            6.25,
+            8.75,
+            15.708,
+            15.875,
+            15.667
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 22,
+          "operation": "Probabilities \u00d7 V",
+          "median_us": 27.25,
+          "process_medians_us": [
+            9.584,
+            15.25,
+            27.583,
+            27.25,
+            27.291
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 24,
+          "operation": "Output projection + residual",
+          "median_us": 35.708,
+          "process_medians_us": [
+            13.542,
+            20.25,
+            35.708,
+            35.791,
+            35.75
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 27,
+          "operation": "FFN RMSNorm",
+          "median_us": 23.625,
+          "process_medians_us": [
+            8.042,
+            13.167,
+            23.75,
+            23.625,
+            23.708
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 29,
+          "operation": "FFN expansion + ReLU",
+          "median_us": 40.708,
+          "process_medians_us": [
+            16.666,
+            24.0,
+            41.042,
+            40.709,
+            40.708
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 32,
+          "operation": "FFN contraction + residual",
+          "median_us": 87.291,
+          "process_medians_us": [
+            31.292,
+            49.792,
+            87.542,
+            87.458,
+            87.291
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        }
+      ]
+    },
+    {
+      "m": 16,
+      "d": 512,
+      "command_gpu_us": 733.1250239999999,
+      "inclusive_sum_us": 890.499,
+      "instrumented_wall_us": 1105.042,
+      "ffn_inclusive_share_percent": [
+        41.03335889570552,
+        41.50339663939568,
+        41.20308239901928,
+        41.393837278779785,
+        41.43211352963788
+      ],
+      "passes": [
+        {
+          "pc": 9,
+          "operation": "Attention RMSNorm",
+          "median_us": 27.5,
+          "process_medians_us": [
+            10.333,
+            27.5,
+            27.584,
+            27.333,
+            27.5
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 11,
+          "operation": "Q projection",
+          "median_us": 86.958,
+          "process_medians_us": [
+            31.541,
+            85.291,
+            86.958,
+            89.167,
+            89.333
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 13,
+          "operation": "K projection",
+          "median_us": 85.208,
+          "process_medians_us": [
+            30.084,
+            89.541,
+            89.709,
+            84.5,
+            85.208
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 15,
+          "operation": "V projection",
+          "median_us": 80.917,
+          "process_medians_us": [
+            26.792,
+            80.917,
+            82.041,
+            81.5,
+            80.083
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 16,
+          "operation": "K transpose",
+          "median_us": 17.125,
+          "process_medians_us": [
+            6.042,
+            17.125,
+            17.208,
+            17.25,
+            17.125
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 18,
+          "operation": "QK\u1d40 + scale",
+          "median_us": 36.958,
+          "process_medians_us": [
+            12.917,
+            37.208,
+            36.958,
+            36.958,
+            36.5
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 20,
+          "operation": "Softmax",
+          "median_us": 25.667,
+          "process_medians_us": [
+            9.333,
+            25.833,
+            26.0,
+            25.542,
+            25.667
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 22,
+          "operation": "Probabilities \u00d7 V",
+          "median_us": 50.375,
+          "process_medians_us": [
+            16.959,
+            50.5,
+            50.625,
+            50.375,
+            50.291
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 24,
+          "operation": "Output projection + residual",
+          "median_us": 84.833,
+          "process_medians_us": [
+            32.041,
+            87.167,
+            84.833,
+            85.583,
+            84.833
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 27,
+          "operation": "FFN RMSNorm",
+          "median_us": 24.583,
+          "process_medians_us": [
+            8.5,
+            24.875,
+            24.708,
+            24.583,
+            24.542
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 29,
+          "operation": "FFN expansion + ReLU",
+          "median_us": 102.333,
+          "process_medians_us": [
+            35.084,
+            105.667,
+            102.5,
+            102.333,
+            102.291
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 32,
+          "operation": "FFN contraction + residual",
+          "median_us": 266.542,
+          "process_medians_us": [
+            93.334,
+            267.5,
+            266.542,
+            266.917,
+            266.333
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        }
+      ]
+    },
+    {
+      "m": 64,
+      "d": 512,
+      "command_gpu_us": 1346.7917450000002,
+      "inclusive_sum_us": 1603.96,
+      "instrumented_wall_us": 1757.75,
+      "ffn_inclusive_share_percent": [
+        42.49077135836168,
+        42.290491021667194,
+        42.07084094555197,
+        42.268487936935664,
+        42.296613468275595
+      ],
+      "passes": [
+        {
+          "pc": 9,
+          "operation": "Attention RMSNorm",
+          "median_us": 27.792,
+          "process_medians_us": [
+            10.625,
+            27.792,
+            28.042,
+            27.25,
+            27.875
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 11,
+          "operation": "Q projection",
+          "median_us": 183.0,
+          "process_medians_us": [
+            35.75,
+            182.375,
+            186.917,
+            183.0,
+            187.875
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 13,
+          "operation": "K projection",
+          "median_us": 103.75,
+          "process_medians_us": [
+            62.958,
+            105.333,
+            104.958,
+            103.75,
+            103.667
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 15,
+          "operation": "V projection",
+          "median_us": 159.833,
+          "process_medians_us": [
+            46.084,
+            159.833,
+            164.0,
+            159.125,
+            161.0
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 16,
+          "operation": "K transpose",
+          "median_us": 45.625,
+          "process_medians_us": [
+            23.917,
+            46.167,
+            43.958,
+            46.958,
+            45.625
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 18,
+          "operation": "QK\u1d40 + scale",
+          "median_us": 70.833,
+          "process_medians_us": [
+            20.292,
+            70.833,
+            75.0,
+            71.333,
+            66.791
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 20,
+          "operation": "Softmax",
+          "median_us": 30.0,
+          "process_medians_us": [
+            11.084,
+            29.917,
+            30.125,
+            30.0,
+            30.167
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 22,
+          "operation": "Probabilities \u00d7 V",
+          "median_us": 175.208,
+          "process_medians_us": [
+            59.417,
+            175.5,
+            174.959,
+            175.208,
+            175.417
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 24,
+          "operation": "Output projection + residual",
+          "median_us": 102.542,
+          "process_medians_us": [
+            37.75,
+            102.542,
+            103.125,
+            102.542,
+            102.708
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 27,
+          "operation": "FFN RMSNorm",
+          "median_us": 25.417,
+          "process_medians_us": [
+            9.0,
+            25.417,
+            25.583,
+            25.5,
+            25.375
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 29,
+          "operation": "FFN expansion + ReLU",
+          "median_us": 335.5,
+          "process_medians_us": [
+            114.5,
+            336.0,
+            337.834,
+            335.375,
+            335.5
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        },
+        {
+          "pc": 32,
+          "operation": "FFN contraction + residual",
+          "median_us": 342.375,
+          "process_medians_us": [
+            119.625,
+            342.375,
+            342.417,
+            341.625,
+            343.625
+          ],
+          "pipelines": [
+            "unnamed"
+          ]
+        }
+      ]
+    }
+  ],
+  "evidence": "benchmarks/results/gpu-dispatch-counters-2026-10-29.json",
+  "evidence_sha256": "90d8e1af3b9c89d8b2c257a6090f61591ff8092b924be0c64558d3450c9003a9"
+}

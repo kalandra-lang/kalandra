@@ -1,0 +1,83 @@
+{
+  "context": "Sequential unprofiled acceptance after complete qualification and preparation. No builds, tests or profiling overlap. External application load excludes this runner and its descendants; ordinary background apps remain active.",
+  "samples": [
+    {
+      "utc": "2026-10-29T09:34:36.056333+00:00",
+      "study": "paired",
+      "external_total_cpu_percent": 111.7,
+      "top_cpu": [
+        {
+          "cpu_percent": 20.5,
+          "executable": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif).app/Contents/MacOS/Google Chrome Helper (Aperitif)"
+        },
+        {
+          "cpu_percent": 18.9,
+          "executable": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.1,
+          "executable": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 9.8,
+          "executable": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.1,
+          "executable": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 4.8,
+          "executable": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 4.1,
+          "executable": "/usr/libexec/ApplicationFirewall/socketfilterfw"
+        },
+        {
+          "cpu_percent": 4.0,
+          "executable": "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T09:35:06.122193+00:00",
+      "study": "paired",
+      "external_total_cpu_percent": 555.1,
+      "top_cpu": [
+        {
+          "cpu_percent": 404.7,
+          "executable": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 21.1,
+          "executable": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 17.4,
+          "executable": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif).app/Contents/MacOS/Google Chrome Helper (Aperitif)"
+        },
+        {
+          "cpu_percent": 13.3,
+          "executable": "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"
+        },
+        {
+          "cpu_percent": 12.9,
+          "executable": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 10.9,
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "cpu_percent": 8.5,
+          "executable": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.3,
+          "executable": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        }
+      ]
+    }
+  ]
+}

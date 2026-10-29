@@ -95,6 +95,11 @@ runner and prepared GPU fixtures pass all four build/sanitizer modes.
 The frozen acceptance sweep checks all output bits for 13 regular/odd shapes and
 all upload modes, including the streaming fallback, against the previous runtime
 and an independent numerical oracle. CPU LLVM and Metal shader artifacts are
-unchanged. Unprofiled paired, policy, ordinary-API, replication and fresh-reference
-timing studies are being completed separately. MPSGraph remains a reference,
-never a production dependency.
+unchanged. Unprofiled paired, policy, ordinary-API, replication, streaming and fresh-reference
+studies are complete in the [acceptance report](../../benchmarks/results/gpu-closed-entry-2026-10-29.md).
+Largest resident time falls 43.32% in the primary comparison and 43.38% in
+replication. Small cases remain mixed, including a −4.02% same-binary policy
+control. Ordinary API medians range from −1.85% to +1.38%. Fresh largest-resident
+Metal takes 1.57× MPSGraph's time; MPSGraph is a reference, never a production
+dependency. The [encoder diagnostic](../../benchmarks/results/gpu-dispatch-counter-summary-2026-10-29.md)
+is instrumented and does not replace these accepted timings.

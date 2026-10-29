@@ -554,3 +554,55 @@ Integrate the runner into generated standalone Metal entry points, then qualify
 source behavior, ownership, failure injection and concurrent callers before fair
 uninstrumented comparisons. Device arithmetic/dispatch cost remains a separate
 roughly 0.48 ms versus MPSGraph's 0.25 ms in the large diagnostic.
+
+### Qualified: closed synchronous GPU entry
+
+The private runner and standalone compiler entry are committed as `259b9ce7`;
+see the [contract](design/gpu-closed-entry.md). Ordinary task embedding and source
+parallelism retain cancellation and independent progress. Only an admitted pure
+region in an isolated private core omits command checkpoints. Arithmetic, shaders,
+resource admission and fault precedence are unchanged.
+
+All 1,407 tests are qualified across the full run and 62 affected fixture rechecks.
+Initial array-cancellation observer, upload-command ordinal and completion-prefix
+fixture failures remain in the evidence. All four runner and GPU sanitizer/build
+modes pass. The separate acceptance sweep checks 286 complete outputs over 13
+regular/odd shapes and upload/fallback policies against frozen bits and independent
+CPU/MPSGraph bounds.
+
+The [audited report](../benchmarks/results/gpu-closed-entry-2026-10-29.md) and
+[chart](../benchmarks/results/gpu-closed-entry-2026-10-29.png) retain every paired,
+policy, ordinary-API, replication, streaming and fresh-reference outcome. Largest
+resident elapsed time falls 43.32% primary, 43.38% replication and 42.79% against
+the same-binary bounded policy. Fresh medians are CPU 10.690 ms, Metal 0.841 ms,
+MPSGraph 0.536 ms: 12.71× CPU speed, still 1.57× MPSGraph time. The primary's
+worst small median is −1.60%; policy control −4.02%; ordinary API −1.85%.
+These results do not establish a blanket improvement or statistical equivalence.
+
+All measurements ran sequentially after qualification. One initial calibration
+attempt stopped when the Codex renderer exceeded the load guard; its load record
+is retained and contributes no accepted paired samples. The resumed six-study
+series finished before 10:12 UTC with ordinary background apps active. All
+benchmark processes have stopped; no duplicate orchestration is needed.
+
+### Next: FFN kernels under sustained profiling
+
+The [encoder counter diagnostic](../benchmarks/results/gpu-dispatch-counter-summary-2026-10-29.md)
+ran after acceptance. Eight full bit comparisons pass with Metal/shader validation.
+Across all five large-shape processes, FFN expansion and contraction account for
+42.1–42.5% of the sum of median inclusive encoder intervals. This is a prioritization
+signal, not a fraction of wall time: instrumentation increases overhead, intervals
+can overlap, and absolute results drift roughly threefold. Pipeline labels are
+unavailable; instruction identities are checked against the frozen program.
+
+Next establish sustained-load encoder measurements, then test FFN tile/data reuse
+without changing per-cell multiplication or accumulation order. Compare whole-block
+and upload timings, odd shapes, constrained budgets, source cancellation and all
+output bits. Batched Q/K/V dispatch is another independently measurable candidate.
+SIMD-group matrix arithmetic or reassociation requires a separate, explicit numeric
+contract decision; it must not silently replace strict arithmetic. No new kernel or
+vendor dependency is promoted on the basis of these diagnostic intervals.
+
+Hosted qualification is running for `259b9ce7`; check the exact pushed head before
+claiming CI completion. Detailed continuation notes remain in
+`/private/tmp/kalandra-overnight-status.md`.

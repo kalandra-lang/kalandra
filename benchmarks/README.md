@@ -80,3 +80,22 @@ with [longer-batch chart](results/gpu-encoding-overlap-2026-10-29.png). Largest 
 gains reproduce at about 4%; smaller cases remain mixed, including 1–3% regressions.
 All outputs, command boundaries, four-mode lifetime gates and 27 qualification
 groups pass. Full negative results and ordinary background-load samples are retained.
+
+Latest standalone GPU entry: [closed synchronous execution](results/gpu-closed-entry-2026-10-29.md),
+with [chart](results/gpu-closed-entry-2026-10-29.png). The largest resident block
+uses 43.32% less time (43.38% in replication); fresh Metal is 12.71× our CPU speed
+and takes 1.57× MPSGraph time. The private scheduler proves no independent progress
+source before omitting checkpoints; ordinary cancellable task APIs stay bounded.
+All 1,407 tests are qualified after documented fixture repairs, and 286 full-output
+checks pass. Small/control regressions are retained. The separate
+[encoder diagnostic](results/gpu-dispatch-counter-summary-2026-10-29.md) suggests
+FFN kernels as the next target but has substantial instrumented timing drift.
+
+`native/benchmarks/closed_entry_acceptance.py` freezes qualified artifacts with
+`--study prepare`, then runs `paired` (7 blocks), `control` (5), `ordinary` (5),
+`repeat` (5), `streaming` (3) and `matched` (5) sequentially at `--target-ms 100`.
+Each requires baseline/prepared/build/qualification/output paths; the evidence
+records exact artifacts, commands and hashes. Rebuild prerequisite frozen studies
+and the prepared-program qualification before reproducing on another machine.
+Do not overlap these studies with tests, builds or profiling. Counter probing and
+report rendering run only after acceptance ends; neither supplies acceptance times.

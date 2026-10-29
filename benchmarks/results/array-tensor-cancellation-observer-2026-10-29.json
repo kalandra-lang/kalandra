@@ -1,0 +1,85 @@
+{
+  "purpose": "A deliberately delayed cancellation observer reproduces the scheduling race. The gated fixture waits at its 128th real poll; original numerical LLVM and production runtime are unchanged.",
+  "observer_delay_ms": 100,
+  "records": [
+    {
+      "driver": "original",
+      "iteration": 0,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "token=0 polls=4103 output=1 fault=0\ncancelled constructor published output or lost cancellation\n"
+    },
+    {
+      "driver": "original",
+      "iteration": 1,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "token=0 polls=4103 output=1 fault=0\ncancelled constructor published output or lost cancellation\n"
+    },
+    {
+      "driver": "original",
+      "iteration": 2,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "token=0 polls=4103 output=1 fault=0\ncancelled constructor published output or lost cancellation\n"
+    },
+    {
+      "driver": "original",
+      "iteration": 3,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "token=0 polls=4103 output=1 fault=0\ncancelled constructor published output or lost cancellation\n"
+    },
+    {
+      "driver": "original",
+      "iteration": 4,
+      "exit": 1,
+      "stdout": "",
+      "stderr": "token=0 polls=4103 output=1 fault=0\ncancelled constructor published output or lost cancellation\n"
+    },
+    {
+      "driver": "gated",
+      "iteration": 0,
+      "exit": 0,
+      "stdout": "array tensor bounds/cancellation uint32: 3 metadata and 2 cancellation cases; active copy interrupted, no partial result, immutable input and settled owners passed\n",
+      "stderr": "token=1 polls=540271 output=0 fault=0\n"
+    },
+    {
+      "driver": "gated",
+      "iteration": 1,
+      "exit": 0,
+      "stdout": "array tensor bounds/cancellation uint32: 3 metadata and 2 cancellation cases; active copy interrupted, no partial result, immutable input and settled owners passed\n",
+      "stderr": "token=1 polls=463833 output=0 fault=0\n"
+    },
+    {
+      "driver": "gated",
+      "iteration": 2,
+      "exit": 0,
+      "stdout": "array tensor bounds/cancellation uint32: 3 metadata and 2 cancellation cases; active copy interrupted, no partial result, immutable input and settled owners passed\n",
+      "stderr": "token=1 polls=605646 output=0 fault=0\n"
+    },
+    {
+      "driver": "gated",
+      "iteration": 3,
+      "exit": 0,
+      "stdout": "array tensor bounds/cancellation uint32: 3 metadata and 2 cancellation cases; active copy interrupted, no partial result, immutable input and settled owners passed\n",
+      "stderr": "token=1 polls=619885 output=0 fault=0\n"
+    },
+    {
+      "driver": "gated",
+      "iteration": 4,
+      "exit": 0,
+      "stdout": "array tensor bounds/cancellation uint32: 3 metadata and 2 cancellation cases; active copy interrupted, no partial result, immutable input and settled owners passed\n",
+      "stderr": "token=1 polls=601704 output=0 fault=0\n"
+    }
+  ],
+  "source_sha256": {
+    "/Users/pouya/Projects/kalandra.dev/native/tests/ArrayTensorCancellationTests.cpp": "3c916e452d399c2fecc60bb1ed5f4d832164b3d39623a550a0dc197ca285be10",
+    "/Users/pouya/Projects/kalandra.dev/native/cmake/VerifyArrayTensor.cmake": "1627f6998cb48086ea90cc432d6493ae2406aa32a43ce089f6ea9a5fe14ede96",
+    "/private/tmp/kalandra-array-cancel-diagnostic/original.cpp": "71b540588a4210ca49d855fbbefc2aa1aa01fc2a751aecfdecf60a0b3fda6254",
+    "/private/tmp/kalandra-array-cancel-diagnostic/gated.cpp": "0e88d9c9dda8152e2d25a8d629c4158653e46a489d22dfd797a84e6b3330c300",
+    "/private/tmp/kalandra-array-cancel-diagnostic/original.ll": "c6579347778468482e874a03054337b14a3592a557f91deadbbe611bdf7f7dca",
+    "/private/tmp/kalandra-array-cancel-diagnostic/gated.ll": "1c3c96d18d573728b5a7500497d0665e790b601cf2257447665fb6204d0eeab5",
+    "/Users/pouya/Projects/kalandra.dev/build/native/native/libkalandra-native-runtime.a": "61e6784f01433c6a106c13333b2e208eebbdf9d8ad17ad28d4190fb06975cb34"
+  }
+}
