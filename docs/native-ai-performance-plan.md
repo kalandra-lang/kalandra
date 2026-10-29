@@ -611,6 +611,10 @@ SIMD-group matrix arithmetic or reassociation requires a separate, explicit nume
 contract decision; it must not silently replace strict arithmetic. No new kernel or
 vendor dependency is promoted on the basis of these diagnostic intervals.
 
-Hosted qualification is running for `259b9ce7`; check the exact pushed head before
-claiming CI completion. Detailed continuation notes remain in
-`/private/tmp/kalandra-overnight-status.md`.
+The production commit `259b9ce7` passed hosted Linux, Windows and macOS
+qualification, including signed/notarized standalone distribution. The subsequent
+benchmark-only head `8634a0bc` is undergoing its own qualification; do not equate
+an earlier green run with completion of that new run. The next concrete
+[output-reuse experiment](design/gpu-ffn-output-reuse.md) documents candidate tile
+layouts, unchanged arithmetic trees and occupancy risks. Detailed continuation
+notes remain in `/private/tmp/kalandra-overnight-status.md`.
