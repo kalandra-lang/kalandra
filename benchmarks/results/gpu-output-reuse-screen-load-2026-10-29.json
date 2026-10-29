@@ -1,0 +1,35 @@
+{
+  "context": "Periodic external CPU snapshots during the isolated kernel screen; excludes runner and children. Not a dedicated idle lab.",
+  "samples": [
+    {
+      "utc": "2026-10-29T11:04:38.412139+00:00",
+      "external_cpu_percent": 263.1,
+      "top": [
+        {
+          "cpu_percent": 73.2,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 56.7,
+          "exe": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        },
+        {
+          "cpu_percent": 19.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 17.2,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 11.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/usr/sbin/coreaudiod"
+        }
+      ]
+    }
+  ]
+}

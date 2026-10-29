@@ -1,7 +1,8 @@
 # Next FFN experiment: strict per-thread output reuse
 
 Source inspection after the sustained encoder diagnostic, 29 October 2026.
-This is an untested candidate, not a speedup claim.
+This records the original proposal. The screening outcome is recorded below;
+these static load counts are not speedup claims.
 
 At 64 tokens × width 512, expansion is (64×512)×(512×2048) and contraction
 is (64×2048)×(2048×512). Both select the existing register16 family, with
@@ -50,3 +51,18 @@ Occupancy warning: for the 64×512 output contraction, a 32×32 tile leaves only
 with better reuse. At 16 input rows, a 32-row tile also has half-empty rows.
 Screen the 16×32 variant first and retain independent shape-specific controls;
 never infer a blanket dispatch-policy win from explicit load counts.
+
+## Screening outcome
+
+The [full experiment report](../../benchmarks/results/gpu-output-reuse-2026-10-29.md)
+retains ten controls and 720 passing numerical/guard case executions. Adjacent
+columns, spaced columns, two-row reuse and four-output tiles do not qualify for
+production. Limiting the pipeline to the 256 threads actually dispatched leaves
+the original shader nearly flat and does not rescue those variants. These results
+do not directly measure register spilling or occupancy.
+
+The 128-leaf control improves two small cells by about 5% but regresses other
+shapes substantially. The 32-leaf control and its repeat encountered CPU-load
+spikes; their observed regressions remain diagnostic pending a quiet confirmation.
+Production continues to use register16 with 64-leaf chunks. No arithmetic,
+cancellation, resource-admission or default dispatch policy changes were made.

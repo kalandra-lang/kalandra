@@ -1,0 +1,95 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T11:13:06.363532+00:00",
+      "external_cpu_percent": 242.8,
+      "top": [
+        {
+          "cpu_percent": 41.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 41.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 34.5,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif).app/Contents/MacOS/Google Chrome Helper (Aperitif)"
+        },
+        {
+          "cpu_percent": 22.3,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 18.6,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 11.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:13:16.432248+00:00",
+      "external_cpu_percent": 180.9,
+      "top": [
+        {
+          "cpu_percent": 24.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 21.4,
+          "exe": "/sbin/launchd"
+        },
+        {
+          "cpu_percent": 21.4,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif).app/Contents/MacOS/Google Chrome Helper (Aperitif)"
+        },
+        {
+          "cpu_percent": 17.7,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 11.1,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 11.1,
+          "exe": "/usr/libexec/trustd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:13:26.496363+00:00",
+      "external_cpu_percent": 114.8,
+      "top": [
+        {
+          "cpu_percent": 15.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.9,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 10.1,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 9.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 7.9,
+          "exe": "/usr/libexec/syspolicyd"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential isolated matrix screening, no builds/tests/profiling overlap. Ordinary background apps active."
+}

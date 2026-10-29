@@ -1,0 +1,95 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T11:19:07.187085+00:00",
+      "external_cpu_percent": 74.2,
+      "top": [
+        {
+          "cpu_percent": 18.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 8.3,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 5.2,
+          "exe": "/Users/pouya/Projects/Arbiter/build-passkey-sdk/lib/QtWebEngineCore.framework/Versions/A/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess"
+        },
+        {
+          "cpu_percent": 4.6,
+          "exe": "/usr/libexec/dasd"
+        },
+        {
+          "cpu_percent": 4.4,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 3.1,
+          "exe": "/usr/libexec/ApplicationFirewall/socketfilterfw"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:19:17.259029+00:00",
+      "external_cpu_percent": 583.0,
+      "top": [
+        {
+          "cpu_percent": 83.2,
+          "exe": "/System/Applications/Phone.app/Contents/MacOS/Phone"
+        },
+        {
+          "cpu_percent": 52.9,
+          "exe": "/System/Library/ExtensionKit/Extensions/FaceTimeNotificationExtension.appex/Contents/MacOS/FaceTimeNotificationExtension"
+        },
+        {
+          "cpu_percent": 43.1,
+          "exe": "/System/Library/Frameworks/Contacts.framework/Support/contactsd"
+        },
+        {
+          "cpu_percent": 31.7,
+          "exe": "/System/Library/CoreServices/WindowManager.app/Contents/MacOS/WindowManager"
+        },
+        {
+          "cpu_percent": 29.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 27.2,
+          "exe": "/System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:19:27.325257+00:00",
+      "external_cpu_percent": 105.60000000000001,
+      "top": [
+        {
+          "cpu_percent": 17.0,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 13.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.6,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 8.4,
+          "exe": "/usr/libexec/trustd"
+        },
+        {
+          "cpu_percent": 7.1,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential isolated matrix screening, no builds/tests/profiling overlap. Ordinary background apps active."
+}

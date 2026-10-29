@@ -1,0 +1,95 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T11:08:55.896301+00:00",
+      "external_cpu_percent": 300.3,
+      "top": [
+        {
+          "cpu_percent": 52.4,
+          "exe": "/usr/libexec/runningboardd"
+        },
+        {
+          "cpu_percent": 41.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 39.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 33.2,
+          "exe": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "cpu_percent": 20.1,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif).app/Contents/MacOS/Google Chrome Helper (Aperitif)"
+        },
+        {
+          "cpu_percent": 16.5,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:09:05.963585+00:00",
+      "external_cpu_percent": 210.5,
+      "top": [
+        {
+          "cpu_percent": 42.1,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 30.4,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 17.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 15.7,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif).app/Contents/MacOS/Google Chrome Helper (Aperitif)"
+        },
+        {
+          "cpu_percent": 13.9,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 12.8,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:09:16.028303+00:00",
+      "external_cpu_percent": 119.2,
+      "top": [
+        {
+          "cpu_percent": 20.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 18.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.0,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 6.8,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 6.6,
+          "exe": "/usr/libexec/trustd"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential isolated matrix screening, no builds/tests/profiling overlap. Ordinary background apps active."
+}

@@ -1,0 +1,125 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T11:23:11.338094+00:00",
+      "external_cpu_percent": 169.1,
+      "top": [
+        {
+          "cpu_percent": 19.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 18.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 15.3,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 15.3,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 11.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:23:21.408091+00:00",
+      "external_cpu_percent": 602.4,
+      "top": [
+        {
+          "cpu_percent": 165.7,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 164.3,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 26.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 22.5,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 21.0,
+          "exe": "/System/Library/PrivateFrameworks/MediaRemote.framework/Support/mediaremoted"
+        },
+        {
+          "cpu_percent": 17.6,
+          "exe": "/usr/libexec/avconferenced"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:23:31.474374+00:00",
+      "external_cpu_percent": 134.2,
+      "top": [
+        {
+          "cpu_percent": 11.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.6,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 9.6,
+          "exe": "/System/Library/PrivateFrameworks/CloudKitDaemon.framework/Support/cloudd"
+        },
+        {
+          "cpu_percent": 9.3,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 9.3,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/System/Library/PrivateFrameworks/IDS.framework/identityservicesd.app/Contents/MacOS/identityservicesd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:23:41.541494+00:00",
+      "external_cpu_percent": 106.2,
+      "top": [
+        {
+          "cpu_percent": 15.5,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.85/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 10.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.8,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.1,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 7.7,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 6.4,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential isolated matrix screening, no builds/tests/profiling overlap. Ordinary background apps active."
+}

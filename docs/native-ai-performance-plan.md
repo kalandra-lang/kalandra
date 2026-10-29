@@ -618,3 +618,22 @@ an earlier green run with completion of that new run. The next concrete
 [output-reuse experiment](design/gpu-ffn-output-reuse.md) documents candidate tile
 layouts, unchanged arithmetic trees and occupancy risks. Detailed continuation
 notes remain in `/private/tmp/kalandra-overnight-status.md`.
+
+
+### Screened: strict FFN output reuse and pipeline limits
+
+[Ten isolated controls](../benchmarks/results/gpu-output-reuse-2026-10-29.md) preserve
+all tested output bits but do not qualify a new production policy. This includes
+adjacent/spaced column reuse, row reuse, four-output tiles, explicit 256-thread
+pipeline limits, and 32/128-leaf shared chunks. There are 720 passing validation
+case executions with independent finite/signed-zero CPU tree checks, GPU bit
+controls, odd tails, immutable inputs and output guard bytes. No arithmetic or
+runtime code changed. Larger layouts regress despite fewer explicit loads; the
+thread-limit control does not establish a spill/occupancy explanation.
+
+The two 32-leaf timing series have external-load spikes and remain contended
+diagnostics pending a quiet confirmation. The 128-leaf variant's small wins are
+retained alongside its large regressions. Inspect actual register/occupancy
+behavior before another layout proposal; batched Q/K/V dispatch remains an
+independent option. Prior benchmark head `8634a0bc` now has green Linux, Windows,
+website and signed/notarized macOS qualification; publication remains skipped.

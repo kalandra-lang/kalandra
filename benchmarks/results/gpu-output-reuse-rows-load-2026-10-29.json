@@ -1,0 +1,95 @@
+{
+  "samples": [
+    {
+      "utc": "2026-10-29T11:18:40.334959+00:00",
+      "external_cpu_percent": 133.4,
+      "top": [
+        {
+          "cpu_percent": 20.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 20.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 14.2,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 10.9,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 6.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:18:50.399281+00:00",
+      "external_cpu_percent": 103.8,
+      "top": [
+        {
+          "cpu_percent": 16.5,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 13.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 9.1,
+          "exe": "/usr/libexec/trustd"
+        },
+        {
+          "cpu_percent": 8.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.7,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-29T11:19:00.462286+00:00",
+      "external_cpu_percent": 97.7,
+      "top": [
+        {
+          "cpu_percent": 12.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 11.0,
+          "exe": "/Applications/Transmission.app/Contents/MacOS/Transmission"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/usr/libexec/trustd"
+        },
+        {
+          "cpu_percent": 9.1,
+          "exe": "/usr/libexec/syspolicyd"
+        },
+        {
+          "cpu_percent": 8.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.7,
+          "exe": "/System/Library/PrivateFrameworks/TCC.framework/Support/tccd"
+        }
+      ]
+    }
+  ],
+  "context": "Sequential isolated matrix screening, no builds/tests/profiling overlap. Ordinary background apps active."
+}

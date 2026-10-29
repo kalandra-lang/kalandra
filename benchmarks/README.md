@@ -106,3 +106,9 @@ reuses the frozen probe for 12,800 calls. Large-shape process medians vary about
 This stabilizes the diagnostic target, not acceptance timing or a wall-time share.
 Full compressed captures stay in ignored experiment storage; tracked distributions
 and hashes preserve the audit without adding large diagnostic logs to the repo.
+
+The [strict FFN tile screens](results/gpu-output-reuse-2026-10-29.md) retain ten
+controls, all 720 passing numerical/guard cases, and all paired regressions.
+No production change is accepted. Lower explicit traffic does not translate to
+faster execution in the tested layouts. Two small-chunk runs encountered load
+spikes and remain contended diagnostics pending confirmation.
