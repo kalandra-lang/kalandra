@@ -533,3 +533,24 @@ A benchmark-only single-command or closed synchronous-entry lower bound may help
 quantify the architectural gap, but must explicitly disclose any cancellation
 policy difference and cannot be presented as the default language. Do not relax
 arithmetic or cancellation contracts merely to improve the comparison.
+
+### Measured: closed-entry lower bound
+
+The [diagnostic controls](../benchmarks/results/gpu-command-lower-bound-2026-10-29.md)
+keep shaders and all 11/12 dispatches identical. Largest resident wall time is
+1.452 ms bounded, 0.847 ms indivisible, 0.840 ms caller-blocking and 0.537 ms
+MPSGraph. These are instrumented diagnostics, not production acceptance. All 117
+full-output comparisons pass; the controls deliberately lack the ordinary task
+cancellation contract. The initial wrong-checkpoint probe was rejected by its
+submission-count assertion and is retained.
+
+Implement an opaque closed runner, with no exposed TaskCore or cancellation
+handle. Permit synchronous whole-region GPU execution only after a dynamic proof
+that this private core has no other runnable/executing/preparing/external work.
+Current deadlines are explicit cancellation capabilities, not an internal timer;
+future timers must also invalidate the proof. Waiting ancestors are safe. General
+TaskCore calls and parallel source work retain the bounded asynchronous path.
+Integrate the runner into generated standalone Metal entry points, then qualify
+source behavior, ownership, failure injection and concurrent callers before fair
+uninstrumented comparisons. Device arithmetic/dispatch cost remains a separate
+roughly 0.48 ms versus MPSGraph's 0.25 ms in the large diagnostic.
