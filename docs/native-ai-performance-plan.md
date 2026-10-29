@@ -806,3 +806,49 @@ an eligible production implementation. Qualify ownership/budget behavior first,
 then repeat frozen whole-model paired/control/replication timings. Production
 remains at the qualified aligned-grid implementation; no numerical or cancellation
 contract changed in this follow-up.
+
+### Qualified bounded shared-upload cache
+
+The [production cache report](../benchmarks/results/gpu-upload-cache-atomic-2026-10-29.md)
+completes the reuse step above. Per-runtime storage is capped at 16 MiB/64 entries,
+keyed by device/exact physical length, and charged inside the existing payload
+budget. Complete overwrite, last-owner retirement with no admitted work, idle
+pressure eviction and closed-cache teardown preserve immutable values and GPU
+ownership. Zero capacity disables reuse; explicit trim releases idle storage.
+Private outputs, staging, scratch and argument arenas are excluded. Logical
+allocation failures, arithmetic, fault precedence and cancellation checkpoints
+are unchanged. Retained/cache statistics expose the idle-memory tradeoff.
+
+The first implementation locked every reservation/release and is rejected after
+a 7.92% resident64×256 longer-batch regression. Its original short-batch results,
+including a 45.63% input regression that did not reproduce, remain in the
+[first-candidate report](../benchmarks/results/gpu-upload-cache-2026-10-29.md).
+The accepted revision uses an atomic total-reservation ledger, locking only
+cache mutation and budget-pressure eviction. This is a structural improvement;
+the measurements do not prove the mutex caused every earlier timing swing.
+
+The revised runtime passes 200 runtime/support tests in four build modes,
+including exact concurrent budget contention, cache ownership/eviction/trim,
+allocation failures and cancellation. Fresh numerical qualification passes 432
+full changing-input comparisons plus eight independent high-precision oracle
+checks. Six long integration fixtures and two numeric CLI TSan suites passed
+before the private accounting revision and were not rerun afterward. This is
+not a full compiler-suite rerun.
+
+Frozen pre-cache production versus the revised runtime, with three adjacent
+one-second-target paired blocks across all twelve cases, reduces all-weight-upload
+time by 63.12%, 59.24% and 52.52% for batches1/16/64 at width512, and 22.91% for
+batch64/width256. An initial resident16×512 median slowdown of 8.29% triggered a
+separately declared seven-block confirmation: -0.97% versus an identical-build
+control of -0.81%, with volatile individual blocks retained. No resident-compute
+gain or zero-overhead guarantee is claimed. Maximum observed idle retention is
+12,713,984 bytes, total retained payload 27,447,296 bytes, below the 64 MiB default
+budget. Timings do not overlap local builds/tests/profiling; background load and
+all unfavorable results are archived.
+
+Next: profile the remaining resident path with the accepted runtime and correlate
+allocation/encoding/submit-wake costs with GPU time. Select a bounded private-output
+reuse or command/submission experiment only from that evidence; uploaded-buffer
+retirement rules do not automatically make GPU-written output reuse safe. Keep
+the existing checkpoint/fault/cancellation contract and the spill-free aligned
+kernel as controls. Production remains independent of vendor numerical libraries.

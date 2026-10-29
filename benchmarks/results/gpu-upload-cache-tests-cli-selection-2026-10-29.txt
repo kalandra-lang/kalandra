@@ -1,0 +1,12 @@
+Test project /Users/pouya/Projects/kalandra.dev/build/native
+        Start 1362: native-metal-numeric-matrices-cli-thread-sanitized
+        Start 1404: native-metal-work-proofs
+        Start  954: native-metal-toolchain-selection
+        Start 1005: native-metal-source-artifacts
+  1/339 Test #1005: native-metal-source-artifacts ...............................   Passed    0.01 sec
+  2/339 Test  #954: native-metal-toolchain-selection ............................   Passed    0.60 sec
+  3/339 Test #1404: native-metal-work-proofs ....................................   Passed    4.65 sec
+  4/339 Test #1362: native-metal-numeric-matrices-cli-thread-sanitized ..........   Passed  596.06 sec
+        Start 1392: native-metal-numeric-matrix-programs-cli-thread-sanitized
+  5/339 Test #1392: native-metal-numeric-matrix-programs-cli-thread-sanitized ...   Passed  538.40 sec
+        Start 1350: native-metal-numeric-maps-cli-thread-sanitized

@@ -187,3 +187,50 @@ reuse, and the final result counts as an observation. Checked maps and transform
 keep separate backing. See [fusion and private reuse](../../docs/design/gpu-projection-fusion.md)
 for the safety boundary and the benchmark report, including losing cases and
 additional pipeline setup cost.
+
+## Bounded shared-upload backing reuse
+
+`Options::maxCachedUploadBytes` defaults to 16 MiB and may be set to zero for the
+uncached control. Each runtime owns at most 64 idle entries, bounded by the smaller
+of that option and `maxBytes`. Entries are keyed by device and exact physical byte
+length. Only shared, CPU-populated upload allocations are eligible; private
+outputs, scratch, staging and parameter arenas are excluded. Every reuse runs the
+ordinary bounded copy and writes all logical bytes plus sub-word padding before
+publishing a new immutable snapshot. Shape/type metadata is freshly allocated;
+this is storage reuse, not memoization or a host-data alias.
+
+The existing `maxBytes` limit charges both live payload reservations and idle
+cached backing. A hit transfers an existing reservation from idle to live.
+Allocations evict idle entries when doing so can make a request fit; cached storage
+cannot turn a satisfiable live allocation into a budget error. Logical allocation
+attempts and injected failures are preserved on both hits and misses. Allocation
+metadata and driver-internal memory remain outside the payload budget, as before.
+
+Cache admission requires last-owner retirement and zero admitted operations in
+that runtime. Admission covers copying, encoding and the complete GPU progression;
+frame/packet owners retain upload snapshots through acknowledgement. A new task
+cannot acquire the dying last owner. If other work is admitted, retirement
+conservatively releases the buffer instead of caching it. There is no pending
+buffer queue, global epoch or early GPU reuse. Aliases, cancelled tasks and failed
+completions retain their existing ownership and fault-precedence rules.
+
+`Stats::bytes`, `metalBuffers` and the backing counts describe live owners.
+`retainedBytes`/`peakRetainedBytes` additionally include idle cache storage;
+`cachedUploadBytes`, `cachedUploadBuffers`, `uploadCacheHits` and `uploadCacheMisses`
+expose retention and reuse. Snapshots taken during concurrent mutation need not
+represent one atomic instant. `trimUploadCache()` releases only idle entries.
+Destroying the runtime trims and closes its cache; outstanding frames/buffers can
+still keep registry state alive, but cannot repopulate the closed cache.
+
+The intended tradeoff is bounded idle memory retention to avoid repeatedly
+creating and first-touching upload backing. Arithmetic, shader selection,
+submission/checkpoint boundaries, cancellation copy quanta and publication rules
+are unchanged. Performance acceptance is recorded separately from correctness;
+the earlier global-cache feasibility probe is not this implementation.
+
+The total live-plus-idle reservation uses an atomic compare-and-exchange ledger.
+Reservations that fit the retained budget and ordinary host/private releases
+do not acquire the cache mutex. Cache entries, transfers and pressure-driven
+eviction use that mutex. Total
+capacity is reserved before publishing live bytes and released after dropping
+live ownership, so concurrent callers cannot spend the same capacity twice.

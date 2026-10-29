@@ -332,3 +332,51 @@ superseded by `gpu-lane-validity-2026-10-29.json`. Close **all** task capture wi
 before measuring, not just the frontmost replay. Do not overlap timings with
 builds, correctness tests or profiling. Raw resource counters and qualifications
 remain separate from performance acceptance.
+
+## Production shared-upload cache
+
+`upload_cache_study.py` separates actual-runtime qualification from measurements.
+The frozen baseline directory must contain the pre-cache production executable,
+matching runtime source/header/archive, generated transformer header and unchanged
+bundle, with their hashes in `baseline.json`. This study uses the preserved
+`c542d414` artifacts at `benchmarks/.build/gpu-upload-cache-2026-10-29`; it never
+rebuilds or substitutes the baseline during acceptance. Large local artifacts are
+ignored. A fresh machine must rebuild those baseline artifacts from the recorded
+revision and generated-driver commands before starting a new study.
+
+After building and qualifying the candidate runtime, run these phases in order:
+
+```sh
+python3 native/benchmarks/upload_cache_study.py --phase prepare --build BUILD --output BUILD/prepare.json
+python3 native/benchmarks/upload_cache_study.py --phase verify --build BUILD --output BUILD/qualification.json
+python3 native/benchmarks/upload_cache_study.py --phase measure --build BUILD --study paired --blocks 7 --output NEW.json
+```
+
+Use separate new output paths for `repeat` (7 blocks), `aa` (5), `toggle` (5) and
+`uncached` (3). `paired`/`repeat` compare frozen production to the candidate;
+`aa` runs the identical uncached candidate on both sides; `toggle` compares cache
+off/on in the same executable; `uncached` compares frozen production with the
+uncached candidate. `KALANDRA_UPLOAD_CACHE_BYTES` is a benchmark-driver control,
+not a language environment setting. The original timing loop is unchanged;
+cache statistics are printed after each measured interval. A separate verification
+driver alternates input contents across calls, three runner policies and cache
+limits of zero, 4 KiB and 16 MiB.
+
+Do not overlap timings with compilation, tests, profiling or another benchmark.
+Record external load throughout. `fair/upload_cache_report.py` audits the retained
+local identities, numerical qualification, resource caps, test records and every
+paired observation before regenerating the report. Retain regressions and controls;
+resident cases have no upload-cache hits and cannot establish a direct reuse gain.
+
+The [first runtime candidate](../../benchmarks/results/gpu-upload-cache-2026-10-29.md)
+retains the initial short-batch studies and the longer confirmation that rejected
+its global allocation lock. The [atomic-ledger follow-up](../../benchmarks/results/gpu-upload-cache-atomic-2026-10-29.md)
+uses `upload_cache_atomic.py` for three 1,000 ms blocks (8,192-call ceiling):
+`aa` covers five previously unstable cases and `repeat` covers all twelve.
+`upload_cache_resident_confirm.py` applies seven matching blocks to resident
+16×512, the remaining >5% median regression in the twelve-case run. Both wrappers
+accept the same `--phase measure --build BUILD --study aa|repeat --output NEW.json`
+arguments. The frozen atomic candidate is kept in
+`benchmarks/.build/gpu-upload-cache-atomic-2026-10-29`.
+`fair/upload_cache_atomic_report.py` audits and regenerates both reports, including
+all controls and unfavorable outcomes; it does not remove earlier cohorts.

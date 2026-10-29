@@ -1,0 +1,13 @@
+Test project /Users/pouya/Projects/kalandra.dev/build/native
+    Start 984: native-metal-upload-thread-sanitized
+1/4 Test #984: native-metal-upload-thread-sanitized ...   Passed    3.31 sec
+    Start 975: native-metal-upload-debug
+2/4 Test #975: native-metal-upload-debug ..............   Passed    2.28 sec
+    Start 981: native-metal-upload-sanitized
+3/4 Test #981: native-metal-upload-sanitized ..........   Passed    0.85 sec
+    Start 978: native-metal-upload-optimized
+4/4 Test #978: native-metal-upload-optimized ..........   Passed    0.10 sec
+
+100% tests passed out of 4
+
+Total Test time (real) =   6.56 sec

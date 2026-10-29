@@ -102,6 +102,9 @@ struct Options {
   // Only an opaque closed runner with no independent progress can use this.
   // Ordinary TaskCore callers always retain bounded asynchronous execution.
   bool closedSynchronous = true;
+  // Idle, fully owned shared-upload buffers. Included in maxBytes; zero disables.
+  // At most 64 entries. Private outputs, scratch and parameter buffers are excluded.
+  std::uint64_t maxCachedUploadBytes = 16 * 1024 * 1024;
 };
 struct Stats {
   std::uint64_t gpuNanoseconds = 0, encodingNanoseconds = 0, dispatches = 0;
@@ -109,6 +112,11 @@ struct Stats {
   std::uint64_t metalBuffers = 0, stagingBuffers = 0, inFlight = 0;
   std::uint64_t submissions = 0, completions = 0, attempts = 0;
   std::uint64_t argumentBytes = 0, peakArgumentBytes = 0, argumentPacks = 0;
+  // bytes/metalBuffers remain live-owner counters. Retained bytes include idle
+  // upload backing and share the maxBytes limit. Concurrent snapshots may vary.
+  std::uint64_t retainedBytes = 0, peakRetainedBytes = 0;
+  std::uint64_t cachedUploadBytes = 0, cachedUploadBuffers = 0;
+  std::uint64_t uploadCacheHits = 0, uploadCacheMisses = 0;
 };
 class Device final {
 public:
@@ -223,6 +231,9 @@ private:
 };
 class Runtime final {
 public:
+  ~Runtime();
+  // Release idle cache storage; live buffers and in-flight work are unaffected.
+  void trimUploadCache() noexcept;
   static std::expected<std::unique_ptr<Runtime>, Error> create(Options = {}) noexcept;
   std::uint32_t deviceCount() const noexcept;
   std::expected<Device, Error> device() const noexcept;

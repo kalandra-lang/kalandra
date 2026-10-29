@@ -44,17 +44,137 @@ struct State {
     auto n = ++attempts;
     return !failAt || n != failAt;
   }
-  bool reserve(std::uint64_t n) noexcept {
-    auto used = bytes.load();
+  struct UploadCacheEntry {
+    id<MTLBuffer> buffer = nil;
+    std::uint64_t size = 0;
+    std::uint32_t device = 0;
+  };
+  std::mutex allocationMutex;
+  std::array<UploadCacheEntry, 64> uploadCache{};
+  unsigned evictionCursor = 0;
+  bool cacheClosed = false;
+  std::atomic<std::uint64_t> retainedBytes{0}, peakRetainedBytes{0};
+  std::atomic<std::uint64_t> cachedUploadBytes{0}, cachedUploadBuffers{0};
+  std::atomic<std::uint64_t> uploadCacheHits{0}, uploadCacheMisses{0};
+
+  // retainedBytes is the atomic reservation ledger for live + idle backing.
+  // Cache transfers keep that reservation; only cache mutation/eviction locks.
+  // Reserve total before publishing live bytes, and release total last. Thus
+  // racing allocations cannot spend the same capacity or exceed maxBytes.
+  static void peak(std::atomic<std::uint64_t> &counter, std::uint64_t value) noexcept {
+    auto previous = counter.load();
+    while (previous < value && !counter.compare_exchange_weak(previous, value)) {}
+  }
+  bool reserveAtomic(std::uint64_t n) noexcept {
+    auto used = retainedBytes.load();
     do {
       if (n > options.maxBytes - used)
         return false;
-    } while (!bytes.compare_exchange_weak(used, used + n));
-    auto peak = peakBytes.load();
-    while (peak < used + n && !peakBytes.compare_exchange_weak(peak, used + n)) {
-    }
+    } while (!retainedBytes.compare_exchange_weak(used, used + n));
+    peak(peakRetainedBytes, used + n);
+    peak(peakBytes, bytes.fetch_add(n) + n);
     return true;
   }
+  void evict(unsigned i) noexcept {
+    auto &entry = uploadCache[i];
+    if (!entry.buffer)
+      return;
+    entry.buffer = nil;
+    cachedUploadBytes -= entry.size;
+    retainedBytes -= entry.size;
+    --cachedUploadBuffers;
+    entry = {};
+  }
+  void evictOne() noexcept {
+    for (unsigned i = 0; i < uploadCache.size(); ++i) {
+      const auto slot = evictionCursor++ % uploadCache.size();
+      if (uploadCache[slot].buffer) {
+        evict(slot);
+        return;
+      }
+    }
+  }
+  bool reserveLocked(std::uint64_t n) noexcept {
+    if (n > options.maxBytes)
+      return false;
+    for (;;) {
+      if (reserveAtomic(n))
+        return true;
+      if (!cachedUploadBuffers.load())
+        return false;
+      evictOne();
+    }
+  }
+  bool reserve(std::uint64_t n) noexcept {
+    if (reserveAtomic(n))
+      return true;
+    std::lock_guard lock(allocationMutex);
+    return reserveLocked(n);
+  }
+  void release(std::uint64_t n) noexcept {
+    bytes -= n;
+    retainedBytes -= n;
+  }
+  bool reserveUpload(std::uint64_t n, std::uint32_t device,
+                     id<MTLBuffer> __strong &buffer) noexcept {
+    if (!options.maxCachedUploadBytes)
+      return reserve(n);
+    std::lock_guard lock(allocationMutex);
+    if (!cacheClosed) {
+      for (auto &entry : uploadCache) {
+        if (entry.buffer && entry.size == n && entry.device == device) {
+          buffer = entry.buffer;
+          entry = {};
+          cachedUploadBytes -= n;
+          --cachedUploadBuffers;
+          peak(peakBytes, bytes.fetch_add(n) + n); // Total reservation does not grow.
+          ++uploadCacheHits;
+          return true;
+        }
+      }
+      ++uploadCacheMisses;
+    }
+    return reserveLocked(n);
+  }
+  void retire(id<MTLBuffer> __strong &buffer, std::uint64_t n, bool upload,
+              std::uint32_t device) noexcept {
+    const auto limit = std::min(options.maxCachedUploadBytes, options.maxBytes);
+    if (!upload || !n || n > limit) {
+      buffer = nil;
+      release(n);
+      return;
+    }
+    std::lock_guard lock(allocationMutex);
+    // Admission covers encoding, copying and the entire submitted progression.
+    // Frame/packet owners pin upload snapshots through GPU ACK. At last-owner
+    // retirement, zero admissions proves earlier uses have ended. A newly
+    // admitted operation cannot acquire this dying owner. Under concurrency we
+    // conservatively discard instead of caching any potentially pending buffer.
+    // No pending GPU resource is ever inserted and no global epoch is assumed.
+    if (!cacheClosed && !inFlight.load()) {
+      while (cachedUploadBytes > limit - n || cachedUploadBuffers == uploadCache.size())
+        evictOne();
+      for (auto &entry : uploadCache) {
+        if (!entry.buffer) {
+          entry = {buffer, n, device};
+          bytes -= n;
+          cachedUploadBytes += n;
+          ++cachedUploadBuffers;
+          buffer = nil;
+          return;
+        }
+      }
+    }
+    buffer = nil;
+    release(n);
+  }
+  void trim(bool close = false) noexcept {
+    std::lock_guard lock(allocationMutex);
+    cacheClosed |= close;
+    for (unsigned i = 0; i < uploadCache.size(); ++i)
+      evict(i);
+  }
+
 };
 struct MetalAllocation {
   // Parameter slices retain one charged allocation; they are never tensors.
@@ -72,8 +192,11 @@ struct MetalAllocation {
   id<MTLBuffer> buffer;
   std::uint64_t bytes;
   bool staging;
-  MetalAllocation(std::shared_ptr<State> s, id<MTLBuffer> b, std::uint64_t n, bool stage)
-      : state(std::move(s)), buffer(b), bytes(n), staging(stage) {
+  bool cacheableUpload = false;
+  std::uint32_t deviceIndex = 0;
+  MetalAllocation(std::shared_ptr<State> s, id<MTLBuffer> b, std::uint64_t n, bool stage, bool upload, std::uint32_t index)
+      : state(std::move(s)), buffer(b), bytes(n), staging(stage),
+        cacheableUpload(upload), deviceIndex(index) {
     ++state->metalBuffers;
     if (staging)
       ++state->stagingBuffers;
@@ -83,8 +206,7 @@ struct MetalAllocation {
       buffer = nil;
       return;
     }
-    buffer = nil;
-    state->bytes -= bytes;
+    state->retire(buffer, bytes, cacheableUpload, deviceIndex);
     --state->metalBuffers;
     if (staging)
       --state->stagingBuffers;
@@ -114,7 +236,7 @@ struct Storage {
     metal.reset();
     host.clear();
     if (hostReserved)
-      state->bytes -= hostReserved;
+      state->release(hostReserved);
     if (device)
       --state->deviceBackings;
     else
@@ -210,22 +332,28 @@ allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uin
     return std::unexpected(Error::Allocation);
   if (n > state->devices[index].maxBufferLength)
     return std::unexpected(Error::Invalid);
-  if (!state->reserve(n))
-    return std::unexpected(Error::Budget);
   id<MTLBuffer> buffer = nil;
-  if (state->permit())
+  // Only CPU-filled upload snapshots may be reused. copySharedUpload writes
+  // every byte (including sub-word padding) before publishing the immutable value.
+  const bool upload = shared && !staging;
+  if (!(upload ? state->reserveUpload(n, index, buffer) : state->reserve(n)))
+    return std::unexpected(Error::Budget);
+  if (!state->permit())
+    buffer = nil;
+  else if (!buffer)
     buffer = [state->devices[index]
         newBufferWithLength:n
                     options:(staging || shared) ? MTLResourceStorageModeShared
                                                 : MTLResourceStorageModePrivate];
   if (!buffer) {
-    state->bytes -= n;
+    state->release(n);
     return std::unexpected(Error::Allocation);
   }
   try {
-    return std::make_shared<MetalAllocation>(state, buffer, n, staging);
+    return std::make_shared<MetalAllocation>(state, buffer, n, staging, upload, index);
   } catch (...) {
-    state->bytes -= n;
+    buffer = nil;
+    state->release(n);
     return std::unexpected(Error::Allocation);
   }
 }
@@ -3890,6 +4018,8 @@ std::expected<std::span<const std::byte>, Error> Buffer::hostBytes() const noexc
   return storage_->hostView();
 }
 Runtime::Runtime(std::shared_ptr<State> state) noexcept : state_(std::move(state)) {}
+Runtime::~Runtime() { state_->trim(true); }
+void Runtime::trimUploadCache() noexcept { state_->trim(); }
 std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) noexcept {
   @autoreleasepool {
     if (!options.maxBytes || !options.maxInFlight)
@@ -5204,7 +5334,9 @@ Stats Runtime::stats() const noexcept {
           state_->deviceBackings, state_->metalBuffers,        state_->stagingBuffers,
           state_->inFlight,       state_->submissions,         state_->completions,
           state_->attempts,       state_->argumentBytes,       state_->peakArgumentBytes,
-          state_->argumentPacks};
+          state_->argumentPacks,  state_->retainedBytes,      state_->peakRetainedBytes,
+          state_->cachedUploadBytes, state_->cachedUploadBuffers,
+          state_->uploadCacheHits, state_->uploadCacheMisses};
 }
 void Runtime::failAllocationAt(std::uint64_t attempt) noexcept {
   state_->attempts = 0;
