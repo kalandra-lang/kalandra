@@ -45,7 +45,9 @@ Only the publishing job receives repository write permission. It creates a draft
 with assets, then publishes after successful upload. A failed upload leaves a draft;
 inspect it before retrying. Reruns do not overwrite an existing release or its
 assets. Delete a failed draft explicitly if a retry is appropriate. Cancellation
-is disabled for concurrent runs of the same ref.
+is disabled for concurrent publication runs of the same tag. Branch rehearsals
+are grouped by commit so an obsolete runner cannot block qualification of a new
+commit; branch runs never publish releases.
 
 Manual workflow dispatch runs the same build/qualification and uploads workflow
 artifacts, but does not publish a release. GitHub requires the workflow to exist on the
