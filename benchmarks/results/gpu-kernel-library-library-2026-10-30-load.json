@@ -1,0 +1,1055 @@
+{
+  "context": "Sequential uninstrumented current-runtime/MPSGraph comparison. No local builds/tests/profiling overlap. CPU load does not establish GPU idleness.",
+  "samples": [
+    {
+      "utc": "2026-10-30T02:00:13.570559+00:00",
+      "external_cpu_percent": 65.5,
+      "top": [
+        {
+          "cpu_percent": 13.5,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 10.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.1,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 7.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.9,
+          "exe": "/System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter"
+        },
+        {
+          "cpu_percent": 5.0,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:18.637158+00:00",
+      "external_cpu_percent": 33.5,
+      "top": [
+        {
+          "cpu_percent": 11.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 3.4,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.1,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:23.705615+00:00",
+      "external_cpu_percent": 95.2,
+      "top": [
+        {
+          "cpu_percent": 26.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 15.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "cpu_percent": 10.9,
+          "exe": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        },
+        {
+          "cpu_percent": 8.7,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 8.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 7.4,
+          "exe": "/usr/sbin/coreaudiod"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:28.777775+00:00",
+      "external_cpu_percent": 48.4,
+      "top": [
+        {
+          "cpu_percent": 11.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.5,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 4.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 4.3,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.8,
+          "exe": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:33.845321+00:00",
+      "external_cpu_percent": 54.9,
+      "top": [
+        {
+          "cpu_percent": 11.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 6.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.1,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 5.9,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.9,
+          "exe": "/opt/homebrew/bin/gh"
+        },
+        {
+          "cpu_percent": 3.1,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:38.910864+00:00",
+      "external_cpu_percent": 55.8,
+      "top": [
+        {
+          "cpu_percent": 11.6,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.0,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 8.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.9,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 3.6,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:43.983279+00:00",
+      "external_cpu_percent": 168.0,
+      "top": [
+        {
+          "cpu_percent": 15.0,
+          "exe": "/System/Applications/Siri AI.app/Contents/MacOS/Siri AI"
+        },
+        {
+          "cpu_percent": 15.0,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 10.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/opt/homebrew/bin/gh"
+        },
+        {
+          "cpu_percent": 9.6,
+          "exe": "/System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/usr/sbin/coreaudiod"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:49.051973+00:00",
+      "external_cpu_percent": 140.3,
+      "top": [
+        {
+          "cpu_percent": 13.3,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 11.5,
+          "exe": "/System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn"
+        },
+        {
+          "cpu_percent": 9.7,
+          "exe": "/System/Library/CoreServices/UserNotificationCenter.app/Contents/MacOS/UserNotificationCenter"
+        },
+        {
+          "cpu_percent": 9.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/System/Applications/Siri AI.app/Contents/MacOS/Siri AI"
+        },
+        {
+          "cpu_percent": 9.1,
+          "exe": "/usr/sbin/coreaudiod"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:54.123163+00:00",
+      "external_cpu_percent": 173.6,
+      "top": [
+        {
+          "cpu_percent": 88.2,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 24.6,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 11.2,
+          "exe": "/opt/homebrew/bin/gh"
+        },
+        {
+          "cpu_percent": 10.0,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.8,
+          "exe": "/usr/libexec/sysmond"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:00:59.190540+00:00",
+      "external_cpu_percent": 132.4,
+      "top": [
+        {
+          "cpu_percent": 50.9,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 30.4,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 11.5,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 10.4,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 7.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.1,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:04.256384+00:00",
+      "external_cpu_percent": 115.0,
+      "top": [
+        {
+          "cpu_percent": 46.7,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 30.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 11.6,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.3,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 4.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:09.321384+00:00",
+      "external_cpu_percent": 132.7,
+      "top": [
+        {
+          "cpu_percent": 37.5,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 20.8,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 20.6,
+          "exe": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared"
+        },
+        {
+          "cpu_percent": 19.7,
+          "exe": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared"
+        },
+        {
+          "cpu_percent": 8.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.0,
+          "exe": "/usr/sbin/coreaudiod"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:14.387889+00:00",
+      "external_cpu_percent": 72.6,
+      "top": [
+        {
+          "cpu_percent": 37.3,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 10.9,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.4,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:19.458094+00:00",
+      "external_cpu_percent": 51.3,
+      "top": [
+        {
+          "cpu_percent": 23.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 3.4,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 3.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:24.525332+00:00",
+      "external_cpu_percent": 63.5,
+      "top": [
+        {
+          "cpu_percent": 11.2,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 10.3,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.4,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 4.0,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:29.592579+00:00",
+      "external_cpu_percent": 41.5,
+      "top": [
+        {
+          "cpu_percent": 12.3,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 7.1,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/Applications/VLC.app/Contents/MacOS/VLC"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:34.658727+00:00",
+      "external_cpu_percent": 45.0,
+      "top": [
+        {
+          "cpu_percent": 11.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.3,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 3.5,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/opt/homebrew/bin/gh"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:39.727662+00:00",
+      "external_cpu_percent": 62.1,
+      "top": [
+        {
+          "cpu_percent": 14.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.2,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 5.5,
+          "exe": "/usr/libexec/searchpartyd"
+        },
+        {
+          "cpu_percent": 5.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 4.9,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/usr/libexec/searchpartyuseragent"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:44.795184+00:00",
+      "external_cpu_percent": 137.7,
+      "top": [
+        {
+          "cpu_percent": 14.7,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 14.0,
+          "exe": "/System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn"
+        },
+        {
+          "cpu_percent": 9.7,
+          "exe": "/System/Library/CoreServices/UserNotificationCenter.app/Contents/MacOS/UserNotificationCenter"
+        },
+        {
+          "cpu_percent": 9.3,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.0,
+          "exe": "/System/Applications/Siri AI.app/Contents/MacOS/Siri AI"
+        },
+        {
+          "cpu_percent": 8.5,
+          "exe": "/System/Library/CoreServices/Siri.app/Contents/MacOS/Siri"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:49.865532+00:00",
+      "external_cpu_percent": 178.0,
+      "top": [
+        {
+          "cpu_percent": 21.6,
+          "exe": "/System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/Resources/storeuid.app/Contents/MacOS/storeuid"
+        },
+        {
+          "cpu_percent": 16.7,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 15.1,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 13.5,
+          "exe": "/Applications/Raycast.app/Contents/MacOS/Raycast"
+        },
+        {
+          "cpu_percent": 11.4,
+          "exe": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:54.934567+00:00",
+      "external_cpu_percent": 39.2,
+      "top": [
+        {
+          "cpu_percent": 10.0,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.3,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 2.8,
+          "exe": "/usr/sbin/cfprefsd"
+        },
+        {
+          "cpu_percent": 2.1,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:01:59.999526+00:00",
+      "external_cpu_percent": 175.4,
+      "top": [
+        {
+          "cpu_percent": 99.1,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 31.2,
+          "exe": "/Library/Apple/System/Library/PrivateFrameworks/RemotePairing.framework/Versions/A/XPCServices/remotepairingd.xpc/Contents/MacOS/remotepairingd"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.7,
+          "exe": "/Applications/Xcode.app/Contents/Applications/Instruments.app/Contents/MacOS/Instruments"
+        },
+        {
+          "cpu_percent": 5.5,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 4.2,
+          "exe": "/Library/Developer/PrivateFrameworks/CoreDevice.framework/Versions/A/XPCServices/CoreDeviceService.xpc/Contents/MacOS/CoreDeviceService"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:05.067341+00:00",
+      "external_cpu_percent": 141.0,
+      "top": [
+        {
+          "cpu_percent": 97.8,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 11.5,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.8,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:10.133615+00:00",
+      "external_cpu_percent": 82.8,
+      "top": [
+        {
+          "cpu_percent": 39.0,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 11.9,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.2,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 6.8,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 6.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:15.201637+00:00",
+      "external_cpu_percent": 44.2,
+      "top": [
+        {
+          "cpu_percent": 13.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 10.6,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 6.8,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 3.4,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:20.268680+00:00",
+      "external_cpu_percent": 142.6,
+      "top": [
+        {
+          "cpu_percent": 98.5,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 10.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 5.1,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 4.9,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 2.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:25.335590+00:00",
+      "external_cpu_percent": 151.1,
+      "top": [
+        {
+          "cpu_percent": 98.1,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 10.9,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 10.5,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.6,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 3.1,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:30.403765+00:00",
+      "external_cpu_percent": 153.6,
+      "top": [
+        {
+          "cpu_percent": 97.7,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 13.3,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.4,
+          "exe": "/opt/homebrew/bin/gh"
+        },
+        {
+          "cpu_percent": 8.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.1,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 2.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:35.470860+00:00",
+      "external_cpu_percent": 149.6,
+      "top": [
+        {
+          "cpu_percent": 98.2,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 17.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 4.5,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 4.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:40.536553+00:00",
+      "external_cpu_percent": 42.2,
+      "top": [
+        {
+          "cpu_percent": 11.8,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 8.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.8,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 2.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:45.608287+00:00",
+      "external_cpu_percent": 139.9,
+      "top": [
+        {
+          "cpu_percent": 24.3,
+          "exe": "/System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/Resources/storeuid.app/Contents/MacOS/storeuid"
+        },
+        {
+          "cpu_percent": 14.2,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 8.7,
+          "exe": "/System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn"
+        },
+        {
+          "cpu_percent": 8.0,
+          "exe": "/Applications/Raycast.app/Contents/MacOS/Raycast"
+        },
+        {
+          "cpu_percent": 7.7,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 7.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:50.675086+00:00",
+      "external_cpu_percent": 167.8,
+      "top": [
+        {
+          "cpu_percent": 19.9,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 15.3,
+          "exe": "/System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent"
+        },
+        {
+          "cpu_percent": 10.0,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 10.0,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 9.7,
+          "exe": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/System/Library/PrivateFrameworks/CommerceKit.framework/Versions/A/Resources/storeuid.app/Contents/MacOS/storeuid"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:02:55.747415+00:00",
+      "external_cpu_percent": 114.0,
+      "top": [
+        {
+          "cpu_percent": 34.0,
+          "exe": "/usr/libexec/biomesyncd"
+        },
+        {
+          "cpu_percent": 24.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.1,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 5.6,
+          "exe": "/usr/libexec/runningboardd"
+        },
+        {
+          "cpu_percent": 4.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 4.3,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:03:00.815185+00:00",
+      "external_cpu_percent": 46.4,
+      "top": [
+        {
+          "cpu_percent": 10.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 5.2,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 3.3,
+          "exe": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/156.0.8078.74/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T02:03:05.885488+00:00",
+      "external_cpu_percent": 57.4,
+      "top": [
+        {
+          "cpu_percent": 10.6,
+          "exe": "/usr/sbin/coreaudiod"
+        },
+        {
+          "cpu_percent": 10.5,
+          "exe": "/opt/homebrew/bin/gh"
+        },
+        {
+          "cpu_percent": 9.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.9,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 4.9,
+          "exe": "/System/Library/PrivateFrameworks/CoreSpeech.framework/corespeechd"
+        },
+        {
+          "cpu_percent": 2.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1091 @@
+{
+  "contract": "Final-runtime numerical-library comparison and separate encoder diagnosis.\n\nMPSGraph is a benchmark-only reference. Both paths compute the same authored\nblock and meet independent numerical bounds; operation order is not identical.\nNo profiling/counters overlap uninstrumented library comparisons.\n",
+  "acceptance": false,
+  "qualification_sha256": "2bc273bcc208610a06220f413819f2d3f70dbf412da62f26f48ef7d53a701959",
+  "records": [
+    {
+      "process": 0,
+      "m": 64,
+      "d": 512,
+      "count": 64,
+      "rounds": 3,
+      "passes": [
+        {
+          "pc": 9,
+          "median_ns": 27625.0,
+          "minimum_ns": 19833.0,
+          "maximum_ns": 370041.0
+        },
+        {
+          "pc": 11,
+          "median_ns": 158624.5,
+          "minimum_ns": 63667.0,
+          "maximum_ns": 388833.0
+        },
+        {
+          "pc": 13,
+          "median_ns": 89437.5,
+          "minimum_ns": 64167.0,
+          "maximum_ns": 312542.0
+        },
+        {
+          "pc": 15,
+          "median_ns": 145104.5,
+          "minimum_ns": 63833.0,
+          "maximum_ns": 154708.0
+        },
+        {
+          "pc": 16,
+          "median_ns": 62521.0,
+          "minimum_ns": 21000.0,
+          "maximum_ns": 282125.0
+        },
+        {
+          "pc": 18,
+          "median_ns": 55062.5,
+          "minimum_ns": 40500.0,
+          "maximum_ns": 299250.0
+        },
+        {
+          "pc": 20,
+          "median_ns": 30041.0,
+          "minimum_ns": 21875.0,
+          "maximum_ns": 35125.0
+        },
+        {
+          "pc": 22,
+          "median_ns": 174916.0,
+          "minimum_ns": 127000.0,
+          "maximum_ns": 216166.0
+        },
+        {
+          "pc": 24,
+          "median_ns": 84708.0,
+          "minimum_ns": 61875.0,
+          "maximum_ns": 97666.0
+        },
+        {
+          "pc": 27,
+          "median_ns": 25500.0,
+          "minimum_ns": 18334.0,
+          "maximum_ns": 196625.0
+        },
+        {
+          "pc": 29,
+          "median_ns": 279374.5,
+          "minimum_ns": 198750.0,
+          "maximum_ns": 388208.0
+        },
+        {
+          "pc": 32,
+          "median_ns": 294104.5,
+          "minimum_ns": 213000.0,
+          "maximum_ns": 553000.0
+        }
+      ],
+      "command_gpu_ns": 1203104.155,
+      "observations": [
+        {
+          "pipeline_setup_ns": 2901791,
+          "preparation_ns": 9334,
+          "round": -2,
+          "ns": 111814209,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 82383302,
+          "encoding_ns": 5248550,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 2901791,
+          "preparation_ns": 9334,
+          "round": -1,
+          "ns": 103632292,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 78712426,
+          "encoding_ns": 5524319,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 2901791,
+          "preparation_ns": 9334,
+          "round": 0,
+          "ns": 100346334,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 76838843,
+          "encoding_ns": 4996789,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 2901791,
+          "preparation_ns": 9334,
+          "round": 1,
+          "ns": 97783334,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 71787341,
+          "encoding_ns": 5674371,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 2901791,
+          "preparation_ns": 9334,
+          "round": 2,
+          "ns": 92266750,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 65819721,
+          "encoding_ns": 6325826,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        }
+      ],
+      "raw": "benchmarks/.build/gpu-kernel-gap-2026-10-30/raw/0-64.json.gz",
+      "raw_sha256": "1e0ad558b02093da40349cf1800aa5d711cab6fbb7141251b92c88976cd81021"
+    },
+    {
+      "process": 0,
+      "m": 512,
+      "d": 512,
+      "count": 64,
+      "rounds": 3,
+      "passes": [
+        {
+          "pc": 9,
+          "median_ns": 22520.5,
+          "minimum_ns": 21417.0,
+          "maximum_ns": 201041.0
+        },
+        {
+          "pc": 11,
+          "median_ns": 319770.5,
+          "minimum_ns": 163083.0,
+          "maximum_ns": 591667.0
+        },
+        {
+          "pc": 13,
+          "median_ns": 317104.0,
+          "minimum_ns": 162875.0,
+          "maximum_ns": 585667.0
+        },
+        {
+          "pc": 15,
+          "median_ns": 273541.5,
+          "minimum_ns": 191167.0,
+          "maximum_ns": 585375.0
+        },
+        {
+          "pc": 16,
+          "median_ns": 74771.0,
+          "minimum_ns": 42583.0,
+          "maximum_ns": 361792.0
+        },
+        {
+          "pc": 18,
+          "median_ns": 161521.5,
+          "minimum_ns": 159125.0,
+          "maximum_ns": 508542.0
+        },
+        {
+          "pc": 20,
+          "median_ns": 41291.5,
+          "minimum_ns": 40500.0,
+          "maximum_ns": 122375.0
+        },
+        {
+          "pc": 22,
+          "median_ns": 160708.5,
+          "minimum_ns": 159583.0,
+          "maximum_ns": 454125.0
+        },
+        {
+          "pc": 24,
+          "median_ns": 169125.0,
+          "minimum_ns": 165167.0,
+          "maximum_ns": 257250.0
+        },
+        {
+          "pc": 27,
+          "median_ns": 21375.0,
+          "minimum_ns": 20375.0,
+          "maximum_ns": 292958.0
+        },
+        {
+          "pc": 29,
+          "median_ns": 616188.0,
+          "minimum_ns": 609000.0,
+          "maximum_ns": 918125.0
+        },
+        {
+          "pc": 32,
+          "median_ns": 633166.5,
+          "minimum_ns": 623250.0,
+          "maximum_ns": 1038167.0
+        }
+      ],
+      "command_gpu_ns": 2330624.964,
+      "observations": [
+        {
+          "pipeline_setup_ns": 2872417,
+          "preparation_ns": 11500,
+          "round": -2,
+          "ns": 194653958,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 161869883,
+          "encoding_ns": 6627796,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 2872417,
+          "preparation_ns": 11500,
+          "round": -1,
+          "ns": 179200458,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 151220883,
+          "encoding_ns": 5621549,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 2872417,
+          "preparation_ns": 11500,
+          "round": 0,
+          "ns": 178804125,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 150501593,
+          "encoding_ns": 5479969,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 2872417,
+          "preparation_ns": 11500,
+          "round": 1,
+          "ns": 178954833,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 152110262,
+          "encoding_ns": 5265575,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 2872417,
+          "preparation_ns": 11500,
+          "round": 2,
+          "ns": 180359792,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 152792338,
+          "encoding_ns": 5105997,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        }
+      ],
+      "raw": "benchmarks/.build/gpu-kernel-gap-2026-10-30/raw/0-512.json.gz",
+      "raw_sha256": "21e4929fec785714fbe88637d2e1bb223fe7a04c11cc22e59f4819abafe6d256"
+    },
+    {
+      "process": 1,
+      "m": 64,
+      "d": 512,
+      "count": 64,
+      "rounds": 3,
+      "passes": [
+        {
+          "pc": 9,
+          "median_ns": 10333.5,
+          "minimum_ns": 9625.0,
+          "maximum_ns": 103083.0
+        },
+        {
+          "pc": 11,
+          "median_ns": 51666.5,
+          "minimum_ns": 28875.0,
+          "maximum_ns": 152291.0
+        },
+        {
+          "pc": 13,
+          "median_ns": 30500.5,
+          "minimum_ns": 28583.0,
+          "maximum_ns": 126250.0
+        },
+        {
+          "pc": 15,
+          "median_ns": 47916.5,
+          "minimum_ns": 29041.0,
+          "maximum_ns": 53250.0
+        },
+        {
+          "pc": 16,
+          "median_ns": 20042.0,
+          "minimum_ns": 9541.0,
+          "maximum_ns": 51708.0
+        },
+        {
+          "pc": 18,
+          "median_ns": 19583.0,
+          "minimum_ns": 18834.0,
+          "maximum_ns": 116416.0
+        },
+        {
+          "pc": 20,
+          "median_ns": 10770.5,
+          "minimum_ns": 9958.0,
+          "maximum_ns": 14709.0
+        },
+        {
+          "pc": 22,
+          "median_ns": 57042.0,
+          "minimum_ns": 56334.0,
+          "maximum_ns": 62292.0
+        },
+        {
+          "pc": 24,
+          "median_ns": 29208.0,
+          "minimum_ns": 27667.0,
+          "maximum_ns": 34959.0
+        },
+        {
+          "pc": 27,
+          "median_ns": 8875.0,
+          "minimum_ns": 8500.0,
+          "maximum_ns": 167708.0
+        },
+        {
+          "pc": 29,
+          "median_ns": 92750.0,
+          "minimum_ns": 90209.0,
+          "maximum_ns": 351583.0
+        },
+        {
+          "pc": 32,
+          "median_ns": 98854.5,
+          "minimum_ns": 94958.0,
+          "maximum_ns": 160125.0
+        }
+      ],
+      "command_gpu_ns": 404916.7035,
+      "observations": [
+        {
+          "pipeline_setup_ns": 3183667,
+          "preparation_ns": 9000,
+          "round": -2,
+          "ns": 55728500,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 31156262,
+          "encoding_ns": 5159072,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 3183667,
+          "preparation_ns": 9000,
+          "round": -1,
+          "ns": 47384708,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 27365053,
+          "encoding_ns": 4611527,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 3183667,
+          "preparation_ns": 9000,
+          "round": 0,
+          "ns": 47098833,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 27284595,
+          "encoding_ns": 4538339,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 3183667,
+          "preparation_ns": 9000,
+          "round": 1,
+          "ns": 47493416,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 27015261,
+          "encoding_ns": 4903623,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 3183667,
+          "preparation_ns": 9000,
+          "round": 2,
+          "ns": 47685875,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 27090428,
+          "encoding_ns": 4694754,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        }
+      ],
+      "raw": "benchmarks/.build/gpu-kernel-gap-2026-10-30/raw/1-64.json.gz",
+      "raw_sha256": "f81d38f6e6ac3f779da3283829d7c4afc39cbb734c4db00f3c0efe21c2d86ea8"
+    },
+    {
+      "process": 1,
+      "m": 512,
+      "d": 512,
+      "count": 64,
+      "rounds": 3,
+      "passes": [
+        {
+          "pc": 9,
+          "median_ns": 22250.0,
+          "minimum_ns": 21333.0,
+          "maximum_ns": 122792.0
+        },
+        {
+          "pc": 11,
+          "median_ns": 318687.5,
+          "minimum_ns": 174250.0,
+          "maximum_ns": 769500.0
+        },
+        {
+          "pc": 13,
+          "median_ns": 319291.5,
+          "minimum_ns": 182500.0,
+          "maximum_ns": 750917.0
+        },
+        {
+          "pc": 15,
+          "median_ns": 261396.0,
+          "minimum_ns": 174500.0,
+          "maximum_ns": 644000.0
+        },
+        {
+          "pc": 16,
+          "median_ns": 94729.0,
+          "minimum_ns": 42834.0,
+          "maximum_ns": 187667.0
+        },
+        {
+          "pc": 18,
+          "median_ns": 167250.0,
+          "minimum_ns": 159459.0,
+          "maximum_ns": 556541.0
+        },
+        {
+          "pc": 20,
+          "median_ns": 42063.0,
+          "minimum_ns": 40542.0,
+          "maximum_ns": 48959.0
+        },
+        {
+          "pc": 22,
+          "median_ns": 161562.5,
+          "minimum_ns": 159500.0,
+          "maximum_ns": 458292.0
+        },
+        {
+          "pc": 24,
+          "median_ns": 170125.0,
+          "minimum_ns": 163667.0,
+          "maximum_ns": 187292.0
+        },
+        {
+          "pc": 27,
+          "median_ns": 21708.0,
+          "minimum_ns": 20625.0,
+          "maximum_ns": 304375.0
+        },
+        {
+          "pc": 29,
+          "median_ns": 616063.0,
+          "minimum_ns": 609542.0,
+          "maximum_ns": 922750.0
+        },
+        {
+          "pc": 32,
+          "median_ns": 632437.5,
+          "minimum_ns": 623292.0,
+          "maximum_ns": 1032542.0
+        }
+      ],
+      "command_gpu_ns": 2332374.9775,
+      "observations": [
+        {
+          "pipeline_setup_ns": 3040459,
+          "preparation_ns": 10750,
+          "round": -2,
+          "ns": 186903334,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 157952384,
+          "encoding_ns": 5264789,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 3040459,
+          "preparation_ns": 10750,
+          "round": -1,
+          "ns": 198043834,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 153108677,
+          "encoding_ns": 9937003,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 3040459,
+          "preparation_ns": 10750,
+          "round": 0,
+          "ns": 181068834,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 151640053,
+          "encoding_ns": 6178276,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 3040459,
+          "preparation_ns": 10750,
+          "round": 1,
+          "ns": 193324334,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 151527964,
+          "encoding_ns": 10569073,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 3040459,
+          "preparation_ns": 10750,
+          "round": 2,
+          "ns": 213763417,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 151338212,
+          "encoding_ns": 18116248,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        }
+      ],
+      "raw": "benchmarks/.build/gpu-kernel-gap-2026-10-30/raw/1-512.json.gz",
+      "raw_sha256": "6d23c98bcabf7dd256be9b88550d5d2607b4390736eae0655eecf7ea8528f496"
+    },
+    {
+      "process": 2,
+      "m": 64,
+      "d": 512,
+      "count": 64,
+      "rounds": 3,
+      "passes": [
+        {
+          "pc": 9,
+          "median_ns": 13812.5,
+          "minimum_ns": 10833.0,
+          "maximum_ns": 106250.0
+        },
+        {
+          "pc": 11,
+          "median_ns": 64104.0,
+          "minimum_ns": 32083.0,
+          "maximum_ns": 345458.0
+        },
+        {
+          "pc": 13,
+          "median_ns": 64708.0,
+          "minimum_ns": 31834.0,
+          "maximum_ns": 232292.0
+        },
+        {
+          "pc": 15,
+          "median_ns": 66937.5,
+          "minimum_ns": 32750.0,
+          "maximum_ns": 145375.0
+        },
+        {
+          "pc": 16,
+          "median_ns": 28437.0,
+          "minimum_ns": 10666.0,
+          "maximum_ns": 61667.0
+        },
+        {
+          "pc": 18,
+          "median_ns": 26687.5,
+          "minimum_ns": 20916.0,
+          "maximum_ns": 272375.0
+        },
+        {
+          "pc": 20,
+          "median_ns": 14666.0,
+          "minimum_ns": 11583.0,
+          "maximum_ns": 271875.0
+        },
+        {
+          "pc": 22,
+          "median_ns": 81291.5,
+          "minimum_ns": 63542.0,
+          "maximum_ns": 176125.0
+        },
+        {
+          "pc": 24,
+          "median_ns": 40916.5,
+          "minimum_ns": 31709.0,
+          "maximum_ns": 89041.0
+        },
+        {
+          "pc": 27,
+          "median_ns": 12125.0,
+          "minimum_ns": 9417.0,
+          "maximum_ns": 29542.0
+        },
+        {
+          "pc": 29,
+          "median_ns": 130958.5,
+          "minimum_ns": 101834.0,
+          "maximum_ns": 427000.0
+        },
+        {
+          "pc": 32,
+          "median_ns": 135770.5,
+          "minimum_ns": 106541.0,
+          "maximum_ns": 297708.0
+        }
+      ],
+      "command_gpu_ns": 564833.288,
+      "observations": [
+        {
+          "pipeline_setup_ns": 3779875,
+          "preparation_ns": 11291,
+          "round": -2,
+          "ns": 56170917,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 31067679,
+          "encoding_ns": 5157295,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 3779875,
+          "preparation_ns": 11291,
+          "round": -1,
+          "ns": 48151250,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 28289260,
+          "encoding_ns": 4599825,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 3779875,
+          "preparation_ns": 11291,
+          "round": 0,
+          "ns": 52372541,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 31301758,
+          "encoding_ns": 4723992,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 3779875,
+          "preparation_ns": 11291,
+          "round": 1,
+          "ns": 58425833,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 37543177,
+          "encoding_ns": 4551551,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pipeline_setup_ns": 3779875,
+          "preparation_ns": 11291,
+          "round": 2,
+          "ns": 74409625,
+          "checksum": 8388608,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 51901758,
+          "encoding_ns": 4704670,
+          "attempts": 6080,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        }
+      ],
+      "raw": "benchmarks/.build/gpu-kernel-gap-2026-10-30/raw/2-64.json.gz",
+      "raw_sha256": "9771a80336df697e52acefc319ede1fbcadf5b79d632774591ff57d343eaf0ef"
+    },
+    {
+      "process": 2,
+      "m": 512,
+      "d": 512,
+      "count": 64,
+      "rounds": 3,
+      "passes": [
+        {
+          "pc": 9,
+          "median_ns": 22292.0,
+          "minimum_ns": 21375.0,
+          "maximum_ns": 29125.0
+        },
+        {
+          "pc": 11,
+          "median_ns": 316958.0,
+          "minimum_ns": 166917.0,
+          "maximum_ns": 739625.0
+        },
+        {
+          "pc": 13,
+          "median_ns": 320229.0,
+          "minimum_ns": 163209.0,
+          "maximum_ns": 606917.0
+        },
+        {
+          "pc": 15,
+          "median_ns": 242521.0,
+          "minimum_ns": 174708.0,
+          "maximum_ns": 634334.0
+        },
+        {
+          "pc": 16,
+          "median_ns": 76437.5,
+          "minimum_ns": 42500.0,
+          "maximum_ns": 427334.0
+        },
+        {
+          "pc": 18,
+          "median_ns": 164104.5,
+          "minimum_ns": 158833.0,
+          "maximum_ns": 363834.0
+        },
+        {
+          "pc": 20,
+          "median_ns": 42021.0,
+          "minimum_ns": 40750.0,
+          "maximum_ns": 225916.0
+        },
+        {
+          "pc": 22,
+          "median_ns": 160917.0,
+          "minimum_ns": 159708.0,
+          "maximum_ns": 452833.0
+        },
+        {
+          "pc": 24,
+          "median_ns": 167875.0,
+          "minimum_ns": 164583.0,
+          "maximum_ns": 180917.0
+        },
+        {
+          "pc": 27,
+          "median_ns": 21458.0,
+          "minimum_ns": 20125.0,
+          "maximum_ns": 27875.0
+        },
+        {
+          "pc": 29,
+          "median_ns": 616354.0,
+          "minimum_ns": 608500.0,
+          "maximum_ns": 919458.0
+        },
+        {
+          "pc": 32,
+          "median_ns": 631938.0,
+          "minimum_ns": 624625.0,
+          "maximum_ns": 841250.0
+        }
+      ],
+      "command_gpu_ns": 2327708.353,
+      "observations": [
+        {
+          "pipeline_setup_ns": 3016417,
+          "preparation_ns": 9209,
+          "round": -2,
+          "ns": 191798791,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 161731509,
+          "encoding_ns": 5449832,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 3016417,
+          "preparation_ns": 9209,
+          "round": -1,
+          "ns": 177019542,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 150161849,
+          "encoding_ns": 5033449,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 3016417,
+          "preparation_ns": 9209,
+          "round": 0,
+          "ns": 177085583,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 150186887,
+          "encoding_ns": 4939150,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 3016417,
+          "preparation_ns": 9209,
+          "round": 1,
+          "ns": 177635542,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 150492631,
+          "encoding_ns": 4888084,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        },
+        {
+          "pipeline_setup_ns": 3016417,
+          "preparation_ns": 9209,
+          "round": 2,
+          "ns": 178807334,
+          "checksum": 67108864,
+          "submissions": 64,
+          "dispatches": 768,
+          "gpu_ns": 151541088,
+          "encoding_ns": 5003242,
+          "attempts": 6080,
+          "resident_bytes": 27262976,
+          "peak_bytes": 46141440
+        }
+      ],
+      "raw": "benchmarks/.build/gpu-kernel-gap-2026-10-30/raw/2-512.json.gz",
+      "raw_sha256": "809837a891f612e0a35452a32f305efd29f255df029d3c138d3f28eba689f90d"
+    }
+  ],
+  "note": "Encoder sampling changes overhead; intervals include stalls/scheduling and are not exclusive compute times. Never use these wall times as library comparisons.",
+  "schema": 1,
+  "timestamp": "2026-10-30T02:06:01.912399+00:00",
+  "compiler_sha256": "86a0870e10aaf1de4b001955fcebf7351b527634d9009a06f07053edaeaa95df",
+  "source_sha256": {
+    "native/benchmarks/kernel_library_gap.py": "985f02bf7c4545c09962705ba974a717653f0434fcf1232d49d877520e1c5279",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "native/benchmarks/fair/transformer_reference.py": "4b4dbbd280403357dc88cdae4553b8ded1c309f28d5923f8756e6ce912c5d400",
+    "native/benchmarks/fair/TransformerMps.mm": "413c3f8826c49780f675fa835eda96743de94996e3d5911e037bb93f4fcd7e97",
+    "native/benchmarks/fair/TransformerBlock.h": "bf9ff95f14c9007ec84c66da1bd5639f1fed971278367b8496ceceeb9eea160c",
+    "native/benchmarks/fair/ResidualFfn.h": "6f4659c4e9a1dcdabbdd414f77de37359890f83a5444259e69181057c862aa6a",
+    "native/metal/Metal.mm": "1f3385cdc914256f8550628938807fbef568c53e0704477a8d7e07e56be4c525",
+    "native/metal/Metal.h": "9a1175697011a1b1833e48fc290b6e30a3fd96c7ea6d5eca0ec797001b35308d",
+    "benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/manifest.json": "4eaf092339ad37f0963158d97d603db805c1a285f70c5f08830d3b0a4f1e8a3f",
+    "benchmarks/.build/gpu-kernel-gap-2026-10-30/manifest.json": "6cec36b469f11385d9cc45b9b1d37ba131ed47419c78cb6ff2339299f6e559a2"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-prepared-output-fastmiss-frozen-2026-10-29/gpu": "7fdd16bde317109df80ac4d9af20f438176077ca865fbb0d8ccc4801ea544a89",
+    "benchmarks/.build/gpu-prepared-output-fastmiss-frozen-2026-10-29/Driver.cpp": "f90ef2679fb1b5bb51372e2924e30811ee327bbc90a9ffac89c0c944db705aa5",
+    "benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/probe": "72f434e9631e0315070796f0442fb2e96beb272642bc3e38f2a48115045ecbd3",
+    "benchmarks/.build/gpu-kernel-gap-2026-10-30/mps": "12572081956259530e12425ac54758e7a57531ff2cfb59eb0f988808094f69b0",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/TransformerProgram.h": "5be70fd2e1dcb768b9647689ec8fbb9c52ccff6297b0c7b6f49eae14126729db",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage1.metallib": "93424a7da661cca9946b97f703f5c3f8c9d6bc8dd491a1fc2e7e4f93c6918494",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0.metallib": "a3a6cebdc4b68ee061aa02f7544508ac0b98f01907e3dc70ab9d2423f8653564",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage6.metallib": "ca314833a644bb8cdd3fff0ac812c57be6284a7b4151fb6adf31fa1c42b01741",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage3.metallib": "3baf8dd6fbe0230375656b0f95dfb0e493ae0fac149169b7fb613f51133fe84a",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage2.metallib": "a5ddf36fef339b26fb9f336581d2034e8512f9b7e2319ebf53a41d22bac0ce12",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage4.metallib": "b6a0e2e2e22c586e30d4031db6acef804df41518ccae2adb59391e2e2ce86459",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage5.metallib": "e9d31d56f908c607e8ea6841f3f3c1eca551b2b5d1748e37291bfa832b5f3313"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "64",
+      "512",
+      "64",
+      "3",
+      "0",
+      "0",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "64",
+      "3",
+      "0",
+      "0",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "64",
+      "512",
+      "64",
+      "3",
+      "0",
+      "0",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "64",
+      "3",
+      "0",
+      "0",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "64",
+      "512",
+      "64",
+      "3",
+      "0",
+      "0",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "64",
+      "3",
+      "0",
+      "0",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "8814a901f3d3d92d5a6611849bf6fc3eb4dcaa15",
+  "worktree_status": "?? benchmarks/results/gpu-kernel-library-aa-2026-10-30-load.json\n?? benchmarks/results/gpu-kernel-library-aa-2026-10-30.json\n?? benchmarks/results/gpu-kernel-library-library-2026-10-30-load.json\n?? benchmarks/results/gpu-kernel-library-library-2026-10-30.json\n?? benchmarks/results/gpu-kernel-library-repeat-2026-10-30-load.json\n?? benchmarks/results/gpu-kernel-library-repeat-2026-10-30.json\n?? native/benchmarks/kernel_library_gap.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

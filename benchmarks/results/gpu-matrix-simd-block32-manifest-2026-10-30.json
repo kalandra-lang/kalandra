@@ -1,0 +1,59 @@
+{
+  "signature": {
+    "native/benchmarks/matrix_simd_architecture.py": "473affda4e00f91c6227d964e6fa13029c41e152825f2b39eebf2f529806a3c7",
+    "native/benchmarks/matrix_simd_blocked.py": "bbc886d335602ad19722a4eaaaa7acc2d97551f30a83f956e89f0945d3874d5b",
+    "native/benchmarks/OutputReuseStudy.mm": "9bedcdc4ec9cedf1b779e1f21e949b38a69f922d1f4747463c584a775cae9a36",
+    "benchmarks/.build/gpu-wide-grid-2026-10-30/study.metal": "fa42974661497bd8baf3fe688410b88c1958cccb50d4fcf23408b6347b1f0c4a",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f"
+  },
+  "artifacts": {
+    "benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metal": "c65ac88b6607befb56f1a59ccc8ca75b87bc29ea790de14e6868a969a1226e49",
+    "benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/Driver.mm": "a4a2caf1f8933a5ca4336c4019b8c6bd7ceb745bdc7d4d81bfa6ba1db7e672d3",
+    "benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/screen": "859ee6313d6847da701096b3ce04a0feaff0b02f6874b04d053e5f2d0cffc430",
+    "benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib": "ed0ea304f4aab2da4bc4cdef045c6977dfa478d22c9069bf9e27c5c299dd06b8"
+  },
+  "commands": [
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "-mmacosx-version-min=26.0",
+      "-std=macos-metal2.3",
+      "-fno-fast-math",
+      "-ffp-contract=off",
+      "-c",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.air"
+    ],
+    [
+      "xcrun",
+      "--toolchain",
+      "com.apple.dt.toolchain.Metal.32023.864",
+      "--sdk",
+      "macosx",
+      "metal",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.air",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-ffp-contract=off",
+      "-fobjc-arc",
+      "-fblocks",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/Driver.mm",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/screen"
+    ]
+  ]
+}

@@ -498,3 +498,30 @@ preserved. The final auditor verifies complete Cartesian numerical coverage,
 source identities, resource caps, actual work counts and every retained pair.
 Uninstrumented dispatch counters are zero by design; the separate profiled
 counter diagnostic checks positive dispatches. All prior policies remain linked.
+
+### Compute gap and experimental matrix primitives
+
+`kernel_library_gap.py` prepares, verifies, measures and separately profiles the
+current resident transformer block against a benchmark-only MPSGraph reference.
+Run `fair/kernel_library_gap_report.py` to reconstruct the
+[matched comparison and rejected strict tiles](../../benchmarks/results/gpu-kernel-library-gap-2026-10-30.md).
+Profiling must remain separate from uninstrumented acceptance.
+
+`wide_grid_screen.py` prepares the aligned strict shader baseline; its leaf32
+wrapper records a second rejected layout. `matrix_simd_architecture.py` and
+`matrix_simd_blocked.py` use that frozen baseline for benchmark-only Metal
+SIMD-group matrix experiments (`--phase prepare`, then `--phase measure`, with
+fresh `--build` and `--output` paths). They deliberately change accumulation
+order and are not implementations of strict matmul. Prepare the strict baseline
+at `benchmarks/.build/gpu-wide-grid-2026-10-30` first; the manifests pin generated
+shader inputs and executable hashes. Frozen evidence must not be overwritten.
+
+`fair/matrix_simd_report.py` audits both numerical qualifications and all 50
+paired comparisons, producing the
+[architecture report](../../benchmarks/results/gpu-matrix-simd-architecture-2026-10-30.md).
+Blocked large FFN kernels improve substantially, while the small contraction
+regresses. Neither prototype is production-selected or a whole-model speedup.
+Finite error bounds do not qualify NaN/Inf, overflow, subnormals or a general
+language contract. Decide the explicit arithmetic API before integration, then
+qualify complete models, shape fallbacks and runtime semantics. All external-load
+limitations and setup failures remain in the evidence.

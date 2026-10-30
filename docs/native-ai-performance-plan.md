@@ -993,3 +993,38 @@ Next profile final-runtime GPU command/kernel time and dataflow. Keep the
 qualified source, strict numerical contract and cancellation behavior as controls;
 choose further kernel or submission architecture from measurements rather than
 assuming remaining time is host allocation.
+
+### Measured compute gap and SIMD-group architecture boundary — 30 October
+
+The [fresh matched comparison](../benchmarks/results/gpu-kernel-library-gap-2026-10-30.md)
+puts current resident512×512 runtime at 2.808× MPSGraph time, independently
+repeated at 2.798×. Its identical-build control passes; smaller controls fail.
+Twenty-four full-output checks satisfy propagated independent numerical bounds;
+the separately instrumented runtime remains bit-identical to production.
+Separate encoder intervals identify FFN expansion and contraction as the largest
+individual passes (about 616/632 µs at 512 tokens). Counter intervals include
+sampling/stalls and must not be summed into a wall-time decomposition.
+
+Two strict wider-output tile experiments each pass 84 full-output checks but
+lose performance and are rejected. The first has a failed external load capture,
+explicitly retained. Neither failure establishes register pressure as the cause.
+
+The [own-code SIMD-group matrix experiments](../benchmarks/results/gpu-matrix-simd-architecture-2026-10-30.md)
+target compute directly. A blocked 32×32 implementation improves the isolated
+large FFN expansion/contraction by 2.804×/2.656× across five paired blocks.
+It also slows the 64×2048×512 contraction to 0.684× baseline speed. The naive
+8×8 version improves those smaller cases, but is much less effective at scale.
+All 40 finite/signed-zero qualification cases pass independent full-output
+error bounds and input/guard checks. These are exploratory kernel screens without
+their own identical-build controls, not accepted whole-model speedups.
+
+The SIMD primitive changes rounding and tested negative zero. No candidate is
+selected by production; strict matmul and cancellation semantics are unchanged.
+An explicit numerical-contract decision is required before language integration.
+The recommended route preserves strict matmul and exposes optimized arithmetic
+explicitly. Before promotion: specify exceptional-value behavior, qualify
+arbitrary dimensions and precision, retain fused epilogues and cancellation/
+resource bounds, then rerun full-model numerical checks and frozen paired,
+identical-build and MPSGraph reference measurements. Production remains
+independent of Accelerate/MPSGraph. The previous production commit's hosted
+distribution qualification, signing and notarization all completed successfully.

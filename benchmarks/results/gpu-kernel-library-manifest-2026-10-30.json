@@ -1,0 +1,49 @@
+{
+  "signature": {
+    "native/benchmarks/kernel_library_gap.py": "985f02bf7c4545c09962705ba974a717653f0434fcf1232d49d877520e1c5279",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "native/benchmarks/fair/transformer_reference.py": "4b4dbbd280403357dc88cdae4553b8ded1c309f28d5923f8756e6ce912c5d400",
+    "native/benchmarks/fair/TransformerMps.mm": "413c3f8826c49780f675fa835eda96743de94996e3d5911e037bb93f4fcd7e97",
+    "native/benchmarks/fair/TransformerBlock.h": "bf9ff95f14c9007ec84c66da1bd5639f1fed971278367b8496ceceeb9eea160c",
+    "native/benchmarks/fair/ResidualFfn.h": "6f4659c4e9a1dcdabbdd414f77de37359890f83a5444259e69181057c862aa6a",
+    "native/metal/Metal.mm": "1f3385cdc914256f8550628938807fbef568c53e0704477a8d7e07e56be4c525",
+    "native/metal/Metal.h": "9a1175697011a1b1833e48fc290b6e30a3fd96c7ea6d5eca0ec797001b35308d",
+    "benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/manifest.json": "4eaf092339ad37f0963158d97d603db805c1a285f70c5f08830d3b0a4f1e8a3f"
+  },
+  "artifacts": {
+    "benchmarks/.build/gpu-prepared-output-fastmiss-frozen-2026-10-29/gpu": "7fdd16bde317109df80ac4d9af20f438176077ca865fbb0d8ccc4801ea544a89",
+    "benchmarks/.build/gpu-prepared-output-fastmiss-frozen-2026-10-29/Driver.cpp": "f90ef2679fb1b5bb51372e2924e30811ee327bbc90a9ffac89c0c944db705aa5",
+    "benchmarks/.build/gpu-kernel-gap-2026-10-30/counters/probe": "72f434e9631e0315070796f0442fb2e96beb272642bc3e38f2a48115045ecbd3",
+    "benchmarks/.build/gpu-kernel-gap-2026-10-30/mps": "12572081956259530e12425ac54758e7a57531ff2cfb59eb0f988808094f69b0",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/TransformerProgram.h": "5be70fd2e1dcb768b9647689ec8fbb9c52ccff6297b0c7b6f49eae14126729db",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage1.metallib": "93424a7da661cca9946b97f703f5c3f8c9d6bc8dd491a1fc2e7e4f93c6918494",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0.metallib": "a3a6cebdc4b68ee061aa02f7544508ac0b98f01907e3dc70ab9d2423f8653564",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage6.metallib": "ca314833a644bb8cdd3fff0ac812c57be6284a7b4151fb6adf31fa1c42b01741",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage3.metallib": "3baf8dd6fbe0230375656b0f95dfb0e493ae0fac149169b7fb613f51133fe84a",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage2.metallib": "a5ddf36fef339b26fb9f336581d2034e8512f9b7e2319ebf53a41d22bac0ce12",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage4.metallib": "b6a0e2e2e22c586e30d4031db6acef804df41518ccae2adb59391e2e2ce86459",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage5.metallib": "e9d31d56f908c607e8ea6841f3f3c1eca551b2b5d1748e37291bfa832b5f3313"
+  },
+  "commands": [
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-fobjc-arc",
+      "-fblocks",
+      "-ffp-contract=off",
+      "-mmacosx-version-min=26.0",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/fair/TransformerMps.mm",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Metal",
+      "-framework",
+      "MetalPerformanceShaders",
+      "-framework",
+      "MetalPerformanceShadersGraph",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-kernel-gap-2026-10-30/mps"
+    ]
+  ]
+}
