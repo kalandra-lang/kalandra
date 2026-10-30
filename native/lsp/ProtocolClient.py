@@ -7,6 +7,12 @@ import threading
 import subprocess
 import time
 
+def expected_server_version():
+    snapshot = Path(__file__).with_name("expected-version.txt")
+    source = snapshot if snapshot.is_file() else Path(__file__).resolve().parents[2] / "VERSION"
+    return source.read_text(encoding="utf-8").strip()
+
+
 def frame(value):
     data = json.dumps(value, ensure_ascii=False).encode()
     return f"Content-Length: {len(data)}\r\n\r\n".encode() + data
@@ -86,7 +92,7 @@ class Client:
             capabilities["workspace"] = {"workspaceEdit": {"documentChanges": True}}
             capabilities.setdefault("textDocument", {})["rename"] = {"prepareSupport": True}
         result = self.rpc("initialize", {"capabilities": capabilities, **workspace})["result"]
-        assert result["serverInfo"] == {"name": "kalandra-native", "version": (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()}
+        assert result["serverInfo"] == {"name": "kalandra-native", "version": expected_server_version()}
         caps = result["capabilities"]
         assert caps["positionEncoding"] == "utf-16"
         assert caps["textDocumentSync"]["change"] == 2  # Incremental UTF-16 changes.

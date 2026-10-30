@@ -1,5 +1,5 @@
 """Verify a downloaded portable archive before executing the CPU contract."""
-from VersionCheck import verify_package_version
+from VersionCheck import expected_version, verify_package_version
 import argparse
 import hashlib
 import json
@@ -18,6 +18,16 @@ from BundleELF import audit
 def digest(path):
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def prepare_tests(repository, tests):
+    """Carry the expected identity into isolation without reading the checkout."""
+    tests.mkdir()
+    for name in ("PortableCPUAcceptance.py", "VersionCheck.py"):
+        shutil.copy2(Path(__file__).with_name(name), tests)
+    for name in ("ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py"):
+        shutil.copy2(repository / "native/lsp" / name, tests)
+    (tests / "expected-version.txt").write_text(expected_version() + "\n", encoding="utf-8")
 
 
 def qualify(archive):
@@ -47,10 +57,7 @@ def qualify(archive):
             audit(prefix)
         repository = Path(__file__).resolve().parents[2]
         tests = work / "tests"
-        tests.mkdir()
-        shutil.copy2(Path(__file__).with_name("PortableCPUAcceptance.py"), tests)
-        for name in ("ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py"):
-            shutil.copy2(repository / "native/lsp" / name, tests)
+        prepare_tests(repository, tests)
         compiler = prefix / "bin" / ("kalandra.exe" if windows else "kalandra")
         commands = [[sys.executable, str(tests / "PortableCPUAcceptance.py"), "--compiler", str(compiler)]]
         server = prefix / "bin" / ("kalandra-lsp.exe" if windows else "kalandra-lsp")

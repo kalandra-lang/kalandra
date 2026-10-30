@@ -5,7 +5,9 @@ import subprocess
 
 
 def expected_version():
-    return (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
+    snapshot = Path(__file__).with_name("expected-version.txt")
+    source = snapshot if snapshot.is_file() else Path(__file__).resolve().parents[2] / "VERSION"
+    return source.read_text(encoding="utf-8").strip()
 
 
 def verify_binary_version(binary, version, name=None):
