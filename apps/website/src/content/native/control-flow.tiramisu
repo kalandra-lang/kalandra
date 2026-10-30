@@ -1,0 +1,38 @@
+meta { title = "Conditions and matching", description = "Use Boolean decisions and exhaustive matching.", order = 4, group = "Language reference" }
+
+Bool has the values true and false. Comparisons return Bool. Use not, and and or for Boolean logic. and and or evaluate only the operands needed to determine the result.
+
+h2 { "Select a result" }
+
+codeblock { language = kalandra, """fn clampLow(value: int, minimum: int) -> int:
+  if value < minimum:
+    minimum
+  else:
+    value
+
+fn main() -> int:
+  clampLow(12, 42)
+""" }
+
+A general if expression needs both branches and a compatible result type. Only the selected branch executes, and bindings introduced in it stay within that branch. A non-final validation guard may omit else when its body ends in an explicit fail.
+
+h2 { "Combine conditions" }
+
+codeblock { language = kalandra, """fn main() -> int:
+  value = 42
+  valid = value >= 0 and value < 100
+  if valid and not false:
+    value
+  else:
+    0
+""" }
+
+Write separate comparisons joined with and. Ungrouped chained comparisons are rejected. Floating-point comparisons follow the numerical rules, including NaN behavior; Boolean arrays and numerical tensors remain distinct types.
+
+h2 { "Match a declared variant" }
+
+Use match to select an enum or error alternative. Cover every alternative or use a final wildcard branch. Named payload bindings exist only in the selected branch; guards and nested destructuring are outside the current match subset.
+
+link { url = "/docs/records-enums", "Declare records and enums" }
+
+link { url = "/docs/errors", "Handle expected errors" }

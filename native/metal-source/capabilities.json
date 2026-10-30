@@ -1,0 +1,430 @@
+{
+  "format": 1,
+  "target": "Apple Metal source bridge",
+  "rows": [
+    {
+      "id": "elementwise",
+      "feature": "Vector elementwise expressions",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["composed.k", "differences.k"],
+      "notes": "float32; strict +, -, * and composed helpers",
+      "evidence": ["source-gpu-2026-10-15.json"]
+    },
+    {
+      "id": "matrices",
+      "feature": "Matrix elementwise expressions",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["matrix-elementwise.k"],
+      "notes": "Rank two; equal complete shapes",
+      "evidence": ["gpu-matrix-elementwise-2026-10-16.json"]
+    },
+    {
+      "id": "division",
+      "feature": "Tensor division and scalar lifting",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["division.k"],
+      "notes": "IEEE division, including either scalar operand order",
+      "evidence": ["gpu-division-2026-10-16.json"]
+    },
+    {
+      "id": "negation",
+      "feature": "Tensor unary signs",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["tensor-negation.k"],
+      "notes": "float32 vectors and matrices",
+      "evidence": ["gpu-tensor-negation-2026-10-16.json"]
+    },
+    {
+      "id": "scalar-parameters",
+      "feature": "Mixed scalar and tensor parameters",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["scalar-entry.k"],
+      "notes": "All ten numeric scalar types alongside tensors or in scalar-only tasks; internal Boolean control values",
+      "evidence": [
+        "gpu-entry-signatures-2026-10-15.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "indirect-arguments",
+      "feature": "High-arity CPU/GPU bridge exports",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["indirect-arguments.k", "arguments.k"],
+      "notes": "29/40-tensor examples use direct/indirect GPU buffers and bounded checked CPU helpers; compiler/device resource limits still apply",
+      "evidence": ["gpu-indirect-arguments-2026-10-16.json"]
+    },
+    {
+      "id": "reduction",
+      "feature": "Balanced reduceSum",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["matrix-reduction.k"],
+      "notes": "All ten types, ranks zero through eight; balanced adjacent-pair tree, resident composition and checked integer additions",
+      "evidence": [
+        "gpu-forwarding-2026-10-20.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "matmul",
+      "feature": "Matrix multiplication",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["matmul.k"],
+      "notes": "All ten types, rank two; checked/rounded products and balanced inner tree, resident composition and empty dimensions",
+      "evidence": [
+        "gpu-forwarding-2026-10-20.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "dispatch-graph",
+      "feature": "Composed numerical dispatches",
+      "scope": "Host",
+      "status": "supported",
+      "fixtures": ["matrix-pipeline.k"],
+      "notes": "Separate GPU calls for matmul, elementwise adjustment and reduction; intermediates remain resident",
+      "evidence": ["gpu-forwarding-2026-10-20.json"]
+    },
+    {
+      "id": "forwarding",
+      "feature": "Primitive forwarding and re-exports",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["forwarding/main.k"],
+      "notes": "Aliases and transitive numerical helpers retain selected invocation shape obligations; multiple numerical stages are supported",
+      "evidence": [
+        "gpu-forwarding-2026-10-20.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "modules",
+      "feature": "Relative modules and re-exports",
+      "scope": "Host",
+      "status": "supported",
+      "fixtures": ["modules/main.k"],
+      "notes": "Numerical helpers and coordinators retain declaring-file scope",
+      "evidence": ["gpu-local-modules-2026-10-20.json"]
+    },
+    {
+      "id": "cpu-workers",
+      "feature": "CPU workers inside a Metal program",
+      "scope": "Host",
+      "status": "supported",
+      "fixtures": ["cpu-spawn.k"],
+      "notes": "All ten numeric scalar/tensor bridges, retained CPU worker results and explicit transfers",
+      "evidence": [
+        "cpu-spawn-2026-10-16.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "nested-groups",
+      "feature": "Nested parallel groups",
+      "scope": "Host",
+      "status": "supported",
+      "fixtures": ["nested-parallel.k"],
+      "notes": "Shared scheduler, explicit residence and scope settlement",
+      "evidence": ["nested-parallel-2026-10-16.json"]
+    },
+    {
+      "id": "recovery",
+      "feature": "TaskError recovery",
+      "scope": "Host",
+      "status": "supported",
+      "fixtures": ["recovery.k"],
+      "notes": "Host catch/match and group settlement; no shader exception handling",
+      "evidence": ["recovery-2026-10-16.json"]
+    },
+    {
+      "id": "coordinators",
+      "feature": "Coordinating helper functions",
+      "scope": "Host",
+      "status": "supported",
+      "fixtures": ["resumable-helpers.k"],
+      "notes": "Statically known helper continuations; no general GPU closure dispatch",
+      "evidence": ["resumable-helpers-2026-10-16.json"]
+    },
+    {
+      "id": "other-numeric",
+      "feature": "All ten numeric types: typed GPU maps",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": [
+        "capabilities/numeric-int8.k",
+        "capabilities/numeric-uint8.k",
+        "capabilities/numeric-int16.k",
+        "capabilities/numeric-uint16.k",
+        "capabilities/numeric-int32.k",
+        "capabilities/numeric-uint32.k",
+        "capabilities/numeric-int64.k",
+        "capabilities/numeric-uint64.k",
+        "capabilities/numeric-float64.k"
+      ],
+      "notes": "Exact integer/floating identities, checked maps and scalar lifting through rank eight; resident typed graphs and conversions",
+      "evidence": [
+        "gpu-typed-source-2026-10-23.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "rank-three",
+      "feature": "Higher-rank float32 device tensors",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["capabilities/rank-three.k"],
+      "notes": "Ranks zero through eight for typed elementwise arithmetic, reductions, resident feedback and conditional stages; matrix products remain rank two",
+      "evidence": [
+        "gpu-higher-ranks-2026-10-22.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "scalar-only",
+      "feature": "Scalar-only GPU functions",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["capabilities/scalar-only.k"],
+      "notes": "All ten numeric scalar types, checked scalar-only GPU tasks, internal comparisons and lazy choices",
+      "evidence": ["gpu-typed-source-2026-10-23.json"]
+    },
+    {
+      "id": "reduce-expression",
+      "feature": "Elementwise expressions before a reduction",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["capabilities/reduce-expression.k", "pre-reduction.k"],
+      "notes": "One float32 elementwise stage and one balanced reduction under one task; resident intermediate; rank one/two and mixed parameters",
+      "evidence": ["gpu-pre-reduction-2026-10-21.json"]
+    },
+    {
+      "id": "post-reduction",
+      "feature": "Arithmetic after a reduction inside one entry",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["capabilities/post-reduction.k", "post-reduction.k"],
+      "notes": "Strict float32 scalar expression after one reduction, optionally with an elementwise input stage; only the final scalar returns to the host",
+      "evidence": ["gpu-post-reduction-2026-10-21.json"]
+    },
+    {
+      "id": "branch",
+      "feature": "Branch-local numerical primitives",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["capabilities/branch-primitive.k"],
+      "notes": "All ten numeric types; selected maps/reductions/products, lazy internal Boolean control and selected helper/local shape checks",
+      "evidence": ["gpu-typed-programs-2026-10-23.json"]
+    },
+    {
+      "id": "post-matmul",
+      "feature": "Elementwise expressions after matrix multiplication",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["capabilities/post-matmul.k", "post-matmul.k"],
+      "notes": "One resident matrix stage then strict elementwise arithmetic; matching full-shape tensor and scalar operands; direct/Tier 2 bindings",
+      "evidence": ["gpu-post-matmul-2026-10-21.json"]
+    },
+    {
+      "id": "pre-matmul",
+      "feature": "Arithmetic transforming matrix operands",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["capabilities/pre-matmul.k", "pre-matmul.k"],
+      "notes": "Independent resident elementwise maps of either/both operands, one strict matrix product and optional post arithmetic; direct/Tier 2 bindings",
+      "evidence": ["gpu-pre-matmul-2026-10-21.json"]
+    },
+    {
+      "id": "matmul-reduction",
+      "feature": "Matrix product consumed by reduction",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["capabilities/matmul-reduction.k", "matmul-reduction.k"],
+      "notes": "One strict matmul followed by one row-major reduceSum under a scalar task; optional input maps, matrix adjustments and final scalar arithmetic have separate qualification; additional primitives remain separate work",
+      "evidence": ["gpu-matmul-reduction-2026-10-21.json"]
+    },
+    {
+      "id": "matmul-adjust-reduction",
+      "feature": "Arithmetic between matrix product and reduction",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": [
+        "capabilities/matmul-adjust-reduction.k",
+        "matmul-adjust-reduction.k"
+      ],
+      "notes": "Strict tensor/scalar arithmetic on one matrix result before one row-major reduceSum; optional input maps; projected direct/Tier 2 bindings; one scalar task",
+      "evidence": ["gpu-matmul-adjust-reduction-2026-10-21.json"]
+    },
+    {
+      "id": "matmul-scalar-reduction",
+      "feature": "Scalar arithmetic after a composed matrix reduction",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": [
+        "capabilities/matmul-scalar-reduction.k",
+        "matmul-scalar-reduction.k"
+      ],
+      "notes": "Strict float32 scalar helpers/arithmetic after the matrix/reduction pair, including empty sums; independent owned captures; optional input maps and matrix adjustment; only final scalar readback",
+      "evidence": ["gpu-matmul-scalar-reduction-2026-10-21.json"]
+    },
+    {
+      "id": "matrix-graphs",
+      "feature": "Multiple matrix products in one task",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["matrix-graph.k", "capabilities/matrix-graph.k"],
+      "notes": "Rank-two float32 product chains and shared intermediates; arithmetic and final reduction have separate qualification",
+      "evidence": ["gpu-matrix-graphs-2026-10-21.json"]
+    },
+    {
+      "id": "matrix-graph-reduction",
+      "feature": "Reduction and scalar arithmetic after a matrix graph",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": [
+        "matrix-graph-reduction.k",
+        "capabilities/matrix-graph-reduction.k"
+      ],
+      "notes": "One final strict row-major reduceSum after multiple products; optional float32 scalar helpers/arithmetic before the only scalar readback",
+      "evidence": ["gpu-graph-reduction-2026-10-21.json"]
+    },
+    {
+      "id": "matrix-graph-arithmetic",
+      "feature": "Tensor arithmetic within matrix graphs",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": [
+        "matrix-graph-arithmetic.k",
+        "capabilities/matrix-graph-arithmetic.k"
+      ],
+      "notes": "Strict rank-two float32 maps before/between/after products, shared operands, scalar lifting and one optional final reduction; each map binds only its live operands",
+      "evidence": ["gpu-graph-arithmetic-2026-10-21.json"]
+    },
+    {
+      "id": "multiple-reductions",
+      "feature": "Multiple resident reductions and scalar joins",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": [
+        "multiple-reductions.k",
+        "capabilities/multiple-reductions.k"
+      ],
+      "notes": "Rank-one/rank-two float32 reductions over inputs and shared intermediates; final strict scalar expression and one readback; larger joins use Tier 2",
+      "evidence": ["gpu-multiple-reductions-2026-10-21.json"]
+    },
+    {
+      "id": "reduction-feedback",
+      "feature": "Reduced scalars feeding tensor arithmetic",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["reduction-feedback.k", "capabilities/reduction-feedback.k"],
+      "notes": "Straight-line rank-one/rank-two float32 graphs returning a scalar; device scalar broadcasts, repeated feedback and matrix composition",
+      "evidence": ["gpu-reduction-feedback-2026-10-21.json"]
+    },
+    {
+      "id": "tensor-feedback",
+      "feature": "Resident tensor results after reduction feedback",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["tensor-feedback.k", "capabilities/tensor-feedback.k"],
+      "notes": "Rank-one/rank-two float32 tensor results with one or more contributing reductions; no final scalar shader/readback; explicit transfer or resident GPU forwarding",
+      "evidence": ["gpu-tensor-feedback-2026-10-21.json"]
+    },
+    {
+      "id": "scalar-control",
+      "feature": "Scalar conditionals and strict float32 comparisons",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["scalar-control.k", "capabilities/scalar-control.k"],
+      "notes": "All six IEEE comparisons, internal Boolean logic and pure scalar if arms; bitwise selection preserves float32 values and composes with resident reductions",
+      "evidence": ["gpu-scalar-control-2026-10-21.json"]
+    },
+    {
+      "id": "tensor-control",
+      "feature": "Same-source elementwise tensor choices",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["tensor-control.k", "capabilities/branch.k"],
+      "notes": "Pure float32 rank-one/rank-two arms over one logical tensor source fuse into one map; predicates may use resident reductions",
+      "evidence": ["gpu-tensor-control-2026-10-21.json"]
+    },
+    {
+      "id": "tensor-sources",
+      "feature": "Choices between equal fixed-shape tensor sources",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["tensor-sources.k"],
+      "notes": "Pure equal-shape float32 choices retain the fused path; independent/different extents use selected-stage numerical programs",
+      "evidence": [
+        "gpu-tensor-sources-2026-10-21.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "dynamic-choices",
+      "feature": "Choices with checked dynamic-shape equality",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["dynamic-choices.k"],
+      "notes": "Fused choices use unconditional extent proofs; branch-local and different-source obligations execute in selected-stage programs",
+      "evidence": [
+        "gpu-dynamic-choices-2026-10-21.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "nary-choices",
+      "feature": "Fused choices with explicit multi-source operand lists",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["nary-choices.k"],
+      "notes": "No fixed two-source cap; owned sorted map operands preserve shape proofs, projected bindings, resident reductions and last-use reclamation; compiler/device budgets still apply",
+      "evidence": ["gpu-nary-choices-2026-10-21.json"]
+    },
+    {
+      "id": "operand-choices",
+      "feature": "Choices in matrix operands",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["operand-choices.k"],
+      "notes": "Independent projected left/right pure tensor choices, fixed or checked dynamic equal shapes; optional result arithmetic and terminal sum",
+      "evidence": ["gpu-operand-choices-2026-10-21.json"]
+    },
+    {
+      "id": "result-choices",
+      "feature": "Choices over computed matrix results",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["result-choices.k"],
+      "notes": "One already-computed matrix product feeds pure shape-proven result choices, projected resident epilogues and an optional terminal reduction",
+      "evidence": ["gpu-result-choices-2026-10-21.json"]
+    },
+    {
+      "id": "reduction-choices",
+      "feature": "Scalar choices after resident reductions",
+      "scope": "GPU",
+      "status": "supported",
+      "fixtures": ["reduction-choices.k"],
+      "notes": "Scalar choices over resident numerical results support all ten numeric result types, including selected primitive arms",
+      "evidence": [
+        "gpu-reduction-choices-2026-10-21.json",
+        "gpu-typed-programs-2026-10-23.json"
+      ]
+    },
+    {
+      "id": "host-control",
+      "feature": "Host Boolean decisions and conditional numerical dispatch",
+      "scope": "Host",
+      "status": "supported",
+      "fixtures": ["host-control.k"],
+      "notes": "Checked Boolean helpers, comparisons, lazy logic and selected GPU task dispatch; unselected branch shape checks are skipped",
+      "evidence": ["gpu-host-control-2026-10-22.json"]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug sanitized)
+    add_executable(kalandra-application-error-tests-${VARIANT} tests/ApplicationErrorTests.cpp)
+    target_compile_options(kalandra-application-error-tests-${VARIANT} PRIVATE -Wall -Wextra -Werror)
+    if(VARIANT STREQUAL "sanitized")
+      target_link_libraries(kalandra-application-error-tests-${VARIANT} PRIVATE kalandra-semantics-sanitized)
+      target_compile_definitions(kalandra-application-error-tests-${VARIANT} PRIVATE KALANDRA_APPLICATION_ERROR_FRONTEND_ONLY)
+      target_compile_options(kalandra-application-error-tests-${VARIANT} PRIVATE -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-application-error-tests-${VARIANT} PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all)
+    else()
+      target_link_libraries(kalandra-application-error-tests-${VARIANT} PRIVATE kalandra-backend)
+    endif()
+    add_test(NAME native-application-errors-frontend-${VARIANT} COMMAND kalandra-application-error-tests-${VARIANT})
+    set_tests_properties(native-application-errors-frontend-${VARIANT} PROPERTIES TIMEOUT 120)
+  endforeach()
+  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    if(VARIANT STREQUAL "sanitized")
+      set(APP_RUNTIME kalandra-native-runtime-sanitized)
+    elseif(VARIANT STREQUAL "thread-sanitized")
+      set(APP_RUNTIME kalandra-native-runtime-thread-sanitized)
+    else()
+      set(APP_RUNTIME kalandra-native-runtime)
+    endif()
+    add_test(NAME native-application-errors-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCHECKER=$<TARGET_FILE:kalandra-check>"
+        "-DVARIANT=${VARIANT}" "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=$<TARGET_FILE:${APP_RUNTIME}>"
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/application-errors-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyApplicationErrors.cmake")
+    set_tests_properties(native-application-errors-${VARIANT} PROPERTIES TIMEOUT 600)
+  endforeach()
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/ErrorUnions.cmake")
+
+include("${CMAKE_CURRENT_LIST_DIR}/MixedErrors.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/WorkerErrors.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/ErrorPayloadFields.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/ErrorNarrowing.cmake")

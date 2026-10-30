@@ -1,0 +1,30 @@
+{
+  "llvmVersion": "23.1.3",
+  "homebrewFormula": "llvm",
+  "initialTarget": "arm64-apple-darwin",
+  "defaultLlvmRoot": "/opt/homebrew/Cellar/llvm/23.1.3_2",
+  "officialArchives": {
+    "linux-x64": {
+      "name": "LLVM-23.1.3-Linux-X64.tar.zst",
+      "sha256": "14d2f701eb68fb799001bdea6231048f3990690fa2f406d563555ff8f744daba"
+    },
+    "windows-x64": {
+      "name": "clang+llvm-23.1.3-x86_64-pc-windows-msvc.tar.zst",
+      "sha256": "7e69dc07a4536b79ff24a651a2611990bf8eaab17ea560f1092707c4f31ba01d"
+    }
+  },
+  "mlirSource": {
+    "name": "llvm-project-23.1.3.src.tar.xz",
+    "sha256": "c44186a7762ed28954be72e5ff6df9808e0779d4f1bf014ecc4e7e211d31ee34"
+  },
+  "windowsDependencies": {
+    "vcpkgBaseline": "23b8a8e7409c2d6346114a88e834165bde79a51c"
+  },
+  "homebrewBottle": {
+    "formula": "llvm",
+    "version": "23.1.3_2",
+    "tag": "arm64_sequoia",
+    "sha256": "cd68b4b54d1bcd70da83984a3fd139b96cdfc4b4db3171b2b836b29d8e1f7ab6",
+    "formulaCommit": "39aa53fea3b4f53cfa5129dd9d2ebe870f33f54a"
+  }
+}

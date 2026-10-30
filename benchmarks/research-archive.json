@@ -1,0 +1,18 @@
+{
+  "previous_revision": "8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7",
+  "research_archive": {
+    "created": "2026-10-30T16:14:48.229887+00:00",
+    "previous_revision": "8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7",
+    "archive": "benchmarks/.archive/native-research-2026-10-30.tar.gz",
+    "sha256": "aa78dd69b59ac57ddf336f44c4649e623841390b9622ba60890477b6e2f96956",
+    "files": 1661,
+    "bytes": 31009775
+  },
+  "supplement_archive": {
+    "path": "benchmarks/.archive/research-supplement-2026-10-30.tar.gz",
+    "sha256": "2c255fbdcab5a6f04e19a6e3957d8caa0475d2aea654c0e85caef9af3c120250",
+    "bytes": 2715046
+  },
+  "removed_files": 1822,
+  "retained_benchmark_runners_and_fixtures": 72
+}

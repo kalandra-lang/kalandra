@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "endpoints": {
-    "readings.client.json": {
-      "url": "http://127.0.0.1:3000",
-      "tokenEnv": "KALANDRA_REMOTE_TOKEN"
-    }
-  }
-}

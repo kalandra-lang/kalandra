@@ -1,0 +1,10 @@
+foreach(TYPE IN ITEMS int8 uint8 int16 uint16 int32 uint32 int64 uint64 float32 float64)
+  file(READ "${OUTPUT_DIR}/conversion-${TYPE}.spvasm" SPIRV)
+  file(READ "${OUTPUT_DIR}/conversion-${TYPE}.metal" MSL)
+  file(READ "${OUTPUT_DIR}/conversion-${TYPE}.ll" CPU)
+  if(SPIRV MATCHES "OpTypeFloat|OpTypeInt 128|OpF(Add|Sub|Mul|Div|Negate)|OpCapability Float64" OR
+     MSL MATCHES "(^|[^A-Za-z])(double|float|half)([^A-Za-z]|$)" OR CPU MATCHES "i128")
+    message(FATAL_ERROR "${TYPE} conversion escaped integer-only 32/64-bit lowering")
+  endif()
+endforeach()
+message(STATUS "All 100 GPU conversion pairs use integer-only arithmetic and storage")

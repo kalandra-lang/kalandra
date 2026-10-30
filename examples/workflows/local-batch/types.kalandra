@@ -1,4 +1,0 @@
-export type Reading:
-  Number value
-export type TaggedReading is Reading:
-  String label

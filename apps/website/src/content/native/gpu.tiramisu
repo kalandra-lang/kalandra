@@ -1,0 +1,47 @@
+meta { title = "GPU computing", description = "Transfer tensors and place numerical functions on Apple Metal.", order = 2, group = "HOWTO guides" }
+
+Kalandra uses one source language for CPU functions and eligible GPU numerical functions. Apple Metal is the current GPU backend, on macOS 26 or newer with Apple silicon. Use the mixed CPU/Metal compiler distribution and its Apple toolchain prerequisites.
+
+h2 { "Transfer, dispatch and observe" }
+
+codeblock { language = kalandra, """fn project(input: Tensor[float32, ?, ?], weights: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+  matmul(input, weights)
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    input: Tensor[float32, 1, 2] = tensor([[2, 3]])
+    weights: Tensor[float32, 2, 1] = tensor([[4], [5]])
+    a = try await transfer(input, gpu)
+    b = try await transfer(weights, gpu)
+    work = spawn project(a, b) on gpu
+    resident = try await work
+    host = try await transfer(resident, devices.cpu())
+    reduceSum(host)
+""" }
+
+Construction creates host tensors. transfer returns a task and makes data movement explicit. on gpu places the numerical call. Awaiting the tensor task returns a resident device tensor; it does not download its contents. Transfer the result to devices.cpu() before host-side use.
+
+h2 { "Compile a mixed application" }
+
+codeblock { language = bash, """kalandra main.k --target metal -O2 -o app
+./app/program
+""" }
+
+For this example the numerical result is 23. The current Metal development entry displays float32 results as hexadecimal IEEE-754 bit patterns, so program prints 41b80000. This diagnostic result display is not a general-purpose printing API.
+
+The output is an application directory containing program and its metallib resources. Keep them together when moving the application. The generated application can run without the compiler distribution; compatible hardware and system frameworks remain required.
+
+h2 { "Keep intermediates resident" }
+
+A numerical helper can compose matrix products, elementwise operations and reductions. A later GPU task can consume an earlier resident tensor without a host round trip. Repeatedly uploading and downloading small tensors may dominate execution cost; residence is explicit so your program can choose a useful boundary.
+
+Host coordination and CPU workers remain separate from shader execution even when compiled from one source program. Unsupported device work is diagnosed rather than silently executed on the CPU.
+
+h2 { "Numerical and control scope" }
+
+GPU numerical programs support all ten native numeric types, dense ranks zero through eight, rank-two matmul, balanced reduceSum, explicit conversions and resident numerical functions and supported control flow. Float32 uses hardware arithmetic by default. Float64 GPU operations require --arithmetic hardware-with-software-fallback; CPU float64 remains on hardware under that policy. --arithmetic software selects the strict software implementation. This does not imply general device Strings, records, enums, arbitrary closures or application-error handling.
+
+link { url = "/docs/gpu-numerics", "Read the numerical contract and graph example" }
+
+link { url = "/docs/task-functions", "Task and device function reference" }

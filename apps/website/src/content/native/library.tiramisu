@@ -1,0 +1,80 @@
+meta { title = "Built-in functions", description = "Alphabetical index of every public built-in call and numeric conversion.", order = 0, group = "Library reference" }
+
+This is the alphabetical index of callable built-ins implemented by the native language. No import is needed. User-defined record and enum constructors are described in the language reference. Operators and task syntax are language constructs, not extra functions.
+
+link { url = "/docs/collection-functions#array", "array — flatten a CPU tensor" }
+
+link { url = "/docs/collection-functions#bytelength", "byteLength — count UTF-8 bytes" }
+
+link { url = "/docs/collection-functions#concat", "concat — join arrays" }
+
+link { url = "/docs/task-functions#devicescpu", "devices.cpu — select the host device" }
+
+link { url = "/docs/task-functions#devicesgpu", "devices.gpu — select a GPU" }
+
+link { url = "/docs/numeric-functions#float", "float — convert a scalar or tensor to float" }
+
+link { url = "/docs/numeric-functions#float32", "float32 — convert a scalar or tensor to float32" }
+
+link { url = "/docs/numeric-functions#float64", "float64 — convert a scalar or tensor to float64" }
+
+link { url = "/docs/numeric-functions#int", "int — convert a scalar or tensor to int" }
+
+link { url = "/docs/numeric-functions#int16", "int16 — convert a scalar or tensor to int16" }
+
+link { url = "/docs/numeric-functions#int32", "int32 — convert a scalar or tensor to int32" }
+
+link { url = "/docs/numeric-functions#int64", "int64 — convert a scalar or tensor to int64" }
+
+link { url = "/docs/numeric-functions#int8", "int8 — convert a scalar or tensor to int8" }
+
+link { url = "/docs/collection-functions#length", "length — count array elements or Unicode scalars" }
+
+link { url = "/docs/collection-functions#map", "map — transform an array sequentially" }
+
+link { url = "/docs/tensor-functions#matmul", "matmul — multiply two matrices" }
+
+link { url = "/docs/task-functions#parallelmap", "parallelMap — transform an array with CPU workers" }
+
+link { url = "/docs/tensor-functions#reducesum", "reduceSum — sum tensor elements" }
+
+link { url = "/docs/tensor-functions#relu", "relu — apply rectified linear activation" }
+
+link { url = "/docs/collection-functions#reshape", "reshape — change a tensor shape" }
+
+link { url = "/docs/tensor-functions#rmsnormrows", "rmsNormRows — apply unit-gain row normalization" }
+
+link { url = "/docs/collection-functions#shape", "shape — read tensor extents" }
+
+link { url = "/docs/collection-functions#slice", "slice — extract an array or String range" }
+
+link { url = "/docs/tensor-functions#softmaxrows", "softmaxRows — compute row probabilities" }
+
+link { url = "/docs/collection-functions#tensor", "tensor — construct a numeric tensor" }
+
+link { url = "/docs/task-functions#transfer", "transfer — transfer a tensor between devices" }
+
+link { url = "/docs/tensor-functions#transpose", "transpose — swap matrix axes" }
+
+link { url = "/docs/numeric-functions#uint", "uint — convert a scalar or tensor to uint" }
+
+link { url = "/docs/numeric-functions#uint16", "uint16 — convert a scalar or tensor to uint16" }
+
+link { url = "/docs/numeric-functions#uint32", "uint32 — convert a scalar or tensor to uint32" }
+
+link { url = "/docs/numeric-functions#uint64", "uint64 — convert a scalar or tensor to uint64" }
+
+link { url = "/docs/numeric-functions#uint8", "uint8 — convert a scalar or tensor to uint8" }
+
+h2 { "How to read the reference" }
+
+Each entry describes accepted inputs, result, placement and failures. T, U, F and dimension letters are explanatory placeholders, not supported generic declarations. Overloads share one entry. A static type/shape mistake is diagnosed at compile time; dynamic bounds, shape, arithmetic and resource failures are checked during execution. TaskError is recoverable at task boundaries; not every checked failure is an application error channel on a direct call.
+
+link { url = "/docs/language-reference", "Types, constructors, operators and error syntax" }
+link { url = "/docs/tooling", "Compiler, checker, formatter and editor commands" }
+
+h2 { "Program output and external libraries" }
+
+The command-line executable displays the value returned by main. There is no built-in print or general file/network I/O function in this interface. Packages can export their own functions; those names belong to the package rather than this built-in index.
+
+link { url = "/docs/packages", "Using source packages" }

@@ -1,0 +1,55 @@
+meta { title = "Troubleshooting", description = "Resolve common source, toolchain and placement problems.", order = 4, group = "Using Kalandra" }
+
+h2 { "The compiler cannot find its resources" }
+
+Keep the whole installed prefix together, including bin, lib and share. Copying kalandra alone is insufficient. Use the package matching your platform and, for GPU builds, the mixed CPU/Metal compiler. External-toolchain packages also require the dependency paths in their metadata.
+
+h2 { "A project or import cannot be found" }
+
+Pass --project explicitly; the compiler does not search parent directories. Manifest paths resolve from the manifest directory, command-line output paths from the current directory, and relative source imports from their declaring file. Include .k on relative imports and export the declarations you import.
+
+For managed dependencies, run install explicitly before checking or building. A changed manifest, missing lock or modified snapshot can prevent graph activation. Frozen offline mode cannot download a missing snapshot.
+
+h2 { "Two numeric values will not combine" }
+
+Give compatible literals an expected type, or convert typed values explicitly. This example intentionally fails because it mixes already typed widths:
+
+codeblock { language = kalandra, """fn main() -> int64:
+  narrow: int32 = 40
+  wide: int64 = 2
+  narrow + wide
+""" }
+
+The corrected complete program returns 42:
+
+codeblock { language = kalandra, """fn main() -> int64:
+  narrow: int32 = 40
+  wide: int64 = 2
+  int64(narrow) + wide
+""" }
+
+Use an explicit conversion if the intended operation is int64 arithmetic. An explicit conversion is checked and is not a general promise that every destination can represent every value.
+
+h2 { "A tensor has the wrong shape" }
+
+Check every dimension, not only the total element count. Elementwise tensor operations need compatible complete shapes, and matmul requires rank two with matching inner dimensions. A ? dimension accepts a runtime extent but does not disable checking. reshape changes shape deliberately while preserving element count.
+
+h2 { "A GPU value cannot be used on the CPU" }
+
+Awaiting a tensor-producing GPU task keeps the tensor resident. Transfer it to devices.cpu() before host operations, or pass it directly to another eligible GPU task. Check that the Apple SDK and the pinned Metal compiler are installed when compilation fails before execution.
+
+h2 { "Parallel work is slower than a normal call" }
+
+Scheduling, transfers and device dispatch have costs. Start independent tasks before awaiting them, retain GPU intermediates where useful and measure with realistic sizes. Adding spawn to every tiny operation is not a speedup guarantee.
+
+h2 { "An array after a block-valued binding is rejected" }
+
+A known parser boundary can misread an array literal immediately after a block-valued binding as indexing. Bind the output array to a new name, then return that name.
+
+h2 { "Editor results look stale" }
+
+Check the native server path, Workspace Trust and explicit project setting. Restart the language server after changing manifest contents or rebuilding the server. Use its output command for diagnostics. The extension handles local file workspaces; unsupported remote/virtual workspace behavior should not be assumed.
+
+link { url = "/docs/installation", "Platform prerequisites" }
+
+link { url = "/docs/errors", "Expected errors and task failures" }

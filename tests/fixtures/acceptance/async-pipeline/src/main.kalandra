@@ -1,7 +1,0 @@
-from "./math" import subtotal
-
-fn addFee amount: await (amount + 0.5)
-
-export fn main:
-  values = [3 4] -> * [await] subtotal
-  values -> * [await] addFee

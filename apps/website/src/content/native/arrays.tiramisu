@@ -1,0 +1,42 @@
+meta { title = "Arrays and mapping", description = "Create immutable arrays and transform their elements.", order = 6, group = "Language reference" }
+
+An array type is written [T]. Array lengths may vary at runtime; its elements keep one type. Arrays and tensors are different values, with explicit conversions between supported numeric forms.
+
+h2 { "Create and read an array" }
+
+codeblock { language = kalandra, """fn main() -> int:
+  values: [int] = [10, 20, 30]
+  values[1] + length(values)
+""" }
+
+Indexes are zero-based and bounds-checked. Empty arrays need an element type from an annotation or surrounding context. Arrays can contain the supported numeric, Bool, String, record, enum and function-value types; this does not imply arbitrary nested arrays or arrays of tensors.
+
+h2 { "Map sequentially" }
+
+codeblock { language = kalandra, """fn double(value: int) -> int:
+  value * 2
+
+fn main() -> [int]:
+  [1, 2, 3] -> map(double)
+""" }
+
+map evaluates its callback sequentially and preserves input order. A supported callback can capture immutable values or return another supported element type. For CPU task scheduling, choose parallelMap explicitly.
+
+h2 { "Slice and concatenate" }
+
+codeblock { language = kalandra, """fn main() -> [int]:
+  values: [int] = [1, 2, 3, 4]
+  concat(slice(values, 0, 2), [9])
+""" }
+
+slice uses a checked half-open range. concat requires matching element types. These operations produce immutable values; do not assume a zero-copy view.
+
+h2 { "Enter a numerical pipeline" }
+
+Use tensor(array) for a rank-one numeric tensor, or tensor(array, dimensions) for a checked row-major shape. array(tensor) converts supported numeric tensor contents back into a flat array. Neither conversion changes the numeric element type.
+
+link { url = "/docs/tensors", "Shapes and tensor arithmetic" }
+
+link { url = "/docs/parallelism", "Parallel array mapping" }
+
+link { url = "/docs/collection-functions", "Collection function reference" }

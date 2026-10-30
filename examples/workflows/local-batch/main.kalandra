@@ -1,8 +1,0 @@
-from "./types" import TaggedReading
-from "./tasks" import process
-
-export fn main:
-  readings = [(TaggedReading "north" 10) (TaggedReading "south" 20)]
-  first = readings -> * [await] |process|
-  second = readings -> * [await] |process|
-  [first[0].value first[1].value second[0].value second[1].value readings[0].value]

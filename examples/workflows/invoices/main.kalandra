@@ -1,6 +1,0 @@
-from "./types" import DiscountedItem
-from "./pricing" import total
-
-export fn main:
-  items = [(DiscountedItem 0.1 19.95 2) (DiscountedItem 0.25 8 3)]
-  items -> * total

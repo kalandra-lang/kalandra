@@ -1,3 +1,0 @@
-from "./tasks" import parent
-
-export fn main: await |parent| ()

@@ -1,0 +1,33 @@
+name: Native platform preflight
+on:
+  push:
+    branches: ["native"]
+    paths:
+      [
+        ".github/workflows/native-platform-preflight.yml",
+        ".github/scripts/provision_native_platform.py",
+      ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  toolchain:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Verify LLVM/MLIR release development package
+        run: python .github/scripts/provision_native_platform.py

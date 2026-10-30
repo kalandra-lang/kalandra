@@ -1,0 +1,48 @@
+meta { title = "Syntax and values", description = "Read native source, immutable bindings and expression results.", order = 1, group = "Language reference" }
+
+Native source files use the .k extension. Indentation defines suites; use spaces consistently. A colon introduces a function or control-flow body. The final expression supplies the result.
+
+h2 { "Bindings and results" }
+
+codeblock { language = kalandra, """fn main() -> int:
+  width = 6
+  height: int = 7
+  area = width * height
+  area
+""" }
+
+Bindings are immutable. An annotation such as height: int declares the expected type; otherwise the checker infers a type. A bare whole-number literal normally infers int, while a decimal or exponent literal normally infers float. An expected type can give a literal a narrower numeric type.
+
+h2 { "Comments and multiline expressions" }
+
+Use # for line comments. Blank lines and comment-only lines do not change block structure. Parentheses and collection delimiters permit multiline expressions:
+
+codeblock { language = kalandra, """fn main() -> int:
+  # The final expression is the result.
+  total = (
+    20 +
+    22
+  )
+  total
+""" }
+
+Identifiers currently use ASCII letters and underscores, followed by letters, digits or underscores. String literals and comments can contain Unicode. Tabs outside comments and strings are diagnosed.
+
+h2 { "Calls and pipelines" }
+
+codeblock { language = kalandra, """fn add(left: int, right: int) -> int:
+  left + right
+
+fn main() -> int:
+  40 -> add(2)
+""" }
+
+The pipeline inserts its left value as the first argument. Here the final line is equivalent to add(40, 2). Use parentheses when a larger expression needs to be one argument.
+
+h2 { "Automatic lifetimes" }
+
+Values use automatic lifetime management. User code does not free arrays, tensors, Strings or captured environments. Immutable values may be retained across calls and task boundaries; this is not a promise that every operation avoids a copy.
+
+link { url = "/docs/functions", "Functions and closures" }
+
+link { url = "/docs/numbers", "Numeric types and conversion" }

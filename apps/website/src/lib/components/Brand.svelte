@@ -4,7 +4,7 @@
 
 <span class="brand" class:compact>
   <span class="mark" aria-hidden="true"></span>
-  <span class="name">kalandra</span>
+  <span class="name">Kalandra</span>
 </span>
 
 <style>
@@ -17,8 +17,8 @@
   .mark {
     display: block;
     flex: none;
-    width: 37px;
-    height: 43px;
+    width: 40px;
+    height: 28px;
     background: currentColor;
     mask: url("/brand/kalandra-mark.svg") center / contain no-repeat;
   }
@@ -28,16 +28,16 @@
     letter-spacing: -1.2px;
   }
   .compact .mark {
-    width: 27px;
-    height: 32px;
+    width: 32px;
+    height: 23px;
   }
   .compact .name {
     font-size: 21px;
   }
   @media (max-width: 520px) {
     .mark {
-      width: 29px;
-      height: 35px;
+      width: 34px;
+      height: 24px;
     }
     .name {
       font-size: 23px;

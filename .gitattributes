@@ -1,0 +1,40 @@
+# Timing records are generated evidence; keep the reports readable in reviews.
+benchmarks/results/scalar-*-2026-10-27.json linguist-generated=true
+# Preserve byte-exact program output, including its original whitespace.
+benchmarks/results/scalar-entry-*-qualification-2026-10-27.log -whitespace linguist-generated=true
+benchmarks/results/scalar-entry-*-qualification-2026-10-27.xml -whitespace linguist-generated=true
+benchmarks/results/buffer-direct-*-2026-10-27.json linguist-generated=true
+benchmarks/results/buffer-direct-*-qualification-2026-10-27.log -whitespace linguist-generated=true
+benchmarks/results/buffer-direct-*-qualification-2026-10-27.xml -whitespace linguist-generated=true
+benchmarks/results/wide-reduction-*-2026-10-28.json linguist-generated=true
+benchmarks/results/wide-reduction-*-qualification-2026-10-28.log -whitespace linguist-generated=true
+benchmarks/results/wide-reduction-*-qualification-2026-10-28.xml -whitespace linguist-generated=true
+benchmarks/results/steady-loop-*-2026-10-28.json linguist-generated=true
+benchmarks/results/steady-loop-*-qualification-2026-10-28.log -whitespace linguist-generated=true
+benchmarks/results/steady-loop-*-qualification-2026-10-28.xml -whitespace linguist-generated=true
+benchmarks/results/entry-proof-*-2026-10-28.json linguist-generated=true
+benchmarks/results/wide-input-*-2026-10-28.json linguist-generated=true
+benchmarks/results/wide-input-*-qualification-2026-10-28.log -whitespace linguist-generated=true
+benchmarks/results/wide-input-*-qualification-2026-10-28.xml -whitespace linguist-generated=true
+benchmarks/results/ai-*-2026-10-28.json linguist-generated=true
+benchmarks/results/residual-ffn*-2026-10-28.json linguist-generated=true
+benchmarks/results/transformer-*-2026-10-28.json linguist-generated=true
+benchmarks/results/native-ai-performance-2026-10-28.json linguist-generated=true
+benchmarks/results/ordinary-ir-controls-2026-10-28.json linguist-generated=true
+benchmarks/results/docs-ai-operations-2026-10-28.json linguist-generated=true
+benchmarks/results/cpu-comparison-2026-10-28.json linguist-generated=true
+# Preserve the renderer's byte-exact SVG, including path whitespace.
+benchmarks/results/*.svg -whitespace linguist-generated=true
+
+benchmarks/results/gpu-prepared-execution-2026-10-28.json linguist-generated=true
+benchmarks/results/gpu-fusion-execution-2026-10-28.json linguist-generated=true
+benchmarks/results/gpu-progression-execution-2026-10-28.json linguist-generated=true
+# Historical benchmark-only prototype; preserve patch context whitespace.
+native/benchmarks/fair/event_progression.patch -whitespace linguist-generated=true
+
+benchmarks/results/gpu-register-*-2026-10-28.json linguist-generated=true
+
+benchmarks/results/transformer-*-2026-10-29.json linguist-generated=true
+benchmarks/results/gpu-attention-*-2026-10-29.json linguist-generated=true
+benchmarks/results/gpu-owned-uploads-2026-10-29.json linguist-generated=true
+native/third_party/mlx-steel/* text eol=lf

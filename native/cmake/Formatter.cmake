@@ -1,0 +1,26 @@
+add_executable(kalandra-fmt tools/fmt.cpp)
+target_link_libraries(kalandra-fmt PRIVATE kalandra-syntax)
+target_compile_options(kalandra-fmt PRIVATE -Wall -Wextra -Werror)
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug sanitized)
+    add_executable(kalandra-format-${VARIANT} tests/FormatterTests.cpp)
+    add_executable(kalandra-fmt-${VARIANT} tools/fmt.cpp)
+    foreach(TARGET IN ITEMS kalandra-format-${VARIANT} kalandra-fmt-${VARIANT})
+      target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Werror)
+      if(VARIANT STREQUAL "sanitized")
+        target_link_libraries(${TARGET} PRIVATE kalandra-syntax-sanitized)
+        target_compile_options(${TARGET} PRIVATE -O1 -g -fsanitize=address,undefined
+          -fno-sanitize-recover=all -fno-omit-frame-pointer)
+        target_link_options(${TARGET} PRIVATE -fsanitize=address,undefined)
+      else()
+        target_link_libraries(${TARGET} PRIVATE kalandra-syntax)
+      endif()
+    endforeach()
+    add_test(NAME native-formatter-${VARIANT} COMMAND kalandra-format-${VARIANT}
+      "${PROJECT_SOURCE_DIR}/docs/design/fixtures" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
+    add_test(NAME native-formatter-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/FormatterCliTests.py"
+      "$<TARGET_FILE:kalandra-fmt-${VARIANT}>" "${CMAKE_CURRENT_BINARY_DIR}/formatter-${VARIANT}")
+    set_tests_properties(native-formatter-${VARIANT} native-formatter-cli-${VARIANT} PROPERTIES TIMEOUT 90)
+  endforeach()
+endif()

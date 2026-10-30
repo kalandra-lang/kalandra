@@ -1,4 +1,0 @@
-from "./tasks" import transform
-
-export fn main:
-  [1.5 2.5 3.5] -> * [await] |transform|

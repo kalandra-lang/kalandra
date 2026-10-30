@@ -1,5 +1,0 @@
-from "./math" import fib as fibonacci
-
-@params Number
-@returns Number
-export fn fib n: fibonacci n

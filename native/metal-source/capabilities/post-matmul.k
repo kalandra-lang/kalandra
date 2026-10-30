@@ -1,0 +1,21 @@
+fn project(input: Tensor[float32, ?, ?], weights: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+  matmul(input, weights)+1
+
+fn total(values: Tensor[float32, ?, ?]) -> float32:
+  reduceSum(values)
+
+fn forward(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+  values
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    input: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    weights: Tensor[float32, 3, 2] = tensor([[1, 2], [3, 4], [5, 6]])
+    local = project(input, weights)
+    gpu = devices.gpu()
+    a = try await transfer(input, gpu)
+    b = try await transfer(weights, gpu)
+    work = spawn project(a, b) on gpu
+    result = try await work
+    host = try await transfer(result, devices.cpu())
+    total(host)

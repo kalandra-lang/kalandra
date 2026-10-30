@@ -1,0 +1,93 @@
+meta { title = "Tensors and shapes", description = "Construct dense tensors and compose numerical operations.", order = 7, group = "Language reference" }
+
+A Tensor annotation records its numeric element type and dimensions. Tensor[float32, 2, 3] is a two-by-three matrix; a ? dimension accepts a runtime extent. A shape annotation is a checked obligation, not a request to resize data.
+
+h2 { "Elementwise arithmetic" }
+
+codeblock { language = kalandra, """fn main() -> float32:
+  values: Tensor[float32, 2, 2] = tensor([[1, 2], [3, 4]])
+  doubled = values * 2
+  reduceSum(doubled)
+""" }
+
+Elementwise operations require compatible complete shapes and numeric identities. Scalar lifting is explicit in the expression, as above; do not assume NumPy-style broadcasting between differently shaped tensors.
+
+h2 { "Runtime shape construction" }
+
+codeblock { language = kalandra, """fn main() -> int:
+  values: [int] = [1, 2, 3, 4]
+  matrix = tensor(values, [2, 2])
+  matrix[1, 0]
+""" }
+
+Dimensions are checked and the element count must agree. Tensor indexing reads one scalar with one integer index per dimension. shape(tensor) returns its dimension array, and reshape preserves numeric identity and row-major logical order while checking the requested element count.
+
+h2 { "Matrix products and reductions" }
+
+codeblock { language = kalandra, """fn main() -> float32:
+  left: Tensor[float32, 1, 2] = tensor([[2, 3]])
+  right: Tensor[float32, 2, 1] = tensor([[4], [5]])
+  reduceSum(matmul(left, right))
+""" }
+
+matmul currently multiplies rank-two tensors with matching inner dimensions. reduceSum follows a balanced adjacent-pair tree, rather than an arbitrary sequential or reassociated sum. Integer products and sums remain checked.
+
+Hardware float32 matmul permits optimized full-precision fused accumulation by default. Select --matmul-policy fixed-tree to retain separately rounded products and the fixed balanced contraction tree. CPU matmul currently retains that tree under either policy. Neither mode guarantees exact real arithmetic; optimized and fixed-tree results can differ in rounding and exceptional-value behavior. The GPU numerical documentation explains the two policies.
+
+h2 { "ReLU activation" }
+
+codeblock { language = kalandra, """fn main() -> float32:
+  values: Tensor[float32, 2, 2] = tensor([[-3, 2], [-1, 4]])
+  activated = relu(values)
+  reduceSum(activated)
+""" }
+
+relu(values) applies rectified linear activation to every element and preserves the tensor's shape and numeric type. It supports all ten numeric types and ranks zero through eight on CPU and Apple GPU. It accepts a tensor, not a scalar or array. Inputs remain immutable.
+
+Negative values become zero; positive values remain unchanged. For floating types, negative zero becomes positive zero, positive infinity remains positive infinity, negative infinity becomes zero, and NaN bit patterns are preserved. Positive subnormal values are preserved by ReLU itself; surrounding GPU floating arithmetic retains its documented flush-to-zero behavior. Unsigned tensors are unchanged in value.
+
+ReLU uses integer-bit selection, including for float64 on Metal. It does not require software floating arithmetic. Arithmetic surrounding float64 ReLU, such as matrix multiplication or reduction on the GPU, still requires an explicit software fallback where hardware lacks that arithmetic.
+
+Compose relu(matmul(input, weights) + bias) inside an eligible GPU function. Bias must have the complete output shape; implicit row or column broadcasting is not provided. Keep tensors resident between operations and read back only the final result when possible.
+
+h2 { "Transpose a matrix" }
+
+transpose swaps the two dimensions of a rank-two tensor. It preserves the exact bits of every cell, including integer values, signed zero, and NaN payloads. All ten numeric types are supported on CPU and Metal; transpose performs no floating arithmetic.
+
+codeblock { language = kalandra, """fn main() -> int64:
+  values: Tensor[int64, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+  swapped = transpose(values)
+  swapped[2, 1]
+""" }
+
+h2 { "Normalize rows" }
+
+softmaxRows converts each row into probabilities. It subtracts the row maximum before exponentiation, then divides by an adjacent-pair sum of exponentials. Each output has the same shape as its input. Empty dimensions remain empty. A row containing NaN, or consisting entirely of negative infinity, produces NaNs. Positive infinities share the row's probability equally; other entries receive zero.
+
+codeblock { language = kalandra, """fn main() -> float32:
+  scores: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [-1, 0, 1]])
+  probabilities = softmaxRows(scores)
+  reduceSum(probabilities)
+""" }
+
+rmsNormRows(values, epsilon) divides each cell by sqrt(mean(square(row)) + epsilon). Epsilon must be a finite, strictly positive scalar of the same numeric type; invalid epsilon causes an arithmetic failure even for an empty tensor. This primitive has unit gain. Multiply by an explicitly shaped gain tensor when a model requires learned scaling.
+
+codeblock { language = kalandra, """fn main() -> float64:
+  values: Tensor[float64, 1, 2] = tensor([[3, 4]])
+  normalized = rmsNormRows(values, 0.00001)
+  reduceSum(normalized)
+""" }
+
+Both row operations require rank-two float32 or float64 tensors and hardware arithmetic on CPU. Metal currently supports hardware float32 row math. Explicit software arithmetic and GPU float64 row math are rejected rather than silently changing precision. Exponentials have a bounded approximation error; CPU and GPU probabilities need not be bit-identical. Metal hardware may flush subnormal values according to its documented floating-point behavior.
+
+h2 { "Move to a GPU" }
+
+Building a tensor does not place it on a device. Transfer data explicitly and dispatch an eligible numerical function on the chosen GPU. A tensor result can remain resident for later numerical work.
+
+link { url = "/docs/gpu", "GPU placement and residence" }
+
+link { url = "/docs/gpu-numerics", "Numerical types, ranks and strict semantics" }
+
+link { url = "/docs/collection-functions", "Collection function reference" }
+
+link { url = "/docs/tensor-functions", "Numerical function reference" }

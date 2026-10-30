@@ -5,10 +5,6 @@ The initial website scaffold and supporting card components come from Tiramisu D
 https://github.com/pouya-eghbali/tiramisu-docs
 Scaffold source revision: c5a3ca2b59f7845a75d9de38a4cfa4cf8763315a
 
-The syntax port and reference fixtures derive from committed Clio (Apache-2.0),
-revision 75c7c09e962ef15506ff9bc7cf856aad727436c5. Original generated-JavaScript
-expectations are retained in tests/fixtures/clio/corpus.json.
-
-The range, slice, format, decorator, and type-marker compatibility helpers derive from that same Clio
-revision. Original helper sources are retained in tests/fixtures/clio/runtime.json;
-the standalone emission template lives in packages/compiler/src/emitter/helpers.ts.
+Native project manifest parsing uses toml++ 3.4.0 (MIT), by Mark Gillard:
+https://github.com/marzer/tomlplusplus/tree/v3.4.0
+The license is retained in native/third-party/tomlplusplus-LICENSE.

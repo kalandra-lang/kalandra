@@ -1,6 +1,0 @@
-from "remote:./readings.client.json" import slow
-
-@params Number
-fn work n: await slow n
-
-export fn main: await |work| 45

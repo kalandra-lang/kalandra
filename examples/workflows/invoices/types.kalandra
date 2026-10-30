@@ -1,6 +1,0 @@
-export type Item:
-  Number price
-  Number quantity
-
-export type DiscountedItem is Item:
-  Number discount

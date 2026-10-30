@@ -1,5 +1,0 @@
-fn sum n total:
-  if n > 0: sum (n - 1) (total + n)
-  else: await total
-
-export fn subtotal n: await sum n 0

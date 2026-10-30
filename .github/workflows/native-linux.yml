@@ -1,0 +1,128 @@
+name: Native Linux qualification
+on:
+  push:
+    branches: ["native"]
+    tags: ["v*"]
+    paths:
+      [
+        "CMakeLists.txt",
+        "VERSION",
+        "native/**",
+        ".github/workflows/native-linux.yml",
+        ".github/scripts/provision_native_platform.py",
+        "apps/website/**",
+        "scripts/verify-docs.*",
+        "scripts/website-highlighting.ts",
+        "tests/fixtures/docs-examples.json",
+        "package.json",
+        "bun.lock",
+      ]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-linux-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      ZERO_AR_DATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Validate tagged toolchain version and release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python .github/scripts/release_version.py
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Provision verified LLVM/MLIR
+        run: python3 .github/scripts/provision_native_platform.py
+      - name: Install system build prerequisites
+        run: |
+          sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo apt-get install -y cmake ninja-build libtomlplusplus-dev patchelf bubblewrap
+          sudo sysctl -w vm.mmap_rnd_bits=28
+      - name: Configure native CPU compiler
+        run: >-
+          cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          -DCMAKE_INSTALL_LIBDIR=lib -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
+          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+      - name: Build native CPU toolchain
+        run: cmake --build build/linux --target native-cpu-toolchain kalandra -j2
+      - name: Qualify checked recursive calls and signed remainder
+        run: |
+          cmake --build build/linux --target kalandra-checked-inlining-tests -j2
+          ctest --test-dir build/linux --output-on-failure -j2 \
+            -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|call-foundation-source|windows-tail-codegen|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
+      - name: Verify ordinary direct ABI and resource cleanup
+        run: |
+          cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j2
+          ctest --test-dir build/linux --output-on-failure -j2 \
+            -R '^native-(ordinary-(entry|source|pair-source|arrays|reductions|buffer-types|buffer-faults|direct-faults|scalar-exact|integer-cases)|windows-ordinary-codegen)$'
+      - name: Qualify CPU tensor transforms
+        run: >-
+          python3 native/tests/TensorTransformTests.py
+          --compiler build/linux/native/kalandra --clang "$KALANDRA_LLVM_ROOT/bin/clang++"
+          --output build/linux/tensor-transforms --quick
+      - name: Qualify arithmetic policy, benchmark references and MIT provenance
+        run: >-
+          ctest --test-dir build/linux --output-on-failure
+          -R '^native-(arithmetic-policy|fair-benchmark-evidence|steel-vendor-license)$'
+      - name: Qualify opaque synchronous task ownership
+        run: |
+          cmake --build build/linux --target kalandra-closed-task-tests-optimized -j2
+          ctest --test-dir build/linux --output-on-failure -R '^native-closed-tasks-optimized$'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Verify runnable native documentation
+        run: bun run verify:docs -- --tools build/linux/native --report docs-verification.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-docs-verification
+          path: docs-verification.json
+          if-no-files-found: error
+      - name: Package standalone compiler
+        run: cmake --build build/linux --target native-cpu-standalone-package
+      - name: Independently rebuild and compare the distribution
+        run: |
+          cmake -S . -B build/linux-repro -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+            -DCMAKE_INSTALL_LIBDIR=lib -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" \
+            -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+          cmake --build build/linux-repro --target native-cpu-standalone-package -j2
+          python3 native/packaging/CompareDistributions.py build/linux build/linux-repro --platform linux-x86_64 --kind cpu
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-linux-assets
+          path: build/linux/native-cpu-standalone/*.tar.gz*
+          if-no-files-found: error
+  downloaded-package:
+    needs: cpu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-linux-assets
+          path: downloaded
+      - name: Install audit tools and enable process isolation
+        run: |
+          sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo apt-get install -y patchelf bubblewrap
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Qualify downloaded compiler without LLVM or the checkout
+        run: python3 native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-linux-x86_64.tar.gz

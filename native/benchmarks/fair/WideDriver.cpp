@@ -1,0 +1,60 @@
+#include "../../runtime/Runtime.h"
+#include "../../runtime/OrdinaryFault.h"
+#include <chrono>
+#include <array>
+#include <bit>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <limits>
+using I=std::int64_t;
+#if defined(DIRECT_ENTRY)
+extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
+#elif defined(PAIR_ENTRY)
+struct OrdinaryPair {std::uint64_t bits,code;};
+extern "C" OrdinaryPair _mlir_ciface_kalandra_test_entry_ordinary_pair_v1(I,I,kalandra::runtime::OrdinaryFault*);
+#elif defined(ORDINARY_ENTRY)
+extern "C" double _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::runtime::OrdinaryFault*);
+#elif defined(CHECKED_ENTRY)
+extern "C" double _mlir_ciface_kalandra_test_entry(I,I,kalandra::runtime::Invocation*);
+#else
+extern "C" double broad_entry(I,I);
+#endif
+int main(int argc,char**argv) {
+  if(argc!=20)return 2;
+  I rounds=std::strtoll(argv[1],nullptr,10),count=std::strtoll(argv[2],nullptr,10),
+    batches=std::strtoll(argv[3],nullptr,10);
+  std::array<I,8> seeds;std::array<double,8> expected;
+  for(unsigned j=0;j<8;++j){seeds[j]=std::strtoll(argv[4+j],nullptr,10);expected[j]=std::strtod(argv[12+j],nullptr);if(!std::isfinite(expected[j]))return 2;}
+  if(rounds<0 || rounds>4096 || count<1 || batches<1)return 2;
+  for(I batch=-2;batch<batches;++batch) {
+    std::uint64_t checksum=0;const auto start=std::chrono::steady_clock::now();
+    for(I i=0;i<count;++i) {
+      const auto lane=unsigned(i)&7;const auto seed=seeds[lane];
+#if defined(DIRECT_ENTRY)
+      auto value=_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(seed,rounds);
+#elif defined(PAIR_ENTRY)
+      kalandra::runtime::OrdinaryFault fault;
+      auto result=_mlir_ciface_kalandra_test_entry_ordinary_pair_v1(seed,rounds,&fault);
+      if(result.code)std::abort();
+      auto value=std::bit_cast<double>(result.bits);
+#elif defined(ORDINARY_ENTRY)
+      kalandra::runtime::OrdinaryFault fault;
+      auto value=_mlir_ciface_kalandra_test_entry_ordinary_v1(seed,rounds,&fault);
+      if(kalandra::runtime::ordinaryFaulted(value,fault))std::abort();
+#elif defined(CHECKED_ENTRY)
+      kalandra::runtime::Invocation context;
+      auto value=_mlir_ciface_kalandra_test_entry(seed,rounds,&context);
+      if(context.status() || context.callDepth())std::abort();
+      context.settle();if(context.live() || context.allocations()!=context.releases())std::abort();
+#else
+      auto value=broad_entry(seed,rounds);
+#endif
+      if(!std::isfinite(value) || std::bit_cast<std::uint64_t>(value)!=std::bit_cast<std::uint64_t>(expected[lane]))std::abort();
+      checksum+=std::bit_cast<std::uint64_t>(value);
+    }
+    auto ns=std::chrono::duration<double,std::nano>(std::chrono::steady_clock::now()-start).count();
+    std::printf("{\"round\":%lld,\"ns\":%.9g,\"checksum\":%llu}\n",(long long)batch,ns,(unsigned long long)checksum);
+  }
+}

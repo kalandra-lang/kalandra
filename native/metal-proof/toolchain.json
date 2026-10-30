@@ -1,0 +1,31 @@
+{
+  "spirvCrossVersion": "1.4.363.0",
+  "spirvCrossRoot": "/opt/homebrew/Cellar/spirv-cross/1.4.363.0",
+  "spirvToolsVersion": "1.4.363.0",
+  "spirvToolsRoot": "/opt/homebrew/Cellar/spirv-tools/1.4.363.0",
+  "metalToolchain": "com.apple.dt.toolchain.Metal.32023.864",
+  "metalCompilerVersion": "32023.864",
+  "metalLanguageVersion": "macos-metal2.1",
+  "mslVersion": 20100,
+  "strictMslVersion": 20200,
+  "strictMetalLanguageVersion": "macos-metal2.2",
+  "typedMslVersion": 20300,
+  "typedMetalLanguageVersion": "macos-metal2.3",
+  "xcodeVersion": "26.2",
+  "homebrewBottles": {
+    "cross": {
+      "formula": "spirv-cross",
+      "version": "1.4.363.0",
+      "tag": "arm64_sequoia",
+      "sha256": "3bd332f91d03227a11522d36e33c58736ddae7fff83db42d838ad3181a447eda",
+      "formulaCommit": "59f4008972760ef823aa94bfcac1742eda44ef54"
+    },
+    "tools": {
+      "formula": "spirv-tools",
+      "version": "1.4.363.0",
+      "tag": "arm64_sequoia",
+      "sha256": "bb9db0cc79ff0ac541fb4324840527101fb7f57dce9a8c43d92b9252ab12983a",
+      "formulaCommit": "f3dc7e532e12131de036480fd09673574158bb27"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+**/*
+!package.json
+!README.md
+!LICENSE
+!language-configuration.json
+!syntaxes/kalandra.tmLanguage.json
+!dist/extension.cjs
+!dist/THIRD_PARTY_NOTICES.txt

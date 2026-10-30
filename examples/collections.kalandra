@@ -1,8 +1,0 @@
-fn double x: x * 2
-values = 0..5 -> * double
-console.log (values.toArray ())
-
-type Point: x y
-point = Point 3 4
-console.log f"Point: {point.x}, {point.y}"
-console.log (slice [10 20 30 40] (1..3))

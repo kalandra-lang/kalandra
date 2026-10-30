@@ -1,9 +1,9 @@
-name: Check
+name: Website
 on: [push, pull_request]
 permissions:
   contents: read
 jobs:
-  check:
+  website:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,11 +12,3 @@ jobs:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
       - run: bun run check
-      - name: Network contract acceptance
-        run: bun run test:network
-        timeout-minutes: 2
-      - name: Bundled network runtime acceptance
-        run: bun run test:network --built
-        timeout-minutes: 2
-      - name: Pack and verify npm release
-        run: bun run release:pack && bun run release:check

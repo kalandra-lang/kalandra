@@ -1,7 +1,6 @@
 {
   "name": "kalandra-workspace",
   "private": true,
-  "version": "0.13.0",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "bun@1.3.12",
@@ -9,37 +8,23 @@
     "bun": ">=1.3.12"
   },
   "workspaces": [
-    "packages/*",
     "apps/*"
   ],
   "scripts": {
     "dev": "bun run --filter @kalandra/website dev",
-    "cli": "bun packages/cli/src/index.ts",
-    "build": "bun run build:packages && bun run build:website",
-    "build:packages": "bun scripts/build.ts && bun --bun tsc -p tsconfig.build.json",
+    "build": "bun run build:website",
     "build:website": "bun run --filter @kalandra/website build",
-    "typecheck": "bun scripts/typecheck.ts && bun run --filter @kalandra/website check",
+    "build:native": "cmake --build --preset native",
+    "typecheck": "bun --bun tsc -p tsconfig.json && bun run --filter @kalandra/website check",
     "test": "bun test",
-    "test:built": "bun scripts/verify-build.ts",
-    "format": "bun --bun prettier --write .",
-    "format:check": "bun --bun prettier --check .",
-    "check": "bun run format:check && bun run typecheck && bun test && bun run build && bun run test:built",
-    "test:browser": "bun scripts/verify-browser.ts",
-    "lsp": "bun packages/language-server/src/stdio.ts",
-    "test:playground": "bun scripts/verify-playground.ts",
-    "test:network": "bun scripts/verify-network.ts",
-    "release:pack": "bun run build:packages && bun scripts/pack-release.ts",
-    "release:check": "bun scripts/verify-release.ts"
+    "test:native": "ctest --preset native",
+    "format": "bun --bun prettier --write apps/website/src scripts tests apps/website/*.{json,js,ts} package.json tsconfig*.json .github/workflows/check.yml",
+    "format:check": "bun --bun prettier --check apps/website/src scripts tests apps/website/*.{json,js,ts} package.json tsconfig*.json .github/workflows/check.yml",
+    "check": "bun run format:check && bun run typecheck && bun test && bun run build",
+    "verify:docs": "bun run build:website && bun scripts/verify-docs.ts"
   },
   "devDependencies": {
-    "@babel/generator": "^7.28.5",
-    "@babel/types": "^7.28.5",
-    "@resvg/resvg-js": "^2.6.2",
-    "@timeleap/sia": "2.3.0",
-    "@types/babel__generator": "^7.27.0",
     "@types/bun": "1.3.12",
-    "chevrotain": "^11.0.3",
-    "fast-check": "^4.3.0",
     "prettier": "^3.6.2",
     "prettier-plugin-svelte": "^3.4.0",
     "typescript": "^5.9.3"

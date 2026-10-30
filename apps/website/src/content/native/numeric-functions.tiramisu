@@ -1,0 +1,100 @@
+meta { title = "Numeric conversion functions", description = "All numeric conversion names, ranges, aliases and failure behavior.", order = 1, group = "Library reference" }
+
+Conversion calls accept one completed numeric scalar or CPU tensor. They do not accept arrays, Bool, String, pending tasks or resident device values on the host. Tensors preserve shape and convert each element; a rank-zero tensor remains a tensor. In an eligible GPU numerical function, conversions use that device and its selected arithmetic policy. Download a resident value before performing a host conversion.
+
+Integer destinations truncate floating input toward zero and check the resulting integer range. NaN and infinity cannot convert to integers. Integer destinations do not wrap. Integer-to-float and float narrowing use nearest, ties-to-even rounding; a finite value outside the floating destination range fails. Invalid known constants are diagnosed before execution; other invalid conversions produce checked arithmetic faults. Empty tensors perform no element conversions.
+
+h2 { "int8" }
+
+code { "int8(value: numeric scalar | Tensor[T, ...]) -> int8 scalar or same-shape tensor" }
+
+Convert to a 8-bit signed integer. The destination range is -128 through 127, inclusive. The scalar result, or every tensor element, must fit that range.
+
+h2 { "int16" }
+
+code { "int16(value: numeric scalar | Tensor[T, ...]) -> int16 scalar or same-shape tensor" }
+
+Convert to a 16-bit signed integer. The destination range is -32768 through 32767, inclusive. The scalar result, or every tensor element, must fit that range.
+
+h2 { "int32" }
+
+code { "int32(value: numeric scalar | Tensor[T, ...]) -> int32 scalar or same-shape tensor" }
+
+Convert to a 32-bit signed integer. The destination range is -2147483648 through 2147483647, inclusive. The scalar result, or every tensor element, must fit that range.
+
+h2 { "int64" }
+
+code { "int64(value: numeric scalar | Tensor[T, ...]) -> int64 scalar or same-shape tensor" }
+
+Convert to a 64-bit signed integer. The destination range is -9223372036854775808 through 9223372036854775807, inclusive. The scalar result, or every tensor element, must fit that range.
+
+h2 { "uint8" }
+
+code { "uint8(value: numeric scalar | Tensor[T, ...]) -> uint8 scalar or same-shape tensor" }
+
+Convert to a 8-bit unsigned integer. The destination range is 0 through 255, inclusive. The scalar result, or every tensor element, must fit that range.
+
+h2 { "uint16" }
+
+code { "uint16(value: numeric scalar | Tensor[T, ...]) -> uint16 scalar or same-shape tensor" }
+
+Convert to a 16-bit unsigned integer. The destination range is 0 through 65535, inclusive. The scalar result, or every tensor element, must fit that range.
+
+h2 { "uint32" }
+
+code { "uint32(value: numeric scalar | Tensor[T, ...]) -> uint32 scalar or same-shape tensor" }
+
+Convert to a 32-bit unsigned integer. The destination range is 0 through 4294967295, inclusive. The scalar result, or every tensor element, must fit that range.
+
+h2 { "uint64" }
+
+code { "uint64(value: numeric scalar | Tensor[T, ...]) -> uint64 scalar or same-shape tensor" }
+
+Convert to a 64-bit unsigned integer. The destination range is 0 through 18446744073709551615, inclusive. The scalar result, or every tensor element, must fit that range.
+
+h2 { "float32" }
+
+code { "float32(value: numeric scalar | Tensor[T, ...]) -> float32 scalar or same-shape tensor" }
+
+Convert to IEEE-754 binary32, with 24 bits of significand precision. Rounding can lose information even when a conversion is in range. CPU hardware supports this type. Metal hardware supports float32 arithmetic; conversions involving GPU float64 require explicit fallback.
+
+h2 { "float64" }
+
+code { "float64(value: numeric scalar | Tensor[T, ...]) -> float64 scalar or same-shape tensor" }
+
+Convert to IEEE-754 binary64, with 53 bits of significand precision. Rounding can lose information even when a conversion is in range. CPU hardware supports this type. Metal has no native float64 arithmetic; GPU operations involving float64 require --arithmetic hardware-with-software-fallback or --arithmetic software.
+
+h2 { "int" }
+
+code { "int(value: numeric scalar | Tensor[T, ...]) -> int64 scalar or same-shape tensor" }
+
+Alias of int64(value), with exactly the same conversion rules and tensor behavior. This alias has a fixed width on every platform; it is not pointer-sized.
+
+h2 { "uint" }
+
+code { "uint(value: numeric scalar | Tensor[T, ...]) -> uint64 scalar or same-shape tensor" }
+
+Alias of uint64(value), with exactly the same conversion rules and tensor behavior. This alias has a fixed width on every platform; it is not pointer-sized.
+
+h2 { "float" }
+
+code { "float(value: numeric scalar | Tensor[T, ...]) -> float64 scalar or same-shape tensor" }
+
+Alias of float64(value), with exactly the same conversion rules and tensor behavior. This alias has a fixed width on every platform; it is not pointer-sized.
+
+h2 { "Examples" }
+
+codeblock { language = kalandra, """fn main() -> [int]:
+  value: int = 42
+  [int(int8(value)), int(int16(value)), int(int32(value)), int(int64(value)), int(uint8(value)), int(uint16(value)), int(uint32(value)), int(uint64(value)), int(float32(value)), int(float64(value)), int(uint(value)), int(float(value))]
+""" }
+This returns twelve copies of 42.
+
+codeblock { language = kalandra, """fn main() -> int:
+  values: Tensor[int32, 2] = tensor([20, 22])
+  converted = float64(values)
+  int(reduceSum(converted))
+""" }
+This returns 42. Conversions do not supply an expected type to an already typed argument; annotate a tensor before converting it. No implicit numeric promotion takes place.
+
+link { url = "/docs/numbers", "Numeric values, arithmetic and policies" }

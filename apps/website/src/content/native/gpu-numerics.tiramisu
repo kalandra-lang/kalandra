@@ -1,0 +1,91 @@
+meta { title = "GPU numerical graphs", description = "Compose resident numerical graphs with strict types and shapes.", order = 3, group = "HOWTO guides" }
+
+Place an eligible numerical function on the GPU, then compose operations inside that function. The graph determines device stages and intermediate lifetimes; it is not a promise that a whole function becomes one hardware kernel.
+
+h2 { "Row math for attention" }
+
+transpose, softmaxRows, and rmsNormRows compose with matrix multiplication inside numerical GPU programs. Transpose preserves bits for all ten numeric types. The two row-math operations currently require hardware float32 on Metal; their CPU implementations also support hardware float64. RMS normalization takes an explicit finite, positive epsilon of the same type as its tensor. It has unit gain. These operations do not move data between CPU and GPU implicitly.
+
+codeblock { language = kalandra, """fn normalize(scores: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+  softmaxRows(scores)
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    cpu = devices.cpu()
+    scores: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [-1, 0, 1]])
+    a = try await transfer(scores, gpu)
+    b = try await spawn normalize(a) on gpu
+    result = try await transfer(b, cpu)
+    reduceSum(result)
+""" }
+
+Each row operation is a device stage with owned output and temporary storage retained through completion. The runtime still acknowledges individual stages in a typed program; composing a whole attention block does not currently imply one command submission. Softmax uses stable row maxima and adjacent-pair sums, with bounded exp approximation error. Do not assume CPU/GPU bit identity for transcendentals or identical subnormal handling on different devices.
+
+h2 { "Compose two matrix products" }
+
+codeblock { language = kalandra, """fn multiply(a: Tensor[float32, ?, ?], b: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+  matmul(a, b)
+
+fn project(input: Tensor[float32, ?, ?], weights: Tensor[float32, ?, ?], projection: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
+  hidden = multiply(input, weights)
+  multiply(hidden, projection)
+
+fn main() -> Tensor[float32, ?, ?] ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    input: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    weights: Tensor[float32, 3, 2] = tensor([[1, 2], [3, 4], [5, 6]])
+    projection: Tensor[float32, 2, 2] = tensor([[1, 2], [3, 4]])
+    a = try await transfer(input, gpu)
+    b = try await transfer(weights, gpu)
+    c = try await transfer(projection, gpu)
+    work = spawn project(a, b, c) on gpu
+    result = try await work
+    cached = try await work
+    try await transfer(cached, devices.cpu())
+""" }
+
+Save the complete example as main.k and run it with the mixed CPU/Metal toolchain:
+
+codeblock { language = bash, """kalandra main.k --target metal -O2 -o app
+./app/program
+""" }
+
+The numerical result is the row-major matrix [[106, 156], [241, 354]]. The current float32 Metal entry prints [42d40000,431c0000,43710000,43b10000], the corresponding hexadecimal bit patterns.
+
+The two ordinary helper calls form a resident graph. In this example the input is 2 by 3, weights are 3 by 2, and projection is 2 by 2. The final result is 2 by 2. Awaiting work twice reuses the completed tensor; only the final explicit transfer downloads it.
+
+h2 { "Types and ranks" }
+
+The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32 and float64. Dense scalar/rank-zero through rank-eight tensors are supported for the supported numerical operations. matmul remains rank two. Numeric identity and complete shape obligations are checked rather than implicitly promoted or broadcast.
+
+h2 { "Hardware arithmetic and explicit fallback" }
+
+Float32 uses hardware arithmetic on both CPU and Metal by default. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling a float64 GPU operation requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
+
+Use --arithmetic software for the strict software implementation on both CPU and GPU. This selects software arithmetic with gradual underflow and its defined numerical contract. Default hardware mode follows device behavior, so Metal float32 subnormals may flush to zero. reduceSum keeps its balanced adjacent-pair tree, and scalar arithmetic retains its separately rounded operations. -O2 does not enable generic fast math.
+
+h2 { "Matrix precision policies" }
+
+Hardware float32 matmul defaults to optimized full-precision accumulation. The compiler may use fused multiply-add and choose a contraction order suited to the device while preserving float32 inputs and accumulators. This does not silently convert inputs to float16 or TF32.
+
+Use --matmul-policy fixed-tree to require separately rounded products and the existing balanced contraction tree. This selects a calculation order, not exact real arithmetic or universally greater accuracy. Optimized results may differ in rounding, signed zero and intermediate overflow. Severe cancellation can lose accuracy in either mode. Checked integer operations are unchanged, and CPU matmul currently retains the fixed tree under either policy.
+
+codeblock { language = bash, """kalandra main.k --target metal --matmul-policy fixed-tree -O2 -o app
+./app/program
+""" }
+
+Hardware fixed-tree mode still follows the device's underflow and NaN behavior. Use --arithmetic software when the software numerical contract, including gradual underflow, is required; that option always selects fixed-tree matmul.
+
+h2 { "Conditions in GPU functions" }
+
+Eligible GPU functions can use numeric comparisons, Boolean expressions and conditions to choose work. Only a selected branch runs, including its shape checks. Boolean conditions do not make Bool tensors, Strings or arbitrary host objects valid device data. Device and task resource limits still apply.
+
+h2 { "AI and LLM foundations" }
+
+Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. The current language does not supply model loading, tokenizers or a full LLM inference runtime, and CUDA is not supported. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
+
+link { url = "/docs/tensors", "Tensor construction and shape rules" }
+
+link { url = "/docs/tensor-functions", "Numerical function reference" }

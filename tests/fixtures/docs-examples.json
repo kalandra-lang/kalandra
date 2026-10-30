@@ -1,0 +1,253 @@
+{
+  "arrays": [
+    {
+      "kind": "cpu",
+      "expected": "23"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[2, 4, 6]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[1, 2, 9]"
+    }
+  ],
+  "collection-functions": [
+    {
+      "kind": "cpu",
+      "expected": "[4, 8, 3, 3, 8]"
+    }
+  ],
+  "contributing": [],
+  "control-flow": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "errors": [
+    {
+      "kind": "cpu",
+      "expected": "1"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "functions": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "120"
+    }
+  ],
+  "getting-started": [
+    {
+      "kind": "module",
+      "expected": "[2, 4, 6]"
+    },
+    {
+      "kind": "module",
+      "expected": null
+    }
+  ],
+  "gpu": [
+    {
+      "kind": "gpu",
+      "expected": "41b80000"
+    }
+  ],
+  "gpu-numerics": [
+    {
+      "kind": "gpu",
+      "expected": "40000000"
+    },
+    {
+      "kind": "gpu",
+      "expected": "[42d40000,431c0000,43710000,43b10000]"
+    }
+  ],
+  "index": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "installation": [],
+  "language-reference": [],
+  "library": [],
+  "modules": [
+    {
+      "kind": "module",
+      "expected": null
+    },
+    {
+      "kind": "module",
+      "expected": "42"
+    }
+  ],
+  "numbers": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "numeric-functions": [
+    {
+      "kind": "cpu",
+      "expected": "[42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "packages": [
+    {
+      "kind": "workflow",
+      "expected": null
+    },
+    {
+      "kind": "workflow",
+      "expected": "42"
+    }
+  ],
+  "parallelism": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[2, 4, 6]"
+    }
+  ],
+  "projects": [
+    {
+      "kind": "workflow",
+      "expected": "42"
+    },
+    {
+      "kind": "workflow",
+      "expected": null
+    },
+    {
+      "kind": "workflow",
+      "expected": "42"
+    }
+  ],
+  "records-enums": [
+    {
+      "kind": "cpu",
+      "expected": "17"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "strings": [
+    {
+      "kind": "cpu",
+      "expected": "Hello, Kalandra"
+    },
+    {
+      "kind": "cpu",
+      "expected": "12"
+    },
+    {
+      "kind": "cpu",
+      "expected": "Kala"
+    }
+  ],
+  "syntax": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "task-functions": [
+    {
+      "kind": "cpu",
+      "expected": "[4, 8]"
+    },
+    {
+      "kind": "gpu",
+      "expected": "42280000"
+    }
+  ],
+  "tensor-functions": [
+    {
+      "kind": "cpu",
+      "expected": "0.5"
+    }
+  ],
+  "tensors": [
+    {
+      "kind": "cpu",
+      "expected": "20"
+    },
+    {
+      "kind": "cpu",
+      "expected": "3"
+    },
+    {
+      "kind": "cpu",
+      "expected": "23"
+    },
+    {
+      "kind": "cpu",
+      "expected": "6"
+    },
+    {
+      "kind": "cpu",
+      "expected": "6"
+    },
+    {
+      "kind": "cpu",
+      "expected": "2"
+    },
+    {
+      "kind": "cpu",
+      "expected": "1.9798981953632135"
+    }
+  ],
+  "tooling": [],
+  "troubleshooting": [
+    {
+      "kind": "reject",
+      "expected": null
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "tutorial": [],
+  "release-notes": []
+}

@@ -1,0 +1,79 @@
+meta { title = "Project manifests", description = "Build an explicit entry with stable local package mappings.", order = 2, group = "Using Kalandra" }
+
+Use kalandra new for the starter, or write kalandra.toml explicitly. The manifest selects the source entry and any local package mappings. It is compiler input, not a file loaded by the generated application.
+
+h2 { "A minimal application" }
+
+Use a new working directory. Create my-app/src and save this as my-app/src/main.k:
+
+codeblock { language = kalandra, """fn main() -> int:
+  6 * 7
+""" }
+
+Save this manifest as my-app/kalandra.toml:
+
+codeblock { language = toml, """format = 1
+
+[project]
+entry = "src/main.k"
+""" }
+
+codeblock { language = bash, """kalandra-check --project my-app/kalandra.toml
+kalandra --project my-app/kalandra.toml -o my-app/program
+./my-app/program
+""" }
+
+Select either a source path or --project, not both. There is no implicit ancestor search for a project manifest. Relative entry/package paths resolve from the canonical manifest directory; -o still resolves from the current working directory.
+
+The program returns 42.
+
+h2 { "Map a local source library" }
+
+Create my-app/lib, save this library as my-app/lib/geometry.k, and replace the application entry with the second example:
+
+codeblock { language = kalandra, """export fn area(width: int, height: int) -> int:
+  width * height
+""" }
+
+codeblock { language = kalandra, """from "geometry" import area
+
+fn main() -> int:
+  area(6, 7)
+""" }
+
+Replace my-app/kalandra.toml with:
+
+codeblock { language = toml, """format = 1
+
+[project]
+entry = "src/main.k"
+
+[packages]
+geometry = "lib/geometry.k"
+""" }
+
+Check and build again using the commands above; the result remains 42. Code in the application may then import exported declarations from "geometry". Mapping a name does not make private declarations public. Explicit mappings are offline source locations, separate from managed Git dependencies.
+
+h2 { "A source library manifest" }
+
+codeblock { language = toml, """format = 1
+
+[package]
+name = "geometry"
+version = "0.2.0"
+entry = "src/public.k"
+""" }
+
+Save that library manifest in a separate library root, with the exported area function above in src/public.k. A managed library declares its public entry and retains its own dependency scope. Its entry and local mappings must stay within its canonical root. Version metadata does not introduce version-range solving.
+
+h2 { "Build modes" }
+
+codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o program
+./program
+""" }
+
+The optimized CPU program also returns 42. CPU builds produce an executable; Metal builds produce a directory with program and shader libraries. Keep all Metal application files together. Shape, numeric and error checks remain part of the native semantics in optimized builds.
+
+link { url = "/docs/packages", "Dependency installation and locks" }
+
+link { url = "/docs/gpu", "Build and run a complete Metal application" }

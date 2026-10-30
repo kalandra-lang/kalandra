@@ -1,1 +1,10 @@
 .build/
+.archive/
+# Measurements are local artifacts. Curated release evidence is reviewed explicitly.
+results/*.json
+!results/release-evidence.json
+!results/cpu-comparison.json
+results/*.log
+results/*.xml
+results/*.csv
+results/*.txt

@@ -2,14 +2,25 @@ import { defineConfig } from "@tiramisu-docs/kit";
 
 export default defineConfig({
   title: "Kalandra",
-  description:
-    "A functional language for parallel and distributed programming. The next chapter of Clio.",
+  logo: {
+    light: "/brand/kalandra-mark.svg",
+    dark: "/brand/kalandra-mark-light.svg",
+  },
+  description: "A native language for CPU and GPU computing.",
   url: "https://kalandra.dev",
-  sidebar: { groupOrder: ["Project", "Learn", "Contributing", "Blog"] },
+  sidebar: {
+    groupOrder: [
+      "Start here",
+      "Tutorial",
+      "Language reference",
+      "Library reference",
+      "HOWTO guides",
+      "Using Kalandra",
+      "Contributing",
+    ],
+  },
   nav: [
     { label: "Docs", href: "/docs" },
-    { label: "Playground", href: "/docs/playground" },
-    { label: "Blog", href: "/docs/blog" },
     { label: "GitHub", href: "https://github.com/kalandra-lang/kalandra" },
   ],
   footer: {

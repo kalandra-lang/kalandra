@@ -1,0 +1,376 @@
+{
+  "status": "String literals, values, equality, concatenation, length queries, scalar indexing and slicing implemented for synchronous and local-worker CPU modules; String record fields implemented; direct String arrays/maps implemented; String-array record fields implemented with recursive local-worker retention",
+  "text_cases": [
+    {
+      "text": "",
+      "scalar_length": 0,
+      "byte_length": 0,
+      "indices": [],
+      "slices": [
+        {
+          "start": 0,
+          "end": 0,
+          "result": ""
+        },
+        {
+          "start": 0,
+          "end": 0,
+          "result": ""
+        }
+      ]
+    },
+    {
+      "text": "hello",
+      "scalar_length": 5,
+      "byte_length": 5,
+      "indices": [
+        {
+          "index": 0,
+          "result": "h"
+        },
+        {
+          "index": 1,
+          "result": "e"
+        },
+        {
+          "index": 2,
+          "result": "l"
+        },
+        {
+          "index": 3,
+          "result": "l"
+        },
+        {
+          "index": 4,
+          "result": "o"
+        }
+      ],
+      "slices": [
+        {
+          "start": 0,
+          "end": 5,
+          "result": "hello"
+        },
+        {
+          "start": 5,
+          "end": 5,
+          "result": ""
+        }
+      ]
+    },
+    {
+      "text": "سلام",
+      "scalar_length": 4,
+      "byte_length": 8,
+      "indices": [
+        {
+          "index": 0,
+          "result": "س"
+        },
+        {
+          "index": 1,
+          "result": "ل"
+        },
+        {
+          "index": 2,
+          "result": "ا"
+        },
+        {
+          "index": 3,
+          "result": "م"
+        }
+      ],
+      "slices": [
+        {
+          "start": 0,
+          "end": 4,
+          "result": "سلام"
+        },
+        {
+          "start": 4,
+          "end": 4,
+          "result": ""
+        }
+      ]
+    },
+    {
+      "text": "é",
+      "scalar_length": 1,
+      "byte_length": 2,
+      "indices": [
+        {
+          "index": 0,
+          "result": "é"
+        }
+      ],
+      "slices": [
+        {
+          "start": 0,
+          "end": 1,
+          "result": "é"
+        },
+        {
+          "start": 1,
+          "end": 1,
+          "result": ""
+        }
+      ]
+    },
+    {
+      "text": "é",
+      "scalar_length": 2,
+      "byte_length": 3,
+      "indices": [
+        {
+          "index": 0,
+          "result": "e"
+        },
+        {
+          "index": 1,
+          "result": "́"
+        }
+      ],
+      "slices": [
+        {
+          "start": 0,
+          "end": 2,
+          "result": "é"
+        },
+        {
+          "start": 2,
+          "end": 2,
+          "result": ""
+        }
+      ]
+    },
+    {
+      "text": "👩‍💻",
+      "scalar_length": 3,
+      "byte_length": 11,
+      "indices": [
+        {
+          "index": 0,
+          "result": "👩"
+        },
+        {
+          "index": 1,
+          "result": "‍"
+        },
+        {
+          "index": 2,
+          "result": "💻"
+        }
+      ],
+      "slices": [
+        {
+          "start": 0,
+          "end": 3,
+          "result": "👩‍💻"
+        },
+        {
+          "start": 3,
+          "end": 3,
+          "result": ""
+        }
+      ]
+    },
+    {
+      "text": "a\u0000b",
+      "scalar_length": 3,
+      "byte_length": 3,
+      "indices": [
+        {
+          "index": 0,
+          "result": "a"
+        },
+        {
+          "index": 1,
+          "result": "\u0000"
+        },
+        {
+          "index": 2,
+          "result": "b"
+        }
+      ],
+      "slices": [
+        {
+          "start": 0,
+          "end": 3,
+          "result": "a\u0000b"
+        },
+        {
+          "start": 3,
+          "end": 3,
+          "result": ""
+        }
+      ]
+    },
+    {
+      "text": "﻿",
+      "scalar_length": 1,
+      "byte_length": 3,
+      "indices": [
+        {
+          "index": 0,
+          "result": "﻿"
+        }
+      ],
+      "slices": [
+        {
+          "start": 0,
+          "end": 1,
+          "result": "﻿"
+        },
+        {
+          "start": 1,
+          "end": 1,
+          "result": ""
+        }
+      ]
+    },
+    {
+      "text": "􏿿",
+      "scalar_length": 1,
+      "byte_length": 4,
+      "indices": [
+        {
+          "index": 0,
+          "result": "􏿿"
+        }
+      ],
+      "slices": [
+        {
+          "start": 0,
+          "end": 1,
+          "result": "􏿿"
+        },
+        {
+          "start": 1,
+          "end": 1,
+          "result": ""
+        }
+      ]
+    }
+  ],
+  "equality_cases": [
+    {
+      "left": "é",
+      "right": "é",
+      "equal": false
+    },
+    {
+      "left": "سلام",
+      "right": "سلام",
+      "equal": true
+    },
+    {
+      "left": "a\u0000b",
+      "right": "a",
+      "equal": false
+    }
+  ],
+  "concatenation_cases": [
+    {
+      "left": "سلام",
+      "right": "👩‍💻",
+      "result": "سلام👩‍💻"
+    },
+    {
+      "left": "",
+      "right": "é",
+      "result": "é"
+    },
+    {
+      "left": "a\u0000",
+      "right": "b",
+      "result": "a\u0000b"
+    }
+  ],
+  "invalid_utf8_hex": [
+    "80",
+    "c080",
+    "e08080",
+    "f0808080",
+    "eda080",
+    "edbfbf",
+    "f4908080",
+    "f5808080",
+    "f09f92",
+    "e228a1"
+  ],
+  "valid_literal_cases": [
+    {
+      "source": "\"\\u{1F469}\\u{200d}\\u{1f4bb}\"",
+      "decoded": "👩‍💻"
+    },
+    {
+      "source": "\"a\\0b\"",
+      "decoded": "a\u0000b"
+    },
+    {
+      "source": "\"\\n\\r\\t\\\\\\\"\"",
+      "decoded": "\n\r\t\\\""
+    },
+    {
+      "source": "\"\\u{0}\\u{10FFFF}\"",
+      "decoded": "\u0000􏿿"
+    }
+  ],
+  "invalid_literal_sources": [
+    "\"\\q\"",
+    "\"\\x41\"",
+    "\"\\u{}\"",
+    "\"\\u{D800}\"",
+    "\"\\u{110000}\"",
+    "\"\\u{0000041}\"",
+    "\"\\u{xyz}\"",
+    "\"a\nb\""
+  ],
+  "bounds_cases": [
+    {
+      "operation": "index",
+      "text": "é",
+      "index": 1,
+      "fault": "Bounds"
+    },
+    {
+      "operation": "index",
+      "text": "",
+      "index": 0,
+      "fault": "Bounds"
+    },
+    {
+      "operation": "index",
+      "text": "hello",
+      "index": -1,
+      "fault": "Bounds"
+    },
+    {
+      "operation": "index",
+      "text": "hello",
+      "index": 18446744073709551615,
+      "fault": "Bounds"
+    },
+    {
+      "operation": "slice",
+      "text": "hello",
+      "start": 3,
+      "end": 2,
+      "fault": "Bounds"
+    },
+    {
+      "operation": "slice",
+      "text": "hello",
+      "start": 0,
+      "end": 6,
+      "fault": "Bounds"
+    },
+    {
+      "operation": "slice",
+      "text": "hello",
+      "start": 5,
+      "end": 5,
+      "result": ""
+    }
+  ]
+}

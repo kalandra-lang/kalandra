@@ -1,0 +1,42 @@
+name: Native Metal preflight
+on:
+  push:
+    branches: ["native"]
+    paths: [".github/workflows/native-metal-preflight.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tools:
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+    steps:
+      - name: Inspect selected Xcode
+        run: xcodebuild -version
+      - name: Install Apple Metal compiler
+        run: xcodebuild -downloadComponent MetalToolchain
+      - name: Report Metal compiler and SDK
+        run: |
+          xcodebuild -showComponent MetalToolchain -json
+          xcrun --find metal
+          xcrun metal --version
+          xcrun --sdk macosx --show-sdk-path
+      - name: Probe hosted Metal hardware
+        run: |
+          cat > "$RUNNER_TEMP/metal-probe.m" <<'SOURCE'
+          #import <Metal/Metal.h>
+          #import <Foundation/Foundation.h>
+          int main(void) {
+            @autoreleasepool {
+              NSArray<id<MTLDevice>> *devices = MTLCopyAllDevices();
+              printf("Metal devices: %lu\n", (unsigned long)devices.count);
+              for (id<MTLDevice> device in devices)
+                printf("%s\n", device.name.UTF8String);
+            }
+            return 0;
+          }
+          SOURCE
+          xcrun clang -fobjc-arc -framework Metal -framework Foundation "$RUNNER_TEMP/metal-probe.m" -o "$RUNNER_TEMP/metal-probe"
+          "$RUNNER_TEMP/metal-probe"

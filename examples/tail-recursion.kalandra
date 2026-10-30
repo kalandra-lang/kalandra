@@ -1,5 +1,0 @@
-fn sum n total:
-  if n > 0: sum (n - 1) (total + n)
-  else: total
-
-export fn main: sum 100000 0

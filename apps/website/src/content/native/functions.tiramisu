@@ -1,0 +1,52 @@
+meta { title = "Functions and closures", description = "Compose named functions, callbacks and captured environments.", order = 3, group = "Language reference" }
+
+Use fn to declare a function, annotate its parameters and optionally write its result type after ->. Function bodies end with a result expression. Export a declaration when another module must import it.
+
+h2 { "Functions as values" }
+
+codeblock { language = kalandra, """fn double(value: int) -> int:
+  value * 2
+
+fn apply(value: int, transform: fn(int) -> int) -> int:
+  transform(value)
+
+fn main() -> int:
+  callback = double
+  apply(21, callback)
+""" }
+
+A function type records parameter types, result type and any expected-error channel. A function-valued binding can be passed, returned or invoked with ordinary call syntax.
+
+h2 { "Capture an immutable value" }
+
+codeblock { language = kalandra, """fn makeAdder(offset: int) -> fn(int) -> int:
+  fn(value: int): value + offset
+
+fn main() -> int:
+  addTen = makeAdder(10)
+  addTen(32)
+""" }
+
+The returned closure retains its captured environment after makeAdder returns. Captures are immutable values, not references to mutable local variables. Anonymous bodies may also use an indented suite with local bindings.
+
+h2 { "Callbacks and execution" }
+
+Ordinary map is sequential. parallelMap explicitly schedules callbacks through CPU workers. Function values, arrays of functions and function-valued aggregate fields have checked signatures and ownership rules. Crossing a worker boundary also requires eligible captures and proven callable origins; an arbitrary function value is not a GPU closure.
+
+h2 { "Recursive calls" }
+
+codeblock { language = kalandra, """fn factorial(value: int) -> int:
+  if value <= 1:
+    1
+  else:
+    value * factorial(value - 1)
+
+fn main() -> int:
+  factorial(5)
+""" }
+
+Functions can call themselves and each other on the CPU, including in CPU tasks. Recursive calls consume execution resources; very deep recursion can exhaust them. Do not depend on tail-call elimination for correctness.
+
+link { url = "/docs/arrays", "Map arrays sequentially" }
+
+link { url = "/docs/parallelism", "Schedule CPU callbacks" }

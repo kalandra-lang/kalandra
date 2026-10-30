@@ -7,7 +7,7 @@ import config from "./src/lib/tiramisu.config";
 
 export default defineConfig({
   plugins: [
-    tiramisuPlugin({ config }),
+    tiramisuPlugin({ config, docsDir: "src/content/native" }),
     kalandraHighlightPlugin(),
     tailwindcss(),
     sveltekit(),

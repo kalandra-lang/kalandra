@@ -1,79 +1,42 @@
-import { homeExamples } from "$lib/playground/home-examples";
-import { highlightKalandra } from "../../../../scripts/website-highlighting";
-import { compile } from "../../../../packages/compiler/src/compile";
-import remoteClient from "../../../../examples/workflows/remote-batch/client/main.kalandra?raw";
-import { highlightSnippet } from "$lib/server/highlight";
-import invoiceJs from "../../../../examples/workflows/invoices/vendor/invoice-math/index.js?raw";
+import matrix from "../../../../native/metal-source/matrix-graph.k?raw";
+import arithmetic from "../../../../native/metal-source/pre-matmul.k?raw";
+import placement from "../../../../native/benchmarks/gpu.k?raw";
 
-export async function load() {
-  const source = "export fn double value: value * 2\n";
-  const compiled = compile(
-    { path: "double.kalandra", text: source },
-    { strictNames: true },
-  );
-  if (!compiled.output)
-    throw new Error("Homepage JavaScript example failed to compile");
+const normalize = (source: string) => source.replaceAll("\r\n", "\n");
+
+// Display and copy source from qualified native fixtures, never an invented dialect.
+export function load() {
   return {
-    lessons: [
-      [
-        "functions",
-        "Functions & pipelines",
-        "Compose calls and keep the data flow visible.",
-        "10 -> double -> addThree",
-      ],
-      [
-        "collections",
-        "Arrays & maps",
-        "Transform collections and update their elements.",
-        "[1 2 3] -> * double",
-      ],
-      [
-        "types",
-        "Types & records",
-        "Describe data and check function boundaries.",
-        "Point 1.5 2.5",
-      ],
-      [
-        "modules",
-        "Modules & imports",
-        "Split a program into reusable source files.",
-        'from "./math" import double',
-      ],
-      [
-        "parallel",
-        "Parallel execution",
-        "Dispatch typed work and collect its results.",
-        "[1 2 3] -> * [await] |double|",
-      ],
-      [
-        "workflows",
-        "Complete workflows",
-        "Follow invoices, local batches, and remote calls.",
-        "items -> * total",
-      ],
-    ].map(([slug, title, description, source]) => [
-      slug,
-      title,
-      description,
-      highlightKalandra(source),
-    ]),
-    examples: homeExamples.map((example) => ({
-      ...example,
-      html: highlightKalandra(example.source),
-    })),
-    remoteClient: highlightKalandra(remoteClient),
-    invoiceJs: await highlightSnippet(invoiceJs, "javascript"),
-    commands: await highlightSnippet(
-      [
-        "kalandra new my-app",
-        "kalandra check my-app/src/math.kalandra --strict",
-        "kalandra run my-app/src/main.kalandra --strict",
-        "kalandra build my-app/src/main.kalandra \\",
-        "  -o my-app/build --strict --watch",
-      ].join("\n"),
-      "bash",
-    ),
-    compiledSource: highlightKalandra(source),
-    javascript: await highlightSnippet(compiled.output.code, "javascript"),
+    examples: [
+      {
+        title: "Matrix product",
+        file: "matrix-graph.k",
+        path: "native/metal-source/matrix-graph.k",
+        source: normalize(matrix)
+          .split("\n\n")[0]
+          .replace("fn multiply(a:", "fn multiply(\n  a:")
+          .replace(", b:", ",\n  b:")
+          .replace("]) ->", "]\n) ->")
+          .trim(),
+        description:
+          "Compose tensor operations as ordinary functions. Keep intermediate results on the GPU.",
+      },
+      {
+        title: "Tensor arithmetic",
+        file: "pre-matmul.k",
+        path: "native/metal-source/pre-matmul.k",
+        source: normalize(arithmetic).split("\nfn main")[0].trim(),
+        description:
+          "Combine tensor arithmetic, matrix products and typed parameters in a resident numerical graph.",
+      },
+      {
+        title: "CPU and GPU placement",
+        file: "gpu.k",
+        path: "native/benchmarks/gpu.k",
+        source: normalize(placement).trim(),
+        description:
+          "Transfer tensors explicitly, place a typed task on the GPU, and await its result.",
+      },
+    ],
   };
 }

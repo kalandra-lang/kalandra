@@ -1,27 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#09090b" />
+    <meta name="theme-color" content="#000000" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
-      rel="stylesheet"
-    />
     <script>
-      (function () {
-        var t = localStorage.getItem("theme");
-        if (
-          t === "dark" ||
-          (!t && matchMedia("(prefers-color-scheme:dark)").matches)
-        )
-          document.documentElement.classList.add("dark");
-      })();
+      // Black is the default, including before hydration and on light OS themes.
+      // Keep the docs' explicit theme chooser working when storage is available.
+      try {
+        var theme = localStorage.getItem("theme") || "dark";
+        localStorage.setItem("theme", theme);
+        document.documentElement.classList.toggle("dark", theme === "dark");
+      } catch {
+        document.documentElement.classList.add("dark");
+      }
     </script>
     %sveltekit.head%
   </head>

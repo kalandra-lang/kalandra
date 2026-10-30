@@ -1,0 +1,47 @@
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug sanitized)
+    add_executable(kalandra-record-array-tests-${VARIANT} tests/RecordArrayTests.cpp)
+    target_compile_options(kalandra-record-array-tests-${VARIANT} PRIVATE -Wall -Wextra -Werror)
+    if(VARIANT STREQUAL "sanitized")
+      target_link_libraries(kalandra-record-array-tests-${VARIANT} PRIVATE kalandra-semantics-sanitized)
+      target_compile_definitions(kalandra-record-array-tests-${VARIANT} PRIVATE KALANDRA_RECORD_FRONTEND_ONLY)
+      target_compile_options(kalandra-record-array-tests-${VARIANT} PRIVATE -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-record-array-tests-${VARIANT} PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all)
+    else()
+      target_link_libraries(kalandra-record-array-tests-${VARIANT} PRIVATE kalandra-backend)
+    endif()
+    add_test(NAME native-record-arrays-frontend-${VARIANT} COMMAND kalandra-record-array-tests-${VARIANT})
+  endforeach()
+  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    if(VARIANT STREQUAL "sanitized")
+      set(RA_RUNTIME kalandra-native-runtime-sanitized)
+      set(RA_FLAGS -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+    elseif(VARIANT STREQUAL "thread-sanitized")
+      set(RA_RUNTIME kalandra-native-runtime-thread-sanitized)
+      set(RA_FLAGS -O1 -g -fsanitize=thread -fno-omit-frame-pointer)
+    else()
+      set(RA_RUNTIME kalandra-native-runtime)
+      set(RA_FLAGS -O0)
+      if(VARIANT STREQUAL "optimized")
+        set(RA_FLAGS -O2)
+      endif()
+    endif()
+    add_executable(kalandra-record-array-storage-${VARIANT} tests/RecordArrayRuntimeTests.cpp)
+    target_compile_options(kalandra-record-array-storage-${VARIANT} PRIVATE -Wall -Wextra -Werror ${RA_FLAGS})
+    target_link_options(kalandra-record-array-storage-${VARIANT} PRIVATE ${RA_FLAGS})
+    target_link_libraries(kalandra-record-array-storage-${VARIANT} PRIVATE ${RA_RUNTIME})
+    add_test(NAME native-record-array-storage-${VARIANT} COMMAND kalandra-record-array-storage-${VARIANT})
+    add_test(NAME native-record-arrays-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+        "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=$<TARGET_FILE:${RA_RUNTIME}>"
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/record-arrays-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecordArrays.cmake")
+    add_test(NAME native-record-array-map-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DVARIANT=${VARIANT}"
+        "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DRUNTIME=$<TARGET_FILE:${RA_RUNTIME}>"
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/record-array-map-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyRecordArrayMap.cmake")
+    set_tests_properties(native-record-array-map-${VARIANT} PROPERTIES TIMEOUT 900)
+    set_tests_properties(native-record-arrays-${VARIANT} PROPERTIES TIMEOUT 900)
+  endforeach()
+endif()

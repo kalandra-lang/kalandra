@@ -1,8 +1,0 @@
-from "remote:./readings.client.json" import broken slow
-
-@params Number
-fn work n:
-  pending = slow 45
-  await broken n
-
-export fn main: await |work| 1

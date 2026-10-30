@@ -1,3 +1,0 @@
-from "math" import double
-
-export fn main: await |double| 21

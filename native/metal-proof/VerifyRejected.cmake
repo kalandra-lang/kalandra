@@ -1,0 +1,10 @@
+file(WRITE "${OUTPUT_DIR}/no-kernel.mlir" "module {}\n")
+file(WRITE "${OUTPUT_DIR}/bad-input.mlir" "not MLIR\n")
+file(WRITE "${OUTPUT_DIR}/two-kernels.mlir" "module { spirv.module @a Logical GLSL450 {} spirv.module @b Logical GLSL450 {} }\n")
+foreach(INPUT IN ITEMS no-kernel bad-input two-kernels)
+  execute_process(COMMAND "${EXTRACTOR}" "${OUTPUT_DIR}/${INPUT}.mlir" "${OUTPUT_DIR}/invalid-extract.mlir"
+    RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUTPUT ERROR_VARIABLE ERROR)
+  if(NOT STATUS EQUAL 1)
+    message(FATAL_ERROR "Extractor did not reject ${INPUT}: ${STATUS} ${OUTPUT} ${ERROR}")
+  endif()
+endforeach()

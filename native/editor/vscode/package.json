@@ -1,0 +1,109 @@
+{
+  "name": "kalandra-native",
+  "displayName": "Kalandra Native",
+  "description": "Native Kalandra language support for .k files.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "kalandra-lang",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kalandra-lang/kalandra",
+    "directory": "native/editor/vscode"
+  },
+  "main": "./dist/extension.cjs",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onLanguage:kalandra",
+    "onCommand:kalandra.native.restart"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "The native language server launches a configured executable. Trust the workspace to enable it."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "The native compiler currently requires local file paths."
+    }
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "kalandra",
+        "aliases": [
+          "Kalandra",
+          "kalandra"
+        ],
+        "extensions": [
+          ".k"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kalandra",
+        "scopeName": "source.kalandra",
+        "path": "./syntaxes/kalandra.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "kalandra.native.restart",
+        "title": "Kalandra: Restart Native Language Server"
+      },
+      {
+        "command": "kalandra.native.showOutput",
+        "title": "Kalandra: Show Native Language Server Output"
+      }
+    ],
+    "configuration": {
+      "title": "Kalandra Native",
+      "properties": {
+        "kalandra.native.serverPath": {
+          "type": "string",
+          "default": "kalandra-lsp",
+          "scope": "machine",
+          "description": "Absolute path to kalandra-lsp, or its executable name on PATH. No shell commands or relative executable paths. Requires a native server build."
+        },
+        "kalandra.native.projectPath": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "Optional native project manifest (.toml). Relative paths require a single workspace folder. One manifest supplies package mappings for this window; leave empty for relative-import source roots."
+        },
+        "kalandra.native.placement": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "description": "Enable CPU/Metal placement checking. Does not run code or guarantee GPU lowering."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "bun scripts/build.mjs",
+    "test": "bun test test/config.test.cjs test/grammar.test.cjs && bun test test/lifecycle.test.cjs",
+    "package": "bun scripts/package.mjs",
+    "test:editor": "bun scripts/test-editor.mjs"
+  },
+  "dependencies": {
+    "vscode-languageclient": "10.1.2"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.3.2"
+  }
+}

@@ -1,5 +1,0 @@
-meta { title = Playground, order = 3, group = Project }
-
-Edit a program and run it here. Try parallel calls, typed captures, or nested work without installing anything.
-
-This preview runs one source file. Package imports and network access are unavailable. Console output from the main program and its return value appear below.

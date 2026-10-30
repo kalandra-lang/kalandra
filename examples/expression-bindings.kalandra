@@ -1,7 +1,0 @@
-fn double value: value * 2
-
-export fn main:
-  total = (double 3 => first) + (double 4 => second)
-  answer = (#value: total => record).value
-  (double => operation) answer
-  [answer first second]

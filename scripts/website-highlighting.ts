@@ -1,24 +1,22 @@
-import { tokenize } from "../packages/compiler/src/syntax/lexer.js";
-
+// Lexical display highlighting for native .k source. This is deliberately not
+// a parser or a dependency on the retired prototype compiler.
 const keywords = new Set(
-  "Fn If Else Await AwaitAll Import From As Export Type List Is And Or Not By In".split(
+  "fn export from import as type enum error if else match not and or true false parallel spawn await try catch fail on with".split(
     " ",
   ),
 );
-const strings = new Set([
-  "StringLiteral",
-  "FormatStart",
-  "FormatText",
-  "FormatEnd",
-]);
-const virtual = new Set(["Indent", "Dedent", "Newline"]);
+const numericTypes = new Set(
+  "int uint float int8 uint8 int16 uint16 int32 uint32 int64 uint64 float32 float64 Bool String Tensor TaskError FaultKind".split(
+    " ",
+  ),
+);
 const colors = {
-  keyword: ["#cf222e", "#ff7b72"],
-  string: ["#0a3069", "#a5d6ff"],
-  number: ["#0550ae", "#79c0ff"],
-  identifier: ["#6639ba", "#d2a8ff"],
-  punctuation: ["#24292f", "#c9d1d9"],
-  comment: ["#57606a", "#8b949e"],
+  keyword: ["#b53a17", "#f86737"],
+  string: ["#5e492f", "#d6c7b5"],
+  number: ["#8a3218", "#f4ac91"],
+  identifier: ["#242424", "#f6f6f6"],
+  punctuation: ["#333333", "#b5b5b5"],
+  comment: ["#626262", "#999999"],
 } as const;
 export function escapeCode(text: string) {
   return text.replace(
@@ -32,41 +30,36 @@ export function escapeCode(text: string) {
 /** Decode one layer only: source text such as '&lt;' must remain literal. */
 export function decodeCode(text: string) {
   return text.replace(
-    /&(amp|lt|gt|quot|#39);/g,
-    (_, entity: string) =>
-      ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'" })[entity]!,
+    /&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot);/gi,
+    (original, entity: string) => {
+      if (entity.startsWith("#")) {
+        const hex = entity.charAt(1).toLowerCase() === "x";
+        const point = parseInt(entity.slice(hex ? 2 : 1), hex ? 16 : 10);
+        return point <= 0x10ffff ? String.fromCodePoint(point) : original;
+      }
+      return { amp: "&", lt: "<", gt: ">", quot: '"' }[entity.toLowerCase()]!;
+    },
   );
 }
 export function highlightKalandra(text: string) {
-  const result = tokenize({ path: "documentation.kalandra", text });
-  const spans = result.tokens.flatMap((token) => {
-    const name = token.tokenType.name;
-    const start = token.startOffset,
-      end = token.endOffset! + 1;
-    if (
-      virtual.has(name) ||
-      !Number.isFinite(start) ||
-      end <= start ||
-      text.slice(start, end) !== token.image
-    )
-      return [];
-    const kind = keywords.has(name)
-      ? "keyword"
-      : strings.has(name)
+  const spans: { start: number; end: number; kind: keyof typeof colors }[] = [];
+  const pattern =
+    /#[^\r\n]*|"(?:\\[\s\S]|[^"\\])*"?|\b[A-Za-z_][A-Za-z_0-9]*\b|\b[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\b|->|==|!=|<=|>=|[+*/%=<>!:[\]{}(),.-]/g;
+  for (const match of text.matchAll(pattern)) {
+    const token = match[0];
+    const kind: keyof typeof colors = token.startsWith("#")
+      ? "comment"
+      : token.startsWith('"')
         ? "string"
-        : name === "NumberLiteral"
-          ? "number"
-          : name === "Identifier"
-            ? "identifier"
-            : "punctuation";
-    return [{ start, end, kind: kind as keyof typeof colors }];
-  });
-  for (const comment of result.comments)
-    spans.push({
-      start: comment.span.start,
-      end: comment.span.end,
-      kind: "comment",
-    });
+        : keywords.has(token)
+          ? "keyword"
+          : /^\d/.test(token)
+            ? "number"
+            : numericTypes.has(token) || /^[A-Za-z_]/.test(token)
+              ? "identifier"
+              : "punctuation";
+    spans.push({ start: match.index!, end: match.index! + token.length, kind });
+  }
   spans.sort((a, b) => a.start - b.start || a.end - b.end);
   let cursor = 0,
     html = "";
@@ -110,6 +103,17 @@ export function kalandraHighlightPlugin() {
     name: "kalandra-documentation-highlighting",
     enforce: "pre" as const,
     transform(source: string, id: string) {
+      // Kit 0.1.x strips highlighting tags but leaves HTML entities in the
+      // clipboard. Read the rendered text so operators and strings copy exactly.
+      if (id.replaceAll("\\", "/").endsWith("/tiramisu/CodeBlock.svelte")) {
+        return {
+          code: source.replace(
+            'const text = code.replace(/<[^>]*>/g, "")',
+            'const template = document.createElement("template"); template.innerHTML = code; const text = template.content.textContent ?? ""',
+          ),
+          map: null,
+        };
+      }
       if (
         !id.endsWith(".tiramisu.svelte") &&
         !id.endsWith("/src/routes/+page.svelte")

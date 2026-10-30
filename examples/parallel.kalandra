@@ -1,8 +1,0 @@
-@params Number
-@returns Number
-fn fib n:
-  if n < 2: n
-  else: (fib n - 1) + (fib n - 2)
-
-export fn main argv:
-  [20 21 22 23] -> * [await] |fib|

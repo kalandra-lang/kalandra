@@ -1,1206 +1,1233 @@
 <script lang="ts">
-  import { onDestroy, tick, untrack } from "svelte";
-  import { reveal } from "$lib/actions/reveal";
-  import CodeEditor from "$lib/components/CodeEditor.svelte";
-  import ComputeBackground from "$lib/components/ComputeBackground.svelte";
-  import { goto } from "$app/navigation";
-  import {
-    startPlayground,
-    type PlaygroundEvent,
-  } from "$lib/playground/client";
+  import { onDestroy } from "svelte";
   import type { PageData } from "./$types";
+  import ExecutionField from "$lib/components/ExecutionField.svelte";
+  import { socialImage } from "$lib/social";
   let { data }: { data: PageData } = $props();
-  let selected = $state(1);
-  let drafts = $state(
-    untrack(() => data.examples.map((example) => example.source)),
-  );
-  let editing = $state(false);
-  let busy = $state(false);
-  let status = $state("Ready to run");
-  let output = $state<string[]>([]);
-  let diagnostics = $state<
-    Extract<PlaygroundEvent, { kind: "diagnostics" }>["diagnostics"]
-  >([]);
-  let lastRun = $state<string>();
-  let execution: ReturnType<typeof startPlayground> | undefined;
-  let generation = 0;
+  let selected = $state(0);
+  let copied = $state(false);
+  let copyError = $state(false);
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
   const example = $derived(data.examples[selected]);
-  const changed = $derived(drafts[selected] !== example.source);
-  function clear() {
-    generation++;
-    execution?.stop();
-    busy = false;
-    output = [];
-    diagnostics = [];
-    lastRun = undefined;
-    status = "Ready to run";
+  function resetCopy() {
+    if (copyTimer) clearTimeout(copyTimer);
+    copied = false;
+    copyError = false;
   }
-  let workbench: HTMLDivElement;
-  let workbenchSpace: HTMLDivElement;
-  let tabAnimation: Animation | undefined;
-  let tabChange = 0;
-  async function select(index: number) {
-    const change = ++tabChange;
-    const opacity = getComputedStyle(workbench).opacity;
-    tabAnimation?.cancel();
-    if (index === selected) return;
-    const motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // Reserve the panel's space before changing its contents. The remote example
-    // is shorter; collapsing it used to move the hero and the page mid-fade.
-    workbenchSpace.style.minHeight = `${Math.max(workbenchSpace.getBoundingClientRect().height, workbench.getBoundingClientRect().height)}px`;
-    if (motion) {
-      tabAnimation = workbench.animate([{ opacity }, { opacity: 0 }], {
-        duration: 160,
-        easing: "ease-in-out",
-        fill: "forwards",
-      });
-      try {
-        await tabAnimation.finished;
-      } catch {
-        return;
-      }
-    }
-    if (change !== tabChange) return;
-    clear();
-    selected = index;
-    editing = drafts[index] !== data.examples[index].source;
-    await tick();
-    if (change !== tabChange) return;
-    workbenchSpace.style.minHeight = `${Math.max(workbenchSpace.getBoundingClientRect().height, workbench.getBoundingClientRect().height)}px`;
-    tabAnimation?.cancel();
-    if (motion)
-      tabAnimation = workbench.animate([{ opacity: 0 }, { opacity: 1 }], {
-        duration: 300,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-      });
-  }
-  function reset() {
-    clear();
-    drafts[selected] = example.source;
-    editing = false;
-  }
-  function run() {
-    if (busy || selected === 0) return;
-    clear();
-    const id = generation;
-    lastRun = drafts[selected];
-    busy = true;
-    execution = startPlayground(drafts[selected], (event) => {
-      if (id !== generation) return;
-      if (event.kind === "diagnostics") diagnostics = event.diagnostics;
-      else if (event.kind === "output") output = [...output, event.text];
-      else if (event.kind === "loading") status = "Loading compiler…";
-      else if (event.kind === "compiling") status = "Compiling…";
-      else if (event.kind === "running") status = "Running…";
-      else {
-        busy = false;
-        if (event.kind === "result" || event.kind === "error")
-          output = [...output, event.text];
-        status =
-          event.kind === "result"
-            ? "Finished"
-            : event.kind === "invalid"
-              ? "Check your source"
-              : event.kind === "stopped"
-                ? "Stopped"
-                : "Failed";
-      }
-    });
-  }
-  function openPlayground() {
+  async function copySource() {
+    resetCopy();
     try {
-      sessionStorage.setItem("kalandra-home-source", drafts[selected]);
-      void goto("/docs/playground?from=home");
+      await navigator.clipboard.writeText(example.source);
+      copied = true;
     } catch {
-      status =
-        "Browser storage is unavailable. Copy your code before opening the playground.";
+      copyError = true;
     }
+    copyTimer = setTimeout(resetCopy, 2500);
+  }
+  function tokens(source: string) {
+    return source
+      .split(/(\b(?:fn|try|parallel|spawn|on|await|if|else)\b|->)/g)
+      .map((text) => ({
+        text,
+        keyword: /^(fn|try|parallel|spawn|on|await|if|else|->)$/.test(text),
+      }));
   }
   onDestroy(() => {
-    tabChange++;
-    tabAnimation?.cancel();
-    generation++;
-    execution?.stop();
+    if (copyTimer) clearTimeout(copyTimer);
   });
+  let menuOpen = $state(false);
+  let menuButton: HTMLButtonElement;
+  function handleNavigationKey(event: KeyboardEvent) {
+    if (event.key === "Escape" && menuOpen) {
+      menuOpen = false;
+      menuButton?.focus();
+    }
+  }
+  const repo = "https://github.com/kalandra-lang/kalandra";
 </script>
 
+{#snippet arrow(external = false)}
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.5"
+    aria-hidden="true"
+  >
+    {#if external}<path d="M6 18 18 6M6 6h12v12" />{:else}<path
+        d="M4 12h15m-6-6 6 6-6 6"
+      />{/if}
+  </svg>
+{/snippet}
+
 <svelte:head>
-  <title>Kalandra — Parallel and distributed programming</title>
+  <title>Kalandra — Native CPU and GPU programming</title>
   <meta
     name="description"
-    content="A functional language for parallel and distributed computing. Run typed functions in workers, make remote calls, and compile to JavaScript."
+    content="Kalandra is a native programming language for CPU and GPU computing. Compose typed functions, work with tensors, and place numerical tasks on Apple Metal."
   />
   <link rel="canonical" href="https://kalandra.dev/" />
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="Kalandra" />
+  <meta property="og:type" content="website" /><meta
+    property="og:site_name"
+    content="Kalandra"
+  />
   <meta
     property="og:title"
-    content="Kalandra — Parallel and distributed by design"
+    content="Kalandra — Native CPU and GPU programming"
   />
   <meta
     property="og:description"
-    content="A functional language and framework for parallel and distributed applications. Run functions in workers, call remote services, and compile to JavaScript."
+    content="A shared language for typed CPU workers, resident GPU graphs, and numerical computing."
   />
-  <meta property="og:url" content="https://kalandra.dev/" />
-  <meta
+  <meta property="og:url" content="https://kalandra.dev/" /><meta
     property="og:image"
-    content="https://kalandra.dev/social/kalandra.png"
+    content={socialImage.url}
   />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
+  <meta property="og:image:width" content={String(socialImage.width)} /><meta
+    property="og:image:height"
+    content={String(socialImage.height)}
+  /><meta property="og:image:alt" content={socialImage.alt} />
   <meta property="og:image:type" content="image/png" />
-  <meta
-    property="og:image:alt"
-    content="Kalandra. Functions here. Compute anywhere. A language and framework for parallel and distributed applications."
-  />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta
-    name="twitter:title"
-    content="Kalandra — Parallel and distributed by design"
-  />
-  <meta
-    name="twitter:description"
-    content="A language and framework for parallel and distributed applications. The next chapter of Clio."
-  />
-  <meta
-    name="twitter:image"
-    content="https://kalandra.dev/social/kalandra.png"
-  />
-  <meta
-    name="twitter:image:alt"
-    content="Kalandra. Functions here. Compute anywhere."
+  <meta name="twitter:image" content={socialImage.url} />
+  <meta name="twitter:image:alt" content={socialImage.alt} />
+  <meta name="twitter:card" content="summary_large_image" /><meta
+    name="theme-color"
+    content="#000000"
   />
 </svelte:head>
 
-<div class="landing">
+<svelte:window onkeydown={handleNavigationKey} />
+
+<div class="swiss-site">
   <a class="skip" href="#main">Skip to content</a>
   <header class="shell">
-    <a class="wordmark" href="/" aria-label="Kalandra home">kalandra.</a>
-    <nav aria-label="Main navigation">
-      <a href="/docs">Documentation</a><a href="/docs/playground">Playground</a
-      ><a href="/docs/blog">Blog</a><a
-        href="https://github.com/kalandra-lang/kalandra">GitHub ↗</a
-      >
+    <a class="brand" href="/" aria-label="Kalandra home"
+      ><span class="brand-mark" aria-hidden="true"></span>Kalandra</a
+    >
+    <button
+      bind:this={menuButton}
+      class="menu"
+      aria-expanded={menuOpen}
+      aria-controls="main-nav"
+      onclick={() => (menuOpen = !menuOpen)}
+      >{menuOpen ? "Close" : "Menu"}<svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+        >{#if menuOpen}<path d="m6 6 12 12M6 18 18 6" />{:else}<path
+            d="M4 8h16M4 16h16"
+          />{/if}</svg
+      ></button
+    >
+    <nav id="main-nav" class:open={menuOpen} aria-label="Main navigation">
+      <a href="/docs/syntax">Language</a><a href="/docs/gpu">GPU computing</a><a
+        href="/docs">Documentation</a
+      ><a href={repo}>GitHub</a>
     </nav>
   </header>
   <main id="main">
-    <section
-      class="hero shell"
-      aria-label="Kalandra introduction and live example"
-    >
-      <ComputeBackground />
-      <div class="intro">
-        <p class="eyebrow">FUNCTIONAL · PARALLEL · DISTRIBUTED</p>
-        <h1>Parallel and distributed<br />by design.</h1>
-        <p class="description">
-          Kalandra is a functional language for parallel and distributed
-          computing. Run functions in workers, call remote services, and compose
-          the results with pipelines—all from a language that compiles to
-          JavaScript.
+    <section class="hero shell" aria-labelledby="hero-title">
+      <h1 id="hero-title">
+        <span>One language.</span><span>CPU and GPU.</span>
+      </h1>
+      <div class="hero-intro">
+        <p class="hero-description">
+          Typed functions. Structured parallelism.<br />Native foundations for
+          numerical and AI workloads.
         </p>
-        <div class="actions">
-          <a
-            class="site-control site-control-primary"
-            href="/docs/getting-started"
-            >Get started <span aria-hidden="true">→</span></a
-          ><a class="site-control" href="/docs/guide">Read the language guide</a
-          >
+        <div class="hero-actions">
+          <a class="button" href="/docs/getting-started"
+            >Get started {@render arrow()}</a
+          ><a class="guide-link" href="/docs/syntax">Read the language guide</a>
         </div>
+        <p class="preview-note">Open source. Native development preview.</p>
       </div>
-      <div class="demo" aria-label="Try Kalandra">
-        <div class="tabs" role="group" aria-label="Choose an example">
-          {#each [1, 0, 2] as i}<button
-              class:active={selected === i}
-              aria-pressed={selected === i}
-              onclick={() => select(i)}
-              >{["Remote calls", "Parallel calls", "Type checks"][i]}</button
-            >{/each}
-        </div>
-        <div bind:this={workbenchSpace}>
-          <div class="workbench" bind:this={workbench}>
-            <div class="filebar">
-              <span>main.kalandra{changed ? " · edited" : ""}</span>
-              {#if selected !== 0}<div>
-                  <button
-                    class="site-control"
-                    onclick={() => (editing = !editing)}
-                    disabled={busy || changed}
-                    >{editing ? "View code" : "Edit code"}</button
-                  ><button class="site-control" onclick={reset}>Reset</button>
-                </div>{/if}
-            </div>
-            {#if editing}
-              <CodeEditor
-                bind:value={drafts[selected]}
-                disabled={busy}
-                compact
-                onrun={run}
-              />
-            {:else}
-              <pre
-                class="source"
-                class:remote-preview={selected === 0}
-                aria-label="Kalandra source"><code>{@html example.html}</code
-                ></pre>
-            {/if}
-            <div class="demo-caption">
-              <p>{example.description}</p>
-              {#if selected === 1}<p>
-                  <code>|double|</code> dispatches each call to a worker.
-                  <code>[await]</code> collects their results.
-                </p>{:else}<p>{example.detail}</p>{/if}
-            </div>
-            {#if selected === 1 && !changed}
-              <div
-                class="dispatch"
-                aria-label="Illustration of three independent calls, not a live worker monitor"
-              >
-                <span class="dispatch-label">THREE INDEPENDENT CALLS</span>
-                <div class="dispatch-calls">
-                  {#each [1, 2, 3] as value}<div>
-                      <code>double {value}</code><span aria-hidden="true"
-                        >→</span
-                      ><code>{value * 2}</code>
-                    </div>{/each}
-                </div>
-              </div>
-            {/if}
-            {#if selected === 0}
-              <div class="runbar">
-                <a class="site-control site-control-primary" href={example.link}
-                  >Run with a service →</a
-                ><span>Experimental</span>
-              </div>
-            {:else}
-              <div class="runbar">
-                <button
-                  class="site-control site-control-primary"
-                  onclick={run}
-                  disabled={busy}
-                  >Run example <span aria-hidden="true">▷</span></button
-                >{#if busy}<button
-                    class="site-control"
-                    onclick={() => execution?.stop()}>Stop</button
-                  >{/if}<span role="status">{status}</span>
-              </div>
-            {/if}
-            <div class="result" aria-live="polite">
-              {#if lastRun === undefined}<span class="result-label"
-                  >{selected === 0
-                    ? "EXPECTED WITH THE GUIDE’S CALIBRATION SERVICE"
-                    : "EXPECTED"}</span
-                ><code>{example.expected}</code>
-              {:else}<span class="result-label"
-                  >{lastRun !== drafts[selected]
-                    ? "PREVIOUS RUN · SOURCE HAS CHANGED"
-                    : "OUTPUT"}</span
-                >{#each diagnostics as diagnostic}<p class="diagnostic">
-                    <strong>{diagnostic.code}</strong>
-                    {diagnostic.message}
-                  </p>{/each}{#each output as line}<pre>{line}</pre>{/each}{#if busy && !output.length && !diagnostics.length}<span
-                    >Working…</span
-                  >{/if}{/if}
-            </div>
-            <div class="editor-footer">
-              {#if selected === 0}<span
-                  >Requires a running Bun service, client contract, and endpoint
-                  bindings.</span
-                >{:else}<span>Runs in your browser · 10 second limit</span
-                ><button onclick={openPlayground}>Open in playground ↗</button
-                >{/if}
-            </div>
+      <ExecutionField />
+    </section>
+
+    <section class="examples shell" aria-labelledby="examples-title">
+      <div class="example-intro">
+        <h2 id="examples-title">Write functions.<br />Place the work.</h2>
+        <p aria-live="polite">{example.description}</p>
+      </div>
+      <div class="code-example">
+        <div class="filebar">
+          <div class="source-picker">
+            <label class="sr-only" for="example"
+              >Choose a native code example</label
+            >
+            <select id="example" bind:value={selected} onchange={resetCopy}>
+              {#each data.examples as item, index}<option value={index}
+                  >{item.file}</option
+                >{/each}
+            </select>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg
+            >
+          </div>
+          <div class="code-actions">
+            <a
+              href={`${repo}/blob/native/${example.path}`}
+              aria-label={`View complete ${example.title} source`}
+              >Source {@render arrow(true)}</a
+            ><button
+              onclick={copySource}
+              aria-label="Copy displayed source code"
+              >{copied ? "Copied" : copyError ? "Select code" : "Copy"}</button
+            >
           </div>
         </div>
+        <!-- Local overflow is keyboard accessible for longer native source choices. -->
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <pre tabindex="0" aria-label={`${example.title} source code`}><code
+            >{#each tokens(example.source) as token}<span
+                class:keyword={token.keyword}>{token.text}</span
+              >{/each}</code
+          ></pre>
+        <span class="sr-only" role="status"
+          >{copied
+            ? "Source copied to clipboard."
+            : copyError
+              ? "Clipboard unavailable. Select and copy the source manually."
+              : ""}</span
+        >
       </div>
     </section>
-    <aside class="release-announcement shell" aria-label="Latest Kalandra news">
-      <a href="/docs/blog/reviving-clio">Kalandra 0.13.0 development preview</a>
-      <span>is now available to try. Clio is coming back.</span>
-    </aside>
+
+    <section class="computing shell" aria-labelledby="computing-title">
+      <p class="section-label">Native computing</p>
+      <div class="computing-heading">
+        <h2 id="computing-title">From tensors to parallel tasks.</h2>
+        <a class="platform-summary" href="#platforms"
+          ><span>macOS / CPU + Metal</span><span>Linux, Windows / CPU</span></a
+        >
+      </div>
+      <p class="computing-intro">
+        Express the computation as functions. Make execution and data movement
+        explicit. A shared language for typed CPU workers and resident GPU
+        graphs.
+      </p>
+      <div class="capabilities">
+        <article>
+          <h3>Compose functions.</h3>
+          <p>
+            Build numerical graphs from typed functions, tensor arithmetic,
+            matrix products and reductions. Intermediate results can remain on
+            the GPU.
+          </p>
+          <a href="/docs/functions">The language {@render arrow()}</a>
+        </article>
+        <article>
+          <h3>Place the work.</h3>
+          <p>
+            Dispatch CPU workers or place a numerical task on the GPU. Transfer
+            tensors explicitly, await results, and keep task lifetimes within
+            parallel scopes.
+          </p>
+          <a href="/docs/parallelism">Parallel execution {@render arrow()}</a>
+        </article>
+        <article>
+          <h3>Build native programs.</h3>
+          <p>
+            Compile native applications with a checker, formatter, language
+            server and VS Code extension supporting your development workflow.
+          </p>
+          <a href="/docs/tooling">Native tooling {@render arrow()}</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="numerics shell" aria-labelledby="numerics-title">
+      <div class="numerics-copy">
+        <h2 id="numerics-title">Numerical by nature.</h2>
+        <p>
+          Matrix products, tensor arithmetic and reductions are foundations of
+          modern AI and LLM systems. Work with them in a typed native language,
+          with control over where data lives and computation runs.
+        </p>
+        <p>
+          GPU programs support all ten native numeric types and dense tensor
+          ranks zero through eight. Hardware float32 matmul supports optimized
+          accumulation, with an explicit fixed-tree policy. GPU float64 requires
+          software fallback.
+        </p>
+        <a class="inline-link" href="/docs/gpu-numerics"
+          >Numerical policies {@render arrow()}</a
+        >
+      </div>
+      <div class="operation-reference">
+        <div>
+          <code>matmul(a, b)</code>
+          <p>Compose rank-two matrix products into resident graphs.</p>
+        </div>
+        <div>
+          <code>relu(values)</code>
+          <p>Apply a tensor activation without a trip back to the CPU.</p>
+        </div>
+        <div>
+          <code>reduceSum(values)</code>
+          <p>Balanced sums over typed numerical tensors.</p>
+        </div>
+        <div>
+          <code>transfer(values, device)</code>
+          <p>Explicit data movement between CPU and GPU.</p>
+        </div>
+        <a class="inline-link" href="/docs/gpu"
+          >Explore GPU computing {@render arrow()}</a
+        >
+      </div>
+      <p class="scope-note">
+        Apple Metal is the current GPU backend. Model loading, a full LLM
+        inference runtime and CUDA remain outside the current scope.
+      </p>
+    </section>
+
     <section
-      use:reveal
-      class="chapter shell introduction"
-      aria-labelledby="what-title"
+      class="platforms shell"
+      id="platforms"
+      aria-labelledby="platform-title"
     >
-      <div class="section-heading">
-        <h2 id="what-title">What is Kalandra?</h2>
-        <p>
-          Kalandra is a functional programming language and a framework for
-          parallel and distributed applications. Write functions, run
-          independent work in parallel, and call services on other machines—with
-          less communication code to assemble yourself.
-        </p>
-      </div>
-      <div class="overview-grid">
-        <div>
-          <h3>A language built around functions</h3>
-          <p>
-            Describe your data with types and records, and compose functions
-            into programs. <strong
-              >Types check the data crossing worker and service boundaries</strong
-            > before you run the code.
-          </p>
-          <a href="/docs/guide">Meet the language →</a>
-        </div>
-        <div>
-          <h3>A framework for distributing work</h3>
-          <p>
-            Send independent calls to workers, or import a remote service and
-            call its functions. <strong
-              >The runtime handles task dispatch and serialization</strong
-            >; you choose where the work belongs.
-          </p>
-          <a href="/docs/guide/parallel">Explore the execution model →</a>
-        </div>
-        <div>
-          <h3>Built on JavaScript</h3>
-          <p>
-            Kalandra <strong>compiles to JavaScript modules</strong> and can use existing
-            JavaScript packages. Try it in the browser playground, or use Bun to build
-            local projects and experimental remote services.
-          </p>
-          <a href="/docs/getting-started">Start a project →</a>
-        </div>
-      </div>
-    </section>
-    <section use:reveal class="chapter shell" aria-labelledby="program-title">
-      <div class="section-heading">
-        <p class="eyebrow">WORKERS AND REMOTE CALLS</p>
-        <h2 id="program-title">
-          Distribute the work. Keep the program in view.
-        </h2>
-        <p>
-          A local worker can call a remote service and collect its results.
-          Here, a batch of sensor readings is sent to a calibration service
-          through a typed client contract.
-        </p>
-      </div>
+      <h2 id="platform-title">Native across platforms.</h2>
+      <p class="section-intro">
+        The same language and tools for CPU programs. Apple Metal on supported
+        Macs.
+      </p>
+      <!-- The platform table keeps horizontal overflow inside a keyboard-focusable region. -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <div
-        class="execution-path"
-        aria-label="The main program dispatches batch to a local worker, which calls the remote calibration service"
+        class="platform-table"
+        tabindex="0"
+        role="region"
+        aria-label="Supported native platforms"
       >
-        <div><span>Main program</span><code>await |batch| 10</code></div>
-        <span aria-hidden="true">→</span>
-        <div><span>Local worker</span><code>batch</code></div>
-        <span aria-hidden="true">→</span>
-        <div><span>Remote service</span><code>calibrate</code></div>
-      </div>
-      <div class="story-grid">
-        <div class="story-copy">
-          <h3>Two boundaries. Explicit in the source.</h3>
-          <p>
-            <code>|batch|</code> dispatches a function to a local worker. Inside
-            that worker, <code>calibrate</code> makes remote calls because it
-            comes from a <code>remote:</code> import.
-          </p>
-          <p>
-            The client contract supplies the record and function types. The
-            compiler checks the values crossing those boundaries, and <code
-              >[await]</code
-            > collects the results of the mapped calls.
-          </p>
-          <a href="/docs/guide/workflows"
-            >Run the complete remote batch example →</a
+        <table>
+          <thead
+            ><tr
+              ><th scope="col">Platform</th><th scope="col">Execution</th><th
+                scope="col">Current baseline</th
+              ></tr
+            ></thead
+          ><tbody
+            ><tr
+              ><th scope="row">macOS</th><td>CPU + Apple Metal GPU</td><td
+                >macOS 26+, Apple silicon</td
+              ></tr
+            ><tr
+              ><th scope="row">Linux</th><td>CPU</td><td
+                >x86-64, Ubuntu 24.04 / glibc 2.39</td
+              ></tr
+            ><tr
+              ><th scope="row">Windows</th><td>CPU</td><td
+                >x86-64, Windows 11 with C++ build tools</td
+              ></tr
+            ></tbody
           >
-          <p class="small-note">
-            Remote services are experimental. This example requires the Bun
-            service, a generated client contract, and endpoint bindings; it does
-            not run in the browser playground.
-          </p>
-        </div>
-        <div class="code-sheet">
-          <div class="filebar">remote-batch / client / main.kalandra</div>
-          <pre class="snippet remote-source"><code
-              >{@html data.remoteClient}</code
-            ></pre>
-          <div class="result">
-            <span class="result-label">RESULT · TWO BATCHES</span><code
-              >[12, 22, 12, 22]</code
-            >
-          </div>
-        </div>
+        </table>
       </div>
+      <a class="inline-link" href="/docs/installation"
+        >Distribution and toolchain requirements {@render arrow()}</a
+      >
     </section>
 
-    <section use:reveal class="chapter shell" aria-labelledby="js-title">
-      <div class="section-heading">
-        <p class="eyebrow">PART OF THE JAVASCRIPT WORLD</p>
-        <h2 id="js-title">A different source language. Familiar output.</h2>
-        <p>
-          Kalandra emits JavaScript modules and source maps. Ordinary functions
-          stay ordinary functions in the generated code.
-        </p>
-      </div>
-      <div class="code-pair">
-        <div class="code-sheet">
-          <div class="filebar">double.kalandra</div>
-          <pre class="snippet compact"><code>{@html data.compiledSource}</code
-            ></pre>
-        </div>
-        <div class="code-sheet">
-          <div class="filebar">
-            Generated JavaScript · built by this compiler
-          </div>
-          <pre class="snippet compact"><code class="syntax-code"
-              >{@html data.javascript}</code
-            ></pre>
-        </div>
-      </div>
-      <div class="interop-note">
-        <div>
-          <h3>Bring an existing package.</h3>
-          <p>
-            Use explicit <code>esm:</code> or <code>cjs:</code> imports. Packages
-            can provide Kalandra signatures so their functions have known types. This
-            helper is imported by the invoice workflow in the guide:
-          </p>
-          <a href="/docs/guide/modules">Modules and package imports →</a>
-        </div>
-        <div class="code-sheet">
-          <div class="filebar">invoice-math / index.js</div>
-          <pre class="snippet compact"><code class="syntax-code"
-              >{@html data.invoiceJs}</code
-            ></pre>
-        </div>
-      </div>
-    </section>
-
-    <section use:reveal class="chapter shell" aria-labelledby="runtime-title">
-      <div class="section-heading">
-        <p class="eyebrow">CHOOSE WHERE THE WORK RUNS</p>
-        <h2 id="runtime-title">
-          Parallel on your machine. Distributed across services.
-        </h2>
-      </div>
-      <div class="runtime-list">
-        <div>
-          <h3>In the browser</h3>
-          <p>
-            The playground compiles and runs a single file, including typed
-            parallel calls in browser workers. No installation required.
-          </p>
-          <a href="/docs/playground">Try a program →</a>
-          <p class="small-note">
-            Fresh sandbox per run. No package imports or network access.
-          </p>
-        </div>
-        <div>
-          <h3>Locally with Bun</h3>
-          <p>
-            Build multi-file projects, import packages, and run parallel work in
-            a bounded subprocess pool. Nested tasks share the scheduler, with
-            cancellation and deadlines.
-          </p>
-          <a href="/docs/getting-started">Install Kalandra →</a>
-          <p class="small-note">
-            Use project build or run for managed parallel execution.
-          </p>
-        </div>
-        <div>
-          <h3>
-            Across services <span class="preview-label">Experimental</span>
-          </h3>
-          <p>
-            Expose typed tasks through authenticated Bun services. Generated
-            contracts describe what clients can send and receive.
-          </p>
-          <a href="/docs/guide/workflows">Explore the remote batch example →</a>
-          <p class="small-note">
-            Verified on loopback HTTP. Public hosting and TLS need separate
-            setup.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section use:reveal class="chapter shell" aria-labelledby="tools-title">
-      <div class="story-grid">
-        <div class="story-copy">
-          <p class="eyebrow">WORK ON A PROJECT</p>
-          <h2 id="tools-title">Create. Check. Build. Repeat.</h2>
-          <p>
-            The CLI creates an offline starter with two modules and a typed
-            parallel function. Check source without running it, or rebuild when
-            files change.
-          </p>
-          <p class="muted">
-            The language server provides diagnostics, completion, type hover,
-            definition lookup, references, and rename. Connect it through your
-            editor’s LSP client; editor setup is currently manual.
-          </p>
-          <a href="/docs/development#editor-support">Set up editor support →</a>
-        </div>
-        <div class="code-sheet">
-          <div class="filebar">With the installed Kalandra CLI</div>
-          <pre class="snippet commands"><code class="syntax-code"
-              >{@html data.commands}</code
-            ></pre>
-          <div class="result">
-            <span class="result-label">STARTER RESULT</span><code
-              >[2, 4, 6]</code
-            >
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section use:reveal class="chapter shell" aria-labelledby="learn-title">
-      <div class="section-heading">
-        <p class="eyebrow">LEARN AT YOUR OWN PACE</p>
-        <h2 id="learn-title">Take a closer look.</h2>
-        <p>
-          Short lessons with executable examples, from a first function to a
-          complete project.
-        </p>
-      </div>
-      <div class="lesson-list">
-        {#each data.lessons as lesson}<a href={"/docs/guide/" + lesson[0]}
-            ><h3>{lesson[1]} <span aria-hidden="true">→</span></h3>
-            <p>{lesson[2]}</p>
-            <code>{@html lesson[3]}</code></a
-          >{/each}
-      </div>
-    </section>
-    <section use:reveal id="project" class="project shell">
+    <section class="onboarding shell" aria-labelledby="start-title">
       <div>
-        <p class="eyebrow">A FRESH BEGINNING</p>
-        <h2>Clio, continued.</h2>
+        <h2 id="start-title">Your first native project.</h2>
+        <p>
+          Install the toolchain, create a project, check its sources, and
+          compile an executable. The starter includes two modules and a typed
+          parallel map.
+        </p>
+        <a class="button" href="/docs/getting-started"
+          >Get started {@render arrow()}</a
+        ><a class="editor-link inline-link" href="/docs/tooling"
+          >Set up your editor {@render arrow()}</a
+        >
       </div>
+      <div class="terminal">
+        <p>With the native compiler installed</p>
+        <pre><code
+            >kalandra new my-app
+kalandra-check --project my-app/kalandra.toml
+kalandra --project my-app/kalandra.toml \
+  -o my-app/program
+./my-app/program</code
+          ></pre>
+      </div>
+    </section>
+
+    <section class="open-source shell">
+      <h2>Open source,<br />in development.</h2>
       <div>
         <p>
-          Clio explored parallel and distributed programming. Kalandra brings it
-          back with a rebuilt compiler, tooling, and documentation—and a new
-          name.
+          Explore the implementation, read the language design, or contribute to
+          the next native milestone.
         </p>
-        <p class="muted">
-          This is a development preview. Start with the browser playground, or
-          install the CLI from npm with Bun.
-        </p>
-        <div class="project-links">
-          <a href="/docs/getting-started">Installation →</a><a
-            href="/docs/guide/limits">Current limitations →</a
-          >
-        </div>
+        <a class="inline-link" href={repo}
+          >Kalandra on GitHub {@render arrow(true)}</a
+        ><a class="inline-link" href={`${repo}/blob/native/docs/roadmap.md`}
+          >Development roadmap {@render arrow()}</a
+        ><a class="inline-link" href="/docs/release-notes"
+          >0.99.0 release notes {@render arrow()}</a
+        >
       </div>
     </section>
   </main>
   <footer class="shell">
-    <a class="wordmark" href="/" aria-label="Kalandra home">kalandra.</a><span
-      >Open source · Apache 2.0</span
-    ><a href="https://github.com/kalandra-lang/kalandra">GitHub ↗</a><a
-      href="/docs">Documentation →</a
+    <a class="brand" href="/" aria-label="Kalandra home"
+      ><span class="brand-mark" aria-hidden="true"></span>Kalandra</a
     >
+    <p>A native language for CPU and GPU computing.</p>
+    <nav aria-label="Footer navigation">
+      <a href="/docs">Documentation</a><a href={repo}>GitHub</a><a
+        href={`${repo}/blob/native/LICENSE`}>Apache 2.0</a
+      >
+    </nav>
   </footer>
 </div>
 
 <style>
-  .landing {
-    color: var(--foreground);
-    background: var(--background);
+  .swiss-site {
+    --page: #080808;
+    --ink: #f6f6f6;
+    --muted: #b5b5b5;
+    --rule: #555;
+    --signal: #f86737;
+    background: var(--page);
+    color: var(--ink);
+    font-family: "Geist Variable", sans-serif;
     min-height: 100vh;
   }
+  .swiss-site ::selection {
+    background: var(--signal);
+    color: var(--page);
+  }
   .shell {
-    width: min(1120px, calc(100% - 64px));
+    width: min(1440px, calc(100% - 96px));
     margin-inline: auto;
-  }
-  header {
-    height: 96px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-  }
-  .wordmark {
-    font-size: 26px;
-    font-weight: 650;
-    letter-spacing: -1.2px;
-    text-decoration: none;
-  }
-  nav,
-  .actions,
-  .project-links {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-  }
-  nav {
-    font-size: 14px;
   }
   a {
     color: inherit;
-    text-underline-offset: 5px;
-  }
-  a.site-control-primary {
-    color: var(--primary-foreground);
-  }
-  nav a {
     text-decoration: none;
   }
-  nav a:hover {
-    text-decoration: underline;
-  }
-  .release-announcement {
-    box-sizing: border-box;
-    border-radius: var(--radius);
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 4px 7px;
-    padding: 20px 24px;
-    text-align: center;
-    background: var(--muted);
-    border-block: 1px solid var(--border);
-    font-size: 15px;
-    line-height: 1.6;
-  }
-  .release-announcement a {
-    font-weight: 600;
-    text-decoration: underline;
-  }
-  .hero {
-    position: relative;
-    isolation: isolate;
-    display: grid;
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr);
-    gap: 44px;
-    align-items: center;
-    padding-block: 56px 64px;
-  }
-  .intro {
-    min-width: 0;
-  }
-  .demo {
-    min-width: 0;
-  }
-  .source.remote-preview {
-    height: auto;
-    min-height: 218px;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  .demo-caption {
-    padding: 0 20px 16px;
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--muted-foreground);
-  }
-  .demo-caption p {
-    margin: 0 0 6px;
-  }
-  .demo-caption code {
-    color: var(--foreground);
-  }
-  .dispatch {
-    margin: 0 20px 18px;
-    padding: 12px 0;
-    border-block: 1px solid var(--border);
-  }
-  .dispatch-label {
-    display: block;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    color: var(--muted-foreground);
-    margin-bottom: 10px;
-  }
-  .dispatch-calls {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-  .dispatch-calls > div {
-    display: flex;
-    justify-content: space-between;
-    gap: 6px;
-    font-size: 12px;
-  }
-  .dispatch-calls > div + div {
-    border-left: 1px solid var(--border);
-    padding-left: 10px;
-  }
-
-  .eyebrow {
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    font-weight: 650;
-    color: var(--muted-foreground);
-    margin: 0 0 20px;
-  }
-  h1 {
-    font-size: clamp(38px, 4vw, 52px);
-    font-weight: 550;
-    letter-spacing: -0.045em;
-    line-height: 1.08;
-    margin: 0;
-  }
-  .description {
-    max-width: 670px;
-    font-size: 17px;
-    line-height: 1.65;
-    color: var(--muted-foreground);
-    margin: 26px 0;
-  }
-  .actions {
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    gap: 24px;
-  }
-  .tabs button {
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: none;
-    color: var(--muted-foreground);
-    padding: 16px 0;
+  button {
     font: inherit;
-    font-size: 14px;
-    cursor: pointer;
   }
-  .tabs button.active {
-    color: var(--foreground);
-    border-bottom-color: var(--foreground);
-  }
-  h2 {
-    font-size: 30px;
-    line-height: 1.2;
-    font-weight: 550;
-    letter-spacing: -0.03em;
-    margin: 0 0 20px;
-  }
-  .project p:not(.eyebrow) {
-    font-size: 16px;
-    line-height: 1.7;
-  }
-  .muted {
-    color: var(--muted-foreground);
-  }
-  .project-links {
-    font-size: 14px;
-  }
-  .workbench {
-    box-sizing: border-box;
-    background: var(--background);
-    min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .filebar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 16px;
-    background: var(--muted);
-    border-bottom: 1px solid var(--border);
-    font: 12px var(--font-mono);
-  }
-  .filebar div {
-    display: flex;
-    gap: 6px;
-  }
-  .filebar button {
-    font-size: 12px;
-    padding: 4px 8px;
-  }
-  .source {
-    box-sizing: border-box;
-    display: block;
-    width: 100%;
-    height: 218px;
-    overflow: auto;
-    margin: 0;
-    padding: 24px;
-    font: 500 15px/1.85 var(--font-mono);
-    tab-size: 2;
-    background: var(--background);
-    color: var(--foreground);
-    border: 0;
-    white-space: pre;
-  }
-  .runbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 16px 16px;
-  }
-  .runbar span {
-    font-size: 12px;
-    color: var(--muted-foreground);
-  }
-  .result {
-    padding: 18px 24px;
-    border-top: 1px solid var(--border);
-    background: var(--muted);
-    min-height: 90px;
-    overflow-wrap: anywhere;
-  }
-  .result-label {
-    display: block;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--muted-foreground);
-    margin-bottom: 10px;
-  }
-  .result code,
-  .result pre {
-    font: 14px/1.6 var(--font-mono);
-    margin: 0;
-    white-space: pre-wrap;
-  }
-  .diagnostic {
-    font-size: 13px;
-    line-height: 1.6;
-    margin: 0 0 10px;
-  }
-  .editor-footer {
-    padding: 12px 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--muted-foreground);
-  }
-  .editor-footer button {
-    border: 0;
-    background: none;
-    color: var(--foreground);
-    padding: 0;
-    font: inherit;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-  }
-  .project {
-    padding-block: 48px 64px;
-    border-top: 1px solid var(--border);
-    display: grid;
-    grid-template-columns: 0.85fr 1.5fr;
-    gap: 56px;
-  }
-  .project p {
-    margin-top: 0;
-  }
-  .project-links {
-    margin-top: 24px;
-    flex-wrap: wrap;
-  }
-  footer {
-    border-top: 1px solid var(--border);
-    padding-block: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    font-size: 12px;
-    color: var(--muted-foreground);
-  }
-  footer .wordmark {
-    font-size: 20px;
-  }
-  button:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-  button:focus-visible,
-  a:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 3px;
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 6px;
   }
   .skip {
-    position: absolute;
+    position: fixed;
     top: -100px;
-    padding: 12px;
-    background: var(--background);
+    left: 24px;
+    z-index: 50;
+    padding: 12px 18px;
+    background: var(--ink);
+    color: var(--page);
   }
   .skip:focus {
-    top: 0;
+    top: 12px;
   }
-  .execution-path {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    padding: 24px 0;
-    margin-bottom: 32px;
-    border-block: 1px solid var(--border);
-  }
-  .execution-path div {
-    flex: 1;
-    display: grid;
-    gap: 8px;
-  }
-  .execution-path div span {
-    font-size: 13px;
-    color: var(--muted-foreground);
-  }
-  .execution-path code {
-    font-size: 14px;
-  }
-  .remote-source {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  @media (max-width: 520px) {
-    .execution-path {
-      gap: 10px;
-    }
-    .execution-path code {
-      font-size: 11px;
-    }
-    .execution-path div span {
-      font-size: 11px;
-    }
-  }
-  .chapter {
-    padding-block: 56px;
-    border-top: 1px solid var(--border);
-  }
-  .introduction > .section-heading {
-    margin-inline: auto;
-    text-align: center;
-    margin-bottom: 40px;
-  }
-  .overview-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 36px;
-  }
-  .overview-grid > div {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .overview-grid p {
-    font-size: 16px;
-    line-height: 1.7;
-    color: var(--muted-foreground);
-    flex: 1;
-  }
-  .overview-grid strong {
-    color: var(--foreground);
-    font-weight: 600;
-  }
-  .overview-grid a {
-    font-size: 14px;
-  }
-  @media (max-width: 800px) {
-    .overview-grid {
-      grid-template-columns: 1fr;
-      gap: 28px;
-    }
-    .introduction > .section-heading {
-      text-align: left;
-    }
-  }
-  .section-heading {
-    max-width: 760px;
-    margin-bottom: 32px;
-  }
-  .section-heading p:not(.eyebrow),
-  .story-copy p,
-  .interop-note p,
-  .runtime-list p {
-    font-size: 16px;
-    line-height: 1.7;
-  }
-  .section-heading p:not(.eyebrow) {
-    color: var(--muted-foreground);
-  }
-  .story-grid {
-    display: grid;
-    grid-template-columns: 0.85fr 1.5fr;
-    gap: 56px;
-    align-items: start;
-  }
-  h3 {
-    font-size: 19px;
-    font-weight: 550;
-    letter-spacing: -0.02em;
-    margin: 0 0 14px;
-  }
-  .story-copy p {
-    margin: 0 0 20px;
-  }
-  .story-copy a,
-  .interop-note a,
-  .runtime-list a {
-    font-size: 14px;
-  }
-  .code-sheet {
-    min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .snippet {
-    margin: 0;
-    padding: 24px;
-    overflow: auto;
-    font: 500 14px/1.85 var(--font-mono);
-    background: var(--background);
-  }
-  .story-copy .small-note,
-  .runtime-list .small-note {
-    font-size: 12px;
-    line-height: 1.65;
-    color: var(--muted-foreground);
-    margin-top: 20px;
-  }
-  .code-pair {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }
-  .compact {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  .interop-note {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 40px;
-    align-items: center;
-    margin-top: 36px;
-  }
-  .runtime-list {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 32px;
-  }
-  .runtime-list > div {
-    border-top: 1px solid var(--border);
-    padding-top: 24px;
-  }
-  .preview-label {
-    display: block;
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--muted-foreground);
-    letter-spacing: 0;
-    margin-top: 8px;
-  }
-  .lesson-list {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 32px;
-  }
-  .lesson-list a {
-    text-decoration: none;
-    border-top: 1px solid var(--border);
-    padding-top: 22px;
-    min-width: 0;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .lesson-list a,
-    .site-control {
-      transition:
-        color 160ms ease,
-        background-color 160ms ease,
-        transform 160ms ease;
-    }
-    .lesson-list a:hover,
-    .site-control:hover {
-      transform: translateY(-2px);
-    }
-    .lesson-list h3 span {
-      transition: transform 160ms ease;
-    }
-    .lesson-list a:hover h3 span {
-      transform: translateX(3px);
-    }
-  }
-  .lesson-list a:hover h3 {
-    text-decoration: underline;
-    text-underline-offset: 5px;
-  }
-  .lesson-list h3 {
+  header {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    min-height: 64px;
+    border-bottom: 1px solid var(--rule);
+    gap: 32px;
   }
-  .lesson-list p {
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--muted-foreground);
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 25px;
+    font-weight: 750;
+    letter-spacing: -0.04em;
   }
-  .lesson-list code {
-    font-size: 12px;
-    overflow-wrap: anywhere;
+  .brand-mark {
+    width: 30px;
+    height: 21px;
+    background: currentColor;
+    mask: url("/brand/kalandra-mark.svg") center/contain no-repeat;
   }
-  @media (max-width: 800px) {
-    .story-grid,
-    .code-pair,
-    .interop-note {
-      grid-template-columns: 1fr;
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 34px;
+    font-size: 16px;
+  }
+  nav a {
+    padding: 16px 0;
+  }
+  nav a:hover,
+  .guide-link:hover {
+    color: var(--signal);
+  }
+  .menu {
+    display: none;
+  }
+  .hero {
+    padding-top: 52px;
+    padding-bottom: 34px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h1 {
+    font-size: clamp(56px, 11.56vw, 184px);
+    font-weight: 800;
+    line-height: 0.86;
+    letter-spacing: -0.04em;
+    margin: 0;
+  }
+  h1 span {
+    display: block;
+  }
+  h1 span:last-child {
+    font-size: 1.04em;
+  }
+  .hero-intro {
+    margin: 17px 0 0 50.2%;
+  }
+  .hero-description {
+    color: #d6d6dc;
+    font-size: clamp(18px, 1.8vw, 25px);
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    margin-top: 27px;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+    background: var(--signal);
+    color: var(--page);
+    font-size: 22px;
+    line-height: 1.2;
+    padding: 16px 32px;
+    min-height: 60px;
+    white-space: nowrap;
+  }
+  .button:hover {
+    background: #ff8057;
+  }
+  .guide-link {
+    font-size: 18px;
+    line-height: 1.4;
+    text-decoration: underline;
+    text-underline-offset: 8px;
+    text-decoration-thickness: 1px;
+    white-space: nowrap;
+  }
+  .preview-note {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.5;
+    margin: 18px 0 0;
+  }
+  @media (min-width: 1600px) {
+    h1 {
+      font-size: 184px;
+    }
+  }
+  @media (max-width: 1050px) {
+    nav {
+      gap: 23px;
+      font-size: 14px;
+    }
+    .hero-actions {
       gap: 24px;
+      flex-wrap: wrap;
     }
-    .runtime-list,
-    .lesson-list {
-      grid-template-columns: 1fr 1fr;
+    .guide-link {
+      font-size: 16px;
     }
-  }
-  @media (max-width: 520px) {
-    .chapter {
-      padding-block: 36px;
+    .hero-description {
+      font-size: 18px;
     }
-    .runtime-list,
-    .lesson-list {
-      grid-template-columns: 1fr;
+    .button {
+      font-size: 19px;
+      min-height: 54px;
+      padding: 14px 24px;
     }
-    .snippet {
-      padding: 18px 14px;
-      font-size: 12px;
+    .hero-intro {
+      margin-left: 45%;
     }
   }
-  @media (max-width: 800px) {
-    .project {
-      grid-template-columns: 1fr;
-      gap: 24px;
+  @media (max-width: 760px) {
+    .shell {
+      width: calc(100% - 40px);
+    }
+    header {
+      min-height: 64px;
+      position: relative;
+      flex-wrap: wrap;
+      gap: 0;
+    }
+    .brand {
+      font-size: 23px;
+    }
+    .brand-mark {
+      width: 28px;
+      height: 20px;
+    }
+    .menu {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 0;
+      background: none;
+      color: var(--ink);
+      padding: 15px 0;
+      font-size: 14px;
+    }
+    nav {
+      display: none;
+      width: 100%;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 8px 0 16px;
+    }
+    nav.open {
+      display: flex;
+    }
+    nav a {
+      padding: 13px 0;
+      border-top: 1px solid #2d2d2d;
+      font-size: 16px;
     }
     .hero {
-      grid-template-columns: 1fr;
-      gap: 32px;
-      padding-block: 36px 48px;
+      padding-top: 44px;
+      padding-bottom: 26px;
+    }
+    h1 {
+      font-size: 12.35vw;
+      line-height: 0.94;
+    }
+    .hero-intro {
+      margin: 30px 0 0;
+    }
+    .hero-description {
+      font-size: 18px;
+      max-width: 560px;
+    }
+    .hero-actions {
+      gap: 24px;
+      margin-top: 24px;
+    }
+    .button {
+      font-size: 17px;
+      min-height: 52px;
+      gap: 26px;
+      padding: 14px 22px;
+    }
+    .guide-link {
+      font-size: 15px;
+    }
+    .preview-note {
+      font-size: 13px;
+      margin-top: 20px;
     }
   }
-  @media (max-width: 520px) {
+  @media (max-width: 359px) {
     .shell {
       width: calc(100% - 32px);
     }
-    header {
-      height: 76px;
+    .hero-actions {
+      align-items: flex-start;
+      gap: 24px;
+      flex-direction: column;
     }
-    nav {
-      gap: 16px;
-      font-size: 12px;
+    .hero-description {
+      font-size: 16px;
     }
-    nav a:last-child {
-      display: none;
+  }
+
+  h2 {
+    font-weight: 750;
+    letter-spacing: -0.04em;
+    line-height: 1.02;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  .examples {
+    display: grid;
+    grid-template-columns: 1.045fr 1fr;
+    gap: 60px;
+    padding-block: 40px 36px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .example-intro h2 {
+    font-size: clamp(38px, 6vw, 88px);
+    line-height: 0.96;
+    margin: 0;
+  }
+  .example-intro > p {
+    color: #d6d6dc;
+    font-size: 20px;
+    line-height: 1.4;
+    letter-spacing: -0.015em;
+    margin: 18px 0 0;
+    max-width: 550px;
+  }
+  .code-example {
+    min-width: 0;
+    align-self: start;
+    border: 1px solid var(--rule);
+  }
+  .filebar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+    padding: 6px 18px;
+    border-bottom: 1px solid var(--rule);
+    font:
+      12px/1.4 "Fira Code Variable",
+      monospace;
+  }
+  .source-picker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .source-picker svg {
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+  select {
+    appearance: none;
+    min-width: 0;
+    max-width: 220px;
+    min-height: 24px;
+    padding: 0 2px;
+    border: 0;
+    border-radius: 0;
+    color: var(--ink);
+    background: var(--page);
+    font: inherit;
+    cursor: pointer;
+  }
+  select:focus-visible,
+  pre:focus-visible,
+  .platform-table:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 5px;
+  }
+  .code-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .code-actions a {
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .code-actions svg {
+    width: 12px;
+    height: 12px;
+  }
+  .code-actions button {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    cursor: pointer;
+    min-width: 34px;
+    min-height: 24px;
+    text-align: right;
+  }
+  .code-actions a:hover,
+  .code-actions button:hover {
+    color: var(--signal);
+  }
+  .code-example pre {
+    margin: 0;
+    padding: 20px 24px 24px;
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 164px;
+    max-height: 330px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    tab-size: 2;
+    scrollbar-color: #777 var(--page);
+    scrollbar-width: thin;
+  }
+  .code-example code {
+    font-family: "Fira Code Variable", monospace;
+  }
+  .keyword {
+    color: var(--signal);
+  }
+  .computing {
+    padding-block: 26px 80px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-label {
+    font-size: 11px;
+    line-height: 1.3;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 18px;
+  }
+  .computing-heading {
+    display: grid;
+    grid-template-columns: 1fr 225px;
+    align-items: center;
+    gap: 35px;
+  }
+  .computing-heading h2 {
+    font-size: clamp(32px, 5vw, 72px);
+    margin: 0;
+  }
+  .platform-summary {
+    font-size: 13px;
+    line-height: 1.8;
+    letter-spacing: 0.01em;
+    padding: 8px 0 8px 32px;
+    border-left: 1px solid #a5a5a5;
+  }
+  .platform-summary span {
+    display: block;
+  }
+  .platform-summary:hover {
+    color: var(--signal);
+  }
+  .computing-intro {
+    margin: 50px 0 48px;
+    max-width: 820px;
+    font-size: 26px;
+    line-height: 1.45;
+    letter-spacing: -0.02em;
+  }
+  .capabilities article {
+    display: grid;
+    grid-template-columns: 0.8fr 1.4fr 0.65fr;
+    align-items: baseline;
+    gap: 50px;
+    padding: 28px 0;
+    border-top: 1px solid #333;
+  }
+  .capabilities h3 {
+    font-size: 23px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+  .capabilities p {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .capabilities a {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .capabilities a:hover {
+    color: var(--signal);
+  }
+  .capabilities svg,
+  .inline-link svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .numerics {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 40px 110px;
+    padding-block: 80px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .numerics h2,
+  .platforms h2,
+  .onboarding h2 {
+    font-size: clamp(38px, 4.7vw, 66px);
+    margin: 0 0 28px;
+  }
+  .numerics-copy > p,
+  .section-intro,
+  .onboarding p {
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1.7;
+    max-width: 70ch;
+    margin: 0 0 20px;
+  }
+  .inline-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: underline;
+    text-underline-offset: 6px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .inline-link:hover {
+    color: var(--signal);
+  }
+  .numerics-copy .inline-link {
+    margin-top: 10px;
+  }
+  .operation-reference > div {
+    border-top: 1px solid #444;
+    padding: 18px 0;
+  }
+  .operation-reference code {
+    font-size: 19px;
+    color: var(--signal);
+  }
+  .operation-reference p {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 8px 0 0;
+  }
+  .operation-reference > .inline-link {
+    margin-top: 16px;
+  }
+  .scope-note {
+    grid-column: 1/-1;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--muted);
+    margin: 0;
+    max-width: 100ch;
+  }
+  .platforms {
+    padding-block: 80px;
+    border-bottom: 1px solid var(--rule);
+    scroll-margin-top: 24px;
+  }
+  .platform-table {
+    margin: 36px 0 24px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #777 var(--page);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 560px;
+    text-align: left;
+    font-size: 16px;
+  }
+  th,
+  td {
+    border-top: 1px solid #444;
+    padding: 21px 24px 21px 0;
+    line-height: 1.6;
+  }
+  thead th {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    padding-block: 13px;
+  }
+  tbody th {
+    font-weight: 550;
+  }
+  tbody td {
+    color: var(--muted);
+  }
+  .onboarding {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 90px;
+    padding-block: 80px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .onboarding .button {
+    margin-top: 16px;
+    font-size: 18px;
+  }
+  .editor-link {
+    display: flex;
+    width: fit-content;
+    margin-top: 24px;
+  }
+  .terminal {
+    align-self: start;
+    min-width: 0;
+    border: 1px solid var(--rule);
+  }
+  .terminal > p {
+    margin: 0;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .terminal pre {
+    margin: 0;
+    padding: 24px;
+    font-size: 13px;
+    line-height: 2.1;
+    overflow-x: auto;
+    scrollbar-color: #777 var(--page);
+    scrollbar-width: thin;
+  }
+  .open-source {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 90px;
+    padding-block: 80px;
+  }
+  .open-source h2 {
+    font-size: clamp(44px, 5.5vw, 80px);
+    margin: 0;
+  }
+  .open-source p {
+    max-width: 460px;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1.7;
+    margin: 0 0 28px;
+  }
+  .open-source .inline-link {
+    display: flex;
+    width: fit-content;
+    margin-top: 20px;
+  }
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-block: 32px 40px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  footer p {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0;
+  }
+  footer nav {
+    margin-left: auto;
+    gap: 26px;
+    font-size: 13px;
+  }
+  @media (max-width: 1050px) {
+    .examples {
+      gap: 36px;
     }
-    .wordmark {
-      font-size: 24px;
+    .filebar {
+      padding-inline: 12px;
+      gap: 8px;
     }
-    .description {
-      font-size: 17px;
+    .code-actions {
+      gap: 12px;
     }
-    .tabs {
-      gap: 0;
-      justify-content: space-between;
-    }
-    .tabs button {
-      font-size: 12px;
-    }
-    .source {
-      padding: 18px 14px;
+    .code-example pre {
+      padding: 20px;
       font-size: 13px;
-      height: 220px;
     }
-    .actions {
-      flex-wrap: wrap;
+    .example-intro > p {
+      font-size: 18px;
+    }
+    .computing-heading {
+      grid-template-columns: 1fr 190px;
+      gap: 24px;
+    }
+    .platform-summary {
+      padding-left: 24px;
+      font-size: 12px;
+    }
+    .capabilities article {
+      gap: 30px;
+    }
+    .capabilities h3 {
+      font-size: 21px;
+    }
+    .capabilities p {
+      font-size: 15px;
+    }
+    .capabilities a {
+      font-size: 12px;
+      gap: 7px;
+    }
+    .numerics,
+    .onboarding,
+    .open-source {
+      gap: 60px;
+    }
+    .operation-reference code {
+      font-size: 17px;
     }
     footer {
       flex-wrap: wrap;
+      gap: 20px;
+    }
+  }
+  @media (max-width: 760px) {
+    .examples {
+      grid-template-columns: 1fr;
+      gap: 28px;
+      padding-block: 32px;
+    }
+    .example-intro h2 {
+      font-size: clamp(38px, 7vw, 56px);
+    }
+    .example-intro > p {
+      font-size: 17px;
+      max-width: 520px;
+      margin-top: 20px;
+    }
+    .filebar {
+      padding: 4px 14px;
+    }
+    .filebar select,
+    .code-actions a,
+    .code-actions button {
+      min-height: 44px;
+    }
+    .code-example pre {
+      font-size: 12px;
+      line-height: 1.8;
+      padding: 18px;
+      min-height: 140px;
+      max-height: 300px;
+    }
+    .computing {
+      padding-block: 25px 48px;
+    }
+    .computing-heading {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .computing-heading h2 {
+      font-size: clamp(35px, 7.5vw, 56px);
+      max-width: 550px;
+    }
+    .platform-summary {
+      padding: 0 0 0 16px;
+      font-size: 12px;
+    }
+    .computing-intro {
+      margin: 32px 0;
+      font-size: 21px;
+    }
+    .capabilities article {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding-block: 24px;
+    }
+    .capabilities h3 {
+      font-size: 23px;
+    }
+    .capabilities p {
+      font-size: 16px;
+    }
+    .capabilities a {
+      justify-self: start;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    .numerics,
+    .onboarding,
+    .open-source {
+      grid-template-columns: 1fr;
+      gap: 32px;
+      padding-block: 48px;
+    }
+    .numerics h2,
+    .platforms h2,
+    .onboarding h2 {
+      font-size: 38px;
+      margin-bottom: 24px;
+    }
+    .numerics-copy > p,
+    .section-intro,
+    .onboarding p {
+      font-size: 16px;
+    }
+    .scope-note {
+      font-size: 12px;
+    }
+    .platforms {
+      padding-block: 48px;
+    }
+    .platform-table {
+      margin-top: 26px;
+    }
+    .platform-table th,
+    .platform-table td {
+      font-size: 14px;
+    }
+    .onboarding .button {
+      font-size: 17px;
+    }
+    .terminal pre {
+      font-size: 11px;
+      padding: 18px;
+    }
+    .open-source h2 {
+      font-size: clamp(42px, 10vw, 64px);
+    }
+    .open-source p {
+      font-size: 17px;
+    }
+    footer {
+      padding-block: 28px;
+      gap: 18px;
+    }
+    footer p {
+      width: 100%;
+      font-size: 12px;
+    }
+    footer nav {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      gap: 24px;
+    }
+    footer nav a {
+      border: 0;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
     }
   }
 </style>

@@ -1,0 +1,91 @@
+meta { title = "Dependencies and locks", description = "Install an explicit Git dependency graph and build offline.", order = 3, group = "Using Kalandra" }
+
+Native dependency installation is explicit. Compilation and checking consume an already installed graph and never fetch or update dependencies implicitly. Git is required for installation; local and public HTTPS repositories are supported.
+
+h2 { "Create a local source library" }
+
+Run this tutorial in a new empty directory using a POSIX shell. Create the library and application directories:
+
+codeblock { language = bash, """mkdir -p geometry/src my-app/src
+""" }
+
+Save the library manifest as geometry/kalandra.toml:
+
+codeblock { language = toml, """format = 1
+
+[package]
+name = "geometry"
+version = "0.1.0"
+entry = "src/public.k"
+""" }
+
+Save the public module as geometry/src/public.k:
+
+codeblock { language = kalandra, """export fn double(value: int) -> int:
+  value * 2
+""" }
+
+Save the application as my-app/src/main.k:
+
+codeblock { language = kalandra, """from "geometry" import double
+
+fn main() -> int:
+  double(21)
+""" }
+
+Initialize a local Git repository, commit its files, then write the application manifest with the library's canonical absolute path. The identity settings apply only to this example commit:
+
+codeblock { language = bash, """git init --initial-branch=main geometry
+git -C geometry add .
+git -C geometry -c user.name="Docs Example" -c user.email="docs@example.invalid" -c commit.gpgsign=false commit -m "Initial library"
+geometry_repo=$(cd geometry && pwd -P)
+cat > my-app/kalandra.toml <<TOML
+format = 1
+
+[project]
+entry = "src/main.k"
+
+[dependencies]
+geometry = { git = "$geometry_repo", rev = "main" }
+TOML
+""" }
+
+A local repository needs an absolute canonical path. A public HTTPS repository can use its URL instead. rev accepts a full lowercase 40-digit commit ID or a supported branch/tag request; installation always records an exact commit in the lock. Abbreviated object IDs and arbitrary revision expressions are rejected.
+
+h2 { "Install, build and run" }
+
+codeblock { language = bash, """kalandra install --project my-app/kalandra.toml
+kalandra-check --project my-app/kalandra.toml
+kalandra --project my-app/kalandra.toml -o my-app/program
+./my-app/program
+""" }
+
+The application returns 42. Each library resolves its own aliases and private dependency versions. Distinct source identities retain distinct nominal types.
+
+h2 { "Commit the lock" }
+
+Commit kalandra.lock beside the application manifest. Keep the generated .kalandra cache out of version control. The lock activates one complete dependency graph with exact commits and verified source digests. Builds consume that selected graph without rewriting it.
+
+codeblock { language = bash, """kalandra install --project my-app/kalandra.toml --frozen
+kalandra install --project my-app/kalandra.toml --frozen --offline
+""" }
+
+Frozen installation requires a matching lock and preserves its exact selections. Frozen offline mode requires the selected snapshots already in the cache; it does not fetch missing sources. Move the complete project cache when you need an already installed project to build offline elsewhere.
+
+h2 { "Update deliberately" }
+
+Change geometry/src/public.k to use value * 3, then commit the change and explicitly refresh the application's geometry dependency:
+
+codeblock { language = bash, """git -C geometry add .
+git -C geometry -c user.name="Docs Example" -c user.email="docs@example.invalid" -c commit.gpgsign=false commit -m "Update multiplier"
+kalandra update geometry --project my-app/kalandra.toml
+kalandra-check --project my-app/kalandra.toml
+kalandra --project my-app/kalandra.toml -o my-app/program
+./my-app/program
+""" }
+
+The rebuilt program returns 63. Ordinary reinstall retains an unchanged branch request's existing pin; update refreshes the selected managed root while retaining other owners' private pins. To change an exact revision or requested ref, edit the manifest and install normally. Existing executables do not change with their source lock.
+
+h2 { "Current transport scope" }
+
+Authenticated/SSH transport, package registries, version-range solving and a public native-library ABI are not supported. A package is checked source, not an arbitrary build hook run during compilation.

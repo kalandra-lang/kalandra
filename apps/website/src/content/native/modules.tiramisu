@@ -1,0 +1,40 @@
+meta { title = "Modules and exports", description = "Organize source into explicit modules and imports.", order = 10, group = "Language reference" }
+
+Each .k file is a module. Declarations are private unless exported. Imports name exactly which declarations enter the current scope, with optional aliases. Relative imports include their .k extension.
+
+h2 { "Export a function" }
+
+In math.k:
+
+codeblock { language = kalandra, """export fn double(value: int) -> int:
+  value * 2
+""" }
+
+In main.k in the same directory:
+
+codeblock { language = kalandra, """from "./math.k" import double as twice
+
+fn main() -> int:
+  twice(21)
+""" }
+
+codeblock { language = bash, """kalandra-check main.k
+kalandra main.k -o program
+./program
+""" }
+
+h2 { "Export types deliberately" }
+
+Record, enum and error declarations can be exported and imported. Aliasing preserves their nominal identity rather than creating a new type. A helper continues resolving its own private names in its declaring module; importing it does not expose all of that module.
+
+h2 { "Re-export a public surface" }
+
+An explicit re-export lets a library entry expose selected functions or types from internal modules. Re-exports preserve the original declaration identity and helper scope. Use a small public entry instead of requiring callers to know the internal directory layout.
+
+h2 { "Use a package name" }
+
+A bare import such as from "geometry" import total refers to an explicit package mapping or installed dependency. The compiler does not guess a module from your working directory or fetch a missing library while building.
+
+link { url = "/docs/projects", "Configure project entry and local package mappings" }
+
+link { url = "/docs/packages", "Install pinned source dependencies" }

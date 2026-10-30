@@ -6,6 +6,4 @@ build
 *.tiramisu
 LICENSE
 
-apps/website/static/playground/
-
 benchmarks/.build/

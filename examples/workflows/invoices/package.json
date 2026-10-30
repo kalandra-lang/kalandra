@@ -1,8 +1,0 @@
-{
-  "name": "kalandra-invoice-example",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "invoice-math": "file:./vendor/invoice-math"
-  }
-}

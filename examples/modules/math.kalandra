@@ -1,7 +1,0 @@
-@describe "Double a number"
-@check
-@params Number
-@returns Number
-export fn double x: x * 2
-
-export type Point: x y

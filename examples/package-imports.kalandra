@@ -1,5 +1,0 @@
-from "esm:node:path" import basename
-import "cjs:node:path" as paths
-
-export filename = basename (paths.join "output" "kalandra.mjs")
-console.log filename

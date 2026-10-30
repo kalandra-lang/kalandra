@@ -1,0 +1,43 @@
+meta { title = "Records and enums", description = "Model named data and alternatives with immutable values.", order = 8, group = "Language reference" }
+
+Use type for a named record with fields, and enum for a value that is one of several declared alternatives. Declarations are nominal: equal field layouts in unrelated declarations do not make them the same type.
+
+h2 { "Construct and update a record" }
+
+codeblock { language = kalandra, """type Point:
+  x: int
+  y: int
+
+fn main() -> int:
+  original = Point { x: 2, y: 3 }
+  moved = original with { x: 12 }
+  original.x + moved.x + moved.y
+""" }
+
+Field initializer order follows source order. A with expression produces a new record; original remains unchanged. All required fields must be supplied once with compatible types. Supported records can own Strings, collections, nested aggregates and callable values under their native ownership rules.
+
+h2 { "Represent alternatives" }
+
+codeblock { language = kalandra, """enum Reading:
+  Missing
+  Value:
+    measurement: int
+
+fn readOrDefault(reading: Reading) -> int:
+  match reading:
+    Reading.Missing: 0
+    Reading.Value { measurement }: measurement
+
+fn main() -> int:
+  readOrDefault(Reading.Value { measurement: 42 })
+""" }
+
+Only the selected alternative exists as a language value. Read its payload by matching that variant. A final _ branch may handle remaining alternatives; missing, repeated and unreachable cases are diagnosed. Enum values do not gain record-style updates or implicit numeric ordinals.
+
+h2 { "Cross calls and workers" }
+
+Records and enums use automatic lifetimes, including supported recursive CPU values and local worker transport. Functions, aggregates and expected errors retain their checked type identity across imported aliases. GPU records and enums are not part of the numerical device subset.
+
+link { url = "/docs/errors", "Declare application-error alternatives" }
+
+link { url = "/docs/modules", "Export a type from a module" }

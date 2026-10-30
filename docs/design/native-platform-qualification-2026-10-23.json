@@ -1,0 +1,243 @@
+{
+  "date": "2026-10-23",
+  "milestone": "N5 distribution/platform qualification",
+  "status": "complete for the publisher-agreed N5 scope",
+  "scope": {
+    "macos": "ARM64 CPU/Metal, minimum 26.0",
+    "linux": "x86-64 CPU, Ubuntu 24.04/glibc 2.39",
+    "windows": "x86-64 CPU, Windows 11 with Microsoft C++ Build Tools and Windows SDK",
+    "deferred": ["FreeBSD", "CUDA"],
+    "windowsUnsupportedModes": ["ThreadSanitizer"]
+  },
+  "macos": {
+    "hostedRun": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422436",
+    "commit": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+    "runner": "macos-26 ARM64",
+    "independentUnsignedBuilds": "byte-identical for editor, CPU and Metal",
+    "downloadedPackageAcceptance": "passed",
+    "hostedSigningNotarizationStaplingGatekeeper": "passed",
+    "receipts": {
+      "cpu": {
+        "inputArchiveSHA256": "a90f64400b5904362ada5ab1ea8beee231cebabbb85e9dfb77340c353def2e33",
+        "teamIdentifier": "RWVU9G38P5",
+        "certificateSHA1": "5F0A0A53D6C77D0FEF20B326AC86CA5D63BC4A7B",
+        "signedMachOFiles": 19,
+        "signedRuntimeQualificationPassed": true,
+        "notarization": {
+          "id": "3aacb8e2-c1d2-49c9-8698-f18276f5c1d1",
+          "status": "Accepted",
+          "message": "Processing complete"
+        },
+        "stapleValidated": true,
+        "gatekeeperAssessmentPassed": true,
+        "artifactSHA256": "2ebe93b0a2a388a5169087545987442b5ecbab907100a30352398390b84a43ec"
+      },
+      "editor-tools": {
+        "inputArchiveSHA256": "04fd0c6c206eb402799ca4db468745641c87192d2ded801bc5c4ab1c13719e80",
+        "teamIdentifier": "RWVU9G38P5",
+        "certificateSHA1": "5F0A0A53D6C77D0FEF20B326AC86CA5D63BC4A7B",
+        "signedMachOFiles": 7,
+        "signedRuntimeQualificationPassed": true,
+        "notarization": {
+          "message": "Processing complete",
+          "status": "Accepted",
+          "id": "e7a877be-8b1b-43f1-a3f8-40d70c64d158"
+        },
+        "stapleValidated": true,
+        "gatekeeperAssessmentPassed": true,
+        "artifactSHA256": "8182b243a8e28f27a27aab83b2a3afdfeb2b377e039e411803595269d5de4282"
+      },
+      "metal": {
+        "inputArchiveSHA256": "6d4908d895b9d8f3b912c9d7e32e5c59a03010c1a6139b0feb2302b8d851012b",
+        "teamIdentifier": "RWVU9G38P5",
+        "certificateSHA1": "5F0A0A53D6C77D0FEF20B326AC86CA5D63BC4A7B",
+        "signedMachOFiles": 27,
+        "signedRuntimeQualificationPassed": true,
+        "notarization": {
+          "id": "5631cde0-ef17-4619-9b28-8d1f948e6838",
+          "status": "Accepted",
+          "message": "Processing complete"
+        },
+        "stapleValidated": true,
+        "gatekeeperAssessmentPassed": true,
+        "artifactSHA256": "a027c823d277264c52408619ded2210c482bf744b61a3a43e1712daf35b12f59"
+      }
+    },
+    "physicalGPU": {
+      "host": "macOS 27.2, Apple M2 Max",
+      "artifact": "exact hosted signed/notarized mixed DMG, under quarantine",
+      "appleMetalCompiler": "32023.864; verified Apple signature",
+      "numericTypes": 10,
+      "maximumTensorRank": 8,
+      "hostModes": ["normal", "optimized", "ASan/UBSan", "TSan"],
+      "residentGraphsAndCPUWorkers": "passed",
+      "compilerIndependentApplication": "passed",
+      "artifactSHA256": "a027c823d277264c52408619ded2210c482bf744b61a3a43e1712daf35b12f59",
+      "sourceCommit": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a"
+    },
+    "signedQuarantineGPU": {
+      "status": "passed",
+      "records": [
+        {
+          "kind": "editor-tools",
+          "artifactSHA256": "8182b243a8e28f27a27aab83b2a3afdfeb2b377e039e411803595269d5de4282",
+          "staple": "Processing: /private/tmp/kalandra-qualification-39973422436/signed/editor-tools/kalandra-native-editor-tools-standalone.dmg\nThe validate action worked!",
+          "imageGatekeeper": "/private/tmp/kalandra-qualification-39973422436/signed/editor-tools/kalandra-native-editor-tools-standalone.dmg: accepted\nsource=Notarized Developer ID",
+          "binaryGatekeeper": "/var/folders/wn/3x6vwbfj65v18jx_q9xky1340000gn/T/kalandra quarantine p0t21ofx/kalandra-native-editor-tools-standalone/bin/kalandra-check: rejected (the code is valid but does not seem to be an app)",
+          "quarantineExecution": "passed",
+          "gpuExecutionQualified": false,
+          "notarization": {
+            "message": "Processing complete",
+            "status": "Accepted",
+            "id": "e7a877be-8b1b-43f1-a3f8-40d70c64d158"
+          }
+        },
+        {
+          "kind": "cpu",
+          "artifactSHA256": "2ebe93b0a2a388a5169087545987442b5ecbab907100a30352398390b84a43ec",
+          "staple": "Processing: /private/tmp/kalandra-qualification-39973422436/signed/cpu/kalandra-native-cpu-standalone.dmg\nThe validate action worked!",
+          "imageGatekeeper": "/private/tmp/kalandra-qualification-39973422436/signed/cpu/kalandra-native-cpu-standalone.dmg: accepted\nsource=Notarized Developer ID",
+          "binaryGatekeeper": "/var/folders/wn/3x6vwbfj65v18jx_q9xky1340000gn/T/kalandra quarantine ovtzidcm/kalandra-native-cpu-standalone/bin/kalandra: rejected (the code is valid but does not seem to be an app)",
+          "quarantineExecution": "passed",
+          "gpuExecutionQualified": false,
+          "notarization": {
+            "id": "3aacb8e2-c1d2-49c9-8698-f18276f5c1d1",
+            "status": "Accepted",
+            "message": "Processing complete"
+          }
+        },
+        {
+          "kind": "metal",
+          "artifactSHA256": "a027c823d277264c52408619ded2210c482bf744b61a3a43e1712daf35b12f59",
+          "staple": "Processing: /private/tmp/kalandra-qualification-39973422436/signed/metal/kalandra-native-metal-standalone.dmg\nThe validate action worked!",
+          "imageGatekeeper": "/private/tmp/kalandra-qualification-39973422436/signed/metal/kalandra-native-metal-standalone.dmg: accepted\nsource=Notarized Developer ID",
+          "binaryGatekeeper": "/var/folders/wn/3x6vwbfj65v18jx_q9xky1340000gn/T/kalandra quarantine v236mlvk/kalandra-native-metal-standalone/bin/kalandra: rejected (the code is valid but does not seem to be an app)",
+          "quarantineExecution": "passed",
+          "gpuExecutionQualified": true,
+          "notarization": {
+            "id": "5631cde0-ef17-4619-9b28-8d1f948e6838",
+            "status": "Accepted",
+            "message": "Processing complete"
+          }
+        }
+      ],
+      "localSigningOrNotarization": false,
+      "quarantineRemoved": false
+    },
+    "finalSourceRehearsal": {
+      "run": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422436",
+      "commit": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+      "status": "passed, including local signed quarantine and physical GPU execution"
+    },
+    "installedAcceptanceTestsPassed": 7
+  },
+  "linux": {
+    "hostedRun": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422726",
+    "commit": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+    "downloadedPackageAcceptance": "passed",
+    "programsCompiled": 263,
+    "casesPerHostMode": 65,
+    "hostModes": ["normal", "optimized", "ASan/UBSan", "TSan"],
+    "workerCounts": [1, 2, 4],
+    "coverage": [
+      "all ten numeric types",
+      "rank-zero through rank-eight representative tensors",
+      "owned records/enums",
+      "Unicode strings and non-BMP paths",
+      "expected errors",
+      "starter projects",
+      "Git activation and frozen/offline cache reuse",
+      "corrupt cached source rejects preserving lockfile and output",
+      "compiler-independent applications",
+      "strict and unfinished-code LSP protocols"
+    ],
+    "isolation": "Bubblewrap denies checkout and network; fresh job installs no LLVM and builds no product",
+    "independentSourceRebuild": {
+      "run": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422726",
+      "commit": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+      "status": "byte-identical; downloaded execution also passed",
+      "archiveSHA256": "8505f3a28f7c0ec3550cdfee5dcad6ef2c8018206607e696f0b7675f5b1e1715"
+    },
+    "archiveSHA256": "8505f3a28f7c0ec3550cdfee5dcad6ef2c8018206607e696f0b7675f5b1e1715"
+  },
+  "windows": {
+    "sdkPreflight": "https://github.com/kalandra-lang/kalandra/actions/runs/39953666203",
+    "sdk": "LLVM 23.1.3 official archive plus matching verified source-built MLIR and pinned static vcpkg dependencies",
+    "sdkStatus": "passed",
+    "productQualification": "passed",
+    "runtimeLanguageChecks": {
+      "run": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422486",
+      "status": "passed",
+      "programsCompiled": 198,
+      "casesPerMode": 65,
+      "hostModes": ["normal", "optimized", "ASan/UBSan"],
+      "workerCounts": [1, 2, 4],
+      "platform": "Windows-2025Server-10.0.26100-SP0",
+      "coverage": [
+        "all ten numeric types",
+        "rank-zero/rank-eight tensors",
+        "owned records/enums and expected errors",
+        "Unicode strings and non-BMP paths",
+        "Git activation, frozen/offline reuse and corrupt-cache rejection",
+        "missing private Clang rejects preserving output",
+        "unsupported ThreadSanitizer rejects preserving output",
+        "compiler-independent applications"
+      ]
+    },
+    "independentSourceRebuild": {
+      "run": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422486",
+      "status": "byte-identical",
+      "archiveSHA256": "850b3ede171550bdae6525516d2796e9f39837e5296aa780b3170b22b454af0d"
+    },
+    "hostedRun": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422486",
+    "commit": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+    "archiveSHA256": "850b3ede171550bdae6525516d2796e9f39837e5296aa780b3170b22b454af0d",
+    "languageServerProtocols": [
+      "strict complete protocol suite passed",
+      "unfinished-code recovery protocol suite passed"
+    ]
+  },
+  "publication": {
+    "releaseCreated": false,
+    "tagCreated": false,
+    "signingLocation": "GitHub Actions only",
+    "requiredAssets": 27,
+    "platformGate": "successful exact-commit native or selected version-tag platform runs required before release creation"
+  },
+  "sourceCommit": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+  "hostedGates": {
+    "macos": {
+      "conclusion": "success",
+      "event": "push",
+      "headBranch": "native",
+      "headSha": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+      "url": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422436"
+    },
+    "linux": {
+      "conclusion": "success",
+      "event": "push",
+      "headBranch": "native",
+      "headSha": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+      "url": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422726"
+    },
+    "windows": {
+      "conclusion": "success",
+      "event": "push",
+      "headBranch": "native",
+      "headSha": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+      "url": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422486"
+    },
+    "general": {
+      "conclusion": "success",
+      "event": "push",
+      "headBranch": "native",
+      "headSha": "6f896e7361d41400f0bdee5ffa3542e2a275bd0a",
+      "url": "https://github.com/kalandra-lang/kalandra/actions/runs/39973422540"
+    }
+  },
+  "validation": {
+    "releaseHelperUnitTestsPassed": 22,
+    "archiveUnitTestsPassed": 3,
+    "generalCheck": "passed on exact source commit; documentation-only completion record follows"
+  }
+}

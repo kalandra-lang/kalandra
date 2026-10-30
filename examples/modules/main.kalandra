@@ -1,6 +1,0 @@
-from "./math" import double Point
-
-values = 0..5 -> * (double @item)
-console.log (values.toArray ())
-point = Point 3 4
-console.log f"Point: {point.x}, {point.y}"

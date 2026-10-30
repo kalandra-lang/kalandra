@@ -1,0 +1,130 @@
+"""Bundle and audit the Linux ELF closure; keep glibc and system C++ runtimes external."""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+from BundleMachO import digest, run
+
+PLATFORM = re.compile(r"^(?:linux-vdso\.so\.1|ld-linux-x86-64\.so\.2|lib(?:c|m|pthread|dl|rt|resolv|util|gcc_s|stdc\+\+)\.so(?:\..*)?)$")
+LICENSED = {"libz.so": "zlib1g", "libzstd.so": "libzstd1", "libxml2.so": "libxml2",
+            "libffi.so": "libffi8", "libtinfo.so": "libtinfo6", "libncursesw.so": "libncursesw6",
+            "libedit.so": "libedit2", "libz3.so": "libz3-4", "liblzma.so": "liblzma5",
+            "libbsd.so": "libbsd0", "libmd.so": "libmd0"}
+
+
+def elf(path):
+    if not path.is_file():
+        return False
+    with path.open("rb") as stream:
+        header = stream.read(18)
+        return header[:4] == b"\x7fELF" and header[5] == 1 and int.from_bytes(header[16:18], "little") in (2, 3)
+
+
+def dependencies(path, sdk=None):
+    environment = dict(os.environ)
+    for key in ("LD_LIBRARY_PATH", "LD_PRELOAD", "LD_AUDIT"):
+        environment.pop(key, None)
+    if sdk:
+        environment["LD_LIBRARY_PATH"] = str(sdk / "lib")
+    checked = subprocess.run(["ldd", str(path)], capture_output=True, text=True,
+                             timeout=120, env=environment)
+    if checked.returncode:
+        raise RuntimeError(f"Cannot inspect ELF dependencies in {path}: {checked.stderr}")
+    output = checked.stdout
+    if "not found" in output:
+        raise RuntimeError(f"Unresolved ELF dependency in {path}: {output}")
+    result = {}
+    for line in output.splitlines():
+        match = re.match(r"\s*(\S+) => (/.+) \(0x[0-9a-fA-F]+\)\s*$", line)
+        if match:
+            result[match[1]] = Path(match[2]).resolve()
+        elif line.strip() and "=>" in line:
+            raise RuntimeError(f"Unknown ELF load in {path}: {line}")
+    return result
+
+
+def audit(prefix):
+    for path in prefix.rglob("*"):
+        if not elf(path):
+            continue
+        if "Advanced Micro Devices X86-64" not in run("readelf", "-h", path):
+            raise RuntimeError(f"Wrong ELF architecture: {path}")
+        for name, dependency in dependencies(path).items():
+            if not PLATFORM.fullmatch(name) and not dependency.is_relative_to(prefix):
+                raise RuntimeError(f"ELF dependency escapes installed prefix: {path}: {dependency}")
+        rpath = run("patchelf", "--print-rpath", path).strip()
+        if any(not item.startswith("$ORIGIN") or not (path.parent / item.replace("$ORIGIN", ".")).resolve().is_relative_to(prefix)
+               for item in rpath.split(":") if item):
+            raise RuntimeError(f"Unsafe ELF search path: {path}: {rpath}")
+
+
+def bundle(prefix, llvm):
+    prefix, llvm = prefix.resolve(), llvm.resolve()
+    library = prefix / "lib/kalandra/toolchain/lib"
+    library.mkdir(parents=True)
+    licenses = prefix / "share/licenses/kalandra-toolchain"
+    licenses.mkdir(parents=True)
+    shutil.copy2(Path(__file__).resolve().parents[1] / "third-party/LLVM-23.1.3-LICENSE.txt", licenses / "LLVM-LICENSE.txt")
+    clang = (llvm / "bin/clang++").resolve()
+    destination = prefix / "libexec/kalandra/clang++"
+    destination.parent.mkdir(parents=True)
+    shutil.copy2(clang, destination)
+    resources = Path(run(clang, "-print-resource-dir").strip()).resolve()
+    if not resources.is_relative_to(llvm):
+        raise RuntimeError("Clang resources escape verified LLVM root")
+    resource_copy = library.parent / "clang"
+    shutil.copytree(resources, resource_copy)
+    queue = [(p, p) for p in (prefix / "bin").iterdir() if elf(p)] + [(clang, destination)]
+    queue += [(p, resource_copy / p.relative_to(resources)) for p in resources.rglob("*") if elf(p)]
+    visited, origins, metadata = set(), {}, []
+    while queue:
+        source, target = queue.pop()
+        if target in visited:
+            continue
+        visited.add(target)
+        if "Advanced Micro Devices X86-64" not in run("readelf", "-h", source):
+            raise RuntimeError(f"Wrong ELF architecture: {source}")
+        for name, dependency in dependencies(source, llvm).items():
+            if PLATFORM.fullmatch(name):
+                continue
+            copied = library / name
+            if copied in origins:
+                if origins[copied] != dependency:
+                    raise RuntimeError(f"ELF basename collision: {name}")
+                continue
+            upstream = "LLVM"
+            if not dependency.is_relative_to(llvm):
+                package = next((package for stem, package in LICENSED.items() if name.startswith(stem + ".") or name == stem), None)
+                if package is None:
+                    raise RuntimeError(f"Unapproved external ELF dependency: {dependency}")
+                license_file = Path("/usr/share/doc") / package / "copyright"
+                if not license_file.is_file():
+                    raise RuntimeError(f"Missing dependency copyright: {package}")
+                shutil.copy2(license_file, licenses / f"{package}-copyright")
+                upstream = package
+            origins[copied] = dependency
+            shutil.copy2(dependency, copied)
+            metadata.append({"name": name, "upstream": upstream, "sourceSHA256": digest(dependency),
+                             "path": str(copied.relative_to(prefix))})
+            queue.append((dependency, copied))
+        relative = os.path.relpath(library, target.parent)
+        run("patchelf", "--set-rpath", "$ORIGIN" if relative == "." else "$ORIGIN/" + relative, target)
+    audit(prefix)
+    metadata_path = prefix / "share/kalandra-native-tools/toolchain.json"
+    info = json.loads(metadata_path.read_text())
+    info.update({"llvmRuntime": "bundled", "standalone": True, "minimumLinux": "Ubuntu 24.04 / glibc 2.39",
+                 "platformRuntime": ["glibc", "libstdc++", "libgcc_s"], "libraries": sorted(metadata, key=lambda x: x["name"])})
+    metadata_path.write_text(json.dumps(info, indent=2) + "\n")
+    print(f"ELF closure audited: {len(visited)} objects, {len(metadata)} bundled libraries", flush=True)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("prefix", type=Path)
+    parser.add_argument("--llvm", type=Path, required=True)
+    args = parser.parse_args()
+    bundle(args.prefix, args.llvm)

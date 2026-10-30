@@ -1,7 +1,0 @@
-from "./types" import Point
-
-@params Point
-@returns Point
-@check
-export fn scale point:
-  Point (point.x * 2) (point.y * 2)

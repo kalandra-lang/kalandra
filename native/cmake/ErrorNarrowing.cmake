@@ -1,0 +1,32 @@
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug sanitized)
+    add_executable(kalandra-error-narrowing-tests-${VARIANT} tests/ErrorNarrowingTests.cpp)
+    target_compile_options(kalandra-error-narrowing-tests-${VARIANT} PRIVATE -Wall -Wextra -Werror)
+    if(VARIANT STREQUAL "sanitized")
+      target_link_libraries(kalandra-error-narrowing-tests-${VARIANT} PRIVATE kalandra-semantics-sanitized)
+      target_compile_definitions(kalandra-error-narrowing-tests-${VARIANT} PRIVATE KALANDRA_ERROR_NARROW_FRONTEND_ONLY)
+      target_compile_options(kalandra-error-narrowing-tests-${VARIANT} PRIVATE -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-error-narrowing-tests-${VARIANT} PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all)
+    else()
+      target_link_libraries(kalandra-error-narrowing-tests-${VARIANT} PRIVATE kalandra-backend)
+    endif()
+    add_test(NAME native-error-narrowing-frontend-${VARIANT} COMMAND kalandra-error-narrowing-tests-${VARIANT})
+    set_tests_properties(native-error-narrowing-frontend-${VARIANT} PROPERTIES TIMEOUT 120)
+  endforeach()
+  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    if(VARIANT STREQUAL "sanitized")
+      set(PAYLOAD_RUNTIME kalandra-native-runtime-sanitized)
+    elseif(VARIANT STREQUAL "thread-sanitized")
+      set(PAYLOAD_RUNTIME kalandra-native-runtime-thread-sanitized)
+    else()
+      set(PAYLOAD_RUNTIME kalandra-native-runtime)
+    endif()
+    add_test(NAME native-error-narrowing-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+        "-DVARIANT=${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+        "-DRUNTIME=$<TARGET_FILE:${PAYLOAD_RUNTIME}>"
+        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/error-narrowing-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyErrorNarrowing.cmake")
+    set_tests_properties(native-error-narrowing-${VARIANT} PROPERTIES TIMEOUT 600)
+  endforeach()
+endif()

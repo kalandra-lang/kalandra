@@ -1,0 +1,61 @@
+meta { title = "Errors and recovery", description = "Declare expected errors and handle task execution failures.", order = 9, group = "Language reference" }
+
+A function can return a success value or a declared expected-error family. Write the channel after !, construct a declared error with fail and use try when propagating an error. Do not silently discard an expected-error result.
+
+h2 { "Validate and recover" }
+
+codeblock { language = kalandra, """error InputError:
+  Negative:
+    value: int
+
+fn requirePositive(value: int) -> int ! InputError:
+  if value < 0:
+    fail InputError.Negative { value: value }
+  value
+
+fn main() -> int:
+  requirePositive(-1) catch fn(error):
+    match error:
+      InputError.Negative { value }: -value
+""" }
+
+An early validation guard may omit else when its body ends in fail. catch receives the actual error family and must produce the original success type, or propagate through another declared channel. Payload bindings belong to their match branch.
+
+h2 { "Propagate through a helper" }
+
+codeblock { language = kalandra, """error InputError:
+  Negative
+
+fn validated(value: int) -> int ! InputError:
+  if value < 0: fail InputError.Negative
+  value
+
+fn adjusted(value: int) -> int ! InputError:
+  result = try validated(value)
+  result + 2
+
+fn main() -> int:
+  adjusted(40) catch fn(error): 0
+""" }
+
+h2 { "Task errors are a separate channel" }
+
+CPU worker execution can fail independently of an application validation error. parallelMap and ordinary spawn/await observation therefore use TaskError, combined with the callback application families when necessary. Error unions use the spelling ! (InputError | TaskError).
+
+Checked arithmetic, bounds, shape and allocation faults are execution failures rather than implicit application variants. Handle a TaskError at a task boundary when you need recovery. An application-only handler does not swallow unrelated execution faults.
+
+h2 { "Choose a recovery policy" }
+
+Handle specific variants when different failures need different policies. A catch-all fallback is appropriate only when every error truly has the same meaning to the application. Parallel groups settle unfinished children before leaving; completed effects are not rolled back, and racing failures need not select a deterministic winner.
+
+link { url = "/docs/parallelism", "Task groups and observation" }
+
+h2 { "TaskError variants" }
+
+TaskError.Fault carries kind and message. The kind is a FaultKind value: Arithmetic, Bounds, Shape, Allocation or Native. The message is a String describing the failure; do not parse it as a stable error code.
+
+TaskError.Cancelled means task cancellation. TaskError.DeadlineExceeded means a task deadline was exceeded. TaskError.AdmissionRejected carries a reason String when work could not be admitted. These variants describe task outcomes; they do not promise that every deadline or resource policy is configurable from language source.
+
+Match a variant to bind its fields, or use a catch-all handler when every failure has the same recovery. Only the active variant's fields are available. Task errors can be combined with application-error families using an error union.
+
+link { url = "/docs/task-functions", "Fallible task built-ins" }

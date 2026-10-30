@@ -1,0 +1,73 @@
+#pragma once
+#include <cstdint>
+#include <optional>
+
+namespace kalandra::runtime::metal {
+// Performance policy for the measured Apple M2 Max, not a language limit.
+// Callers enable this profile only after validating the complete kernel bundle.
+enum class MatmulLayout { Scalar, Rows2, Quad };
+// Qualified full-precision Steel profile. Keep signed shader indices and all
+// loader address products in range even when callers raise allocation limits.
+constexpr std::optional<unsigned> steelMatmulVariant(std::uint32_t rows,
+                                                    std::uint32_t inner,
+                                                    std::uint32_t columns) noexcept {
+  if (rows < 64 || inner < 64 || columns < 32 ||
+      std::uint64_t(rows) * inner > INT32_MAX ||
+      std::uint64_t(inner) * columns > INT32_MAX ||
+      std::uint64_t(rows) * columns > INT32_MAX)
+    return {};
+  const unsigned tile = rows >= 512 && columns >= 2048 && inner <= 512 ? 0 : 1;
+  const unsigned width = tile ? 32 : 64, block = tile ? 32 : 16;
+  return tile * 4 + unsigned(rows % 64 == 0 && columns % width == 0) * 2 +
+         unsigned(inner % block == 0);
+}
+// Contraction-parallel profiles: one/two wide rows, or small output rectangles
+// with a long inner dimension. Other shapes keep the original kernels.
+constexpr bool useSkinnyMatmul(std::uint32_t rows, std::uint32_t inner,
+                               std::uint32_t columns) noexcept {
+  return (rows >= 1 && rows <= 2 && inner >= 512 && inner <= 16384 && inner % 32 == 0 &&
+          columns >= 256 && columns <= 16384) ||
+         (rows >= 3 && rows <= 64 && columns >= 8 && columns <= 64 && inner >= 256 &&
+          inner <= 4096 && inner % 32 == 0);
+}
+// M2 Max profile: admit at least 32 full 16x16 output tiles for K>=512.
+// Smaller rectangles were needlessly sent to the shared-root kernels; the
+// inner-size, alignment, and tail guards remain unchanged.
+constexpr bool useRegisterMatmul(std::uint32_t rows, std::uint32_t inner,
+                                 std::uint32_t columns) noexcept {
+  return rows >= 16 && columns >= 16 && inner >= 512 && inner <= 4096 && inner % 64 == 0 &&
+         std::uint64_t(rows) * columns >= 8192u;
+}
+// Measured M2 Max tile-order profile: output at least 1M cells and
+// combined input storage at least 16 MiB. Selection happens on the host so
+// smaller shapes retain the original shader. Bounds keep shader indexing safe.
+constexpr bool useGroupedMatmul(std::uint32_t rows, std::uint32_t inner,
+                                std::uint32_t columns) noexcept {
+  return rows >= 512 && rows <= 65535 && columns >= 512 && columns <= 65535 &&
+         useRegisterMatmul(rows, inner, columns) &&
+         std::uint64_t(rows) * columns >= 1024u * 1024u &&
+         std::uint64_t(inner) * (std::uint64_t(rows) + columns) >= 4u * 1024u * 1024u;
+}
+constexpr MatmulLayout selectMatmulLayout(std::uint32_t rows, std::uint32_t inner,
+                                          std::uint32_t columns) noexcept {
+  const auto cells = std::uint64_t(rows) * columns;
+  if (rows < 2 || inner < 128 || inner > 1025 || cells < 256u * 256u || cells > 513u * 513u)
+    return MatmulLayout::Scalar;
+  if (inner >= 256 && rows >= 128 && columns >= 128 && cells >= 512u * 512u)
+    return MatmulLayout::Quad;
+  return MatmulLayout::Rows2;
+}
+constexpr std::uint64_t matmulWorkItems(MatmulLayout layout, std::uint32_t rows,
+                                        std::uint32_t columns) noexcept {
+  const auto tileRows =
+      layout == MatmulLayout::Scalar ? std::uint64_t(rows) : (std::uint64_t(rows) + 1) / 2;
+  const auto tileColumns =
+      layout == MatmulLayout::Quad ? (std::uint64_t(columns) + 1) / 2 : std::uint64_t(columns);
+  return tileRows * tileColumns;
+}
+constexpr const char *matmulEntryName(MatmulLayout layout) noexcept {
+  return layout == MatmulLayout::Rows2  ? "kalandra_matmul_2x1"
+         : layout == MatmulLayout::Quad ? "kalandra_matmul_2x2"
+                                        : "kalandra_matmul";
+}
+} // namespace kalandra::runtime::metal

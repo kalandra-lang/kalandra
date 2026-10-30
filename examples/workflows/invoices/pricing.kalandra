@@ -1,7 +1,0 @@
-from "./types" import DiscountedItem
-from "esm:invoice-math" import roundMoney
-
-@params DiscountedItem
-@returns Number
-export fn total item:
-  roundMoney (item.price * item.quantity * (1 - item.discount))

@@ -1,0 +1,50 @@
+meta { title = "Getting started", description = "Create a native project and run a typed parallel map.", order = 3, group = "Tutorial" }
+
+With the native toolchain installed and its bin directory on PATH, create a new project:
+
+codeblock { language = bash, """kalandra new my-app
+kalandra-check --project my-app/kalandra.toml
+kalandra --project my-app/kalandra.toml -o my-app/program
+./my-app/program
+""" }
+
+The program returns the ordered array [2, 4, 6]. In PowerShell, use an executable destination ending in program.exe and run it with the Windows path spelling:
+
+codeblock { language = powershell, """kalandra --project my-app/kalandra.toml -o my-app/program.exe
+./my-app/program.exe
+""" }
+
+h2 { "Read the starter" }
+
+The starter creates kalandra.toml, src/main.k and src/math.k. Its entry imports a function and applies it using CPU workers:
+
+codeblock { language = kalandra, """from "./math.k" import double
+
+fn main() -> [int] ! TaskError:
+  try parallelMap([1, 2, 3], double)
+""" }
+
+The sibling src/math.k module explicitly exports the function:
+
+codeblock { language = kalandra, """export fn double(value: int) -> int:
+  value * 2
+""" }
+
+parallelMap keeps results in input order. Its TaskError channel accounts for worker execution failures; try propagates an error to main. Selecting a Metal-capable compiler does not automatically move these CPU tasks to the GPU.
+
+h2 { "Make a change" }
+
+Change the multiplier in math.k, check again and rebuild. Existing compiled programs keep their compiled code until you rebuild them. Use -O2 to request optimization without changing the strict numerical rules:
+
+codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o my-app/program
+""" }
+
+callout { type = info, "The parent directory must exist, and the destination for kalandra new must not already exist, even as an empty directory. Choose a new name; the starter does not merge into existing projects." }
+
+h2 { "Continue learning" }
+
+link { url = "/docs/syntax", "Understand bindings, indentation and results" }
+
+link { url = "/docs/parallelism", "Understand tasks and parallel maps" }
+
+link { url = "/docs/gpu", "Place a task on the GPU" }

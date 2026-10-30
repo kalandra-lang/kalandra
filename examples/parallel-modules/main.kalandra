@@ -1,4 +1,0 @@
-from "./tasks" import fib as calculate
-
-export fn main argv:
-  [20 21 22 23] -> * [await] |calculate|

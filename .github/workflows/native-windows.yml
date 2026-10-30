@@ -1,0 +1,163 @@
+name: Native Windows qualification
+on:
+  push:
+    branches: ["native"]
+    tags: ["v*"]
+    paths:
+      [
+        "CMakeLists.txt",
+        "VERSION",
+        "native/**",
+        "apps/website/src/content/native/getting-started.tiramisu",
+        ".github/workflows/native-windows.yml",
+      ]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-windows-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  cpu:
+    runs-on: windows-2025
+    timeout-minutes: 180
+    outputs:
+      archive-ready: ${{ steps.archive.outputs.artifact-id != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Validate tagged toolchain version and release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python .github/scripts/release_version.py
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Provision verified LLVM and matching MLIR
+        run: python .github/scripts/provision_native_platform.py
+      - name: Configure native compiler
+        run: >-
+          cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=OFF -DCMAKE_INSTALL_LIBDIR=lib
+          -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT"
+          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+      - name: Build native CPU toolchain
+        run: cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized -j2 -- -k 0
+      - name: Qualify opaque synchronous task ownership
+        run: |
+          & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/ClosedTaskTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/closed-task-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Closed task runner compilation failed' }
+          & build/windows/closed-task-tests.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Closed task runner qualification failed' }
+      - name: Verify recursive scalar values and checked state
+        run: >-
+          python native/tests/RecursiveScalarTests.py
+          --compiler build/windows/native/kalandra.exe
+          --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          --output build/windows/recursive-scalars
+      - name: Qualify arithmetic policy, benchmark references and MIT provenance
+        run: >-
+          ctest --test-dir build/windows --output-on-failure
+          -R '^native-(arithmetic-policy|fair-benchmark-evidence|steel-vendor-license)$'
+      - name: Verify deep internal calls and physical stack safety
+        run: >-
+          python native/tests/CallFoundationTests.py
+          --compiler build/windows/native/kalandra.exe
+          --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          --output build/windows/call-foundation
+      - name: Verify ordinary scalar ABI, private buffers and failure cleanup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $compiler = 'build/windows/native/kalandra.exe'
+          $clang = "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          python native/tests/OrdinarySourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-direct --direct-entry
+          if ($LASTEXITCODE -ne 0) { throw 'Scalar direct ABI qualification failed' }
+          python native/tests/OrdinaryLoopSourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-loop-direct --direct-entry --exhaustive-entry
+          if ($LASTEXITCODE -ne 0) { throw 'Loop direct ABI qualification failed' }
+          python native/tests/OrdinarySourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-types --direct-entry --buffer-entry
+          if ($LASTEXITCODE -ne 0) { throw 'Typed buffer ABI qualification failed' }
+          python native/tests/OrdinaryReductionSourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-reductions
+          if ($LASTEXITCODE -ne 0) { throw 'Reduction folding qualification failed' }
+          python native/tests/OrdinaryIntegerCasesSourceTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-integer-cases
+          if ($LASTEXITCODE -ne 0) { throw 'Integer recurrence qualification failed' }
+          python native/tests/OrdinaryArrayTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-direct --direct-entry
+          if ($LASTEXITCODE -ne 0) { throw 'Buffer direct ABI qualification failed' }
+          python native/tests/OrdinaryDirectFaultTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-direct-faults
+          if ($LASTEXITCODE -ne 0) { throw 'Scalar failure qualification failed' }
+          python native/tests/OrdinaryBufferFaultTests.py --compiler $compiler --clang $clang --output build/windows/ordinary-buffer-faults
+          if ($LASTEXITCODE -ne 0) { throw 'Buffer failure qualification failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-ordinary-qualification
+          path: build/windows/ordinary*/**/*.json
+          if-no-files-found: warn
+      - name: Qualify CPU tensor transforms
+        run: >-
+          python native/tests/TensorTransformTests.py
+          --compiler build/windows/native/kalandra.exe
+          --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          --output build/windows/tensor-transforms --quick
+      - name: Verify documented PowerShell starter commands
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repo = (Get-Location).Path
+          $driver = Join-Path $repo 'build/windows/native/kalandra.exe'
+          $document = Get-Content 'apps/website/src/content/native/getting-started.tiramisu' -Raw
+          $match = [regex]::Match($document, 'codeblock \{ language = powershell, """([\s\S]*?)""" \}')
+          if (-not $match.Success) { throw 'Documented PowerShell example not found' }
+          $env:PATH = "$(Split-Path $driver);$env:PATH"
+          $example = Join-Path $env:RUNNER_TEMP 'native-docs-powershell'
+          New-Item -ItemType Directory -Path $example | Out-Null
+          Push-Location $example
+          try {
+            & $driver new my-app
+            if ($LASTEXITCODE -ne 0) { throw 'Starter creation failed' }
+            $result = @(& ([scriptblock]::Create($match.Groups[1].Value)))
+            if ($LASTEXITCODE -ne 0 -or $result[-1].Trim() -ne '[2, 4, 6]') {
+              throw "Documented starter returned unexpected output: $result"
+            }
+          } finally { Pop-Location }
+      - name: Package standalone compiler
+        run: cmake --build build/windows --target native-cpu-standalone-package
+      - name: Independently configure the second build
+        run: >-
+          cmake -S . -B build/windows-repro -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=OFF -DCMAKE_INSTALL_LIBDIR=lib
+          -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT"
+          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+      - name: Independently rebuild and compare the distribution
+        run: |
+          cmake --build build/windows-repro --target native-cpu-standalone-package -j2
+          python native/packaging/CompareDistributions.py build/windows build/windows-repro --platform windows-x86_64 --kind cpu
+      - uses: actions/upload-artifact@v4
+        id: archive
+        if: ${{ always() && hashFiles('build/windows/native-cpu-standalone/*.tar.gz') != '' }}
+        with:
+          name: native-windows-assets
+          path: build/windows/native-cpu-standalone/*.tar.gz*
+          if-no-files-found: error
+  downloaded-package:
+    needs: cpu
+    if: ${{ always() && needs.cpu.outputs.archive-ready == 'true' }}
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows-assets
+          path: downloaded
+      - name: Qualify downloaded compiler without installing LLVM
+        run: python native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-windows-x86_64.tar.gz

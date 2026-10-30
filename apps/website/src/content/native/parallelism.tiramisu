@@ -1,0 +1,45 @@
+meta { title = "CPU parallelism", description = "Spawn typed tasks and keep their lifetimes structured.", order = 1, group = "HOWTO guides" }
+
+Ordinary function calls run synchronously in the current execution context. spawn creates a typed CPU task; await observes its completed result. Place task work inside a parallel scope, then handle or propagate the TaskError channel.
+
+h2 { "Start independent work before awaiting" }
+
+codeblock { language = kalandra, """fn double(value: int) -> int:
+  value * 2
+
+fn main() -> int ! TaskError:
+  try parallel:
+    left = spawn double(10)
+    right = spawn double(11)
+    a = try await left
+    b = try await right
+    a + b
+""" }
+
+Both tasks are created before either is awaited, so the scheduler can run them concurrently. spawn followed immediately by await is useful for placement or boundaries, but a sequence of such pairs does not expose the same independent overlap.
+
+h2 { "A parallel scope owns its children" }
+
+Tasks use captured immutable values and return typed completed values. A scope settles its children before exiting. Awaiting suspends the coordinating continuation rather than occupying a worker thread while waiting. Repeated awaits observe the cached result; they do not rerun the task.
+
+h2 { "Map an array in parallel" }
+
+codeblock { language = kalandra, """fn main() -> [int] ! TaskError:
+  factor = 2
+  try parallelMap([1, 2, 3], fn(value: int): value * factor)
+""" }
+
+parallelMap returns results in input order and can change the element type under the supported callback rules. map remains sequential. Scheduling a map call with spawn creates a task containing one sequential mapping loop; it does not turn each element into an independent task.
+
+h2 { "Workers and resource limits" }
+
+Generated CPU programs use a bounded worker pool. The detected default is capped at eight; KALANDRA_WORKERS accepts 1 through 64. Task records, ready queues, captures and nested groups have admission limits. Tiny callbacks may cost more to schedule than to execute, so measure your actual workload.
+
+codeblock { language = bash, """KALANDRA_WORKERS=4 ./program
+""" }
+
+Cancellation is cooperative, and generated numerical loops poll for it. Worker capacity and admitted work are bounded; a parallel scope does not guarantee which racing failure is observed. GPU placement is explicit and has its own supported numerical subset.
+
+link { url = "/docs/gpu", "Combine CPU and GPU work" }
+
+link { url = "/docs/task-functions", "Task and device function reference" }

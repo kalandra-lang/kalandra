@@ -9,8 +9,12 @@ coverage/
 .DS_Store
 *.tsbuildinfo
 
-apps/website/static/playground/
-
-apps/website/src/docs/guide/
-
 .vercel/
+
+__pycache__/
+
+.kalandra/
+
+# Local design tools, review evidence and discarded concepts
+.agents/skills/impeccable/
+.impeccable/
