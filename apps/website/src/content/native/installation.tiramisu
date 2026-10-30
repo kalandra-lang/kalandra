@@ -6,7 +6,7 @@ h2 { "Supported platforms" }
 
 h3 { "macOS" }
 
-Use macOS 26 or newer on Apple silicon. Native compilation requires the Apple SDK and system linker. Metal builds additionally require the pinned Apple Metal Toolchain component; the driver validates its signature and version. The required Metal compiler version is recorded in the toolchain requirements linked below.
+Use macOS 26 or newer on Apple silicon. Native compilation requires the Apple SDK and system linker. Metal builds additionally require the pinned Apple Metal Toolchain component; the driver validates its signature and version. For GPU compilation, use Xcode 26.2 with its Metal Toolchain component, compiler version 32023.864. Open Xcode once to finish installing its components, select it as the active Command Line Tools in Xcode Settings → Locations, and install Metal Toolchain from Settings → Components. An arbitrary newer Metal compiler is not interchangeable with the pinned one. The exact requirements are recorded in the toolchain link below.
 
 h3 { "Linux" }
 
@@ -14,7 +14,7 @@ Use x86-64 Linux with an Ubuntu 24.04 / glibc 2.39 baseline. Standalone archives
 
 h3 { "Windows" }
 
-Use Windows 11 x86-64 with Microsoft C++ Build Tools and the Windows SDK. The package supports native CPU execution.
+Use Windows 11 x86-64 with Microsoft C++ Build Tools and the Windows SDK. Install the Desktop development with C++ workload, including the MSVC compiler and Windows SDK. Use a Developer PowerShell or Developer Command Prompt for Visual Studio when compiling applications. The package supports native CPU execution.
 
 h2 { "Install a native package" }
 
@@ -27,7 +27,7 @@ On macOS, open the signed DMG and copy the complete toolchain directory to a per
 codeblock { language = bash, """export PATH="$HOME/kalandra/bin:$PATH"
 """ }
 
-Use a permanent directory and add the equivalent path through your shell or Windows environment settings. Moving only the compiler executable loses its private resources. Standalone packages bundle the private LLVM toolchain; external-toolchain packages retain the requirements listed in their metadata.
+Use a permanent directory and add the equivalent path through your shell or Windows environment settings. Git is also required when installing source dependencies with kalandra install. Moving only the compiler executable loses its private resources. Standalone packages bundle the private LLVM toolchain; external-toolchain packages retain the requirements listed in their metadata.
 
 
 link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.0/native/metal-proof/toolchain.json", "Metal toolchain requirements" }
