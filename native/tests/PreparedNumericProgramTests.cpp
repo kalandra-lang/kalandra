@@ -45,6 +45,7 @@ static std::vector<std::uint32_t> download(m::Runtime &r, TaskCore &c, GroupHand
   std::memcpy(result.data(), bytes->data(), bytes->size());
   return result;
 }
+#include "PreparedOutputCacheTests.h"
 static void test(const char *path, std::uint64_t budget, bool full, bool preencoded,
                  unsigned rows = 3, unsigned width = 7, bool arena = true, bool views = true,
                  bool overlap = true) {
@@ -812,6 +813,7 @@ static void overlapBudget(const char *path) {
 
 int main(int argc, char **argv) {
   CHECK(argc == 3);
+  preparedOutputCache(argv[1]);
   transposeViews(argv[1]);
   parameterBudget(argv[1]);
   overlapBudget(argv[1]);

@@ -1,0 +1,533 @@
+{
+  "contract": "Diagnostic same-runtime paired intervals for private-output reuse.\n\nOne runtime/queue/prepared program and resident operands survive all ABBA/BAAB\nslots. Trim idle storage and run two complete warm-up intervals before every\nmeasured interval. Switching happens only at a quiescent boundary. GPU and\nencoding counters are enabled equally on both sides. Production is untouched.\n",
+  "checks": [
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": false,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 0,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 0,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 0,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 1,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 1,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 1,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 2,
+      "mode": 0,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 2,
+      "mode": 1,
+      "comparisons": 4,
+      "passed": true
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "reverse": true,
+      "policy": 2,
+      "mode": 2,
+      "comparisons": 4,
+      "passed": true
+    }
+  ],
+  "oracles": [
+    {
+      "m": 512,
+      "d": 512,
+      "pattern": 0,
+      "metrics": {
+        "cells": 262144,
+        "max_abs_error": 8.544242229291399e-07,
+        "max_forward_bound": 1871302.5626634255,
+        "max_error_bound_ratio": 5.013205129867573e-13,
+        "nominal_matching_cells": 49124,
+        "max_difference_nominal": 9.5367431640625e-07
+      }
+    },
+    {
+      "m": 512,
+      "d": 512,
+      "pattern": 1,
+      "metrics": {
+        "cells": 262144,
+        "max_abs_error": 8.08302661692295e-07,
+        "max_forward_bound": 1970884.8271507875,
+        "max_error_bound_ratio": 4.468495752934853e-13,
+        "nominal_matching_cells": 50726,
+        "max_difference_nominal": 9.5367431640625e-07
+      }
+    }
+  ],
+  "large_batch_probe": {
+    "shape": [
+      512,
+      512
+    ],
+    "reason": "GPU command-duration variation tracks reported DVFS states; test longer useful GPU work per invocation with unchanged code/shaders."
+  },
+  "schema": 1,
+  "timestamp": "2026-10-29T21:28:52.581433+00:00",
+  "compiler_sha256": "86a0870e10aaf1de4b001955fcebf7351b527634d9009a06f07053edaeaa95df",
+  "source_sha256": {
+    "native/benchmarks/private_output_inprocess.py": "7967b0c33efa52d55b23dcec614f6e6f164f73734ba1327cbfe4f24e5127f1ab",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "native/benchmarks/fair/transformer_reference.py": "4b4dbbd280403357dc88cdae4553b8ded1c309f28d5923f8756e6ce912c5d400",
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/manifest.json": "7eb4f1c27b24bcab8a205b6b1ad6280e926ece077ce77f72eeea4a5309ab702f",
+    "native/metal/Metal.h": "a8ff2f56573e160841e54d9fc5e346de6e3c883ef89c7738b80167b1f6d8b57d",
+    "native/benchmarks/fair/TransformerClosedMetal.cpp": "a78f6c2a43678f3aa7ebc8af2afbf95b59919489a90b7278a3f07e41c960a949",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/manifest.json": "331e003cbe940d71a0c68739dc55e1c043a56646e65518faf376d40beec43f2f",
+    "native/benchmarks/private_inprocess_large.py": "d1e2bb99ef78a0df2b2529c618ac38406d3bae72055ace510442e139cb9d08b0"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/Metal.mm": "5b2836b84413828db122376784984794053e52fbca904304106c63f5b68a158f",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/Driver.cpp": "1c5b82a8aa85bf9d239e8af6f3d895406a8bb6f3215841d03aa1fd882f295c5c",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/Verify.cpp": "c287be0dbd333545110d5d2bbd0efcf6a2b6bd3fc9d525a6c8b429e0957191b4",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/metal.o": "5ea1bc569b314b2de1c30266105d9e596de564f8c2f53bbf3472568b45fe3081",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/gpu": "4d5f2eabcd54d9408f1a20b808e43bedd5953cd2ebfa588778d52afcce541f35",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify": "21779c9ac939ba545f3208d7a471d21c6a3bcbbdb8f360e8dac35bbd7ac64d1d",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate-task.a": "fddc23e893283c907b7a335130c9533cb9f3236de2fa2d85fa284813af7dec29",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate": "2711bb79eda259702db7b158089688be80ee5e405cdde398078503d2baa2645f",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/TransformerProgram.h": "5be70fd2e1dcb768b9647689ec8fbb9c52ccff6297b0c7b6f49eae14126729db",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage1.metallib": "93424a7da661cca9946b97f703f5c3f8c9d6bc8dd491a1fc2e7e4f93c6918494",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0.metallib": "a3a6cebdc4b68ee061aa02f7544508ac0b98f01907e3dc70ab9d2423f8653564",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage6.metallib": "ca314833a644bb8cdd3fff0ac812c57be6284a7b4151fb6adf31fa1c42b01741",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage3.metallib": "3baf8dd6fbe0230375656b0f95dfb0e493ae0fac149169b7fb613f51133fe84a",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage2.metallib": "a5ddf36fef339b26fb9f336581d2034e8512f9b7e2319ebf53a41d22bac0ce12",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage4.metallib": "b6a0e2e2e22c586e30d4031db6acef804df41518ccae2adb59391e2e2ce86459",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage5.metallib": "e9d31d56f908c607e8ea6841f3f3c1eca551b2b5d1748e37291bfa832b5f3313"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "0",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "1",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "1",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "512",
+      "512",
+      "1",
+      "1",
+      "2",
+      "1",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "2491406e91842703949e0bfd8891a43043617163",
+  "worktree_status": "?? benchmarks/results/gpu-private-inprocess-2026-10-29.md\n?? benchmarks/results/gpu-private-inprocess-aa-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-aa-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-clean-aa-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-clean-aa-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-clean-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-clean-repeat-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-clean-toggle-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-clean-toggle-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-dvfs-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-repeat-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-replay-cleanup-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-replay-termination-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-toggle-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-toggle-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-verified-clean-aa-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-verified-clean-aa-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-verified-clean-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-verified-clean-repeat-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-verified-clean-toggle-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-verified-clean-toggle-2026-10-29.json\n?? native/benchmarks/GpuPowerTelemetry.rs\n?? native/benchmarks/fair/private_inprocess_report.py\n?? native/benchmarks/private_gpu_telemetry.py\n?? native/benchmarks/private_inprocess_large.py\n?? native/benchmarks/private_output_inprocess.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

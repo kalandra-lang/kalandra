@@ -1,0 +1,896 @@
+{
+  "contract": "Diagnostic same-runtime paired intervals for private-output reuse.\n\nOne runtime/queue/prepared program and resident operands survive all ABBA/BAAB\nslots. Trim idle storage and run two complete warm-up intervals before every\nmeasured interval. Switching happens only at a quiescent boundary. GPU and\nencoding counters are enabled equally on both sides. Production is untouched.\n",
+  "study": "aa",
+  "scope": "largest",
+  "protocol": {
+    "blocks": 5,
+    "iterations": 1024,
+    "per_slot_warmup_intervals": 2,
+    "initial_warmups": 2,
+    "order": "ABBA/BAAB",
+    "profile": true
+  },
+  "observations": [
+    {
+      "group": [
+        64,
+        512,
+        0
+      ],
+      "iterations": 1024,
+      "samples": [
+        {
+          "pair_state": true,
+          "round": -2,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": -2,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": -2,
+          "ns": 826838708,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 435734278,
+          "encoding_ns": 79470594,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": -1,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": -1,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": -1,
+          "ns": 867906541,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 488636318,
+          "encoding_ns": 74398779,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 0,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 0,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 0,
+          "ns": 856921750,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 459114050,
+          "encoding_ns": 80542538,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 1,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 1,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 1,
+          "ns": 937610542,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 557324277,
+          "encoding_ns": 72232443,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 2,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 2,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 2,
+          "ns": 791183333,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 429465047,
+          "encoding_ns": 68759021,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 3,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 3,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 3,
+          "ns": 1411039417,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 957930162,
+          "encoding_ns": 88161712,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 4,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 4,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 4,
+          "ns": 1135721667,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 720674960,
+          "encoding_ns": 78756569,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 5,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 5,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 5,
+          "ns": 883825042,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 497097188,
+          "encoding_ns": 74152711,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 6,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 6,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 6,
+          "ns": 883342083,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 471080778,
+          "encoding_ns": 76077653,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 7,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 7,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 7,
+          "ns": 804154375,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 428401303,
+          "encoding_ns": 72839091,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 8,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 8,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 8,
+          "ns": 970978000,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 582334502,
+          "encoding_ns": 76035993,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 9,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 9,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 9,
+          "ns": 781203250,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 431802863,
+          "encoding_ns": 63947853,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 10,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 10,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 10,
+          "ns": 1424718042,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 1002734859,
+          "encoding_ns": 78568746,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 11,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 11,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 11,
+          "ns": 798463708,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 427101589,
+          "encoding_ns": 72313116,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 12,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 12,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 12,
+          "ns": 1164265166,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 737268976,
+          "encoding_ns": 80240327,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 13,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 13,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 13,
+          "ns": 875789500,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 501176031,
+          "encoding_ns": 70276739,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 14,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 14,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 14,
+          "ns": 863564875,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 463407190,
+          "encoding_ns": 79364062,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 15,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 15,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 15,
+          "ns": 823074125,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 443312959,
+          "encoding_ns": 73554993,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 16,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 16,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 16,
+          "ns": 829627584,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 441783751,
+          "encoding_ns": 77116578,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 17,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 17,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 17,
+          "ns": 1213935875,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 815602979,
+          "encoding_ns": 78127357,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 18,
+          "current": true,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 18,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 18,
+          "ns": 827933750,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 435839580,
+          "encoding_ns": 78003648,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        },
+        {
+          "pair_state": true,
+          "round": 19,
+          "current": false,
+          "enabled": false
+        },
+        {
+          "cache": true,
+          "round": 19,
+          "live_bytes": 25427968,
+          "cached_bytes": 0,
+          "retained_bytes": 25427968,
+          "peak_retained_bytes": 27447296,
+          "hits": 0,
+          "misses": 7
+        },
+        {
+          "pipeline_setup_ns": 2871500,
+          "preparation_ns": 7875,
+          "round": 19,
+          "ns": 1255445167,
+          "checksum": 134217728,
+          "submissions": 1024,
+          "dispatches": 12288,
+          "gpu_ns": 836768340,
+          "encoding_ns": 79862649,
+          "attempts": 97280,
+          "resident_bytes": 25427968,
+          "peak_bytes": 27447296
+        }
+      ]
+    }
+  ],
+  "pairs": [
+    {
+      "group": [
+        64,
+        512,
+        0
+      ],
+      "block": 0,
+      "metrics": {
+        "ns": {
+          "baseline": 1107402.9135742188,
+          "current": 844137.6342773438,
+          "reduction": 0.2377321533742116
+        },
+        "gpu_ns": {
+          "baseline": 691916.119140625,
+          "current": 481830.724609375,
+          "reduction": 0.3036284149474371
+        },
+        "encoding_ns": {
+          "baseline": 82375.1220703125,
+          "current": 68843.48828125,
+          "reduction": 0.16426845203958995
+        }
+      }
+    },
+    {
+      "group": [
+        64,
+        512,
+        0
+      ],
+      "block": 1,
+      "metrics": {
+        "ns": {
+          "baseline": 862874.5727539062,
+          "current": 947205.0986328125,
+          "reduction": -0.09773207896225444
+        },
+        "gpu_ns": {
+          "baseline": 472743.1474609375,
+          "current": 561072.3940429688,
+          "reduction": -0.18684405486666478
+        },
+        "encoding_ns": {
+          "baseline": 73354.669921875,
+          "current": 74021.318359375,
+          "reduction": -0.00908801632138756
+        }
+      }
+    },
+    {
+      "group": [
+        64,
+        512,
+        0
+      ],
+      "block": 2,
+      "metrics": {
+        "ns": {
+          "baseline": 863985.208984375,
+          "current": 1077110.005859375,
+          "reduction": -0.2466764415163203
+        },
+        "gpu_ns": {
+          "baseline": 492888.71630859375,
+          "current": 700457.8720703125,
+          "reduction": -0.4211278304690613
+        },
+        "encoding_ns": {
+          "baseline": 72436.08837890625,
+          "current": 69588.18310546875,
+          "reduction": 0.039316110756014044
+        }
+      }
+    },
+    {
+      "group": [
+        64,
+        512,
+        0
+      ],
+      "block": 3,
+      "metrics": {
+        "ns": {
+          "baseline": 849294.1284179688,
+          "current": 970380.5131835938,
+          "reduction": -0.14257296820264131
+        },
+        "gpu_ns": {
+          "baseline": 470987.90087890625,
+          "current": 576456.0229492188,
+          "reduction": -0.22392957838937977
+        },
+        "encoding_ns": {
+          "baseline": 73066.79736328125,
+          "current": 75095.37109375,
+          "reduction": -0.02776327694209546
+        }
+      }
+    },
+    {
+      "group": [
+        64,
+        512,
+        0
+      ],
+      "block": 4,
+      "metrics": {
+        "ns": {
+          "baseline": 1018101.9291992188,
+          "current": 997006.6528320312,
+          "reduction": 0.02072020076003578
+        },
+        "gpu_ns": {
+          "baseline": 624293.0131835938,
+          "current": 611055.9370117188,
+          "reduction": 0.02120330660817793
+        },
+        "encoding_ns": {
+          "baseline": 76650.01318359375,
+          "current": 76235.84228515625,
+          "reduction": 0.005403402833675575
+        }
+      }
+    }
+  ],
+  "qualification_sha256": "aba8d2d17ad217ad253566eac8527ce64185d2909842536ead84de3531a45a23",
+  "schema": 1,
+  "timestamp": "2026-10-29T21:08:14.763572+00:00",
+  "compiler_sha256": "86a0870e10aaf1de4b001955fcebf7351b527634d9009a06f07053edaeaa95df",
+  "source_sha256": {
+    "native/benchmarks/private_output_inprocess.py": "7967b0c33efa52d55b23dcec614f6e6f164f73734ba1327cbfe4f24e5127f1ab",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "native/benchmarks/fair/transformer_reference.py": "4b4dbbd280403357dc88cdae4553b8ded1c309f28d5923f8756e6ce912c5d400",
+    "benchmarks/.build/gpu-private-output-probe-2026-10-29/manifest.json": "7eb4f1c27b24bcab8a205b6b1ad6280e926ece077ce77f72eeea4a5309ab702f",
+    "native/metal/Metal.h": "a8ff2f56573e160841e54d9fc5e346de6e3c883ef89c7738b80167b1f6d8b57d",
+    "native/benchmarks/fair/TransformerClosedMetal.cpp": "a78f6c2a43678f3aa7ebc8af2afbf95b59919489a90b7278a3f07e41c960a949",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/manifest.json": "331e003cbe940d71a0c68739dc55e1c043a56646e65518faf376d40beec43f2f"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/Metal.mm": "5b2836b84413828db122376784984794053e52fbca904304106c63f5b68a158f",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/Driver.cpp": "1c5b82a8aa85bf9d239e8af6f3d895406a8bb6f3215841d03aa1fd882f295c5c",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/Verify.cpp": "c287be0dbd333545110d5d2bbd0efcf6a2b6bd3fc9d525a6c8b429e0957191b4",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/metal.o": "5ea1bc569b314b2de1c30266105d9e596de564f8c2f53bbf3472568b45fe3081",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/gpu": "4d5f2eabcd54d9408f1a20b808e43bedd5953cd2ebfa588778d52afcce541f35",
+    "benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/verify": "21779c9ac939ba545f3208d7a471d21c6a3bcbbdb8f360e8dac35bbd7ac64d1d",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate-task.a": "fddc23e893283c907b7a335130c9533cb9f3236de2fa2d85fa284813af7dec29",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/candidate": "2711bb79eda259702db7b158089688be80ee5e405cdde398078503d2baa2645f",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/TransformerProgram.h": "5be70fd2e1dcb768b9647689ec8fbb9c52ccff6297b0c7b6f49eae14126729db",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage1.metallib": "93424a7da661cca9946b97f703f5c3f8c9d6bc8dd491a1fc2e7e4f93c6918494",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0.metallib": "a3a6cebdc4b68ee061aa02f7544508ac0b98f01907e3dc70ab9d2423f8653564",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage6.metallib": "ca314833a644bb8cdd3fff0ac812c57be6284a7b4151fb6adf31fa1c42b01741",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage3.metallib": "3baf8dd6fbe0230375656b0f95dfb0e493ae0fac149169b7fb613f51133fe84a",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage2.metallib": "a5ddf36fef339b26fb9f336581d2034e8512f9b7e2319ebf53a41d22bac0ce12",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage4.metallib": "b6a0e2e2e22c586e30d4031db6acef804df41518ccae2adb59391e2e2ce86459",
+    "benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle/kernel0-stage5.metallib": "e9d31d56f908c607e8ea6841f3f3c1eca551b2b5d1748e37291bfa832b5f3313"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/gpu",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-upload-cache-atomic-2026-10-29/bundle",
+      "64",
+      "512",
+      "1024",
+      "20",
+      "0",
+      "0",
+      "0",
+      "2",
+      "1"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "2491406e91842703949e0bfd8891a43043617163",
+  "worktree_status": "?? benchmarks/results/gpu-private-inprocess-aa-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-aa-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-clean-aa-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-repeat-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-repeat-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-replay-cleanup-2026-10-29.json\n?? benchmarks/results/gpu-private-inprocess-toggle-2026-10-29-load.json\n?? benchmarks/results/gpu-private-inprocess-toggle-2026-10-29.json\n?? native/benchmarks/private_output_inprocess.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

@@ -23,6 +23,7 @@
 #endif
 
 namespace kalandra::runtime::metal {
+
 struct State {
   Options options;
   std::atomic<std::uint64_t> gpuNanoseconds{0}, encodingNanoseconds{0}, dispatches{0};
@@ -44,17 +45,22 @@ struct State {
     auto n = ++attempts;
     return !failAt || n != failAt;
   }
-  struct UploadCacheEntry {
+  struct CachedBufferEntry {
     id<MTLBuffer> buffer = nil;
     std::uint64_t size = 0;
     std::uint32_t device = 0;
+    bool privateOutput = false;
   };
   std::mutex allocationMutex;
-  std::array<UploadCacheEntry, 64> uploadCache{};
+  std::array<CachedBufferEntry, 64> deviceCache{};
   unsigned evictionCursor = 0;
   bool cacheClosed = false;
   std::atomic<std::uint64_t> retainedBytes{0}, peakRetainedBytes{0};
+  std::atomic<std::uint64_t> cachedDeviceBytes{0}, cachedDeviceBuffers{0};
   std::atomic<std::uint64_t> cachedUploadBytes{0}, cachedUploadBuffers{0};
+  std::atomic<std::uint64_t> cachedPreparedOutputBytes{0}, cachedPreparedOutputBuffers{0};
+  std::atomic<std::uint64_t> preparedOutputCacheHits{0}, preparedOutputCacheMisses{0};
+  std::atomic<bool> preparedOutputCaching{true};
   std::atomic<std::uint64_t> uploadCacheHits{0}, uploadCacheMisses{0};
 
   // retainedBytes is the atomic reservation ledger for live + idle backing.
@@ -76,23 +82,35 @@ struct State {
     return true;
   }
   void evict(unsigned i) noexcept {
-    auto &entry = uploadCache[i];
+    auto &entry = deviceCache[i];
     if (!entry.buffer)
       return;
     entry.buffer = nil;
-    cachedUploadBytes -= entry.size;
+    cachedDeviceBytes -= entry.size;
+    if (entry.privateOutput) {
+      cachedPreparedOutputBytes -= entry.size;
+      --cachedPreparedOutputBuffers;
+    } else {
+      cachedUploadBytes -= entry.size;
+      --cachedUploadBuffers;
+    }
     retainedBytes -= entry.size;
-    --cachedUploadBuffers;
+    --cachedDeviceBuffers;
     entry = {};
   }
-  void evictOne() noexcept {
-    for (unsigned i = 0; i < uploadCache.size(); ++i) {
-      const auto slot = evictionCursor++ % uploadCache.size();
-      if (uploadCache[slot].buffer) {
-        evict(slot);
-        return;
+  void evictOne(bool uploadsOnly = false) noexcept {
+    // Preserve upload working sets: recreating CPU-filled shared snapshots can
+    // outweigh a private-output hit. Shared subquota pressure still evicts only
+    // uploads; combined-capacity and live-budget pressure prefer private entries.
+    for (unsigned kind = uploadsOnly ? 1 : 0; kind < 2; ++kind)
+      for (unsigned i = 0; i < deviceCache.size(); ++i) {
+        const auto slot = evictionCursor++ % deviceCache.size();
+        const auto &entry = deviceCache[slot];
+        if (entry.buffer && entry.privateOutput == (kind == 0)) {
+          evict(slot);
+          return;
+        }
       }
-    }
   }
   bool reserveLocked(std::uint64_t n) noexcept {
     if (n > options.maxBytes)
@@ -100,7 +118,7 @@ struct State {
     for (;;) {
       if (reserveAtomic(n))
         return true;
-      if (!cachedUploadBuffers.load())
+      if (!cachedDeviceBuffers.load())
         return false;
       evictOne();
     }
@@ -115,51 +133,89 @@ struct State {
     bytes -= n;
     retainedBytes -= n;
   }
-  bool reserveUpload(std::uint64_t n, std::uint32_t device,
-                     id<MTLBuffer> __strong &buffer) noexcept {
-    if (!options.maxCachedUploadBytes)
+  bool reserveCached(std::uint64_t n, std::uint32_t device,
+                     id<MTLBuffer> __strong &buffer, bool privateOutput = false) noexcept {
+    if (!options.maxCachedDeviceBytes ||
+        (!privateOutput && !options.maxCachedUploadBytes) ||
+        (privateOutput && !preparedOutputCaching.load()))
       return reserve(n);
+    // An empty private pool cannot produce a hit. A concurrent retirement may
+    // populate it after this snapshot; allocating instead is conservative and
+    // still uses the same atomic live/idle budget and logical failure points.
+    if (privateOutput && !cachedPreparedOutputBuffers.load()) {
+      ++preparedOutputCacheMisses;
+      return reserve(n);
+    }
     std::lock_guard lock(allocationMutex);
-    if (!cacheClosed) {
-      for (auto &entry : uploadCache) {
-        if (entry.buffer && entry.size == n && entry.device == device) {
+    if (!cacheClosed && (!privateOutput || preparedOutputCaching.load())) {
+      for (auto &entry : deviceCache) {
+        if (entry.buffer && entry.size == n && entry.device == device && entry.privateOutput == privateOutput) {
           buffer = entry.buffer;
           entry = {};
-          cachedUploadBytes -= n;
-          --cachedUploadBuffers;
+          cachedDeviceBytes -= n;
+          --cachedDeviceBuffers;
+          if (privateOutput) {
+            cachedPreparedOutputBytes -= n;
+            --cachedPreparedOutputBuffers;
+          } else {
+            cachedUploadBytes -= n;
+            --cachedUploadBuffers;
+          }
           peak(peakBytes, bytes.fetch_add(n) + n); // Total reservation does not grow.
-          ++uploadCacheHits;
+          if (privateOutput) ++preparedOutputCacheHits;
+          else ++uploadCacheHits;
           return true;
         }
       }
-      ++uploadCacheMisses;
+      if (privateOutput) ++preparedOutputCacheMisses;
+      else ++uploadCacheMisses;
     }
     return reserveLocked(n);
   }
-  void retire(id<MTLBuffer> __strong &buffer, std::uint64_t n, bool upload,
-              std::uint32_t device) noexcept {
-    const auto limit = std::min(options.maxCachedUploadBytes, options.maxBytes);
-    if (!upload || !n || n > limit) {
+  void retire(id<MTLBuffer> __strong &buffer, std::uint64_t n, bool cacheable,
+              std::uint32_t device, bool privateOutput) noexcept {
+    const auto limit = std::min(options.maxCachedDeviceBytes, options.maxBytes);
+    const auto kindLimit = privateOutput ? limit : std::min(limit, options.maxCachedUploadBytes);
+    // A racy positive pressure snapshot can only discard an optional idle
+    // entry. Recheck under the lock below before admitting any private backing.
+    if (!cacheable || !n || n > kindLimit ||
+        (privateOutput && (!preparedOutputCaching.load() || cachedUploadBytes > limit - n))) {
       buffer = nil;
       release(n);
       return;
     }
     std::lock_guard lock(allocationMutex);
     // Admission covers encoding, copying and the entire submitted progression.
-    // Frame/packet owners pin upload snapshots through GPU ACK. At last-owner
+    // Frame/packet owners pin tensor backing through GPU ACK. At last-owner
     // retirement, zero admissions proves earlier uses have ended. A newly
     // admitted operation cannot acquire this dying owner. Under concurrency we
     // conservatively discard instead of caching any potentially pending buffer.
     // No pending GPU resource is ever inserted and no global epoch is assumed.
-    if (!cacheClosed && !inFlight.load()) {
-      while (cachedUploadBytes > limit - n || cachedUploadBuffers == uploadCache.size())
+    if (!cacheClosed && !inFlight.load() && (!privateOutput || preparedOutputCaching.load())) {
+      // Private admission must not displace an existing upload working set.
+      // Large private entries that cannot fit beside uploads are released.
+      if (privateOutput && cachedUploadBytes > limit - n) {
+        buffer = nil;
+        release(n);
+        return;
+      }
+      while (!privateOutput && cachedUploadBytes > kindLimit - n)
+        evictOne(true);
+      while (cachedDeviceBytes > limit - n || cachedDeviceBuffers == deviceCache.size())
         evictOne();
-      for (auto &entry : uploadCache) {
+      for (auto &entry : deviceCache) {
         if (!entry.buffer) {
-          entry = {buffer, n, device};
+          entry = {buffer, n, device, privateOutput};
           bytes -= n;
-          cachedUploadBytes += n;
-          ++cachedUploadBuffers;
+          cachedDeviceBytes += n;
+          ++cachedDeviceBuffers;
+          if (privateOutput) {
+            cachedPreparedOutputBytes += n;
+            ++cachedPreparedOutputBuffers;
+          } else {
+            cachedUploadBytes += n;
+            ++cachedUploadBuffers;
+          }
           buffer = nil;
           return;
         }
@@ -168,13 +224,20 @@ struct State {
     buffer = nil;
     release(n);
   }
-  void trim(bool close = false) noexcept {
+  void trim(bool close = false, bool uploadsOnly = false) noexcept {
     std::lock_guard lock(allocationMutex);
     cacheClosed |= close;
-    for (unsigned i = 0; i < uploadCache.size(); ++i)
-      evict(i);
+    for (unsigned i = 0; i < deviceCache.size(); ++i)
+      if (!uploadsOnly || !deviceCache[i].privateOutput) evict(i);
   }
 
+  void setPreparedOutputCaching(bool enabled) noexcept {
+    std::lock_guard lock(allocationMutex);
+    preparedOutputCaching = enabled;
+    if (!enabled)
+      for (unsigned i = 0; i < deviceCache.size(); ++i)
+        if (deviceCache[i].privateOutput) evict(i);
+  }
 };
 struct MetalAllocation {
   // Parameter slices retain one charged allocation; they are never tensors.
@@ -192,11 +255,12 @@ struct MetalAllocation {
   id<MTLBuffer> buffer;
   std::uint64_t bytes;
   bool staging;
-  bool cacheableUpload = false;
+  bool cacheableBacking = false;
+  bool privateOutput = false;
   std::uint32_t deviceIndex = 0;
-  MetalAllocation(std::shared_ptr<State> s, id<MTLBuffer> b, std::uint64_t n, bool stage, bool upload, std::uint32_t index)
+  MetalAllocation(std::shared_ptr<State> s, id<MTLBuffer> b, std::uint64_t n, bool stage, bool upload, std::uint32_t index, bool output)
       : state(std::move(s)), buffer(b), bytes(n), staging(stage),
-        cacheableUpload(upload), deviceIndex(index) {
+        cacheableBacking(upload), privateOutput(output), deviceIndex(index) {
     ++state->metalBuffers;
     if (staging)
       ++state->stagingBuffers;
@@ -206,7 +270,7 @@ struct MetalAllocation {
       buffer = nil;
       return;
     }
-    state->retire(buffer, bytes, cacheableUpload, deviceIndex);
+    state->retire(buffer, bytes, cacheableBacking, deviceIndex, privateOutput);
     --state->metalBuffers;
     if (staging)
       --state->stagingBuffers;
@@ -327,16 +391,18 @@ std::expected<std::uint64_t, Error> tensorBytes(std::span<const std::int64_t> sh
 }
 std::expected<std::shared_ptr<MetalAllocation>, Error>
 allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uint64_t n,
-              bool staging, bool shared = false) {
+              bool staging, bool shared = false, bool fullOutput = false) {
   if (!state->permit())
     return std::unexpected(Error::Allocation);
   if (n > state->devices[index].maxBufferLength)
     return std::unexpected(Error::Invalid);
   id<MTLBuffer> buffer = nil;
-  // Only CPU-filled upload snapshots may be reused. copySharedUpload writes
-  // every byte (including sub-word padding) before publishing the immutable value.
-  const bool upload = shared && !staging;
-  if (!(upload ? state->reserveUpload(n, index, buffer) : state->reserve(n)))
+  // Shared uploads overwrite every byte including padding. fullOutput is used
+  // only by validated pure Float32 progression: every successful operation writes
+  // every physical output byte before publishing a fresh immutable tensor.
+  // Other private buffers, flags, scratch, parameters and packed types are excluded.
+  const bool cacheable = (shared && !staging) || fullOutput;
+  if (!(cacheable ? state->reserveCached(n, index, buffer, fullOutput) : state->reserve(n)))
     return std::unexpected(Error::Budget);
   if (!state->permit())
     buffer = nil;
@@ -350,7 +416,7 @@ allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uin
     return std::unexpected(Error::Allocation);
   }
   try {
-    return std::make_shared<MetalAllocation>(state, buffer, n, staging, upload, index);
+    return std::make_shared<MetalAllocation>(state, buffer, n, staging, cacheable, index, fullOutput);
   } catch (...) {
     buffer = nil;
     state->release(n);
@@ -359,7 +425,7 @@ allocateMetal(const std::shared_ptr<State> &state, std::uint32_t index, std::uin
 }
 std::expected<std::shared_ptr<Storage>, Error>
 allocateStorage(const std::shared_ptr<State> &state, std::span<const std::int64_t> shape,
-                Format format, bool device, std::uint32_t index = 0, bool shared = false) {
+                Format format, bool device, std::uint32_t index = 0, bool shared = false, bool fullOutput = false) {
   auto size = tensorBytes(shape, format);
   if (!size)
     return std::unexpected(size.error());
@@ -382,7 +448,7 @@ allocateStorage(const std::shared_ptr<State> &state, std::span<const std::int64_
       if (width < 4 && *size > UINT64_MAX - 3)
         return std::unexpected(Error::Invalid);
       const auto physical = width < 4 ? (*size + 3) & ~UINT64_C(3) : *size;
-      auto buffer = allocateMetal(state, index, physical, false, shared);
+      auto buffer = allocateMetal(state, index, physical, false, shared, fullOutput);
       if (!buffer)
         return std::unexpected(buffer.error());
       storage->metal = *buffer;
@@ -3487,7 +3553,9 @@ struct Bridge {
                                           : source->format,
                                       upload || compute || matrix, index,
                                       upload && state->options.sharedUploads &&
-                                          state->devices[index].hasUnifiedMemory);
+                                          state->devices[index].hasUnifiedMemory,
+                                      state->preparedOutputCaching.load() && (compute || matrix) && f.progression &&
+                                          f.packet.kernel.state_->numericType == NumericType::Float32);
           if (!result) {
             fail(task, f, std::int64_t(result.error()));
             return;
@@ -4019,7 +4087,11 @@ std::expected<std::span<const std::byte>, Error> Buffer::hostBytes() const noexc
 }
 Runtime::Runtime(std::shared_ptr<State> state) noexcept : state_(std::move(state)) {}
 Runtime::~Runtime() { state_->trim(true); }
-void Runtime::trimUploadCache() noexcept { state_->trim(); }
+void Runtime::trimUploadCache() noexcept { state_->trim(false, true); }
+void Runtime::trimDeviceCache() noexcept { state_->trim(); }
+void Runtime::setPreparedOutputCaching(bool enabled) noexcept {
+  state_->setPreparedOutputCaching(enabled);
+}
 std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) noexcept {
   @autoreleasepool {
     if (!options.maxBytes || !options.maxInFlight)
@@ -4027,6 +4099,7 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     try {
       auto state = std::make_shared<State>();
       state->options = options;
+      state->preparedOutputCaching = options.cachePreparedOutputs;
       NSArray<id<MTLDevice>> *devices = MTLCopyAllDevices();
       state->devices = [devices
           sortedArrayUsingComparator:^NSComparisonResult(id<MTLDevice> a, id<MTLDevice> b) {
@@ -5336,7 +5409,9 @@ Stats Runtime::stats() const noexcept {
           state_->attempts,       state_->argumentBytes,       state_->peakArgumentBytes,
           state_->argumentPacks,  state_->retainedBytes,      state_->peakRetainedBytes,
           state_->cachedUploadBytes, state_->cachedUploadBuffers,
-          state_->uploadCacheHits, state_->uploadCacheMisses};
+          state_->uploadCacheHits, state_->uploadCacheMisses,
+          state_->cachedPreparedOutputBytes, state_->cachedPreparedOutputBuffers,
+          state_->preparedOutputCacheHits, state_->preparedOutputCacheMisses};
 }
 void Runtime::failAllocationAt(std::uint64_t attempt) noexcept {
   state_->attempts = 0;

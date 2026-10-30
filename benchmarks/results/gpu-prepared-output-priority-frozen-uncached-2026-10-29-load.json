@@ -1,0 +1,1805 @@
+{
+  "context": "Sequential production cache acceptance; no builds/tests/profiling overlap. Equal timing instrumentation. CPU load does not establish GPU idleness.",
+  "samples": [
+    {
+      "utc": "2026-10-30T00:29:23.011868+00:00",
+      "external_cpu_percent": 66.7,
+      "top": [
+        {
+          "cpu_percent": 28.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 14.3,
+          "exe": "/usr/libexec/biomesyncd"
+        },
+        {
+          "cpu_percent": 5.7,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.8,
+          "exe": "/usr/libexec/runningboardd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:29:28.079109+00:00",
+      "external_cpu_percent": 32.3,
+      "top": [
+        {
+          "cpu_percent": 10.7,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 9.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.6,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:29:33.142309+00:00",
+      "external_cpu_percent": 40.1,
+      "top": [
+        {
+          "cpu_percent": 16.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 11.9,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 4.4,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:29:38.208483+00:00",
+      "external_cpu_percent": 56.5,
+      "top": [
+        {
+          "cpu_percent": 17.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 17.3,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 10.9,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 3.1,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:29:43.273721+00:00",
+      "external_cpu_percent": 45.699999999999996,
+      "top": [
+        {
+          "cpu_percent": 17.9,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 15.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:29:48.340705+00:00",
+      "external_cpu_percent": 86.6,
+      "top": [
+        {
+          "cpu_percent": 25.3,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 16.5,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "cpu_percent": 6.1,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.7,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:29:53.410736+00:00",
+      "external_cpu_percent": 29.2,
+      "top": [
+        {
+          "cpu_percent": 12.8,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 9.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/System/Library/CoreServices/launchservicesd"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 0.7,
+          "exe": "/Applications/Docker.app/Contents/MacOS/com.docker.backend"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:29:58.475932+00:00",
+      "external_cpu_percent": 103.5,
+      "top": [
+        {
+          "cpu_percent": 55.3,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 20.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 4.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.6,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 3.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:03.542679+00:00",
+      "external_cpu_percent": 50.9,
+      "top": [
+        {
+          "cpu_percent": 22.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 13.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/System/Library/CoreServices/launchservicesd"
+        },
+        {
+          "cpu_percent": 0.7,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:08.608928+00:00",
+      "external_cpu_percent": 43.5,
+      "top": [
+        {
+          "cpu_percent": 11.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 11.7,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/System/Library/CoreServices/launchservicesd"
+        },
+        {
+          "cpu_percent": 2.8,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:13.674572+00:00",
+      "external_cpu_percent": 31.400000000000002,
+      "top": [
+        {
+          "cpu_percent": 11.8,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 7.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.1,
+          "exe": "/System/Library/CoreServices/launchservicesd"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:18.739683+00:00",
+      "external_cpu_percent": 28.2,
+      "top": [
+        {
+          "cpu_percent": 7.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.3,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.8,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 1.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:23.809387+00:00",
+      "external_cpu_percent": 42.6,
+      "top": [
+        {
+          "cpu_percent": 21.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.4,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 3.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/System/Library/CoreServices/launchservicesd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:28.874346+00:00",
+      "external_cpu_percent": 114.2,
+      "top": [
+        {
+          "cpu_percent": 90.7,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 9.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.5,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:33.942397+00:00",
+      "external_cpu_percent": 32.0,
+      "top": [
+        {
+          "cpu_percent": 8.8,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 7.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.3,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:39.006819+00:00",
+      "external_cpu_percent": 36.9,
+      "top": [
+        {
+          "cpu_percent": 18.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 8.1,
+          "exe": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:44.073852+00:00",
+      "external_cpu_percent": 54.2,
+      "top": [
+        {
+          "cpu_percent": 39.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.5,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:49.137923+00:00",
+      "external_cpu_percent": 118.60000000000001,
+      "top": [
+        {
+          "cpu_percent": 96.4,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 7.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.7,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 1.8,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:54.204595+00:00",
+      "external_cpu_percent": 22.400000000000002,
+      "top": [
+        {
+          "cpu_percent": 15.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 0.9,
+          "exe": "/usr/libexec/dasd"
+        },
+        {
+          "cpu_percent": 0.6,
+          "exe": "/usr/sbin/notifyd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:30:59.272846+00:00",
+      "external_cpu_percent": 17.3,
+      "top": [
+        {
+          "cpu_percent": 6.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/usr/sbin/bluetoothd"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 0.9,
+          "exe": "/Applications/Docker.app/Contents/Resources/bin/cagent"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:04.336983+00:00",
+      "external_cpu_percent": 48.4,
+      "top": [
+        {
+          "cpu_percent": 20.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 9.5,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 4.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.5,
+          "exe": "/usr/libexec/searchpartyd"
+        },
+        {
+          "cpu_percent": 2.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:09.403101+00:00",
+      "external_cpu_percent": 122.6,
+      "top": [
+        {
+          "cpu_percent": 95.1,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 8.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.8,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:14.469342+00:00",
+      "external_cpu_percent": 115.89999999999999,
+      "top": [
+        {
+          "cpu_percent": 95.1,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 8.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:19.537183+00:00",
+      "external_cpu_percent": 130.4,
+      "top": [
+        {
+          "cpu_percent": 98.4,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 16.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 4.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 3.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:24.603615+00:00",
+      "external_cpu_percent": 25.8,
+      "top": [
+        {
+          "cpu_percent": 12.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 0.6,
+          "exe": "/Applications/Docker.app/Contents/MacOS/com.docker.backend"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:29.670998+00:00",
+      "external_cpu_percent": 42.1,
+      "top": [
+        {
+          "cpu_percent": 20.5,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 6.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.6,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 1.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:34.735994+00:00",
+      "external_cpu_percent": 52.5,
+      "top": [
+        {
+          "cpu_percent": 29.2,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 6.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.7,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 2.6,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.1,
+          "exe": "/usr/libexec/configd"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:39.803825+00:00",
+      "external_cpu_percent": 76.60000000000001,
+      "top": [
+        {
+          "cpu_percent": 33.7,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 26.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.1,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 3.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:44.868796+00:00",
+      "external_cpu_percent": 87.0,
+      "top": [
+        {
+          "cpu_percent": 36.3,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 11.3,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.6,
+          "exe": "/System/Library/CoreServices/TimeMachine/backupd"
+        },
+        {
+          "cpu_percent": 3.1,
+          "exe": "/usr/libexec/searchpartyuseragent"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/usr/libexec/dasd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:49.934585+00:00",
+      "external_cpu_percent": 66.4,
+      "top": [
+        {
+          "cpu_percent": 31.2,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 7.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 7.2,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 7.1,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 4.0,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:31:55.000405+00:00",
+      "external_cpu_percent": 76.1,
+      "top": [
+        {
+          "cpu_percent": 13.0,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 12.3,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 11.5,
+          "exe": "/System/Library/CoreServices/launchservicesd"
+        },
+        {
+          "cpu_percent": 10.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.8,
+          "exe": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "cpu_percent": 5.5,
+          "exe": "/usr/libexec/sysmond"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:00.066546+00:00",
+      "external_cpu_percent": 75.39999999999999,
+      "top": [
+        {
+          "cpu_percent": 36.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 14.0,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 7.9,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 4.3,
+          "exe": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "cpu_percent": 2.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:05.129574+00:00",
+      "external_cpu_percent": 95.3,
+      "top": [
+        {
+          "cpu_percent": 42.4,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 21.3,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 8.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.1,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 4.3,
+          "exe": "/Applications/Tailscale.app/Contents/PlugIns/IPNExtension.appex/Contents/MacOS/IPNExtension"
+        },
+        {
+          "cpu_percent": 1.8,
+          "exe": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:10.196336+00:00",
+      "external_cpu_percent": 43.6,
+      "top": [
+        {
+          "cpu_percent": 20.2,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 15.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:15.264965+00:00",
+      "external_cpu_percent": 23.7,
+      "top": [
+        {
+          "cpu_percent": 16.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 0.6,
+          "exe": "/usr/libexec/airportd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:20.330222+00:00",
+      "external_cpu_percent": 34.9,
+      "top": [
+        {
+          "cpu_percent": 17.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 4.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.9,
+          "exe": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:25.394567+00:00",
+      "external_cpu_percent": 30.1,
+      "top": [
+        {
+          "cpu_percent": 6.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.3,
+          "exe": "/usr/sbin/notifyd"
+        },
+        {
+          "cpu_percent": 3.5,
+          "exe": "/usr/libexec/replayd"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 1.7,
+          "exe": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:30.460411+00:00",
+      "external_cpu_percent": 26.2,
+      "top": [
+        {
+          "cpu_percent": 9.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/usr/libexec/searchpartyd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:35.526642+00:00",
+      "external_cpu_percent": 37.5,
+      "top": [
+        {
+          "cpu_percent": 21.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 4.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 3.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        },
+        {
+          "cpu_percent": 0.7,
+          "exe": "/usr/libexec/runningboardd"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:40.593166+00:00",
+      "external_cpu_percent": 38.4,
+      "top": [
+        {
+          "cpu_percent": 11.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.8,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Library/Developer/PrivateFrameworks/CoreDevice.framework/Versions/A/XPCServices/CoreDeviceService.xpc/Contents/MacOS/CoreDeviceService"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:45.660109+00:00",
+      "external_cpu_percent": 49.300000000000004,
+      "top": [
+        {
+          "cpu_percent": 29.1,
+          "exe": "/Applications/Docker.app/Contents/MacOS/com.docker.backend"
+        },
+        {
+          "cpu_percent": 8.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:50.727257+00:00",
+      "external_cpu_percent": 17.3,
+      "top": [
+        {
+          "cpu_percent": 6.2,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/usr/libexec/searchpartyd"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:32:55.797560+00:00",
+      "external_cpu_percent": 49.8,
+      "top": [
+        {
+          "cpu_percent": 9.8,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 8.2,
+          "exe": "/System/Library/CoreServices/launchservicesd"
+        },
+        {
+          "cpu_percent": 7.1,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 5.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 3.3,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:00.863247+00:00",
+      "external_cpu_percent": 46.0,
+      "top": [
+        {
+          "cpu_percent": 29.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.1,
+          "exe": "/Applications/Utilities/Adobe Creative Cloud Experience/CCXProcess/CCXProcess.app/Contents/MacOS/Creative Cloud Content Manager.node"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 0.8,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:05.930578+00:00",
+      "external_cpu_percent": 21.4,
+      "top": [
+        {
+          "cpu_percent": 7.8,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:10.997115+00:00",
+      "external_cpu_percent": 20.7,
+      "top": [
+        {
+          "cpu_percent": 8.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.9,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 0.8,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:16.065250+00:00",
+      "external_cpu_percent": 34.1,
+      "top": [
+        {
+          "cpu_percent": 8.7,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 4.4,
+          "exe": "/usr/sbin/bluetoothd"
+        },
+        {
+          "cpu_percent": 4.2,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 2.1,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        },
+        {
+          "cpu_percent": 1.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:21.133152+00:00",
+      "external_cpu_percent": 50.1,
+      "top": [
+        {
+          "cpu_percent": 23.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 4.3,
+          "exe": "/usr/sbin/cfprefsd"
+        },
+        {
+          "cpu_percent": 3.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 3.5,
+          "exe": "/usr/sbin/bluetoothd"
+        },
+        {
+          "cpu_percent": 3.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:26.196373+00:00",
+      "external_cpu_percent": 18.9,
+      "top": [
+        {
+          "cpu_percent": 7.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 2.3,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.1,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 0.7,
+          "exe": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:31.259930+00:00",
+      "external_cpu_percent": 46.7,
+      "top": [
+        {
+          "cpu_percent": 17.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 8.7,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 5.5,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 4.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.1,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:36.326635+00:00",
+      "external_cpu_percent": 30.0,
+      "top": [
+        {
+          "cpu_percent": 20.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 0.5,
+          "exe": "/Applications/Docker.app/Contents/MacOS/com.docker.backend"
+        },
+        {
+          "cpu_percent": 0.5,
+          "exe": "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"
+        },
+        {
+          "cpu_percent": 0.4,
+          "exe": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:41.392508+00:00",
+      "external_cpu_percent": 29.900000000000002,
+      "top": [
+        {
+          "cpu_percent": 16.6,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 4.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"
+        },
+        {
+          "cpu_percent": 0.7,
+          "exe": "/Applications/Amphetamine.app/Contents/MacOS/Amphetamine"
+        },
+        {
+          "cpu_percent": 0.6,
+          "exe": "/Applications/Docker.app/Contents/MacOS/com.docker.backend"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:46.457634+00:00",
+      "external_cpu_percent": 27.3,
+      "top": [
+        {
+          "cpu_percent": 6.3,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.1,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 4.5,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 2.8,
+          "exe": "/Applications/Docker.app/Contents/MacOS/com.docker.backend"
+        },
+        {
+          "cpu_percent": 1.8,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:51.524021+00:00",
+      "external_cpu_percent": 17.9,
+      "top": [
+        {
+          "cpu_percent": 10.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 1.0,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 0.8,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 0.6,
+          "exe": "/Applications/Docker.app/Contents/MacOS/com.docker.backend"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:33:56.590897+00:00",
+      "external_cpu_percent": 62.699999999999996,
+      "top": [
+        {
+          "cpu_percent": 22.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 6.1,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 4.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 4.4,
+          "exe": "/opt/homebrew/bin/gh"
+        },
+        {
+          "cpu_percent": 4.3,
+          "exe": "/System/Library/CoreServices/launchservicesd"
+        },
+        {
+          "cpu_percent": 4.2,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:34:01.659577+00:00",
+      "external_cpu_percent": 28.5,
+      "top": [
+        {
+          "cpu_percent": 8.4,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 4.7,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 4.3,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 3.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.0,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.2,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:34:06.726389+00:00",
+      "external_cpu_percent": 26.2,
+      "top": [
+        {
+          "cpu_percent": 8.0,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 3.7,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 1.6,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/Bartender 7.app/Contents/MacOS/Bartender 7"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:34:11.792580+00:00",
+      "external_cpu_percent": 28.4,
+      "top": [
+        {
+          "cpu_percent": 7.6,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 7.5,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.4,
+          "exe": "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 1.3,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:34:16.859412+00:00",
+      "external_cpu_percent": 70.3,
+      "top": [
+        {
+          "cpu_percent": 24.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 23.2,
+          "exe": "/sbin/launchd"
+        },
+        {
+          "cpu_percent": 9.2,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 2.9,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 2.4,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "cpu_percent": 2.2,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        }
+      ]
+    },
+    {
+      "utc": "2026-10-30T00:34:21.925177+00:00",
+      "external_cpu_percent": 46.1,
+      "top": [
+        {
+          "cpu_percent": 21.0,
+          "exe": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "cpu_percent": 9.9,
+          "exe": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "cpu_percent": 4.3,
+          "exe": "/usr/libexec/sysmond"
+        },
+        {
+          "cpu_percent": 2.5,
+          "exe": "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "cpu_percent": 1.5,
+          "exe": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/156.0.8078.48/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ]
+    }
+  ]
+}

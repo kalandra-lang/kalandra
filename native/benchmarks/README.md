@@ -405,3 +405,96 @@ for broader replication. Run them sequentially after numerical qualification.
 bounds, including initial noisy controls and the failed gain replication. The
 interrupted first enabled screen has no completed measurement JSON and is
 explicitly excluded. No private-output reuse is promoted to production.
+
+
+## Same-runtime allocation controls and production output cache
+
+The [same-runtime investigation](../../benchmarks/results/gpu-private-inprocess-2026-10-29.md)
+retains every noisy control, partial/verified replay cleanup cohort, mislaunched
+case and larger-workload replication. `private_output_inprocess.py` creates the
+prototype; `private_inprocess_large.py` qualifies and measures the 512-row case.
+`private_gpu_telemetry.py` correlates timestamped intervals with reported DVFS
+residency using the isolated MIT macmon helper in `GpuPowerTelemetry.rs`.
+Telemetry overlaps profiling only and is not acceptance evidence.
+
+`prepared_output_cache.py` builds the **production** runtime and uses its public
+`setPreparedOutputCaching`/`trimDeviceCache` policy. It keeps a single runtime,
+queue and prepared program alive across five ABBA/BAAB blocks. Each slot trims,
+warms two full intervals outside timing, then measures all per-invocation work.
+Both sides enable identical GPU/encoding counters. The earlier probe's generic
+cache counters are replaced by combined totals and separate class statistics.
+
+```sh
+python3 native/benchmarks/prepared_output_cache.py --phase prepare --build NEW --output NEW/prepare.json
+python3 native/benchmarks/prepared_output_cache.py --phase verify --build NEW --output NEW/qualification.json
+python3 native/benchmarks/prepared_output_cache.py --phase measure --build NEW --output NEW.json --scope largest --study aa --count 1024 --blocks 5
+```
+
+Use fresh paths and sequential `aa`, `toggle`, `repeat` studies for `largest`
+(512×512 resident) and `guards` (1×512, 64×512 resident; 512×512 all-weight upload).
+The identical-build control must have absolute paired median ≤2% and all blocks
+within ±5% before attributing a roughly 10% gain. Retain failed controls.
+`KALANDRA_DEVICE_CACHE_BYTES` controls only this benchmark driver, not language
+semantics. Verification compares every output bit with the frozen accepted
+runtime and independent high-precision bounds across nine shapes, two switch
+orders, three cache caps, three runner policies and three upload modes. Signed
+zero is preserved. Never overlap acceptance with builds, tests or profiling;
+record background load without assuming CPU idleness proves GPU idleness.
+
+
+`prepared_output_frozen.py --phase prepare --build NEW --output NEW/prepare.json`
+links an uninstrumented driver to the exact same qualified production object.
+After same-runtime studies finish, use `--phase measure --study aa|production|repeat|uncached`
+with fresh output paths. It compares the frozen accepted runtime and candidate
+using three adjacent ABBA/BAAB process blocks, three measured rounds and a
+1,000 ms adaptive target (8,192-call ceiling). Cache-off candidate controls retain
+shared-upload reuse. The reporter `fair/prepared_output_report.py` checks every
+checksum, pair, cap, manifest and archived qualification/test record. Frozen
+artifacts remain ignored; small raw observations and provenance are versioned.
+
+
+The first production policy's [retained rejection](../../benchmarks/results/gpu-prepared-output-initial-2026-10-29.md)
+is audited by `fair/prepared_output_initial_report.py`. Upload class counters
+show private retention displacing a useful upload. The revised runtime protects
+cached uploads and prefers private eviction without raising the combined quota.
+Use fresh build/output paths (`gpu-prepared-output-priority-*`) and qualify it
+again. The frozen comparator accepts `--runtime-build QUALIFIED_BUILD`, ensuring
+it links and verifies the selected revision. Never substitute earlier prototype
+or rejected-policy gains for a newly changed runtime.
+
+
+For source reproduction of the rejected initial production policy,
+`prepared-output-initial-policy.patch` restores its eviction logic and test
+fixture from the final implementation. Apply it only in an isolated copy, then
+use fresh build/output paths. `git apply --check` verifies applicability without
+changing the active runtime. Original local frozen sources/binaries remain the
+identity reference; the patch provides a versioned reconstruction of rejected
+source rather than relying on ignored build directories alone.
+
+
+The [upload-protecting candidate](../../benchmarks/results/gpu-prepared-output-priority-2026-10-29.md)
+keeps seven upload hits but retains a 2.68–4.08% frozen upload-heavy slowdown,
+with zero private hits. The subsequent fast-miss candidate removes locking/scans
+for empty private pools and conservatively releases backing under upload pressure.
+`prepared-output-priority-policy.patch` reconstructs the preceding source in an
+isolated copy. Both reconstruction patches apply to the final source, not each other.
+
+For the final candidate, run fresh prepare/verify phases in
+`gpu-prepared-output-fastmiss-cache-*`. Prepare `prepared_output_frozen.py` with
+`--runtime-build QUALIFIED_BUILD`, then run sequential `aa`, `production`, `repeat`
+and `uncached` studies with `--aa-all` to control every case. A separate
+`prepared_output_cache.py --phase measure --scope guards --count 128 --blocks 1 --study toggle`
+counter diagnostic verifies class behavior; its short timings are not acceptance.
+`fair/prepared_output_fastmiss_report.py` checks final sources, tests, numerical
+qualification, counters, every pair and resource limits. Earlier candidate reports
+remain audited separately; their gains are never substituted for the final binary.
+
+
+The [qualified final report](../../benchmarks/results/gpu-prepared-output-fastmiss-2026-10-29.md)
+uses only final-source frozen comparisons for its accepted performance claims.
+Resident512×512 improves 11.44% / 11.32% with passing controls. Smaller controls
+fail; upload-heavy timing remains variable even though all seven upload hits are
+preserved. The final auditor verifies complete Cartesian numerical coverage,
+source identities, resource caps, actual work counts and every retained pair.
+Uninstrumented dispatch counters are zero by design; the separate profiled
+counter diagnostic checks positive dispatches. All prior policies remain linked.

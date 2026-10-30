@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-10-29T21:10:54.488297+00:00",
+  "records": [
+    {
+      "pid": 39393,
+      "task_trace_files": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/store0",
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-resource-probe-2026-10-29/baseline.gputrace/startup-0-platform"
+      ],
+      "action": "SIGKILL after ignored SIGTERM; ownership confirmed from open Kalandra benchmark traces"
+    },
+    {
+      "pid": 39546,
+      "task_trace_files": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/store0",
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-m2-counters-2026-10-29/quad.gputrace/startup-0-platform"
+      ],
+      "action": "SIGKILL after ignored SIGTERM; ownership confirmed from open Kalandra benchmark traces"
+    },
+    {
+      "pid": 40392,
+      "task_trace_files": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-register-lifetime-2026-10-29/phased32.gputrace/store0",
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-register-lifetime-2026-10-29/phased32.gputrace/startup-0-platform"
+      ],
+      "action": "SIGKILL after ignored SIGTERM; ownership confirmed from open Kalandra benchmark traces"
+    },
+    {
+      "pid": 40816,
+      "task_trace_files": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-shared-load-2026-10-29/packed-b68.gputrace/store0",
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-shared-load-2026-10-29/packed-b68.gputrace/startup-0-platform"
+      ],
+      "action": "SIGKILL after ignored SIGTERM; ownership confirmed from open Kalandra benchmark traces"
+    },
+    {
+      "pid": 42306,
+      "task_trace_files": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-swizzled-load-2026-10-29/baseline.gputrace/store0",
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-swizzled-load-2026-10-29/baseline.gputrace/startup-0-platform"
+      ],
+      "action": "SIGKILL after ignored SIGTERM; ownership confirmed from open Kalandra benchmark traces"
+    },
+    {
+      "pid": 45375,
+      "task_trace_files": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/store0",
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-specialization-k-2026-10-29/specialized.gputrace/startup-0-platform"
+      ],
+      "action": "SIGKILL after ignored SIGTERM; ownership confirmed from open Kalandra benchmark traces"
+    },
+    {
+      "pid": 45480,
+      "task_trace_files": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/store0",
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-specialization-shape-2026-10-29/specialized.gputrace/startup-0-platform"
+      ],
+      "action": "SIGKILL after ignored SIGTERM; ownership confirmed from open Kalandra benchmark traces"
+    },
+    {
+      "pid": 79657,
+      "task_trace_files": [
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-a-2026-10-29/lane.gputrace/store0",
+        "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-lane-a-2026-10-29/lane.gputrace/startup-0-platform"
+      ],
+      "action": "SIGKILL after ignored SIGTERM; ownership confirmed from open Kalandra benchmark traces"
+    }
+  ],
+  "scope": "Only replay services with exclusively Kalandra benchmark trace files; Xcode, Instruments and unrelated services were not terminated. This records cleanup, not proof of timing causality.",
+  "verified_remaining_pids": [],
+  "exits_verified": true
+}

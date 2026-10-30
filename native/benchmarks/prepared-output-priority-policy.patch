@@ -1,0 +1,28 @@
+--- a/native/metal/Metal.mm
++++ b/native/metal/Metal.mm
+@@ -139,13 +139,6 @@
+         (!privateOutput && !options.maxCachedUploadBytes) ||
+         (privateOutput && !preparedOutputCaching.load()))
+       return reserve(n);
+-    // An empty private pool cannot produce a hit. A concurrent retirement may
+-    // populate it after this snapshot; allocating instead is conservative and
+-    // still uses the same atomic live/idle budget and logical failure points.
+-    if (privateOutput && !cachedPreparedOutputBuffers.load()) {
+-      ++preparedOutputCacheMisses;
+-      return reserve(n);
+-    }
+     std::lock_guard lock(allocationMutex);
+     if (!cacheClosed && (!privateOutput || preparedOutputCaching.load())) {
+       for (auto &entry : deviceCache) {
+@@ -176,10 +169,7 @@
+               std::uint32_t device, bool privateOutput) noexcept {
+     const auto limit = std::min(options.maxCachedDeviceBytes, options.maxBytes);
+     const auto kindLimit = privateOutput ? limit : std::min(limit, options.maxCachedUploadBytes);
+-    // A racy positive pressure snapshot can only discard an optional idle
+-    // entry. Recheck under the lock below before admitting any private backing.
+-    if (!cacheable || !n || n > kindLimit ||
+-        (privateOutput && (!preparedOutputCaching.load() || cachedUploadBytes > limit - n))) {
++    if (!cacheable || !n || n > kindLimit || (privateOutput && !preparedOutputCaching.load())) {
+       buffer = nil;
+       release(n);
+       return;

@@ -1,0 +1,15 @@
+{
+  "files": [
+    "gpu-private-inprocess-large-aa-2026-10-29.json",
+    "gpu-private-inprocess-large-toggle-2026-10-29.json",
+    "gpu-private-inprocess-large-repeat-2026-10-29.json"
+  ],
+  "actual_shape": [
+    64,
+    512
+  ],
+  "actual_iterations": 256,
+  "status": "Coordinator selected base harness instead of large wrapper. Retained as short-interval64-row observations; excluded from large-batch conclusions.",
+  "replacement_prefix": "gpu-private-inprocess-large-validated-",
+  "action": "Corrected tool path and assert result group512x512 plus wrapper metadata after every phase."
+}

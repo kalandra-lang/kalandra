@@ -1,0 +1,20 @@
+{
+  "selection": "ctest --test-dir build/native -R native-metal -E '(-cli-|^native-metal-(install|tensor-transforms|pipeline|gpu-optimization|relu)$)' --output-on-failure -j 4",
+  "tests": 201,
+  "failed": 0,
+  "seconds": 981.99,
+  "modes": [
+    "debug",
+    "optimized",
+    "ASan/UBSan",
+    "TSan"
+  ],
+  "scope": "Final upload-protecting policy: GPU runtime/support including all prepared-program integration modes. Not a full compiler/CLI suite rerun.",
+  "log_sha256": "58d8732eaaeddf38c180ead0405020fb5c85d19dc01788980c06794b5b44793d",
+  "sources": {
+    "native/metal/Metal.h": "9a1175697011a1b1833e48fc290b6e30a3fd96c7ea6d5eca0ec797001b35308d",
+    "native/metal/Metal.mm": "8f9c0eb4345eda161f765ce7aee22e2e2d060c4e2047c960d2b68ff259e07488",
+    "native/tests/PreparedOutputCacheTests.h": "03d5ba065a44311ecad78d93beb2f40214712c3e33fd028cacb2b42ef9fbc9d2",
+    "native/tests/PreparedNumericProgramTests.cpp": "b6ee721a4cc7515750b85637fb2e40252aada39c2cf28316a75c79eda054866e"
+  }
+}

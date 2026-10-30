@@ -188,49 +188,64 @@ keep separate backing. See [fusion and private reuse](../../docs/design/gpu-proj
 for the safety boundary and the benchmark report, including losing cases and
 additional pipeline setup cost.
 
-## Bounded shared-upload backing reuse
+## Bounded device backing reuse
 
-`Options::maxCachedUploadBytes` defaults to 16 MiB and may be set to zero for the
-uncached control. Each runtime owns at most 64 idle entries, bounded by the smaller
-of that option and `maxBytes`. Entries are keyed by device and exact physical byte
-length. Only shared, CPU-populated upload allocations are eligible; private
-outputs, scratch, staging and parameter arenas are excluded. Every reuse runs the
-ordinary bounded copy and writes all logical bytes plus sub-word padding before
-publishing a new immutable snapshot. Shape/type metadata is freshly allocated;
-this is storage reuse, not memoization or a host-data alias.
+Each runtime owns at most 64 idle entries within `Options::maxCachedDeviceBytes`
+(default 16 MiB), all charged against `maxBytes`. Shared uploads have a separate
+`maxCachedUploadBytes` subquota (default 16 MiB); zero disables that class.
+Setting the combined quota to zero disables all backing reuse.
+`cachePreparedOutputs` defaults to true. Only full Float32 outputs of validated
+pure prepared progression are eligible for private reuse. Ordinary primitives,
+transforms, packed types, empty outputs, flags, scratch, staging and parameter
+arenas retain their existing paths. Entries distinguish device, exact physical
+byte length and shared/private storage kind.
 
-The existing `maxBytes` limit charges both live payload reservations and idle
-cached backing. A hit transfers an existing reservation from idle to live.
-Allocations evict idle entries when doing so can make a request fit; cached storage
-cannot turn a satisfiable live allocation into a budget error. Logical allocation
-attempts and injected failures are preserved on both hits and misses. Allocation
-metadata and driver-internal memory remain outside the payload budget, as before.
+Shared uploads overwrite logical bytes and sub-word padding. Successful eligible
+prepared maps/matrix operations overwrite every physical output byte before
+publishing a new immutable value. Shape/type metadata is fresh; this is backing
+reuse, not memoization or an alias to old tensor contents.
 
-Cache admission requires last-owner retirement and zero admitted operations in
-that runtime. Admission covers copying, encoding and the complete GPU progression;
-frame/packet owners retain upload snapshots through acknowledgement. A new task
-cannot acquire the dying last owner. If other work is admitted, retirement
-conservatively releases the buffer instead of caching it. There is no pending
-buffer queue, global epoch or early GPU reuse. Aliases, cancelled tasks and failed
-completions retain their existing ownership and fault-precedence rules.
+The existing `maxBytes` limit charges live payload reservations and idle backing.
+A hit transfers an existing reservation from idle to live. Private admission never
+displaces an existing upload working set; a private entry that cannot fit beside
+cached uploads is released. Upload admission and live-budget pressure prefer
+evicting private entries. Shared subquota pressure evicts shared entries.
+Allocations evict idle entries when doing so can make a request fit; caching cannot turn a satisfiable
+live allocation into a budget error. Logical allocation attempts and injected
+failures remain the same on hits and misses. Metadata and driver-internal memory
+remain outside the payload budget, as before.
 
-`Stats::bytes`, `metalBuffers` and the backing counts describe live owners.
-`retainedBytes`/`peakRetainedBytes` additionally include idle cache storage;
-`cachedUploadBytes`, `cachedUploadBuffers`, `uploadCacheHits` and `uploadCacheMisses`
-expose retention and reuse. Snapshots taken during concurrent mutation need not
-represent one atomic instant. `trimUploadCache()` releases only idle entries.
-Destroying the runtime trims and closes its cache; outstanding frames/buffers can
-still keep registry state alive, but cannot repopulate the closed cache.
+Admission requires last-owner retirement and zero admitted operations in that
+runtime. Admission covers copying, encoding and complete GPU progression;
+frame/packet owners pin backing through acknowledgement. A new task cannot
+acquire the dying last owner. Under concurrent work, retirement conservatively
+releases instead of caching. There is no pending-resource queue or early GPU
+reuse. Aliases, cancellation and failed completions retain their ownership and
+fault-precedence rules.
 
-The intended tradeoff is bounded idle memory retention to avoid repeatedly
-creating and first-touching upload backing. Arithmetic, shader selection,
-submission/checkpoint boundaries, cancellation copy quanta and publication rules
-are unchanged. Performance acceptance is recorded separately from correctness;
-the earlier global-cache feasibility probe is not this implementation.
+`Stats::bytes`, `metalBuffers` and backing counts describe live owners.
+`retainedBytes`/`peakRetainedBytes` also include idle storage. Shared-only
+`cachedUploadBytes`, `cachedUploadBuffers`, `uploadCacheHits` and
+`uploadCacheMisses` keep their meaning; `cachedPreparedOutputBytes`,
+`cachedPreparedOutputBuffers`, `preparedOutputCacheHits` and
+`preparedOutputCacheMisses` expose private retention separately. Concurrent
+snapshots need not describe one atomic instant.
 
-The total live-plus-idle reservation uses an atomic compare-and-exchange ledger.
-Reservations that fit the retained budget and ordinary host/private releases
-do not acquire the cache mutex. Cache entries, transfers and pressure-driven
-eviction use that mutex. Total
-capacity is reserved before publishing live bytes and released after dropping
-live ownership, so concurrent callers cannot spend the same capacity twice.
+`trimUploadCache()` releases idle shared uploads; `trimDeviceCache()` releases
+both classes. Thread-safe `setPreparedOutputCaching(false)` also evicts idle
+private entries. Existing live/pending owners remain valid and cannot refill a
+disabled private pool. Destroying the runtime closes and trims both classes;
+escaped owners can keep state alive but cannot refill the closed cache.
+
+Bounded idle memory retention avoids repeated buffer creation/first touch.
+Arithmetic, shader selection, submission/checkpoint boundaries, cancellation
+copy quanta and immutable publication are unchanged. C++ Options/Stats layouts
+have grown, so native clients must rebuild; generated GPU module formats are
+unchanged. Performance evidence is recorded separately from correctness.
+
+The total reservation uses atomic compare-and-exchange. Ordinary allocations
+that fit and uncached releases avoid the cache mutex. An empty private-pool snapshot can miss a concurrent optional hit and use the
+ordinary atomic reservation directly. A conservative positive upload-pressure
+snapshot can release private backing without locking; admission still rechecks
+under the mutex. Cache mutation and pressure eviction take that mutex. Capacity is reserved before publishing live
+bytes and released after dropping ownership, preventing concurrent double spend.

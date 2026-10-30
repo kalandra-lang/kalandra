@@ -880,9 +880,116 @@ gain, but the broader three-block replication gives a 2.96% median slowdown
 with mixed signs. Batch64/width256 improves 15.31%; the all-weight-upload guard
 improves only 1.09%. These cohorts do not establish a reliable general gain.
 
-The private-output candidate is not promoted; production remains `dd940e07`.
-Next perform paired intervals within one long-lived runtime, with identical-build
+At that stage the private-output candidate was not promoted; production remained `dd940e07`.
+That motivated paired intervals within one long-lived runtime, with identical-build
 controls and separate GPU/host counters, to isolate allocation/residency from
 driver/scheduling variance before expanding cache architecture. Any production
 promotion still requires held-ACK, concurrency, alias, failure, budget and
 cancellation qualification. No language contract change is accepted here.
+
+### Same-runtime controls and production prepared-output cache
+
+The [same-runtime investigation](../benchmarks/results/gpu-private-inprocess-2026-10-29.md)
+keeps runtime/queue/prepared program/inputs alive across ABBA/BAAB intervals.
+Small-workload controls remain noisy even after verified termination of sixteen
+replay services holding this task's trace files. Cleanup is necessary but does
+not establish the cause of that noise. A separate rootless telemetry diagnostic
+finds a 0.919 correlation between GPU interval time and inverse reported DVFS
+frequency; that association does not prove sole causality or instantaneous clock
+values. All failed controls and the explicitly mislaunched 64-row cohort remain.
+
+The unchanged prototype's 512×512 workload with 1,024 calls per slot passes the
+original precision goal (AA -0.22%, all blocks within ±2.89%). Enabled private
+reuse reduces time 13.01%, independently repeated at 14.18%. These are prototype
+results, kept distinct from production acceptance.
+
+The production implementation combines uploads and private prepared outputs in
+one 16 MiB / 64-entry idle pool inside the existing payload budget. Only completed,
+fully overwritten Float32 outputs of validated pure progression are eligible;
+shared/private kind is part of the key. Fresh metadata, last-owner retirement,
+zero admissions, pressure eviction, disable/trim and closed-cache teardown
+preserve immutable ownership. Logical allocation failures, numerical behavior,
+checkpoint boundaries and cancellation/fault precedence are unchanged. Native
+C++ Options/Stats layouts grow and require clients to rebuild; generated module
+formats do not change. Separate counters expose each retention class.
+
+Qualification passes all 201 selected GPU runtime/support tests, including the
+prepared-program fixture in four build modes. New tests cover alias lifetimes,
+opposite prior contents, ranks, exact budget pressure, every allocation-failure
+point, held acknowledgement, cancellation/device failure, concurrency, policy
+changes, entry caps and teardown. Fresh numerical qualification passes 1,944
+changing-input full-output comparisons against frozen accepted production and
+18 independent high-precision oracle checks across nine shapes, all runner and
+upload modes, both switch orders and three cache caps. This is not a full
+compiler/CLI suite rerun.
+
+
+The [first production policy](../benchmarks/results/gpu-prepared-output-initial-2026-10-29.md)
+reproduces the resident gain (13.48% / 13.93%, with a passing large-case control)
+but is rejected after all-weight-upload regressions of 2.09% / 3.29%. Every block
+in both upload cohorts slows down. Class counters expose one new upload miss per
+call: private retention displaces a useful shared upload. This is a measured
+cache-policy problem, not a numerical failure. Small controls remain noisy.
+
+The revised policy protects existing uploads at private admission, preferring
+private eviction under combined/live-budget pressure. Private entries that cannot
+fit beside cached uploads are released; the existing shared subquota still evicts
+shared entries when needed. No quota increase is used to hide the regression.
+Deterministic 128/256-byte pool tests cover both directions of pressure. Fresh
+qualification and acceptance must use this policy's own frozen binaries; the
+rejected policy's measurements remain separate.
+
+
+The upload-protecting revision passes all 201 runtime/support tests again and
+fresh 1,944-output / 18-oracle qualification. Its same-runtime resident512×512
+control passes (-0.84%, all blocks within ±2.89%); enabled/repeat reductions are
+13.08% / 14.00%. Uninstrumented frozen production comparisons show 11.97% / 12.48%.
+All larger-case controls pass in that protocol. Small controls remain noisy.
+
+The uploaded-weight case keeps seven shared hits / zero misses, but no private
+hits. Frozen comparisons retain 4.08% / 2.68% slowdowns; its cache-disabled
+comparison is approximately flat (+0.12%). Distinct cohorts must not be subtracted
+as a causal estimate, and GPU-interval variation remains material. This motivates
+a conservative empty-pool fast path rather than raising memory quotas or changing
+numerical semantics. New qualification and fresh all-case frozen controls are
+required for that source. The preceding [report](../benchmarks/results/gpu-prepared-output-priority-2026-10-29.md)
+and reconstruction patch retain its complete evidence.
+
+
+### Qualified completed-buffer reuse and conservative fast misses
+
+The [final report](../benchmarks/results/gpu-prepared-output-fastmiss-2026-10-29.md)
+qualifies the production implementation. Empty private pools use the ordinary
+atomic budget reservation without locking/scanning. A positive upload-pressure
+snapshot may conservatively release private backing; admission still rechecks
+under the mutex. Lost optional hits under races cannot reuse pending ownership
+or overspend the existing budget. No shader, arithmetic, module format,
+checkpoint, cancellation/fault-precedence or immutable-value change.
+
+The final source passes all 201 selected GPU runtime/support tests again
+(985.27 seconds), including prepared programs in all four build modes. Fresh
+qualification passes every one of 1,944 changing-input full-output comparisons
+and 18 independent high-precision oracles. Dispatches are checked in a separate
+instrumented counter diagnostic; uninstrumented runs correctly report zero
+profiling dispatch counters. Positive submission and logical allocation-attempt
+counts are unchanged in each matched workload. This is not a full compiler/CLI
+suite rerun.
+
+Uninstrumented resident512×512 elapsed time falls 11.44%, independently repeated
+at 11.32%, versus frozen accepted production. Every block improves 10.81–12.48%.
+Its identical-build control is -0.08%, all blocks within ±0.78%. The upload-heavy
+guard has seven shared hits / zero misses and +3.06% / +6.04% median reductions,
+but wide blocks and a +5.07% cache-disabled cohort prevent attributing that change
+solely to private reuse or the fast path. Smaller controls fail, so no reliable
+small-call total-time improvement is claimed. Earlier negative policies and all
+failed controls remain published with source reconstruction patches.
+
+Maximum observed idle retention is 15,728,640 bytes; retained payload 46,141,440
+bytes, inside the unchanged 64 MiB default. The combined idle cap remains
+16 MiB / 64 entries. Native C++ Options/Stats layouts grew and clients must
+rebuild. Production has no Accelerate/MPSGraph dependency.
+
+Next profile final-runtime GPU command/kernel time and dataflow. Keep the
+qualified source, strict numerical contract and cancellation behavior as controls;
+choose further kernel or submission architecture from measurements rather than
+assuming remaining time is host allocation.

@@ -6,7 +6,9 @@ R=p.ROOT/'benchmarks/results';B=p.ROOT/'benchmarks/.build/gpu-private-output-pro
 def load(path):return json.loads(path.read_text())
 def identity(data):
  for field in ('source_sha256','artifact_sha256','signature','artifacts'):
-  for name,digest in data.get(field,{}).items():assert p.sha(p.ROOT/name)==digest,name
+  for name,digest in data.get(field,{}).items():
+   candidates=[p.ROOT/name,p.ROOT/'benchmarks/.build/gpu-private-output-probe-2026-10-29/frozen-sources'/name,p.ROOT/'benchmarks/.build/gpu-private-inprocess-v2-2026-10-29/frozen-sources'/name]
+   assert any(x.is_file() and p.sha(x)==digest for x in candidates),name
 profile=load(R/'gpu-reuse-host-profile-2026-10-29.json');identity(profile)
 assert len(profile['checks'])==24 and all(x['bit_identical'] for x in profile['checks'])
 verified=load(R/'gpu-reuse-host-verification-2026-10-29.json');identity(verified)
