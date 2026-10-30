@@ -1,0 +1,3569 @@
+{
+  "contract": "Correctness-only exact-integer oracle for frozen SIMD matrix prototypes.\n\nAll finite float32 products are represented exactly as integers scaled by 2^-298.\nThis oracle performs no floating-point multiplication or addition of the inputs.\nIt records, rather than hides, departures from the existing fixed-tree policy.\n",
+  "production_change": false,
+  "performance_acceptance": false,
+  "cases": 29,
+  "records": [
+    {
+      "name": "ones",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "941ef28a292311ab27419dd82d5d9c28102384d5bdac7713f3c7e739f7a28592",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones-baseline.output",
+      "first_bits": "44000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "ones",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "941ef28a292311ab27419dd82d5d9c28102384d5bdac7713f3c7e739f7a28592",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones-naive.output",
+      "first_bits": "44000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "ones",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "941ef28a292311ab27419dd82d5d9c28102384d5bdac7713f3c7e739f7a28592",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones-blocked.output",
+      "first_bits": "44000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "negative-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "zero",
+      "variant": "baseline",
+      "classes": {
+        "-zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "35959240fa06cc21eaa3d2558b2e5cadda32233513209f5c8f44a3318c2327b0",
+      "output_sha256": "a7e403fc2eba47c79449f4ee1d2c87bd75df8b5df1ad6cf09cc237dc930d4df1",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero-baseline.output",
+      "first_bits": "80000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 1024,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.0
+    },
+    {
+      "name": "negative-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "zero",
+      "variant": "naive",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "35959240fa06cc21eaa3d2558b2e5cadda32233513209f5c8f44a3318c2327b0",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero-naive.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.0
+    },
+    {
+      "name": "negative-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "zero",
+      "variant": "blocked",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "35959240fa06cc21eaa3d2558b2e5cadda32233513209f5c8f44a3318c2327b0",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero-blocked.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.0
+    },
+    {
+      "name": "positive-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "zero",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "49834735c7625c5d242866bb14473bdfbee597f90de31e1c465ca0f5abb77631",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.0
+    },
+    {
+      "name": "positive-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "zero",
+      "variant": "naive",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "49834735c7625c5d242866bb14473bdfbee597f90de31e1c465ca0f5abb77631",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero-naive.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.0
+    },
+    {
+      "name": "positive-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "zero",
+      "variant": "blocked",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "49834735c7625c5d242866bb14473bdfbee597f90de31e1c465ca0f5abb77631",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero-blocked.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.0
+    },
+    {
+      "name": "cancellation-512",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "c2556d3cccffd01c2149eed3a6c16278e67bc1522960952524585c3532057748",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 1024,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 3.2766999343320584e-16,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 256.0,
+      "exact_cells": 0,
+      "exact_first": 256.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-512",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "c2556d3cccffd01c2149eed3a6c16278e67bc1522960952524585c3532057748",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512-naive.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 3.263900325213574e-16,
+      "max_relative_error": 0.99609375,
+      "max_absolute_error": 255.0,
+      "exact_cells": 0,
+      "exact_first": 256.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-512",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "c2556d3cccffd01c2149eed3a6c16278e67bc1522960952524585c3532057748",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512-blocked.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 3.263900325213574e-16,
+      "max_relative_error": 0.99609375,
+      "max_absolute_error": 255.0,
+      "exact_cells": 0,
+      "exact_first": 256.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-576",
+      "shape": [
+        32,
+        576,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "878cc15feaaff7ba4bf46299e4c475bb5c4f38d76ac9f2bddb00155a938faea1",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 1024,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 2.9126110527398305e-16,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 288.0,
+      "exact_cells": 0,
+      "exact_first": 288.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-576",
+      "shape": [
+        32,
+        576,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "878cc15feaaff7ba4bf46299e4c475bb5c4f38d76ac9f2bddb00155a938faea1",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576-naive.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 2.902497819917817e-16,
+      "max_relative_error": 0.9965277777777778,
+      "max_absolute_error": 287.0,
+      "exact_cells": 0,
+      "exact_first": 288.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-576",
+      "shape": [
+        32,
+        576,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "878cc15feaaff7ba4bf46299e4c475bb5c4f38d76ac9f2bddb00155a938faea1",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576-blocked.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 2.902497819917817e-16,
+      "max_relative_error": 0.9965277777777778,
+      "max_absolute_error": 287.0,
+      "exact_cells": 0,
+      "exact_first": 288.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-1024",
+      "shape": [
+        32,
+        1024,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "0ff44cf07fecf2d6a0e083fc729cf61333d4a5aa720a86943567863b3666dc8e",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 1024,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 1.6382999671670312e-16,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 512.0,
+      "exact_cells": 0,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-1024",
+      "shape": [
+        32,
+        1024,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "0ff44cf07fecf2d6a0e083fc729cf61333d4a5aa720a86943567863b3666dc8e",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024-naive.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 1.6351001625436582e-16,
+      "max_relative_error": 0.998046875,
+      "max_absolute_error": 511.0,
+      "exact_cells": 0,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-1024",
+      "shape": [
+        32,
+        1024,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "0ff44cf07fecf2d6a0e083fc729cf61333d4a5aa720a86943567863b3666dc8e",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024-blocked.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 1.6351001625436582e-16,
+      "max_relative_error": 0.998046875,
+      "max_absolute_error": 511.0,
+      "exact_cells": 0,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-2048",
+      "shape": [
+        32,
+        2048,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "a6d1c68102701d67313039a2e06d4e08b083d4eb2c6da4ed688f2a33ad1e080e",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 1024,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 8.190999835845177e-17,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 1024.0,
+      "exact_cells": 0,
+      "exact_first": 1024.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-2048",
+      "shape": [
+        32,
+        2048,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "a6d1c68102701d67313039a2e06d4e08b083d4eb2c6da4ed688f2a33ad1e080e",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048-naive.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 8.183000812567984e-17,
+      "max_relative_error": 0.9990234375,
+      "max_absolute_error": 1023.0,
+      "exact_cells": 0,
+      "exact_first": 1024.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-2048",
+      "shape": [
+        32,
+        2048,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "a6d1c68102701d67313039a2e06d4e08b083d4eb2c6da4ed688f2a33ad1e080e",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048-blocked.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 8.183000812567984e-17,
+      "max_relative_error": 0.9990234375,
+      "max_absolute_error": 1023.0,
+      "exact_cells": 0,
+      "exact_first": 1024.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-4096",
+      "shape": [
+        32,
+        4096,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "bdd6deb0b58cd7262194132b03ceba915f35b40c93277c93b0ee9c47ea22f45b",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 1024,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 4.094999917932609e-17,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 2048.0,
+      "exact_cells": 0,
+      "exact_first": 2048.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-4096",
+      "shape": [
+        32,
+        4096,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "bdd6deb0b58cd7262194132b03ceba915f35b40c93277c93b0ee9c47ea22f45b",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096-naive.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 4.093000406253931e-17,
+      "max_relative_error": 0.99951171875,
+      "max_absolute_error": 2047.0,
+      "exact_cells": 0,
+      "exact_first": 2048.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "cancellation-4096",
+      "shape": [
+        32,
+        4096,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "bdd6deb0b58cd7262194132b03ceba915f35b40c93277c93b0ee9c47ea22f45b",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096-blocked.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 4.093000406253931e-17,
+      "max_relative_error": 0.99951171875,
+      "max_absolute_error": 2047.0,
+      "exact_cells": 0,
+      "exact_first": 2048.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "small-residual",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "81d4abce8d2b2f2ff1cb364b7252192f9dd1bcbb85870435d924618adfb56266",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual-baseline.output",
+      "first_bits": "39800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.000244140625,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "small-residual",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "81d4abce8d2b2f2ff1cb364b7252192f9dd1bcbb85870435d924618adfb56266",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual-naive.output",
+      "first_bits": "39800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.000244140625,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "small-residual",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "81d4abce8d2b2f2ff1cb364b7252192f9dd1bcbb85870435d924618adfb56266",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual-blocked.output",
+      "first_bits": "39800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.000244140625,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "fused-rounding-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "880d2343723b9773370fd8f0271eac69f963a35e21f7d86ecead4c4b865115c8",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 1024,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0009760560787066934,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 256.0,
+      "exact_cells": 0,
+      "exact_first": 256.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "fused-rounding-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "880d2343723b9773370fd8f0271eac69f963a35e21f7d86ecead4c4b865115c8",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness-naive.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0009722433596492453,
+      "max_relative_error": 0.99609375,
+      "max_absolute_error": 255.0,
+      "exact_cells": 0,
+      "exact_first": 256.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "fused-rounding-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "880d2343723b9773370fd8f0271eac69f963a35e21f7d86ecead4c4b865115c8",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness-blocked.output",
+      "first_bits": "3f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0009722433596492453,
+      "max_relative_error": 0.99609375,
+      "max_absolute_error": 255.0,
+      "exact_cells": 0,
+      "exact_first": 256.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "input-mantissa-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "1166c31f9f6c09e9ef68563b0420dbc6daa560cf9f3dbc225a8cc5de50fa57cc",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness-baseline.output",
+      "first_bits": "39800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.000244140625,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "input-mantissa-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "1166c31f9f6c09e9ef68563b0420dbc6daa560cf9f3dbc225a8cc5de50fa57cc",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness-naive.output",
+      "first_bits": "39800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.000244140625,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "input-mantissa-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "1166c31f9f6c09e9ef68563b0420dbc6daa560cf9f3dbc225a8cc5de50fa57cc",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness-blocked.output",
+      "first_bits": "39800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 0.000244140625,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-0",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "ea10c85ac57310f2d25ed74722e20321665659e8ffbc0a600ef8823b27e5de96",
+      "output_sha256": "38bdd0842146b0f240a886252559d7a264f6e97f5923f6931060f595a3da9558",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0-baseline.output",
+      "first_bits": "d18af320",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 3511,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.005267887430501491,
+      "max_relative_error": 0.0004430302393319651,
+      "max_absolute_error": 980284.0065500307,
+      "exact_cells": 0,
+      "exact_first": -74598086150.93121,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-0",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "ea10c85ac57310f2d25ed74722e20321665659e8ffbc0a600ef8823b27e5de96",
+      "output_sha256": "b75dac2441fcc916f39af6d9b772885ab2b9a1933e0f74e2bfd2bd11cfd0cc85",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0-naive.output",
+      "first_bits": "d18af31d",
+      "different_from_baseline": 3511,
+      "tree_model_mismatches": 3511,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.017412839962253783,
+      "max_relative_error": 0.0025766096600282604,
+      "max_absolute_error": 2821374.452340237,
+      "exact_cells": 0,
+      "exact_first": -74598086150.93121,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-0",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "ea10c85ac57310f2d25ed74722e20321665659e8ffbc0a600ef8823b27e5de96",
+      "output_sha256": "b75dac2441fcc916f39af6d9b772885ab2b9a1933e0f74e2bfd2bd11cfd0cc85",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0-blocked.output",
+      "first_bits": "d18af31d",
+      "different_from_baseline": 3511,
+      "tree_model_mismatches": 3511,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.017412839962253783,
+      "max_relative_error": 0.0025766096600282604,
+      "max_absolute_error": 2821374.452340237,
+      "exact_cells": 0,
+      "exact_first": -74598086150.93121,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-1",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "129bc67c77f75846caac3051abbfca884bd8075779c76a12d473cfe3fd33df73",
+      "output_sha256": "0e1d46bb6ec96a670a24a0e1274e6b3b9f667b67ae64727661d88077622e80ff",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1-baseline.output",
+      "first_bits": "d42efab8",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 3494,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.005309908280060417,
+      "max_relative_error": 6.64167684059346e-05,
+      "max_absolute_error": 1100445.0972315464,
+      "exact_cells": 0,
+      "exact_first": -3006122545649.214,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-1",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "129bc67c77f75846caac3051abbfca884bd8075779c76a12d473cfe3fd33df73",
+      "output_sha256": "362b175056613f08ea7e87a702db7682738ed521ea68bd4788149aba43dd3373",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1-naive.output",
+      "first_bits": "d42efaba",
+      "different_from_baseline": 3494,
+      "tree_model_mismatches": 3494,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.018495284651955556,
+      "max_relative_error": 0.00015338236004028426,
+      "max_absolute_error": 3014662.1590743246,
+      "exact_cells": 0,
+      "exact_first": -3006122545649.214,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-1",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "129bc67c77f75846caac3051abbfca884bd8075779c76a12d473cfe3fd33df73",
+      "output_sha256": "362b175056613f08ea7e87a702db7682738ed521ea68bd4788149aba43dd3373",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1-blocked.output",
+      "first_bits": "d42efaba",
+      "different_from_baseline": 3494,
+      "tree_model_mismatches": 3494,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.018495284651955556,
+      "max_relative_error": 0.00015338236004028426,
+      "max_absolute_error": 3014662.1590743246,
+      "exact_cells": 0,
+      "exact_first": -3006122545649.214,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-2",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "dc70671651cf5fba801f27e96ec94ee7da372abe4f70dc5a1e1a620ee6141df6",
+      "output_sha256": "1b44ed3f3890d98828a5891eae3af8b7853b1b84cd88dfda6fe9cdbc3bee2fed",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2-baseline.output",
+      "first_bits": "53a1a28e",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 3511,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.00542956277463028,
+      "max_relative_error": 4.5660056225072476e-05,
+      "max_absolute_error": 920002.4077667521,
+      "exact_cells": 0,
+      "exact_first": 1388433859694.2803,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-2",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "dc70671651cf5fba801f27e96ec94ee7da372abe4f70dc5a1e1a620ee6141df6",
+      "output_sha256": "7a635dfa77e07d3421bf11ba4007dc8f4e5c34d1992a03115bc3d423ec4db067",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2-naive.output",
+      "first_bits": "53a1a28d",
+      "different_from_baseline": 3511,
+      "tree_model_mismatches": 3511,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.02419195709072476,
+      "max_relative_error": 0.0001261374128986527,
+      "max_absolute_error": 4631927.691475741,
+      "exact_cells": 0,
+      "exact_first": 1388433859694.2803,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "random-exponents-2",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 4096
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "dc70671651cf5fba801f27e96ec94ee7da372abe4f70dc5a1e1a620ee6141df6",
+      "output_sha256": "7a635dfa77e07d3421bf11ba4007dc8f4e5c34d1992a03115bc3d423ec4db067",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2-blocked.output",
+      "first_bits": "53a1a28d",
+      "different_from_baseline": 3511,
+      "tree_model_mismatches": 3511,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.02419195709072476,
+      "max_relative_error": 0.0001261374128986527,
+      "max_absolute_error": 4631927.691475741,
+      "exact_cells": 0,
+      "exact_first": 1388433859694.2803,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "identity-selection",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 2,
+        "normal": 1022
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "8d3b39fa986dd9059a777a43f93f2e7b9fd2ab08b0aaa247821ad49cff3cb637",
+      "output_sha256": "38fa6273c56e0ea163eb1bc3c6fc0a67b0bc5e37d9d64afdd65e49ff30396592",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection-baseline.output",
+      "first_bits": "bec00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": -0.375,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "identity-selection",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "+zero": 2,
+        "normal": 1022
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "8d3b39fa986dd9059a777a43f93f2e7b9fd2ab08b0aaa247821ad49cff3cb637",
+      "output_sha256": "38fa6273c56e0ea163eb1bc3c6fc0a67b0bc5e37d9d64afdd65e49ff30396592",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection-naive.output",
+      "first_bits": "bec00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": -0.375,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "identity-selection",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "+zero": 2,
+        "normal": 1022
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "8d3b39fa986dd9059a777a43f93f2e7b9fd2ab08b0aaa247821ad49cff3cb637",
+      "output_sha256": "38fa6273c56e0ea163eb1bc3c6fc0a67b0bc5e37d9d64afdd65e49ff30396592",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection-blocked.output",
+      "first_bits": "bec00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": -0.375,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "minimum-normal-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "cb352c69db04fe9280402a3cde851025cc0d3aa18a6ad694be0ed46a1ef89cbf",
+      "output_sha256": "bbf73bd54565173f04b9968eb813ed57d8dd9a881c46c74edcbf7aff1e0f7ec2",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved-baseline.output",
+      "first_bits": "05000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 6.018531076210112e-36,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "minimum-normal-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "cb352c69db04fe9280402a3cde851025cc0d3aa18a6ad694be0ed46a1ef89cbf",
+      "output_sha256": "bbf73bd54565173f04b9968eb813ed57d8dd9a881c46c74edcbf7aff1e0f7ec2",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved-naive.output",
+      "first_bits": "05000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 6.018531076210112e-36,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "minimum-normal-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "cb352c69db04fe9280402a3cde851025cc0d3aa18a6ad694be0ed46a1ef89cbf",
+      "output_sha256": "bbf73bd54565173f04b9968eb813ed57d8dd9a881c46c74edcbf7aff1e0f7ec2",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved-blocked.output",
+      "first_bits": "05000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 6.018531076210112e-36,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "minimum-normal-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "17b39b5be08b3d0f715956f95e50d09e71844e57792b42abeaf8f2ac7dfe6590",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled-baseline.output",
+      "first_bits": "44000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "minimum-normal-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "17b39b5be08b3d0f715956f95e50d09e71844e57792b42abeaf8f2ac7dfe6590",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled-naive.output",
+      "first_bits": "44000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "minimum-normal-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "17b39b5be08b3d0f715956f95e50d09e71844e57792b42abeaf8f2ac7dfe6590",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled-blocked.output",
+      "first_bits": "44000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 512.0,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "maximum-finite-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "baseline",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "3eb0ccd4a6dc1b42b9b30d1142ce0373110e552dbf2a616546ad313c16474d2c",
+      "output_sha256": "07f9bfa6025e3c9afe28f05a173e2416c7a36a8d73c00bfc2d7ffe44616813a9",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved-baseline.output",
+      "first_bits": "7f7fffff",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 3.4028234663852886e+38,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "maximum-finite-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "naive",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "3eb0ccd4a6dc1b42b9b30d1142ce0373110e552dbf2a616546ad313c16474d2c",
+      "output_sha256": "07f9bfa6025e3c9afe28f05a173e2416c7a36a8d73c00bfc2d7ffe44616813a9",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved-naive.output",
+      "first_bits": "7f7fffff",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 3.4028234663852886e+38,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "maximum-finite-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "bounded",
+      "variant": "blocked",
+      "classes": {
+        "normal": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "3eb0ccd4a6dc1b42b9b30d1142ce0373110e552dbf2a616546ad313c16474d2c",
+      "output_sha256": "07f9bfa6025e3c9afe28f05a173e2416c7a36a8d73c00bfc2d7ffe44616813a9",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved-blocked.output",
+      "first_bits": "7f7fffff",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0.0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 1024,
+      "exact_first": 3.4028234663852886e+38,
+      "finite_accuracy_pass": true
+    },
+    {
+      "name": "subnormal-input-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "ef66e774224cac40e45cd122fc69c4bcd52029c9d90cdd8b0a41eff45c3112d5",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 6.103515625e-05,
+      "exact_cells": 0,
+      "exact_first": 6.103515625e-05
+    },
+    {
+      "name": "subnormal-input-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "naive",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "ef66e774224cac40e45cd122fc69c4bcd52029c9d90cdd8b0a41eff45c3112d5",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled-naive.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 6.103515625e-05,
+      "exact_cells": 0,
+      "exact_first": 6.103515625e-05
+    },
+    {
+      "name": "subnormal-input-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "blocked",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "ef66e774224cac40e45cd122fc69c4bcd52029c9d90cdd8b0a41eff45c3112d5",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled-blocked.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 6.103515625e-05,
+      "exact_cells": 0,
+      "exact_first": 6.103515625e-05
+    },
+    {
+      "name": "subnormal-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "f9c2b4857184a33f157f28618cc083bd444adb3a9dcf16b432335c3b15d77761",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.009265538105056e-36,
+      "exact_cells": 0,
+      "exact_first": 3.009265538105056e-36
+    },
+    {
+      "name": "subnormal-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "naive",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "f9c2b4857184a33f157f28618cc083bd444adb3a9dcf16b432335c3b15d77761",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products-naive.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.009265538105056e-36,
+      "exact_cells": 0,
+      "exact_first": 3.009265538105056e-36
+    },
+    {
+      "name": "subnormal-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "blocked",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "f9c2b4857184a33f157f28618cc083bd444adb3a9dcf16b432335c3b15d77761",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products-blocked.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.009265538105056e-36,
+      "exact_cells": 0,
+      "exact_first": 3.009265538105056e-36
+    },
+    {
+      "name": "tiny-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "baseline",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "78fe5c7582e699269e0358940d98e8755fc3ae2c477b9631a567e16a713af929",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products-baseline.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.1861838222649046e-58,
+      "exact_cells": 0,
+      "exact_first": 3.1861838222649046e-58
+    },
+    {
+      "name": "tiny-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "naive",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "78fe5c7582e699269e0358940d98e8755fc3ae2c477b9631a567e16a713af929",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products-naive.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.1861838222649046e-58,
+      "exact_cells": 0,
+      "exact_first": 3.1861838222649046e-58
+    },
+    {
+      "name": "tiny-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "underflow",
+      "variant": "blocked",
+      "classes": {
+        "+zero": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "78fe5c7582e699269e0358940d98e8755fc3ae2c477b9631a567e16a713af929",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products-blocked.output",
+      "first_bits": "00000000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_error_bound_ratio": 32767.0,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.1861838222649046e-58,
+      "exact_cells": 0,
+      "exact_first": 3.1861838222649046e-58
+    },
+    {
+      "name": "positive-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "baseline",
+      "classes": {
+        "+inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "55cf745fe1ab9a4e231ba0ff3470f754a9eec6148471a5137503d090bfd2c102",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity-baseline.output",
+      "first_bits": "7f800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "positive-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "naive",
+      "classes": {
+        "+inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "55cf745fe1ab9a4e231ba0ff3470f754a9eec6148471a5137503d090bfd2c102",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity-naive.output",
+      "first_bits": "7f800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "positive-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "blocked",
+      "classes": {
+        "+inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "55cf745fe1ab9a4e231ba0ff3470f754a9eec6148471a5137503d090bfd2c102",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity-blocked.output",
+      "first_bits": "7f800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "negative-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "baseline",
+      "classes": {
+        "-inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "7a61aac49d61c7e6172813e7c909ff3b21ce001aafd55eda53fc356cc3390345",
+      "output_sha256": "08e4db3c74285d0ee9a1da4b660aca11c85276ffec4d5f2b7a58f8b4a236b91a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity-baseline.output",
+      "first_bits": "ff800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "negative-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "naive",
+      "classes": {
+        "-inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "7a61aac49d61c7e6172813e7c909ff3b21ce001aafd55eda53fc356cc3390345",
+      "output_sha256": "08e4db3c74285d0ee9a1da4b660aca11c85276ffec4d5f2b7a58f8b4a236b91a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity-naive.output",
+      "first_bits": "ff800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "negative-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "blocked",
+      "classes": {
+        "-inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "7a61aac49d61c7e6172813e7c909ff3b21ce001aafd55eda53fc356cc3390345",
+      "output_sha256": "08e4db3c74285d0ee9a1da4b660aca11c85276ffec4d5f2b7a58f8b4a236b91a",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity-blocked.output",
+      "first_bits": "ff800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "opposite-infinities",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "baseline",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "3afdd2442217dde3c0c8be523d596e06661234a08fe4a8992a8b6082963f186c",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities-baseline.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "opposite-infinities",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "naive",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "3afdd2442217dde3c0c8be523d596e06661234a08fe4a8992a8b6082963f186c",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities-naive.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "opposite-infinities",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "blocked",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "3afdd2442217dde3c0c8be523d596e06661234a08fe4a8992a8b6082963f186c",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities-blocked.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "zero-times-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "baseline",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "0a87ffaabad2be695461a74d988a34e6710d891aa04d79cb604530938ba29218",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity-baseline.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "zero-times-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "naive",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "0a87ffaabad2be695461a74d988a34e6710d891aa04d79cb604530938ba29218",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity-naive.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "zero-times-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "blocked",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "0a87ffaabad2be695461a74d988a34e6710d891aa04d79cb604530938ba29218",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity-blocked.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "quiet-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "baseline",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "38c2cfcebfb9cade13a6d8392d4242310133728c3846fc4ebafc2a99440ed491",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan-baseline.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "quiet-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "naive",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "38c2cfcebfb9cade13a6d8392d4242310133728c3846fc4ebafc2a99440ed491",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan-naive.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "quiet-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "blocked",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "38c2cfcebfb9cade13a6d8392d4242310133728c3846fc4ebafc2a99440ed491",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan-blocked.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "signaling-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "baseline",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "c5361715076e5ad836b5bd5d8249c59350c3f21208e8e260b0100dd4b88bd64b",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan-baseline.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "signaling-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "naive",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "c5361715076e5ad836b5bd5d8249c59350c3f21208e8e260b0100dd4b88bd64b",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan-naive.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "signaling-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "blocked",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "c5361715076e5ad836b5bd5d8249c59350c3f21208e8e260b0100dd4b88bd64b",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan-blocked.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "finite-overflow",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "baseline",
+      "classes": {
+        "+inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "5a0028c91ecd83de1f9fcd5f73f09d7e3339d061e20a711675d51ec5f7a7462d",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow-baseline.output",
+      "first_bits": "7f800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "finite-overflow",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "naive",
+      "classes": {
+        "+inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "5a0028c91ecd83de1f9fcd5f73f09d7e3339d061e20a711675d51ec5f7a7462d",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow-naive.output",
+      "first_bits": "7f800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "finite-overflow",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "special",
+      "variant": "blocked",
+      "classes": {
+        "+inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "5a0028c91ecd83de1f9fcd5f73f09d7e3339d061e20a711675d51ec5f7a7462d",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow-blocked.output",
+      "first_bits": "7f800000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 0,
+      "expected_class_pass": true
+    },
+    {
+      "name": "intermediate-overflow-cancellation",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "overflow-diagnostic",
+      "variant": "baseline",
+      "classes": {
+        "nan": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "4146ef088aa96fa24e2ca1c8f56f077b0706425808ec014f439211d25615eef0",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation-baseline.output",
+      "first_bits": "7fc00000",
+      "different_from_baseline": 0,
+      "tree_model_mismatches": 0,
+      "sequential_fma_model_mismatches": 1024,
+      "nonfinite_cells": 1024,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 0,
+      "exact_first": 0.0
+    },
+    {
+      "name": "intermediate-overflow-cancellation",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "overflow-diagnostic",
+      "variant": "naive",
+      "classes": {
+        "+inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "4146ef088aa96fa24e2ca1c8f56f077b0706425808ec014f439211d25615eef0",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation-naive.output",
+      "first_bits": "7f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 1024,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 0,
+      "exact_first": 0.0
+    },
+    {
+      "name": "intermediate-overflow-cancellation",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "mode": "overflow-diagnostic",
+      "variant": "blocked",
+      "classes": {
+        "+inf": 1024
+      },
+      "repeatable": true,
+      "guards": true,
+      "inputs_unchanged": true,
+      "input_sha256": "4146ef088aa96fa24e2ca1c8f56f077b0706425808ec014f439211d25615eef0",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation-blocked.output",
+      "first_bits": "7f800000",
+      "different_from_baseline": 1024,
+      "tree_model_mismatches": 1024,
+      "sequential_fma_model_mismatches": 0,
+      "nonfinite_cells": 1024,
+      "bound_failures": 0,
+      "max_error_bound_ratio": 0,
+      "max_relative_error": 0,
+      "max_absolute_error": 0.0,
+      "exact_cells": 0,
+      "exact_first": 0.0
+    }
+  ],
+  "oracle": "Exact integer products/sums at scale 2^-298; error comparison uses exact integer gamma(K) bound. No double-precision oracle rounding.",
+  "limitations": "Aligned finite prototype domain only; no new API contract, shape tails, runtime cancellation/resource integration or whole-model acceptance.",
+  "schema": 1,
+  "timestamp": "2026-10-30T10:12:00.110213+00:00",
+  "compiler_sha256": "e8917b0b0d9b09c60444ed50cf58a84d0be81a5b04f79062898aa5fe5e0a3ca1",
+  "source_sha256": {
+    "native/benchmarks/matrix_numerical_verify.py": "9d814fbbf096f78b186ad2444a0db832787e682ef9f1e1268fa924f0e6da0066",
+    "native/benchmarks/MatrixNumericalProbe.mm": "08c15b703bf02f4756a6e180da5b02582aaf51c46acbc52691e3ca214bedcfcf",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe": "c67596162911332442c145ac60be41f4139f60b3c9bbdbe483d8c4d1a7e65417",
+    "benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib": "087e7540f5009d390443103ae0c6b7d9f432382ffd9e3393fa77e0eeeae4c6f0",
+    "benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib": "ed0ea304f4aab2da4bc4cdef045c6977dfa478d22c9069bf9e27c5c299dd06b8"
+  },
+  "commands": [
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-fobjc-arc",
+      "-fblocks",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/MatrixNumericalProbe.mm",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Metal",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "576",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "576",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "576",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "1024",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "1024",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "1024",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "2048",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "2048",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "2048",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "4096",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "4096",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "4096",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow-blocked.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "baseline",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation-baseline.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v3-2026-10-30/study.metallib",
+      "naive",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation-naive.output",
+      "3"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/probe",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metallib",
+      "blocked",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation-blocked.output",
+      "3"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "f7454cb786c40eec3f93cfe1573e0bae024254cc",
+  "worktree_status": "?? benchmarks/results/gpu-matrix-exact-2026-10-30.json\n?? benchmarks/results/matrix-exact-pre-model-2026-10-30.patch\n?? native/benchmarks/MatrixNumericalProbe.mm\n?? native/benchmarks/matrix_numerical_verify.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

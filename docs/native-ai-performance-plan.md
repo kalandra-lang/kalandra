@@ -1028,3 +1028,24 @@ resource bounds, then rerun full-model numerical checks and frozen paired,
 identical-build and MPSGraph reference measurements. Production remains
 independent of Accelerate/MPSGraph. The previous production commit's hosted
 distribution qualification, signing and notarization all completed successfully.
+
+### Exact-oracle verification of the matrix primitive
+
+The [expanded correctness investigation](../benchmarks/results/gpu-matrix-exact-model-2026-10-30.md)
+checks 29 cases × three implementations × three executions: 350,208 cells,
+with Metal API/shader validation, unchanged inputs and guard bytes. Integer
+products/sums represent the exact real dot product without floating summation.
+Independent integer rounders also model the current separately rounded balanced
+tree and sequential fused multiply-add with the hardware underflow policy.
+Every tested current result matches the tree model; every tested SIMD result
+matches the fused model (NaN payload differences allowed).
+
+This is correctness against two different rules, not numerical equivalence.
+Adversarial cancellation can produce exact answer 256, current result 0 and
+SIMD result 1; both still pass a conservative absolute-products error bound.
+Intermediate overflow can produce NaN in the current tree and infinity under
+fused accumulation. Tested subnormals flush in both paths, as permitted by the
+existing hardware policy. Ordinary randomized cases meet the finite bound, but
+the prototype is not universally more accurate. Keep the existing production
+contract while deciding the explicit numerical API. Shape tails, broader
+precision characterization, full-model and runtime integration remain separate.

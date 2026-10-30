@@ -525,3 +525,17 @@ Finite error bounds do not qualify NaN/Inf, overflow, subnormals or a general
 language contract. Decide the explicit arithmetic API before integration, then
 qualify complete models, shape fallbacks and runtime semantics. All external-load
 limitations and setup failures remain in the evidence.
+
+For correctness beyond the exploratory finite error bound, run
+`matrix_numerical_verify.py --build FRESH_BUILD --output FRESH_JSON` with GPU
+access and the two frozen SIMD builds available. `MatrixNumericalProbe.mm`
+executes correctness-only dispatches with guards, immutable-input checks and
+three repetitions under Metal validation. The Python oracle uses exact integer
+dot products plus independently rounded fixed-tree and sequential-FMA models;
+NaN payload differences are allowed. This is not a timed benchmark.
+`fair/matrix_numerical_report.py` audits the recorded
+[29-case investigation](../../benchmarks/results/gpu-matrix-exact-model-2026-10-30.md),
+including catastrophic cancellation, overflow and hardware underflow. Matching
+the fused model does not mean matching current matmul or guaranteeing small
+relative error. The previous bound-only source can be reconstructed using the
+retained `matrix-exact-pre-model-2026-10-30.patch` in results.
