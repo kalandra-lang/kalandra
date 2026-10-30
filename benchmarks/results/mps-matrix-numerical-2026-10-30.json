@@ -1,0 +1,2308 @@
+{
+  "contract": "Compare MPSGraph default and explicitly full precision on frozen edge cases.\n\nCorrectness-only numerical-policy investigation. Production has no MPS dependency.\n",
+  "production_change": false,
+  "performance_acceptance": false,
+  "records": [
+    {
+      "name": "ones",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "44000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "941ef28a292311ab27419dd82d5d9c28102384d5bdac7713f3c7e739f7a28592",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/ones-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "ones",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "44000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "941ef28a292311ab27419dd82d5d9c28102384d5bdac7713f3c7e739f7a28592",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/ones-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "negative-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "35959240fa06cc21eaa3d2558b2e5cadda32233513209f5c8f44a3318c2327b0",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/negative-zero-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": null,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "negative-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "35959240fa06cc21eaa3d2558b2e5cadda32233513209f5c8f44a3318c2327b0",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/negative-zero-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": null,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "positive-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "49834735c7625c5d242866bb14473bdfbee597f90de31e1c465ca0f5abb77631",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/positive-zero-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": null,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "positive-zero",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "49834735c7625c5d242866bb14473bdfbee597f90de31e1c465ca0f5abb77631",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/positive-zero-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": null,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "cancellation-512",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "c2556d3cccffd01c2149eed3a6c16278e67bc1522960952524585c3532057748",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-512-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.99609375,
+      "max_absolute_error": 255.0
+    },
+    {
+      "name": "cancellation-512",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "c2556d3cccffd01c2149eed3a6c16278e67bc1522960952524585c3532057748",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-512-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.99609375,
+      "max_absolute_error": 255.0
+    },
+    {
+      "name": "cancellation-576",
+      "shape": [
+        32,
+        576,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "878cc15feaaff7ba4bf46299e4c475bb5c4f38d76ac9f2bddb00155a938faea1",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-576-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.9965277777777778,
+      "max_absolute_error": 287.0
+    },
+    {
+      "name": "cancellation-576",
+      "shape": [
+        32,
+        576,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "878cc15feaaff7ba4bf46299e4c475bb5c4f38d76ac9f2bddb00155a938faea1",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-576-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.9965277777777778,
+      "max_absolute_error": 287.0
+    },
+    {
+      "name": "cancellation-1024",
+      "shape": [
+        32,
+        1024,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "0ff44cf07fecf2d6a0e083fc729cf61333d4a5aa720a86943567863b3666dc8e",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-1024-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.998046875,
+      "max_absolute_error": 511.0
+    },
+    {
+      "name": "cancellation-1024",
+      "shape": [
+        32,
+        1024,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "0ff44cf07fecf2d6a0e083fc729cf61333d4a5aa720a86943567863b3666dc8e",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-1024-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.998046875,
+      "max_absolute_error": 511.0
+    },
+    {
+      "name": "cancellation-2048",
+      "shape": [
+        32,
+        2048,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "a6d1c68102701d67313039a2e06d4e08b083d4eb2c6da4ed688f2a33ad1e080e",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-2048-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.9990234375,
+      "max_absolute_error": 1023.0
+    },
+    {
+      "name": "cancellation-2048",
+      "shape": [
+        32,
+        2048,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "a6d1c68102701d67313039a2e06d4e08b083d4eb2c6da4ed688f2a33ad1e080e",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-2048-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.9990234375,
+      "max_absolute_error": 1023.0
+    },
+    {
+      "name": "cancellation-4096",
+      "shape": [
+        32,
+        4096,
+        32
+      ],
+      "policy": "default",
+      "failed": true,
+      "error": "['/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe', '32', '4096', '32', '/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096.input', '/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-4096-default.output', 'default']: -6\n\n2026-10-30 11:18:31.547 probe[25505:68464372] Metal API Validation Enabled\n2026-10-30 11:18:31.547 probe[25505:68464372] Metal GPU Validation Enabled\n-[MTLDebugComputeCommandEncoder _validateThreadsPerThreadgroup:]:1315: failed assertion `(threadsPerThreadgroup.width(32) * threadsPerThreadgroup.height(32) * threadsPerThreadgroup.depth(1))(1024) must be <= 704. (kernel threadgroup size limit)'\n",
+      "input_sha256": "bdd6deb0b58cd7262194132b03ceba915f35b40c93277c93b0ee9c47ea22f45b"
+    },
+    {
+      "name": "cancellation-4096",
+      "shape": [
+        32,
+        4096,
+        32
+      ],
+      "policy": "full",
+      "failed": true,
+      "error": "['/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe', '32', '4096', '32', '/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096.input', '/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-4096-full.output', 'full']: -6\n\n2026-10-30 11:18:31.698 probe[25507:68464379] Metal API Validation Enabled\n2026-10-30 11:18:31.698 probe[25507:68464379] Metal GPU Validation Enabled\n-[MTLDebugComputeCommandEncoder _validateThreadsPerThreadgroup:]:1315: failed assertion `(threadsPerThreadgroup.width(32) * threadsPerThreadgroup.height(32) * threadsPerThreadgroup.depth(1))(1024) must be <= 704. (kernel threadgroup size limit)'\n",
+      "input_sha256": "bdd6deb0b58cd7262194132b03ceba915f35b40c93277c93b0ee9c47ea22f45b"
+    },
+    {
+      "name": "small-residual",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "39800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "81d4abce8d2b2f2ff1cb364b7252192f9dd1bcbb85870435d924618adfb56266",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/small-residual-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "small-residual",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "39800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "81d4abce8d2b2f2ff1cb364b7252192f9dd1bcbb85870435d924618adfb56266",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/small-residual-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "fused-rounding-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "880d2343723b9773370fd8f0271eac69f963a35e21f7d86ecead4c4b865115c8",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/fused-rounding-witness-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.99609375,
+      "max_absolute_error": 255.0
+    },
+    {
+      "name": "fused-rounding-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "3f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "880d2343723b9773370fd8f0271eac69f963a35e21f7d86ecead4c4b865115c8",
+      "output_sha256": "83343ed0f6123c1b9be3da8f7d30468fb4a3c49efd0ec60439ce0bd703a49b4d",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/fused-rounding-witness-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.99609375,
+      "max_absolute_error": 255.0
+    },
+    {
+      "name": "input-mantissa-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "39800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "1166c31f9f6c09e9ef68563b0420dbc6daa560cf9f3dbc225a8cc5de50fa57cc",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/input-mantissa-witness-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "input-mantissa-witness",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "39800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "1166c31f9f6c09e9ef68563b0420dbc6daa560cf9f3dbc225a8cc5de50fa57cc",
+      "output_sha256": "dc0113aa4741520d24ef7580c24da0eccbe164b1d90a4a60cf505729c5587a5b",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/input-mantissa-witness-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "random-exponents-0",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 4096
+      },
+      "first_bits": "d18af31d",
+      "differences": {
+        "baseline": 3511,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "ea10c85ac57310f2d25ed74722e20321665659e8ffbc0a600ef8823b27e5de96",
+      "output_sha256": "b75dac2441fcc916f39af6d9b772885ab2b9a1933e0f74e2bfd2bd11cfd0cc85",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-0-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 4096,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0025766096600282604,
+      "max_absolute_error": 2821374.452340237
+    },
+    {
+      "name": "random-exponents-0",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 4096
+      },
+      "first_bits": "d18af31d",
+      "differences": {
+        "baseline": 3511,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "ea10c85ac57310f2d25ed74722e20321665659e8ffbc0a600ef8823b27e5de96",
+      "output_sha256": "b75dac2441fcc916f39af6d9b772885ab2b9a1933e0f74e2bfd2bd11cfd0cc85",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-0-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 4096,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0025766096600282604,
+      "max_absolute_error": 2821374.452340237
+    },
+    {
+      "name": "random-exponents-1",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 4096
+      },
+      "first_bits": "d42efaba",
+      "differences": {
+        "baseline": 3494,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "129bc67c77f75846caac3051abbfca884bd8075779c76a12d473cfe3fd33df73",
+      "output_sha256": "362b175056613f08ea7e87a702db7682738ed521ea68bd4788149aba43dd3373",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-1-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 4096,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.00015338236004028426,
+      "max_absolute_error": 3014662.1590743246
+    },
+    {
+      "name": "random-exponents-1",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 4096
+      },
+      "first_bits": "d42efaba",
+      "differences": {
+        "baseline": 3494,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "129bc67c77f75846caac3051abbfca884bd8075779c76a12d473cfe3fd33df73",
+      "output_sha256": "362b175056613f08ea7e87a702db7682738ed521ea68bd4788149aba43dd3373",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-1-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 4096,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.00015338236004028426,
+      "max_absolute_error": 3014662.1590743246
+    },
+    {
+      "name": "random-exponents-2",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 4096
+      },
+      "first_bits": "53a1a28d",
+      "differences": {
+        "baseline": 3511,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "dc70671651cf5fba801f27e96ec94ee7da372abe4f70dc5a1e1a620ee6141df6",
+      "output_sha256": "7a635dfa77e07d3421bf11ba4007dc8f4e5c34d1992a03115bc3d423ec4db067",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-2-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 4096,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0001261374128986527,
+      "max_absolute_error": 4631927.691475741
+    },
+    {
+      "name": "random-exponents-2",
+      "shape": [
+        64,
+        576,
+        64
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 4096
+      },
+      "first_bits": "53a1a28d",
+      "differences": {
+        "baseline": 3511,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "dc70671651cf5fba801f27e96ec94ee7da372abe4f70dc5a1e1a620ee6141df6",
+      "output_sha256": "7a635dfa77e07d3421bf11ba4007dc8f4e5c34d1992a03115bc3d423ec4db067",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-2-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 4096,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0001261374128986527,
+      "max_absolute_error": 4631927.691475741
+    },
+    {
+      "name": "identity-selection",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+zero": 2,
+        "finite": 1022
+      },
+      "first_bits": "bec00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "8d3b39fa986dd9059a777a43f93f2e7b9fd2ab08b0aaa247821ad49cff3cb637",
+      "output_sha256": "38fa6273c56e0ea163eb1bc3c6fc0a67b0bc5e37d9d64afdd65e49ff30396592",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/identity-selection-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "identity-selection",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+zero": 2,
+        "finite": 1022
+      },
+      "first_bits": "bec00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "8d3b39fa986dd9059a777a43f93f2e7b9fd2ab08b0aaa247821ad49cff3cb637",
+      "output_sha256": "38fa6273c56e0ea163eb1bc3c6fc0a67b0bc5e37d9d64afdd65e49ff30396592",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/identity-selection-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "minimum-normal-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "05000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "cb352c69db04fe9280402a3cde851025cc0d3aa18a6ad694be0ed46a1ef89cbf",
+      "output_sha256": "bbf73bd54565173f04b9968eb813ed57d8dd9a881c46c74edcbf7aff1e0f7ec2",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/minimum-normal-preserved-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "minimum-normal-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "05000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "cb352c69db04fe9280402a3cde851025cc0d3aa18a6ad694be0ed46a1ef89cbf",
+      "output_sha256": "bbf73bd54565173f04b9968eb813ed57d8dd9a881c46c74edcbf7aff1e0f7ec2",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/minimum-normal-preserved-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "minimum-normal-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "44000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "17b39b5be08b3d0f715956f95e50d09e71844e57792b42abeaf8f2ac7dfe6590",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/minimum-normal-scaled-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "minimum-normal-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "44000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "17b39b5be08b3d0f715956f95e50d09e71844e57792b42abeaf8f2ac7dfe6590",
+      "output_sha256": "3a9251896d72c48948e4e5e9f3490e9564350bfe45386a84ae141aa531645654",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/minimum-normal-scaled-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "maximum-finite-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "7f7fffff",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "3eb0ccd4a6dc1b42b9b30d1142ce0373110e552dbf2a616546ad313c16474d2c",
+      "output_sha256": "07f9bfa6025e3c9afe28f05a173e2416c7a36a8d73c00bfc2d7ffe44616813a9",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/maximum-finite-preserved-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "maximum-finite-preserved",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "finite": 1024
+      },
+      "first_bits": "7f7fffff",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "3eb0ccd4a6dc1b42b9b30d1142ce0373110e552dbf2a616546ad313c16474d2c",
+      "output_sha256": "07f9bfa6025e3c9afe28f05a173e2416c7a36a8d73c00bfc2d7ffe44616813a9",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/maximum-finite-preserved-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 0,
+      "max_relative_error": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "name": "subnormal-input-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "ef66e774224cac40e45cd122fc69c4bcd52029c9d90cdd8b0a41eff45c3112d5",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/subnormal-input-scaled-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 6.103515625e-05
+    },
+    {
+      "name": "subnormal-input-scaled",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "ef66e774224cac40e45cd122fc69c4bcd52029c9d90cdd8b0a41eff45c3112d5",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/subnormal-input-scaled-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 6.103515625e-05
+    },
+    {
+      "name": "subnormal-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "f9c2b4857184a33f157f28618cc083bd444adb3a9dcf16b432335c3b15d77761",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/subnormal-products-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.009265538105056e-36
+    },
+    {
+      "name": "subnormal-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "f9c2b4857184a33f157f28618cc083bd444adb3a9dcf16b432335c3b15d77761",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/subnormal-products-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.009265538105056e-36
+    },
+    {
+      "name": "tiny-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "78fe5c7582e699269e0358940d98e8755fc3ae2c477b9631a567e16a713af929",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/tiny-products-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.1861838222649046e-58
+    },
+    {
+      "name": "tiny-products",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+zero": 1024
+      },
+      "first_bits": "00000000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "78fe5c7582e699269e0358940d98e8755fc3ae2c477b9631a567e16a713af929",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/tiny-products-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 0,
+      "bound_failures": 1024,
+      "max_relative_error": 1.0,
+      "max_absolute_error": 3.1861838222649046e-58
+    },
+    {
+      "name": "positive-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+inf": 1024
+      },
+      "first_bits": "7f800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "55cf745fe1ab9a4e231ba0ff3470f754a9eec6148471a5137503d090bfd2c102",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/positive-infinity-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "positive-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+inf": 1024
+      },
+      "first_bits": "7f800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "55cf745fe1ab9a4e231ba0ff3470f754a9eec6148471a5137503d090bfd2c102",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/positive-infinity-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "negative-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "-inf": 1024
+      },
+      "first_bits": "ff800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "7a61aac49d61c7e6172813e7c909ff3b21ce001aafd55eda53fc356cc3390345",
+      "output_sha256": "08e4db3c74285d0ee9a1da4b660aca11c85276ffec4d5f2b7a58f8b4a236b91a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/negative-infinity-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "negative-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "-inf": 1024
+      },
+      "first_bits": "ff800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "7a61aac49d61c7e6172813e7c909ff3b21ce001aafd55eda53fc356cc3390345",
+      "output_sha256": "08e4db3c74285d0ee9a1da4b660aca11c85276ffec4d5f2b7a58f8b4a236b91a",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/negative-infinity-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "opposite-infinities",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "nan": 1024
+      },
+      "first_bits": "7fc00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "3afdd2442217dde3c0c8be523d596e06661234a08fe4a8992a8b6082963f186c",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/opposite-infinities-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "opposite-infinities",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "nan": 1024
+      },
+      "first_bits": "7fc00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "3afdd2442217dde3c0c8be523d596e06661234a08fe4a8992a8b6082963f186c",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/opposite-infinities-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "zero-times-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "nan": 1024
+      },
+      "first_bits": "7fc00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "0a87ffaabad2be695461a74d988a34e6710d891aa04d79cb604530938ba29218",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/zero-times-infinity-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "zero-times-infinity",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "nan": 1024
+      },
+      "first_bits": "7fc00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "0a87ffaabad2be695461a74d988a34e6710d891aa04d79cb604530938ba29218",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/zero-times-infinity-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "quiet-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "nan": 1024
+      },
+      "first_bits": "7fc00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "38c2cfcebfb9cade13a6d8392d4242310133728c3846fc4ebafc2a99440ed491",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/quiet-nan-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "quiet-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "nan": 1024
+      },
+      "first_bits": "7fc00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "38c2cfcebfb9cade13a6d8392d4242310133728c3846fc4ebafc2a99440ed491",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/quiet-nan-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "signaling-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "nan": 1024
+      },
+      "first_bits": "7fc00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "c5361715076e5ad836b5bd5d8249c59350c3f21208e8e260b0100dd4b88bd64b",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/signaling-nan-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "signaling-nan",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "nan": 1024
+      },
+      "first_bits": "7fc00000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "c5361715076e5ad836b5bd5d8249c59350c3f21208e8e260b0100dd4b88bd64b",
+      "output_sha256": "034b6bc7aeaae988938623092738e9c5c099177e5e2e8793e628673333cdfc14",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/signaling-nan-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "finite-overflow",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+inf": 1024
+      },
+      "first_bits": "7f800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "5a0028c91ecd83de1f9fcd5f73f09d7e3339d061e20a711675d51ec5f7a7462d",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/finite-overflow-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "finite-overflow",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+inf": 1024
+      },
+      "first_bits": "7f800000",
+      "differences": {
+        "baseline": 0,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "5a0028c91ecd83de1f9fcd5f73f09d7e3339d061e20a711675d51ec5f7a7462d",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/finite-overflow-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      }
+    },
+    {
+      "name": "intermediate-overflow-cancellation",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "default",
+      "classes": {
+        "+inf": 1024
+      },
+      "first_bits": "7f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "4146ef088aa96fa24e2ca1c8f56f077b0706425808ec014f439211d25615eef0",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/intermediate-overflow-cancellation-default.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 1024,
+      "bound_failures": 0,
+      "max_relative_error": null,
+      "max_absolute_error": null
+    },
+    {
+      "name": "intermediate-overflow-cancellation",
+      "shape": [
+        32,
+        512,
+        32
+      ],
+      "policy": "full",
+      "classes": {
+        "+inf": 1024
+      },
+      "first_bits": "7f800000",
+      "differences": {
+        "baseline": 1024,
+        "naive": 0,
+        "blocked": 0
+      },
+      "input_sha256": "4146ef088aa96fa24e2ca1c8f56f077b0706425808ec014f439211d25615eef0",
+      "output_sha256": "4b72889340c4cd3c2f70042a9eb6c79edf99018086dbb2b22939d0c54ff1b286",
+      "output": "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/intermediate-overflow-cancellation-full.output",
+      "status": {
+        "rounds": 3,
+        "cells": 1024,
+        "default_reduced_precision": 0,
+        "inputs_unchanged": true
+      },
+      "nonfinite_cells": 1024,
+      "bound_failures": 0,
+      "max_relative_error": null,
+      "max_absolute_error": null
+    }
+  ],
+  "qualification_sha256": "c2e63ce8f23afc8fa893923a1efd4e7bc5b43e1c8ad1b3333c81b7762312b970",
+  "cases": 29,
+  "limitations": "Observed on this device and shapes, not a universal MPSGraph reduction-order guarantee.",
+  "schema": 1,
+  "timestamp": "2026-10-30T10:18:36.799175+00:00",
+  "compiler_sha256": "e8917b0b0d9b09c60444ed50cf58a84d0be81a5b04f79062898aa5fe5e0a3ca1",
+  "source_sha256": {
+    "native/benchmarks/mps_matrix_numerical_verify.py": "71f37107c661ab5e96666046be855052c362b1bcc9b51b9ce20c9b1404cc4c44",
+    "native/benchmarks/MpsMatrixNumericalProbe.mm": "26c31cdbb9192b6ee00da9f24168244d6dcb82a7977455a1e5fe1209c4dc81eb",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe": "0efa6dfc1544a0ad5718313abca6549a6f889d40cd0f2adc4391f3a849cd069f"
+  },
+  "commands": [
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "-std=c++23",
+      "-O2",
+      "-mmacosx-version-min=26.0",
+      "-fobjc-arc",
+      "-fblocks",
+      "/Users/pouya/Projects/kalandra.dev/native/benchmarks/MpsMatrixNumericalProbe.mm",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Metal",
+      "-framework",
+      "MetalPerformanceShaders",
+      "-framework",
+      "MetalPerformanceShadersGraph",
+      "-o",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/ones-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/ones.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/ones-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/negative-zero-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/negative-zero-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/positive-zero-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-zero.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/positive-zero-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-512-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-512.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-512-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "576",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-576-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "576",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-576.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-576-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "1024",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-1024-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "1024",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-1024.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-1024-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "2048",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-2048-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "2048",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-2048.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-2048-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "4096",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-4096-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "4096",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/cancellation-4096.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/cancellation-4096-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/small-residual-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/small-residual.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/small-residual-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/fused-rounding-witness-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/fused-rounding-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/fused-rounding-witness-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/input-mantissa-witness-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/input-mantissa-witness.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/input-mantissa-witness-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-0-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-0.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-0-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-1-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-1.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-1-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-2-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "64",
+      "576",
+      "64",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/random-exponents-2.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/random-exponents-2-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/identity-selection-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/identity-selection.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/identity-selection-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/minimum-normal-preserved-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/minimum-normal-preserved-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/minimum-normal-scaled-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/minimum-normal-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/minimum-normal-scaled-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/maximum-finite-preserved-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/maximum-finite-preserved.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/maximum-finite-preserved-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/subnormal-input-scaled-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-input-scaled.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/subnormal-input-scaled-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/subnormal-products-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/subnormal-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/subnormal-products-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/tiny-products-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/tiny-products.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/tiny-products-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/positive-infinity-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/positive-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/positive-infinity-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/negative-infinity-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/negative-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/negative-infinity-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/opposite-infinities-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/opposite-infinities.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/opposite-infinities-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/zero-times-infinity-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/zero-times-infinity.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/zero-times-infinity-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/quiet-nan-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/quiet-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/quiet-nan-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/signaling-nan-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/signaling-nan.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/signaling-nan-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/finite-overflow-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/finite-overflow.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/finite-overflow-full.output",
+      "full"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/intermediate-overflow-cancellation-default.output",
+      "default"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/probe",
+      "32",
+      "512",
+      "32",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-exact-model-2026-10-30/intermediate-overflow-cancellation.input",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mps-matrix-numerical-v2-2026-10-30/intermediate-overflow-cancellation-full.output",
+      "full"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "c8057d2d36578be3d4f9926eb1db4788767330c9",
+  "worktree_status": "?? native/benchmarks/MpsMatrixNumericalProbe.mm\n?? native/benchmarks/mps_matrix_numerical_verify.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}

@@ -539,3 +539,12 @@ including catastrophic cancellation, overflow and hardware underflow. Matching
 the fused model does not mean matching current matmul or guaranteeing small
 relative error. The previous bound-only source can be reconstructed using the
 retained `matrix-exact-pre-model-2026-10-30.patch` in results.
+
+`mps_matrix_numerical_verify.py` runs those frozen inputs through benchmark-only
+MPSGraph default and explicitly full-precision configurations. Use fresh
+`--build`/`--output` paths and GPU access. `fair/mps_matrix_numerical_report.py`
+audits [the comparison](../../benchmarks/results/mps-matrix-numerical-2026-10-30.md),
+retaining two reference validation failures rather than disabling validation.
+Successful output cells match the SIMD prototypes; this is an observed result,
+not an Apple guarantee of a universal accumulation order. No production
+dependency, numerical-policy change or new timing claim is introduced.

@@ -1049,3 +1049,18 @@ existing hardware policy. Ordinary randomized cases meet the finite bound, but
 the prototype is not universally more accurate. Keep the existing production
 contract while deciding the explicit numerical API. Shape tails, broader
 precision characterization, full-model and runtime integration remain separate.
+
+The subsequent [MPSGraph numerical-policy comparison](../benchmarks/results/mps-matrix-numerical-2026-10-30.md)
+tests default and explicitly full-precision configurations against the same
+inputs. All 28 successful cases per configuration match our SIMD outputs,
+including randomized cells, cancellation, zeros and intermediate overflow;
+227,328 output cells across three repetitions. One 4096-term shape fails
+Metal threadgroup-size validation in both reference configurations; both
+failures remain retained and are excluded from successful comparisons.
+
+This supports revisiting the default rather than treating the original fixed
+tree as intrinsically more correct. Recommended policy discussion: optimized
+full-precision tensor accumulation by default, explicit reproducible/fixed-tree
+behavior when requested. That is a revised design recommendation, not an
+implemented contract change. FP16/TF32 shortcuts remain a separate decision;
+no wholesale fast-math flag or relaxed integer checking is implied.
