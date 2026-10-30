@@ -26,7 +26,7 @@ Run `python3 native/benchmarks/languages/run.py --suite gpu-scaling --languages 
 
 ## Recorded qualification
 
-The [GPU speedup qualification](../../benchmarks/results/gpu-speedup-2026-10-24.md) records the final full runs: roughly 20× CPU speedup for larger resident matrices, 13–18× including uploads, and 1.29–1.31× for resident vectors at 16,777,216 elements. Smaller vectors and fresh uploads remain CPU-favored. Both acceptance reports use the same compiler/backend fingerprints and uninstrumented three-process sampling.
+The [GPU speedup qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-speedup-2026-10-24.md) records the final full runs: roughly 20× CPU speedup for larger resident matrices, 13–18× including uploads, and 1.29–1.31× for resident vectors at 16,777,216 elements. Smaller vectors and fresh uploads remain CPU-favored. Both acceptance reports use the same compiler/backend fingerprints and uninstrumented three-process sampling.
 
 All four runtime variants passed 1,010 numerical cases and 1,427,215 output comparisons each with Metal validation enabled; an optimized run without validation also passed. All 46 selected GPU/runtime tests passed across the broad run and targeted reruns, including the corrected higher-rank admission controls, legacy software arithmetic, numeric storage and graph paths. The complete native build and eight benchmark protocol/reference unit tests passed.
 
@@ -36,11 +36,11 @@ Hardware float32 matrix bundles also include a 32-leaf contraction-block entry w
 
 The new entry is selected for contraction lengths at least 256 and divisible by 32 where the generic hardware tile would otherwise run. Existing quad-profile selection is retained; non-multiple contractions keep the admitted eight-leaf implementation. Per-cell APFloat qualification includes 256/288/320/544 contractions, row/column edges, non-power-of-two root counts, exceptional values and the actual benchmark matrices through 1024². All debug/optimized/sanitizer variants remain covered.
 
-The [fair optimization follow-up](../../benchmarks/results/optimization-2026-10-24.md) compares complete CPU/resident/upload-inclusive tasks with optimized library APIs. It preserves the earlier benchmark-methodology correction and makes no general language ranking from GPU tensor performance.
+The [fair optimization follow-up](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/optimization-2026-10-24.md) compares complete CPU/resident/upload-inclusive tasks with optimized library APIs. It preserves the earlier benchmark-methodology correction and makes no general language ranking from GPU tensor performance.
 
 ## Larger output tiles
 
-The [matrix tuning follow-up](../../benchmarks/results/matrix-tuning-2026-10-25.md) adds an optional 16×8 output tile with 128 lanes. It stages 1,024 left and 512 right float32 values, reusing each RHS panel across sixteen rows. Two barriers cover each exact 64-leaf contraction subtree. All lanes reach both barriers; out-of-range output lanes do not perform arithmetic. The ordered carry stack preserves non-power-of-two root counts.
+The [matrix tuning follow-up](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/matrix-tuning-2026-10-25.md) adds an optional 16×8 output tile with 128 lanes. It stages 1,024 left and 512 right float32 values, reusing each RHS panel across sixteen rows. Two barriers cover each exact 64-leaf contraction subtree. All lanes reach both barriers; out-of-range output lanes do not perform arithmetic. The ordered carry stack preserves non-power-of-two root counts.
 
 This entry requires at least sixteen rows, eight columns, and a contraction length of at least 512 divisible by 64. The existing quad profile takes precedence. Pipelines supporting fewer than 128 threads, older bundles, smaller shapes, and other contraction tails retain the previous admitted paths. Dispatch sizing now follows the selected layout; the quad entry no longer launches the larger 8×8 hardware tile's work-item count. Allocation, cancellation, submitted-buffer ownership, scalar readback and arithmetic policy retain their contracts.
 
@@ -53,4 +53,4 @@ Pure float32 matrix graphs can lift a following same-cell unary map (including R
 
 Fusion preserves separately rounded matrix products, the exact adjacent-pair contraction tree and the post-map's operation order. It removes a matrix-sized intermediate and one dispatch per eligible edge. The four **logical** stage allowance still counts both operations; fusion does not extend cancellation's batching allowance. Both parameter blocks and all borrowed inputs remain alive and charged through actual GPU acknowledgement. Tight budgets can select the staged path. The final graph sum remains separately submitted.
 
-The [graph fusion study](../../benchmarks/results/graph-fusion-2026-10-26.md) reports complete resident timings, mixed/regressing cases, dispatch counts and payload peaks. Shader preparation/loading is outside those timings; optional entries add preparation work. This is a numerical runtime optimization, not evidence of general C++/Rust compiler parity.
+The [graph fusion study](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/graph-fusion-2026-10-26.md) reports complete resident timings, mixed/regressing cases, dispatch counts and payload peaks. Shader preparation/loading is outside those timings; optional entries add preparation work. This is a numerical runtime optimization, not evidence of general C++/Rust compiler parity.

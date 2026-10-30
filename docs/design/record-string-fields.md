@@ -48,4 +48,4 @@ The initial runtime revalidates text at helper and handoff boundaries. Eliminati
 
 The focused suite exercises nested updates, shared and empty fields, exact Unicode/NUL bytes, record arrays and maps, nested captures, imported helpers, six numeric families, repeated awaits, task recovery and managed diagnostic text. Private worker probes check source and scheduler settlement, malformed descriptors/UTF-8, partial retention failure, cancellation/deadlines, admission failure and allocation-failure cleanup. Rejected builds must preserve existing output files. The example above is compiled and executed in each build variant.
 
-The [evidence record](../../native/metal-proof/evidence/cpu-record-string-fields-2026-10-18.json) lists the qualified checks, artifacts and scope.
+The [evidence record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-record-string-fields-2026-10-18.json) lists the qualified checks, artifacts and scope.

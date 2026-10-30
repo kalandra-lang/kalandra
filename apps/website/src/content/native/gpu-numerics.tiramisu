@@ -64,7 +64,19 @@ h2 { "Hardware arithmetic and explicit fallback" }
 
 Float32 uses hardware arithmetic on both CPU and Metal by default. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling a float64 GPU operation requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
 
-Use --arithmetic software for the strict software implementation on both CPU and GPU. This provides the prior exact-bit numerical contract, including gradual underflow. Default hardware mode follows device behavior, so Metal float32 subnormals may flush to zero. Matrix products still emit separate products and additions, and reduceSum keeps its balanced adjacent-pair tree. -O2 does not enable fast math or arbitrary reassociation.
+Use --arithmetic software for the strict software implementation on both CPU and GPU. This provides the prior exact-bit numerical contract, including gradual underflow. Default hardware mode follows device behavior, so Metal float32 subnormals may flush to zero. reduceSum keeps its balanced adjacent-pair tree, and scalar arithmetic retains its separately rounded operations. -O2 does not enable generic fast math.
+
+h2 { "Matrix precision policies" }
+
+Hardware float32 matmul defaults to optimized full-precision accumulation. The compiler may use fused multiply-add and choose a contraction order suited to the device while preserving float32 inputs and accumulators. This does not silently convert inputs to float16 or TF32. Qualified Apple M2 Max shapes use MIT-licensed MLX Steel kernels; other shapes and devices retain the existing kernels.
+
+Use --matmul-policy fixed-tree to require separately rounded products and the existing balanced contraction tree. This selects a calculation order, not exact real arithmetic or universally greater accuracy. Optimized results may differ in rounding, signed zero and intermediate overflow. Severe cancellation can lose accuracy in either mode. Checked integer operations are unchanged, and CPU matmul currently retains the fixed tree under either policy.
+
+codeblock { language = bash, """kalandra main.k --target metal --matmul-policy fixed-tree -O2 -o app
+./app/program
+""" }
+
+Hardware fixed-tree mode still follows the device's underflow and NaN behavior. Use --arithmetic software when the software numerical contract, including gradual underflow, is required; that option always selects fixed-tree matmul.
 
 h2 { "Selected control and residence" }
 

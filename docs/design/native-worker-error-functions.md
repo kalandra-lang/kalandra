@@ -40,4 +40,4 @@ The focused suite covers direct and indirect workers, early guards, propagation,
 
 General task/device-coordinating function values and placement-aware/GPU callbacks remain separate work. The separate [CPU parallel-map implementation](native-parallel-map.md) now uses these payload checks for callback errors. Distributed execution and public C/C++ integration retain their separate roadmaps.
 
-**52/52 selected CTest checks passed.** The [qualification record](../../native/metal-proof/evidence/cpu-worker-error-functions-2026-10-20.json) lists the disjoint selections and coverage; this is not the full project suite.
+**52/52 selected CTest checks passed.** The [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-worker-error-functions-2026-10-20.json) lists the disjoint selections and coverage; this is not the full project suite.

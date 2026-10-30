@@ -53,11 +53,11 @@ types. Their held-completion cases explicitly disable views so they continue to
 exercise actual GPU work; pre-cancel and ordinary cases retain the new path.
 
 This optimization follows the rejected
-[general transposed-matrix kernel experiments](../../benchmarks/results/gpu-transpose-matmul-profiles-2026-10-29.md).
+[general transposed-matrix kernel experiments](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-transpose-matmul-profiles-2026-10-29.md).
 Those experiments improved small isolated cases but regressed larger ones and
 are not part of production.
 
-The [acceptance report](../../benchmarks/results/gpu-transpose-view-2026-10-29.md)
+The [acceptance report](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-transpose-view-2026-10-29.md)
 retains primary, same-binary, repeated, streaming and confirmation timings,
 independent numerical bounds, all qualification logs and source/artifact digests.
 The reliable structural gain is eliminating the copy; measured one-row resident

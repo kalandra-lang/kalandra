@@ -47,4 +47,4 @@ The compiler currently rejects recursive type dependencies, including `type Node
 
 The existing [raw worker harness](../../native/tests/RecordArrayWorkerTests.cpp) also runs through a single-field record wrapper. It checks exact element bits and shared allocations, 0/1/257/1025-element arrays, source settlement, cached and surviving observations, cancellation polling, deadlines, admission limits, malformed outer/inner descriptors, fixed tensor shapes and unchanged output on partial-retention failure. Debug, optimized, ASan/UBSan and TSan variants use the same cases and allocation-failure sweeps.
 
-The [qualification record](../../native/metal-proof/evidence/cpu-record-array-fields-2026-10-19.json) records the tested sources, generated programs and regression scope.
+The [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-record-array-fields-2026-10-19.json) records the tested sources, generated programs and regression scope.

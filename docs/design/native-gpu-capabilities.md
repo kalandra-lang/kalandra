@@ -85,7 +85,7 @@ against the current compiler. [Installed numerical library acceptance](native-me
 adds current LLVM 23 Debug/Release bundle execution on the M2 Max, including
 CPU/GPU private dependency versions and all four generated host modes.
 
-The [initial matrix audit](../../native/metal-proof/evidence/gpu-capability-matrix-2026-10-20.json)
+The [initial matrix audit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/gpu-capability-matrix-2026-10-20.json)
 records the pre-repair 32-probe audit, including the two high-arity positive
 gates that failed at that point. The repair record below covers current acceptance.
 
@@ -101,7 +101,7 @@ restore those examples without raising the 16 KiB frame budget or exempting
 source functions from admission. The matrix now requires positive source emission
 for both, and their positive GPU CLI gates remain required. The older audit record
 above describes the failure before this repair; the
-[repair qualification](../../native/metal-proof/evidence/gpu-host-stack-repair-2026-10-20.json)
+[repair qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/gpu-host-stack-repair-2026-10-20.json)
 records current acceptance and retained safety checks.
 
 ## Remaining N2 work

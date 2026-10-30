@@ -1,10 +1,26 @@
 #pragma once
 #include <cstdint>
+#include <optional>
 
 namespace kalandra::runtime::metal {
 // Performance policy for the measured Apple M2 Max, not a language limit.
 // Callers enable this profile only after validating the complete kernel bundle.
 enum class MatmulLayout { Scalar, Rows2, Quad };
+// Qualified full-precision Steel profile. Keep signed shader indices and all
+// loader address products in range even when callers raise allocation limits.
+constexpr std::optional<unsigned> steelMatmulVariant(std::uint32_t rows,
+                                                    std::uint32_t inner,
+                                                    std::uint32_t columns) noexcept {
+  if (rows < 64 || inner < 64 || columns < 32 ||
+      std::uint64_t(rows) * inner > INT32_MAX ||
+      std::uint64_t(inner) * columns > INT32_MAX ||
+      std::uint64_t(rows) * columns > INT32_MAX)
+    return {};
+  const unsigned tile = rows >= 512 && columns >= 2048 && inner <= 512 ? 0 : 1;
+  const unsigned width = tile ? 32 : 64, block = tile ? 32 : 16;
+  return tile * 4 + unsigned(rows % 64 == 0 && columns % width == 0) * 2 +
+         unsigned(inner % block == 0);
+}
 // Contraction-parallel profiles: one/two wide rows, or small output rectangles
 // with a long inner dimension. Other shapes keep the original kernels.
 constexpr bool useSkinnyMatmul(std::uint32_t rows, std::uint32_t inner,

@@ -65,5 +65,5 @@ owned results/errors, expected fault handling, oversized stack rejection with
 output preservation, and deep-recursion cleanup. Record, String-field and enum
 regressions cover the shared ABI simplification outside numerical code.
 
-See the [qualification record](../../native/metal-proof/evidence/gpu-host-stack-repair-2026-10-20.json)
+See the [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/gpu-host-stack-repair-2026-10-20.json)
 for exact checks, compiler builds, artifacts and remaining limits.

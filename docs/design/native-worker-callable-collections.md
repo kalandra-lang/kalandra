@@ -30,4 +30,4 @@ This milestone does not extend `shape` to ordinary arrays: it remains a numeric 
 
 The focused suite covers function and callable-aggregate slices/concatenations, length queries, empty collections, dynamic bounds, bounds-fault recovery, nested workers, repeated awaits and onward submission. It runs with worker counts 1, 2, and 4, injected allocation failures, unsafe/unknown-origin rejections and forged element provenance. Qualification also includes the existing function-array, callable-field, worker-map and worker-transport regressions. This is a selected suite, not the full project suite.
 
-**36/36 selected CTest checks passed.** See the [qualification record](../../native/metal-proof/evidence/cpu-worker-callable-collections-2026-10-20.json) for the exact selection and scope.
+**36/36 selected CTest checks passed.** See the [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-worker-callable-collections-2026-10-20.json) for the exact selection and scope.

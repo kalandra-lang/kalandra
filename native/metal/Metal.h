@@ -109,6 +109,9 @@ struct Options {
   std::uint64_t maxCachedDeviceBytes = 16 * 1024 * 1024;
   // Full Float32 outputs of validated pure prepared progression only.
   bool cachePreparedOutputs = true;
+  // New optimized float32 bundles may use full-precision fused accumulation.
+  // Request the historical separately rounded fixed tree, including signed zero.
+  bool fixedTreeMatmul = false;
 };
 struct Stats {
   std::uint64_t gpuNanoseconds = 0, encodingNanoseconds = 0, dispatches = 0;

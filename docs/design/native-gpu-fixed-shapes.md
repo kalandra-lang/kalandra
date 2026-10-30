@@ -37,4 +37,4 @@ The Metal backend checks fixed parameter dimensions alongside inferred equality/
 
 The [source fixture](../../native/metal-source/fixed-shapes/main.k) combines imported vector helpers, mixed-shape matrix multiplication, reduction, empty tensors, checked local bindings, result annotations and unused inputs. Separate failure programs exercise each contract without letting an earlier failure hide a missing later guard.
 
-See the [qualification record](../../native/metal-proof/evidence/gpu-fixed-shapes-2026-10-20.json) for platform, sanitizer modes, execution counts, regressions and source hashes.
+See the [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/gpu-fixed-shapes-2026-10-20.json) for platform, sanitizer modes, execution counts, regressions and source hashes.

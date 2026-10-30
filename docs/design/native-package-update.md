@@ -59,7 +59,7 @@ with a changed library; check and build the application after updating.
 
 ## Qualification
 
-[Update qualification](../../native/metal-proof/evidence/native-package-update-2026-10-21.json)
+[Update qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-package-update-2026-10-21.json)
 records normal and ASan/UBSan installer API checks, the public CLI and relocated
 Release CPU compiler. Local Git fixtures cover branch/tag moves, multiple aliases,
 exact revisions, new graph nodes, unchanged-owner private pins, newly selected

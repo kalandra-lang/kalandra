@@ -64,7 +64,7 @@ with typed parameters; this is not a public C/C++ ABI.
 
 ## Qualification
 
-The [CPU qualification record](../../native/metal-proof/evidence/cpu-recursive-callables-2026-10-19.json) records 110 selected CTest suites passing on Apple M2 Max with LLVM/MLIR 22.1.8. This is a focused regression selection, not the full project suite.
+The [CPU qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-recursive-callables-2026-10-19.json) records 110 selected CTest suites passing on Apple M2 Max with LLVM/MLIR 22.1.8. This is a focused regression selection, not the full project suite.
 
 The new execution suites compile and run 35 programs in each of debug, optimized, ASan/UBSan and separate ThreadSanitizer modes (140 compiled programs). They cover all ten numeric scalar result types, Bool/String/record/array/tensor results, returned captured functions, self/mutual references, canonical error unions, recursive matrix operations and local CPU workers. Frontend suites check and plan 22 fixtures in normal and sanitizer builds, including static backedge checks, a positive coordinating-recursion plan, selected-entry reachability and two unsupported inference/initialization boundaries.
 

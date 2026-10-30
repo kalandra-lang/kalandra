@@ -140,11 +140,17 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     parallel = next(x for x in reversed(items) if x[0] == 'parallelism')
     shell('parallelism', 0, BASE / 'parallelism' / str(parallel[1]), parallel[4]['expected'])
     for page in ['gpu', 'gpu-numerics']:
-        if args.gpu:
-            shell(page, 0, BASE / page / '0', PLAN[page][0]['expected'])
-        else:
-            RESULTS.append({'page': page, 'kind': 'shell', 'status': 'not-run', 'reason': 'Requires --gpu'})
-            COVERED.add((page, blocks(page, 'bash')[0][0]))
+        for shell_index, (block_index, _) in enumerate(blocks(page, 'bash')):
+            # Run each invocation against the preceding authored program, so
+            # policy examples and later programs cannot silently escape checks.
+            program = max((item for item in items if item[0] == page and item[2] < block_index),
+                          key=lambda item: item[2])
+            if args.gpu:
+                shell(page, shell_index, BASE / page / str(program[1]), program[4]['expected'])
+            else:
+                RESULTS.append({'page': page, 'block': block_index, 'kind': 'shell',
+                                'status': 'not-run', 'reason': 'Requires --gpu'})
+                COVERED.add((page, block_index))
 
     # The documented starter, its exact sibling module, and an edited rebuild.
     starter = BASE / 'starter'

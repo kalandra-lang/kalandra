@@ -1,24 +1,14 @@
-# Kalandra native development
+# Kalandra native compiler and runtime
 
-Native source files use `.k`, including explicit relative imports. The former `.kalandra` extension is rejected; it is not a compatibility alias. Historical qualification records retain their original filenames and hashes.
-
-Floating-point arithmetic uses hardware by default: CPU float32/float64 and Metal float32. Metal float64 arithmetic requires explicit `--arithmetic hardware-with-software-fallback`; `--arithmetic software` selects the strict integer-based implementation. See [execution policies and numerical guarantees](../docs/design/hardware-arithmetic.md). Historical exact-bit qualification records refer to the software implementation.
-
-[Immutable CPU Strings](../docs/design/strings.md#qualified-literalvalue-foundation) support UTF-8 literals, strict escapes, typed synchronous helpers, local modules, exact `==`/`!=` equality, checked `+` concatenation, scalar/byte length queries, checked scalar indexing, half-open slicing and String-valued executable results. Local CPU worker arguments/results and callback captures retain immutable storage; [String record fields](../docs/design/record-string-fields.md), including nested records and record arrays/maps, share retained storage. [Direct String arrays and maps](../docs/design/string-arrays.md) are supported; [String-array record fields](../docs/design/record-string-array-fields.md) are supported.
-
-[CPU Bool values and scalar comparisons](../docs/design/booleans.md) support immutable Boolean literals, functions, strict comparisons across the ten CPU numeric types, and typed worker captures/results. [CPU conditionals and short-circuit operators](../docs/design/control-flow.md) now support selected execution, scoped values, retained tensors and resumable worker branches. [Immutable CPU Bool arrays](../docs/design/bool-arrays.md) support construction, indexing, mapping and retained worker results. Bool tensors and GPU Bool execution remain separate work.
-
-The fresh compiler is written in **C++23**, with direct LLVM/MLIR C++ integration. CMake configures the build, Ninja builds it, and CTest runs the tests. Bun and Node are not dependencies of this native development path.
-
-The `native` branch contains the language design and native CPU/Metal compiler. The Tiramisu website has a separate Bun build in `apps/website`. The handwritten lexer/parser, [semantic stage](../docs/design/semantics.md), and [native source compiler](../docs/design/native-codegen.md) support float32 arithmetic, ranked dense float32 tensors, and [checked int32 CPU scalars](../docs/design/numbers.md#checked-cpu-int32-scalar-arithmetic). Int32 literals, ordinary functions and executable results preserve exact integer values, with overflow/division faults checked in every build; [CPU worker tasks](../docs/design/numbers.md#int32-cpu-task-captures-and-results) now preserve int32 captures/results and reuse checked MLIR arithmetic, including supervised Arithmetic faults and recovery. [Synchronous int32 tensors](../docs/design/numbers.md#checked-cpu-int32-tensor-literals-and-elementwise-operations) now support literals, ranked elementwise operations and checked native interfaces. [Int32 tensor worker handoff](../docs/design/numbers.md#int32-tensor-captures-and-results-in-cpu-tasks) now retains typed captures/results through nested tasks, repeated awaits and fault recovery. [Checked CPU int32 reduceSum](../docs/design/numbers.md#checked-cpu-int32-reducesum) now supports ranked and empty inputs, deterministic checked tree additions and worker fault recovery. [Checked CPU int32 matmul](../docs/design/numbers.md#checked-cpu-int32-matmul) now supports checked products/tree accumulation, empty shapes and retained worker results. [Checked CPU uint32 scalars](../docs/design/numbers.md#checked-cpu-uint32-scalar-arithmetic) now support unsigned constants/operators, exact CLI values and mixed/nested worker tasks. [Synchronous uint32 tensors](../docs/design/numbers.md#checked-cpu-uint32-tensor-literals-and-elementwise-operations) now support literals, ranked checked elementwise arithmetic and scalar lifting. [Uint32 tensor worker handoff](../docs/design/numbers.md#uint32-tensor-captures-and-results-in-cpu-tasks) now preserves typed captures/results and ownership through nested tasks, cached awaits and fault recovery. [Checked CPU uint32 reduceSum](../docs/design/numbers.md#checked-cpu-uint32-reducesum) now supports ranked/empty inputs, full-range scalar results, checked tree additions and worker fault recovery through shared reduction machinery. [Checked CPU uint32 matmul](../docs/design/numbers.md#checked-cpu-uint32-matmul) now supports exact unsigned products/tree sums, empty shapes, retained nested worker results and Arithmetic recovery. [Checked CPU int64 scalars](../docs/design/numbers.md#checked-cpu-int64-scalar-arithmetic) now support the int alias, default whole-number literals, exact 64-bit CLI values and mixed-width worker calls with checked overflow. [Checked CPU uint64 scalars](../docs/design/numbers.md#checked-cpu-uint64-scalar-arithmetic) now support the uint alias, exact full-range output, checked unsigned arithmetic and mixed-width worker calls. [Shared int64/uint64 tensor literals and elementwise arithmetic](../docs/design/numbers.md#shared-int64uint64-cpu-tensor-literals-and-elementwise-arithmetic) now use the existing checked scalar operations lane by lane, with eight-byte storage and allocation checks. [Shared int64/uint64 tensor worker handoff](../docs/design/numbers.md#shared-int64uint64-tensor-captures-and-results-in-cpu-tasks) now retains typed captures/results through nested workers, cached awaits, fault recovery and returned values outliving their workers. [Shared checked int64/uint64 reductions](../docs/design/numbers.md#shared-checked-int64uint64-cpu-reducesum) now use exact adjacent-pair additions, eight-byte scratch storage and the existing worker failure/recovery paths. [Shared checked int64/uint64 matrix multiplication](../docs/design/numbers.md#shared-checked-int64uint64-cpu-matmul) now preserves exact products and adjacent-tree sums, empty shapes, retained worker results and Arithmetic recovery. [CPU float64 scalars](../docs/design/numbers.md#cpu-float64-scalar-source-and-worker-integration) now support the float alias, default decimal/exponent literals, strict separately rounded arithmetic, 17-digit CLI output and typed nested worker calls. [Synchronous CPU float64 tensors](../docs/design/numbers.md#cpu-float64-tensor-literals-and-elementwise-arithmetic) now support ranked literals and strict elementwise operations with eight-byte storage. [Float64 tensor worker handoff](../docs/design/numbers.md#float64-tensor-captures-and-results-in-cpu-tasks) now preserves distinct typed layouts, retained backing and exact values through nested/cached calls and recovery. [CPU float64 reduceSum](../docs/design/numbers.md#cpu-float64-reducesum) now supports strict ranked/empty reductions and nested worker results through the existing adjacent-pair tree. [CPU float64 matmul](../docs/design/numbers.md#cpu-float64-matmul) now uses strict separately rounded products and adjacent-tree sums, with retained nested worker results. [Explicit CPU scalar conversions](../docs/design/numbers.md#explicit-cpu-scalar-numeric-conversions) now support all 100 pairs among the ten implemented CPU types, including strict rounding, checked failures and direct worker calls. [Explicit CPU tensor conversions](../docs/design/tensors.md#explicit-cpu-element-conversions) now preserve shape across all 100 pairs. GPU conversions, further arithmetic types and GPU integer/float64 arithmetic remain unsupported. [Local tasks](../docs/design/native-tasks.md) support parallel blocks, spawn, await, and TaskError propagation through native continuations. A bounded pool now executes independent CPU tasks concurrently; set `KALANDRA_WORKERS=1..64` to override the detected count (capped at eight by default). Generated loops cooperate with cancellation. The [CPU scaling benchmark](benchmarks/README.md) now measures warmed generated kernels and scheduling overhead; results depend strongly on task size. See the [frontend grammar and limits](../docs/design/frontend.md).
-
-The [Apple GPU comparison](../benchmarks/results/native-gpu-2026-10-15-normalization.md) measures strict arithmetic after replacing per-bit normalization loops with five integer stages. It reduces 256-square matmul GPU command latency by 3.09× on the tested M2 Max; CPU still has lower latency on the tested matmul shapes.
-
-The [shape-selected GPU matmul report](../benchmarks/results/native-gpu-2026-10-15-selection.md) now qualifies automatic two-row/quad entry selection for a conservative M2 Max profile. Other shapes/devices retain the strict scalar GPU entry. Both resident and transfer-inclusive comparisons retain raw timing/control variability.
+Kalandra uses a C++23 frontend, MLIR/LLVM CPU lowering and Apple Metal GPU
+execution. It supports explicit CPU/GPU placement and transfers, immutable typed
+values and structured tasks. The [language design](../docs/design/core.md),
+[GPU capability matrix](../docs/design/native-gpu-capabilities.md) and
+[native roadmap](../docs/roadmap.md) state the supported subset and remaining work.
 
 ## Start a project
 
-With the [installed native compiler](../docs/design/native-cpu-install.md):
+With an installed mixed CPU/Metal compiler:
 
 ```sh
 kalandra new my-app
@@ -27,26 +17,53 @@ kalandra --project my-app/kalandra.toml -o my-app/program
 ./my-app/program
 ```
 
-The [starter guide](../docs/design/native-starter.md) explains its two modules,
-typed parallel map, build modes and existing-directory protection.
+Use `--target metal` for a supported GPU program. See the
+[starter guide](../docs/design/native-starter.md),
+[CPU installation](../docs/design/native-cpu-install.md) and
+[Metal installation](../docs/design/native-metal-install.md).
 
 ## Build and test
 
-On the currently validated macOS ARM64 setup, install CMake, Ninja and toml++ 3.4.0 (`brew install cmake ninja tomlplusplus`), plus the pinned LLVM toolchain below. CMake checks the TOML parser version and uses its headers without a runtime TOML library dependency. Override its package location with `-Dtomlplusplus_DIR=/path/to/lib/cmake/tomlplusplus` if needed.
-
 ```sh
 cmake --preset native
-cmake --build --preset native
+cmake --build --preset native --parallel 2
 ctest --preset native
 ```
 
-The [toolchain lock](toolchain-proof/toolchain.json) selects LLVM/MLIR/Clang 23.1.3. The [LLVM 23 migration guide](../docs/design/native-llvm23.md) describes fresh builds and Metal compatibility changes. CMake uses its installed Homebrew keg without changing global PATH. Override the location on initial configure with `-DKALANDRA_LLVM_ROOT=/path/to/llvm-23.1.3` or the corresponding environment variable. An existing CMake cache takes precedence over an environment change.
+CMake 3.28+, Ninja, toml++ 3.4.0 and the pinned
+[LLVM/MLIR/Clang toolchain](toolchain-proof/toolchain.json) are required. Metal builds
+also require the pinned [Apple toolchain](metal-proof/toolchain.json). Follow the
+[platform qualification guide](../docs/design/native-distribution-qualification.md)
+for source builds and standalone packaging. Release targets are macOS 26+ ARM64
+CPU/Metal, Linux x86-64 CPU and Windows x86-64 CPU. Windows TSan is unsupported.
 
-CMake 3.28 or newer and Ninja are required; the development machine has CMake 4.4.2 and Ninja 1.13.2. Matching compiler and LLVM/MLIR library versions are checked during configuration. A compiler that cannot build the required C++23 facilities fails the build rather than selecting an older language mode. Debug and release configurations must preserve the numerical contract.
+CTest covers frontend/lowering, numerical and ownership semantics, recursive
+calls, workers, cancellation/fault precedence, GPU capabilities, editor tools and
+relocated distributions. Sanitizer modes are separate build/test variants.
+The CMake files are the executable source of test commands and resource locks;
+historical test counts are not current qualification claims.
 
-A clean configure, build, and the original five toolchain CTest tests also pass with PATH restricted to `/usr/bin:/bin`, invoking CMake/Ninja by absolute paths. This verifies that the native path does not depend on Bun/Node being discoverable.
+## Numerical and execution policies
 
-## Implementation conventions
+Hardware arithmetic is the default where supported. `--arithmetic software` and
+`--arithmetic hardware-with-software-fallback` make fallback explicit. Optimized
+GPU float32 matmul permits full-precision FMA/reordered accumulation;
+`--matmul-policy fixed-tree` preserves the earlier contraction order. Software
+arithmetic forces fixed-tree. CPU matmul currently keeps its existing tree under
+both flags. [Numerical contracts](../docs/design/hardware-arithmetic.md).
+
+Production has no Accelerate/MPSGraph dependency. The qualified M2 Max profile
+uses the [pinned MIT Steel subset](third_party/mlx-steel/README.md); other devices,
+unsupported shapes and fixed-tree execution retain native fallback kernels.
+Native host clients must rebuild matching headers and static archives when the
+internal C++ interface changes.
+
+## Benchmarks and implementation conventions
+
+[Supported benchmark runners](benchmarks/README.md) separate source-level language
+comparisons, numerical libraries and full models. [Current evidence](../benchmarks/README.md)
+discloses failed controls and remaining performance uncertainty. Retired research
+reports and prototypes are archived, not part of the production runtime.
 
 - Use C++23 with compiler extensions disabled. Add standard-library features only after validating them with the supported compiler and platform library.
 - Prefer values, RAII, `std::unique_ptr` for unique ownership, and stable source-buffer ownership for any borrowed source spans. Raw pointers/references express documented non-owning access, not hidden ownership.
@@ -57,135 +74,3 @@ A clean configure, build, and the original five toolchain CTest tests also pass 
 - Test behavior and diagnostics through CTest. Use sanitizers for relevant native memory paths, while keeping their coverage limits explicit.
 
 Compiler implementation ownership is separate from Kalandra's automatic memory model. Using RAII inside the compiler does not require Kalandra authors to write destructors, allocators, or lifetime annotations.
-
-## Current targets
-
-The [native language server](../docs/design/native-language-server.md) checks open `.k` buffers and publishes diagnostics over stdio. References also search eligible unopened `.k` files in the configured workspace, subject to documented exclusions and scan limits. Scope completion suggests visible bindings, functions and imported aliases while typing expression names. Supported clients can prepare rename and receive validated, versioned edit proposals that preserve aliases and pattern bindings. Format Document shares the [native formatter](../docs/design/native-formatter.md), also available through `kalandra-fmt` and its `--check` mode. Build the `kalandra-lsp` target to connect an editor client. The [native VS Code extension](../docs/design/native-vscode.md) provides a locally installable VSIX with `.k` highlighting, server settings and restart/output commands.
-
-The checker supports [versioned JSON diagnostics](../docs/design/native-diagnostics.md) through `--diagnostics=json`, including original module filenames and UTF-16 editor ranges. [Unsaved source checking](../docs/design/native-source-overlays.md) supports a root buffer via `--stdin` and multiple replacement buffers through the native loader API.
-
-| Target                    | Purpose                                                                                                          |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `kalandra`                | Compile the checked CPU subset through MLIR/LLVM into a native executable                                        |
-| `kalandra-backend`        | Native MLIR construction, verified passes, LLVM translation                                                      |
-| `kalandra-native-runtime` | Invocation storage, checked faults, bounded task scheduler, and development entry wrapper                        |
-| `kalandra-lsp`            | Native diagnostics, incremental edits, type hover, definition, references, scope completion and validated rename |
-| `kalandra-fmt`            | Verified native source formatting to stdout, or `--check` without source writes                                  |
-| `kalandra-check`          | Symbol/type/shape checking, JSON diagnostics and `--dump-ir` inspection                                          |
-| `kalandra-semantics`      | Typed values, resolved calls, shape facts/guards, strict numeric metadata                                        |
-| `kalandra-parse`          | Handwritten lexer/parser CLI with source diagnostics (syntax only)                                               |
-| `kalandra-syntax`         | Source ownership, tokens, AST, lexer, recursive-descent/Pratt parser                                             |
-| `kalandra-mlir-check`     | C++23 tool that parses/verifies MLIR through linked native APIs                                                  |
-| `kalandra-proof-cases`    | Independent scalar numerical reference and fixed-seed input generator                                            |
-| `native-toolchain-proof`  | Bufferization, ownership lowering, LLVM translation, and three native proof binaries                             |
-
-[Immutable numeric arrays](../docs/design/arrays.md) now support `[T]` annotations, homogeneous literals, empty arrays with context, functions, conditional length joins and retained worker handoff. They remain distinct from tensors. [Sequential array mapping](../docs/design/array-map.md) is also available, including inline anonymous callbacks, lexical captures, explicit element-type changes and worker execution. [Explicit `tensor(values)` construction](../docs/design/arrays.md#explicit-tensor-construction-from-arrays) now connects runtime arrays to rank-one tensor operations and retained worker results. [Runtime shape lists](../docs/design/reshape.md) now build matrices and higher ranks from flat arrays using checked integer dimensions. [Checked array indexing](../docs/design/array-indexing.md) reads scalar elements with zero-based integer indices and Bounds fault recovery in worker helpers. [Checked CPU tensor indexing](../docs/design/tensor-indexing.md) also reads one scalar with one integer index per dimension, including rank-zero extraction and worker results. [CPU collection size queries](../docs/design/collection-queries.md) now provide `length(array)` and `shape(tensor)`, with int64 metadata, lexical captures and direct worker calls. [CPU tensor reshaping](../docs/design/tensor-reshape.md) now changes rank/dimensions while preserving numeric type and logical row-major order, with checked sizes and retained worker results. [Explicit tensor-to-array construction](../docs/design/tensor-array.md) now provides `array(tensor)`, preserving numeric type and logical row-major order for map pipelines and retained worker results. First-class function values, general element types, slicing and zero-copy views remain subsequent work.
-
-[Tensor inference](../docs/design/tensors.md#native-tensor-element-and-shape-inference) supports unannotated nonempty CPU tensor construction, including default `int64`/`float64` elements, scalar and rectangular literal shapes, and inferred results through nested workers. Mixed element identities require explicit typing/conversion; empty data still needs an element type.
-
-Read the [toolchain proof](toolchain-proof/README.md) for evidence and limits. The sequential CPU conformance sweep and initial source task integration pass. The CPU-only configuration has 52 CTest tests, including debug, optimized, ASan/UBSan, and separate ThreadSanitizer variants. Native TaskError recovery (`catch`, typed matching/fields, and handler-local propagation) now also passes its compiled conformance suites. Multi-worker execution, execution leases, and CPU-loop cancellation polling now pass their concurrency suites. The [scratch reuse comparison](../benchmarks/results/native-cpu-2026-10-15-scratch.md) now records bounded matrix scratch allocation and its throughput effect. The [scheduler profile](../benchmarks/results/native-scheduler-2026-10-15.md) now separates phase timings, table-capacity controls, and optional diagnostic probes. The [idle-wakeup optimization](../benchmarks/results/native-scheduler-2026-10-15-wakeups.md) now reduces those overheads with held-lease/controller regression coverage. The [targeted-wakeup comparison](../benchmarks/results/native-scheduler-2026-10-15-targeted.md) now records separate worker/controller channels and active-phase improvements. The [runnable tracking comparison](../benchmarks/results/native-scheduler-2026-10-15-runnable.md) now records explicit ready events and a bounded deferred FIFO, with one-slot spawn/fairness/cancellation regressions. The [maintenance comparison](../benchmarks/results/native-scheduler-2026-10-15-maintenance.md) now records bounded occupancy indexes for unfinished tasks and live records/groups, with sparse-slot and deep nested-wait coverage. The [task-maintenance fast path](../benchmarks/results/native-scheduler-2026-10-15-dense.md) now skips task scans when no waiter or settlement needs progress. The [four-column SIMD comparison](../benchmarks/results/native-cpu-2026-10-15-simd.md) now records the first CPU microtile optimization, with strict per-cell arithmetic and tail/ownership coverage. The [37-shape comparison](../benchmarks/results/native-shapes-2026-10-15.md) identifies narrow dispatch and tail costs; the [two-lane follow-up](../benchmarks/results/native-shapes-2026-10-15-pairs.md) records implemented narrow dispatch and paired tails, with 717 per-cell/shared cases and extended in-loop cancellation coverage. The [cache-layout evaluation](../benchmarks/results/native-cache-2026-10-15.md) now compares larger rectangles and strict C++ prototypes with matched layout controls and a vendor-library reference; that research now informs the [MLIR 4×16/K256 port](../benchmarks/results/native-mlir-blocking-2026-10-15.md), with 3,727 per-cell/shared cases, a 506-shape actual allocation probe, and renewed cancellation/sanitizer coverage. The [CPU milestone](../docs/design/cpu-milestone.md) and [task contract](../docs/design/native-tasks.md) track the remaining gates.
-
-C++ formatting uses the root `.clang-format` with LLVM style. For the current C++ sources:
-
-```sh
-/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang-format --dry-run --Werror \
-  native/tools/*.cpp native/lib/*.cpp native/include/kalandra/*.h \
-  native/tests/*.cpp native/toolchain-proof/cases.cpp
-```
-
-Use `kalandra --sanitize` for generated AddressSanitizer checks plus the ASan/UBSan runtime, or `--thread-sanitize` for a separate fully instrumented ThreadSanitizer build. These options cannot be combined. The emitted LLVM functions carry the required sanitizer attributes; conformance verifies that Clang emits actual memory checks. The C++ task-core configuration defaults to one worker for deterministic tests; compiled programs use the bounded pool described above.
-
-## Install native editor tools
-
-```sh
-cmake --build build/native --target native-editor-tools-package
-cmake --install build/native --prefix "$HOME/.local" --component NativeEditorTools
-```
-
-The [installation guide](../docs/design/native-tools-install.md) covers the four installed commands, archive/checksums, PATH and the VS Code server setting. These tools can run independently of the checkout but still require the pinned LLVM runtime. The [CPU compiler bundle](../docs/design/native-cpu-install.md) now adds `kalandra` and its private runtime archives with `native-cpu-package`. [Version-tag release automation](../docs/design/native-releases.md) qualifies and uploads CPU/editor packages, classifying SemVer prereleases automatically. The initial [Apple Metal bundle](../docs/design/native-metal-install.md) adds private shader tools, headers and CPU/Metal runtimes through `native-metal-package`; its external toolchain and release-runner qualification remain explicit.
-
-## Apple GPU toolchain proof
-
-An opt-in [Metal proof](metal-proof/README.md) now runs MLIR GPU kernels through SPIR-V and SPIRV-Cross on Apple Silicon. It validates buffer bindings, explicit copies, partial workgroups, and completion. IEEE edge probes expose a strict float32 compatibility gap, so this is not yet Kalandra GPU source support. The [backend contract](../docs/design/apple-gpu.md) records the implementation gates; CPU builds do not require the optional shader tools.
-
-## Apple device, transfer, and compute runtime
-
-The optional [Metal runtime](metal/README.md) now provides immutable host/device buffers and upload/download tasks integrated with CPU task groups. External completion leases keep pending GPU resources alive through cancellation and resume tasks without blocking workers. Transfer tests include nested groups, exact bit preservation, resource budgets, allocation failures, and sanitizer coverage. A private checked kernel interface now dispatches strict float32 addition/multiplication over rank-one device buffers, with explicit downloads, shared resource budgets, and cancellation-safe completion. The optional [source-to-Metal slice](../docs/design/apple-gpu.md#first-source-to-metal-compiler-slice), selected through `kalandra --target metal`, now compiles a bounded rank-one float32 program with explicit transfers and placed calls into a runnable native executable/shader bundle. It uses generated C++ supervisor continuations and source-generated strict GPU MLIR. A checked [CPU tensor bridge](../docs/design/apple-gpu.md#common-compiler-entry-and-cpu-tensor-abi) now retains CPU-owned inputs for GPU transfers and exports downloaded results as invocation-owned descriptors consumed by MLIR-generated CPU code. Ordinary float32 CPU functions now coexist with GPU functions in one source file, including CPU tensor factories/returns, CPU reductions after explicit downloads, and scalar or host-tensor main results. See [mixed source scope and ownership](../docs/design/apple-gpu.md#mixed-cpugpu-source-programs). Runtime guards check dynamic CPU result shapes at execution boundaries. The same helper definition now compiles for CPU and GPU from shared typed tensor/scalar IR, including strict elementwise arithmetic and scalar lifting. See [shared helper scope](../docs/design/apple-gpu.md#shared-cpugpu-helpers). GPU elementwise entries now use signature-sized owned tensor/scalar captures, with direct bindings for small calls, Tier 2 argument buffers above 29 contributing inputs, and a separate capture-memory budget; see [GPU entry parameters](../docs/design/apple-gpu.md#gpu-entry-scalar-parameters). Direct rank-one/rank-two `reduceSum` entries now execute the accepted fixed tree on GPU and return scalar task results, copying only the final four bytes back to the host; see [reduction scope](../docs/design/apple-gpu.md#rank-one-gpu-reductions) and [resident matrix composition](../docs/design/apple-gpu.md#rank-two-gpu-reductions). Direct rank-two `matmul` entries now preserve separately rounded products and the fixed sum tree on GPU; the mixed source bridge also carries matrix literals, CPU calls/returns and axis-specific guards. See [matrix scope](../docs/design/apple-gpu.md#rank-two-gpu-matrix-multiplication). Rank-two elementwise helpers now preserve full shapes across GPU calls and support strict scalar lifting and transitive helpers, completing a resident matmul → adjust → reduceSum path; see [matrix pipeline scope](../docs/design/apple-gpu.md#rank-two-gpu-elementwise-helpers). Shared placement-aware IR and the [common continuation planner](../docs/design/continuations.md) now serve the current CPU/Metal subset. Resumable mixed helper bodies and broader value/element types remain subsequent work.
-
-## Strict GPU float32 arithmetic
-
-An optional [integer MLIR lowering](../docs/design/strict-gpu-float32.md) now implements scalar float32 add/subtract/multiply/divide and exact sign-bit negation with gradual underflow, signed zero, and nearest/ties-to-even rounding. CPU LLVM and M2 Max Metal results match independent APFloat and CPU references, including separately rounded multiply-then-add. The optional source compiler uses this lowering for its first elementwise placement subset. Other arithmetic remains unsupported; the integer path has an [initial CPU/Metal performance baseline](../benchmarks/results/native-gpu-2026-10-15.md), including separate device-command and managed transfer/residency timings. GPU matmul optimization remains necessary on the tested shapes.
-
-The shared source arithmetic now includes vector/matrix subtraction, either scalar operand order and transitive scalar-negation helpers. The [source conformance and qualification](../docs/design/apple-gpu.md#strict-tensor-subtraction-and-scalar-negation) retain shape guards, owned captures and cancellation-safe lifetimes on CPU and GPU. [Whole-tensor unary negation](../docs/design/apple-gpu.md#whole-tensor-unary-arithmetic) now shares exact sign-bit behavior through CPU and GPU helpers and CPU task extraction. GPU-ABI-001 remains open for broader types and tensor operations.
-
-The [signature-sized GPU argument path](../docs/design/apple-gpu.md#signature-sized-gpu-captures) removes the former two-tensor/eight-scalar storage arrays, preserving source argument order and checked bindings. The [compact GPU binding path](../docs/design/apple-gpu.md#unused-tensor-arguments-and-shape-obligations) now supports unused tensor parameters and operation-derived shape obligations, including 40 logical tensor arguments with one bound input. The [Tier 2 argument-buffer path](../docs/design/apple-gpu.md#tier-2-argument-buffers-for-large-gpu-calls) now handles 40 contributing inputs with reflected, invocation-owned resource storage. GPU-ABI-001 still tracks broader operations and types.
-
-[Strict float32 division](../docs/design/apple-gpu.md#strict-tensor-division) now supports tensor/tensor and either scalar/tensor order, including transitive scalar reciprocal helpers. Division retains separately rounded results rather than becoming multiplication by a reciprocal.
-
-[Inline CPU expressions](../docs/design/apple-gpu.md#inline-cpu-expressions-in-mixed-programs) now compose with explicit GPU placement and transfers. Mixed-program `main` can directly calculate `reduceSum((matmul(host, weights) - 1) / 2)` using the shared checked CPU lowering. Device tensors still require a download before CPU arithmetic; this adds no automatic placement or transfer.
-
-[CPU tasks in mixed programs](../docs/design/apple-gpu.md#cpu-tasks-in-mixed-programs) now share the scheduler with GPU tasks. Use `spawn project(input, weights)` or `spawn project(input, weights) on devices.cpu()`, then observe the result with `try await`. Captures own their immutable inputs; CPU↔GPU transfers remain explicit.
-
-[Nested mixed parallel scopes](../docs/design/apple-gpu.md#nested-parallel-scopes-in-mixed-programs) now group CPU work, GPU work and explicit transfers within `try parallel` expressions in `main`. Inner blocks join before continuing, preserve tensor residency and ownership, and support lexical shadowing. The scheduler's depth, group and task budgets still apply.
-
-[Scoped mixed TaskError recovery](../docs/design/apple-gpu.md#scoped-taskerror-recovery-in-mixed-programs) now handles a completed `parallel` result with `catch`, exhaustive error matching and handler-local `try`/`fail`. Handlers run after group settlement; faults in the supervisor remain terminal. A recovered value can feed subsequent CPU or GPU work with explicit transfers.
-
-The [shared placement frontend](../docs/design/placement-ir.md) now checks device selectors, explicit transfers and tensor residency. Inspect it with `kalandra-check --placement --dump-ir`; Metal builds also emit `placement.ir`. The current supervisor emitter still uses source syntax. Flat tensor literals can provide explicit constant shapes, such as `tensor([], [0, 3])`, through the same checked constructor rules.
-
-The mixed CPU/GPU supervisor now lowers checked placement IR into native continuations, including resolved calls, shape checks, nested groups and error recovery. [The lowering design](../docs/design/placement-ir.md#ir-driven-supervisor-continuations) describes the typed lowering path. Both CPU tasks and the Metal supervisor now use the [common continuation planner](../docs/design/continuations.md); inspect it with `kalandra-check --dump-plan` (add `--placement` for mixed `main`).
-
-## CPU binary64 lowering proof
-
-The shared strict arithmetic engine now has a [CPU-only binary64 specialization](../docs/design/numbers.md#cpu-binary64-arithmetic-lowering-proof), using integer intermediates to preserve declared rounding and subnormal behavior independently of host floating controls. The optional proof configuration includes debug, optimized and ASan/UBSan APFloat conformance tests across eight ARM floating environments. Source float64/default float and typed native/worker integration are now [implemented and qualified](../docs/design/numbers.md#cpu-float64-scalar-source-and-worker-integration). Synchronous float64 tensor literals/elementwise operations are now [qualified](../docs/design/numbers.md#cpu-float64-tensor-literals-and-elementwise-arithmetic). Float64 tensor worker captures/results are now [qualified](../docs/design/numbers.md#float64-tensor-captures-and-results-in-cpu-tasks). CPU float64 reductions are now [qualified](../docs/design/numbers.md#cpu-float64-reducesum). CPU float64 matmul is now [qualified](../docs/design/numbers.md#cpu-float64-matmul). GPU float64 arithmetic remains gated; the existing binary32/Metal API retains its format restriction. The strict engine is available in the ordinary CPU build without enabling Metal.
-
-## Local CPU modules
-
-Split reusable functions into [local modules](../docs/design/modules.md): mark a declaration `export fn`, then use `from "./math.k" import double as twice`. The compiler/checker resolve explicit relative files, preserve module-local helper names and type checks, and support imported callbacks and CPU workers. Cycles remain rejected; package installation/version resolution and GPU module integration remain separate work. [Explicit local package mappings](../docs/design/local-packages.md) are supported. [Record type exports](../docs/design/type-exports.md) are supported.
-
-## Display collection results
-
-Native CPU `main` can return an array or tensor directly. Arrays print as lists; tensors include their flat row-major values and shape, such as `tensor([1, 2, 3, 4], [2, 2])`. Completed worker results are supported. Collection-returning executables show up to 100 elements by default; use `./program --limit 10` or `./program --all` to control display. See [collection results](../docs/design/collection-results.md) for precision, ownership and failure behavior.
-
-## Immutable CPU records
-
-Declare named numeric/Boolean fields with `type Point:`, construct with `Point { x: 2, y: 3 }`, read `point.x`, and derive another value with `point with { x: 12 }`. CPU functions and [workers](../docs/design/record-workers.md) can accept and return these records, including nested tasks, repeated awaits and TaskError recovery. Record values with numeric/Boolean leaves, including [nested records](../docs/design/nested-records.md), need no heap allocation of their own. See [records](../docs/design/records.md) for nominal module identity, evaluation order, and the current GPU and collection boundaries.
-
-CPU records can also own [numeric arrays and tensors](../docs/design/record-collections.md), including nested fields and retained worker captures/results. Construction and reads currently copy collection data; storage sharing remains an optimization follow-up.
-
-[Anonymous numeric callbacks can capture whole CPU records](../docs/design/record-closures.md), including nested array/tensor fields and values returned by workers. Captures keep their nominal type and immutable ownership rules.
-
-[Immutable record arrays](../docs/design/record-arrays.md) support construction, length, checked indexing, helper returns and CPU worker captures/results. Element records can contain nested numeric collection fields.
-
-[Record array mapping](../docs/design/array-map.md#record-elements-and-results) supports numeric-to-record, record-to-numeric and record-to-record transforms, including immutable updates, nested collection fields, anonymous captures and retained CPU worker results. Mapping is sequential; explicit tasks choose which worker runs it.
-
-[Bool-array record fields](../docs/design/record-bool-fields.md) support nested records, immutable updates, record arrays, anonymous captures and retained CPU worker results. They reuse their existing immutable array backing.
-
-[CPU String values and operations](../docs/design/strings.md#exact-equality-and-concatenation) support immutable UTF-8 text, annotations, synchronous helpers, exact equality, checked concatenation and `length`/`byteLength` queries and scalar indexing/slicing with managed lifetimes. [Local CPU String workers and captures](../docs/design/strings.md#local-cpu-workers-and-captures) preserve ownership across nested tasks, cached awaits and recovery. [String record fields](../docs/design/record-string-fields.md) compose nested values, maps and retained worker results; [direct String arrays and maps](../docs/design/string-arrays.md) are supported; [String-array record fields](../docs/design/record-string-array-fields.md) are supported.
-
-[Native record type exports](../docs/design/type-exports.md) support explicit cross-file type imports and aliases in constructors, nested fields and function signatures, preserving nominal identity and existing worker ownership.
-
-[Explicit module re-exports](../docs/design/reexports.md) let a public entry file expose selected functions and record types from internal modules, including aliases, while preserving their original identity and helper scope.
-
-[Native project manifests](../docs/design/native-projects.md) record a `.k` entry and relative local library mappings in a versioned TOML file. Use `kalandra --project kalandra.toml -o program` and `kalandra-check --project kalandra.toml`; the manifest is an explicit compiler input, protected from output replacement.
-
-[Immutable CPU array slicing](../docs/design/array-slicing.md) supports `slice(values, start, end)` for existing array types, with checked ranges and retained worker ownership.
-
-[CPU array concatenation](../docs/design/array-concatenation.md) combines existing same-typed arrays using `concat(left, right)`, including direct worker dispatch.
-
-[Checked CPU int8/uint8 scalars](../docs/design/int8-scalars.md) now support exact-width arithmetic, scalar conversions, local workers and CLI display. [Checked CPU int16/uint16 scalars](../docs/design/int16-scalars.md) complete the accepted integer scalar widths with the same checked arithmetic and worker support. [Narrow CPU arrays and scalar/array record fields](../docs/design/narrow-arrays.md) now support existing collection operations and retained worker transport. [Narrow CPU tensors](../docs/design/narrow-tensors.md) now support construction, checked elementwise arithmetic, structural adapters, record fields and retained workers. Narrow [checked CPU reductions](../docs/design/narrow-reductions.md) are also supported. [Checked narrow CPU matrix multiplication](../docs/design/narrow-matmul.md) is also supported. [Checked CPU tensor numeric conversions](../docs/design/narrow-tensor-conversions.md) support all 100 pairs among these ten types. GPU execution remains separately gated.
-
-[Native CPU enums](../docs/design/native-enums.md) support user-defined alternatives, named scalar, collection and nested record/enum payloads and exhaustive matching, including immutable record/array storage and local workers. [Record/enum arrays](../docs/design/record-array-fields.md) are supported as fields, including nested worker transport. Recursive type dependencies remain explicitly gated.
-
-[Local application errors](../docs/design/application-errors.md) support declared error families, typed propagation/recovery, early failure guards and managed payloads. [Local CPU workers and parallel groups](../docs/design/worker-errors.md) preserve application errors alongside execution failures.
-
-[Local application-error unions and aliases](../docs/design/error-unions.md) support canonical error-family combinations, subset propagation and exhaustive qualified handlers on CPU. [Local mixed channels](../docs/design/mixed-error-channels.md) also combine application families with `TaskError`, preserving its fields and original diagnostic details. [Worker and parallel-group transport](../docs/design/worker-errors.md) preserves these channels through observation, cancellation and settlement.
-
-[Error aliases in CPU record and enum payload fields](../docs/design/error-payload-fields.md) preserve completed application and TaskError values, including nested arrays, worker transport and original error metadata.
-
-[Error-family match narrowing](../docs/design/error-narrowing.md) lets a branch rethrow or pass its matched value using the selected family. Wildcards keep the remaining families; payload ownership and TaskError metadata are preserved.
-
-[Named CPU function values](../docs/design/native-function-values.md) now support aliases, typed higher-order parameters/results, runtime-selected indirect calls, maps and worker-local invocation through the checked ABI. Direct numeric array/tensor and Bool/String/record array callable signatures now preserve checked shapes and managed backing through descriptor adapters. Numeric indirect calls currently copy collection data; removing those copies is tracked optimization work. Expected-error callable signatures and fallible factories now use synchronous checked entries with canonical error sets and owned payloads. [Managed expression closures](../docs/design/native-closures.md) now support anonymous bindings, lexical captures, returned functions and expected-signature inference. [Indented anonymous bodies](../docs/design/native-block-closures.md) support immutable local bindings and existing control flow. [Direct anonymous error declarations](../docs/design/anonymous-errors.md) support explicit or inferable success types and independent factory/returned-function channels. [Function-valued record and enum fields](../docs/design/native-callable-fields.md) preserve captured environments through construction, immutable updates, matching and same-invocation record arrays. [Arrays of functions](../docs/design/native-function-arrays.md) support checked indexing/invocation, collection operations, aggregate fields and returned captured environments within one invocation. [Direct synchronous control-flow map callbacks](../docs/design/native-control-maps.md) support handled errors, matches, captures and local-worker execution. [Delimited anonymous suites](../docs/design/native-delimited-closures.md) allow indented callbacks directly in calls, arrays and record fields. [Recursive synchronous callables](../docs/design/native-recursive-callables.md) support self/mutual calls and expected errors with bounded invocation-local call admission. [Capture-free named function arguments](../docs/design/native-worker-functions.md) now cross to named CPU workers with checked signatures and no environment allocation. [Recursive CPU source integration](../docs/design/native-recursive-storage.md#completed-local-cpu-source-integration) now preserves recursive values, owned callable fields and typed errors through local workers, cached results and direct/indirect/mutual coordinating recursion. Scheduler resource limits and provenance checks remain enforced.
-
-## Apple Metal function modules
-
-The [Metal module guide](../docs/design/native-metal-modules.md) covers multi-file numerical helpers and CPU/GPU coordinators, with explicit local packages and project manifests. Use `kalandra --project path/to/kalandra.toml --target metal -o build/app` to build a native executable/shader bundle. Existing GPU numerical and placement restrictions still apply.

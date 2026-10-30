@@ -62,11 +62,19 @@ for name, expression in [('nan', 'int32(0.0/0.0)'), ('infinity', 'int32(1.0/0.0)
     result = command([output], ok=False)
     assert result.returncode > 0 and 'Arithmetic' in result.stderr, (name, result.stderr)
 # Bad/missing/duplicate policy flags must fail without replacing an existing output.
-for flags in [('--arithmetic', 'unknown'), ('--arithmetic',), ('--arithmetic', 'hardware', '--arithmetic', 'software')]:
+for flags in [('--arithmetic', 'unknown'), ('--arithmetic',), ('--arithmetic', 'hardware', '--arithmetic', 'software'),
+              ('--matmul-policy', 'unknown'), ('--matmul-policy',),
+              ('--matmul-policy', 'optimized', '--matmul-policy', 'fixed-tree')]:
     output = args.output / 'invalid-policy'
     output.write_text('sentinel')
     compile_source('invalid-policy', math_source, *flags, ok=False)
     assert output.read_text() == 'sentinel'
+matrix = ('fn main()->float32:\n'
+          '  a:Tensor[float32,2,3]=tensor([[1,2,3],[4,5,6]])\n'
+          '  b:Tensor[float32,3,2]=tensor([[1,2],[3,4],[5,6]])\n'
+          '  reduceSum(matmul(a,b))\n')
+for policy in ('optimized', 'fixed-tree'):
+    cpu('cpu-matmul-' + policy, matrix, ('-O2', '--matmul-policy', policy), '163')
 print('CPU hardware/software arithmetic, workers, comparisons, checked casts, invalid flags: passed', flush=True)
 
 if args.gpu:

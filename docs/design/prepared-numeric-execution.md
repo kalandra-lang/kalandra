@@ -51,6 +51,6 @@ case-median time reductions span 18–66%. Nine baseline/candidate output dumps
 are bit-identical and generated shader source is unchanged. The full block also
 passed independent every-cell CPU/Metal/MPSGraph checks across 13 shapes.
 
-[Report, chart, cold preparation cost, remaining vendor gap and raw evidence](../../benchmarks/results/gpu-prepared-execution-2026-10-28.md).
+[Report, chart, cold preparation cost, remaining vendor gap and raw evidence](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-prepared-execution-2026-10-28.md).
 Cancellation remains cooperative: an already submitted chunk settles at its
 ACK, with retained resources, rather than interrupting a running kernel.

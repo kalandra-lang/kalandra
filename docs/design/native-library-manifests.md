@@ -91,6 +91,6 @@ and [public locks](native-package-lock.md) are implemented for exact commits.
 [package workflow](native-packages.md). No version solver or public native ABI
 is introduced.
 
-The [qualification record](../../native/metal-proof/evidence/native-library-manifests-2026-10-20.json)
+The [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-library-manifests-2026-10-20.json)
 records the selected checks. Metal qualification here covers source emission and
 output protection, not new GPU execution or scoped managed Metal dependencies.

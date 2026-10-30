@@ -1297,6 +1297,9 @@ if(BUILD_TESTING)
   add_executable(kalandra-matmul-epilogue-tests tests/MatmulEpilogueTests.cpp)
   add_test(NAME native-matmul-epilogue-codegen COMMAND kalandra-matmul-epilogue-tests)
   set_tests_properties(native-matmul-epilogue-codegen PROPERTIES TIMEOUT 30)
+  add_test(NAME native-steel-vendor-license
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mlx-steel/vendor.py")
+  set_tests_properties(native-steel-vendor-license PROPERTIES TIMEOUT 30)
   add_test(NAME native-relu
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ReluTests.py"
       --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"

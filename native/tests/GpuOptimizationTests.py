@@ -24,7 +24,7 @@ def run(command):
 source = args.output / 'kernels.k'
 source.write_text((root / 'native/benchmarks/languages/gpu.k').read_text().replace('float64', 'float32'))
 bundle = args.output / 'bundle'
-run([compiler, source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', bundle])
+run([compiler, source, '--target', 'metal', '--arithmetic', 'hardware', '--matmul-policy', 'fixed-tree', '-O2', '-o', bundle])
 assert 'kalandra_matmul_hardware_tiled' in (bundle / 'kernel2.metal').read_text()
 assert 'kalandra_matmul_hardware_block64' in (bundle / 'kernel2.metal').read_text()
 assert 'kalandra_reduce_sum_hardware_block' in (bundle / 'kernel0-reduce.metal').read_text()
@@ -41,7 +41,7 @@ fn main()->Tensor[float32,?,?] ! TaskError:
     try await transfer(b,cpu)
 ''')
 typed=args.output/'typed'
-run([compiler,typed_source,'--target','metal','--arithmetic','hardware','-O2','-o',typed])
+run([compiler,typed_source,'--target','metal','--arithmetic','hardware','--matmul-policy','fixed-tree','-O2','-o',typed])
 assert 'kalandra_matmul_hardware_tiled' in (typed/'kernel0.metal').read_text()
 variants = [('optimized', ['-O2'], 'libkalandra-task-core-optimized.a')]
 if not args.quick:

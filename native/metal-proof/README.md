@@ -75,7 +75,7 @@ For example, `a` with float bits `0x00000001` and `b = 1` should yield `0x000000
 
 Apple's [Metal Shading Language specification](https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf), sections 8.1 and 8.5 (June 4, 2026 edition), describe permitted floating-point behavior, including subnormal flushing. Disabling fast math alone is insufficient to establish Kalandra's stricter contract. Passing a finite corpus would also be insufficient to establish general IEEE compatibility.
 
-The [recorded reports and artifact hashes](evidence/2026-10-15.json) retain these results. This proof is **not enabled as a production float32 GPU backend**. Admission for strict arithmetic must remain unavailable until a compliant lowering exists; neither silent CPU fallback nor silently relaxed arithmetic is selected. See the [Apple GPU backend contract](../../docs/design/apple-gpu.md) for integration gates.
+The [recorded reports and artifact hashes](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/2026-10-15.json) retain these results. This proof is **not enabled as a production float32 GPU backend**. Admission for strict arithmetic must remain unavailable until a compliant lowering exists; neither silent CPU fallback nor silently relaxed arithmetic is selected. See the [Apple GPU backend contract](../../docs/design/apple-gpu.md) for integration gates.
 
 ## Strict binary32 follow-up
 

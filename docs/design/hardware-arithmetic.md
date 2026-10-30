@@ -23,7 +23,25 @@ The policy propagates to ordinary functions, CPU workers, CPU exports in mixed p
 
 ## Numerical contract
 
-Hardware mode preserves numeric types, checked integers, shape checks, checked conversion admission, separately emitted multiply/add operations and the existing balanced reduction tree. `-O2` does not turn on fast math, arbitrary reassociation or FMA contraction. It does **not** promise bit-identical floating results across every host floating environment and GPU. Hardware rounding/underflow/NaN behavior applies: in particular, Metal float32 subnormals may flush to zero, and hardware casts/comparisons may affect floating exception flags. No ambient floating environment is changed by the compiler's generated code. The previous host-environment-independent, gradual-underflow, canonical-arithmetic-NaN contract is available through explicit software mode.
+Hardware mode preserves numeric types, checked integers, shape checks and checked
+conversion admission. Scalar/elementwise arithmetic and ReduceSum retain their
+existing separately emitted operations and reduction order. `-O2` does not turn
+on generic fast math or scalar FMA contraction. Hardware float32 **matmul** uses
+the optimized full-precision tensor policy by default: fused accumulation and
+implementation-dependent contraction order are allowed without dropping input
+precision. See [tensor numerical policies](tensors.md#precision-reductions-and-optimization).
+Use `--matmul-policy fixed-tree` to retain separately rounded matrix products
+and the balanced contraction tree. CPU matmul currently uses that tree under
+both policies; integer matmul and all checked faults are unchanged.
+
+Hardware mode does **not** promise bit-identical floating results across every
+host floating environment and GPU. Hardware rounding/underflow/NaN behavior
+applies: Metal float32 subnormals may flush to zero, and hardware casts/comparisons
+may affect floating exception flags. Optimized matrix accumulation can additionally
+change signed zero and intermediate-overflow behavior. No ambient floating
+environment is changed by generated code. Explicit software mode preserves the
+previous host-environment-independent, gradual-underflow, canonical-arithmetic-NaN
+contract and always selects fixed-tree matmul, regardless of the hardware default.
 
 Floating casts retain the existing bounds rules. Invalid NaN/infinity/out-of-range float-to-integer inputs are rejected **before** executing a hardware conversion; they never reach undefined LLVM `fptosi`/`fptoui` behavior. Float narrowing retains finite-overflow checks. Integer-to-integer conversions remain checked integer operations. Floating identity conversions retain their input value.
 
@@ -43,8 +61,8 @@ The complete native build passed. Across the broad numerical run and targeted re
 
 Fresh Apple M2 Max/macOS 27.2 reports:
 
-- [Hardware float32 CPU and Metal](../../benchmarks/results/languages-hardware-float32-2026-10-24.md).
-- [Hardware CPU float64 and explicitly enabled Metal software float64](../../benchmarks/results/languages-hardware-float64-fallback-2026-10-24.md).
+- [Hardware float32 CPU and Metal](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/languages-hardware-float32-2026-10-24.md).
+- [Hardware CPU float64 and explicitly enabled Metal software float64](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/languages-hardware-float64-fallback-2026-10-24.md).
 
 Each profile has 42 timing cells, 126 fresh measured processes, 882 measured batches and 252 warmup batches. All checksums, recorded source/compiler hashes and arithmetic-artifact assertions were verified. Python retains binary64 in both profiles. Raw JSON accompanies each report.
 

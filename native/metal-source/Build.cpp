@@ -4,6 +4,7 @@
 #include "HardwareShaders.h"
 #include "MatmulEpilogue.h"
 #include "SkinnyMatmul.h"
+#include "SteelMatmul.h"
 #include "Toolchain.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
@@ -119,7 +120,10 @@ std::string resource(const char *configured, bool include = false) {
 } // namespace
 void buildMetalProgram(const std::filesystem::path &directory,
                        const std::map<std::string, std::string> &outputs,
-                       const std::string &variant, kalandra::ArithmeticMode arithmetic) {
+                       const std::string &variant, kalandra::ArithmeticMode arithmetic,
+                       kalandra::MatmulPolicy matmul) {
+  const bool optimizedMatmul = matmul == kalandra::MatmulPolicy::Optimized &&
+                               arithmetic != kalandra::ArithmeticMode::Software;
   const auto strict = resource(KALANDRA_GPU_STRICT);
   const auto strict64 = resource(KALANDRA_GPU_STRICT64);
   const auto extract = resource(KALANDRA_GPU_EXTRACT);
@@ -196,7 +200,7 @@ void buildMetalProgram(const std::filesystem::path &directory,
         std::ifstream input(base + ".metal");
         std::ostringstream text;
         text << input.rdbuf();
-        if (auto fused = matmulEpilogue(text.str(), tensors, scalars, true)) {
+        if (auto fused = matmulEpilogue(text.str(), tensors, scalars, true, optimizedMatmul)) {
           std::ofstream append(base + ".metal", std::ios::app);
           append << *fused;
           if (!append)
@@ -213,7 +217,7 @@ void buildMetalProgram(const std::filesystem::path &directory,
           std::ifstream input(base + ".metal");
           std::ostringstream text;
           text << input.rdbuf();
-          if (auto fused = matmulEpilogue(text.str(), tensors, scalars)) {
+          if (auto fused = matmulEpilogue(text.str(), tensors, scalars, false, optimizedMatmul)) {
             std::ofstream append(base + ".metal", std::ios::app);
             append << *fused;
             if (!append)
@@ -228,12 +232,17 @@ void buildMetalProgram(const std::filesystem::path &directory,
           contents.find("// kalandra-hardware-float32-matrix") != std::string::npos)
         optimized << hardwareMatmulShader << hardwareRegisterMatmulShader
                   << hardwareGroupedMatmulShader() << hardwareSkinnyMatmulShader
-                  << hardwareAlignedGridMatmulShader();
+                  << hardwareAlignedGridMatmulShader()
+                  << (optimizedMatmul ? steelMatmulShader() : "");
       if (!optimized)
         throw std::runtime_error("cannot emit hardware Metal entries");
     }
+    std::ifstream emitted(base + ".metal");
+    std::ostringstream emittedText;
+    emittedText << emitted.rdbuf();
+    const bool hasSteel = emittedText.str().find("KALANDRA_STEEL_UPSTREAM") != std::string::npos;
     run({metalCompiler, "-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM, "-isysroot", sdk,
-         std::string("-std=") + (numeric ? KALANDRA_GPU_TYPED_METAL_LANGUAGE : "macos-metal2.2"),
+         std::string("-std=") + (hasSteel ? "metal3.2" : numeric ? KALANDRA_GPU_TYPED_METAL_LANGUAGE : "macos-metal2.2"),
          "-fno-fast-math", "-ffp-contract=off",
          "-fmodules-cache-path=" + (directory / "module-cache").string(), "-c", base + ".metal",
          "-o", base + ".air"});

@@ -62,6 +62,12 @@ IREE remains a candidate for the later device runtime. It is not an additional m
 
 ## Numerical correctness before optimization
 
+This section defines the fixed-tree baseline retained by the CPU implementation
+and explicit software arithmetic. Hardware GPU float32 matmul now additionally
+supports the default [optimized full-precision policy](tensors.md#precision-reductions-and-optimization);
+`--matmul-policy fixed-tree` retains the baseline below. Optimized tensor
+accumulation does not relax scalar arithmetic, ReduceSum or checked integers.
+
 Do not lower strict matmul as an unspecified vendor reduction or enable generic fast-math flags. For each output element, round each product to float32, then reduce products with the accepted balanced tree in ascending contraction-index order. ReduceSum uses row-major logical order with the same tree; carry an unpaired value to the next level and use zero only for an empty reduction.
 
 The first implementation can use a conservative explicit loop/tree lowering. It need not have competitive matrix performance yet. A standard linalg representation is usable only if its lowering preserves the required order and rounding; an unchecked reassociating matmul pipeline is not sufficient evidence.

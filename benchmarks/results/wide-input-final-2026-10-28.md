@@ -1,5 +1,9 @@
 # Wide and signed CPU inputs
 
+Historical study retained as release context. Its original raw data and retired
+reproduction scripts are preserved in Git and the [research archive](../research-archive.json).
+This is not a fresh run of the current release candidate.
+
 Compiler/test source: `a7e826042fee7fda711fac915064b06a43b5a06a`. Baseline is the frozen published compiler from `9ea7918c` (compiler implementation `2840a4b8`). Apple M2 Max/macOS 27.2, Clang 23.1.3, Rust 1.93.0. No vendor numerical library, fast floating arithmetic or benchmark-name recognition was added.
 
 ## Outcome
@@ -18,7 +22,7 @@ Four-way floating unrolling now has a count-only private version: counts 2–655
 
 Integer one-round specialization fixes the count before simplifying the recurrence. A separate signed data guard admits [-2^46,2^46); the old small-positive version remains intact. LLVM can prove safe first-iteration arithmetic for wider/negative data without carrying general-loop state ranges. Outside those guards, public inputs retain their unrestricted implementation. The timings do not establish performance outside the recorded seed bank; correctness tests cover both guard boundaries and extreme int64 values.
 
-[Baseline/current owned-process profiles](wide-input-profile-qualification-2026-10-28.json), [private range and derived-witness IR](wide-input-ir-qualification-2026-10-28.json).
+[Baseline/current owned-process profiles](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-profile-qualification-2026-10-28.json), [private range and derived-witness IR](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-ir-qualification-2026-10-28.json).
 
 ## Corpus and measurement
 
@@ -85,19 +89,19 @@ Each complete run uses three independent processes, two warmups and seven measur
 | array128 | rotating | 16 | 1783.072 | 2030.766 | 1910.029 | -6.65% | +34.54% |
 | array128 | rotating | 4096 | 441340.565 | 550622.842 | 524106.250 | -15.79% | +33.73% |
 
-[Baseline](wide-input-baseline-2026-10-28.json), [final run](wide-input-final-2026-10-28.json), [repeat](wide-input-final-repeat-2026-10-28.json), [paired study](wide-input-final-paired-2026-10-28.json), [independent audit](wide-input-final-audit-2026-10-28.json).
+[Baseline](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-baseline-2026-10-28.json), [final run](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-final-2026-10-28.json), [repeat](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-final-repeat-2026-10-28.json), [paired study](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-final-paired-2026-10-28.json), [independent audit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-final-audit-2026-10-28.json).
 
-[Small-input controls](wide-input-final-small-controls-2026-10-28.json), [small-input audit](wide-input-small-controls-audit-2026-10-28.json), [legacy controls](wide-input-legacy-current-2026-10-28.json), [legacy pairs](wide-input-legacy-paired-2026-10-28.json), [legacy audit](wide-input-legacy-audit-2026-10-28.json). Task-scope diagnostics include fresh pool/monitor construction and settlement; they are not cross-language rankings or steady-state scheduler throughput.
+[Small-input controls](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-final-small-controls-2026-10-28.json), [small-input audit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-small-controls-audit-2026-10-28.json), [legacy controls](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-legacy-current-2026-10-28.json), [legacy pairs](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-legacy-paired-2026-10-28.json), [legacy audit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-legacy-audit-2026-10-28.json). Task-scope diagnostics include fresh pool/monitor construction and settlement; they are not cross-language rankings or steady-state scheduler throughput.
 
 ## Retained stages
 
-The reduction-witness stage alone qualifies 43/54 and retains all 36 small-input targets. The scalar stage is provisional data from the same final implementation before final repeats. No stage or miss is discarded. [Witness stage](wide-input-witness-2026-10-28.json), [witness pairs](wide-input-witness-paired-2026-10-28.json), [scalar stage](wide-input-scalar-2026-10-28.json), [stage audit](wide-input-prototype-audit-2026-10-28.json), [baseline audit](wide-input-baseline-audit-2026-10-28.json).
+The reduction-witness stage alone qualifies 43/54 and retains all 36 small-input targets. The scalar stage is provisional data from the same final implementation before final repeats. No stage or miss is discarded. [Witness stage](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-witness-2026-10-28.json), [witness pairs](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-witness-paired-2026-10-28.json), [scalar stage](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-scalar-2026-10-28.json), [stage audit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-prototype-audit-2026-10-28.json), [baseline audit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-baseline-audit-2026-10-28.json).
 
 ## Qualification
 
 Focused checks passed **12,595,440 integer cases**, **4,726,784 strict floating cases** and **139,392 reduction/first-fault/allocation-failure cases**, across debug/optimized/ASan-UBSan/TSan modes and applicable precisions. They include values on both sides of the derived reduction and signed one-round guards, cycles, huge convergent counts, intermediate overflow, exact results, first-fault locations and ledger settlement. Actual hosted Windows qualification passed **9,446,580 integer**, **3,545,088 strict floating**, and **104,544 reduction/fault cases**, plus the typed/scalar ABI and installed/downloaded packages. Linux installed/downloaded packages passed. macOS installed/relocated and downloaded CPU/Metal packages, Developer ID signing, notarization, stapling and assessment passed. Branch publication was skipped. Local qualification completed: **432 unique selected CPU checks** passed across four focused checks, the 428-case broad run and one unchanged serial rerun. The initial cancellation-observer failure is documented below. All **50 selected Metal-suite tests passed** with the physical device required and zero skips. No compiler/runtime source changed after measurement.
 
-[Windows run](https://github.com/kalandra-lang/kalandra/actions/runs/40698722038), [Linux run](https://github.com/kalandra-lang/kalandra/actions/runs/40698722083), [macOS run](https://github.com/kalandra-lang/kalandra/actions/runs/40698722020), [Windows numerical records](wide-input-windows-qualification-2026-10-28.json), [focused numerical records](wide-input-focused-numerical-qualification-2026-10-28.json), [frozen source/artifact manifest](wide-input-qualification-2026-10-28.json).
+[Windows run](https://github.com/kalandra-lang/kalandra/actions/runs/40698722038), [Linux run](https://github.com/kalandra-lang/kalandra/actions/runs/40698722083), [macOS run](https://github.com/kalandra-lang/kalandra/actions/runs/40698722020), [Windows numerical records](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-windows-qualification-2026-10-28.json), [focused numerical records](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-focused-numerical-qualification-2026-10-28.json), [frozen source/artifact manifest](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-qualification-2026-10-28.json).
 
 
 The broader `-j8` run exposed one cancellation-test observer race in
@@ -108,11 +112,11 @@ compiler's module. The original failure is retained; the unchanged check passed 
 10.9 seconds, with the generated module still byte-identical. This is not
 counted as a clean first-pass suite.
 
-[Original CPU log](wide-input-cpu-qualification-2026-10-28.log),
-[original CPU JUnit](wide-input-cpu-qualification-2026-10-28.xml),
-[cancellation/byte-equivalence record](wide-input-cancellation-qualification-2026-10-28.json),
-[serial rerun](wide-input-cancellation-rerun-qualification-2026-10-28.log),
-[rerun JUnit](wide-input-cancellation-rerun-qualification-2026-10-28.xml).
+[Original CPU log](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-cpu-qualification-2026-10-28.log),
+[original CPU JUnit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-cpu-qualification-2026-10-28.xml),
+[cancellation/byte-equivalence record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-cancellation-qualification-2026-10-28.json),
+[serial rerun](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-cancellation-rerun-qualification-2026-10-28.log),
+[rerun JUnit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-cancellation-rerun-qualification-2026-10-28.xml).
 
 
-[Focused log](wide-input-focused-qualification-2026-10-28.log), [focused JUnit](wide-input-focused-qualification-2026-10-28.xml), [reduction checks](wide-input-reduction-qualification-2026-10-28.log), [full build](wide-input-build-qualification-2026-10-28.log), [Metal log](wide-input-metal-qualification-2026-10-28.log), [Metal JUnit](wide-input-metal-qualification-2026-10-28.xml).
+[Focused log](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-focused-qualification-2026-10-28.log), [focused JUnit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-focused-qualification-2026-10-28.xml), [reduction checks](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-reduction-qualification-2026-10-28.log), [full build](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-build-qualification-2026-10-28.log), [Metal log](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-metal-qualification-2026-10-28.log), [Metal JUnit](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/wide-input-metal-qualification-2026-10-28.xml).

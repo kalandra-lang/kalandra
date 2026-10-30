@@ -42,7 +42,7 @@ GPU callbacks, distributed execution and public C/C++ callback interfaces are se
 
 ## Qualification
 
-The [CPU qualification record](../../native/metal-proof/evidence/cpu-worker-closures-2026-10-20.json) records 70 passing selected CTest checks on Apple M2 Max with LLVM/MLIR 22.1.8. This is a focused regression selection, not the full project suite. Implementation and test sources were frozen before the run.
+The [CPU qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-worker-closures-2026-10-20.json) records 70 passing selected CTest checks on Apple M2 Max with LLVM/MLIR 22.1.8. This is a focused regression selection, not the full project suite. Implementation and test sources were frozen before the run.
 
 The new execution suites compile/run 92 source programs across debug, optimized, ASan/UBSan and separate ThreadSanitizer modes. Private harnesses check 1,028 calls after creator destruction, 36 invalid/stopped copies, 16 allocation probes, 192 scheduled tasks and 384 cached observations across one/two/four-worker pools. They also cover root byte quota, invocation copy limits and cancellation cleanup. An additional 96 CLI worker runs, 288 allocation-failure probes and 12 preserved rejection artifacts pass. Frontend suites accept 28 worker-callable programs and reject ten unsupported boundaries and three forged IR cases in both ordinary and sanitized builds.
 

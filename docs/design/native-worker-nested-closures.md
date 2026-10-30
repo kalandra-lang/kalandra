@@ -40,7 +40,7 @@ This is CPU worker transport. It does not introduce GPU function pointers, devic
 
 ## Qualification
 
-The [CPU qualification record](../../native/metal-proof/evidence/cpu-worker-nested-closures-2026-10-20.json) records 32 passing selected CTest checks on Apple M2 Max with LLVM/MLIR 22.1.8. This is focused qualification, not the full project suite. Implementation and tests were frozen before the final run.
+The [CPU qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-worker-nested-closures-2026-10-20.json) records 32 passing selected CTest checks on Apple M2 Max with LLVM/MLIR 22.1.8. This is focused qualification, not the full project suite. Implementation and tests were frozen before the final run.
 
 New suites compile/run 80 source programs across debug, optimized, ASan/UBSan and separate ThreadSanitizer modes. Private harnesses cover 516 calls after creator destruction, 40 invalid/stopped environment graphs including forged cycles, 20 copy allocation probes and four cases preserving preexisting call admission. They run 144 tasks and 288 cached observations across one/two/four-worker pools, plus quota and cancellation checks. An additional 72 CLI worker runs and 384 allocation-failure probes check execution and cleanup. Both frontend modes accept 37 worker-callable programs and reject ten unsupported boundaries and three forged IR cases.
 

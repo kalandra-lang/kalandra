@@ -11,6 +11,9 @@ int main(int argc,char**argv) { @autoreleasepool {
   ffn::check(m && d && m<=512 && d<=2048 && mode<=2);
   transformer::Inputs data(m,d,pattern);
   id<MTLDevice> device=MTLCreateSystemDefaultDevice();id<MTLCommandQueue> queue=[device newCommandQueue];ffn::check(device && queue);
+  // These options omit implicit CPU-result synchronization, not graph
+  // optimization (the compilation descriptor defaults to level 1). Both
+  // implementations explicitly wait for completed GPU acknowledgement.
   MPSGraph*graph=[MPSGraph new];graph.options=MPSGraphOptionsNone;
   NSMutableArray<MPSGraphTensor*>*inputs=[NSMutableArray new];
   for(unsigned i=0;i<7;++i) [inputs addObject:[graph placeholderWithShape:@[@(data.shapes[i][0]),@(data.shapes[i][1])] dataType:MPSDataTypeFloat32 name:nil]];

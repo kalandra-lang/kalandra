@@ -28,4 +28,4 @@ This extends reduction admission, not the reduction engine, scheduler, tensor AB
 
 The [shared integer runtime harness](../../native/tests/Int32ReductionRuntimeTests.cpp) checks ranks zero through three against an independent wider reference, including boundary/random inputs, odd lengths, empty axes, strides, allocation faults and cancellation. The [compiled driver](../../native/cmake/VerifyInt32Reductions.cmake) also checks nested/cached worker calls, recovery, fault locations, allocation cleanup and rejection of unsupported Metal execution. Debug, optimized, ASan/UBSan and TSan runs cover all four narrow types; the same harness continues to cover 32/64-bit integers.
 
-The [qualification record](../../native/metal-proof/evidence/cpu-narrow-reductions-2026-10-18.json) records the validated source hashes and regression scope.
+The [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-narrow-reductions-2026-10-18.json) records the validated source hashes and regression scope.

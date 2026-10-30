@@ -133,14 +133,14 @@ Separate harnesses check bounded live buffers through 100,000 array steps,
 divergence until cancellation, actual native redirects where supported, and
 binary32/binary64 bit patterns including signed zeros, subnormals and NaN payloads.
 All ten numeric types are exercised; software floating arithmetic is checked
-separately. The [measurement report](../../benchmarks/results/task-native-optimization-2026-10-26.md)
+separately. The [measurement report](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/task-native-optimization-2026-10-26.md)
 records improvements, unsuccessful prototypes and remaining gaps.
 
 ## Tests and historical evidence
 
 `native-call-foundation-source` exercises million-step self, mutual and runtime-selected tail calls, captured closures, aggregate values, non-tail floating recurrence, arithmetic faults, cancellation and small physical stacks in debug, optimized, ASan/UBSan and TSan builds where supported. Existing numeric, closure, worker and ownership suites cover the surrounding language behavior. `native-checked-inlining` checks the internal convention and conservative fallbacks structurally. The scalar suite additionally checks every narrow integer and Bool value at a raw C boundary, immediately promoting the return rather than truncating it back to its source width. Checked C entries carry explicit signed/unsigned return-extension attributes; the internal convention retains its own signless value representation.
 
-The preceding implementation and its 128-slot behavior are recorded in the historical [recursive status report](../../benchmarks/results/recursive-status-2026-10-24.md), [recursive register report](../../benchmarks/results/recursive-register-2026-10-24.md) and their linked qualification artifacts. Those historical poll counts, logical-depth failures and expansion phases describe the older compiler; they are not the current execution contract. The [final repeated-process source suite](../../benchmarks/results/call-foundation-2026-10-25.md) meets the Rust/C++ 10% target for all 18 measured unbound cases. This is a scoped result; cancellation-bound regressions and the remaining task/ownership work are retained in that report.
+The preceding implementation and its 128-slot behavior are recorded in the historical [recursive status report](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/recursive-status-2026-10-24.md), [recursive register report](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/recursive-register-2026-10-24.md) and their linked qualification artifacts. Those historical poll counts, logical-depth failures and expansion phases describe the older compiler; they are not the current execution contract. The [final repeated-process source suite](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/call-foundation-2026-10-25.md) meets the Rust/C++ 10% target for all 18 measured unbound cases. This is a scoped result; cancellation-bound regressions and the remaining task/ownership work are retained in that report.
 
 ## Range proofs, counted ownership and bounded host entries
 
@@ -272,7 +272,7 @@ or consume an allocation attempt.
 Poisoned-storage tests cover both construction forms, first-fault preservation,
 late observer/resource materialization, cancellation and repeated settlement.
 The exact numerical corpus also begins in poisoned storage across all four
-source build variants. [Measurements and qualification](../../benchmarks/results/invocation-lifecycle-2026-10-26.md)
+source build variants. [Measurements and qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/invocation-lifecycle-2026-10-26.md)
 retain the zero-round controls rather than replacing them with reused contexts.
 
 ### Omit task entry machinery for proven unbound code
@@ -324,7 +324,7 @@ retains its frame pointer and all admission/fault/cleanup behavior. The wrapper
 can omit its frame pointer; target code generation still owns actual register
 and stack requirements. No public callable ABI or cancellation opt-out is added.
 
-The [isolated study](../../benchmarks/results/entry-costs-2026-10-27.md) records
+The [isolated study](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/entry-costs-2026-10-27.md) records
 both the zero-round gain and short-case regression, the ABI defect found by broad
 source qualification, and the rejected compact backing experiment. At that stage, the scalar
 context/entry ABI and array allocation/ownership parity targets remained open.
@@ -451,7 +451,7 @@ arguments, loads and unsupported operations remain unknown. Zero times infinity
 and explicit NaN origins reject the proof. No fast-math flags, reassociation,
 contraction, infinity exclusion or numeric representation restrictions are added.
 
-The [broader ordinary study](../../benchmarks/results/broad-ordinary-2026-10-27.md)
+The [broader ordinary study](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/broad-ordinary-2026-10-27.md)
 records separate results for short scalar operations and arrays up to 128
 elements, including remaining misses. Four buffer slots are necessary for some
 nested immutable borrows: a three-slot prototype exhausted capacity on the second
@@ -504,7 +504,7 @@ phis around a replay; those transfers are restored only after verifying an
 effect-free, exact return-forwarding path. Both candidate versions must satisfy
 verification and the existing conservative 16 KiB stack budget.
 
-The [reduction study](../../benchmarks/results/reduction-ranges-2026-10-27.md)
+The [reduction study](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/reduction-ranges-2026-10-27.md)
 retains the complete fair corpus, fallback diagnostics and qualification. A
 prototype shared replay block incorrectly substituted a zero round count on a
 negative nonzero-round input. The existing wide-map matrix rejected it; fresh

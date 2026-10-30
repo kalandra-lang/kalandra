@@ -56,13 +56,13 @@ promoting a production policy. Keep unfavorable outcomes.
 
 ## Completed screen
 
-The [isolated three-projection study](../../benchmarks/results/gpu-qkv-dispatch-2026-10-29.md)
+The [isolated three-projection study](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-qkv-dispatch-2026-10-29.md)
 passes 162 validation cases. Batched dispatch lowers elapsed time by 0.7–56.6%
 against the serial-encoder control, depending on shape. Three concurrent unchanged
 dispatches improve isolated timings by 8.0–49.4%. These are preallocated resident
 kernel screens, not language or full-model speedups.
 
-The [copied-runtime whole-model gate](../../benchmarks/results/gpu-independent-dispatch-2026-10-29.md)
+The [copied-runtime whole-model gate](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-independent-dispatch-2026-10-29.md)
 does **not** qualify concurrent scheduling. All 117 numerical cases pass, but
 frozen and same-binary controls retain regressions and large timing swings,
 including inactive shapes. Command-duration diagnostics put most of the large

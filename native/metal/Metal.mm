@@ -316,6 +316,7 @@ struct KernelState {
   std::array<id<MTLComputePipelineState>, 2> matrixTiles{};
   std::array<id<MTLComputePipelineState>, 6> fusedMatrices{};
   id<MTLComputePipelineState> alignedGridMatrix = nil, alignedGridFusedMatrix = nil;
+  std::array<id<MTLComputePipelineState>, 8> steelMatrices{}, steelFusedMatrices{};
   // Backend resource bound, independent of logical signature arity.
   std::array<std::uint32_t, directBufferEntries - 2> reads{};
   std::uint32_t readCount = 2;
@@ -3738,6 +3739,23 @@ struct Bridge {
                 alignedGrid = true;
               }
             }
+            std::optional<unsigned> steel;
+            if (matrix && !state->options.fixedTreeMatmul) {
+              auto variant = steelMatmulVariant(std::uint32_t(matrixShape[0]),
+                                                std::uint32_t(source->dimensions[1]),
+                                                std::uint32_t(matrixShape[1]));
+              // A newer post-map must not relax an older/fixed-tree matrix
+              // module. The matrix's own validated entry opts into this policy.
+              if (variant && kernel->steelMatrices[*variant]) {
+                auto selected = fusePost ? postKernel.state_->steelFusedMatrices[*variant]
+                                        : kernel->steelMatrices[*variant];
+                if (selected) {
+                  pipeline = selected;
+                  steel = variant;
+                  alignedGrid = false;
+                }
+              }
+            }
             [encoder setComputePipelineState:pipeline];
             if (!kernel->indirect()) {
               [encoder setBuffer:(matrix || kernel->numericType) && !source->size
@@ -3816,7 +3834,7 @@ struct Bridge {
                           offset:f.fusedParameters->offset
                          atIndex:post->readCount + 3];
             }
-            const auto threads = hardwareSkinny || hardwareRegister ? 256u
+            const auto threads = steel ? 128u : hardwareSkinny || hardwareRegister ? 256u
                                  : hardwareWide                     ? 128u
                                                                     : 64u;
             const auto lanes =
@@ -3833,7 +3851,12 @@ struct Bridge {
                                       : std::uint64_t(parameters[0]);
             if (state->options.profile)
               ++state->dispatches;
-            [encoder dispatchThreadgroups:(alignedGrid
+            [encoder dispatchThreadgroups:(steel
+                                              ? MTLSizeMake((std::uint64_t(parameters[2]) +
+                                                             (*steel >= 4 ? 31 : 63)) /
+                                                                (*steel >= 4 ? 32 : 64),
+                                                            (std::uint64_t(parameters[0]) + 63) / 64, 1)
+                                              : alignedGrid
                                               ? MTLSizeMake(std::uint64_t(parameters[2]) / 16,
                                                             std::uint64_t(parameters[0]) / 16, 1)
                                               : MTLSizeMake((lanes + threads - 1) / threads, 1, 1))
@@ -4616,6 +4639,35 @@ std::expected<Kernel, Error> Runtime::loadKernel(
         if ((*grid).maxTotalThreadsPerThreadgroup < 256)
           return std::unexpected(Error::Unavailable);
         (fused ? metadata->alignedGridFusedMatrix : metadata->alignedGridMatrix) = *grid;
+      }
+      // Fixed, bounded preparation only; never compile pipelines at task time.
+      // Older bundles and unqualified devices retain their original kernels.
+      if (!state_->options.fixedTreeMatmul &&
+          [state_->devices[device.index_].name isEqualToString:@"Apple M2 Max"]) {
+        for (unsigned fused = 0; fused < 2; ++fused) {
+          if (!(fused ? bool(metadata->fusedMatrices[0]) : nativeFloat32Matrix))
+            continue;
+          for (unsigned variant = 0; variant < 8; ++variant) {
+            const std::string entry = std::string("kalandra_matmul_steel_") +
+                                      (fused ? "fused_" : "") +
+                                      (variant >= 4 ? "64x32_" : "64_") +
+                                      std::to_string((variant % 4) / 2) + "_" +
+                                      std::to_string(variant % 2);
+            NSString *spelling = [NSString stringWithUTF8String:entry.c_str()];
+            if (![library.functionNames containsObject:spelling])
+              continue;
+            if (!state_->permit())
+              return std::unexpected(Error::Allocation);
+            auto profile = prepare(spelling, fused, !fused);
+            if (!profile)
+              return std::unexpected(profile.error());
+            if ((*profile).maxTotalThreadsPerThreadgroup >= 128 &&
+                (*profile).threadExecutionWidth == 32 &&
+                (*profile).staticThreadgroupMemoryLength <=
+                    state_->devices[device.index_].maxThreadgroupMemoryLength)
+              (fused ? metadata->steelFusedMatrices : metadata->steelMatrices)[variant] = *profile;
+          }
+        }
       }
       kernel.state_ = std::move(metadata);
       return kernel;

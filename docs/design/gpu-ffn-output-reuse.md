@@ -54,7 +54,7 @@ never infer a blanket dispatch-policy win from explicit load counts.
 
 ## Screening outcome
 
-The [full experiment report](../../benchmarks/results/gpu-output-reuse-2026-10-29.md)
+The [full experiment report](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-output-reuse-2026-10-29.md)
 retains ten controls and 720 passing numerical/guard case executions. Adjacent
 columns, spaced columns, two-row reuse and four-output tiles do not qualify for
 production. Limiting the pipeline to the 256 threads actually dispatched leaves

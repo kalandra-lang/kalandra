@@ -124,10 +124,10 @@ replacing an existing application and reject outputs inside the cache or at the
 public lock. Both pre-update and post-update applications run again after deleting
 their project/cache, and after deleting the compiler and moving the applications.
 
-The [named-update Metal qualification record](../../native/metal-proof/evidence/native-metal-package-update-2026-10-21.json)
+The [named-update Metal qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-metal-package-update-2026-10-21.json)
 records the installed Debug/Release compiler runs and their exact checked results.
 
-The [installed-package qualification record](../../native/metal-proof/evidence/native-metal-packages-2026-10-20.json)
+The [installed-package qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-metal-packages-2026-10-20.json)
 records the tested compiler configurations and hardware. These checks qualify
 this scoped numerical CPU/Metal path, not new GPU language features, another
 platform, authenticated transport, or hosted Metal release automation. ASan/UBSan

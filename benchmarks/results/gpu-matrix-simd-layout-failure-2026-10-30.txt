@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "/Users/pouya/Projects/kalandra.dev/native/benchmarks/matrix_simd_architecture.py", line 77, in <module>
-    r=subprocess.run(cmd,capture_output=True,text=True,timeout=600,env=dict(os.environ,MTL_DEBUG_LAYER='1',MTL_SHADER_VALIDATION='1'));assert r.returncode==0,(cmd,r.stderr[-3000:])
-                                                                                                                                              ^^^^^^^^^^^^^^^
-AssertionError: (['/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v2-2026-10-30/screen', '/Users/pouya/Projects/kalandra.dev/benchmarks/.build/gpu-matrix-simd-v2-2026-10-30/study.metallib', 'baseline', '64', '512', '2048', '1', '1', '0'], '2026-10-30 03:26:46.859 screen[3280:68035805] Metal API Validation Enabled\n2026-10-30 03:26:46.859 screen[3280:68035805] Metal GPU Validation Enabled\ncheck failed at line 68\nlibc++abi: terminating due to uncaught exception of type std::runtime_error: output reuse screen failed\n')

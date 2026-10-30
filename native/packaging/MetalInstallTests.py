@@ -38,6 +38,8 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
         bundle.extractall(cwd / "relocated prefix", filter="data")
     shutil.rmtree(output / "package-stage")
     prefix = cwd / "relocated prefix/kalandra-native-metal"
+    steel_notice=Path(__file__).parents[1]/'third_party/mlx-steel/LICENSE'
+    assert (prefix/'share/doc/kalandra-native-metal/MLX-Steel-LICENSE.txt').read_bytes()==steel_notice.read_bytes()
     names = set()
     for line in (prefix / "SHA256SUMS").read_text().splitlines():
         expected, name = line.split("  ", 1)
@@ -103,6 +105,9 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     matrix_app = cwd / "post matrix application"
     run([compiler, matrix_source, "--target", "metal", "-o", matrix_app, "-O2"], cwd)
     assert (matrix_app / "kernel0-post.metallib").is_file()
+    assert (matrix_app/'THIRD_PARTY_NOTICES.txt').read_bytes()==steel_notice.read_bytes()
+    assert 'matmul_policy=optimized' in (matrix_app/'manifest.txt').read_text()
+    assert 'kalandra_matmul_steel_' in (matrix_app/'kernel0.metal').read_text()
     matrix_result = "[42380000,42700000,42d00000,43080000]"
     assert run([matrix_app / "program"], cwd).stdout.strip() == matrix_result
     applications.append((matrix_app, matrix_result))

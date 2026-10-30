@@ -75,7 +75,7 @@ All 183 selected checks passed on Apple M2 Max, including existing frontend, fun
 
 Private lifetime probes invoke returned closures 256 times after their creators exit, checking independent record/String/array environments. They exercise 52 context allocation probes and 32 returned-environment creation probes, including untouched output on failed creation, stopped creator/callee contexts and balanced storage after settlement. CLI sweeps run 960 allocation-failure processes. Owned worker results are additionally checked with worker pools of one, two and four threads, including repeated awaits. Empty and rank-zero captures, runtime shape mismatches, all ten scalar widths, nested functions, lexical shadowing, typed errors and empty maps are covered. A separate debug check verifies imported creators retain their helper-module name resolution.
 
-The [qualification evidence](../../native/metal-proof/evidence/cpu-managed-closures-2026-10-19.json) records the selected tests, per-variant probes, manual import check and frozen source hashes. This is focused macOS ARM64 qualification; it does not qualify the remaining body/storage/transport features, a public callback ABI, earlier reclamation or performance improvements.
+The [qualification evidence](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-managed-closures-2026-10-19.json) records the selected tests, per-variant probes, manual import check and frozen source hashes. This is focused macOS ARM64 qualification; it does not qualify the remaining body/storage/transport features, a public callback ABI, earlier reclamation or performance improvements.
 
 ### Indented anonymous bodies
 

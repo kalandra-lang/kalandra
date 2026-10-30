@@ -68,7 +68,7 @@ compiler call forms are not advertised as first-class function values.
 - [x] Debug and ASan/UBSan unit/protocol regression suites.
 - [x] Relocated Release tools and packed VSIX in installed VS Code on macOS ARM64.
 
-The [qualification record](../../native/metal-proof/evidence/native-lsp-recovery-2026-10-23.json)
+The [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-recovery-2026-10-23.json)
 records source hashes, selected test results and installed-editor checks. Existing
 completion/signature suites retain coverage for aliases, nominal/error types,
 higher-order callables, pipelines, package boundaries and placements. This is

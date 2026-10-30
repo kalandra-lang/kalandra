@@ -47,9 +47,9 @@ The test script uses an existing VS Code executable, packages the actual VSIX, c
 
 Unit tests check launch/configuration boundaries, trust gating, serialized restarts, failed-start recovery and shutdown. TextMate/Oniguruma tests tokenize the grammar. Actual VS Code provider commands exercise imports/hover/definition, unopened-caller references with root isolation, rename proposals, partial-name completion, unsaved dependency diagnostics, applied Unicode/CRLF formatting and idempotence, configured package mappings and manual restart. Member-completion acceptance also applies whole-identifier edits for imported record fields, enum constructors and remaining match cases, record/update/enum payload labels, and shorthand/explicit match payload labels. It checks Field/EnumMember kinds, trigger-character requests, supplied-field exclusion and live imported overlays. Applied edits are followed by checked type hover and cleared diagnostics; original fixture files remain unchanged. These tests do not substitute for additional-platform, accessibility/manual UX or Marketplace acceptance.
 
-The [qualification record](../../native/metal-proof/evidence/native-vscode-2026-10-20.json) records the installed editor version, check list, package and source hashes. The manifest's minimum engine compatibility is not a claim that every supported VS Code version has been tested.
+The [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-vscode-2026-10-20.json) records the installed editor version, check list, package and source hashes. The manifest's minimum engine compatibility is not a claim that every supported VS Code version has been tested.
 
-The [member-completion editor qualification](../../native/metal-proof/evidence/native-vscode-members-2026-10-21.json)
+The [member-completion editor qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-vscode-members-2026-10-21.json)
 records 14 installed-extension-host checks and seven client/grammar/lifecycle tests
 on VS Code 1.142.0, macOS ARM64, with the LLVM 23.1.3 native server. These are
 provider-command and applied-edit integration checks, not a claim of manual

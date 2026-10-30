@@ -37,4 +37,4 @@ The [shared tensor harness](../../native/tests/TensorConversionRuntimeTests.cpp)
 
 The [compiled driver](../../native/cmake/VerifyTensorConversions.cmake) partitions checks by source type. Worker checks cover every source/destination pair, identity dispatch, nested and cached awaits, fault recovery, empty results, cancellation/deadline/admission handling and allocation-failure sweeps. Debug, optimized, ASan/UBSan and TSan variants use the same contracts.
 
-The [qualification record](../../native/metal-proof/evidence/cpu-narrow-tensor-conversions-2026-10-19.json) records the source hashes, exact-bit checks and final regression scope.
+The [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-narrow-tensor-conversions-2026-10-19.json) records the source hashes, exact-bit checks and final regression scope.

@@ -1,6 +1,25 @@
 """Extract the compiler's prepared program without reconstructing its graph."""
 import re
 
+def gpu_source(block):
+    """Place the canonical block on Metal; its dataflow stays compiler generated."""
+    assert block.count('fn main()')==1
+    return block.split('fn main()')[0]+'''fn main()->Tensor[float32,?,?] ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    cpu=devices.cpu()
+    x:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
+    w:Tensor[float32,2,2]=tensor([[1,0],[0,1]])
+    up:Tensor[float32,2,8]=tensor([1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1],[2,8])
+    down:Tensor[float32,8,2]=tensor([1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1],[8,2])
+    a=try await transfer(x,gpu)
+    b=try await transfer(w,gpu)
+    c=try await transfer(up,gpu)
+    d=try await transfer(down,gpu)
+    y=try await spawn block(a,b,b,b,b,c,d,0.00001,0.70710677) on gpu
+    try await transfer(y,cpu)
+'''
+
 def header(host,prepared=True):
     loads=re.findall(r'auto (kernel\d+)=(r\.load[^;]+);if\(!kernel\d+\)\{[^\n]+',host)
     assert loads

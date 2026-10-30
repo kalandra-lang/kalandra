@@ -55,4 +55,4 @@ All 88 selected checks passed on Apple M2 Max. The new execution suites compile 
 
 Coverage includes all ten numeric scalar widths, enum matching, owned records, nested maps, function-valued elements, imported callbacks, empty inputs and retained worker results. Four worker programs run with one, two and four workers in each build mode. The raw invocation harnesses check 56 allocation/context probes and 24 first-fault allocation probes, plus eight already-stopped contexts. Sixteen invalid CLI programs preserve all 48 pre-existing output artifacts. Frontend suites check 11 accepted programs, four effect/transport rejections and six forged map metadata cases per variant.
 
-The [evidence record](../../native/metal-proof/evidence/cpu-control-maps-2026-10-19.json) records the selected checks, coverage and frozen implementation/test hashes.
+The [evidence record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-control-maps-2026-10-19.json) records the selected checks, coverage and frozen implementation/test hashes.

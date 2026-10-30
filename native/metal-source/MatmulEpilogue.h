@@ -3,6 +3,7 @@
 #include "GroupedMatmul.h"
 #include "HardwareShaders.h"
 #include "SkinnyMatmul.h"
+#include "SteelMatmul.h"
 #include <cstdint>
 #include <optional>
 #include <regex>
@@ -13,7 +14,8 @@
 // This is a code-generation optimization over validated compiler output, not a
 // general MSL parser. Any unsupported spelling/control/indexing keeps the map.
 inline std::optional<std::string> matmulEpilogue(const std::string &source, unsigned tensors,
-                                                 unsigned scalars, bool numeric = false) {
+                                                 unsigned scalars, bool numeric = false,
+                                                 bool optimizedMatmul = false) {
   if (!tensors || tensors > 27 || scalars == UINT32_MAX || source.size() > 16384)
     return {};
   const std::string name = numeric ? "kalandra_numeric_v1_float32" : "kalandra_elementwise_v2";
@@ -119,5 +121,5 @@ inline std::optional<std::string> matmulEpilogue(const std::string &source, unsi
   }
   if (stores != 7)
     return {};
-  return helper + matrices;
+  return helper + matrices + (optimizedMatmul ? steelMatmulShader(true, extra, arguments) : "");
 }

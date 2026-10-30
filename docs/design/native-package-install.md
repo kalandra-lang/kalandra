@@ -110,9 +110,9 @@ ASan/UBSan and TSan modes with one/four workers. Remote TLS/HTTP fixtures and
 relocated CPU compiler checks cover installation and offline use. Metal checks
 cover numerical imports and source emission/protection without new GPU execution.
 
-Qualification records: [initial installation](../../native/metal-proof/evidence/native-package-install-2026-10-20.json),
-[remote transport](../../native/metal-proof/evidence/native-remote-git-2026-10-20.json),
-and [public locks](../../native/metal-proof/evidence/native-package-lock-2026-10-20.json).
+Qualification records: [initial installation](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-package-install-2026-10-20.json),
+[remote transport](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-remote-git-2026-10-20.json),
+and [public locks](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-package-lock-2026-10-20.json).
 [Installed Metal acceptance](native-metal-install.md#installed-numerical-libraries)
 now adds private-version numerical calls through CPU workers and actual GPU
 execution, with frozen/offline cache restoration and generated-app independence.

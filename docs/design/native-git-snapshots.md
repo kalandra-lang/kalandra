@@ -118,7 +118,7 @@ A manifest-backed graph uses geometry v2 directly and geometry v1 through a
 telemetry worker, with all three libraries imported as snapshots. It produces
 `[12, 11]` in debug, optimized, ASan/UBSan and TSan programs with one/four workers.
 The snapshot importer and graph checking also run under ASan/UBSan. See the
-[qualification record](../../native/metal-proof/evidence/native-git-snapshots-2026-10-20.json).
+[qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-git-snapshots-2026-10-20.json).
 
 Exact dependency declarations, complete managed graph activation and
 CLI/checker/Metal source consumption/output protection are now implemented.

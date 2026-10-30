@@ -1144,6 +1144,12 @@ if(BUILD_TESTING)
       --output "${CMAKE_CURRENT_BINARY_DIR}/gpu-optimization")
   set_tests_properties(native-metal-gpu-optimization PROPERTIES TIMEOUT 900
     RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
+  add_test(NAME native-metal-steel-matmul
+    COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/tests/SteelMatmulTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/steel-matmul")
+  set_tests_properties(native-metal-steel-matmul PROPERTIES TIMEOUT 1800
+    RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
 endif()
 
 if(BUILD_TESTING)

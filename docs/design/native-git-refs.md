@@ -111,7 +111,7 @@ optimized, ASan/UBSan and TSan modes with one/four workers. Existing CPU/Metal
 source and installed compiler acceptance remain covered; this adds no actual GPU
 execution claim. A separate public GitHub branch lookup/extraction probe reaches
 the expected missing-native-manifest rejection in `octocat/Hello-World`; it is
-a transport check rather than a hosted native-library end-to-end result. See the [qualification record](../../native/metal-proof/evidence/native-git-refs-2026-10-20.json).
+a transport check rather than a hosted native-library end-to-end result. See the [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-git-refs-2026-10-20.json).
 Authenticated/SSH transports, arbitrary revision expressions, signed tags,
 symbolic local refs and broader platform qualification remain outside this slice.
 [Named root updates](native-package-update.md) and

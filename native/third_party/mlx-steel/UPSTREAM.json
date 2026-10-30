@@ -1,0 +1,49 @@
+{
+  "repository": "https://github.com/ml-explore/mlx",
+  "commit": "1ba7f969ad05d86decfeeb83787cc9b79e440962",
+  "license": "MIT",
+  "license_sha256": "ccfab7ccb2ea306f71531c8ca77bb55507606cd90768b1e32b8b52ab5b48cf01",
+  "files": {
+    "mlx/backend/metal/kernels/utils.h": "e40473c36e2f2e7ba250b29e8dbbe3c150ce207379e57a2818e916b343e9f2cf",
+    "mlx/backend/metal/kernels/bf16.h": "abd87446a310b77ac530ef52a324feae5cb285d03ec9613e3a88ebb71410fdcb",
+    "mlx/backend/metal/kernels/bf16_math.h": "1f374f8380f756eb89acf6a847741cb8fecbe642945e159fb6208d804cc06496",
+    "mlx/backend/metal/kernels/complex.h": "06031fa9f78e4abe5031924d403e5281d3c02c26e7e893e35a833e588acf1938",
+    "mlx/backend/metal/kernels/defines.h": "a6c2c824e855078cd092fd9592457616f995755f0e865475c3f006a3f5d6bf1d",
+    "mlx/backend/metal/kernels/logging.h": "197d9d81944146bea274ebcbc17b2b97b39c7478c0316a3166a08b3fb2467e4b",
+    "mlx/backend/metal/kernels/steel/gemm/gemm.h": "c84af31e2c57154f2a8a24fa7f9fe2449765cce9a66f3f035846ed3c03b6a8b0",
+    "mlx/backend/metal/kernels/steel/gemm/loader.h": "c1b82153670b1e18371a6e88fdbcf440af692957775c2f837700315ab8a5112e",
+    "mlx/backend/metal/kernels/steel/defines.h": "b03cea6a7d5cfe814e6838d8536e2aacdcafd2744cb408e954fda336ce21759a",
+    "mlx/backend/metal/kernels/steel/gemm/mma.h": "21439be1087ac840ac5936bda0e57bd982fb7b104ea5e5f82ba7be0d2eaee524",
+    "mlx/backend/metal/kernels/steel/gemm/transforms.h": "ac276dd33675d3fac60870d385349d1e4bc94bb06e88e31a19bada0ef4ea39a8",
+    "mlx/backend/metal/kernels/steel/utils.h": "d4c36298145d1c5617a94f07dbfabf6ac932afe2fd7ea0c9291f1fb385c5404a",
+    "mlx/backend/metal/kernels/steel/utils/integral_constant.h": "886eccaac4f8f00eab5a10551fdb5315df7ab7462aba13d69bb95765c1a4735e",
+    "mlx/backend/metal/kernels/steel/utils/type_traits.h": "4766c5a3809d3cf7740e63acc5703ef76b6b4e85d8baf16602c9d517a2fd426c",
+    "mlx/backend/metal/kernels/steel/gemm/params.h": "6711e72e32310eafb088895d5a6d20fcfca814158f5b38eb72b6e69d9d773e43"
+  },
+  "excluded": [
+    "NAX",
+    "CUTLASS",
+    "CUDA DSL",
+    "MPSGraph",
+    "Accelerate"
+  ],
+  "modifications": "None. Quoted includes flattened and pragma once removed for embedded Metal source; all source bodies and copyright notices preserved.",
+  "flattened_sha256": {
+    "mlx/backend/metal/kernels/bf16.h": "ef379040a73b53f381aca49643513c270ad5a0b865598a4cae175c2d56e70912",
+    "mlx/backend/metal/kernels/bf16_math.h": "5ac7275c794d3c7c66a8dda727587b0299788436e6f6a49cf1b5f599608da106",
+    "mlx/backend/metal/kernels/complex.h": "48fe422398541f3512c481084724e3d3b235c8f2234708c2d33eeb503ce2714b",
+    "mlx/backend/metal/kernels/defines.h": "ef77de0335e8e8d0aaca7428ece51e62202d8acedc18a74b39b7b1ecb3be53f4",
+    "mlx/backend/metal/kernels/logging.h": "bd4d6ac0275f847d72277350592250157c13bfead24140e0574c5a53b0196ee7",
+    "mlx/backend/metal/kernels/utils.h": "31c464485685244990ad769b6d22c8c29aa330f1e2acf36afaf4d41c5cdd7ce5",
+    "mlx/backend/metal/kernels/steel/defines.h": "527ef63a70af55617ae9f3cd91928d97c6fe0103adaebea6e84338de23a9252b",
+    "mlx/backend/metal/kernels/steel/gemm/loader.h": "07ae0c26aded9805dd6b374a156b6024ea2218c94ee3eca8a8c9c2b654fe6c90",
+    "mlx/backend/metal/kernels/steel/utils.h": "e041832e6dbfcc2a8d9f42a94cfcec77c8a9f768863951db77c8a61f5474e866",
+    "mlx/backend/metal/kernels/steel/gemm/transforms.h": "b6e5c5f9af3cb96823995224f0555b6617d09aaa145471e48df245f9ca9f626b",
+    "mlx/backend/metal/kernels/steel/utils/type_traits.h": "d53cfc6e1c09bd60d0aa2f89d05a5c802baf293578db7173ed1287ff833bd214",
+    "mlx/backend/metal/kernels/steel/utils/integral_constant.h": "479dfe05c62da294a313721fd9bc0637afc6dec79df5d9ce1e22059e89db2e86",
+    "mlx/backend/metal/kernels/steel/gemm/mma.h": "3dee6d1b218dc7c124c1081846d893819d83da4fbfc8b9e2c92d18829d497a9d",
+    "mlx/backend/metal/kernels/steel/gemm/params.h": "761eeef2072c23d904f9990c8bb78faf68c88a35cf9dae73fce975a421e3313a",
+    "mlx/backend/metal/kernels/steel/gemm/gemm.h": "4fa32639962dcd7d3c49092eb2dbaf8a936b5f9669fa83f0218ae666bed8dd38"
+  },
+  "embedded_sha256": "4ffa1d8ec90dff5a9004d89e70ef6173421aa89a8e7e083341e20ca733775932"
+}

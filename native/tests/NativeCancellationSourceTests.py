@@ -15,7 +15,7 @@ a = p.parse_args()
 a.output.mkdir(parents=True, exist_ok=True)
 root = Path(__file__).resolve().parents[2]
 source = a.output / 'source.k'
-source.write_text((root / 'native/experiments/cancellation/workloads.k').read_text().replace(
+source.write_text((root / 'native/tests/fixtures/cancellation-workloads.k').read_text().replace(
     'fn main()->float64:\n  tail(17,100)', '''fn run(kind:int,n:int)->float64:
   if kind==0:tail(17,n)
   else:

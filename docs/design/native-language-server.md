@@ -57,7 +57,7 @@ bindings and explicit local aliases, but cannot rename installed declarations or
 produce edits to installed sources. Edit the original library project and install
 a new revision instead. Workspace discovery skips `.kalandra` entirely.
 
-The [package-editor qualification record](../../native/metal-proof/evidence/native-lsp-packages-2026-10-20.json)
+The [package-editor qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-packages-2026-10-20.json)
 covers framed normal/sanitized requests and a relocated editor-tools archive.
 It includes two versions of one library, private import navigation, unsaved entry
 replacement, workspace completion/references/rename, read-only cache handling,
@@ -110,7 +110,7 @@ The server returns `MarkupContent`, respecting the client's first supported plai
 
 A graph with any parse/type error returns no hover information because the checker does not publish partial typed IR. Previous successful types are not reused. Imported error-alias hover presentations and general operator/expression selections are not yet mapped. Checked builtin call hovers are covered below. This is a conservative semantic hover implementation, not name-based guessing.
 
-Hover rechecks synchronously per request; it does not cache a typed workspace or provide a latency guarantee. Presentation is bounded to 4,096 visited type/error nodes, 32 formatting levels and 16 KiB of text. A presentation that exceeds these limits returns `null`. The [hover qualification record](../../native/metal-proof/evidence/native-lsp-hover-2026-10-20.json) records semantic and framed-protocol tests for normal and sanitized builds.
+Hover rechecks synchronously per request; it does not cache a typed workspace or provide a latency guarantee. Presentation is bounded to 4,096 visited type/error nodes, 32 formatting levels and 16 KiB of text. A presentation that exceeds these limits returns `null`. The [hover qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-hover-2026-10-20.json) records semantic and framed-protocol tests for normal and sanitized builds.
 
 ## Go to definition
 
@@ -122,7 +122,7 @@ Definition and hover share checked token resolution. Both use the current unsave
 
 Unmapped tokens, literals, whitespace, keywords, builtins without source declarations, generated helper locations and failed graphs return `null`. The source document must be open under its registered URI. As with hover, malformed parameters return invalid-params, while invalid lines or split-surrogate positions return `null`. Wildcard patterns and builtin cases without source declarations have no source destination. Definition links and workspace symbols are separate work.
 
-The [definition qualification record](../../native/metal-proof/evidence/native-lsp-definition-2026-10-20.json) covers normal and sanitized semantic/protocol checks, including shadowing, nested captures, cross-file aliases/re-exports, package mappings, Unicode URIs, unsaved destination changes, close-to-disk behavior and hover regressions. These are protocol tests, not a real-editor qualification claim.
+The [definition qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-definition-2026-10-20.json) covers normal and sanitized semantic/protocol checks, including shadowing, nested captures, cross-file aliases/re-exports, package mappings, Unicode URIs, unsaved destination changes, close-to-disk behavior and hover regressions. These are protocol tests, not a real-editor qualification claim.
 
 ## Import declaration origins
 
@@ -132,7 +132,7 @@ Definition works on both sides of `from "./library.k" import scale as twice`, fo
 
 References include both the imported source-name token and an explicit alias token, including unused bindings. These are occurrences of the underlying declaration; `includeDeclaration` controls only the original declaration, not whether alias tokens appear. Metadata keeps the two token roles and the re-export flag distinct for alias-preserving rename. A reference list alone still does not determine safe rename edits.
 
-The [import-origin qualification record](../../native/metal-proof/evidence/native-lsp-import-origins-2026-10-20.json) covers normal and ASan/UBSan compiler, semantic and protocol checks for imported functions, records, error aliases, re-exports, unused imports, metadata roles, current buffers and original URI/range mapping.
+The [import-origin qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-import-origins-2026-10-20.json) covers normal and ASan/UBSan compiler, semantic and protocol checks for imported functions, records, error aliases, re-exports, unused imports, metadata roles, current buffers and original URI/range mapping.
 
 ## Type annotations and record construction
 
@@ -142,7 +142,7 @@ Nominal annotation tokens navigate to the original type declaration. Coverage in
 
 A record constructor's type name navigates to the nominal declaration. Construction and immutable-update field labels navigate to the actual field declaration and participate in the same references as field reads. Same-spelled fields in different records remain distinct. Nominal tokens show their declaration header on hover; field labels show their checked value type. Enum construction and pattern roles are described below.
 
-The [type-token qualification record](../../native/metal-proof/evidence/native-lsp-type-tokens-2026-10-20.json) covers normal and ASan/UBSan semantic/protocol checks, nested callable/array annotations, local/imported constructors and updates, nominal field identity, error aliases, source offsets after incremental Unicode/CRLF edits, builtin annotations and invalid-graph isolation. These are source-tool checks, not new runtime/GPU capabilities or real-editor qualification.
+The [type-token qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-type-tokens-2026-10-20.json) covers normal and ASan/UBSan semantic/protocol checks, nested callable/array annotations, local/imported constructors and updates, nominal field identity, error aliases, source offsets after incremental Unicode/CRLF edits, builtin annotations and invalid-graph isolation. These are source-tool checks, not new runtime/GPU capabilities or real-editor qualification.
 
 ## Enum cases and match patterns
 
@@ -154,7 +154,7 @@ A shorthand pattern such as `{value}` has two roles at one source token: a paylo
 
 Builtin `TaskError`/`FaultKind` match cases and builtin payload labels provide checked type hover, but have no invented source declarations. Their pattern-bound locals still have ordinary source identities. Wildcards remain unmapped. Invalid, duplicate, non-exhaustive or otherwise failed graphs expose no partial editor identities. This adds source-tool metadata without changing matching, error handling or GPU capabilities.
 
-The [enum/pattern qualification record](../../native/metal-proof/evidence/native-lsp-enum-tokens-2026-10-20.json) covers normal and ASan/UBSan semantic and protocol tests for case/field separation, explicit and shorthand bindings, closure captures, shadowing, error unions, builtins, imported enum origins, unsaved URI/range changes and failure isolation. Dedicated editor checks for enum/pattern interactions remain future work; the rename implementation is described below.
+The [enum/pattern qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-enum-tokens-2026-10-20.json) covers normal and ASan/UBSan semantic and protocol tests for case/field separation, explicit and shorthand bindings, closure captures, shadowing, error unions, builtins, imported enum origins, unsaved URI/range changes and failure isolation. Dedicated editor checks for enum/pattern interactions remain future work; the rename implementation is described below.
 
 ## Find references
 
@@ -166,7 +166,7 @@ This is a bounded semantic search with fresh workspace discovery, not a persiste
 
 Each graph is checked once during collection and its identifiers indexed once; the implementation does not recheck per token. Queries remain synchronous and uncached. Aggregate composed source scanning is capped at 64 MiB per request (shared dependencies count per root), and unique results at 100,000 locations. Exceeding either budget fails the request rather than truncating it. Existing per-graph compiler limits also apply. No files are modified.
 
-The [references qualification record](../../native/metal-proof/evidence/native-lsp-references-2026-10-20.json) records normal and ASan/UBSan semantic/protocol tests, including declaration filtering, shadowing, nested captures, cross-file aliases/re-exports, deduplication, Unicode/CRLF, current unsaved destination positions, registered URIs and failure isolation. This does not qualify real-editor behavior or full-workspace coverage.
+The [references qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-references-2026-10-20.json) records normal and ASan/UBSan semantic/protocol tests, including declaration filtering, shadowing, nested captures, cross-file aliases/re-exports, deduplication, Unicode/CRLF, current unsaved destination positions, registered URIs and failure isolation. This does not qualify real-editor behavior or full-workspace coverage.
 
 ## Workspace source discovery
 
@@ -180,7 +180,7 @@ Each request rescans the root and reads current source graphs using open-buffer 
 
 Discovery permits at most 512 source files, 20,000 visited directory entries and 32 nested directory levels per selected root; excluded directory entries and symlinks count toward the entry budget but are not traversed. Missing/unreadable directories, entry-inspection failures, unusable source paths and budget exhaustion fail the request with `RequestFailed`, without a partial array. Existing composed-source/graph/result limits apply after discovery. Every eligible candidate graph must load and check successfully; intentionally invalid fixtures should be outside the chosen root or an excluded directory.
 
-The server advertises workspace-folder support with change notifications disabled. Restart it after changing workspace folders or project configuration. The [workspace qualification record](../../native/metal-proof/evidence/native-lsp-workspace-2026-10-20.json) covers normal and ASan/UBSan discovery/protocol tests: unopened callers, fresh disk changes, buffer precedence, URI preservation, root precedence/isolation, nested roots, project/package mappings, external dependencies, exclusions, symlinks, scan limits and failure recovery. These are protocol and filesystem tests, not real-editor or additional-platform qualification.
+The server advertises workspace-folder support with change notifications disabled. Restart it after changing workspace folders or project configuration. The [workspace qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-workspace-2026-10-20.json) covers normal and ASan/UBSan discovery/protocol tests: unopened callers, fresh disk changes, buffer precedence, URI preservation, root precedence/isolation, nested roots, project/package mappings, external dependencies, exclusions, symlinks, scan limits and failure recovery. These are protocol and filesystem tests, not real-editor or additional-platform qualification.
 
 ## Document formatting
 
@@ -196,7 +196,7 @@ The request replaces only the current identifier (or inserts one at an empty pos
 
 Apart from bounded construction/pattern-label probes and trailing-call repair below, completion needs the temporary graph to parse and the checker to reach the query without prior diagnostics. Unsupported missing delimiters, unfinished declarations, failed imports or earlier semantic errors can produce an empty list. Later errors do not invalidate an already captured scope. Ordinary expression names, direct/piped callees and named map callbacks are covered; bare package paths, general pattern bindings and declaration names are not completion contexts yet. Relative import paths are covered below. Public names in explicit imports/re-exports are covered below. Expected-error channels are covered below. Type annotations are covered below. Qualified enum cases in match patterns are covered below. Checked record fields are covered below. Strings/comments do not supply lexical-name suggestions. There is no general parser recovery, auto-import, fuzzy ranking, snippet expansion or completion resolve. Checked signature help is covered below. Existing source/token/graph/checker budgets still apply, and requests remain synchronous.
 
-The [completion qualification record](../../native/metal-proof/evidence/native-lsp-completion-2026-10-20.json) records semantic and stdio tests in normal and ASan/UBSan builds. [Initial VS Code acceptance](native-vscode.md#qualification) now covers partly typed names; broader completion interaction remains follow-up work.
+The [completion qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-completion-2026-10-20.json) records semantic and stdio tests in normal and ASan/UBSan builds. [Initial VS Code acceptance](native-vscode.md#qualification) now covers partly typed names; broader completion interaction remains follow-up work.
 
 ## Safe rename proposals
 
@@ -214,7 +214,7 @@ The planner snapshots checked source graphs, computes all edits, then reloads an
 
 Closed source contents and the discovered root list are checked again before returning edits. Rechecking uses each graph's own replacements, so a workspace rename can span more files than one module graph's file limit. This is not an atomic filesystem snapshot or an apply transaction: concurrent changes after validation remain outside server guarantees. Each analysis/validation pass has a 64 MiB aggregate composed-source budget, 300,000 indexed relationships and 500,000 identifier tokens; proposals permit at most 100,000 edits. Existing per-graph source/file limits apply. Replacement text is constructed in source order; source-position mapping uses per-file prefix offsets, and edit ranges are converted to UTF-16 in batches per file.
 
-The [rename qualification record](../../native/metal-proof/evidence/native-lsp-rename-2026-10-20.json) records normal and ASan/UBSan tests for local/captured bindings, silent capture rejection, record/enum fields and cases, shorthand roles, import/re-export alias barriers, unopened callers, 2,001 edits in one source, 131 edited files, Unicode/CRLF ranges, negotiated capabilities, versioned proposals and no source writes. Protocol tests independently apply returned edits to fixture text. Full real-editor, concurrent-filesystem and additional-platform qualification remain separate work.
+The [rename qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-rename-2026-10-20.json) records normal and ASan/UBSan tests for local/captured bindings, silent capture rejection, record/enum fields and cases, shorthand roles, import/re-export alias barriers, unopened callers, 2,001 edits in one source, 131 edited files, Unicode/CRLF ranges, negotiated capabilities, versioned proposals and no source writes. Protocol tests independently apply returned edits to fixture text. Full real-editor, concurrent-filesystem and additional-platform qualification remain separate work.
 
 ## Limits and qualification
 
@@ -222,7 +222,7 @@ Protocol headers are bounded to 8 KiB, frame bodies to 32 MiB and JSON nesting t
 
 Malformed JSON with valid framing returns a parse error and leaves the session usable. Invalid, duplicate, oversized or truncated framing ends the process with status 2 because a safe next message boundary is unavailable. A normal shutdown/exit returns 0; exit or EOF before shutdown returns 1. Standard output contains only protocol frames. Standard error is reserved for startup/fatal failures.
 
-Independent Python-stdlib protocol tests launch normal and ASan/UBSan builds, exercise interactive pipe framing, lifecycle, versions, Unicode ranges/URIs, source isolation, dependency changes/clearing, project packages, budgets and malformed input. The [initial qualification record](../../native/metal-proof/evidence/native-lsp-2026-10-20.json) covers the first full-sync implementation. [Incremental edit qualification](../../native/metal-proof/evidence/native-lsp-edits-2026-10-20.json) adds sequential/mixed edits, Unicode scalar boundaries, CRLF/CR positions, line-end clamping, transactional failure, deprecated lengths and edit limits. Third-party LLVM libraries are not rebuilt with sanitizers. No real editor or additional operating system is qualified by these protocol tests.
+Independent Python-stdlib protocol tests launch normal and ASan/UBSan builds, exercise interactive pipe framing, lifecycle, versions, Unicode ranges/URIs, source isolation, dependency changes/clearing, project packages, budgets and malformed input. The [initial qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-2026-10-20.json) covers the first full-sync implementation. [Incremental edit qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-edits-2026-10-20.json) adds sequential/mixed edits, Unicode scalar boundaries, CRLF/CR positions, line-end clamping, transactional failure, deprecated lengths and edit limits. Third-party LLVM libraries are not rebuilt with sanitizers. No real editor or additional operating system is qualified by these protocol tests.
 
 The [native VS Code qualification](native-vscode.md#qualification) now tests the packaged client against the real editor host on macOS ARM64. An [initial native tool install/archive](native-tools-install.md) now supports this editor connection outside the build directory. Additional editor/platform acceptance, complete compiler/runtime distribution, completion recovery, additional member contexts and broader signature-help recovery remain follow-ups. Filesystem watching, persistent workspace indexing and asynchronous scheduling remain separate work.
 
@@ -247,7 +247,7 @@ field lookup, but checking still publishes no partial typed IR. Prior errors blo
 suggestions; probe diagnostics never reach the editor. No files, open buffers or
 runtime state are changed. Parser recovery remains outside this slice.
 
-[Member-completion qualification](../../native/metal-proof/evidence/native-lsp-members-2026-10-21.json)
+[Member-completion qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-members-2026-10-21.json)
 covers semantic and framed protocol tests, imported overlays, UTF-16 replacement
 ranges and relocated Release editor tools. [Installed VS Code acceptance](native-vscode.md#qualification)
 now covers record-field provider results and applied whole-identifier edits.
@@ -274,7 +274,7 @@ prior-error gating and no partial typed IR remain shared with record fields.
 Pattern bodies/delimiters must still parse: this does not add parser recovery or
 complete pattern binding names. Enum values do not acquire direct payload fields.
 
-The [enum-completion qualification record](../../native/metal-proof/evidence/native-lsp-enum-completion-2026-10-21.json)
+The [enum-completion qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-enum-completion-2026-10-21.json)
 covers constructors, payload syntax, remaining match cases, shadowing, wrong
 families, unions, built-in task errors, a 300-case bound, imported overlays and
 relocated Release editor tools, with normal and sanitizer protocol/semantic runs.
@@ -308,7 +308,7 @@ Earlier semantic errors stop suggestions; no partial typed IR escapes a failed
 check. Prefix filtering, deterministic order, the 256-name bound, UTF-16 ranges
 and plain LSP Field items remain shared with record-field completion.
 
-The [construction-label qualification record](../../native/metal-proof/evidence/native-lsp-labels-2026-10-21.json)
+The [construction-label qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-labels-2026-10-21.json)
 covers empty/partial slots, missing values, existing colons, fields already supplied
 before/after the cursor, nested records, immutable updates, selected payloads,
 invalid owners, lexical value completion, list bounds, Unicode edits, imported
@@ -339,7 +339,7 @@ persisted. Other syntax must parse, including the arm body and closing delimiter
 Sorted prefix filtering, the 256-item bound, plain Field items and UTF-16 edits
 remain shared with other field completion.
 
-The [pattern-label qualification record](../../native/metal-proof/evidence/native-lsp-pattern-labels-2026-10-21.json)
+The [pattern-label qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-pattern-labels-2026-10-21.json)
 covers semantic queries, normal/sanitizer protocol runs and relocated Release
 tools. [Installed VS Code acceptance](native-vscode.md#qualification) now applies
 shorthand and explicit-binding label edits and checks the resulting local reads.
@@ -369,7 +369,7 @@ call's argument-count error. Checked collection, numeric conversion, tensor oper
 positions, closed documents and other invalid query contexts return `null`.
 The server does not reuse stale signatures or publish partial typed programs. Requesting help makes no source changes or diagnostic publications.
 
-The [signature-help qualification](../../native/metal-proof/evidence/native-lsp-signature-2026-10-21.json)
+The [signature-help qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-signature-2026-10-21.json)
 records normal/sanitizer semantic and protocol tests, hover regressions, relocated
 Release tools and installed VS Code provider acceptance. Broader incomplete-call
 recovery, additional builtin signatures and editor/platform acceptance remain open.
@@ -391,7 +391,7 @@ results, wrong supplied argument types and failed graphs provide no partial or s
 The operation adds editor support to existing language forms; it does not execute
 the factory, allocate a runtime closure or change language behavior.
 
-[Higher-order qualification](../../native/metal-proof/evidence/native-lsp-higher-signature-2026-10-21.json)
+[Higher-order qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-higher-signature-2026-10-21.json)
 records semantic/protocol regression tests, imported unsaved overlays, relocated
 Release tools and installed VS Code provider checks for factory/indexed calls.
 Trailing-parenthesis recovery and missing-argument guidance are covered below;
@@ -420,7 +420,7 @@ and project graph constraints are unchanged.
 
 The source buffer, disk files and published diagnostics remain those of the
 actual program. In particular, a displayed signature does not clear its original
-unclosed-delimiter diagnostic. The [recovery qualification](../../native/metal-proof/evidence/native-lsp-signature-recovery-2026-10-21.json)
+unclosed-delimiter diagnostic. The [recovery qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-signature-recovery-2026-10-21.json)
 records normal/sanitizer semantic/protocol checks, current imported overlays,
 relocated Release tools and installed VS Code acceptance of this boundary.
 Broader parser recovery remains future work. Missing-argument guidance follows below.
@@ -450,7 +450,7 @@ is not that selected call's argument-count error. Invalid supplied arguments,
 unknown or shadowed noncallable targets and invalid target definitions produce
 no guidance. Showing parameters is not validation of the unfinished program.
 
-[Missing-argument qualification](../../native/metal-proof/evidence/native-lsp-missing-arguments-2026-10-21.json)
+[Missing-argument qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-missing-arguments-2026-10-21.json)
 records normal/sanitizer semantic and protocol checks, ordinary callable-checker
 regressions, imported aliases/current overlays, installed Release tools and VS Code
 provider acceptance. The source, disk and actual-program diagnostics remain
@@ -482,7 +482,7 @@ editing uses the additional receiver check described below. Extra arguments do
 not invent extra parameters. This is signature guidance during an
 edit, not validation or completion of the argument itself.
 
-[Identifier-edit qualification](../../native/metal-proof/evidence/native-lsp-identifier-arguments-2026-10-21.json)
+[Identifier-edit qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-identifier-arguments-2026-10-21.json)
 records semantic/protocol and hover regressions, current imported overlays,
 installed Release tools and VS Code provider acceptance. The checks verify that
 the original unknown-name diagnostics and failed hover remain separate from the
@@ -512,7 +512,7 @@ end. The initial final-argument path is complemented by
 slots use the bounded recovery below; arbitrary unfinished expressions remain
 unsupported. End-cursor and bounded EOF-only repairs are described below.
 
-[Record-field argument qualification](../../native/metal-proof/evidence/native-lsp-field-arguments-2026-10-21.json)
+[Record-field argument qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-field-arguments-2026-10-21.json)
 covers semantic and protocol checks, live imported record overlays, normal hover
 isolation, relocated Release tools and installed VS Code provider commands.
 
@@ -545,7 +545,7 @@ unclosed arrays/records and remaining syntax errors still reject the query.
 Source budgets apply to both the identifier and any inserted parentheses, and
 the source graph is loaded at most three times for this request.
 
-[Empty-field qualification](../../native/metal-proof/evidence/native-lsp-empty-field-2026-10-21.json)
+[Empty-field qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-empty-field-2026-10-21.json)
 covers semantic and protocol checks, imported overlays, relocated Release tools
 and installed VS Code commands while retaining the actual syntax diagnostic.
 
@@ -583,7 +583,7 @@ parentheses into the user's buffer, and ordinary diagnostics/hover continue to
 analyze the actual unfinished source. Imported aliases, live dependency overlays,
 UTF-16 ranges, prefix filtering and the 256-item bound retain their existing rules.
 
-[Unfinished-call completion qualification](../../native/metal-proof/evidence/native-lsp-open-call-completion-2026-10-21.json)
+[Unfinished-call completion qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-open-call-completion-2026-10-21.json)
 records normal/sanitizer semantic and protocol checks, signature-help regressions,
 relocated Release tools and applied installed VS Code completion edits.
 
@@ -620,7 +620,7 @@ ranges remain shared with existing completion. Other declaration syntax must
 parse; general declaration recovery remains separate. Expected-error channels are
 covered below.
 
-[Type-completion qualification](../../native/metal-proof/evidence/native-lsp-type-completion-2026-10-21.json)
+[Type-completion qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-type-completion-2026-10-21.json)
 covers normal/sanitizer semantic and protocol checks, live imported aliases,
 context-specific builtin lists, bounded results, relocated Release tools and
 installed VS Code edits followed by checked hover and cleared diagnostics.
@@ -651,7 +651,7 @@ the user. Ordinary diagnostics and hover remain based on the actual source.
 Other declaration syntax must parse; incomplete declarations, import-path
 completion for bare package names, auto-import and snippets remain separate.
 
-[Error-channel qualification](../../native/metal-proof/evidence/native-lsp-error-completion-2026-10-21.json)
+[Error-channel qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-error-completion-2026-10-21.json)
 covers empty/partial members, unions and aliases, named/anonymous/nested callable
 channels, active-alias exclusion, list bounds, imported overlays, relocated
 Release tools and installed VS Code edits followed by checked diagnostics/hover.
@@ -681,7 +681,7 @@ completion sites; relative path completion is covered below. Missing modules and
 syntax that the temporary graph cannot parse produce no candidates. There is no automatic import insertion or general
 parser recovery.
 
-[Import-completion qualification](../../native/metal-proof/evidence/native-lsp-import-completion-2026-10-21.json)
+[Import-completion qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-import-completion-2026-10-21.json)
 covers public/private names, aliases and re-exports, list bounds, live dependency
 buffers, unchanged diagnostics/files, relocated Release tools and an installed
 VS Code completion followed by checked diagnostics and hover.
@@ -718,7 +718,7 @@ Ordinary strings, comments, bare package names, unterminated strings and unrelat
 incomplete syntax do not gain recovery. Queries do not change buffers, diagnostic
 publications or disk files, and perform no network or device work.
 
-[Relative-path qualification](../../native/metal-proof/evidence/native-lsp-import-path-completion-2026-10-21.json)
+[Relative-path qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-import-path-completion-2026-10-21.json)
 covers filesystem/unsaved candidates, Unicode UTF-16 edits, child/parent paths,
 exclusions and bounds, relocated Release tools and an installed VS Code path edit
 followed by checked diagnostics and hover.
@@ -754,7 +754,7 @@ remaining missing-argument builtin guidance and general expression recovery rema
 Queries do not execute functions, publish diagnostics, change buffers or write
 files. Unsaved imported result types are rechecked for each request.
 
-[Collection-signature qualification](../../native/metal-proof/evidence/native-lsp-collection-signature-2026-10-21.json)
+[Collection-signature qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-collection-signature-2026-10-21.json)
 covers normal/sanitizer signature and hover regressions, protocol parameter
 ranges and pipeline positions, live dependency types, relocated Release tools
 and installed VS Code guidance without source changes.
@@ -789,7 +789,7 @@ wrong-arity or unknown-name diagnostic. It does not publish probe diagnostics,
 write sources, change buffers or execute code. Current unsaved imported types
 participate; a changed field contract invalidates an incompatible first array.
 
-[Missing-concat qualification](../../native/metal-proof/evidence/native-lsp-concat-signature-2026-10-21.json)
+[Missing-concat qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-concat-signature-2026-10-21.json)
 covers normal/sanitizer signature, hover and ordinary concat frontend checks,
 protocol diagnostics and imported buffers, relocated Release tools and installed
 VS Code guidance while retaining the unfinished source and its syntax diagnostic.
@@ -823,7 +823,7 @@ completion are covered below. The existing alphabetical prefix filtering, 256-na
 source overlays and diagnostic/source preservation rules apply. Prior diagnostics
 can suppress names; later errors do not erase an already captured scope.
 
-[Builtin-completion qualification](../../native/metal-proof/evidence/native-lsp-builtin-completion-2026-10-21.json)
+[Builtin-completion qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-builtin-completion-2026-10-21.json)
 covers direct/piped names, numeric conversions, shadowing and excluded value
 contexts in normal/sanitizer builds, relocated Release tools and installed
 VS Code edits followed by checked collection and conversion calls.
@@ -856,7 +856,7 @@ signature does not promise that every runtime value fits the destination: the
 existing checked numeric conversion rules still determine success or faults.
 Requests execute no conversions and change no buffers, diagnostics or disk files.
 
-[Numeric-signature qualification](../../native/metal-proof/evidence/native-lsp-numeric-signature-2026-10-21.json)
+[Numeric-signature qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-numeric-signature-2026-10-21.json)
 covers signature labels for all 100 scalar type pairs using representable inputs,
 aliases, fixed/dynamic tensor shapes, invalid casts and lexical shadows, live
 imported types, relocated Release tools and installed VS Code tensor guidance.
@@ -893,7 +893,7 @@ signature help remain separate; map-family guidance is covered below, and this d
 change numerical semantics or execute tensor operations during editor requests.
 Buffers, disk sources and diagnostic publications remain unchanged.
 
-[Tensor-signature qualification](../../native/metal-proof/evidence/native-lsp-tensor-signature-2026-10-21.json)
+[Tensor-signature qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-tensor-signature-2026-10-21.json)
 covers all ten CPU element types for the three signature families, fixed/dynamic
 matrix shapes, rank-zero/empty tensors, invalid inputs, live imported shape changes,
 relocated Release tools and installed VS Code guidance for a piped matrix call.
@@ -931,7 +931,7 @@ Existing bounded closing-parenthesis recovery can apply when the callback is
 complete. Same-spelled local callables retain ordinary guidance. Requests execute
 no callbacks, schedule no tasks and change no source or diagnostic publications.
 
-[Map-signature qualification](../../native/metal-proof/evidence/native-lsp-map-signature-2026-10-21.json)
+[Map-signature qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-map-signature-2026-10-21.json)
 covers all ten numeric widths, changed result elements, nominal inputs,
 named/inline/captured/indexed callbacks, public error channels and invalid calls,
 current imported callback changes, relocated Release tools and installed VS Code
@@ -962,7 +962,7 @@ Missing-argument signature snapshots are not reused as hover types. Builtin hove
 describe the call; declaration navigation remains based on actual source definitions.
 Requests do not execute operations, change buffers or files, or publish diagnostics.
 
-[Builtin-hover qualification](../../native/metal-proof/evidence/native-lsp-builtin-hover-2026-10-21.json)
+[Builtin-hover qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-builtin-hover-2026-10-21.json)
 covers normal/sanitizer hover and signature regressions, plaintext/Markdown
 protocol results, Unicode token ranges, direct/piped calls, shadows, current
 imported buffers and failed graphs, relocated Release tools and installed VS Code
@@ -992,7 +992,7 @@ argument validation and runtime device selection retain their existing behavior.
 Current imported graphs use original-file identities; requests leave buffers,
 disk sources and diagnostic publications unchanged.
 
-[Device-completion qualification](../../native/metal-proof/evidence/native-lsp-device-completion-2026-10-21.json)
+[Device-completion qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-device-completion-2026-10-21.json)
 covers placement-mode gating, empty/partial members, explicit indices, local and
 parameter shadows, imported source spans and ordinary diagnostics in debug and
 sanitizer builds. Relocated Release tools and installed VS Code also exercise the
@@ -1024,7 +1024,7 @@ changes or diagnostic publications occur during these requests. Frontend types
 and selector indices describe the source contract; they do not expand GPU backend
 element-type admission or establish that a device exists.
 
-[Transfer-guidance qualification](../../native/metal-proof/evidence/native-lsp-transfer-guidance-2026-10-21.json)
+[Transfer-guidance qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-transfer-guidance-2026-10-21.json)
 covers checked GPU-bound and CPU-bound transfers, exact indices, fixed/dynamic
 shapes, direct/piped calls, invalid graphs and placement gating, with debug and
 sanitizer suites, relocated Release tools and installed VS Code.
@@ -1054,7 +1054,7 @@ overlays and diagnostic preservation follow the existing completion contract.
 Prior errors suppress candidates; later errors do not erase a captured scope.
 Requests neither enumerate hardware nor execute transfers or change source files.
 
-[Transfer-completion qualification](../../native/metal-proof/evidence/native-lsp-transfer-completion-2026-10-21.json)
+[Transfer-completion qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-transfer-completion-2026-10-21.json)
 covers call/value/spawn contexts, placement/group gating, local name priority,
 pipeline and unfinished-call targets, source edits and live imported buffers in
 debug and sanitizer builds. Relocated Release tools and installed VS Code also
@@ -1093,7 +1093,7 @@ guessed signature. Requests do not change source buffers, write files, publish
 diagnostics, initialize Metal or enumerate devices. An exact index describes the
 source selection, not proof that such a GPU exists.
 
-[Selector-guidance qualification](../../native/metal-proof/evidence/native-lsp-selector-guidance-2026-10-21.json)
+[Selector-guidance qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-selector-guidance-2026-10-21.json)
 covers CPU/default-GPU/explicit-index forms, the maximum uint32 index, pipelines,
 invalid calls, placement gating and checked imported source identity. Debug and
 sanitizer tests, relocated Release tools and installed VS Code verify the hover
@@ -1129,7 +1129,7 @@ Requests publish neither probe diagnostics nor partial typed modules. They do no
 change buffers/files, add real closing parentheses, or provide hover for unfinished
 source. Original-file replacement ranges and prefix filtering remain unchanged.
 
-[Open-callee qualification](../../native/metal-proof/evidence/native-lsp-open-callee-completion-2026-10-21.json)
+[Open-callee qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-open-callee-completion-2026-10-21.json)
 covers direct/nested/piped/qualified/member call names, preserved arguments,
 recovery exclusions and bounds, imported overlays, ordinary delimiter diagnostics,
 relocated Release tools and an applied completion in installed VS Code.
@@ -1167,7 +1167,7 @@ source. [Signature help](#signature-help-with-final-argument-suffixes) now has a
 EOF-only final-name/member path. These requests publish no probe diagnostics,
 partial typed modules or file writes.
 
-[Argument-suffix qualification](../../native/metal-proof/evidence/native-lsp-argument-suffix-completion-2026-10-21.json)
+[Argument-suffix qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-argument-suffix-completion-2026-10-21.json)
 covers lexical/member suffixes, grouped and function-value calls, prefix/receiver
 checks, imported overlays, compound/non-final exclusions, source preservation and
 actual diagnostics in debug/sanitizer and relocated Release tools. Installed VS
@@ -1206,7 +1206,7 @@ labels describe expected parameters rather than the type of the unfinished value
 Actual source diagnostics, hover, buffers and files remain unchanged; requests
 publish no probe diagnostics.
 
-[Suffix-signature qualification](../../native/metal-proof/evidence/native-lsp-suffix-signature-2026-10-21.json)
+[Suffix-signature qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-suffix-signature-2026-10-21.json)
 covers checked named/structural/factory/indexed callable signatures, fields,
 pipelines, concat snapshots and rejection boundaries in debug/sanitizer builds.
 Protocol tests follow live imported parameter changes and label offsets. Relocated
@@ -1244,7 +1244,7 @@ its ordinary `S027`; supplying the actual final argument is necessary to check.
 Requests preserve buffers/files and actual diagnostic publications, and never
 return executable partial typed modules.
 
-[Earlier-argument qualification](../../native/metal-proof/evidence/native-lsp-earlier-argument-completion-2026-10-21.json)
+[Earlier-argument qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-earlier-argument-completion-2026-10-21.json)
 covers direct/bound/indexed/piped calls, balanced/open calls with missing later
 parameters, member receivers, prior/later errors and live imported field changes.
 Debug/sanitizer, relocated Release tools and installed VS Code preserve both real
@@ -1281,7 +1281,7 @@ Current imported buffers update parameter/result types and error channels. Sourc
 text, later argument spans, buffers/files and real diagnostics remain unchanged.
 The existing lexical, source-size and eight-parenthesis repair bounds still apply.
 
-[Earlier-signature qualification](../../native/metal-proof/evidence/native-lsp-earlier-signature-2026-10-21.json)
+[Earlier-signature qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-earlier-signature-2026-10-21.json)
 covers first/middle slots, missing later parameters, named/structural/indexed/piped
 callees, checked field receivers, expected-error channels and invalid prefixes.
 Direct checker tests verify snapshot-only failure and unchanged ordinary unknown
@@ -1317,7 +1317,7 @@ request does not choose a field, claim a field's type, or return an executable
 partial module. Current imported parameter types still update the expected
 signature without changing disk files.
 
-[Empty-earlier-field qualification](../../native/metal-proof/evidence/native-lsp-empty-earlier-field-2026-10-21.json)
+[Empty-earlier-field qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-empty-earlier-field-2026-10-21.json)
 covers first/middle slots, pipelines, indexed callables, EOF repair, missing later
 parameters, probe-name collision, invalid prefixes/receivers and malformed suffixes
 in debug/sanitizer tests. Protocol, relocated Release and installed VS Code
@@ -1353,7 +1353,7 @@ is completed. Signature help still excludes compound editing holes; this
 extension concerns completion only. No source buffers/files are written or probe
 diagnostics published.
 
-[Expression-completion qualification](../../native/metal-proof/evidence/native-lsp-expression-completion-2026-10-21.json)
+[Expression-completion qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-lsp-expression-completion-2026-10-21.json)
 covers all five arithmetic operators, unary/nested/left operands, all six
 comparisons, checked record members, earlier slots, invalid call prefixes and
 malformed expressions. Protocol, relocated Release and installed VS Code checks

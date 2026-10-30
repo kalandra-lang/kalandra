@@ -46,4 +46,4 @@ The source catalog covers call/pipeline syntax, empty inputs, all supported nume
 
 A private generated-entry probe verifies all 257 ordered results with a 16-record quota, measures overlapping callback execution with multiple workers, and checks one-worker progress, producer-independent result ownership, cancellation, deadlines, quota rejection and balanced cleanup. CLI probes inject allocation failures and verify caller evaluation order and preservation of existing build artifacts on rejected programs. These are correctness checks, not performance benchmarks.
 
-**69/69 selected checks passed.** See the [qualification record](../../native/metal-proof/evidence/cpu-parallel-map-2026-10-20.json) for the exact selection, test corrections, probe limits and remaining scope. This is not the full project suite.
+**69/69 selected checks passed.** See the [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-parallel-map-2026-10-20.json) for the exact selection, test corrections, probe limits and remaining scope. This is not the full project suite.

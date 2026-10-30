@@ -1,9 +1,0 @@
-Test project /Users/pouya/Projects/kalandra.dev/build/native
-    Start  14: native-bounded-entry
-1/2 Test  #14: native-bounded-entry .............   Passed    0.13 sec
-    Start 888: native-task-native-helpers
-2/2 Test #888: native-task-native-helpers .......   Passed  142.11 sec
-
-100% tests passed out of 2
-
-Total Test time (real) = 142.27 sec

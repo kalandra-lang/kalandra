@@ -96,7 +96,7 @@ numerical verification file. Initial screening results are not acceptance.
 Four prepared modes, four deterministic lifetime-gate modes and 27 broader
 groups pass. Full-cell frozen comparisons and independent numerical bounds pass
 across regular/odd shapes and upload modes. Work and submission counts do not
-change. The [complete report](../../benchmarks/results/gpu-encoding-overlap-2026-10-29.md)
+change. The [complete report](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-encoding-overlap-2026-10-29.md)
 retains primary, same-binary, repeat, streaming and longer-batch studies.
 
 The largest resident case improves about 4% consistently; all-upload confirmation

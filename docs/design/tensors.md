@@ -178,9 +178,31 @@ Zero-sized dimensions are legal. A tensor shaped `[0, 3]` has zero elements. Ran
 
 Elementwise arithmetic follows the accepted scalar numeric rules, including checked integer overflow and declared floating precision. A tensor expression does not automatically opt into fast-math, lower precision, wrapping integer arithmetic, or flush-to-zero behavior.
 
-Use a deterministic baseline for reductions: products in matmul round to the element format, then each output uses a fixed balanced sum tree in ascending logical contraction-index order. ReduceSum uses the same fixed tree over row-major logical element order. An odd tree level carries its final unpaired value to the next level; an empty reduction returns additive zero. This order is independent of thread/block scheduling. Do not initialize a nonempty sum with an extra zero that changes signed-zero behavior.
+Hardware float32 `matmul` defaults to the **optimized full-precision** policy.
+It preserves float32 inputs and accumulators while permitting fused multiply-add
+and implementation-dependent contraction order. The qualified Apple M2 Max
+profile uses pinned MIT-licensed MLX Steel SIMD-group kernels; other devices,
+unsupported shapes and older bundles retain the existing kernels. This policy
+does not permit silently converting float32 operands to float16/TF32, generic
+fast-math assumptions, relaxed integer checks or relaxed scalar/post-map arithmetic.
+The CPU currently retains its fixed-tree implementation under either policy.
 
-Under this baseline, matmul cannot silently substitute fused multiply-add, reduced-precision multiplication, or a vendor reduction algorithm with different rounding. Faster relaxed/explicitly fused tensor operations need a visible numerical-policy design. Measure the strict baseline honestly rather than assuming this contract matches peak vendor-library performance.
+Use `--matmul-policy fixed-tree` when compiling to retain separately rounded
+products followed by the fixed balanced sum tree in ascending contraction-index
+order. Native Metal callers can also set `Options::fixedTreeMatmul=true` on an
+optimized bundle. `--arithmetic software` always selects fixed-tree arithmetic.
+The optimized policy does not promise the same output bits as fixed-tree,
+cross-device bitwise equality, a fixed accumulation order or universally better
+accuracy. Signed zero and intermediate-overflow/NaN behavior can differ. Severe
+cancellation may have large relative error under either policy; use an
+appropriate numerical algorithm or precision when that matters.
+
+ReduceSum retains its fixed tree over row-major logical element order. Fixed-tree
+matmul and ReduceSum carry an odd tree level's final unpaired value to the next
+level; an empty reduction returns additive zero. Their order is independent of
+thread/block scheduling. Do not initialize a nonempty fixed-tree sum with an
+extra zero that changes signed-zero behavior. Integer matmul remains checked at
+its specified products/tree operations, under both policies.
 
 The accepted fixed-tree contract extends the scalar rules, not a claim that existing MLIR/IREE or vendor kernels already implement it. If the backend cannot honor it, the implementation must add a matching lowering or diagnose/select an explicitly different policy. Integer reduceSum checks overflow at the specified tree operations, not only in the final mathematical total.
 
@@ -246,7 +268,7 @@ Empty data has no element-type evidence and still needs context: `empty: Tensor[
 
 Inferred tensors use the existing checked tensor IR, ownership and arithmetic lowering. They can pass through ordinary calls, conditional shape joins, nested workers and cached awaits. This does not add general array values, runtime-array construction, dynamic shape arguments or additional GPU numeric capabilities. Explicit element conversion remains the way to change an already inferred tensor's element type.
 
-Qualification on Apple M2 Max: 59 focused checks passed, including debug/optimized/ASan+UBSan/separate TSan execution, 864 worker harness runs, 192 allocation/lifetime cases and 640 exact retained float64 lane checks. All 640 tracked numerical artifacts remain unchanged. This is focused qualification, not a full-suite claim. The [inference evidence record](../../native/metal-proof/evidence/cpu-tensor-inference-2026-10-17.json) records source/artifact hashes and coverage.
+Qualification on Apple M2 Max: 59 focused checks passed, including debug/optimized/ASan+UBSan/separate TSan execution, 864 worker harness runs, 192 allocation/lifetime cases and 640 exact retained float64 lane checks. All 640 tracked numerical artifacts remain unchanged. This is focused qualification, not a full-suite claim. The [inference evidence record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-tensor-inference-2026-10-17.json) records source/artifact hashes and coverage.
 
 ## Native runtime array construction
 

@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
     } else {
       filtered.push_back(argv[i]);
       if ((option == "-o" || option == "--emit-mlir" || option == "--emit-llvm" ||
-           option == "--test-entry" || option == "--arithmetic" || option == "--package" ||
+           option == "--test-entry" || option == "--arithmetic" || option == "--matmul-policy" || option == "--package" ||
            option == "--project") &&
           i + 1 < argc)
         filtered.push_back(argv[++i]);
@@ -135,6 +135,7 @@ int main(int argc, char **argv) {
         << "usage: kalandra source.k -o executable [--emit-mlir file] [--emit-llvm "
            "file] [--test-entry function] [--arithmetic "
            "hardware|software|hardware-with-software-fallback] [--sanitize|--thread-sanitize] "
+           "[--matmul-policy optimized|fixed-tree] "
            "[-O0|-O2] [--target "
            "cpu|metal] [--package name=path.k ...] [--project manifest.toml instead of source]\n"
            "       kalandra new directory\n";
@@ -148,6 +149,7 @@ int main(int argc, char **argv) {
   bool sanitize = false, threadSanitize = false;
   kalandra::ArithmeticMode arithmetic = kalandra::ArithmeticMode::Hardware;
   bool selectedArithmetic = false;
+  bool selectedMatmul = false;
   std::string optimization = "-O0";
   for (std::size_t i = 1; i < arguments.size(); ++i) {
     const std::string option = arguments[i];
@@ -185,6 +187,14 @@ int main(int argc, char **argv) {
       }
       arithmetic = *mode;
       selectedArithmetic = true;
+    } else if (option == "--matmul-policy" && !selectedMatmul && i+1<arguments.size()) {
+      if (!kalandra::parseMatmulPolicy(arguments[++i])) {
+        std::cerr << "invalid --matmul-policy\n";
+        return 2;
+      }
+      // The CPU's existing fixed tree is a valid full-precision implementation
+      // under either policy. This option currently selects GPU kernel freedom.
+      selectedMatmul = true;
     } else if (option == "--sanitize")
       sanitize = true;
     else if (option == "--thread-sanitize")

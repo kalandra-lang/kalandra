@@ -36,6 +36,9 @@ install(FILES include/kalandra/NumericType.h include/kalandra/TensorTransform.h
 install(FILES packaging/Metal-README.md
   DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/kalandra-native-metal"
   RENAME README.md COMPONENT NativeMetalCompiler)
+install(FILES third_party/mlx-steel/LICENSE
+  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/kalandra-native-metal"
+  RENAME MLX-Steel-LICENSE.txt COMPONENT NativeMetalCompiler)
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/metal-install/$<CONFIG>/toolchain.json"
   CONTENT "{\n  \"format\": 1,\n  \"package\": \"kalandra-native-metal\",\n  \"configuration\": \"$<CONFIG>\",\n  \"llvmVersion\": \"${KALANDRA_LLVM_VERSION}\",\n  \"spirvCross\": \"${KALANDRA_SPIRV_CROSS_ROOT}\",\n  \"spirvTools\": \"${KALANDRA_SPIRV_TOOLS_ROOT}\",\n  \"metalToolchain\": \"${KALANDRA_METAL_TOOLCHAIN}\",\n  \"metalCompiler\": \"${KALANDRA_METAL_COMPILER}\",\n  \"macosSdk\": \"${KALANDRA_METAL_SDK}\",\n  \"externalDependencies\": true\n}\n")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/metal-install/$<CONFIG>/toolchain.json"

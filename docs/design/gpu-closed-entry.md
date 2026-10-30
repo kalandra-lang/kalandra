@@ -6,7 +6,7 @@ exposing a cancellation capability. Source parallelism and ordinary `TaskCore`
 embedding retain their existing scheduling and cancellation behavior.
 
 This addresses the command-handshake cost identified by the
-[lower-bound experiment](../../benchmarks/results/gpu-command-lower-bound-2026-10-29.md).
+[lower-bound experiment](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-command-lower-bound-2026-10-29.md).
 That experiment was instrumented and deliberately lacked a cancellation proof;
 its timings are not acceptance results for this implementation.
 
@@ -96,10 +96,10 @@ The frozen acceptance sweep checks all output bits for 13 regular/odd shapes and
 all upload modes, including the streaming fallback, against the previous runtime
 and an independent numerical oracle. CPU LLVM and Metal shader artifacts are
 unchanged. Unprofiled paired, policy, ordinary-API, replication, streaming and fresh-reference
-studies are complete in the [acceptance report](../../benchmarks/results/gpu-closed-entry-2026-10-29.md).
+studies are complete in the [acceptance report](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-closed-entry-2026-10-29.md).
 Largest resident time falls 43.32% in the primary comparison and 43.38% in
 replication. Small cases remain mixed, including a −4.02% same-binary policy
 control. Ordinary API medians range from −1.85% to +1.38%. Fresh largest-resident
 Metal takes 1.57× MPSGraph's time; MPSGraph is a reference, never a production
-dependency. The [encoder diagnostic](../../benchmarks/results/gpu-dispatch-counter-summary-2026-10-29.md)
+dependency. The [encoder diagnostic](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-dispatch-counter-summary-2026-10-29.md)
 is instrumented and does not replace these accepted timings.

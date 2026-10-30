@@ -128,7 +128,7 @@ missing-cache offline attempt sends no requests, and check/build after shutting
 down both HTTP/TLS servers. Installed CPU compiler and Metal source checks consume
 the public lock; Metal source emission is not new GPU execution qualification.
 
-See the [qualification record](../../native/metal-proof/evidence/native-package-lock-2026-10-20.json).
+See the [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-package-lock-2026-10-20.json).
 The [native editor](native-language-server.md#installed-dependencies) now reads
 and validates this lock without installing or rewriting packages.
 [Installed Metal applications](native-metal-install.md#installed-numerical-libraries)

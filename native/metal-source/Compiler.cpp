@@ -4,6 +4,7 @@
 #include "MatmulTiles.h"
 #include "NumericProgram.h"
 #include "NumericShader.h"
+#include "../third_party/mlx-steel/SteelUpstream.h"
 #include "kalandra/Backend.h"
 #include "kalandra/Continuation.h"
 #include "kalandra/MetalSource.h"
@@ -3903,6 +3904,7 @@ int kalandra::compileMetalCommand(int argc, char **argv) {
     std::cerr << "usage: kalandra-metal-source <source.k | --project "
                  "manifest.toml> -o directory "
                  "[--arithmetic hardware|software|hardware-with-software-fallback] "
+                 "[--matmul-policy optimized|fixed-tree] "
                  "[--package name=path.k ...] [--build "
                  "[-O0|-O2|--sanitize|--thread-sanitize]]\n";
     return 2;
@@ -3910,6 +3912,8 @@ int kalandra::compileMetalCommand(int argc, char **argv) {
   bool build = false, testCpuExports = false;
   ArithmeticMode arithmetic = ArithmeticMode::Hardware;
   bool selectedArithmetic = false;
+  MatmulPolicy matmul = MatmulPolicy::Optimized;
+  bool selectedMatmul = false;
   std::string variant = "debug", sourcePath, projectPath;
   std::filesystem::path directory;
   std::optional<NativeProject> project;
@@ -3944,6 +3948,14 @@ int kalandra::compileMetalCommand(int argc, char **argv) {
         return usage();
       arithmetic = *parsed;
       selectedArithmetic = true;
+    } else if (option == "--matmul-policy" && !selectedMatmul) {
+      if (++i >= argc)
+        return usage();
+      auto parsed = parseMatmulPolicy(argv[i]);
+      if (!parsed)
+        return usage();
+      matmul = *parsed;
+      selectedMatmul = true;
     } else if (option == "--test-cpu-exports" && !testCpuExports) {
       testCpuExports = true;
     } else if (option == "--build" && !build)
@@ -3962,6 +3974,8 @@ int kalandra::compileMetalCommand(int argc, char **argv) {
   }
   if (directory.empty() || (selected && !build) || (!sourcePath.empty() && !projectPath.empty()))
     return usage();
+  if (arithmetic == ArithmeticMode::Software)
+    matmul = MatmulPolicy::FixedTree;
   if (!projectPath.empty()) {
     auto loaded = loadNativeProject(projectPath);
     if (!loaded) {
@@ -3998,6 +4012,9 @@ int kalandra::compileMetalCommand(int argc, char **argv) {
       return 1;
     }
     auto outputs = Compiler(std::move(parsed->module), arithmetic, testCpuExports).run();
+    outputs["manifest.txt"] += "matmul_policy=" + std::string(matmulPolicyName(matmul)) + "\n";
+    if (matmul == MatmulPolicy::Optimized)
+      outputs["THIRD_PARTY_NOTICES.txt"] = kalandraSteelLicense;
     if (outputs.contains("cpu.ll") && (variant == "sanitized" || variant == "thread-sanitized")) {
       llvm::LLVMContext context;
       llvm::SMDiagnostic diagnostic;
@@ -4072,7 +4089,7 @@ int kalandra::compileMetalCommand(int argc, char **argv) {
       std::filesystem::rename(std::string(temporary), target);
     }
     if (build)
-      buildMetalProgram(directory, outputs, variant, arithmetic);
+      buildMetalProgram(directory, outputs, variant, arithmetic, matmul);
     return 0;
   } catch (const Rejected &e) {
     std::cerr << renderDiagnostic(*source, e.diagnostic);

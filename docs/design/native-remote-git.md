@@ -102,7 +102,7 @@ its public installer, and builds an offline worker application. Remote numerical
 imports are checked through offline Metal source emission; this is not new GPU
 execution qualification.
 
-See the [qualification record](../../native/metal-proof/evidence/native-remote-git-2026-10-20.json).
+See the [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-remote-git-2026-10-20.json).
 A separate read-only public GitHub probe fetched and extracted an exact commit
 from `octocat/Hello-World` using system TLS, then correctly rejected its missing
 native library manifest without publishing a snapshot. This is a transport probe,
@@ -128,7 +128,7 @@ still consume that prior selected graph without contacting the server. Update
 does not add authentication, inherited credential helpers, SSH, redirects or a
 CLI TLS bypass. An explicitly supplied CA remains an installer API facility.
 
-[Remote-update qualification](../../native/metal-proof/evidence/native-remote-update-2026-10-21.json)
+[Remote-update qualification](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-remote-update-2026-10-21.json)
 uses controlled loopback HTTP and HTTPS servers, a generated fixture certificate
 and no external service or user credentials. It checks selected branch/tag moves,
 unselected aliases/private branch pins, actual trusted/untrusted TLS behavior,

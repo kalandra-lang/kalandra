@@ -32,6 +32,8 @@ codeblock { language = kalandra, """fn main() -> float32:
 
 matmul currently multiplies rank-two tensors with matching inner dimensions. reduceSum follows a balanced adjacent-pair tree, rather than an arbitrary sequential or reassociated sum. Integer products and sums remain checked.
 
+Hardware float32 matmul permits optimized full-precision fused accumulation by default. Select --matmul-policy fixed-tree to retain separately rounded products and the fixed balanced contraction tree. CPU matmul currently retains that tree under either policy. Neither mode guarantees exact real arithmetic; optimized and fixed-tree results can differ in rounding and exceptional-value behavior. The GPU numerical documentation explains the two policies.
+
 h2 { "ReLU activation" }
 
 codeblock { language = kalandra, """fn main() -> float32:

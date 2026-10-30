@@ -116,5 +116,5 @@ Branch rehearsals upload workflow artifacts and publish no release. The
 [publisher signing setup](native-ci-signing.md) runs entirely on GitHub Actions.
 Version-tag publication must remain gated on successful distribution checks.
 N6 covers website, onboarding and release preparation. The historical
-[local distribution record](../../native/metal-proof/evidence/native-standalone-distribution-2026-10-23.json)
+[local distribution record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/native-standalone-distribution-2026-10-23.json)
 is retained as historical evidence, not substituted for current hosted results.

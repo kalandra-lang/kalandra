@@ -27,6 +27,6 @@ Checks never write buffer contents. Each call has its own replacements and modul
 
 ## Qualification and remaining work
 
-Normal and ASan/UBSan tests cover multi-buffer signature changes, owned source lifetimes, Unicode locations, new roots/dependencies/package entries, symlink aliases, cycles, source budgets and unchanged disk checks. CLI tests cover stdin, manifests/packages, JSON/terminal output and bounded reads. See the [qualification record](../../native/metal-proof/evidence/source-overlays-2026-10-20.json).
+Normal and ASan/UBSan tests cover multi-buffer signature changes, owned source lifetimes, Unicode locations, new roots/dependencies/package entries, symlink aliases, cycles, source budgets and unchanged disk checks. CLI tests cover stdin, manifests/packages, JSON/terminal output and bounded reads. See the [qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/source-overlays-2026-10-20.json).
 
 The CLI accepts one root buffer; multiple buffers are currently a native API facility. The [native language server](native-language-server.md) now uses this API for versioned full-document/incremental updates and diagnostic publication. Asynchronous stale-result suppression and editor navigation/completion remain. Unsaved project manifests and package installation are not part of source overlays.

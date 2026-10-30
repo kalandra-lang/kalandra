@@ -41,7 +41,7 @@ Independent observations can outlive their producer, task group and scheduler. W
 
 ## Qualification
 
-The [CPU qualification record](../../native/metal-proof/evidence/cpu-worker-callable-aggregates-2026-10-20.json) records 57 passing selected CTest checks on Apple M2 Max with LLVM/MLIR 22.1.8. This is a focused selection, not the full project suite. Implementation and test sources were frozen before the final run.
+The [CPU qualification record](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/native/metal-proof/evidence/cpu-worker-callable-aggregates-2026-10-20.json) records 57 passing selected CTest checks on Apple M2 Max with LLVM/MLIR 22.1.8. This is a focused selection, not the full project suite. Implementation and test sources were frozen before the final run.
 
 New execution suites compile/run 108 source programs across debug, optimized, ASan/UBSan and separate ThreadSanitizer modes. Private harnesses check creator-independent lifetimes, source immutability, 48 invalid/stopped arrays, 28 allocation probes, active/inactive/invalid enum tags, known wrong signatures, invocation copy budgets and forged cyclic array captures. They run 144 producers with 288 cached observations and 576 function calls after releasing the group/core, plus 96 argument tasks after destroying their submitting contexts. Queued cancellation and shared root result quotas settle without leaked reservations.
 

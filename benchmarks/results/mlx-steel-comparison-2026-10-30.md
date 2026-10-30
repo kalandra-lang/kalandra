@@ -1,5 +1,9 @@
 # Pinned MLX Steel kernel comparison — 30 October 2026
 
+Historical study retained as release context. Its original raw data and retired
+reproduction scripts are preserved in Git and the [research archive](../research-archive.json).
+This is not a fresh run of the current release candidate.
+
 ## Scope and provenance
 
 Upstream MLX commit `1ba7f969ad05d86decfeeb83787cc9b79e440962`, MIT license retained alongside the evidence. The upstream `GEMMKernel<float,float,...,float>` templates and transitive headers are unmodified. Our adapter only supplies the Metal entry point, buffers, parameters and threadgroup arrays; it does not implement or rewrite the matrix algorithm. Three existing tile configurations are screened: 64×64×16 (four SIMD groups), 32×64×16 (two groups), 64×32×32 (four groups). No full MLX runtime, NAX path, split-K selector, transpose/batch selector or autotuner is included. These are selected Steel kernels, not a claim to measure peak MLX framework performance.

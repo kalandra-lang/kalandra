@@ -53,7 +53,7 @@ typed matrix/APFloat and row-math gates, canonical codegen checks and relocated
 Metal distribution execution passed. Frozen comparison dumps match every bit;
 full-model reference checks cover 476,455 cells. CPU LLVM is byte-identical.
 
-[Report, chart, losing cases and raw evidence](../../benchmarks/results/gpu-fusion-execution-2026-10-28.md).
+[Report, chart, losing cases and raw evidence](https://github.com/kalandra-lang/kalandra/blob/8ca7d50a3ab4b6cc611b5eb34bca7cff2d7933a7/benchmarks/results/gpu-fusion-execution-2026-10-28.md).
 The next architectural experiment is GPU-side graph progression with explicit
 device-visible cancellation/fault gates. Residual epilogues across validated
 shape guards remain another candidate; neither is implemented in this step.

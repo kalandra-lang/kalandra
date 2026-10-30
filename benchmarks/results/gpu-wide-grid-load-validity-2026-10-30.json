@@ -1,7 +1,0 @@
-{
-  "acceptance": false,
-  "load_record_available": false,
-  "reason": "The first load sampler failed to identify the running PID. A later attachment targeted the verified PID after it had exited. No load samples were collected; do not infer background idleness.",
-  "measurement": "gpu-wide-grid-paired-2026-10-30.json",
-  "production_changed": false
-}

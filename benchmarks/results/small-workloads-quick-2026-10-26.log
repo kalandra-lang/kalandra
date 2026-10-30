@@ -1,1 +1,0 @@
-optimized: GPU hardware numerical qualification: 3188 cases, 5805220 exact output comparisons (APFloat + integer matrix oracle); per-cell matrices, balanced reductions, tails, rounding, signed zeros, nonfinite values and FTZ passed
