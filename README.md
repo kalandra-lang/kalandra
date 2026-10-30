@@ -17,6 +17,12 @@ Native source files use `.k`. The compiler is under development; the [native imp
 
 The native toolchain version is **0.99.0**. Run `kalandra --version` to identify an installed compiler. [Release notes](docs/releases/0.99.0.md) explain the move from the 0.12.0 line to native CPU/GPU execution.
 
+## Install
+
+Download the toolchain and `kalandra-native.vsix` from [GitHub Releases](https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.0). Choose the standalone Metal DMG for macOS 26+ on Apple silicon, or the standalone CPU archive for Linux or Windows x86-64. Verify the accompanying SHA-256 checksum and keep the complete toolchain directory together.
+
+Follow the [installation guide](https://kalandra.dev/docs/installation) for platform prerequisites and PATH setup. The [editor guide](https://kalandra.dev/docs/tooling) covers VS Code's **Install from VSIX** command and other LSP editors. Native tools and the installed editor client require no JavaScript runtime.
+
 ## Build from source
 
 Install the matching LLVM/MLIR 23.1.3 toolchain, toml++ 3.4.0, CMake and Ninja described in the [build guide](native/README.md#build-and-test), then run:
