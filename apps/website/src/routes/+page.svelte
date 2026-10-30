@@ -1,72 +1,65 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import type { PageData } from "./$types";
+  import ExecutionField from "$lib/components/ExecutionField.svelte";
+  import { socialImage } from "$lib/social";
   let { data }: { data: PageData } = $props();
-  const repo = "https://github.com/kalandra-lang/kalandra";
-  const docs = "/docs";
   let selected = $state(0);
   let copied = $state(false);
   let copyError = $state(false);
-  let menuOpen = $state(false);
-  let timer: ReturnType<typeof setTimeout>;
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
   const example = $derived(data.examples[selected]);
-  function tokens(line: string) {
-    return line
-      .split(
-        /(\b(?:fn|try|parallel|spawn|on|await|float32|Tensor|TaskError|matmul|transfer|tensor|reduceSum)\b|\b\d+\b|->)/g,
-      )
-      .map((text) => ({
-        text,
-        kind: /^(fn|try|parallel|spawn|on|await)$/.test(text)
-          ? "keyword"
-          : /^(float32|Tensor|TaskError)$/.test(text)
-            ? "type"
-            : /^(matmul|transfer|tensor|reduceSum)$/.test(text)
-              ? "function"
-              : /^(\d+|->)$/.test(text)
-                ? "value"
-                : "",
-      }));
+  function resetCopy() {
+    if (copyTimer) clearTimeout(copyTimer);
+    copied = false;
+    copyError = false;
   }
-  async function copy() {
-    clearTimeout(timer);
+  async function copySource() {
+    resetCopy();
     try {
       await navigator.clipboard.writeText(example.source);
       copied = true;
-      copyError = false;
     } catch {
-      copied = false;
       copyError = true;
     }
-    timer = setTimeout(() => {
-      copied = false;
-      copyError = false;
-    }, 2500);
+    copyTimer = setTimeout(resetCopy, 2500);
   }
-  function select(index: number) {
-    selected = index;
-    copied = false;
-    copyError = false;
-    clearTimeout(timer);
+  function tokens(source: string) {
+    return source
+      .split(/(\b(?:fn|try|parallel|spawn|on|await|if|else)\b|->)/g)
+      .map((text) => ({
+        text,
+        keyword: /^(fn|try|parallel|spawn|on|await|if|else|->)$/.test(text),
+      }));
   }
-  onDestroy(() => clearTimeout(timer));
+  onDestroy(() => {
+    if (copyTimer) clearTimeout(copyTimer);
+  });
+  let menuOpen = $state(false);
+  let menuButton: HTMLButtonElement;
+  function handleNavigationKey(event: KeyboardEvent) {
+    if (event.key === "Escape" && menuOpen) {
+      menuOpen = false;
+      menuButton?.focus();
+    }
+  }
+  const repo = "https://github.com/kalandra-lang/kalandra";
 </script>
 
 {#snippet arrow(external = false)}
   <svg
-    width="16"
-    height="16"
+    width="24"
+    height="24"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    stroke-width="1.6"
-    stroke-linecap="round"
-    stroke-linejoin="round"
+    stroke-width="1.5"
     aria-hidden="true"
-    >{#if external}<path d="M6 18 18 6M6 6h12v12" />{:else}<path
-        d="M4 12h15m-6-6 6 6-6 6"
-      />{/if}</svg
   >
+    {#if external}<path d="M6 18 18 6M6 6h12v12" />{:else}<path
+        d="M4 12h15m-6-6 6 6-6 6"
+      />{/if}
+  </svg>
 {/snippet}
 
 <svelte:head>
@@ -90,149 +83,143 @@
   />
   <meta property="og:url" content="https://kalandra.dev/" /><meta
     property="og:image"
-    content="https://kalandra.dev/social/native.png"
+    content={socialImage.url}
   />
-  <meta property="og:image:width" content="1200" /><meta
+  <meta property="og:image:width" content={String(socialImage.width)} /><meta
     property="og:image:height"
-    content="630"
-  /><meta
-    property="og:image:alt"
-    content="Kalandra. A native language for CPU and GPU computing."
-  />
+    content={String(socialImage.height)}
+  /><meta property="og:image:alt" content={socialImage.alt} />
+  <meta property="og:image:type" content="image/png" />
+  <meta name="twitter:image" content={socialImage.url} />
+  <meta name="twitter:image:alt" content={socialImage.alt} />
   <meta name="twitter:card" content="summary_large_image" /><meta
     name="theme-color"
     content="#000000"
   />
 </svelte:head>
 
-<div class="language-site">
+<svelte:window onkeydown={handleNavigationKey} />
+
+<div class="swiss-site">
   <a class="skip" href="#main">Skip to content</a>
-  <header>
-    <div class="nav-shell">
-      <a class="brand" href="/" aria-label="Kalandra home"
-        ><span class="brand-mark" aria-hidden="true"></span>Kalandra</a
-      ><button
-        class="menu"
-        aria-expanded={menuOpen}
-        aria-controls="main-nav"
-        onclick={() => (menuOpen = !menuOpen)}
-        >{menuOpen ? "Close" : "Menu"}<svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          aria-hidden="true"
-          >{#if menuOpen}<path d="m6 6 12 12M6 18 18 6" />{:else}<path
-              d="M4 8h16M4 16h16"
-            />{/if}</svg
-        ></button
-      >
-      <nav id="main-nav" class:open={menuOpen} aria-label="Main navigation">
-        <a href="/docs">Documentation</a><a href="/docs/gpu">GPU computing</a><a
-          href={`${repo}/blob/native/docs/roadmap.md`}>Roadmap</a
-        ><a href={repo}>GitHub {@render arrow(true)}</a><a
-          class="nav-start"
-          href="/docs/getting-started">Get started</a
-        >
-      </nav>
-    </div>
+  <header class="shell">
+    <a class="brand" href="/" aria-label="Kalandra home"
+      ><span class="brand-mark" aria-hidden="true"></span>Kalandra</a
+    >
+    <button
+      bind:this={menuButton}
+      class="menu"
+      aria-expanded={menuOpen}
+      aria-controls="main-nav"
+      onclick={() => (menuOpen = !menuOpen)}
+      >{menuOpen ? "Close" : "Menu"}<svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+        >{#if menuOpen}<path d="m6 6 12 12M6 18 18 6" />{:else}<path
+            d="M4 8h16M4 16h16"
+          />{/if}</svg
+      ></button
+    >
+    <nav id="main-nav" class:open={menuOpen} aria-label="Main navigation">
+      <a href="/docs/syntax">Language</a><a href="/docs/gpu">GPU computing</a><a
+        href="/docs">Documentation</a
+      ><a href={repo}>GitHub</a>
+    </nav>
   </header>
   <main id="main">
-    <section class="hero" aria-labelledby="hero-title">
-      <div class="hero-art" aria-hidden="true"></div>
-      <div class="hero-content shell">
-        <div class="hero-copy">
-          <h1 id="hero-title">One language.<br /><span>CPU and GPU.</span></h1>
-          <p class="hero-description">
-            Kalandra brings typed functions, structured parallelism and explicit
-            GPU placement into a single native language.
-          </p>
-          <div class="hero-actions">
-            <a class="button primary hero-start" href="/docs/getting-started"
-              >Get started {@render arrow()}</a
-            ><a class="hero-guide" href="/docs/gpu"
-              >Explore GPU computing {@render arrow()}</a
-            >
-          </div>
-          <p class="preview-note">
-            Open source. Native development preview. <a
-              href={`${repo}/blob/native/docs/roadmap.md`}
-              >Follow development {@render arrow(true)}</a
-            >
-          </p>
+    <section class="hero shell" aria-labelledby="hero-title">
+      <h1 id="hero-title">
+        <span>One language.</span><span>CPU and GPU.</span>
+      </h1>
+      <div class="hero-intro">
+        <p class="hero-description">
+          Typed functions. Structured parallelism.<br />Native foundations for
+          numerical and AI workloads.
+        </p>
+        <div class="hero-actions">
+          <a class="button" href="/docs/getting-started"
+            >Get started {@render arrow()}</a
+          ><a class="guide-link" href="/docs/syntax">Read the language guide</a>
         </div>
+        <p class="preview-note">Open source. Native development preview.</p>
       </div>
+      <ExecutionField />
     </section>
 
     <section class="examples shell" aria-labelledby="examples-title">
       <div class="example-intro">
-        <h2 id="examples-title">Functions in.<br /> GPU graphs out.</h2>
+        <h2 id="examples-title">Write functions.<br />Place the work.</h2>
         <p aria-live="polite">{example.description}</p>
-        <a href={`${repo}/blob/native/${example.path}`}
-          >View complete source {@render arrow(true)}</a
-        >
       </div>
-      <div class="code-example" id="examples">
-        <div
-          class="example-tabs"
-          role="group"
-          aria-label="Native language examples"
-        >
-          {#each data.examples as item, i}<button
-              class:active={selected === i}
-              aria-pressed={selected === i}
-              onclick={() => select(i)}>{item.title}</button
-            >{/each}
-        </div>
+      <div class="code-example">
         <div class="filebar">
-          <span>{example.file}</span><button
-            onclick={copy}
-            aria-label="Copy source"
-            >{copied
-              ? "Copied"
-              : copyError
-                ? "Select source to copy"
-                : "Copy"}</button
-          ><span class="sr-only" role="status"
-            >{copied
-              ? "Source copied to clipboard."
-              : copyError
-                ? "Clipboard unavailable. Select and copy the source manually."
-                : ""}</span
-          >
+          <div class="source-picker">
+            <label class="sr-only" for="example"
+              >Choose a native code example</label
+            >
+            <select id="example" bind:value={selected} onchange={resetCopy}>
+              {#each data.examples as item, index}<option value={index}
+                  >{item.file}</option
+                >{/each}
+            </select>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg
+            >
+          </div>
+          <div class="code-actions">
+            <a
+              href={`${repo}/blob/native/${example.path}`}
+              aria-label={`View complete ${example.title} source`}
+              >Source {@render arrow(true)}</a
+            ><button
+              onclick={copySource}
+              aria-label="Copy displayed source code"
+              >{copied ? "Copied" : copyError ? "Select code" : "Copy"}</button
+            >
+          </div>
         </div>
-        <!-- Keyboard focus allows scrolling long native examples. -->
+        <!-- Local overflow is keyboard accessible for longer native source choices. -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-        <div
-          class="source"
-          role="region"
-          tabindex="0"
-          aria-label={`${example.title} source code`}
+        <pre tabindex="0" aria-label={`${example.title} source code`}><code
+            >{#each tokens(example.source) as token}<span
+                class:keyword={token.keyword}>{token.text}</span
+              >{/each}</code
+          ></pre>
+        <span class="sr-only" role="status"
+          >{copied
+            ? "Source copied to clipboard."
+            : copyError
+              ? "Clipboard unavailable. Select and copy the source manually."
+              : ""}</span
         >
-          <pre><code
-              >{#each example.source.split("\n") as line, i}<span
-                  class="code-line"
-                  ><span class="line-number" aria-hidden="true">{i + 1}</span
-                  ><span class="line-content"
-                    >{#each tokens(line) as token}<span class={token.kind}
-                        >{token.text}</span
-                      >{/each}{"\n"}</span
-                  ></span
-                >{/each}</code
-            ></pre>
-        </div>
       </div>
     </section>
 
-    <section class="overview shell" aria-labelledby="overview-title">
-      <h2 id="overview-title">One language. The whole machine.</h2>
-      <p class="section-intro">
+    <section class="computing shell" aria-labelledby="computing-title">
+      <p class="section-label">Native computing</p>
+      <div class="computing-heading">
+        <h2 id="computing-title">From tensors to parallel tasks.</h2>
+        <a class="platform-summary" href="#platforms"
+          ><span>macOS / CPU + Metal</span><span>Linux, Windows / CPU</span></a
+        >
+      </div>
+      <p class="computing-intro">
         Express the computation as functions. Make execution and data movement
-        explicit.
+        explicit. A shared language for typed CPU workers and resident GPU
+        graphs.
       </p>
-      <div class="principles">
+      <div class="capabilities">
         <article>
           <h3>Compose functions.</h3>
           <p>
@@ -240,7 +227,7 @@
             matrix products and reductions. Intermediate results can remain on
             the GPU.
           </p>
-          <a href="/docs/gpu">Explore GPU operations {@render arrow()}</a>
+          <a href="/docs/functions">The language {@render arrow()}</a>
         </article>
         <article>
           <h3>Place the work.</h3>
@@ -249,82 +236,79 @@
             tensors explicitly, await results, and keep task lifetimes within
             parallel scopes.
           </p>
-          <a href={`${repo}/blob/native/native/README.md`}
-            >Read the execution model {@render arrow()}</a
-          >
+          <a href="/docs/parallelism">Parallel execution {@render arrow()}</a>
         </article>
         <article>
           <h3>Build native programs.</h3>
           <p>
-            Compile to native applications with a source checker, formatter,
-            language server and VS Code extension supporting your development
-            workflow.
+            Compile native applications with a checker, formatter, language
+            server and VS Code extension supporting your development workflow.
           </p>
-          <a href="/docs/getting-started"
-            >Set up the toolchain {@render arrow()}</a
-          >
+          <a href="/docs/tooling">Native tooling {@render arrow()}</a>
         </article>
       </div>
     </section>
 
-    <section class="numerics section-line" id="ai">
-      <div class="shell numerical-layout">
-        <div>
-          <h2>Build the foundations<br /> of AI on the GPU.</h2>
-          <p>
-            Matrix products, tensor arithmetic and balanced reductions are
-            building blocks of modern AI and LLM systems. Kalandra makes these
-            operations available in a typed native language, with control over
-            where data lives and computation runs.
-          </p>
-          <p>
-            GPU programs support all ten native numeric types and dense tensor
-            ranks zero through eight. Metal float32 uses hardware arithmetic;
-            float64 requires explicit software fallback. Compose resident
-            numerical and control graphs on Apple Metal, with explicit transfers
-            between host and device.
-          </p>
-          <a class="text-link" href="/docs/gpu"
-            >Read the GPU guide {@render arrow()}</a
-          >
-        </div>
-        <div class="operation-reference">
-          <div>
-            <code>matmul(a, b)</code>
-            <p>Rank-two matrix products, composed into resident graphs.</p>
-          </div>
-          <div>
-            <code>reduceSum(values)</code>
-            <p>Balanced sums over typed numerical tensors.</p>
-          </div>
-          <div>
-            <code>transfer(values, device)</code>
-            <p>Explicit data movement between CPU and GPU.</p>
-          </div>
-          <a href={`${repo}/blob/native/docs/design/native-gpu-capabilities.md`}
-            >Supported operations and numerical semantics {@render arrow(
-              true,
-            )}</a
-          >
-        </div>
+    <section class="numerics shell" aria-labelledby="numerics-title">
+      <div class="numerics-copy">
+        <h2 id="numerics-title">Numerical by nature.</h2>
+        <p>
+          Matrix products, tensor arithmetic and reductions are foundations of
+          modern AI and LLM systems. Work with them in a typed native language,
+          with control over where data lives and computation runs.
+        </p>
+        <p>
+          GPU programs support all ten native numeric types and dense tensor
+          ranks zero through eight. Hardware float32 matmul supports optimized
+          accumulation, with an explicit fixed-tree policy. GPU float64 requires
+          software fallback.
+        </p>
+        <a class="inline-link" href="/docs/gpu-numerics"
+          >Numerical policies {@render arrow()}</a
+        >
       </div>
-      <div class="shell scope-note">
+      <div class="operation-reference">
+        <div>
+          <code>matmul(a, b)</code>
+          <p>Compose rank-two matrix products into resident graphs.</p>
+        </div>
+        <div>
+          <code>relu(values)</code>
+          <p>Apply a tensor activation without a trip back to the CPU.</p>
+        </div>
+        <div>
+          <code>reduceSum(values)</code>
+          <p>Balanced sums over typed numerical tensors.</p>
+        </div>
+        <div>
+          <code>transfer(values, device)</code>
+          <p>Explicit data movement between CPU and GPU.</p>
+        </div>
+        <a class="inline-link" href="/docs/gpu"
+          >Explore GPU computing {@render arrow()}</a
+        >
+      </div>
+      <p class="scope-note">
         Apple Metal is the current GPU backend. Model loading, a full LLM
         inference runtime and CUDA remain outside the current scope.
-      </div>
+      </p>
     </section>
 
-    <section class="platforms shell" aria-labelledby="platform-title">
-      <h2 id="platform-title">Native development across platforms.</h2>
+    <section
+      class="platforms shell"
+      id="platforms"
+      aria-labelledby="platform-title"
+    >
+      <h2 id="platform-title">Native across platforms.</h2>
       <p class="section-intro">
-        Use the same language and tools for CPU programs, with Apple Metal
-        available on supported Macs.
+        The same language and tools for CPU programs. Apple Metal on supported
+        Macs.
       </p>
-      <!-- Keyboard focus allows scrolling the platform table on narrow screens. -->
+      <!-- The platform table keeps horizontal overflow inside a keyboard-focusable region. -->
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <div
-        tabindex="0"
         class="platform-table"
+        tabindex="0"
         role="region"
         aria-label="Supported native platforms"
       >
@@ -337,7 +321,7 @@
             ></thead
           ><tbody
             ><tr
-              ><th scope="row">macOS</th><td>CPU and Apple Metal GPU</td><td
+              ><th scope="row">macOS</th><td>CPU + Apple Metal GPU</td><td
                 >macOS 26+, Apple silicon</td
               ></tr
             ><tr
@@ -352,97 +336,83 @@
           >
         </table>
       </div>
-      <a
-        class="text-link"
-        href={`${repo}/blob/native/docs/design/native-releases.md`}
+      <a class="inline-link" href="/docs/installation"
         >Distribution and toolchain requirements {@render arrow()}</a
       >
     </section>
 
-    <section class="onboarding section-line">
-      <div class="shell onboarding-layout">
-        <div>
-          <h2>Start with a native project.</h2>
-          <p>
-            Install the native toolchain, create a project, check its sources,
-            and compile an executable. The starter includes two modules and a
-            typed parallel map.
-          </p>
-          <div class="onboarding-links">
-            <a class="button primary" href="/docs/getting-started"
-              >Installation and setup {@render arrow()}</a
-            ><a
-              class="text-link"
-              href={`${repo}/blob/native/docs/design/native-vscode.md`}
-              >Editor integration {@render arrow(true)}</a
-            >
-          </div>
-        </div>
-        <div class="terminal">
-          <div class="terminal-title">With the native compiler installed</div>
-          <pre><code
-              >kalandra new my-app
+    <section class="onboarding shell" aria-labelledby="start-title">
+      <div>
+        <h2 id="start-title">Your first native project.</h2>
+        <p>
+          Install the toolchain, create a project, check its sources, and
+          compile an executable. The starter includes two modules and a typed
+          parallel map.
+        </p>
+        <a class="button" href="/docs/getting-started"
+          >Get started {@render arrow()}</a
+        ><a class="editor-link inline-link" href="/docs/tooling"
+          >Set up your editor {@render arrow()}</a
+        >
+      </div>
+      <div class="terminal">
+        <p>With the native compiler installed</p>
+        <pre><code
+            >kalandra new my-app
 kalandra-check --project my-app/kalandra.toml
 kalandra --project my-app/kalandra.toml \
   -o my-app/program
 ./my-app/program</code
-            ></pre>
-          <a href={`${repo}/blob/native/docs/design/native-starter.md`}
-            >Native starter reference {@render arrow(true)}</a
-          >
-        </div>
+          ></pre>
       </div>
     </section>
+
     <section class="open-source shell">
-      <h2>Open source, in development.</h2>
-      <p>
-        Explore the implementation, read the language design, or contribute to
-        the next native milestone.
-      </p>
+      <h2>Open source,<br />in development.</h2>
       <div>
-        <a href={repo}>Kalandra on GitHub {@render arrow(true)}</a><a
-          href={`${repo}/blob/native/docs/roadmap.md`}
+        <p>
+          Explore the implementation, read the language design, or contribute to
+          the next native milestone.
+        </p>
+        <a class="inline-link" href={repo}
+          >Kalandra on GitHub {@render arrow(true)}</a
+        ><a class="inline-link" href={`${repo}/blob/native/docs/roadmap.md`}
           >Development roadmap {@render arrow()}</a
         >
       </div>
     </section>
   </main>
-  <footer>
-    <div class="shell footer-content">
-      <div>
-        <a class="brand" href="/">Kalandra</a>
-        <p>A native language for CPU and GPU computing.</p>
-      </div>
-      <nav aria-label="Footer navigation">
-        <a href="/docs">Documentation</a><a href="/docs/gpu">GPU guide</a><a
-          href={repo}>GitHub</a
-        ><a href={`${repo}/blob/native/LICENSE`}>Apache 2.0</a>
-      </nav>
-    </div>
+  <footer class="shell">
+    <a class="brand" href="/" aria-label="Kalandra home"
+      ><span class="brand-mark" aria-hidden="true"></span>Kalandra</a
+    >
+    <p>A native language for CPU and GPU computing.</p>
+    <nav aria-label="Footer navigation">
+      <a href="/docs">Documentation</a><a href={repo}>GitHub</a><a
+        href={`${repo}/blob/native/LICENSE`}>Apache 2.0</a
+      >
+    </nav>
   </footer>
 </div>
 
 <style>
-  .language-site {
-    --bg: #000;
-    --panel: #0d0d10;
-    --text: #ededf0;
-    --muted: #a5a5af;
-    --line: #26262d;
-    --accent: #c5b1ff;
-    background: var(--bg);
-    color: var(--text);
-    font-family:
-      "Geist Variable", sans-serif; /* impeccable-disable-line overused-font -- User selected Kotlin as the primary visual reference; neutral sans language-site typography. */
+  .swiss-site {
+    --page: #080808;
+    --ink: #f6f6f6;
+    --muted: #b5b5b5;
+    --rule: #555;
+    --signal: #f86737;
+    background: var(--page);
+    color: var(--ink);
+    font-family: "Geist Variable", sans-serif;
     min-height: 100vh;
-    overflow: clip;
   }
-  .language-site ::selection {
-    background: #244b80;
-    color: #fff;
+  .swiss-site ::selection {
+    background: var(--signal);
+    color: var(--page);
   }
   .shell {
-    width: min(1200px, calc(100% - 96px));
+    width: min(1440px, calc(100% - 96px));
     margin-inline: auto;
   }
   a {
@@ -453,961 +423,809 @@ kalandra --project my-app/kalandra.toml \
     font: inherit;
   }
   a:focus-visible,
-  button:focus-visible,
-  [tabindex]:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 5px;
+  button:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 6px;
   }
   .skip {
     position: fixed;
     top: -100px;
-    left: 20px;
-    background: #fff;
-    color: #000;
-    padding: 12px;
+    left: 24px;
     z-index: 50;
+    padding: 12px 18px;
+    background: var(--ink);
+    color: var(--page);
   }
   .skip:focus {
-    top: 10px;
+    top: 12px;
   }
   header {
-    border-bottom: 1px solid var(--line);
-    background: #161617;
-  }
-  .nav-shell {
-    width: min(1200px, calc(100% - 64px));
-    margin-inline: auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 68px;
-    gap: 30px;
+    min-height: 64px;
+    border-bottom: 1px solid var(--rule);
+    gap: 32px;
   }
   .brand {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-size: 24px;
-    font-weight: 550;
-    letter-spacing: -0.025em;
+    font-size: 25px;
+    font-weight: 750;
+    letter-spacing: -0.04em;
   }
   .brand-mark {
-    display: block;
-    width: 36px;
-    height: 25px;
-    background: #e8e8ed;
+    width: 30px;
+    height: 21px;
+    background: currentColor;
     mask: url("/brand/kalandra-mark.svg") center/contain no-repeat;
   }
   nav {
     display: flex;
-    gap: 26px;
     align-items: center;
-    font-size: 14px;
-    color: #d0cfd4;
+    gap: 34px;
+    font-size: 16px;
   }
-  nav > a {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+  nav a {
+    padding: 16px 0;
   }
-  nav > a:hover {
-    color: #fff;
-  }
-  .nav-start {
-    background: #7c55e8;
-    padding: 10px 20px;
-    border-radius: 28px;
-    color: #fff;
-  }
-  .nav-start:hover {
-    background: #916df2;
+  nav a:hover,
+  .guide-link:hover {
+    color: var(--signal);
   }
   .menu {
     display: none;
   }
   .hero {
-    position: relative;
-    isolation: isolate;
-    min-height: 610px;
+    padding-top: 52px;
+    padding-bottom: 34px;
+    border-bottom: 1px solid var(--rule);
   }
-  .hero-art {
-    position: absolute;
-    inset: 0 0 -260px;
-    z-index: -1;
-    background: url("/art/native-hero.webp") center top / cover no-repeat;
-    pointer-events: none;
-    mask-image: linear-gradient(#000 75%, transparent);
+  h1 {
+    font-size: clamp(56px, 11.56vw, 184px);
+    font-weight: 800;
+    line-height: 0.86;
+    letter-spacing: -0.04em;
+    margin: 0;
   }
-  .hero-content {
-    padding-top: 90px;
-    padding-bottom: 90px;
+  h1 span {
+    display: block;
   }
-  .hero-copy {
-    max-width: 740px;
+  h1 span:last-child {
+    font-size: 1.04em;
   }
-  .hero h1 {
-    font-size: clamp(64px, 7.3vw, 96px);
-    font-weight: 500;
-    line-height: 1.06;
-    letter-spacing: -0.035em;
-    margin: 0 0 30px;
-  }
-  .hero h1 > span {
-    color: #c6b2ff;
+  .hero-intro {
+    margin: 17px 0 0 50.2%;
   }
   .hero-description {
-    font-size: 19px;
-    line-height: 1.7;
-    color: #d0ced9;
-    max-width: 490px;
-    margin: 0 0 32px;
+    color: #d6d6dc;
+    font-size: clamp(18px, 1.8vw, 25px);
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+    margin: 0;
   }
   .hero-actions {
     display: flex;
     align-items: center;
-    gap: 28px;
-    flex-wrap: wrap;
-  }
-  .hero .hero-start {
-    font-size: 17px;
-    padding: 14px 25px;
-    gap: 30px;
-  }
-  .hero-guide {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    color: #ddd3fa;
-  }
-  .hero-guide:hover {
-    text-decoration: underline;
-    text-underline-offset: 5px;
-  }
-  .examples {
-    position: relative;
-    padding-block: 40px 70px;
-    display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
-    align-items: start;
-    gap: 60px;
-  }
-  .example-intro > a {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 13px;
-    color: var(--accent);
-    margin-top: 24px;
-  }
-  .example-intro > a:hover {
-    text-decoration: underline;
-    text-underline-offset: 5px;
-  }
-  .example-intro {
-    margin: 0 0 30px;
-  }
-  .example-intro h2 {
-    font-size: 38px;
-    margin: 0 0 12px;
-  }
-  .example-intro > p {
-    color: #b8b5c3;
-    font-size: 17px;
-    margin: 0;
+    gap: 40px;
+    margin-top: 27px;
   }
   .button {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 18px;
-    padding: 12px 18px;
-    border: 1px solid transparent;
-    border-radius: 30px;
-    font-size: 14px;
-    font-weight: 500;
-    transition:
-      background 0.16s,
-      border-color 0.16s;
-  }
-  .primary {
-    background: #7b4fed;
-    color: #fff;
-    border-color: #7b4fed;
-  }
-  .primary:hover {
-    background: #9067f7;
-  }
-  .secondary {
-    background: #111114;
-    border-color: #363640;
-    color: #dddde4;
-  }
-  .secondary:hover {
-    background: #1b1b21;
-    border-color: #5a5a66;
-  }
-  .code-example {
-    max-width: none;
-    margin: 0;
-    border: 1px solid #2a2732;
-    border-radius: 12px;
-    background: #0b0b0e;
-    overflow: hidden;
-  }
-  .example-tabs {
-    display: flex;
+    justify-content: space-between;
     gap: 30px;
-    padding-inline: 28px;
-    background: #111114;
-    border-bottom: 1px solid var(--line);
-  }
-  .example-tabs > button {
-    background: none;
-    color: #a9a9b6;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    padding: 16px 0;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  .example-tabs > button.active {
-    border-bottom-color: var(--accent);
-    color: #f1f1f4;
-  }
-  .example-tabs > button:hover {
-    color: #fff;
-  }
-  .filebar {
-    padding: 17px 24px 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: #9999a8;
-    font: 11px var(--font-mono);
-  }
-  .filebar > button {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 30px;
-    background: none;
-    border: 0;
-    padding: 3px 0 3px 10px;
-    color: #bdbdc8;
-    font:
-      12px "Geist Variable",
-      sans-serif;
-    cursor: pointer;
-  }
-  .filebar > button:hover {
-    color: #fff;
-  }
-  .source {
-    min-height: 230px;
-    max-height: 360px;
-    overflow: auto;
-    scrollbar-color: #50505f #0b0b0e;
-  }
-  .source pre {
-    margin: 0;
-    padding: 7px 24px 24px;
-    font: 13px/1.9 var(--font-mono);
-    color: #dadbe4;
-    white-space: pre-wrap;
-  }
-  .code-line {
-    display: flex;
-  }
-  .line-number {
-    flex: none;
-    width: 31px;
-    color: #747482;
-    font-size: 10px;
-    user-select: none;
-  }
-  .line-content {
-    min-width: 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  .keyword {
-    color: #a2bfff;
-  }
-  .type {
-    color: #c5afe8;
-  }
-  .function {
-    color: #e5cfaa;
-  }
-  .value {
-    color: #e8ad99;
-  }
-  .preview-note {
-    font-size: 11px;
-    line-height: 1.9;
-    color: #9696a5;
-    margin: 24px 0 0;
-  }
-  .preview-note > a {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--accent);
-  }
-  .preview-note > a:hover {
-    text-decoration: underline;
-    text-underline-offset: 4px;
-  }
-  h2 {
-    font-size: 44px;
-    line-height: 1.16;
-    font-weight: 500;
-    letter-spacing: -0.025em;
-    margin: 0 0 20px;
-    text-wrap: balance;
-  }
-  h3 {
-    font-size: 21px;
-    line-height: 1.3;
-    font-weight: 500;
-    letter-spacing: -0.015em;
-    margin: 0 0 13px;
-  }
-  .section-intro {
-    font-size: 16px;
-    line-height: 1.75;
-    color: var(--muted);
-    margin: 0;
-    max-width: 750px;
-  }
-  .overview {
-    padding-block: 60px 75px;
-  }
-  .overview > h2 {
-    font-size: 44px;
-    line-height: 1.15;
-  }
-  .overview > h2,
-  .overview > .section-intro {
-    text-align: left;
-    margin-inline: 0;
-  }
-  .principles {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 44px;
-    margin-top: 45px;
-  }
-  .principles article {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .principles p {
-    font-size: 14px;
-    line-height: 1.85;
-    color: var(--muted);
-    margin: 0 0 20px;
-    flex: 1;
-  }
-  .principles a,
-  .text-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 13px;
-    color: var(--accent);
-  }
-  .principles a:hover,
-  .text-link:hover {
-    text-decoration: underline;
-    text-underline-offset: 5px;
-  }
-  .section-line {
-    border-block: 1px solid var(--line);
-    background: #08080a;
-  }
-  .numerics {
-    padding-block: 70px 35px;
-  }
-  .numerical-layout {
-    display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    gap: 90px;
-    align-items: start;
-  }
-  .numerical-layout > div > p {
-    font-size: 15px;
-    line-height: 1.85;
-    color: var(--muted);
-    margin: 0 0 19px;
-  }
-  .operation-reference {
-    padding-top: 4px;
-  }
-  .operation-reference > div {
-    padding: 0 0 22px;
-    margin-bottom: 22px;
-    border-bottom: 1px solid #2b2b32;
-  }
-  .operation-reference code {
-    font-size: 14px;
-    color: #c1d3ee;
-  }
-  .operation-reference p {
-    font-size: 13px;
-    line-height: 1.7;
-    margin: 10px 0 0;
-    color: #aaaab4;
-  }
-  .operation-reference > a {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--accent);
-  }
-  .operation-reference > a:hover {
-    text-decoration: underline;
-    text-underline-offset: 5px;
-  }
-  .scope-note {
-    border-top: 1px solid #232329;
-    margin-top: 42px;
-    padding-top: 20px;
-    font-size: 12px;
-    line-height: 1.7;
-    color: #90909f;
-  }
-  .platforms {
-    padding-block: 70px;
-  }
-  .platform-table {
-    margin: 30px 0 24px;
-    overflow: auto;
-    scrollbar-color: #50505f #000;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-    font-size: 13px;
-    line-height: 1.7;
-  }
-  th,
-  td {
-    padding: 17px 20px;
-    border-bottom: 1px solid var(--line);
-  }
-  thead th {
-    font-weight: 500;
-    background: #101013;
-    color: #c2c2cd;
-  }
-  tbody th {
-    font-weight: 500;
-    color: #e2e2e8;
-  }
-  td {
-    color: #a5a5b2;
-  }
-  th:first-child,
-  td:first-child {
-    padding-left: 20px;
-  }
-  .onboarding {
-    padding-block: 65px;
-  }
-  .onboarding-layout {
-    display: grid;
-    grid-template-columns: 1fr 1.1fr;
-    gap: 80px;
-    align-items: center;
-  }
-  .onboarding p {
-    font-size: 15px;
-    line-height: 1.85;
-    color: var(--muted);
-    max-width: 470px;
-    margin: 0 0 25px;
-  }
-  .onboarding-links {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    flex-wrap: wrap;
-  }
-  .onboarding .button {
-    font-size: 13px;
-    padding: 11px 15px;
-  }
-  .terminal {
-    background: #101013;
-    border: 1px solid #2c2c35;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .terminal-title {
-    font-size: 12px;
-    color: #adadba;
-    padding: 17px 20px;
-    border-bottom: 1px solid #27272e;
-  }
-  .terminal pre {
-    margin: 0;
-    padding: 21px 20px;
-    font: 11px/2.15 var(--font-mono);
-    overflow: auto;
-    color: #d2d4df;
-    scrollbar-color: #50505f #101013;
-  }
-  .terminal > a {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 15px;
-    font-size: 12px;
-    color: var(--accent);
-    padding: 16px 20px;
-    border-top: 1px solid #27272e;
-  }
-  .terminal > a:hover {
-    color: #c8daff;
-  }
-  .open-source {
-    text-align: center;
-    padding-block: 65px;
-  }
-  .open-source h2 {
-    font-size: 30px;
-  }
-  .open-source > p {
-    font-size: 15px;
-    line-height: 1.8;
-    color: var(--muted);
-    margin: 0 auto 25px;
-    max-width: 660px;
-  }
-  .open-source > div {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    flex-wrap: wrap;
-  }
-  .open-source > div > a {
-    display: inline-flex;
-    gap: 7px;
-    align-items: center;
-    font-size: 14px;
-    color: var(--accent);
-  }
-  .open-source a:hover {
-    text-decoration: underline;
-    text-underline-offset: 5px;
-  }
-  footer {
-    border-top: 1px solid var(--line);
-    background: #080809;
-  }
-  .footer-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 40px;
-    padding-block: 35px;
-  }
-  .footer-content .brand {
-    font-size: 21px;
-  }
-  .footer-content p {
-    font-size: 12px;
-    color: #858592;
-    margin: 11px 0 0;
-  }
-  .footer-content nav {
-    gap: 24px;
-    font-size: 12px;
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    background: var(--signal);
+    color: var(--page);
+    font-size: 22px;
+    line-height: 1.2;
+    padding: 16px 32px;
+    min-height: 60px;
     white-space: nowrap;
   }
-  @media (prefers-reduced-motion: no-preference) {
-    .hero-copy {
-      animation: enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-
-    @keyframes enter {
-      from {
-        transform: translateY(8px);
-      }
-      to {
-        transform: translateY(0);
-      }
-    }
-    .code-example {
-      transition: border-color 0.18s;
-    }
-    .code-example:focus-within {
-      border-color: #57749e;
+  .button:hover {
+    background: #ff8057;
+  }
+  .guide-link {
+    font-size: 18px;
+    line-height: 1.4;
+    text-decoration: underline;
+    text-underline-offset: 8px;
+    text-decoration-thickness: 1px;
+    white-space: nowrap;
+  }
+  .preview-note {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.5;
+    margin: 18px 0 0;
+  }
+  @media (min-width: 1600px) {
+    h1 {
+      font-size: 184px;
     }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .language-site * {
-      animation: none !important;
-      transition: none !important;
-    }
-  }
-  @media (max-width: 1000px) {
-    .examples {
-      grid-template-columns: 240px minmax(0, 1fr);
-      gap: 30px;
-    }
-    .shell {
-      width: calc(100% - 64px);
-    }
-    .nav-shell {
-      width: calc(100% - 48px);
-    }
+  @media (max-width: 1050px) {
     nav {
-      gap: 20px;
-      font-size: 12px;
+      gap: 23px;
+      font-size: 14px;
     }
-    .hero {
-      min-height: 580px;
+    .hero-actions {
+      gap: 24px;
+      flex-wrap: wrap;
     }
-    .hero-content {
-      padding-top: 75px;
-      padding-bottom: 75px;
-    }
-    .hero h1 {
-      font-size: clamp(66px, 9vw, 90px);
+    .guide-link {
+      font-size: 16px;
     }
     .hero-description {
-      font-size: 15px;
+      font-size: 18px;
     }
-    .principles {
-      gap: 30px;
+    .button {
+      font-size: 19px;
+      min-height: 54px;
+      padding: 14px 24px;
     }
-    .numerical-layout {
-      gap: 50px;
-    }
-    .onboarding-layout {
-      gap: 40px;
-    }
-    .terminal pre {
-      font-size: 10px;
+    .hero-intro {
+      margin-left: 45%;
     }
   }
   @media (max-width: 760px) {
     .shell {
       width: calc(100% - 40px);
     }
-    .nav-shell {
-      width: calc(100% - 40px);
-      height: 68px;
+    header {
+      min-height: 64px;
+      position: relative;
+      flex-wrap: wrap;
+      gap: 0;
     }
     .brand {
-      font-size: 22px;
+      font-size: 23px;
     }
-    header nav {
-      gap: 18px;
+    .brand-mark {
+      width: 28px;
+      height: 20px;
     }
-    header nav > a:nth-child(3) {
+    .menu {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 0;
+      background: none;
+      color: var(--ink);
+      padding: 15px 0;
+      font-size: 14px;
+    }
+    nav {
       display: none;
+      width: 100%;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 8px 0 16px;
     }
-    .hero {
-      min-height: 0;
+    nav.open {
+      display: flex;
     }
-    .hero-content {
-      padding-top: 58px;
-      padding-bottom: 65px;
-    }
-    .hero h1 {
-      font-size: clamp(47px, 9.2vw, 68px);
-      margin-bottom: 25px;
-    }
-    .hero-description {
-      font-size: 15px;
-      max-width: 450px;
-    }
-    .hero-art {
-      inset: 0 -220px -100px 0;
-      background-position: 35% top;
-      opacity: 0.55;
-    }
-    .hero .hero-start {
+    nav a {
+      padding: 13px 0;
+      border-top: 1px solid #2d2d2d;
       font-size: 16px;
     }
+    .hero {
+      padding-top: 44px;
+      padding-bottom: 26px;
+    }
+    h1 {
+      font-size: 12.35vw;
+      line-height: 0.94;
+    }
+    .hero-intro {
+      margin: 30px 0 0;
+    }
+    .hero-description {
+      font-size: 18px;
+      max-width: 560px;
+    }
+    .hero-actions {
+      gap: 24px;
+      margin-top: 24px;
+    }
+    .button {
+      font-size: 17px;
+      min-height: 52px;
+      gap: 26px;
+      padding: 14px 22px;
+    }
+    .guide-link {
+      font-size: 15px;
+    }
+    .preview-note {
+      font-size: 13px;
+      margin-top: 20px;
+    }
+  }
+  @media (max-width: 359px) {
+    .shell {
+      width: calc(100% - 32px);
+    }
+    .hero-actions {
+      align-items: flex-start;
+      gap: 24px;
+      flex-direction: column;
+    }
+    .hero-description {
+      font-size: 16px;
+    }
+  }
+
+  h2 {
+    font-weight: 750;
+    letter-spacing: -0.04em;
+    line-height: 1.02;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  .examples {
+    display: grid;
+    grid-template-columns: 1.045fr 1fr;
+    gap: 60px;
+    padding-block: 40px 36px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .example-intro h2 {
+    font-size: clamp(38px, 6vw, 88px);
+    line-height: 0.96;
+    margin: 0;
+  }
+  .example-intro > p {
+    color: #d6d6dc;
+    font-size: 20px;
+    line-height: 1.4;
+    letter-spacing: -0.015em;
+    margin: 18px 0 0;
+    max-width: 550px;
+  }
+  .code-example {
+    min-width: 0;
+    align-self: start;
+    border: 1px solid var(--rule);
+  }
+  .filebar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+    padding: 6px 18px;
+    border-bottom: 1px solid var(--rule);
+    font:
+      12px/1.4 "Fira Code Variable",
+      monospace;
+  }
+  .source-picker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .source-picker svg {
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+  select {
+    appearance: none;
+    min-width: 0;
+    max-width: 220px;
+    min-height: 24px;
+    padding: 0 2px;
+    border: 0;
+    border-radius: 0;
+    color: var(--ink);
+    background: var(--page);
+    font: inherit;
+    cursor: pointer;
+  }
+  select:focus-visible,
+  pre:focus-visible,
+  .platform-table:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 5px;
+  }
+  .code-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .code-actions a {
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .code-actions svg {
+    width: 12px;
+    height: 12px;
+  }
+  .code-actions button {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    cursor: pointer;
+    min-width: 34px;
+    min-height: 24px;
+    text-align: right;
+  }
+  .code-actions a:hover,
+  .code-actions button:hover {
+    color: var(--signal);
+  }
+  .code-example pre {
+    margin: 0;
+    padding: 20px 24px 24px;
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 164px;
+    max-height: 330px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    tab-size: 2;
+    scrollbar-color: #777 var(--page);
+    scrollbar-width: thin;
+  }
+  .code-example code {
+    font-family: "Fira Code Variable", monospace;
+  }
+  .keyword {
+    color: var(--signal);
+  }
+  .computing {
+    padding-block: 26px 80px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-label {
+    font-size: 11px;
+    line-height: 1.3;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 18px;
+  }
+  .computing-heading {
+    display: grid;
+    grid-template-columns: 1fr 225px;
+    align-items: center;
+    gap: 35px;
+  }
+  .computing-heading h2 {
+    font-size: clamp(32px, 5vw, 72px);
+    margin: 0;
+  }
+  .platform-summary {
+    font-size: 13px;
+    line-height: 1.8;
+    letter-spacing: 0.01em;
+    padding: 8px 0 8px 32px;
+    border-left: 1px solid #a5a5a5;
+  }
+  .platform-summary span {
+    display: block;
+  }
+  .platform-summary:hover {
+    color: var(--signal);
+  }
+  .computing-intro {
+    margin: 50px 0 48px;
+    max-width: 820px;
+    font-size: 26px;
+    line-height: 1.45;
+    letter-spacing: -0.02em;
+  }
+  .capabilities article {
+    display: grid;
+    grid-template-columns: 0.8fr 1.4fr 0.65fr;
+    align-items: baseline;
+    gap: 50px;
+    padding: 28px 0;
+    border-top: 1px solid #333;
+  }
+  .capabilities h3 {
+    font-size: 23px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+  .capabilities p {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .capabilities a {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .capabilities a:hover {
+    color: var(--signal);
+  }
+  .capabilities svg,
+  .inline-link svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .numerics {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 40px 110px;
+    padding-block: 80px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .numerics h2,
+  .platforms h2,
+  .onboarding h2 {
+    font-size: clamp(38px, 4.7vw, 66px);
+    margin: 0 0 28px;
+  }
+  .numerics-copy > p,
+  .section-intro,
+  .onboarding p {
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1.7;
+    max-width: 70ch;
+    margin: 0 0 20px;
+  }
+  .inline-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: underline;
+    text-underline-offset: 6px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .inline-link:hover {
+    color: var(--signal);
+  }
+  .numerics-copy .inline-link {
+    margin-top: 10px;
+  }
+  .operation-reference > div {
+    border-top: 1px solid #444;
+    padding: 18px 0;
+  }
+  .operation-reference code {
+    font-size: 19px;
+    color: var(--signal);
+  }
+  .operation-reference p {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 8px 0 0;
+  }
+  .operation-reference > .inline-link {
+    margin-top: 16px;
+  }
+  .scope-note {
+    grid-column: 1/-1;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--muted);
+    margin: 0;
+    max-width: 100ch;
+  }
+  .platforms {
+    padding-block: 80px;
+    border-bottom: 1px solid var(--rule);
+    scroll-margin-top: 24px;
+  }
+  .platform-table {
+    margin: 36px 0 24px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #777 var(--page);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 560px;
+    text-align: left;
+    font-size: 16px;
+  }
+  th,
+  td {
+    border-top: 1px solid #444;
+    padding: 21px 24px 21px 0;
+    line-height: 1.6;
+  }
+  thead th {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    padding-block: 13px;
+  }
+  tbody th {
+    font-weight: 550;
+  }
+  tbody td {
+    color: var(--muted);
+  }
+  .onboarding {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 90px;
+    padding-block: 80px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .onboarding .button {
+    margin-top: 16px;
+    font-size: 18px;
+  }
+  .editor-link {
+    display: flex;
+    width: fit-content;
+    margin-top: 24px;
+  }
+  .terminal {
+    align-self: start;
+    min-width: 0;
+    border: 1px solid var(--rule);
+  }
+  .terminal > p {
+    margin: 0;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .terminal pre {
+    margin: 0;
+    padding: 24px;
+    font-size: 13px;
+    line-height: 2.1;
+    overflow-x: auto;
+    scrollbar-color: #777 var(--page);
+    scrollbar-width: thin;
+  }
+  .open-source {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 90px;
+    padding-block: 80px;
+  }
+  .open-source h2 {
+    font-size: clamp(44px, 5.5vw, 80px);
+    margin: 0;
+  }
+  .open-source p {
+    max-width: 460px;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1.7;
+    margin: 0 0 28px;
+  }
+  .open-source .inline-link {
+    display: flex;
+    width: fit-content;
+    margin-top: 20px;
+  }
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-block: 32px 40px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  footer p {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0;
+  }
+  footer nav {
+    margin-left: auto;
+    gap: 26px;
+    font-size: 13px;
+  }
+  @media (max-width: 1050px) {
+    .examples {
+      gap: 36px;
+    }
+    .filebar {
+      padding-inline: 12px;
+      gap: 8px;
+    }
+    .code-actions {
+      gap: 12px;
+    }
+    .code-example pre {
+      padding: 20px;
+      font-size: 13px;
+    }
+    .example-intro > p {
+      font-size: 18px;
+    }
+    .computing-heading {
+      grid-template-columns: 1fr 190px;
+      gap: 24px;
+    }
+    .platform-summary {
+      padding-left: 24px;
+      font-size: 12px;
+    }
+    .capabilities article {
+      gap: 30px;
+    }
+    .capabilities h3 {
+      font-size: 21px;
+    }
+    .capabilities p {
+      font-size: 15px;
+    }
+    .capabilities a {
+      font-size: 12px;
+      gap: 7px;
+    }
+    .numerics,
+    .onboarding,
+    .open-source {
+      gap: 60px;
+    }
+    .operation-reference code {
+      font-size: 17px;
+    }
+    footer {
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+  }
+  @media (max-width: 760px) {
     .examples {
       grid-template-columns: 1fr;
       gap: 28px;
-      padding-top: 25px;
-      padding-bottom: 40px;
-    }
-    .example-intro {
-      margin: 0;
-    }
-    .example-intro p {
-      max-width: 540px;
+      padding-block: 32px;
     }
     .example-intro h2 {
-      font-size: 32px;
-    }
-    .example-intro h2 br {
-      display: none;
+      font-size: clamp(38px, 7vw, 56px);
     }
     .example-intro > p {
-      font-size: 15px;
-    }
-    .overview > h2 {
-      font-size: 34px;
-    }
-    .desktop-break {
-      display: none;
-    }
-    .button {
-      font-size: 13px;
-      padding: 12px 15px;
-    }
-    .code-example {
-      margin-top: 22px;
-    }
-    .example-tabs {
-      padding-inline: 20px;
-      gap: 26px;
-    }
-    .example-tabs > button {
-      font-size: 12px;
+      font-size: 17px;
+      max-width: 520px;
+      margin-top: 20px;
     }
     .filebar {
-      padding-inline: 20px;
+      padding: 4px 14px;
     }
-    .source {
-      min-height: 240px;
+    .filebar select,
+    .code-actions a,
+    .code-actions button {
+      min-height: 44px;
     }
-    .source pre {
-      padding-inline: 20px;
-      font-size: 11px;
+    .code-example pre {
+      font-size: 12px;
+      line-height: 1.8;
+      padding: 18px;
+      min-height: 140px;
+      max-height: 300px;
     }
-    .overview {
-      padding-block: 40px 55px;
+    .computing {
+      padding-block: 25px 48px;
     }
-    h2 {
-      font-size: 29px;
-    }
-    .section-intro {
-      font-size: 15px;
-    }
-    .principles {
+    .computing-heading {
       grid-template-columns: 1fr;
-      gap: 30px;
-      margin-top: 32px;
+      gap: 24px;
     }
-    .principles article {
-      display: block;
+    .computing-heading h2 {
+      font-size: clamp(35px, 7.5vw, 56px);
+      max-width: 550px;
     }
-    .principles h3 {
+    .platform-summary {
+      padding: 0 0 0 16px;
+      font-size: 12px;
+    }
+    .computing-intro {
+      margin: 32px 0;
       font-size: 21px;
     }
-    .principles p {
-      font-size: 14px;
-      margin-bottom: 13px;
-      max-width: 620px;
-    }
-    .numerics {
-      padding-block: 50px 28px;
-    }
-    .numerical-layout {
+    .capabilities article {
       grid-template-columns: 1fr;
-      gap: 35px;
+      gap: 12px;
+      padding-block: 24px;
     }
-    .numerical-layout > div > p {
+    .capabilities h3 {
+      font-size: 23px;
+    }
+    .capabilities p {
+      font-size: 16px;
+    }
+    .capabilities a {
+      justify-self: start;
       font-size: 14px;
+      margin-top: 5px;
     }
-    .numerical-layout h2 > br {
-      display: none;
-    }
-    .operation-reference {
-      max-width: 100%;
-      padding: 0;
-    }
-    .scope-note {
-      margin-top: 30px;
-      font-size: 11px;
-    }
-    .platforms {
-      padding-block: 50px;
-    }
-    .platform-table {
-      margin-top: 25px;
-    }
-    table {
-      font-size: 12px;
-      min-width: 570px;
-    }
-    th,
-    td {
-      padding: 15px;
-    }
-    .onboarding {
-      padding-block: 50px;
-    }
-    .onboarding-layout {
-      grid-template-columns: 1fr;
-      gap: 30px;
-    }
-    .onboarding p {
-      font-size: 14px;
-      max-width: 600px;
-    }
-    .terminal pre {
-      font-size: 11px;
-    }
+    .numerics,
+    .onboarding,
     .open-source {
-      padding-block: 50px;
+      grid-template-columns: 1fr;
+      gap: 32px;
+      padding-block: 48px;
     }
-    .open-source h2 {
-      font-size: 28px;
-    }
-    .open-source > p {
-      font-size: 14px;
-    }
-    .open-source > div {
-      gap: 20px;
-    }
-    .open-source > div > a {
-      font-size: 13px;
-    }
-    .footer-content {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 25px;
-    }
-    .footer-content nav {
-      flex-wrap: wrap;
-      gap: 23px;
-    }
-  }
-  @media (max-width: 520px) {
-    header {
-      position: relative;
-      z-index: 10;
-    }
-    .menu {
-      display: inline-flex;
-      align-items: center;
-      gap: 9px;
-      border: 1px solid #383842;
-      border-radius: 5px;
-      padding: 9px 11px;
-      background: none;
-      color: #d2d2dc;
-      font-size: 12px;
-    }
-    header nav {
-      display: none;
-    }
-    header nav.open {
-      display: flex;
-      position: absolute;
-      top: 67px;
-      left: 0;
-      right: 0;
-      align-items: stretch;
-      flex-direction: column;
-      gap: 0;
-      padding: 10px 20px 18px;
-      background: #0b0b0e;
-      border-bottom: 1px solid #373740;
-    }
-    header nav.open > a,
-    header nav.open > a:nth-child(3) {
-      display: flex;
-      padding: 13px 0;
-      font-size: 14px;
-    }
-    header nav.open > .nav-start {
-      justify-content: center;
-      padding: 12px;
-      margin-top: 8px;
-    }
-    .hero h1 {
-      font-size: clamp(40px, 10.5vw, 54px);
+    .numerics h2,
+    .platforms h2,
+    .onboarding h2 {
+      font-size: 38px;
       margin-bottom: 24px;
     }
-    .hero-description {
-      font-size: 15px;
-      line-height: 1.7;
-      margin-bottom: 25px;
-    }
-
-    .example-tabs {
-      gap: 19px;
-      padding-inline: 16px;
-    }
-    .example-tabs > button {
-      font-size: 11px;
-      padding-block: 15px;
-    }
-    .filebar {
-      padding: 13px 16px 6px;
-    }
-    .source pre {
-      padding: 5px 16px 22px;
-      font-size: 11px;
-    }
-    .line-number {
-      width: 25px;
-    }
-    .source {
-      min-height: 230px;
-      max-height: 330px;
-    }
-    .preview-note {
-      font-size: 11px;
-      line-height: 1.7;
-    }
-    .hero-description,
+    .numerics-copy > p,
     .section-intro,
-    .numerical-layout > div > p {
-      text-wrap: pretty;
+    .onboarding p {
+      font-size: 16px;
     }
-    .overview > h2,
-    .overview > .section-intro {
-      text-align: left;
+    .scope-note {
+      font-size: 12px;
+    }
+    .platforms {
+      padding-block: 48px;
+    }
+    .platform-table {
+      margin-top: 26px;
+    }
+    .platform-table th,
+    .platform-table td {
+      font-size: 14px;
+    }
+    .onboarding .button {
+      font-size: 17px;
     }
     .terminal pre {
-      font-size: 9px;
+      font-size: 11px;
+      padding: 18px;
     }
-    .operation-reference code {
-      font-size: 12px;
+    .open-source h2 {
+      font-size: clamp(42px, 10vw, 64px);
     }
-    .operation-reference p {
-      font-size: 12px;
+    .open-source p {
+      font-size: 17px;
     }
-    .onboarding-links {
+    footer {
+      padding-block: 28px;
       gap: 18px;
     }
-    .onboarding-links .text-link {
+    footer p {
+      width: 100%;
       font-size: 12px;
     }
-    .open-source > div {
-      align-items: center;
-      flex-direction: column;
-      gap: 16px;
+    footer nav {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      gap: 24px;
     }
-    .footer-content p {
-      font-size: 11px;
+    footer nav a {
+      border: 0;
+      padding: 8px 0;
+      font-size: 14px;
     }
-    .footer-content nav {
-      font-size: 11px;
-      gap: 18px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
     }
   }
 </style>

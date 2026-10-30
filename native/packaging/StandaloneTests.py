@@ -3,6 +3,7 @@
 --archive also supports a separate CI runner which never installed LLVM.
 This is a dependency-isolation gate, not a substitute for clean-machine testing.
 """
+from VersionCheck import verify_package_version
 import argparse
 import hashlib
 import json
@@ -36,6 +37,7 @@ def qualify(archive, kind, runtime, build=None, metal_execute=False):
 
 
 def qualify_prefix(prefix, kind, runtime, build=None, metal_execute=False):
+    verify_package_version(prefix)
     files = {str(p.relative_to(prefix)) for p in prefix.rglob("*") if p.is_file()}
     listed = {}
     for line in (prefix / "SHA256SUMS").read_text().splitlines():

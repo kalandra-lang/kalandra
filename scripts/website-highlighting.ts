@@ -11,12 +11,12 @@ const numericTypes = new Set(
   ),
 );
 const colors = {
-  keyword: ["#cf222e", "#ff7b72"],
-  string: ["#0a3069", "#a5d6ff"],
-  number: ["#0550ae", "#79c0ff"],
-  identifier: ["#6639ba", "#d2a8ff"],
-  punctuation: ["#24292f", "#c9d1d9"],
-  comment: ["#57606a", "#8b949e"],
+  keyword: ["#b53a17", "#f86737"],
+  string: ["#5e492f", "#d6c7b5"],
+  number: ["#8a3218", "#f4ac91"],
+  identifier: ["#242424", "#f6f6f6"],
+  punctuation: ["#333333", "#b5b5b5"],
+  comment: ["#626262", "#999999"],
 } as const;
 export function escapeCode(text: string) {
   return text.replace(

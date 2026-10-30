@@ -1,4 +1,4 @@
-meta { title = "GPU numerical graphs", description = "Compose resident numerical graphs with strict types and shapes.", order = 3, group = "Execution" }
+meta { title = "GPU numerical graphs", description = "Compose resident numerical graphs with strict types and shapes.", order = 3, group = "HOWTO guides" }
 
 Place an eligible numerical function on the GPU, then compose operations inside that function. The graph determines device stages and intermediate lifetimes; it is not a promise that a whole function becomes one hardware kernel.
 
@@ -58,17 +58,17 @@ The two ordinary helper calls form a resident graph. In this example the input i
 
 h2 { "Types and ranks" }
 
-The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32 and float64. Dense scalar/rank-zero through rank-eight tensors are supported for the qualified numerical operations. matmul remains rank two. Numeric identity and complete shape obligations are checked rather than implicitly promoted or broadcast.
+The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32 and float64. Dense scalar/rank-zero through rank-eight tensors are supported for the supported numerical operations. matmul remains rank two. Numeric identity and complete shape obligations are checked rather than implicitly promoted or broadcast.
 
 h2 { "Hardware arithmetic and explicit fallback" }
 
 Float32 uses hardware arithmetic on both CPU and Metal by default. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling a float64 GPU operation requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
 
-Use --arithmetic software for the strict software implementation on both CPU and GPU. This provides the prior exact-bit numerical contract, including gradual underflow. Default hardware mode follows device behavior, so Metal float32 subnormals may flush to zero. reduceSum keeps its balanced adjacent-pair tree, and scalar arithmetic retains its separately rounded operations. -O2 does not enable generic fast math.
+Use --arithmetic software for the strict software implementation on both CPU and GPU. This selects software arithmetic with gradual underflow and its defined numerical contract. Default hardware mode follows device behavior, so Metal float32 subnormals may flush to zero. reduceSum keeps its balanced adjacent-pair tree, and scalar arithmetic retains its separately rounded operations. -O2 does not enable generic fast math.
 
 h2 { "Matrix precision policies" }
 
-Hardware float32 matmul defaults to optimized full-precision accumulation. The compiler may use fused multiply-add and choose a contraction order suited to the device while preserving float32 inputs and accumulators. This does not silently convert inputs to float16 or TF32. Qualified Apple M2 Max shapes use MIT-licensed MLX Steel kernels; other shapes and devices retain the existing kernels.
+Hardware float32 matmul defaults to optimized full-precision accumulation. The compiler may use fused multiply-add and choose a contraction order suited to the device while preserving float32 inputs and accumulators. This does not silently convert inputs to float16 or TF32.
 
 Use --matmul-policy fixed-tree to require separately rounded products and the existing balanced contraction tree. This selects a calculation order, not exact real arithmetic or universally greater accuracy. Optimized results may differ in rounding, signed zero and intermediate overflow. Severe cancellation can lose accuracy in either mode. Checked integer operations are unchanged, and CPU matmul currently retains the fixed tree under either policy.
 
@@ -78,16 +78,14 @@ codeblock { language = bash, """kalandra main.k --target metal --matmul-policy f
 
 Hardware fixed-tree mode still follows the device's underflow and NaN behavior. Use --arithmetic software when the software numerical contract, including gradual underflow, is required; that option always selects fixed-tree matmul.
 
-h2 { "Selected control and residence" }
+h2 { "Conditions in GPU functions" }
 
-Qualified internal comparisons, Boolean logic and conditional numerical stages select work lazily. A branch may carry its own shape obligations, and unselected branches do not execute their stage checks. Internal Boolean control does not make Bool tensors or arbitrary host values device data. Runtime/device resource budgets still apply.
+Eligible GPU functions can use numeric comparisons, Boolean expressions and conditions to choose work. Only a selected branch runs, including its shape checks. Boolean conditions do not make Bool tensors, Strings or arbitrary host objects valid device data. Device and task resource limits still apply.
 
 h2 { "AI and LLM foundations" }
 
-Matrix products, tensor maps, conversions and reductions are numerical building blocks for AI workloads. The current language does not supply model loading, tokenizers or a full LLM inference runtime, and CUDA is separate work. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-gpu-capabilities.md", "Operation-by-operation capability and evidence" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-gpu-typed-programs.md", "Typed GPU programs and higher ranks" }
+Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. The current language does not supply model loading, tokenizers or a full LLM inference runtime, and CUDA is not supported. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
 
 link { url = "/docs/tensors", "Tensor construction and shape rules" }
+
+link { url = "/docs/tensor-functions", "Numerical function reference" }

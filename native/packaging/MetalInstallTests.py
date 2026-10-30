@@ -1,4 +1,5 @@
 """Relocated Metal compiler builds GPU applications outside its checkout."""
+from VersionCheck import verify_package_version
 import hashlib
 import json
 import os
@@ -50,6 +51,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     resources = prefix / "lib/kalandra/native"
     assert len(list(resources.glob("*.a"))) == 35
     metadata = json.loads((prefix / "share/kalandra-native-metal/toolchain.json").read_text())
+    verify_package_version(prefix)
     assert metadata["format"] == 1 and metadata["configuration"] == config
     assert metadata["llvmVersion"] == json.loads((Path(__file__).parents[1] / "toolchain-proof/toolchain.json").read_text())["llvmVersion"] and metadata["externalDependencies"] is True
     for name in ("kalandra-metal-strict", "kalandra-metal-strict64", "kalandra-metal-extract"):

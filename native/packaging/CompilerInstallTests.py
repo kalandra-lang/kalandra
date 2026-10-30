@@ -1,4 +1,5 @@
 """CPU bundle acceptance: relocate, compile outside checkout, and reject missing resources."""
+from VersionCheck import verify_package_version
 import hashlib
 import json
 import os
@@ -32,6 +33,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
         bundle.extractall(cwd / "relocated prefix", filter="data")
     shutil.rmtree(output)
     prefix = cwd / "relocated prefix/kalandra-native-cpu"
+    verify_package_version(prefix)
     for line in (prefix / "SHA256SUMS").read_text().splitlines():
         expected, name = line.split("  ", 1)
         assert (prefix / name).resolve().is_relative_to(prefix.resolve())

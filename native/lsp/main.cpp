@@ -11,6 +11,7 @@
 #include "kalandra/Project.h"
 #include "kalandra/Semantics.h"
 #include "kalandra/Utf8.h"
+#include "kalandra/Version.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -907,6 +908,8 @@ public:
 };
 } // namespace
 int main(int argc, char **argv) {
+  if (kalandra::printVersion(argc, argv, "kalandra-lsp"))
+    return 0;
 #ifdef _WIN32
   _setmode(_fileno(stdin), _O_BINARY);
   _setmode(_fileno(stdout), _O_BINARY);
@@ -1020,7 +1023,8 @@ int main(int argc, char **argv) {
                              j::Object{{"openClose", true},
                                        {"change", 2},
                                        {"save", j::Object{{"includeText", false}}}}}}},
-                 {"serverInfo", j::Object{{"name", "kalandra-native"}}}}}});
+                 {"serverInfo", j::Object{{"name", "kalandra-native"},
+                                          {"version", std::string(kalandra::version)}}}}}});
       } else if (!session.initialized) {
         if (request)
           error(*id, -32002, "Server not initialized");

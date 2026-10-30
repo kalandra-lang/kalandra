@@ -1,7 +1,10 @@
 #include "kalandra/Formatter.h"
+#include "kalandra/Version.h"
 #include <iostream>
 #include <span>
 int main(int argc, char **argv) {
+  if (kalandra::printVersion(argc, argv, "kalandra-fmt"))
+    return 0;
   const std::span<char *> args(argv, static_cast<std::size_t>(argc));
   bool checking = false;
   std::string path;

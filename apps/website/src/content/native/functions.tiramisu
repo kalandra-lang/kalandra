@@ -1,4 +1,4 @@
-meta { title = "Functions and closures", description = "Compose named functions, callbacks and captured environments.", order = 3, group = "Language" }
+meta { title = "Functions and closures", description = "Compose named functions, callbacks and captured environments.", order = 3, group = "Language reference" }
 
 Use fn to declare a function, annotate its parameters and optionally write its result type after ->. Function bodies end with a result expression. Export a declaration when another module must import it.
 
@@ -45,12 +45,8 @@ fn main() -> int:
   factorial(5)
 """ }
 
-The native CPU implementation supports direct and mutual recursive calls, including qualified callable/task forms. Invocation and scheduler resource limits still apply; do not rely on unbounded recursion or implicit tail-call elimination.
+Functions can call themselves and each other on the CPU, including in CPU tasks. Recursive calls consume execution resources; very deep recursion can exhaust them. Do not depend on tail-call elimination for correctness.
 
 link { url = "/docs/arrays", "Map arrays sequentially" }
 
 link { url = "/docs/parallelism", "Schedule CPU callbacks" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-closures.md", "Closure ownership and boundaries" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-recursive-callables.md", "Recursive callable rules" }

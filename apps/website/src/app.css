@@ -3,6 +3,7 @@
 @import "tailwindcss";
 @import "@fontsource-variable/fira-code";
 @import "@fontsource-variable/geist";
+@import "./lib/docs.css";
 
 @source "../../../node_modules/@tiramisu-docs/kit";
 @source "../node_modules/@tiramisu-docs/kit";
@@ -87,29 +88,30 @@ textarea,
 
 /* The native site and docs share a true-black default surface. */
 html.dark {
+  --radius: 0px;
   color-scheme: dark;
-  --background: #000000;
-  --foreground: #eeeef2;
-  --card: #0b0b0d;
-  --card-foreground: #eeeef2;
-  --popover: #111114;
-  --popover-foreground: #eeeef2;
-  --primary: #95baff;
+  --background: #080808;
+  --foreground: #f6f6f6;
+  --card: #101010;
+  --card-foreground: #f6f6f6;
+  --popover: #101010;
+  --popover-foreground: #f6f6f6;
+  --primary: #f86737;
   --primary-foreground: #08080a;
-  --muted: #17171b;
-  --muted-foreground: #aaaab5;
-  --accent: #1a1a20;
-  --accent-foreground: #eeeef2;
-  --border: #292930;
-  --input: #292930;
-  --ring: #95baff;
-  --sidebar: #050505;
-  --sidebar-foreground: #eeeef2;
-  --sidebar-primary: #95baff;
+  --muted: #181818;
+  --muted-foreground: #b5b5b5;
+  --accent: #202020;
+  --accent-foreground: #f6f6f6;
+  --border: #444444;
+  --input: #444444;
+  --ring: #f86737;
+  --sidebar: #080808;
+  --sidebar-foreground: #f6f6f6;
+  --sidebar-primary: #f86737;
   --sidebar-primary-foreground: #08080a;
-  --sidebar-accent: #1a1a20;
-  --sidebar-accent-foreground: #eeeef2;
-  --sidebar-border: #292930;
+  --sidebar-accent: #202020;
+  --sidebar-accent-foreground: #f6f6f6;
+  --sidebar-border: #444444;
 }
 
 /* The selected offset-merge mark is intentionally wider than it is tall. */
@@ -118,4 +120,11 @@ header a[href="/"] > img[src="/brand/kalandra-mark-light.svg"] {
   width: 2rem;
   height: 1.375rem;
   object-fit: contain;
+}
+
+:root:not(.dark) {
+  --radius: 0px;
+  --primary: #b53a17;
+  --ring: #b53a17;
+  --sidebar-primary: #b53a17;
 }

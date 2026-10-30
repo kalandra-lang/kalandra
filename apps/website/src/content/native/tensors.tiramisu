@@ -1,4 +1,4 @@
-meta { title = "Tensors and shapes", description = "Construct dense tensors and compose numerical operations.", order = 7, group = "Language" }
+meta { title = "Tensors and shapes", description = "Construct dense tensors and compose numerical operations.", order = 7, group = "Language reference" }
 
 A Tensor annotation records its numeric element type and dimensions. Tensor[float32, 2, 3] is a two-by-three matrix; a ? dimension accepts a runtime extent. A shape annotation is a checked obligation, not a request to resize data.
 
@@ -88,6 +88,6 @@ link { url = "/docs/gpu", "GPU placement and residence" }
 
 link { url = "/docs/gpu-numerics", "Numerical types, ranks and strict semantics" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/tensors.md", "Tensor construction and conversion" }
+link { url = "/docs/collection-functions", "Collection function reference" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/tensor-reshape.md", "Checked reshape behavior" }
+link { url = "/docs/tensor-functions", "Numerical function reference" }

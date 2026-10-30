@@ -1,38 +1,60 @@
-meta { title = "Kalandra documentation", description = "Learn native CPU and GPU programming with Kalandra.", order = 1, group = "Start here" }
+meta { title = "Kalandra documentation", description = "Tutorials, language and built-in references, practical guides and contribution instructions.", order = 1, group = "Start here" }
 
-Kalandra is a native language for CPU and GPU computing. Write typed functions, compose numerical operations and choose where tasks run. CPU workers and Apple Metal tasks share structured parallel scopes.
+Kalandra is a native language for CPU and GPU computing. Write typed functions, compose numerical operations and choose where tasks run. These pages describe the native development preview and its implemented language and tools.
 
-h2 { "Your first program" }
+h2 { "Learn Kalandra" }
+
+Start with a guided introduction if you are new to the language. The tutorial follows the path from a first project to functions, collections and parallel work.
+
+link { url = "/docs/tutorial", "Tutorial — learn the language by example" }
+
+link { url = "/docs/installation", "Installation — choose and set up the toolchain" }
+
+h2 { "Look something up" }
+
+The language reference explains syntax, types and execution. The library reference lists every built-in call, including numeric conversions, collection operations, numerical functions and device selectors.
+
+link { url = "/docs/language-reference", "Language reference" }
+
+link { url = "/docs/library", "Built-in functions — alphabetical index" }
+
+link { url = "/docs/tooling", "Compiler, checker, formatter and editor tools" }
+
+h2 { "Solve a specific task" }
+
+link { url = "/docs/parallelism", "Run independent CPU tasks" }
+
+link { url = "/docs/gpu", "Transfer tensors and run a GPU function" }
+
+link { url = "/docs/gpu-numerics", "Compose GPU numerical operations" }
+
+link { url = "/docs/projects", "Configure a native project" }
+
+link { url = "/docs/packages", "Install and update source dependencies" }
+
+link { url = "/docs/troubleshooting", "Troubleshoot common problems" }
+
+h2 { "A first program" }
 
 codeblock { language = kalandra, """fn main() -> int:
   6 * 7
 """ }
 
-Put this in main.k. The native compiler produces an executable; running it displays the value returned by main.
+Save this as main.k. Check the source, compile it, then run the executable; it displays 42.
 
 codeblock { language = bash, """kalandra-check main.k
 kalandra main.k -o program
 ./program
 """ }
 
-Unless a page gives a project layout, save each complete language example as main.k and use the check, compile and run commands above. Examples on the GPU pages use their Metal commands instead. Export-only modules are companion files for the application shown beside them; the troubleshooting page labels its intentionally rejected program explicitly.
+Unless a page gives a project layout, save each complete language example as main.k and use these commands. GPU examples use the Metal compilation commands in the GPU guide. Companion modules and intentionally rejected examples are labeled on their pages.
 
-h2 { "Choose a path" }
+h2 { "Contribute" }
 
-link { url = "/docs/installation", "Install the native toolchain" }
+Learn how to build and test the compiler, locate the relevant implementation, improve documentation and submit a focused change. Compiler design documents and project planning remain in the repository.
 
-link { url = "/docs/getting-started", "Build and run your first project" }
+link { url = "/docs/contributing", "Contributor guide" }
 
-link { url = "/docs/syntax", "Learn the language from the beginning" }
+link { url = "https://github.com/kalandra-lang/kalandra/issues", "Report a bug" }
 
-link { url = "/docs/gpu", "Run a numerical function on the GPU" }
-
-h2 { "What runs where" }
-
-CPU programs run on the supported macOS, Linux and Windows targets. Apple Metal is the current GPU backend on macOS 26 or newer with Apple silicon. GPU execution supports numerical scalars and dense tensors; a CPU feature is not automatically a GPU feature.
-
-callout { type = info, "This documentation describes the native development preview. CUDA, distributed execution, model loading and a full LLM inference runtime are separate work. See the GPU guide for the implemented numerical scope." }
-
-link { url = "/docs/tooling", "Editor and command-line tools" }
-
-link { url = "/docs/troubleshooting", "Find and fix common problems" }
+link { url = "/docs/release-notes", "What’s new in Kalandra 0.99.0" }

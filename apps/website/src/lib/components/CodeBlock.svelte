@@ -1,6 +1,5 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-
+  import { onDestroy, type Snippet } from "svelte";
   let {
     language = "",
     icon = "",
@@ -13,102 +12,59 @@
     children?: Snippet;
   } = $props();
   let copied = $state(false);
-
+  let error = $state(false);
+  let timer: ReturnType<typeof setTimeout>;
   let codeElement: HTMLElement;
-
   async function copyCode() {
-    const text = codeElement.textContent ?? "";
-    await navigator.clipboard.writeText(text);
-    copied = true;
-    setTimeout(() => (copied = false), 2000);
+    clearTimeout(timer);
+    copied = false;
+    error = false;
+    try {
+      await navigator.clipboard.writeText(codeElement.textContent ?? "");
+      copied = true;
+    } catch {
+      error = true;
+    }
+    timer = setTimeout(() => {
+      copied = false;
+      error = false;
+    }, 2500);
   }
+  onDestroy(() => clearTimeout(timer));
 </script>
 
-<div
-  class="group relative my-4 overflow-hidden rounded-lg border border-border"
->
-  {#if language}
-    <div
-      class="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5"
-    >
-      <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {language}
-      </span>
-      <button
-        onclick={copyCode}
-        class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-        aria-label="Copy code"
-      >
-        {#if copied}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg
-          >
-          Copied
-        {:else}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path
-              d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
-            /></svg
-          >
-          Copy
-        {/if}
-      </button>
-    </div>
-  {/if}
-  <pre class="overflow-x-auto p-4 text-sm leading-relaxed"><code
-      bind:this={codeElement}>{@html code}</code
-    ></pre>
-  {#if !language}
-    <button
+<div class="docs-code">
+  <div class="docs-code-bar">
+    <span>{language || "Source"}</span><button
       onclick={copyCode}
-      class="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
       aria-label="Copy code"
+      >{copied ? "Copied" : error ? "Try again" : "Copy"}<svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+        >{#if copied}<path d="m5 12 4 4L19 6" />{:else}<path
+            d="M8 8h12v12H8zM16 8V4H4v12h4"
+          />{/if}</svg
+      ></button
     >
-      {#if copied}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg
-        >
-      {:else}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path
-            d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
-          /></svg
-        >
-      {/if}
-    </button>
-  {/if}
+  </div>
+  <!-- Scrollable source needs a keyboard stop for horizontal navigation. -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <pre
+    role="region"
+    tabindex="0"
+    aria-label={`${language || "Source"} code`}><code bind:this={codeElement}
+      >{@html code}</code
+    ></pre>
+  <span class="sr-only" role="status"
+    >{copied
+      ? "Code copied to clipboard."
+      : error
+        ? "Could not copy. Select the code to copy it manually, or try again."
+        : ""}</span
+  >
 </div>

@@ -99,11 +99,11 @@
     </DropdownMenu.Trigger>
     <DropdownMenu.Content
       align="end"
-      class="z-50 min-w-48 rounded-lg border bg-background p-2 shadow-lg"
+      class="z-50 min-w-48 border bg-background p-2"
     >
       {#each openLinks as link}
         <DropdownMenu.Item
-          class="cursor-pointer rounded px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
+          class="cursor-pointer px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
         >
           <a
             href={link.href}
@@ -120,7 +120,7 @@
         <DropdownMenu.Separator />
         {#each editLinks as link}
           <DropdownMenu.Item
-            class="cursor-pointer rounded px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
+            class="cursor-pointer px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
           >
             <a
               href={link.href}
@@ -138,7 +138,7 @@
         <DropdownMenu.Separator />
         {#each mcpLinks as link}
           <DropdownMenu.Item
-            class="cursor-pointer rounded px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
+            class="cursor-pointer px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
           >
             {#if link.copy}
               <button
@@ -151,7 +151,7 @@
               >
                 {#if copied}
                   <svg
-                    class="size-4 shrink-0 text-green-500"
+                    class="size-4 shrink-0 text-primary"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -187,7 +187,7 @@
       {#if markdown}
         <DropdownMenu.Separator />
         <DropdownMenu.Item
-          class="cursor-pointer rounded px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
+          class="cursor-pointer px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
         >
           <button
             onclick={(e: MouseEvent) => {
@@ -199,7 +199,7 @@
           >
             {#if mdCopied}
               <svg
-                class="size-4 shrink-0 text-green-500"
+                class="size-4 shrink-0 text-primary"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"

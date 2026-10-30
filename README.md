@@ -1,6 +1,6 @@
 # Kalandra
 
-A native language for CPU and GPU computing. The next chapter of [Clio](https://clio-lang.org).
+A native language for CPU and GPU computing. [kalandra.dev](https://kalandra.dev).
 
 Kalandra's native implementation uses C++23 and MLIR/LLVM. It combines immutable values, automatic memory management, structured parallel tasks and explicit GPU execution. Current development targets Apple Silicon with Metal.
 
@@ -14,6 +14,8 @@ fn main() -> int ! TaskError:
 ```
 
 Native source files use `.k`. The compiler is under development; the [native implementation guide](native/README.md), [language design](docs/design/core.md) and [roadmap](docs/roadmap.md) describe supported features and remaining work.
+
+The native toolchain version is **0.99.0**. Run `kalandra --version` to identify an installed compiler. [Release notes](docs/releases/0.99.0.md) explain the move from the 0.12.0 line to native CPU/GPU execution.
 
 ## Build from source
 
@@ -35,6 +37,8 @@ build/native/native/kalandra main.k -o program
 The native toolchain does not require Bun or Node. Local CPU execution and Apple Metal GPU execution are implemented; [distributed execution](docs/native-distributed-roadmap.md) follows a separate roadmap.
 
 ## Website and documentation
+
+Start with the [tutorial](https://kalandra.dev/docs/tutorial), [language reference](https://kalandra.dev/docs/language-reference), [built-in function index](https://kalandra.dev/docs/library) or [contributor guide](https://kalandra.dev/docs/contributing). Repository design/planning documentation is indexed in [docs/README.md](docs/README.md).
 
 The website lives in `apps/website`. Its native language documentation is authored in Tiramisu under `apps/website/src/content/native`.
 

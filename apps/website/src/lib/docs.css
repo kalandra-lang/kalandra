@@ -1,0 +1,587 @@
+/* Local Tiramisu overrides: reading surfaces inherit the approved Swiss identity. */
+.docs-site {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Geist Variable", sans-serif;
+  --docs-rule: var(--border);
+  --docs-header-height: 72px;
+  scrollbar-color: var(--muted-foreground) var(--background);
+}
+.docs-site ::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.docs-site :is(a, button, input, select, summary, pre):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 5px;
+}
+.docs-site a {
+  text-underline-offset: 5px;
+}
+.docs-site button {
+  cursor: pointer;
+  font: inherit;
+}
+.docs-skip {
+  position: fixed;
+  top: 8px;
+  left: 16px;
+  z-index: 80;
+  padding: 12px 20px;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  transform: translateY(-160%);
+}
+.docs-skip:focus {
+  transform: none;
+}
+.docs-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--background);
+}
+.docs-header-inner {
+  width: min(1440px, calc(100% - 96px));
+  margin-inline: auto;
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  min-height: 72px;
+  border-bottom: 1px solid var(--docs-rule);
+}
+.docs-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+.docs-brand > span {
+  display: block;
+  width: 29px;
+  height: 23px;
+  background: currentColor;
+  mask: url("/brand/kalandra-mark.svg") center/contain no-repeat;
+}
+.docs-label {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  padding-left: 26px;
+  border-left: 1px solid var(--docs-rule);
+}
+.docs-header-links {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 14px;
+}
+.docs-header-links a:hover,
+.docs-label:hover,
+.docs-footer a:hover {
+  color: var(--primary);
+}
+.docs-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--docs-rule);
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px !important;
+  color: var(--muted-foreground);
+}
+.docs-search:hover {
+  color: var(--foreground);
+  border-color: var(--foreground);
+}
+.docs-search kbd {
+  font-size: 10px;
+  padding-left: 20px;
+  color: var(--muted-foreground);
+}
+.docs-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  color: var(--muted-foreground);
+}
+.docs-theme:hover {
+  color: var(--primary);
+}
+.docs-menu {
+  display: none;
+}
+.docs-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 12px 48px;
+  border-bottom: 1px solid var(--docs-rule);
+}
+.docs-fallback {
+  text-align: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--docs-rule);
+  color: var(--muted-foreground);
+}
+.docs-grid {
+  display: grid;
+  grid-template-columns: 205px minmax(0, 1fr) 170px;
+  gap: 48px;
+  width: min(1440px, calc(100% - 96px));
+  margin-inline: auto;
+}
+.docs-sidebar {
+  position: sticky;
+  top: var(--docs-header-height);
+  height: calc(100dvh - var(--docs-header-height));
+  min-height: 0;
+  padding-block: 36px;
+}
+.docs-sidebar nav {
+  padding: 0 12px 24px 0;
+  scrollbar-width: thin;
+}
+.docs-sidebar nav > div {
+  margin-bottom: 28px;
+}
+.docs-sidebar :is(h4, h5) {
+  padding-left: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--foreground);
+  margin-bottom: 10px;
+}
+.docs-sidebar nav a {
+  border-radius: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  padding-block: 6px;
+  padding-left: 0 !important;
+}
+.docs-sidebar nav a.text-primary {
+  background: none;
+  color: var(--primary);
+  font-weight: 600;
+}
+.docs-sidebar button {
+  border-radius: 0;
+}
+.docs-reading-column {
+  min-width: 0;
+}
+.docs-reading-column main {
+  padding-top: 48px;
+  padding-bottom: 24px;
+  outline: none;
+}
+.docs-toc {
+  position: sticky;
+  top: var(--docs-header-height);
+  height: calc(100dvh - var(--docs-header-height));
+  padding-top: 50px;
+  padding-bottom: 32px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.docs-toc nav > p {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+.docs-toc nav > p svg {
+  display: none;
+}
+.docs-toc ul {
+  border: none;
+}
+.docs-toc ul a {
+  border: none;
+  margin-left: 0;
+  padding: 7px 0;
+  line-height: 1.5;
+  font-size: 12px;
+}
+.docs-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 24px;
+  padding: 24px 0 32px;
+  margin-top: 20px;
+  border-top: 1px solid var(--docs-rule);
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.docs-footer span {
+  margin-right: auto;
+}
+.swiss-doc-page .doc-content > div:first-child {
+  margin-bottom: 36px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--docs-rule);
+}
+.swiss-doc-page .doc-content > div:first-child > p:first-child {
+  display: none;
+}
+.swiss-doc-page .doc-content > div:first-child > div {
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.swiss-doc-page h1 {
+  font-size: clamp(40px, 4.7vw, 70px);
+  font-weight: 750;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.swiss-doc-page .doc-content > div:first-child > p:last-child {
+  margin-top: 24px;
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.swiss-doc-page .doc-animate {
+  animation: none;
+}
+.swiss-doc-page .doc-body :is(p, li) {
+  font-size: 16px;
+  line-height: 1.8;
+}
+.swiss-doc-page .doc-body p {
+  margin-bottom: 24px;
+}
+.swiss-doc-page .doc-body :is(h1, h2, h3, h4) {
+  scroll-margin-top: 104px;
+  letter-spacing: -0.025em;
+}
+.swiss-doc-page .doc-body h2 {
+  margin-top: 48px;
+  margin-bottom: 20px;
+  padding-bottom: 0;
+  border-bottom: none;
+  font-size: 29px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+.swiss-doc-page .doc-body h3 {
+  font-size: 22px;
+  line-height: 1.25;
+  margin-top: 36px;
+  margin-bottom: 16px;
+}
+.swiss-doc-page .doc-body :is(p, li, td) a:hover {
+  color: var(--primary);
+  opacity: 1;
+}
+.swiss-doc-page .doc-body code {
+  border-radius: 0;
+  font-weight: 400;
+}
+.swiss-doc-page .doc-body table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--docs-rule);
+}
+.swiss-doc-page .doc-body th {
+  color: var(--foreground);
+  font-weight: 600;
+  border-bottom-width: 1px;
+}
+.swiss-doc-page .doc-body :is(th, td) {
+  padding: 14px 16px;
+}
+.docs-code {
+  margin: 28px 0;
+  border: 1px solid var(--docs-rule);
+  min-width: 0;
+}
+.docs-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--docs-rule);
+  color: var(--muted-foreground);
+  font: 11px/1.4 var(--font-mono);
+}
+.docs-code-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  min-width: 52px;
+  font: inherit;
+}
+.docs-code-bar button:hover {
+  color: var(--primary);
+}
+.swiss-doc-page .doc-body .docs-code pre {
+  background: var(--background);
+  color: var(--foreground);
+  padding: 22px;
+  font-size: 13px;
+  line-height: 1.8;
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) var(--background);
+}
+.docs-pagination nav {
+  gap: 32px;
+  border-color: var(--docs-rule);
+  padding-top: 24px;
+  margin-top: 40px;
+}
+.docs-pagination nav a {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  min-height: 64px;
+  gap: 10px;
+  background: none;
+}
+.docs-pagination nav a:hover {
+  background: none;
+}
+.docs-pagination nav a:hover span:last-child {
+  color: var(--primary);
+}
+.docs-pagination nav a span:last-child {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.docs-callout {
+  border-block: 1px solid var(--docs-rule);
+  padding: 20px 0;
+  margin: 28px 0;
+}
+.docs-callout > strong {
+  display: block;
+  font-size: 13px;
+  color: var(--primary);
+  margin-bottom: 10px;
+}
+.swiss-doc-page .doc-body .docs-callout p {
+  color: var(--muted-foreground);
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.swiss-doc-page .doc-body .docs-callout p:last-child {
+  margin-bottom: 0;
+}
+@media (min-width: 1600px) {
+  .docs-grid {
+    grid-template-columns: 225px minmax(0, 1fr) 190px;
+    gap: 64px;
+  }
+}
+@media (max-width: 1279px) {
+  .docs-header-inner {
+    gap: 20px;
+  }
+  .docs-header-links {
+    gap: 20px;
+  }
+  .docs-header-links a:first-child {
+    display: none;
+  }
+  .docs-grid {
+    grid-template-columns: 185px minmax(0, 1fr);
+    gap: 40px;
+  }
+  .docs-toc {
+    display: none;
+  }
+  .docs-label {
+    padding-left: 20px;
+  }
+}
+@media (max-width: 1023px) {
+  .docs-header-inner {
+    width: calc(100% - 64px);
+  }
+  .docs-header-links {
+    display: none;
+  }
+  .docs-search {
+    margin-left: auto;
+  }
+  .docs-menu {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    min-height: 44px;
+    font-size: 13px !important;
+  }
+  .docs-grid {
+    display: block;
+    max-width: 760px;
+    width: calc(100% - 64px);
+  }
+  .docs-sidebar {
+    display: none;
+  }
+  .docs-sidebar.mobile-open {
+    display: block;
+    position: relative;
+    top: auto;
+    height: auto;
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
+    border-bottom: 1px solid var(--docs-rule);
+    padding-block: 24px;
+  }
+  .docs-sidebar.mobile-open nav a {
+    min-height: 44px;
+    padding-block: 10px;
+    font-size: 15px;
+  }
+  .docs-reading-column main {
+    padding-top: 40px;
+  }
+  .swiss-doc-page h1 {
+    font-size: clamp(40px, 7vw, 64px);
+  }
+  .docs-code-bar {
+    min-height: 44px;
+  }
+  .docs-code-bar button {
+    min-height: 44px;
+  }
+}
+@media (max-width: 600px) {
+  .docs-header-inner {
+    width: calc(100% - 40px);
+    gap: 12px;
+    min-height: 64px;
+  }
+  .docs-site {
+    --docs-header-height: 64px;
+  }
+  .docs-brand {
+    font-size: 22px;
+    gap: 8px;
+  }
+  .docs-brand > span {
+    width: 25px;
+    height: 20px;
+  }
+  .docs-label {
+    display: none;
+  }
+  .docs-search {
+    padding: 0;
+    border: 0;
+    min-height: 44px;
+    min-width: 32px;
+  }
+  .docs-search > span,
+  .docs-search kbd {
+    display: none;
+  }
+  .docs-theme {
+    min-width: 32px;
+    min-height: 44px;
+  }
+  .docs-menu {
+    min-width: 56px;
+    justify-content: flex-end;
+  }
+  .docs-grid {
+    width: calc(100% - 40px);
+  }
+  .docs-reading-column main {
+    padding-top: 36px;
+  }
+  .swiss-doc-page h1 {
+    font-size: clamp(38px, 9.2vw, 54px);
+  }
+  .swiss-doc-page .doc-content > div:first-child > p:last-child {
+    font-size: 17px;
+    margin-top: 20px;
+  }
+  .swiss-doc-page .doc-body :is(p, li) {
+    font-size: 15px;
+  }
+  .swiss-doc-page .doc-body h2 {
+    font-size: 26px;
+    margin-top: 40px;
+  }
+  .swiss-doc-page .doc-body .docs-code pre {
+    padding: 18px;
+    font-size: 12px;
+  }
+  .docs-pagination nav {
+    gap: 20px;
+  }
+  .docs-pagination nav a span:last-child {
+    font-size: 17px;
+  }
+  .docs-footer {
+    gap: 16px;
+  }
+  .docs-footer span {
+    flex-basis: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-site * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.swiss-doc-page .doc-body {
+  max-width: 75ch;
+}
+.docs-search-layer :is(.rounded-xl, .rounded-lg, kbd) {
+  border-radius: 0;
+}
+.docs-search-layer .shadow-2xl {
+  box-shadow: none;
+}
+.docs-search-layer .backdrop-blur-sm {
+  backdrop-filter: none;
+}
+.docs-search-layer :is(button, input):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* Long type signatures and literal results must wrap outside source frames. */
+.swiss-doc-page .doc-body {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 359px) {
+  .docs-header-inner {
+    gap: 8px;
+  }
+  .docs-brand {
+    font-size: 20px;
+    gap: 6px;
+  }
+  .docs-menu {
+    min-width: 48px;
+    gap: 6px;
+  }
+  .docs-theme {
+    min-width: 28px;
+  }
+}

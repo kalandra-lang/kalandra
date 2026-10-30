@@ -4,6 +4,7 @@
 #include "kalandra/Backend.h"
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"
+#include "kalandra/Version.h"
 #ifdef KALANDRA_HAS_METAL_SOURCE
 #include "kalandra/MetalSource.h"
 #endif
@@ -30,6 +31,8 @@ bool write(const std::filesystem::path &path, const std::string &contents) {
 }
 } // namespace
 int main(int argc, char **argv) {
+  if (kalandra::printVersion(argc, argv, "kalandra"))
+    return 0;
   if (argc >= 2 &&
       (std::string_view(argv[1]) == "install" || std::string_view(argv[1]) == "update")) {
     const bool update = std::string_view(argv[1]) == "update";
@@ -94,8 +97,8 @@ int main(int argc, char **argv) {
     } else {
       filtered.push_back(argv[i]);
       if ((option == "-o" || option == "--emit-mlir" || option == "--emit-llvm" ||
-           option == "--test-entry" || option == "--arithmetic" || option == "--matmul-policy" || option == "--package" ||
-           option == "--project") &&
+           option == "--test-entry" || option == "--arithmetic" || option == "--matmul-policy" ||
+           option == "--package" || option == "--project") &&
           i + 1 < argc)
         filtered.push_back(argv[++i]);
     }
@@ -187,7 +190,7 @@ int main(int argc, char **argv) {
       }
       arithmetic = *mode;
       selectedArithmetic = true;
-    } else if (option == "--matmul-policy" && !selectedMatmul && i+1<arguments.size()) {
+    } else if (option == "--matmul-policy" && !selectedMatmul && i + 1 < arguments.size()) {
       if (!kalandra::parseMatmulPolicy(arguments[++i])) {
         std::cerr << "invalid --matmul-policy\n";
         return 2;
@@ -323,7 +326,8 @@ int main(int argc, char **argv) {
       if (!function.isDeclaration())
         function.addFnAttr(threadSanitize ? llvm::Attribute::SanitizeThread
                                           : llvm::Attribute::SanitizeAddress);
-    if (threadSanitize) kalandra::padThreadSanitizerFrames(*module);
+    if (threadSanitize)
+      kalandra::padThreadSanitizerFrames(*module);
     if (llvm::verifyModule(*module, &llvm::errs()))
       return 1;
     lowered->llvm.clear();
@@ -441,15 +445,17 @@ int main(int argc, char **argv) {
     llvm::LLVMContext context;
     llvm::SMDiagnostic diagnostic;
     auto module = llvm::parseAssemblyString(linkerIR, diagnostic, context);
-    if (!module) return 1;
+    if (!module)
+      return 1;
     if (auto *ordinaryMain = kalandra::addOrdinaryMain(*module)) {
       if (sanitize || threadSanitize)
         ordinaryMain->addFnAttr(threadSanitize ? llvm::Attribute::SanitizeThread
                                                : llvm::Attribute::SanitizeAddress);
-      if (llvm::verifyModule(*module, &llvm::errs())) return 1;
+      if (llvm::verifyModule(*module, &llvm::errs()))
+        return 1;
       linkerIR.clear();
       llvm::raw_string_ostream text(linkerIR);
-      module->print(text,nullptr);
+      module->print(text, nullptr);
     }
   }
   llvm::SmallString<256> temporary;

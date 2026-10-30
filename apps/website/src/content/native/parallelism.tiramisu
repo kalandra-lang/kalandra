@@ -1,4 +1,4 @@
-meta { title = "CPU parallelism", description = "Spawn typed tasks and keep their lifetimes structured.", order = 1, group = "Execution" }
+meta { title = "CPU parallelism", description = "Spawn typed tasks and keep their lifetimes structured.", order = 1, group = "HOWTO guides" }
 
 Ordinary function calls run synchronously in the current execution context. spawn creates a typed CPU task; await observes its completed result. Place task work inside a parallel scope, then handle or propagate the TaskError channel.
 
@@ -38,10 +38,8 @@ Generated CPU programs use a bounded worker pool. The detected default is capped
 codeblock { language = bash, """KALANDRA_WORKERS=4 ./program
 """ }
 
-Cancellation is cooperative, and generated numerical loops poll for it. Worker scheduling does not provide unbounded recursion, capacity or deterministic error selection. GPU placement is explicit and has its own supported numerical subset.
+Cancellation is cooperative, and generated numerical loops poll for it. Worker capacity and admitted work are bounded; a parallel scope does not guarantee which racing failure is observed. GPU placement is explicit and has its own supported numerical subset.
 
 link { url = "/docs/gpu", "Combine CPU and GPU work" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-tasks.md", "Structured task semantics" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-parallel-map.md", "Parallel callback support and scheduling" }
+link { url = "/docs/task-functions", "Task and device function reference" }

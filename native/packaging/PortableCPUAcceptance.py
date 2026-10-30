@@ -1,4 +1,5 @@
 """Execute the native CPU language/runtime contract on Linux and Windows."""
+from VersionCheck import expected_version, verify_binary_version
 import argparse
 import json
 import os
@@ -11,6 +12,7 @@ import tempfile
 
 def qualify(compiler):
     compiler = compiler.resolve()
+    verify_binary_version(compiler, expected_version(), "kalandra")
     windows = platform.system() == "Windows"
     modes = [("normal", []), ("optimized", ["-O2"]), ("address-undefined", ["--sanitize"])]
     if not windows:

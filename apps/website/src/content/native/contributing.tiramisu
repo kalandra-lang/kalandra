@@ -1,0 +1,47 @@
+meta { title = "Contributor guide", description = "Build, test and improve the language and its documentation.", order = 1, group = "Contributing" }
+
+Kalandra's compiler and runtime are written in C++23; the website uses SvelteKit and user documentation uses Tiramisu. Contributions can improve language behavior, diagnostics, portability, editor support, examples or documentation. Start with a reproducible issue and a focused change.
+
+h2 { "Build the native tools" }
+
+Install CMake, Ninja and the pinned LLVM/MLIR/Clang dependencies described in the repository build guide. Metal builds need a supported Mac and the Apple Metal toolchain. Do not substitute arbitrary LLVM versions: the compiler integrates with version-specific MLIR APIs.
+
+link { url = "https://github.com/kalandra-lang/kalandra/blob/native/native/README.md", "Native build instructions and dependency pins" }
+
+codeblock { language = bash, """cmake --preset native
+cmake --build --preset native
+ctest --preset native
+""" }
+
+h2 { "Find the relevant code" }
+
+The lexer, parser, semantic analysis, typed IR and CPU lowering live under native/lib with public compiler headers under native/include. Native runtime code lives under native/runtime; Metal source compilation and runtime integration live under native/metal-source and native/metal. Editor protocol code is in native/lsp, and the VS Code integration is in native/editor/vscode. Tests and fixtures are registered through native/CMakeLists.txt and the CMake files it includes. Benchmark runners are separate from correctness tests.
+
+Read the implementation and relevant tests together. Preserve source locations, immutable values, checked failure behavior and task ownership. Compiler allocation strategies and ABI details are implementation concerns, not automatically language features.
+
+h2 { "Choose useful tests" }
+
+Add a regression reproducer for a bug fix. For a language feature, cover accepted programs, rejected programs, result values and failure behavior. Use debug and optimized modes when lowering is affected. GPU changes need numerical checks on supported hardware; a successful host build alone does not verify GPU execution. Use the repository's sanitizer configurations for relevant ownership or concurrency changes.
+
+h2 { "Contribute documentation" }
+
+Author public pages in apps/website/src/content/native as .tiramisu files. Use the tutorial for guided learning, the language reference for constructs, the library reference for callable built-ins, and HOWTO guides for specific tasks. Keep examples complete or name the companion files they require. Mark intentionally rejected examples explicitly. Public documentation should explain the implemented language rather than proposed features.
+
+When adding an example, update its expected result in tests/fixtures/docs-examples.json. New built-ins also need an entry in tests/fixtures/public-api.json and a full reference section. The coverage check compares that index with the compiler's callable built-ins. Run website checks and the documentation verifier; use --gpu only with a Metal-enabled compiler and compatible hardware.
+
+codeblock { language = bash, """bun install --frozen-lockfile
+bun run check
+bun run verify:docs --gpu
+""" }
+
+For UI overrides, use the documented local src/lib/components/index.ts barrel instead of editing installed Tiramisu packages. Keep page metadata, accessible navigation and code copying working.
+
+h2 { "Submit a focused change" }
+
+Explain the user-visible problem and resulting behavior, include relevant test results, and disclose platform or hardware checks you could not run. Preserve attribution and dependency licenses. Report bugs with a minimal source example, commands, platform and tool versions; do not include credentials or private project data.
+
+link { url = "https://github.com/kalandra-lang/kalandra/blob/native/CONTRIBUTING.md", "Repository contribution guidelines" }
+
+link { url = "https://github.com/kalandra-lang/kalandra/issues", "Report a bug or propose a change" }
+
+link { url = "https://github.com/kalandra-lang/kalandra/tree/native/docs/design", "Compiler and language design documents" }

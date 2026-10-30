@@ -1,4 +1,5 @@
 """Verify a downloaded portable archive before executing the CPU contract."""
+from VersionCheck import verify_package_version
 import argparse
 import hashlib
 import json
@@ -28,6 +29,7 @@ def qualify(archive):
             assert len({Path(member.name).parts[0] for member in package.getmembers()}) == 1
             package.extractall(work, filter="data")
         prefix, = work.glob("kalandra-native-*")
+        verify_package_version(prefix)
         files = {p.relative_to(prefix).as_posix() for p in prefix.rglob("*") if p.is_file()}
         listed = {}
         for line in (prefix / "SHA256SUMS").read_text().splitlines():

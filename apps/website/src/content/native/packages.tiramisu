@@ -1,4 +1,4 @@
-meta { title = "Dependencies and locks", description = "Install an explicit Git dependency graph and build offline.", order = 3, group = "Projects and tools" }
+meta { title = "Dependencies and locks", description = "Install an explicit Git dependency graph and build offline.", order = 3, group = "Using Kalandra" }
 
 Native dependency installation is explicit. Compilation and checking consume an already installed graph and never fetch or update dependencies implicitly. Git is required for installation; local and public HTTPS repositories are supported.
 
@@ -88,10 +88,4 @@ The rebuilt program returns 63. Ordinary reinstall retains an unchanged branch r
 
 h2 { "Current transport scope" }
 
-Authenticated/SSH transport, registry resolution, version-range solving and a public native-library ABI remain separate work. A package is checked source, not an arbitrary build hook run during compilation.
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-package-install.md", "Installation and source verification" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-package-lock.md", "Lock and frozen-mode contract" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-package-update.md", "Named updates and private pins" }
+Authenticated/SSH transport, package registries, version-range solving and a public native-library ABI are not supported. A package is checked source, not an arbitrary build hook run during compilation.

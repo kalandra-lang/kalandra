@@ -1,4 +1,4 @@
-meta { title = "GPU computing", description = "Transfer tensors and place numerical functions on Apple Metal.", order = 2, group = "Execution" }
+meta { title = "GPU computing", description = "Transfer tensors and place numerical functions on Apple Metal.", order = 2, group = "HOWTO guides" }
 
 Kalandra uses one source language for CPU functions and eligible GPU numerical functions. Apple Metal is the current GPU backend, on macOS 26 or newer with Apple silicon. Use the mixed CPU/Metal compiler distribution and its Apple toolchain prerequisites.
 
@@ -40,10 +40,8 @@ Host coordination and CPU workers remain separate from shader execution even whe
 
 h2 { "Numerical and control scope" }
 
-GPU numerical programs support all ten native numeric types, dense ranks zero through eight, rank-two matmul, balanced reduceSum, explicit conversions and qualified resident numerical/control graphs. Float32 uses hardware arithmetic by default. Float64 GPU operations require --arithmetic hardware-with-software-fallback; CPU float64 remains on hardware under that policy. --arithmetic software selects the strict software implementation. This does not imply general device Strings, records, enums, arbitrary closures or application-error handling.
+GPU numerical programs support all ten native numeric types, dense ranks zero through eight, rank-two matmul, balanced reduceSum, explicit conversions and resident numerical functions and supported control flow. Float32 uses hardware arithmetic by default. Float64 GPU operations require --arithmetic hardware-with-software-fallback; CPU float64 remains on hardware under that policy. --arithmetic software selects the strict software implementation. This does not imply general device Strings, records, enums, arbitrary closures or application-error handling.
 
 link { url = "/docs/gpu-numerics", "Read the numerical contract and graph example" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-gpu-capabilities.md", "Detailed host/device capability matrix" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-metal-install.md", "Mixed compiler prerequisites and application resources" }
+link { url = "/docs/task-functions", "Task and device function reference" }

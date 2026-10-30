@@ -1,4 +1,4 @@
-meta { title = "Syntax and values", description = "Read native source, immutable bindings and expression results.", order = 1, group = "Language" }
+meta { title = "Syntax and values", description = "Read native source, immutable bindings and expression results.", order = 1, group = "Language reference" }
 
 Native source files use the .k extension. Indentation defines suites; use spaces consistently. A colon introduces a function or control-flow body. The final expression supplies the result.
 
@@ -46,5 +46,3 @@ Values use automatic lifetime management. User code does not free arrays, tensor
 link { url = "/docs/functions", "Functions and closures" }
 
 link { url = "/docs/numbers", "Numeric types and conversion" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/frontend.md", "Native syntax and parser boundaries" }

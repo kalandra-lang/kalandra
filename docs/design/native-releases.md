@@ -10,8 +10,17 @@ It does not publish npm packages, the website or the extension Marketplace.
 - Build metadata alone, such as `v1.0.0+build.1`, is stable. Invalid SemVer tags
   fail validation, including numeric identifiers with leading zeros.
 
-After a release commit is reviewed and ready, tag that exact commit and push the
-version tag. The workflow checks out the tagged commit, checks the version parser,
+The root `VERSION` file is authoritative for the native toolchain. It currently
+contains `0.99.0`; CMake uses its numeric core as `PROJECT_VERSION` and embeds the
+full SemVer string in CLI tools, LSP `serverInfo` and installed `toolchain.json`
+metadata. LLVM and the VS Code extension retain their independent versions.
+
+Before a release, update `VERSION` and author `docs/releases/<version>.md` with a
+heading for that exact version. Review and test the commit, then tag that exact
+commit `v<version>` and push the tag. The tagged workflows reject any mismatch
+between the tag and `VERSION`, or missing/mismatched release notes, before their
+expensive builds. The publisher uses that authored Markdown rather than a fixed
+packaging blurb. The workflow checks out the tagged commit, checks the version parser,
 installs the pinned native dependencies, builds Release packages, runs installation
 and relocation acceptance, and builds/tests the editor package. It uploads the CPU
 bundle, the smaller editor-tools-only bundle, the VSIX and their checksum sidecars.

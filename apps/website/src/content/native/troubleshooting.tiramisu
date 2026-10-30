@@ -1,4 +1,4 @@
-meta { title = "Troubleshooting", description = "Resolve common source, toolchain and placement problems.", order = 5, group = "Projects and tools" }
+meta { title = "Troubleshooting", description = "Resolve common source, toolchain and placement problems.", order = 4, group = "Using Kalandra" }
 
 h2 { "The compiler cannot find its resources" }
 
@@ -44,7 +44,7 @@ Scheduling, transfers and device dispatch have costs. Start independent tasks be
 
 h2 { "An array after a block-valued binding is rejected" }
 
-A known parser boundary can misread an array literal immediately after a block-valued binding as indexing. Bind the output array to a new name, then return that name. The internal frontend reference tracks this as FRONT-001.
+A known parser boundary can misread an array literal immediately after a block-valued binding as indexing. Bind the output array to a new name, then return that name.
 
 h2 { "Editor results look stale" }
 
@@ -53,7 +53,3 @@ Check the native server path, Workspace Trust and explicit project setting. Rest
 link { url = "/docs/installation", "Platform prerequisites" }
 
 link { url = "/docs/errors", "Expected errors and task failures" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/frontend.md", "Parser boundaries and FRONT-001" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-vscode.md", "Editor configuration and diagnostics" }

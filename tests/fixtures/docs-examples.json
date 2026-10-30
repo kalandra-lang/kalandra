@@ -13,6 +13,13 @@
       "expected": "[1, 2, 9]"
     }
   ],
+  "collection-functions": [
+    {
+      "kind": "cpu",
+      "expected": "[4, 8, 3, 3, 8]"
+    }
+  ],
+  "contributing": [],
   "control-flow": [
     {
       "kind": "cpu",
@@ -57,6 +64,12 @@
       "expected": null
     }
   ],
+  "gpu": [
+    {
+      "kind": "gpu",
+      "expected": "41b80000"
+    }
+  ],
   "gpu-numerics": [
     {
       "kind": "gpu",
@@ -67,12 +80,6 @@
       "expected": "[42d40000,431c0000,43710000,43b10000]"
     }
   ],
-  "gpu": [
-    {
-      "kind": "gpu",
-      "expected": "41b80000"
-    }
-  ],
   "index": [
     {
       "kind": "cpu",
@@ -80,6 +87,8 @@
     }
   ],
   "installation": [],
+  "language-reference": [],
+  "library": [],
   "modules": [
     {
       "kind": "module",
@@ -94,6 +103,16 @@
     {
       "kind": "cpu",
       "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
+  "numeric-functions": [
+    {
+      "kind": "cpu",
+      "expected": "[42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42]"
     },
     {
       "kind": "cpu",
@@ -172,6 +191,22 @@
       "expected": "42"
     }
   ],
+  "task-functions": [
+    {
+      "kind": "cpu",
+      "expected": "[4, 8]"
+    },
+    {
+      "kind": "gpu",
+      "expected": "42280000"
+    }
+  ],
+  "tensor-functions": [
+    {
+      "kind": "cpu",
+      "expected": "0.5"
+    }
+  ],
   "tensors": [
     {
       "kind": "cpu",
@@ -212,5 +247,7 @@
       "kind": "cpu",
       "expected": "42"
     }
-  ]
+  ],
+  "tutorial": [],
+  "release-notes": []
 }

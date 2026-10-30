@@ -4,6 +4,7 @@ on:
     branches: ["native"]
     tags: ["v*"]
     paths:
+      - "VERSION"
       - ".github/workflows/native-release.yml"
       - ".github/scripts/**"
       - "CMakeLists.txt"

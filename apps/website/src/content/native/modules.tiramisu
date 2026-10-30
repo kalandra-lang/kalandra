@@ -1,4 +1,4 @@
-meta { title = "Modules and exports", description = "Organize source into explicit modules and imports.", order = 1, group = "Projects and tools" }
+meta { title = "Modules and exports", description = "Organize source into explicit modules and imports.", order = 10, group = "Language reference" }
 
 Each .k file is a module. Declarations are private unless exported. Imports name exactly which declarations enter the current scope, with optional aliases. Relative imports include their .k extension.
 
@@ -38,7 +38,3 @@ A bare import such as from "geometry" import total refers to an explicit package
 link { url = "/docs/projects", "Configure project entry and local package mappings" }
 
 link { url = "/docs/packages", "Install pinned source dependencies" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/modules.md", "Native module loading and limits" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/reexports.md", "Explicit re-exports and aliases" }

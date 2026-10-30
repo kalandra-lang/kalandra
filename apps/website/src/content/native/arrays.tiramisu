@@ -1,4 +1,4 @@
-meta { title = "Arrays and mapping", description = "Create immutable arrays and transform their elements.", order = 6, group = "Language" }
+meta { title = "Arrays and mapping", description = "Create immutable arrays and transform their elements.", order = 6, group = "Language reference" }
 
 An array type is written [T]. Array lengths may vary at runtime; its elements keep one type. Arrays and tensors are different values, with explicit conversions between supported numeric forms.
 
@@ -39,6 +39,4 @@ link { url = "/docs/tensors", "Shapes and tensor arithmetic" }
 
 link { url = "/docs/parallelism", "Parallel array mapping" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/arrays.md", "Array construction rules" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/array-map.md", "Callback types and mapping boundaries" }
+link { url = "/docs/collection-functions", "Collection function reference" }

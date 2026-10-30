@@ -1,4 +1,4 @@
-meta { title = "Numbers and conversions", description = "Choose numeric types and understand checked arithmetic.", order = 2, group = "Language" }
+meta { title = "Numbers and conversions", description = "Choose numeric types and understand checked arithmetic.", order = 2, group = "Language reference" }
 
 Kalandra has ten native numeric types. Signed integers are int8, int16, int32 and int64; unsigned integers are uint8, uint16, uint32 and uint64. The floating-point types are float32 and float64.
 
@@ -25,7 +25,7 @@ Float-to-integer conversion truncates toward zero and fails for NaN, infinity or
 
 h2 { "Arithmetic is checked" }
 
-Integer overflow, invalid integer division and invalid conversions produce checked faults. Optimization does not turn signed overflow into wrapping behavior. Floating-point operations keep separate products and additions and a specified reduction tree; -O2 does not enable fast math.
+Integer overflow, invalid integer division and invalid conversions produce checked faults. Optimization does not turn signed overflow into wrapping behavior. Ordinary scalar and elementwise floating operations keep separate products and additions; reduceSum uses a specified balanced tree. Hardware GPU float32 matmul has its own accumulation policy, described in the numerical reference. -O2 does not enable generic fast math.
 
 Arithmetic and comparisons require compatible types. Numeric arrays and tensors keep one element identity, and tensor conversion preserves shape. An integer type does not automatically become suitable for every GPU operation; use the documented GPU numerical subset.
 
@@ -35,11 +35,10 @@ link { url = "/docs/tensors", "Numeric tensor operations" }
 
 link { url = "/docs/gpu-numerics", "GPU numerical semantics" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/numbers.md", "Numeric rules and conversion details" }
-
-
 h2 { "Arithmetic execution policy" }
 
 CPU float32 and float64 arithmetic use hardware floating-point instructions by default. Floating comparisons and checked conversions also use hardware where supported. Integer overflow and conversion range checks remain enabled.
 
-Use --arithmetic software to select the strict integer-based floating implementation. Hardware mode follows the target floating environment and does not promise identical subnormal, NaN or rounding behavior across all devices. The balanced reduction order and separate multiply/add operations remain unchanged; -O2 does not enable fast math.
+Use --arithmetic software to select the strict integer-based floating implementation. Hardware mode follows the target floating environment and does not promise identical subnormal, NaN or rounding behavior across all devices. reduceSum keeps its balanced order, and ordinary scalar and elementwise operations keep separate multiply/add behavior. Hardware GPU float32 matmul may use fused and reordered accumulation unless you select --matmul-policy fixed-tree; CPU matmul retains its fixed tree under either policy. -O2 does not enable generic fast math.
+
+link { url = "/docs/numeric-functions", "Every numeric conversion and its destination range" }

@@ -1,0 +1,52 @@
+meta { title = "Numerical tensor functions", description = "Matrix multiplication, reductions, activations and row normalization.", order = 3, group = "Library reference" }
+
+T denotes one of the ten numeric element types. M, K and N are compatible dimensions, including runtime dimensions. These signatures are reference notation, not source-level generic definitions. Inputs are immutable. Arithmetic policies affect numerical results; they do not remove shape, conversion or checked integer failures.
+
+h2 { "matmul" }
+
+code { "matmul(left: Tensor[T, M, K], right: Tensor[T, K, N]) -> Tensor[T, M, N]" }
+
+Multiply two rank-two tensors of the same numeric type. Inner extents must match; there is no batched multiplication, implicit element conversion or broadcasting. Zero inner extent yields additive zeros. Integer products and accumulation are checked. CPU execution keeps a balanced adjacent-pair contraction tree. Hardware GPU float32 defaults to optimized full-precision accumulation; --matmul-policy fixed-tree requests separately rounded products and the fixed tree. GPU float64 arithmetic requires explicit software fallback. Shape and allocation sizes are checked.
+
+h2 { "reduceSum" }
+
+code { "reduceSum(values: Tensor[T, ...]) -> T" }
+
+Sum all elements and return a scalar of the same numeric type. Any supported rank, including rank zero, is accepted. An empty tensor returns additive zero. Reduction uses a balanced adjacent-pair tree in row-major order, carrying an unmatched element to the next level. Integer overflow is checked. Floating rounding and underflow follow the selected arithmetic mode and device. A GPU scalar result is observed by awaiting the task containing the reduction.
+
+h2 { "relu" }
+
+code { "relu(values: Tensor[T, ...]) -> Tensor[T, ...]" }
+
+Replace negative elements with zero and preserve shape and type. All ten numeric types and GPU ranks zero through eight are supported. Unsigned values are unchanged. Floating negative zero becomes positive zero; NaN bits and positive subnormal values are preserved by this operation. Positive infinity is retained; negative infinity becomes zero. Accepts tensors, not scalar or array arguments. ReLU itself uses bit selection and does not require floating arithmetic support.
+
+h2 { "transpose" }
+
+code { "transpose(values: Tensor[T, M, N]) -> Tensor[T, N, M]" }
+
+Swap the axes of a rank-two tensor. Every element bit is preserved, including NaN payloads and signed zero. CPU and Metal support all ten numeric types, including float64 without arithmetic emulation for the transpose itself. This operation changes logical element order; it is different from reshape.
+
+h2 { "softmaxRows" }
+
+code { "softmaxRows(values: Tensor[F, M, N]) -> Tensor[F, M, N]" }
+
+Normalize each row by subtracting its maximum, exponentiating, and dividing by the balanced sum of exponentials. F is float32 or float64 in CPU hardware mode; Metal currently accepts hardware float32 only. Software arithmetic is rejected. Empty dimensions remain empty. NaNs, or a row consisting entirely of negative infinity, produce a NaN row. Positive infinities share the probability equally, with zero elsewhere. Finite results are approximate and need not be bit-identical between devices; no lower input precision is selected implicitly.
+
+h2 { "rmsNormRows" }
+
+code { "rmsNormRows(values: Tensor[F, M, N], epsilon: F) -> Tensor[F, M, N]" }
+
+Divide each element by sqrt(mean(square(row)) + epsilon), preserving shape and type. Epsilon must be finite, strictly positive and of the same floating type; invalid epsilon is an arithmetic failure even for an empty tensor. This operation has unit gain, with no implicit learned weights. CPU supports hardware float32 and float64; Metal supports hardware float32. Software arithmetic and GPU float64 row normalization are rejected. Floating results are approximate and device underflow behavior applies.
+
+h2 { "Example" }
+
+codeblock { language = kalandra, """fn main() -> float32:
+  values: Tensor[float32, 1, 2] = tensor([[-1, 2]])
+  product = matmul(values, transpose(values))
+  probabilities = softmaxRows(relu(product))
+  reduceSum(rmsNormRows(probabilities, 3))
+""" }
+The result is 0.5.
+
+link { url = "/docs/gpu-numerics", "GPU execution and numerical policies" }
+link { url = "/docs/tensors", "Tensor tutorial" }

@@ -6,6 +6,7 @@ on:
     paths:
       [
         "CMakeLists.txt",
+        "VERSION",
         "native/**",
         "apps/website/src/content/native/getting-started.tiramisu",
         ".github/workflows/native-windows.yml",
@@ -27,6 +28,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+      - name: Validate tagged toolchain version and release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python .github/scripts/release_version.py
       - uses: ilammy/msvc-dev-cmd@v1
       - uses: actions/cache@v4
         with:

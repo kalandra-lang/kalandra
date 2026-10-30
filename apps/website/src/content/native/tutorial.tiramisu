@@ -1,0 +1,36 @@
+meta { title = "Tutorial", description = "A guided route from your first program to CPU and GPU tasks.", order = 1, group = "Tutorial" }
+
+Start here if you are new to Kalandra. You will create a project, learn how functions produce values, work with collections and run independent tasks. Each linked lesson includes complete programs or an explicit project layout.
+
+h2 { "Create and run a project" }
+
+Install the toolchain for your platform, then create the starter application. Learn the check, compile and run cycle before adding parallel work.
+link { url = "/docs/installation", "Install Kalandra" }
+link { url = "/docs/getting-started", "Create your first project" }
+
+h2 { "Learn the language" }
+
+Learn immutable bindings and numeric types, then conditions, functions and collection operations. Follow the lessons in this order, or use the language reference to look up a particular construct.
+link { url = "/docs/syntax", "Values, bindings and expressions" }
+link { url = "/docs/numbers", "Numeric types and conversions" }
+link { url = "/docs/control-flow", "Conditions and matching" }
+link { url = "/docs/functions", "Functions, closures and recursion" }
+link { url = "/docs/strings", "Strings and Unicode" }
+link { url = "/docs/arrays", "Arrays and mapping" }
+link { url = "/docs/tensors", "Tensors and numerical operations" }
+link { url = "/docs/records-enums", "Records and enums" }
+link { url = "/docs/errors", "Errors and recovery" }
+link { url = "/docs/modules", "Modules and exports" }
+
+h2 { "Choose where work runs" }
+
+Start with CPU tasks and ordered parallel mapping. On a supported Mac, continue with explicit tensor transfers and GPU numerical functions. GPU execution is a different placement of eligible work, not an automatic consequence of using tensors.
+link { url = "/docs/parallelism", "Run CPU tasks" }
+link { url = "/docs/gpu", "Run a numerical function on Metal" }
+link { url = "/docs/gpu-numerics", "Compose GPU numerical operations" }
+
+h2 { "Keep a reference nearby" }
+
+The tutorial teaches by example. The language reference explains language constructs; the library reference lists the built-in calls, accepted inputs, return values and failures.
+link { url = "/docs/language-reference", "Language reference" }
+link { url = "/docs/library", "Built-in function reference" }

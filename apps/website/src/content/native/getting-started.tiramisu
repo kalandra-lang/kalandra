@@ -1,4 +1,4 @@
-meta { title = "Getting started", description = "Create a native project and run a typed parallel map.", order = 3, group = "Start here" }
+meta { title = "Getting started", description = "Create a native project and run a typed parallel map.", order = 3, group = "Tutorial" }
 
 With the native toolchain installed and its bin directory on PATH, create a new project:
 
@@ -48,5 +48,3 @@ link { url = "/docs/syntax", "Understand bindings, indentation and results" }
 link { url = "/docs/parallelism", "Understand tasks and parallel maps" }
 
 link { url = "/docs/gpu", "Place a task on the GPU" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-starter.md", "Starter command reference" }

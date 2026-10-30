@@ -2,6 +2,7 @@
   import { DocsLayout, DocPage, PrevNextNav } from "$lib/components";
   import OpenDropdown from "$lib/components/OpenDropdown.svelte";
   import config from "$lib/tiramisu.config";
+  import { socialImage } from "$lib/social";
   import { resolveConfig, getOpenLinks } from "@tiramisu-docs/kit";
   import type { LocaleConfig } from "@tiramisu-docs/kit";
 
@@ -22,6 +23,16 @@
   );
 </script>
 
+<svelte:head>
+  {#if !data.meta?.image}
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content={String(socialImage.width)} />
+    <meta property="og:image:height" content={String(socialImage.height)} />
+    <meta property="og:image:alt" content={socialImage.alt} />
+    <meta name="twitter:image:alt" content={socialImage.alt} />
+  {/if}
+</svelte:head>
+
 <DocsLayout
   config={resolved}
   sidebar={data.activeSidebar}
@@ -39,7 +50,7 @@
     meta={{
       ...data.meta,
       description: data.meta?.description || resolved.description,
-      image: data.meta?.image || "/social/native.png",
+      image: data.meta?.image || socialImage.path,
     }}
     lastEdited={data.lastEdited}
     slug={data.slug}

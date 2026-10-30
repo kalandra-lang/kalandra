@@ -1320,3 +1320,21 @@ if(BUILD_TESTING)
       --compiler "$<TARGET_FILE:kalandra>" --output "${CMAKE_CURRENT_BINARY_DIR}/static-numerical-shapes")
   set_tests_properties(native-static-numerical-shapes PROPERTIES TIMEOUT 900)
 endif()
+
+# All public CLI variants share the configured toolchain version.
+foreach(_tool IN ITEMS kalandra kalandra-installed kalandra-metal-installed
+    kalandra-check kalandra-check-sanitized kalandra-parse kalandra-mlir-check
+    kalandra-lsp kalandra-lsp-sanitized kalandra-fmt kalandra-fmt-debug
+    kalandra-fmt-optimized kalandra-fmt-sanitized kalandra-fmt-thread-sanitized)
+  if(TARGET ${_tool})
+    target_link_libraries(${_tool} PRIVATE kalandra-version)
+  endif()
+endforeach()
+if(BUILD_TESTING)
+  add_test(NAME native-cli-version COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/VersionTests.py"
+    "${KALANDRA_VERSION}" "$<TARGET_FILE:kalandra>" "$<TARGET_FILE:kalandra-check>"
+    "$<TARGET_FILE:kalandra-fmt>" "$<TARGET_FILE:kalandra-parse>"
+    "$<TARGET_FILE:kalandra-lsp>" "$<TARGET_FILE:kalandra-mlir-check>")
+  set_tests_properties(native-cli-version PROPERTIES TIMEOUT 30)
+endif()

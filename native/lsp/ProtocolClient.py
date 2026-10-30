@@ -86,6 +86,7 @@ class Client:
             capabilities["workspace"] = {"workspaceEdit": {"documentChanges": True}}
             capabilities.setdefault("textDocument", {})["rename"] = {"prepareSupport": True}
         result = self.rpc("initialize", {"capabilities": capabilities, **workspace})["result"]
+        assert result["serverInfo"] == {"name": "kalandra-native", "version": (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()}
         caps = result["capabilities"]
         assert caps["positionEncoding"] == "utf-16"
         assert caps["textDocumentSync"]["change"] == 2  # Incremental UTF-16 changes.

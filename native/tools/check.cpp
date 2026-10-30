@@ -2,12 +2,15 @@
 #include "kalandra/Diagnostics.h"
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"
+#include "kalandra/Version.h"
 #include <algorithm>
 #include <iostream>
 #include <span>
 #include <string_view>
 
 int main(int argc, char **argv) {
+  if (kalandra::printVersion(argc, argv, "kalandra-check"))
+    return 0;
   const std::span<char *> arguments(argv, static_cast<std::size_t>(argc));
   bool dump = false, dumpPlan = false, json = false, selectedJson = false, fromStdin = false;
   // Select the response protocol before parsing errors, while respecting option values.

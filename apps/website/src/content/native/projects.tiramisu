@@ -1,4 +1,4 @@
-meta { title = "Project manifests", description = "Build an explicit entry with stable local package mappings.", order = 2, group = "Projects and tools" }
+meta { title = "Project manifests", description = "Build an explicit entry with stable local package mappings.", order = 2, group = "Using Kalandra" }
 
 Use kalandra new for the starter, or write kalandra.toml explicitly. The manifest selects the source entry and any local package mappings. It is compiler input, not a file loaded by the generated application.
 
@@ -73,10 +73,6 @@ codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o p
 """ }
 
 The optimized CPU program also returns 42. CPU builds produce an executable; Metal builds produce a directory with program and shader libraries. Keep all Metal application files together. Shape, numeric and error checks remain part of the native semantics in optimized builds.
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-projects.md", "Manifest schema, path rules and validation" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-library-manifests.md", "Library metadata" }
 
 link { url = "/docs/packages", "Dependency installation and locks" }
 

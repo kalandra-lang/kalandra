@@ -1,4 +1,5 @@
 #include "kalandra/Syntax.h"
+#include "kalandra/Version.h"
 #include <expected>
 #include <fstream>
 #include <iostream>
@@ -6,6 +7,8 @@
 #include <span>
 
 int main(int argc, char **argv) {
+  if (kalandra::printVersion(argc, argv, "kalandra-parse"))
+    return 0;
   const std::span<char *> arguments(argv, static_cast<std::size_t>(argc));
   if (arguments.size() != 2) {
     std::cerr << "usage: kalandra-parse <source.k>\n";

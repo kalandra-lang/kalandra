@@ -16,7 +16,7 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/README.md"
   DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/kalandra-native-tools"
   COMPONENT NativeEditorTools)
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/tool-install/$<CONFIG>/toolchain.json"
-  CONTENT "{\n  \"format\": 1,\n  \"package\": \"kalandra-native-editor-tools\",\n  \"platform\": \"${KALANDRA_NATIVE_PLATFORM}\",\n  \"configuration\": \"$<CONFIG>\",\n  \"llvmVersion\": \"${KALANDRA_LLVM_VERSION}\",\n  \"llvmRuntime\": \"external\",\n  \"tools\": [\"kalandra-check\", \"kalandra-fmt\", \"kalandra-parse\", \"kalandra-lsp\"]\n}\n")
+  CONTENT "{\n  \"format\": 1,\n  \"version\": \"${KALANDRA_VERSION}\",\n  \"package\": \"kalandra-native-editor-tools\",\n  \"platform\": \"${KALANDRA_NATIVE_PLATFORM}\",\n  \"configuration\": \"$<CONFIG>\",\n  \"llvmVersion\": \"${KALANDRA_LLVM_VERSION}\",\n  \"llvmRuntime\": \"external\",\n  \"tools\": [\"kalandra-check\", \"kalandra-fmt\", \"kalandra-parse\", \"kalandra-lsp\"]\n}\n")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tool-install/$<CONFIG>/toolchain.json"
   DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/kalandra-native-tools" COMPONENT NativeEditorTools)
 add_custom_target(native-editor-tools-package

@@ -2,55 +2,40 @@ import matrix from "../../../../native/metal-source/matrix-graph.k?raw";
 import arithmetic from "../../../../native/metal-source/pre-matmul.k?raw";
 import placement from "../../../../native/benchmarks/gpu.k?raw";
 
-// Read examples from the qualified native fixtures so the homepage cannot
-// silently drift into an invented dialect or advertise browser GPU execution.
+const normalize = (source: string) => source.replaceAll("\r\n", "\n");
+
+// Display and copy source from qualified native fixtures, never an invented dialect.
 export function load() {
   return {
     examples: [
       {
-        title: "Matrix graphs",
+        title: "Matrix product",
         file: "matrix-graph.k",
         path: "native/metal-source/matrix-graph.k",
-        source: matrix.split("\nfn main")[0].trim(),
-        heading: "Keep the graph on the GPU.",
+        source: normalize(matrix)
+          .split("\n\n")[0]
+          .replace("fn multiply(a:", "fn multiply(\n  a:")
+          .replace(", b:", ",\n  b:")
+          .replace("]) ->", "]\n) ->")
+          .trim(),
         description:
-          "Compose matrix products as ordinary functions. Intermediate tensors stay on the device, ready for the next operation.",
-        stages: [
-          "Input tensors",
-          "Matrix product",
-          "Projection",
-          "Resident result",
-        ],
+          "Compose tensor operations as ordinary functions. Keep intermediate results on the GPU.",
       },
       {
         title: "Tensor arithmetic",
         file: "pre-matmul.k",
         path: "native/metal-source/pre-matmul.k",
-        source: arithmetic.split("\nfn main")[0].trim(),
-        heading: "Build with numerical primitives.",
+        source: normalize(arithmetic).split("\nfn main")[0].trim(),
         description:
-          "Combine elementwise arithmetic, matrix products and typed scalar parameters in a single resident numerical graph.",
-        stages: [
-          "Input + scale",
-          "Matrix product",
-          "Bias + scale",
-          "Resident result",
-        ],
+          "Combine tensor arithmetic, matrix products and typed parameters in a resident numerical graph.",
       },
       {
-        title: "CPU ↔ GPU",
+        title: "CPU and GPU placement",
         file: "gpu.k",
         path: "native/benchmarks/gpu.k",
-        source: placement.trim(),
-        heading: "Choose where the work happens.",
+        source: normalize(placement).trim(),
         description:
-          "Transfer tensors explicitly, place a typed task on the GPU, and await its result. CPU workers and GPU tasks belong to the same language.",
-        stages: [
-          "CPU tensor",
-          "Transfer to GPU",
-          "Spawn + await",
-          "Transfer to CPU",
-        ],
+          "Transfer tensors explicitly, place a typed task on the GPU, and await its result.",
       },
     ],
   };

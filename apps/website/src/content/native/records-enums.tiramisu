@@ -1,4 +1,4 @@
-meta { title = "Records and enums", description = "Model named data and alternatives with immutable values.", order = 8, group = "Language" }
+meta { title = "Records and enums", description = "Model named data and alternatives with immutable values.", order = 8, group = "Language reference" }
 
 Use type for a named record with fields, and enum for a value that is one of several declared alternatives. Declarations are nominal: equal field layouts in unrelated declarations do not make them the same type.
 
@@ -36,14 +36,8 @@ Only the selected alternative exists as a language value. Read its payload by ma
 
 h2 { "Cross calls and workers" }
 
-Records and enums use automatic lifetimes, including qualified recursive CPU values and local worker transport. Functions, aggregates and expected errors retain their checked type identity across imported aliases. GPU records and enums are not part of the numerical device subset.
+Records and enums use automatic lifetimes, including supported recursive CPU values and local worker transport. Functions, aggregates and expected errors retain their checked type identity across imported aliases. GPU records and enums are not part of the numerical device subset.
 
 link { url = "/docs/errors", "Declare application-error alternatives" }
 
 link { url = "/docs/modules", "Export a type from a module" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/records.md", "Record rules and updates" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-enums.md", "Enum payloads and current boundaries" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/native-recursive-storage.md", "Recursive value support" }

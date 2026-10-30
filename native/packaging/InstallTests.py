@@ -1,4 +1,5 @@
 """Install/package acceptance using only staged tools from an unrelated cwd."""
+from VersionCheck import verify_package_version
 import hashlib
 import json
 import os
@@ -64,6 +65,7 @@ with tempfile.TemporaryDirectory(dir=root, prefix="install ") as temporary, temp
     shutil.rmtree(output / "package-stage")
     prefix = extracted / "kalandra-native-editor-tools"
     metadata = json.loads((prefix / "share/kalandra-native-tools/toolchain.json").read_text())
+    verify_package_version(prefix)
     assert metadata["format"] == 1 and metadata["llvmVersion"] == json.loads((Path(__file__).parents[1] / "toolchain-proof/toolchain.json").read_text())["llvmVersion"]
     assert metadata["platform"] == "macos-arm64" and metadata["configuration"] == config
     assert set(metadata["tools"]) == set(tools) and metadata["llvmRuntime"] == "external"

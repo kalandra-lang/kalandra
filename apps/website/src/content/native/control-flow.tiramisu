@@ -1,4 +1,4 @@
-meta { title = "Conditions and matching", description = "Use Boolean decisions and exhaustive matching.", order = 4, group = "Language" }
+meta { title = "Conditions and matching", description = "Use Boolean decisions and exhaustive matching.", order = 4, group = "Language reference" }
 
 Bool has the values true and false. Comparisons return Bool. Use not, and and or for Boolean logic. and and or evaluate only the operands needed to determine the result.
 
@@ -36,7 +36,3 @@ Use match to select an enum or error alternative. Cover every alternative or use
 link { url = "/docs/records-enums", "Declare records and enums" }
 
 link { url = "/docs/errors", "Handle expected errors" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/control-flow.md", "Conditional execution rules" }
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/booleans.md", "Boolean and comparison rules" }

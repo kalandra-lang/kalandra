@@ -1,0 +1,75 @@
+meta { title = "Collection functions", description = "Signatures, results and failures for strings, arrays and tensor construction.", order = 2, group = "Library reference" }
+
+These signatures describe call forms, not generic declarations you can paste into a program. T and U stand for compatible element types; dimensions describe a tensor shape. Unless stated otherwise, inputs must be completed CPU values rather than pending tasks. GPU placement has a smaller supported subset, described in the GPU guide. These examples are ordinary CPU programs. In particular, slice and concat are rejected when placement checking is enabled; CPU-only does not imply support inside a mixed Metal application. Built-ins are available without an import and are not first-class callback values; wrap a built-in call in a user-defined function when you need a callback.
+
+h2 { "length" }
+
+code { "length(value: String | [T]) -> int" }
+
+Count Unicode scalar values in a String or elements in an array. Combining marks count separately; this is not a grapheme count. Empty values have length zero. Tensors use shape instead; length does not return a tensor element count. CPU only.
+
+h2 { "byteLength" }
+
+code { "byteLength(text: String) -> int" }
+
+Count UTF-8 bytes, not characters or Unicode scalars. Empty text returns zero. Accepts only a completed CPU String.
+
+h2 { "slice" }
+
+code { "slice(value: String | [T], start: integer, end: integer) -> same collection kind" }
+
+Return the half-open range from start through end, excluding end. Both bounds must be integer scalars and satisfy 0 <= start <= end <= length(value). String bounds count Unicode scalars. Equal bounds produce an empty value. Invalid constant bounds are diagnosed; invalid runtime bounds fail with a checked bounds fault. Values remain immutable; no zero-copy view is promised. CPU only.
+
+h2 { "concat" }
+
+code { "concat(left: [T], right: [T]) -> [T]" }
+
+Join two arrays with the same element type, retaining left-to-right order. Empty arrays are allowed when their element type can be inferred. Supported array element kinds include numeric, Bool, String, records, enums and function values; nested arrays and tensors are not general array elements. The combined size is checked. This is not String concatenation; use + for Strings. CPU only.
+
+h2 { "map" }
+
+code { "map(input: [T], callback: fn(T) -> U) -> [U]" }
+
+Call a one-argument function once per element, sequentially and in input order. The callback may be a named function, a function value or a supported closure. Its input and output must be supported array element kinds. The callback cannot return a task or an expected-error result; use parallelMap for supported fallible callbacks. An empty input calls no callbacks. Allocation and execution faults remain checked. CPU only.
+
+h2 { "tensor" }
+
+code { "tensor(value: numeric scalar | numeric literal | [T]) -> Tensor[T, ...]" }
+
+code { "tensor(values: [T], dimensions: fixed-length dimension list) -> Tensor[T, ...]" }
+
+Construct a dense numeric tensor without changing its element type. A scalar produces rank zero; a flat array produces rank one; a rectangular nested numeric literal produces its corresponding rank. A shape argument is a list expression whose length fixes the rank at compile time, though individual extents may be runtime integer values. Extents must be nonnegative and fit the indexing range; their product must match the flat array length. An empty shape describes one rank-zero element; a zero extent describes zero elements. Ragged literals, mismatched counts and invalid sizes are rejected or produce checked shape/size faults. Construction creates host storage; it does not transfer to a GPU.
+
+h2 { "array" }
+
+code { "array(values: Tensor[T, ...]) -> [T]" }
+
+Flatten a completed CPU numeric tensor in row-major logical order, preserving the element type. A rank-zero tensor becomes a one-element array; a tensor with zero elements becomes an empty array. Download a resident GPU tensor before using this operation. It does not change numeric precision.
+
+h2 { "shape" }
+
+code { "shape(values: Tensor[T, ...]) -> [int]" }
+
+Return one extent per dimension of a completed CPU numeric tensor. A rank-zero tensor returns an empty array. The dimensions describe the logical shape rather than storage byte strides. Download a resident result before querying it on the host.
+
+h2 { "reshape" }
+
+code { "reshape(values: Tensor[T, ...], dimensions: fixed-length dimension list) -> Tensor[T, ...]" }
+
+Change the shape of a completed CPU numeric tensor while retaining its numeric identity, element count and row-major logical order. As with tensor, the shape must be a list expression with statically known length; each extent can be a runtime integer. Negative extents, indexing-size overflow and different element counts are checked failures. No inferred -1 dimension, broadcasting or layout transpose is performed. A one-element tensor can become rank zero with an empty shape list.
+
+h2 { "Example" }
+
+codeblock { language = kalandra, """fn double(value: int) -> int:
+  value * 2
+
+fn main() -> [int]:
+  values = concat(slice([1, 2, 3], 0, 2), [4])
+  matrix = tensor(map(values, double), [1, 3])
+  flat = array(reshape(matrix, [3]))
+  [length("سلام"), byteLength("سلام"), length(flat), shape(matrix)[1], flat[2]]
+""" }
+The result is [4, 8, 3, 3, 8].
+
+link { url = "/docs/arrays", "Array tutorial and supported elements" }
+link { url = "/docs/tensors", "Tensor guide" }

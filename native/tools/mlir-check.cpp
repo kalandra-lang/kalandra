@@ -1,3 +1,4 @@
+#include "kalandra/Version.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -24,6 +25,8 @@ std::expected<mlir::OwningOpRef<mlir::ModuleOp>, std::string> readModule(mlir::M
 } // namespace
 
 int main(int argc, char **argv) {
+  if (kalandra::printVersion(argc, argv, "kalandra-mlir-check"))
+    return 0;
   const std::span<char *> arguments(argv, static_cast<std::size_t>(argc));
   if (arguments.size() != 2) {
     llvm::errs() << "usage: kalandra-mlir-check <file.mlir>\n";

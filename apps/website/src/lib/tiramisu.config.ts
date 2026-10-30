@@ -9,7 +9,15 @@ export default defineConfig({
   description: "A native language for CPU and GPU computing.",
   url: "https://kalandra.dev",
   sidebar: {
-    groupOrder: ["Start here", "Language", "Execution", "Projects and tools"],
+    groupOrder: [
+      "Start here",
+      "Tutorial",
+      "Language reference",
+      "Library reference",
+      "HOWTO guides",
+      "Using Kalandra",
+      "Contributing",
+    ],
   },
   nav: [
     { label: "Docs", href: "/docs" },

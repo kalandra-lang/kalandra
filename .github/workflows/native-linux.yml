@@ -6,6 +6,7 @@ on:
     paths:
       [
         "CMakeLists.txt",
+        "VERSION",
         "native/**",
         ".github/workflows/native-linux.yml",
         ".github/scripts/provision_native_platform.py",
@@ -33,6 +34,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+      - name: Validate tagged toolchain version and release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python .github/scripts/release_version.py
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/kalandra-llvm/installation

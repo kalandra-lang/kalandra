@@ -1,4 +1,4 @@
-meta { title = "Errors and recovery", description = "Declare expected errors and handle task execution failures.", order = 9, group = "Language" }
+meta { title = "Errors and recovery", description = "Declare expected errors and handle task execution failures.", order = 9, group = "Language reference" }
 
 A function can return a success value or a declared expected-error family. Write the channel after !, construct a declared error with fail and use try when propagating an error. Do not silently discard an expected-error result.
 
@@ -50,8 +50,12 @@ Handle specific variants when different failures need different policies. A catc
 
 link { url = "/docs/parallelism", "Task groups and observation" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/application-errors.md", "Application channels and early guards" }
+h2 { "TaskError variants" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/mixed-error-channels.md", "Combine application and task errors" }
+TaskError.Fault carries kind and message. The kind is a FaultKind value: Arithmetic, Bounds, Shape, Allocation or Native. The message is a String describing the failure; do not parse it as a stable error code.
 
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/worker-errors.md", "Worker error transport" }
+TaskError.Cancelled means task cancellation. TaskError.DeadlineExceeded means a task deadline was exceeded. TaskError.AdmissionRejected carries a reason String when work could not be admitted. These variants describe task outcomes; they do not promise that every deadline or resource policy is configurable from language source.
+
+Match a variant to bind its fields, or use a catch-all handler when every failure has the same recovery. Only the active variant's fields are available. Task errors can be combined with application-error families using an error union.
+
+link { url = "/docs/task-functions", "Fallible task built-ins" }

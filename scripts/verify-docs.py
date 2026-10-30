@@ -219,6 +219,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     assert json.loads(command(['sh', '-eu', '-c', json_command], tooling)) is not None
     shell('tooling', 1, tooling, blocks('index', 'kalandra')[0][1].strip())
     shell('tooling', 2, tooling)
+    shell('tooling', 3, tooling)
     for filename in ['program.mlir', 'program.ll']:
         assert (tooling / filename).stat().st_size > 0
     command([tooling / 'program'], tooling, '42')
@@ -228,9 +229,9 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
         for i, block in enumerate(PAGES[page]):
             if (page, i) in COVERED:
                 continue
-            if page == 'installation' and block['language'] == 'bash':
+            if page in ['installation', 'contributing'] and block['language'] == 'bash':
                 command(['sh', '-n', '-c', block['source']], BASE)
-                reason = 'Environment/source-build recipe; syntax checked, native build qualified separately'
+                reason = 'Environment/contributor workflow recipe; syntax checked, full setup/build is not run by the examples verifier'
             elif block['language'] == 'powershell':
                 reason = 'Windows-only invocation; not executed on this POSIX host'
             else:

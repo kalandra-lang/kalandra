@@ -1,4 +1,4 @@
-meta { title = "Strings and Unicode", description = "Work with immutable UTF-8 text and scalar-based indexes.", order = 5, group = "Language" }
+meta { title = "Strings and Unicode", description = "Work with immutable UTF-8 text and scalar-based indexes.", order = 5, group = "Language reference" }
 
 String is immutable, well-formed UTF-8 text. Use double-quoted literals and + for concatenation. Numbers and Boolean values are not implicitly formatted as Strings.
 
@@ -31,8 +31,8 @@ h2 { "Equality and ownership" }
 
 == and != compare exact scalar sequences. No normalization or locale-dependent collation is inserted. Strings can be retained in CPU workers, closures, arrays and supported aggregate fields. String execution is not part of the GPU numerical subset.
 
-Escapes include a quoted double quote, a backslash, newline, carriage return, tab, zero and Unicode-scalar escapes. Invalid UTF-8 and invalid escapes are diagnosed. Interpolation, raw multiline strings and general text parsing are separate work.
-
-link { url = "https://github.com/kalandra-lang/kalandra/blob/native/docs/design/strings.md", "String syntax and Unicode contract" }
+Escapes include a quoted double quote, a backslash, newline, carriage return, tab, zero and Unicode-scalar escapes. Invalid UTF-8 and invalid escapes are diagnosed. String interpolation, raw multiline strings and general text parsing are not supported.
 
 link { url = "/docs/arrays", "Store and transform String arrays" }
+
+link { url = "/docs/collection-functions", "Collection function reference" }

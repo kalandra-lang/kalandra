@@ -1,0 +1,38 @@
+meta { title = "Language reference", description = "Find the rules for values, functions, types and execution.", order = 0, group = "Language reference" }
+
+Use this reference when you know what you want to write and need its syntax or behavior. For a guided introduction, start with the tutorial. The function library has a separate alphabetical index.
+link { url = "/docs/tutorial", "Tutorial" }
+link { url = "/docs/library", "Built-in functions" }
+
+h2 { "Values and types" }
+
+Numeric types are int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32 and float64. The aliases int, uint and float mean their 64-bit counterparts on every target. Bool has the values true and false; String holds UTF-8 text. Arrays use [T]; numerical tensors use Tensor[T, dimensions]. A scalar and a rank-zero tensor are different types. Define domain-specific values with records and enums.
+link { url = "/docs/syntax", "Lexical structure, bindings and expressions" }
+link { url = "/docs/numbers", "Numeric types and arithmetic" }
+link { url = "/docs/strings", "String literals and Unicode indexing" }
+link { url = "/docs/arrays", "Array values" }
+link { url = "/docs/tensors", "Tensor types, shapes and indexing" }
+link { url = "/docs/records-enums", "Record and enum declarations" }
+
+h2 { "Functions and control flow" }
+
+Functions return their final expression. Parameters and results can be annotated; recursive functions need enough type information to check their calls. Function values and immutable captures support composition. Conditions and matching choose expressions lazily; a branch that is not selected does not run.
+link { url = "/docs/functions", "Definitions, function values, closures and recursion" }
+link { url = "/docs/control-flow", "Conditions and pattern matching" }
+link { url = "/docs/errors", "Error declarations, try, fail and catch" }
+link { url = "/docs/modules", "Imports, exports and re-exports" }
+
+h2 { "Tasks and placement" }
+
+spawn, await, parallel, try and on are language constructs, not ordinary functions. A parallel scope owns its children and settles them before leaving. Device selectors and transfer are documented separately as callable built-ins. A tensor result awaited from a GPU task remains resident until an explicit transfer changes its placement.
+link { url = "/docs/parallelism", "Structured CPU tasks" }
+link { url = "/docs/gpu", "GPU placement" }
+link { url = "/docs/task-functions", "Task and device built-ins" }
+
+h2 { "Operators and evaluation" }
+
+Numeric expressions use +, -, *, / and integer remainder %. String concatenation uses +. Comparison operators are ==, !=, <, <=, > and >=; their accepted operands must have compatible types. Bool expressions use not, and and or. Conditions and Boolean and/or use lazy selection, so an unselected expression does not run. Comparison chaining requires explicit grouping rather than Python-style chained comparisons.
+
+Multiplication, division and remainder bind more tightly than addition and subtraction. The -> pipeline passes its left expression as the first argument of the call on its right. Use parentheses to make the intended grouping explicit, especially when combining a pipeline with arithmetic or comparisons.
+
+Indexes are zero-based. Array and String indexing uses one index; tensor indexing uses one per dimension. Bounds are checked. Arrays, Strings and tensors are immutable; these expressions read values rather than assigning into storage.
