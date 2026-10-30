@@ -1064,3 +1064,37 @@ full-precision tensor accumulation by default, explicit reproducible/fixed-tree
 behavior when requested. That is a revised design recommendation, not an
 implemented contract change. FP16/TF32 shortcuts remain a separate decision;
 no wholesale fast-math flag or relaxed integer checking is implied.
+
+### Pinned upstream MLX Steel comparison
+
+The [Steel investigation](../benchmarks/results/mlx-steel-comparison-2026-10-30.md)
+builds unmodified upstream GEMMKernel templates at MLX commit
+`1ba7f969ad05d86decfeeb83787cc9b79e440962`, with a small owned ABI/entry adapter.
+The MIT license is retained. Three existing tile configurations are screened;
+the highest median paired speedup per shape is frozen before fresh confirmation,
+own-SIMD comparison and replication. Both upstream and our unchanged shaders
+use the pinned toolchain, Metal 3.2 and identical non-fast-math compiler flags.
+This does not benchmark the complete MLX runtime/selector or its peak settings.
+
+All 202 numerical kernel/case checks pass: 26,819,304 output cells across three
+repetitions, exact-integer finite error bounds, Metal validation, unchanged inputs
+and guard bytes. The corpus includes all prior 29 arithmetic witnesses, eight
+positive irregular shapes down to 1×1×1, and all five dense benchmark inputs.
+Across the previous witness corpus, Steel matches our independently modeled
+SIMD path, allowing NaN payload differences. It preserves the same catastrophic
+cancellation, signed-zero, overflow and hardware-underflow distinctions from
+today's fixed-tree matmul. No universal relative-error guarantee is implied.
+
+The selected Steel configurations beat the current aligned kernel on all five
+timed shapes. Large FFN expansion improves 4.980× / 4.824× in confirmation /
+replication; contraction improves 4.389× / 4.353×. Against our faster own SIMD
+prototype, those improve another 1.723× / 1.641×. Two unselected Steel layouts
+lose on the small contraction, reinforcing the need for shape selection.
+All five identical-kernel controls pass. Background CPU activity and screening
+baseline variation remain documented, with every selected/unselected timing
+and load sample retained. No profiling, builds or correctness jobs overlap timing.
+
+Use Steel as the next integration starting point rather than extending custom
+tiling without comparison. Production is unchanged: numerical-policy selection,
+fused epilogues, cancellation/resource integration and full-model comparisons
+remain required. Kernel-level wins do not establish closure of the MPSGraph gap.

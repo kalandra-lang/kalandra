@@ -548,3 +548,34 @@ retaining two reference validation failures rather than disabling validation.
 Successful output cells match the SIMD prototypes; this is an observed result,
 not an Apple guarantee of a universal accumulation order. No production
 dependency, numerical-policy change or new timing claim is introduced.
+
+### Pinned MLX Steel kernels
+
+`mlx_steel_study.py` uses unmodified MLX `GEMMKernel<float,float,...,float>`
+templates through `SteelMatrixStudy.mm`. The required source checkout is
+`benchmarks/.build/mlx-steel-source-2026-10-30`, pinned to
+`1ba7f969ad05d86decfeeb83787cc9b79e440962`; fetch/check out that exact commit and
+include `mlx/backend/metal/kernels` plus the root LICENSE. Its upstream source is
+MIT-licensed; the evidence retains the license and hashes every header. No
+production third-party runtime is added.
+
+Run `--phase prepare`, then `--phase verify` into the build's `qualification.json`
+using fresh paths and GPU access. The numerical fixtures also require the frozen
+SIMD build and exact-oracle fixtures described above. Both own and upstream shaders
+are rebuilt using Metal 3.2, matching non-fast-math flags and the pinned compiler.
+Steel's shared headers need newer Metal syntax; no input precision is reduced.
+
+`fair/steel_series.py --build BUILD --prefix RESULTS_PREFIX` runs `aa`, all-tile
+`screen`, selected `confirm`, `prototype` and `repeat` sequentially, capturing
+external load from launch. Select by median paired speedup in the screen, then
+freeze the selection before confirmation. Never overlap those runs with builds,
+qualification, profiling or another performance process. Actual batch lengths
+may hit the documented 256-dispatch ceiling before reaching the adaptive target.
+
+`fair/mlx_steel_report.py` audits the complete Cartesian numerical coverage,
+source/artifact identities, all 135 timing pairs, frozen selection and controls.
+The [report](../../benchmarks/results/mlx-steel-comparison-2026-10-30.md) retains
+losing configurations and background-load limitations. This is an isolated
+resident float32 kernel comparison; full MLX runtime, NAX, empty dimensions,
+transposes, batches, other numeric types and production integration are outside
+its scope. Do not translate these kernel wins directly into transformer speedups.

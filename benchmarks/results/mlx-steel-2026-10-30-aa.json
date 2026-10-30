@@ -1,0 +1,6540 @@
+{
+  "protocol": {
+    "blocks": 3,
+    "rounds": 3,
+    "warmups": 2,
+    "target_ms": 100,
+    "max_iterations": 256,
+    "adaptive_batching": true,
+    "seed": 20261024,
+    "ordering": "Adjacent ABBA/BAAB fresh processes; identical iterations per pair"
+  },
+  "calibration": [
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 795583.0,
+          "gpu_ns": 288125.011,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 474000.0,
+          "gpu_ns": 283500.063,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 530833.0,
+          "gpu_ns": 278374.995,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 440916.0,
+          "gpu_ns": 280499.924,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 442375.0,
+          "gpu_ns": 279125.059,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 802542.0,
+          "gpu_ns": 287125.004,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 818709.0,
+          "gpu_ns": 284124.981,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 527792.0,
+          "gpu_ns": 322000.007,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 875167.0,
+          "gpu_ns": 282083.289,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 796458.0,
+          "gpu_ns": 278125.051,
+          "checksum": 131072,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 7762208.0,
+          "gpu_ns": 7487625.0,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 4662416.0,
+          "gpu_ns": 4444374.936,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 4162250.0,
+          "gpu_ns": 3973291.605,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 4008709.0,
+          "gpu_ns": 3826166.62,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 2958334.0,
+          "gpu_ns": 2755875.001,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 5699708.0,
+          "gpu_ns": 5026250.03,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 4407417.0,
+          "gpu_ns": 4171375.069,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 4323208.0,
+          "gpu_ns": 4131374.997,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 4736333.0,
+          "gpu_ns": 4527958.343,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 3415084.0,
+          "gpu_ns": 3230958.362,
+          "checksum": 4194304,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 30359584.0,
+          "gpu_ns": 29601749.964,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23156334.0,
+          "gpu_ns": 22824583.342,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22406542.0,
+          "gpu_ns": 22132583.312,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22777500.0,
+          "gpu_ns": 22399583.366,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22782334.0,
+          "gpu_ns": 22458291.613,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22359250.0,
+          "gpu_ns": 22005291.656,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22383500.0,
+          "gpu_ns": 22047874.983,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 23063625.0,
+          "gpu_ns": 22829416.674,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22591666.0,
+          "gpu_ns": 22254250.012,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22766917.0,
+          "gpu_ns": 22455999.977,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 894958.0,
+          "gpu_ns": 105374.958,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 289000.0,
+          "gpu_ns": 97375.014,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 309042.0,
+          "gpu_ns": 170958.345,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 259958.0,
+          "gpu_ns": 100375.037,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 257291.0,
+          "gpu_ns": 96291.653,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 285250.0,
+          "gpu_ns": 99416.706,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 251625.0,
+          "gpu_ns": 98166.638,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 811084.0,
+          "gpu_ns": 115250.004,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 796542.0,
+          "gpu_ns": 100124.977,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 241084.0,
+          "gpu_ns": 100583.42,
+          "checksum": 32768,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3344542.0,
+          "gpu_ns": 2973708.324,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 3221583.0,
+          "gpu_ns": 2981875.092,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 3503125.0,
+          "gpu_ns": 3305291.641,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 3868416.0,
+          "gpu_ns": 2974124.975,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 3772917.0,
+          "gpu_ns": 3063083.277,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 3681916.0,
+          "gpu_ns": 2956333.337,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 3722792.0,
+          "gpu_ns": 2986000.036,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 3756125.0,
+          "gpu_ns": 2970541.595,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 3150041.0,
+          "gpu_ns": 2943000.058,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 3209958.0,
+          "gpu_ns": 3020666.656,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24561750.0,
+          "gpu_ns": 23796375.026,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 24556500.0,
+          "gpu_ns": 24214791.716,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 23929709.0,
+          "gpu_ns": 23623250.076,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24334208.0,
+          "gpu_ns": 24022041.704,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24337959.0,
+          "gpu_ns": 23970875.074,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24394792.0,
+          "gpu_ns": 23661541.753,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23942083.0,
+          "gpu_ns": 23606041.679,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24495417.0,
+          "gpu_ns": 24188124.924,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 23948542.0,
+          "gpu_ns": 23635416.641,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24249583.0,
+          "gpu_ns": 23930624.942,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 802792.0,
+          "gpu_ns": 165874.953,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 942292.0,
+          "gpu_ns": 171500.025,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 359750.0,
+          "gpu_ns": 161250.005,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 340000.0,
+          "gpu_ns": 161791.686,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 318125.0,
+          "gpu_ns": 161750.009,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 988250.0,
+          "gpu_ns": 175625.086,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 335375.0,
+          "gpu_ns": 162124.983,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 330166.0,
+          "gpu_ns": 162791.694,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 361084.0,
+          "gpu_ns": 207124.976,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 347500.0,
+          "gpu_ns": 166416.634,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 6070417.0,
+          "gpu_ns": 5072083.324,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 5193500.0,
+          "gpu_ns": 5001874.99,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 5388291.0,
+          "gpu_ns": 5128375.022,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 5212292.0,
+          "gpu_ns": 5003958.358,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 5230792.0,
+          "gpu_ns": 5023375.037,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 5391000.0,
+          "gpu_ns": 5010458.408,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 5285584.0,
+          "gpu_ns": 5095791.654,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 5224000.0,
+          "gpu_ns": 5011291.592,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 5701167.0,
+          "gpu_ns": 5502041.662,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 5215583.0,
+          "gpu_ns": 5019541.713,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41220541.0,
+          "gpu_ns": 40857999.935,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40556208.0,
+          "gpu_ns": 40252750.041,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41398250.0,
+          "gpu_ns": 41117624.962,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41288459.0,
+          "gpu_ns": 40907875.053,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40414583.0,
+          "gpu_ns": 40047541.726,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41588625.0,
+          "gpu_ns": 40821874.98,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 41090125.0,
+          "gpu_ns": 40735791.67,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41450667.0,
+          "gpu_ns": 41130125.057,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41644709.0,
+          "gpu_ns": 41359791.649,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40793875.0,
+          "gpu_ns": 40415750.002,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 843334.0,
+          "gpu_ns": 615583.383,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 1453042.0,
+          "gpu_ns": 621958.403,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 818958.0,
+          "gpu_ns": 611750.06,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 806750.0,
+          "gpu_ns": 613749.959,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 781208.0,
+          "gpu_ns": 602749.991,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 900666.0,
+          "gpu_ns": 612500.007,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 787500.0,
+          "gpu_ns": 608041.65,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 762750.0,
+          "gpu_ns": 603749.999,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 931125.0,
+          "gpu_ns": 706749.968,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 785709.0,
+          "gpu_ns": 609250.041,
+          "checksum": 1048576,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20162292.0,
+          "gpu_ns": 19852750.003,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 19782750.0,
+          "gpu_ns": 19562625.093,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 20161667.0,
+          "gpu_ns": 19954458.345,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 19952458.0,
+          "gpu_ns": 19737249.939,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 19589042.0,
+          "gpu_ns": 19368749.927,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20454750.0,
+          "gpu_ns": 19663500.017,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 20315167.0,
+          "gpu_ns": 20114708.343,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 19711500.0,
+          "gpu_ns": 19449666.608,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 19817042.0,
+          "gpu_ns": 19607500.057,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 19804083.0,
+          "gpu_ns": 19587125.047,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 98940250.0,
+          "gpu_ns": 98577458.295,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 98898083.0,
+          "gpu_ns": 98619791.563,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 99395500.0,
+          "gpu_ns": 99106375.012,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99394541.0,
+          "gpu_ns": 99116125.028,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 98627500.0,
+          "gpu_ns": 98347124.993,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99233875.0,
+          "gpu_ns": 98432249.972,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 98859792.0,
+          "gpu_ns": 98593625.007,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 98441917.0,
+          "gpu_ns": 98178750.02,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 98841625.0,
+          "gpu_ns": 98544166.656,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99134667.0,
+          "gpu_ns": 98896000.069,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 816583.0,
+          "gpu_ns": 619708.328,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 911250.0,
+          "gpu_ns": 674750.074,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 777042.0,
+          "gpu_ns": 620124.978,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 770334.0,
+          "gpu_ns": 621499.959,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 852666.0,
+          "gpu_ns": 622999.971,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 1,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 1435250.0,
+          "gpu_ns": 694000.046,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 820250.0,
+          "gpu_ns": 630333.321,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 811875.0,
+          "gpu_ns": 652041.752,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 1403916.0,
+          "gpu_ns": 636208.337,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 923459.0,
+          "gpu_ns": 624458.306,
+          "checksum": 262144,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20295958.0,
+          "gpu_ns": 20004291.669,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 19959125.0,
+          "gpu_ns": 19699499.942,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 20343458.0,
+          "gpu_ns": 20143833.361,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 20611208.0,
+          "gpu_ns": 20323416.684,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 19926459.0,
+          "gpu_ns": 19711375.004,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 32,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 20593375.0,
+          "gpu_ns": 19868125.091,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 20703542.0,
+          "gpu_ns": 20487166.708,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 20007334.0,
+          "gpu_ns": 19811666.687,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 20006084.0,
+          "gpu_ns": 19805500.051,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 20887083.0,
+          "gpu_ns": 20600875.025,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100436792.0,
+          "gpu_ns": 99713624.921,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99900375.0,
+          "gpu_ns": 99658875.028,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100146709.0,
+          "gpu_ns": 99893541.657,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99991625.0,
+          "gpu_ns": 99748666.631,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100282667.0,
+          "gpu_ns": 100012333.249,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100726208.0,
+          "gpu_ns": 99873875.035,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99970250.0,
+          "gpu_ns": 99701208.295,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100261000.0,
+          "gpu_ns": 99945208.291,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100283458.0,
+          "gpu_ns": 99958124.92,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100046083.0,
+          "gpu_ns": 99771583.336,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99643625.0,
+          "gpu_ns": 98855249.933,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99064084.0,
+          "gpu_ns": 98791291.704,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 98849084.0,
+          "gpu_ns": 98593750.037,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99109334.0,
+          "gpu_ns": 98812000.011,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99039833.0,
+          "gpu_ns": 98766458.337,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99875792.0,
+          "gpu_ns": 99122249.987,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99496667.0,
+          "gpu_ns": 99209874.985,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 99486125.0,
+          "gpu_ns": 99218374.933,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99618333.0,
+          "gpu_ns": 99330916.652,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99584500.0,
+          "gpu_ns": 99319500.034,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99895666.0,
+          "gpu_ns": 99523291.69,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 98571625.0,
+          "gpu_ns": 98279708.298,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 99021250.0,
+          "gpu_ns": 98726291.675,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99035875.0,
+          "gpu_ns": 98756749.998,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99296917.0,
+          "gpu_ns": 99005875.061,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 98366417.0,
+          "gpu_ns": 97978499.951,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 98867125.0,
+          "gpu_ns": 98578374.949,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 98594209.0,
+          "gpu_ns": 98294124.939,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99420500.0,
+          "gpu_ns": 99108374.91,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 98518666.0,
+          "gpu_ns": 98246000.009,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23568459.0,
+          "gpu_ns": 22799375.001,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22419708.0,
+          "gpu_ns": 22092874.977,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22422291.0,
+          "gpu_ns": 22127375.007,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 23180917.0,
+          "gpu_ns": 22808625.014,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22391500.0,
+          "gpu_ns": 22026416.613,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23383750.0,
+          "gpu_ns": 22525749.984,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22752084.0,
+          "gpu_ns": 22453083.424,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22610625.0,
+          "gpu_ns": 22295124.945,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22790625.0,
+          "gpu_ns": 22448125.063,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22361125.0,
+          "gpu_ns": 22027874.948,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22381333.0,
+          "gpu_ns": 22029624.903,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22874708.0,
+          "gpu_ns": 22538958.35,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22358375.0,
+          "gpu_ns": 22044125.013,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22376959.0,
+          "gpu_ns": 22061708.383,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 23204750.0,
+          "gpu_ns": 22897041.636,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23493709.0,
+          "gpu_ns": 22640499.985,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22333917.0,
+          "gpu_ns": 22026500.083,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 23052542.0,
+          "gpu_ns": 22732833.4,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22452334.0,
+          "gpu_ns": 22117333.37,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22477959.0,
+          "gpu_ns": 22185208.392,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 40879625.0,
+          "gpu_ns": 40121166.618,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 41473000.0,
+          "gpu_ns": 41101166.746,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 40913709.0,
+          "gpu_ns": 40599500.062,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 40875750.0,
+          "gpu_ns": 40570250.014,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 41418041.0,
+          "gpu_ns": 41047625.011,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 40932209.0,
+          "gpu_ns": 40563791.641,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40925291.0,
+          "gpu_ns": 40615499.951,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41055500.0,
+          "gpu_ns": 40753499.954,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 40436917.0,
+          "gpu_ns": 40118625.038,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 41217458.0,
+          "gpu_ns": 40911999.997,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 40623375.0,
+          "gpu_ns": 40142124.984,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 41453542.0,
+          "gpu_ns": 41138000.088,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41311458.0,
+          "gpu_ns": 41015416.733,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 40462834.0,
+          "gpu_ns": 40148625.034,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 41326791.0,
+          "gpu_ns": 41037249.961,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41395250.0,
+          "gpu_ns": 40655000.019,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40766750.0,
+          "gpu_ns": 40440000.012,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41185292.0,
+          "gpu_ns": 40905500.064,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 40757666.0,
+          "gpu_ns": 40479999.967,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40883792.0,
+          "gpu_ns": 40585124.982,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25003000.0,
+          "gpu_ns": 24232666.707,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 24075583.0,
+          "gpu_ns": 23705624.975,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24155167.0,
+          "gpu_ns": 23906124.989,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24252958.0,
+          "gpu_ns": 23949875.031,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24228584.0,
+          "gpu_ns": 23941625.026,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24240250.0,
+          "gpu_ns": 23850250.058,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23941750.0,
+          "gpu_ns": 23622041.685,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24566375.0,
+          "gpu_ns": 24276666.692,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 23835166.0,
+          "gpu_ns": 23558749.934,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24184083.0,
+          "gpu_ns": 23870750.098,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25044042.0,
+          "gpu_ns": 24223749.992,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23902208.0,
+          "gpu_ns": 23569875.048,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24202292.0,
+          "gpu_ns": 23902416.695,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24267834.0,
+          "gpu_ns": 23964375.025,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24017458.0,
+          "gpu_ns": 23694125.004,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25347959.0,
+          "gpu_ns": 24515375.029,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 24097791.0,
+          "gpu_ns": 23790500.01,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24131083.0,
+          "gpu_ns": 23779416.69,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24906791.0,
+          "gpu_ns": 24624291.691,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24063041.0,
+          "gpu_ns": 23772291.723,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 0,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 101583917.0,
+          "gpu_ns": 101256041.671,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 100669083.0,
+          "gpu_ns": 100354375.085,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 101365291.0,
+          "gpu_ns": 101089249.947,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100708750.0,
+          "gpu_ns": 100425250.013,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99572458.0,
+          "gpu_ns": 99271958.345,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 1,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99979125.0,
+          "gpu_ns": 99661500.077,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 100259834.0,
+          "gpu_ns": 99952250.021,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100868917.0,
+          "gpu_ns": 100608375.04,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100032958.0,
+          "gpu_ns": 99653708.399,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100303333.0,
+          "gpu_ns": 100002750.056,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 2,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99636250.0,
+          "gpu_ns": 99305875.017,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 100571958.0,
+          "gpu_ns": 100305999.978,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100187750.0,
+          "gpu_ns": 99929833.319,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100258959.0,
+          "gpu_ns": 99988625.036,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99481916.0,
+          "gpu_ns": 99219458.294,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 0,
+      "slot": 3,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100753917.0,
+          "gpu_ns": 99994875.025,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99878250.0,
+          "gpu_ns": 99594375.002,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 101685542.0,
+          "gpu_ns": 100105875.055,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99651000.0,
+          "gpu_ns": 99163416.773,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100368292.0,
+          "gpu_ns": 99977833.335,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24420000.0,
+          "gpu_ns": 23646499.962,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23964333.0,
+          "gpu_ns": 23650666.699,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24234208.0,
+          "gpu_ns": 23897458.334,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 23958666.0,
+          "gpu_ns": 23646124.988,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24429625.0,
+          "gpu_ns": 24062666.576,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24533292.0,
+          "gpu_ns": 23723624.996,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 24073375.0,
+          "gpu_ns": 23713791.743,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24538125.0,
+          "gpu_ns": 24230333.394,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 23970166.0,
+          "gpu_ns": 23681458.319,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24411250.0,
+          "gpu_ns": 24000250.036,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24541125.0,
+          "gpu_ns": 23918041.61,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 24028042.0,
+          "gpu_ns": 23734833.347,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24341125.0,
+          "gpu_ns": 24047124.898,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24434542.0,
+          "gpu_ns": 24117124.965,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24301333.0,
+          "gpu_ns": 23968958.296,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25295667.0,
+          "gpu_ns": 24498041.603,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23925458.0,
+          "gpu_ns": 23599624.983,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24107083.0,
+          "gpu_ns": 23693291.587,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24544250.0,
+          "gpu_ns": 24198166.677,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 23890417.0,
+          "gpu_ns": 23583624.978,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100009750.0,
+          "gpu_ns": 99653416.662,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99737000.0,
+          "gpu_ns": 99356166.669,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100292625.0,
+          "gpu_ns": 99891875.056,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99564417.0,
+          "gpu_ns": 99313041.661,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100318708.0,
+          "gpu_ns": 99875916.727,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99971417.0,
+          "gpu_ns": 99637208.39,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 100372125.0,
+          "gpu_ns": 100080166.594,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100299250.0,
+          "gpu_ns": 100057000.061,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 101596375.0,
+          "gpu_ns": 101195583.236,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100620709.0,
+          "gpu_ns": 100384750.054,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 101118750.0,
+          "gpu_ns": 100793333.258,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 100182458.0,
+          "gpu_ns": 99912999.896,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100324959.0,
+          "gpu_ns": 100039416.691,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99568875.0,
+          "gpu_ns": 99303000.025,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100279250.0,
+          "gpu_ns": 100019500.009,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100535750.0,
+          "gpu_ns": 99788875.086,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 100124333.0,
+          "gpu_ns": 99847625.01,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100122000.0,
+          "gpu_ns": 99686249.974,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99607625.0,
+          "gpu_ns": 99293500.069,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 101762959.0,
+          "gpu_ns": 101461541.606,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99462375.0,
+          "gpu_ns": 99067500.094,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99540000.0,
+          "gpu_ns": 99220374.948,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 98901292.0,
+          "gpu_ns": 98610999.994,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100278375.0,
+          "gpu_ns": 99873708.328,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100998833.0,
+          "gpu_ns": 100718041.649,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99187958.0,
+          "gpu_ns": 98877541.721,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99416625.0,
+          "gpu_ns": 99127375.055,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 99877083.0,
+          "gpu_ns": 99630833.254,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100344125.0,
+          "gpu_ns": 100094124.908,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99921333.0,
+          "gpu_ns": 99427500.041,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99869417.0,
+          "gpu_ns": 99523041.63,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99737541.0,
+          "gpu_ns": 99495250.033,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 99716000.0,
+          "gpu_ns": 99434666.685,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 101465667.0,
+          "gpu_ns": 101217000.047,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99626667.0,
+          "gpu_ns": 99362166.598,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100363750.0,
+          "gpu_ns": 99940375.076,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99745542.0,
+          "gpu_ns": 99428124.959,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100840000.0,
+          "gpu_ns": 100553374.97,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 101342750.0,
+          "gpu_ns": 101007458.288,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 101441625.0,
+          "gpu_ns": 101111083.291,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22615208.0,
+          "gpu_ns": 22241375.06,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22815917.0,
+          "gpu_ns": 22449458.367,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 23020417.0,
+          "gpu_ns": 22661875.002,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22712791.0,
+          "gpu_ns": 22385458.346,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 23045000.0,
+          "gpu_ns": 22735374.98,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22672625.0,
+          "gpu_ns": 22244333.29,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22652208.0,
+          "gpu_ns": 22334916.634,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 23389500.0,
+          "gpu_ns": 23083250.038,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22868542.0,
+          "gpu_ns": 22580999.997,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22732208.0,
+          "gpu_ns": 22387624.951,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23558000.0,
+          "gpu_ns": 22742291.68,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23006084.0,
+          "gpu_ns": 22683875.053,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 23586417.0,
+          "gpu_ns": 23178083.356,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 23053583.0,
+          "gpu_ns": 22713458.282,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 23336459.0,
+          "gpu_ns": 23026291.747,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23585375.0,
+          "gpu_ns": 22887166.706,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22915625.0,
+          "gpu_ns": 22604874.917,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22635958.0,
+          "gpu_ns": 22324791.644,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 23537125.0,
+          "gpu_ns": 23241083.371,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22424833.0,
+          "gpu_ns": 22101458.278,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41455250.0,
+          "gpu_ns": 41091250.023,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40366250.0,
+          "gpu_ns": 40024374.961,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41274750.0,
+          "gpu_ns": 40974916.657,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41006000.0,
+          "gpu_ns": 40734958.369,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40506916.0,
+          "gpu_ns": 40206999.984,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41742917.0,
+          "gpu_ns": 40903749.992,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40434500.0,
+          "gpu_ns": 40108875.022,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41196125.0,
+          "gpu_ns": 40901250.09,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41208375.0,
+          "gpu_ns": 40824500.029,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40470292.0,
+          "gpu_ns": 40175583.33,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41772875.0,
+          "gpu_ns": 41030208.231,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40576917.0,
+          "gpu_ns": 40229500.039,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41096375.0,
+          "gpu_ns": 40795500.041,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41294584.0,
+          "gpu_ns": 40987333.399,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40354042.0,
+          "gpu_ns": 40048041.73,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 1,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41593250.0,
+          "gpu_ns": 40827999.939,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40458500.0,
+          "gpu_ns": 40114999.982,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 41144416.0,
+          "gpu_ns": 40866541.676,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41203333.0,
+          "gpu_ns": 40878541.651,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40390917.0,
+          "gpu_ns": 40122124.949,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99695917.0,
+          "gpu_ns": 98931166.576,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 98317500.0,
+          "gpu_ns": 98072083.318,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 99419208.0,
+          "gpu_ns": 99148416.659,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99078625.0,
+          "gpu_ns": 98809499.992,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99584417.0,
+          "gpu_ns": 99273125.059,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 99022167.0,
+          "gpu_ns": 98667999.962,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99803375.0,
+          "gpu_ns": 99524250.021,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 99111208.0,
+          "gpu_ns": 98829749.972,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100077333.0,
+          "gpu_ns": 99804500.001,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99228541.0,
+          "gpu_ns": 98944625.002,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100309375.0,
+          "gpu_ns": 99436625.023,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99019708.0,
+          "gpu_ns": 98733458.319,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100187250.0,
+          "gpu_ns": 99909999.99,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 98374083.0,
+          "gpu_ns": 98104250.035,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 99398750.0,
+          "gpu_ns": 99091249.984,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 162,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 98928125.0,
+          "gpu_ns": 98161375.034,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99425500.0,
+          "gpu_ns": 99167833.338,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 98618916.0,
+          "gpu_ns": 98353041.685,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 98706083.0,
+          "gpu_ns": 98438374.931,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 98487208.0,
+          "gpu_ns": 98214666.708,
+          "checksum": 169869312,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41270459.0,
+          "gpu_ns": 40877375.053,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40983917.0,
+          "gpu_ns": 40648583.323,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 40718959.0,
+          "gpu_ns": 40444749.99,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41274958.0,
+          "gpu_ns": 40997166.652,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40863750.0,
+          "gpu_ns": 40572708.356,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 43588917.0,
+          "gpu_ns": 40626124.945,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40715791.0,
+          "gpu_ns": 40410249.96,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 40852083.0,
+          "gpu_ns": 40554499.952,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 40887875.0,
+          "gpu_ns": 40585624.985,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 41395250.0,
+          "gpu_ns": 41037708.404,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41617041.0,
+          "gpu_ns": 41242624.982,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 40827709.0,
+          "gpu_ns": 40530249.942,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 40679458.0,
+          "gpu_ns": 40116125.019,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41184459.0,
+          "gpu_ns": 40841666.632,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40458042.0,
+          "gpu_ns": 40133250.062,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 41409917.0,
+          "gpu_ns": 40648750.03,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 41133208.0,
+          "gpu_ns": 40833750.041,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 40551708.0,
+          "gpu_ns": 40229333.332,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 41222750.0,
+          "gpu_ns": 40931374.999,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 40891083.0,
+          "gpu_ns": 40587749.914,
+          "checksum": 67108864,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24935250.0,
+          "gpu_ns": 24082249.962,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23943916.0,
+          "gpu_ns": 23606625.036,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24763833.0,
+          "gpu_ns": 24463625.043,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 23885708.0,
+          "gpu_ns": 23568000.062,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24052584.0,
+          "gpu_ns": 23711500.107,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25102333.0,
+          "gpu_ns": 24321374.949,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 24110500.0,
+          "gpu_ns": 23795749.992,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 24158666.0,
+          "gpu_ns": 23864750.052,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24170542.0,
+          "gpu_ns": 23864125.018,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24015708.0,
+          "gpu_ns": 23670625.058,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 25007958.0,
+          "gpu_ns": 24149750.01,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23936291.0,
+          "gpu_ns": 23583875.038,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 23943917.0,
+          "gpu_ns": 23629416.712,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24710375.0,
+          "gpu_ns": 24409833.364,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24003333.0,
+          "gpu_ns": 23636541.679,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 24760041.0,
+          "gpu_ns": 23897874.984,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 24241542.0,
+          "gpu_ns": 23923833.389,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 23978500.0,
+          "gpu_ns": 23659499.944,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 24143041.0,
+          "gpu_ns": 23870000.034,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 24234458.0,
+          "gpu_ns": 23935416.713,
+          "checksum": 8388608,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22759708.0,
+          "gpu_ns": 21994666.662,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23147292.0,
+          "gpu_ns": 22883374.942,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22256417.0,
+          "gpu_ns": 21965666.674,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22319167.0,
+          "gpu_ns": 21990791.662,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 23216708.0,
+          "gpu_ns": 22937458.358,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22947417.0,
+          "gpu_ns": 22559999.954,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22369833.0,
+          "gpu_ns": 22069333.354,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22798417.0,
+          "gpu_ns": 22499124.985,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22650791.0,
+          "gpu_ns": 22251416.696,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22981125.0,
+          "gpu_ns": 22701374.954,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 23004292.0,
+          "gpu_ns": 22586916.69,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 22372917.0,
+          "gpu_ns": 22070708.335,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22362250.0,
+          "gpu_ns": 22066000.034,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22852125.0,
+          "gpu_ns": 22570666.624,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22451750.0,
+          "gpu_ns": 22157041.705,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 256,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 22605459.0,
+          "gpu_ns": 22158583.393,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 23221000.0,
+          "gpu_ns": 22921041.586,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 22486666.0,
+          "gpu_ns": 22199958.33,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 22829958.0,
+          "gpu_ns": 22553708.288,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 22936958.0,
+          "gpu_ns": 22574750.008,
+          "checksum": 33554432,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 0,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100219417.0,
+          "gpu_ns": 99877541.652,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 101084959.0,
+          "gpu_ns": 100798166.59,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100333875.0,
+          "gpu_ns": 100069916.691,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100842125.0,
+          "gpu_ns": 100553375.087,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100126167.0,
+          "gpu_ns": 99859291.688,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 1,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100871625.0,
+          "gpu_ns": 100475333.282,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99662042.0,
+          "gpu_ns": 99377833.307,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100898292.0,
+          "gpu_ns": 100668750.005,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99612000.0,
+          "gpu_ns": 99352208.315,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100575500.0,
+          "gpu_ns": 100331875.03,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 2,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 100488417.0,
+          "gpu_ns": 99727291.614,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99954041.0,
+          "gpu_ns": 99694041.652,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 99557042.0,
+          "gpu_ns": 99297499.983,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 99909750.0,
+          "gpu_ns": 99642541.725,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100115834.0,
+          "gpu_ns": 99848458.427,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "process": 2,
+      "slot": 3,
+      "iterations": 160,
+      "samples": [
+        {
+          "round": -2,
+          "ns": 101440500.0,
+          "gpu_ns": 100665291.655,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": -1,
+          "ns": 99951041.0,
+          "gpu_ns": 99692541.64,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 0,
+          "ns": 100193875.0,
+          "gpu_ns": 99918249.995,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 1,
+          "ns": 100351375.0,
+          "gpu_ns": 100006124.936,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        },
+        {
+          "round": 2,
+          "ns": 100091083.0,
+          "gpu_ns": 99849125.021,
+          "checksum": 41943040,
+          "threads": 256,
+          "static_tg_bytes": 8192
+        }
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "cell": [
+        "baseline",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "expected": 131072,
+      "median_ns": 88492.025390625,
+      "process_medians_ns": [
+        87587.07421875,
+        87804.52734375,
+        89330.2421875,
+        91158.04296875,
+        87184.24609375,
+        89179.5234375
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "expected": 131072,
+      "median_ns": 88372.232421875,
+      "process_medians_ns": [
+        88322.75390625,
+        87409.99609375,
+        89923.50390625,
+        88421.7109375,
+        89056.31640625,
+        87702.1484375
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "expected": 32768,
+      "median_ns": 94475.830078125,
+      "process_medians_ns": [
+        94642.90625,
+        94262.04296875,
+        95356.4453125,
+        95082.51953125,
+        93955.40625,
+        94308.75390625
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "expected": 32768,
+      "median_ns": 94419.431640625,
+      "process_medians_ns": [
+        94469.07421875,
+        94540.203125,
+        94664.875,
+        94168.29296875,
+        94369.7890625,
+        93763.01953125
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "expected": 262144,
+      "median_ns": 159774.984375,
+      "process_medians_ns": [
+        159819.17578125,
+        159702.3125,
+        160922.36328125,
+        160532.71484375,
+        159624.0234375,
+        159730.79296875
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "expected": 262144,
+      "median_ns": 160276.3671875,
+      "process_medians_ns": [
+        160373.046875,
+        161372.8828125,
+        160179.6875,
+        160720.375,
+        159718.26171875,
+        158904.1328125
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "expected": 1048576,
+      "median_ns": 612527.9043209876,
+      "process_medians_ns": [
+        611356.9938271604,
+        608606.2283950617,
+        616798.3518518518,
+        615530.8641975309,
+        613698.8148148148,
+        608758.7407407408
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "expected": 1048576,
+      "median_ns": 614145.8333333333,
+      "process_medians_ns": [
+        614719.1358024691,
+        611332.561728395,
+        619002.3148148148,
+        625572.5308641975,
+        612521.8580246913,
+        613572.5308641975
+      ]
+    },
+    {
+      "cell": [
+        "baseline",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "expected": 262144,
+      "median_ns": 627194.271875,
+      "process_medians_ns": [
+        629429.6875,
+        627301.825,
+        628879.43125,
+        626745.3125,
+        627086.71875,
+        626211.71875
+      ]
+    },
+    {
+      "cell": [
+        "current",
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "expected": 262144,
+      "median_ns": 626501.171875,
+      "process_medians_ns": [
+        626895.83125,
+        626173.4375,
+        626828.90625,
+        625762.5,
+        628596.875,
+        624435.9375
+      ]
+    }
+  ],
+  "pairs": [
+    {
+      "group": [
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "block": 0,
+      "baseline_ns": 609981.611111111,
+      "current_ns": 613025.8487654321,
+      "speedup": 0.9950340794593704,
+      "time_reduction": -0.004990703980036315
+    },
+    {
+      "group": [
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "block": 0,
+      "baseline_ns": 87695.80078125,
+      "current_ns": 87866.375,
+      "speedup": 0.9980587088206382,
+      "time_reduction": -0.0019450671210070603
+    },
+    {
+      "group": [
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "block": 0,
+      "baseline_ns": 159760.744140625,
+      "current_ns": 160872.96484375,
+      "speedup": 0.9930863417342668,
+      "time_reduction": -0.006961789700641319
+    },
+    {
+      "group": [
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "block": 0,
+      "baseline_ns": 94452.474609375,
+      "current_ns": 94504.638671875,
+      "speedup": 0.999448026433061,
+      "time_reduction": -0.0005522784100229217
+    },
+    {
+      "group": [
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "block": 0,
+      "baseline_ns": 628365.75625,
+      "current_ns": 626534.634375,
+      "speedup": 1.002922618758062,
+      "time_reduction": 0.0029141019490429576
+    },
+    {
+      "group": [
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "block": 1,
+      "baseline_ns": 95219.482421875,
+      "current_ns": 94416.583984375,
+      "speedup": 1.0085037861318185,
+      "time_reduction": 0.008432081513977563
+    },
+    {
+      "group": [
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "block": 1,
+      "baseline_ns": 627812.371875,
+      "current_ns": 626295.703125,
+      "speedup": 1.0024216496176364,
+      "time_reduction": 0.002415799397948004
+    },
+    {
+      "group": [
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "block": 1,
+      "baseline_ns": 616164.6080246913,
+      "current_ns": 622287.4228395062,
+      "speedup": 0.9901607929228646,
+      "time_reduction": -0.009936979071945462
+    },
+    {
+      "group": [
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "block": 1,
+      "baseline_ns": 90244.142578125,
+      "current_ns": 89172.607421875,
+      "speedup": 1.012016416108375,
+      "time_reduction": 0.011873736351612707
+    },
+    {
+      "group": [
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "block": 1,
+      "baseline_ns": 160727.5390625,
+      "current_ns": 160450.03125,
+      "speedup": 1.0017295591053368,
+      "time_reduction": 0.0017265728954642956
+    },
+    {
+      "group": [
+        512,
+        512,
+        2048,
+        "selected"
+      ],
+      "block": 2,
+      "baseline_ns": 611228.7777777778,
+      "current_ns": 613047.1944444445,
+      "speedup": 0.9970338063967251,
+      "time_reduction": -0.0029750180828820305
+    },
+    {
+      "group": [
+        512,
+        512,
+        512,
+        "selected"
+      ],
+      "block": 2,
+      "baseline_ns": 159677.408203125,
+      "current_ns": 159311.197265625,
+      "speedup": 1.0022987143639968,
+      "time_reduction": 0.002293442395020273
+    },
+    {
+      "group": [
+        64,
+        2048,
+        512,
+        "selected"
+      ],
+      "block": 2,
+      "baseline_ns": 94132.080078125,
+      "current_ns": 94066.404296875,
+      "speedup": 1.000698185305805,
+      "time_reduction": 0.0006976981831857687
+    },
+    {
+      "group": [
+        64,
+        512,
+        2048,
+        "selected"
+      ],
+      "block": 2,
+      "baseline_ns": 88181.884765625,
+      "current_ns": 88379.232421875,
+      "speedup": 0.9977670358653041,
+      "time_reduction": -0.002237961422286716
+    },
+    {
+      "group": [
+        512,
+        2048,
+        512,
+        "selected"
+      ],
+      "block": 2,
+      "baseline_ns": 626649.21875,
+      "current_ns": 626516.40625,
+      "speedup": 1.0002119856697687,
+      "time_reduction": 0.00021194074136876573
+    }
+  ],
+  "contract": "Pinned upstream MLX Steel vs current and experimental own-code kernels.\n\nIsolated preallocated resident float32 kernels, not MLX-framework or whole-model\nthroughput. Upstream GEMMKernel is unmodified; only its Metal entry/ABI adapter\nis ours. No production integration or numerical contract change.\n",
+  "production_change": false,
+  "study": "aa",
+  "qualification_sha256": "a644a1de3a95a6ecd436a3dd15c438d938a309b7b757dae87d5cf8e0923d64b3",
+  "upstream": "1ba7f969ad05d86decfeeb83787cc9b79e440962",
+  "schema": 1,
+  "timestamp": "2026-10-30T10:39:06.755600+00:00",
+  "compiler_sha256": "e8917b0b0d9b09c60444ed50cf58a84d0be81a5b04f79062898aa5fe5e0a3ca1",
+  "source_sha256": {
+    "native/benchmarks/mlx_steel_study.py": "09dff6ae0992b17322d268f0de02d31f16717796d154390e680284300a60ce5a",
+    "native/benchmarks/SteelMatrixStudy.mm": "4a7cb7c22939b5afc73b4b8c456bee1ed5e4d510953b6b1895d3d4d35c48324a",
+    "native/benchmarks/fair/protocol.py": "d748d0d8557b251a9aea2c9928e7163cfed8a924f3434235823f3aefb330733f",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/LICENSE": "ccfab7ccb2ea306f71531c8ca77bb55507606cd90768b1e32b8b52ab5b48cf01",
+    "benchmarks/.build/gpu-matrix-simd-block32-2026-10-30/study.metal": "c65ac88b6607befb56f1a59ccc8ca75b87bc29ea790de14e6868a969a1226e49",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/softmax.h": "cb233fe42a7358f5f658c9a1ef52cd2ee9dd3786ddfad01793a976d58f4d4051",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/fft.h": "fba2fbfd998e437cbe6db4842fcd75ae995ca1eda891057db76caba376367cda",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/utils.h": "e40473c36e2f2e7ba250b29e8dbbe3c150ce207379e57a2818e916b343e9f2cf",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/bf16.h": "abd87446a310b77ac530ef52a324feae5cb285d03ec9613e3a88ebb71410fdcb",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/searchsorted.h": "4e80cde60cf0d79cee2e630a86e517b8d77589ba93eca3312d8e2c607963d093",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/fp_quantized_nax.h": "f051eeb15d6b45cc32743e76a5fd3d85d01d2008d36423929db9468f063133de",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/gated_delta_update_nax_vjp.h": "ac2bdf7d1f1fe7663cd71f5b2413d44d8f3938054f4e69c31b4b2180a94e7604",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/unary_ops.h": "af710925f066b029f67289a0bbe4edd0ba6c5e7f51c9df609abb111216fa963f",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/gemv.h": "4d72d35da3662554fe46c869691d188c407c56ffd62d3876a6df046ad014a551",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/binary_two.h": "af26413a6161c1b37667fc5c3a802510d8b425074ee2ca0a8fd7e31646f52cd8",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/logsumexp.h": "233f9a7072bed21f2b71f522c41aa5e86208e3bcfd18fafc87cf28a7d7f13154",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/fp8.h": "0d212a9fa1d371bd85c8d7cf8159dbe0e702a4bbdf0a334f7fe3032c55743a1c",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/quantized_nax.h": "7a64d6a29166b307bb629113d588303e77a567929c7b3803cd8b565f44e3905d",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/bf16_math.h": "1f374f8380f756eb89acf6a847741cb8fecbe642945e159fb6208d804cc06496",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/reduce_utils.h": "2cb64d9796e9eac8bced8f35337de9c7fea4db3840a3e398eca21e7fbdd9758c",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/logging.h": "197d9d81944146bea274ebcbc17b2b97b39c7478c0316a3166a08b3fb2467e4b",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/cross_entropy.h": "1e53903b9a713faafd55932f0c039552f18f6108e223dadba0a3ec2245ecab39",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/gemv_masked.h": "ba6f011977248caaceaec4b46135605f8da429852a279def4372e4b602d9fa20",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/gated_delta_nax_ops.h": "6b4d31735e51a72ba7202d71082a35fbc2611db44a3e24b55bd115204b2192fb",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/cexpf.h": "88b6e15a52a5800d98d9bc6da840ca5cf70bf572fda136409580c1f17b1e0aab",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/binary_ops.h": "a24eaa4b610224d5f296c0a8b7a1317561b569f70c11c4b95c4aea8f484370a9",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/defines.h": "a6c2c824e855078cd092fd9592457616f995755f0e865475c3f006a3f5d6bf1d",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/quantized.h": "b791603b640ad549af2be62c4ceaedb88f9c0faf0f1acdbc07a1101042447e1e",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/gated_delta_update_vjp.h": "777e9cd04778f97f5bc5c252d00868564bda04d53eb55b2e81cedc1e64e496aa",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/quantized_utils.h": "a12841b57d505f6cca81631901b845dbf76bc90dfc099e7f40c763b2cc838c51",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/expm1f.h": "dbdf551f45723639da54d72e327008bde6ef01a2f1ed561bb065e251ab6c9f1a",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/gated_delta_update_nax.h": "092b802d1627261af05b91031c3084a009519592b6d7d49acffacd1d19d6dc49",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/hadamard.h": "9c4b749b4d2985203416c2da42dbdf7d59070c6c49c81f6112907b6ce407edc5",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/reduce.h": "2b4ca93fd1f43ee91129440359b18c0fa49bc70098bd4ca3033c6550b2c07d94",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/erf.h": "31d88004390bbe08636c5f64a3cb3180ebc8d79a89267347de9f6c33aba0e9f9",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/dot.h": "24ca982ca5558e43100be7d6dc08722b512b06461c8460d14134eb78f52431ba",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/fp4.h": "e3159945d7e5ae24f7a1ca9c4875b2a5d15cfb6952405df24a0df1bb2622a93a",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/sort.h": "3171f47dabf2cf501dffc2e388e3d66446d6f71712e8d070028258a084b63574",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/arange.h": "f0dfe5df2e06e9028a4a9beebdb6b7fa639df43dcddc6291ad1c25ef44a1e61c",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/ternary.h": "1ad7ebbd7c6bb028b7d9a883ac72c549d218e1696cafa6a97c442f4e91af7e43",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/gated_delta_update.h": "6936b7cf7e705ac066edf8e942658ab8e8e4f1fb3fe12740e21276b60b9be0b9",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/sdpa_vector.h": "b44d2c3541a05742c6c8c801e4dc0bdb702628813243621c86e3340f676eaf74",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/unary.h": "fb952a2c30a6d0cd01f6c61e852cc15e426b286475de8ff139bb65b8d9001c8c",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/fp_quantized.h": "553777467b49cb1f1b498cf24a5870ea57b65cf8b68536d17dd64fe56583de45",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/sdpa_blocked.h": "665d98c389b042a2cbdfae9d95263d7d4ae56d9fc1dfe903b914940c82c8a4f3",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/complex.h": "06031fa9f78e4abe5031924d403e5281d3c02c26e7e893e35a833e588acf1938",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/ternary_ops.h": "afef5c3048963f9d3d4301ff40e8d5322dc07a3b3ec307c175262566091e5c11",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/binary.h": "9a367967a48907ac6792be685bab4cc062f3ad916cccacb441c627d87a4b7898",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/scan.h": "85c1e19ac4ac1b0382ec9956986fcb623979dc12855b261320be7e0528a8d1d1",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/copy.h": "a9fad1b262ffc25f4ccda4e09d0c76821cd580f12871acd2a0daa98151e1587c",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/atomic.h": "4c35ea2798a2335502865247aee878149fc9ada0d7e84c05d771baef0c7fcc60",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/utils.h": "d4c36298145d1c5617a94f07dbfabf6ac932afe2fd7ea0c9291f1fb385c5404a",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/defines.h": "b03cea6a7d5cfe814e6838d8536e2aacdcafd2744cb408e954fda336ce21759a",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/reduction/reduce_col.h": "47d47a9a8b52e3dfd15b195f40cdb3623583e00f5ac11378cdc0a7fe49fe17cf",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/reduction/reduce_init.h": "2efff9a359069d38767eb764c9e15129e6ac07e4271f4cac0b190628824b8a4a",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/reduction/reduce_row.h": "8045c77cb0dde4f97a77ddcdcfad825ccf855928d31369a1dc1832629a63da50",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/reduction/ops.h": "78d06730fc9564a73944e7f1fe3897d25c8789b28a939bf418e1968db311da41",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/reduction/reduce_all.h": "44ea27207c4d976524960ae615de4889c8e5998bf5e88b88850398cc293b1abb",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/fft/readwrite.h": "834cc324908bf6ee2b0112aee1d3df1158487a1a875d51ede4924b8b896c8aa1",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/fft/radix.h": "e6d2aaa314822f546d9c5f5230185577642da5b8a18b4ebb094e8e7ce06fb206",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/indexing/gather.h": "3b2f5b21cd2e71427c9641368a457840f5cb131e202095cd1352f983ce7541ce",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/indexing/gather_axis.h": "e1a745391ff4990f3f1ad75c5687c3b102dcdc4833d8fbbac38e10f54af29af4",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/indexing/masked_scatter.h": "2f8452b864aba8266e2178816ab18b83e0a911efc41f1550df47947fbe1a3b33",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/indexing/scatter.h": "f419bc468396024b2bf368781277fc69880541f393850329c1a831892d9e5bca",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/indexing/indexing.h": "e820b8ee2b5132a97122780c12433ebb5100d8078d31e211d0429400a11415bb",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/indexing/gather_front.h": "64aacebf6576dfcd389383564fa1214bc87f2a091dd33cc64c598c5367ecab96",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/indexing/scatter_axis.h": "43eabd0216101f8e32f5cdd19ce40b7f954564be27fad98a5e0fe345e7b94ce5",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/utils/type_traits.h": "4766c5a3809d3cf7740e63acc5703ef76b6b4e85d8baf16602c9d517a2fd426c",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/utils/integral_constant.h": "886eccaac4f8f00eab5a10551fdb5315df7ab7462aba13d69bb95765c1a4735e",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/params.h": "354a832c5bf37791f4ad42ddc3ca9456a9c1ebbf3216650bb4a10c18110e03a8",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/loader.h": "a82850d760638c71a9ae8c3e426082bf6e2091822abae82583576aa129d1150f",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/conv.h": "e469f51289eff2f632335c634bb5d346667a61f81e515f42159a1ebffd3dd4df",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/gemm.h": "c84af31e2c57154f2a8a24fa7f9fe2449765cce9a66f3f035846ed3c03b6a8b0",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/params.h": "6711e72e32310eafb088895d5a6d20fcfca814158f5b38eb72b6e69d9d773e43",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/gemm_nax.h": "8f8d11f3c29e30dbfcaa6799963edd5fb71b81f912c4f3494e294d3002e3d337",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/loader.h": "c1b82153670b1e18371a6e88fdbcf440af692957775c2f837700315ab8a5112e",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/nax.h": "fb10bcae44095e9fed5c81213d03527dd5fe5ac11be11ec7784bd357c6f317ec",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/mma.h": "21439be1087ac840ac5936bda0e57bd982fb7b104ea5e5f82ba7be0d2eaee524",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/transforms.h": "ac276dd33675d3fac60870d385349d1e4bc94bb06e88e31a19bada0ef4ea39a8",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/attn/attn.h": "67722214ff487ec95df675e2f135ccd7fbe639b6eb6ab98b14bcefa58d66ba95",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/attn/params.h": "f03c6ed73d7298fa69b75a49e7eec54954b6fafd59530a1f175934215412ed80",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/attn/loader.h": "e435f413d71d44ca4ad72a59d192046be77388f63936179c58882286f4cc5dab",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/attn/nax.h": "fb10bcae44095e9fed5c81213d03527dd5fe5ac11be11ec7784bd357c6f317ec",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/attn/mma.h": "6f22866c76a1f15cf27681d3a8700f3419412a954d00e0810c87f7dac82ddeab",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/attn/transforms.h": "6479114663c5923a7ee2f9fc1cf9d5e99e680d47d793251749989056a8a63141",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/attn/kernels/steel_attention.h": "6c5261ceae4a38808b2cc5d247f598a6d353f5b7411cbe0856de703dbe98c495",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/attn/kernels/steel_attention_nax.h": "4c8d4c7b8126cfcf24e4c0867fc2213c3f66fef78849acc2372a07795f864baf",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_splitk_nax.h": "9486b177261f657bceae6437a18d412a0e361c3e6b418c78b4c067b463c84597",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_fused.h": "ed49c8b9c73957f0cbc9dea30f484cf84fb821aece68233d6d1967856200d5c7",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_splitk.h": "2ada2a7ea548f6c4b0e7962b4a2f163e8a212620ecc46e078a06647df12b0635",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_thin_nax.h": "522427d40a251eb5d4bd5055d255d8eab7aa545ae6b97133027de388174870ba",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_gather_nax.h": "8b4a3d1c3f2e897668e02ffdaabd0be4850d753e1e8e1e31ad0e4674e6f53385",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_segmented.h": "bf8b3e9a491a4a4146d5169111ee2b98e21413574193e53f2a4796182cf26ee1",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_gather.h": "317e226d116fd64752fc44527c8a846c9947e5d89ade2abf2a3bdb70e1de7907",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_masked.h": "f6fffe176321a9c4691825e7ddd5f4df09fab06bb1730699fca09a4bb2ebea2f",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_segmented_nax.h": "52c56ff98a85e219656fc1fb4c97f035a7df232445257aadd88496a02018704b",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/gemm/kernels/steel_gemm_fused_nax.h": "149ffe9006edd26daf8c1379ced976f39d929c2cf7cdb57d075be24fc1779765",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/kernels/steel_conv_general.h": "b32896cde594e22340dd53cc861f35b761cd9985174b265fc67ad1652b4e6b8c",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/kernels/steel_conv.h": "ace697d131946606d80ef29bd5593b8ac57b0623303e996cc5a2a902db5968a3",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/kernels/steel_conv_3d.h": "d785d7032d460d8ac1277b1a0707b43bfc6fd3e4e3aeb87d33771d920bf920c5",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/loaders/loader_general.h": "bfe90b792ed3f5b1c8d498873d48f0b07f90acd615499789b2322784b8d45ad6",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/loaders/loader_channel_n.h": "2d94d48fb42b0c910cd40a11937df9fc31a6f3e8458a30470cf4692bfb227fa5",
+    "benchmarks/.build/mlx-steel-source-2026-10-30/mlx/backend/metal/kernels/steel/conv/loaders/loader_channel_l.h": "797bb16aec7ec51dc0563a0132d3dd504abf4078c44cfc44dad3926bba9cc9ad",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/manifest.json": "33aef27ccef67739ddef9121b43a4a20b1308320b41cd12d9e399b348c8d3641"
+  },
+  "artifact_sha256": {
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/steel.metal": "bf7e65b07246d31aedfb7831cad6a036d2a0b36548f7a643dab0ce383398e201",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/steel.metallib": "dad8505c602c9710e77c1fb6bc0c6e6be2351ccd1246dcf56ad06fede842e1e3",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/study": "eb143b9994deba352f7430c3b47f931cf0873aebbb2a1d12a8753a350abecbcc",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib": "b6c0267ff12aee8a3d17e61dc4f92d0bd935b0cec8bec4c16d52fb48fc855690",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048": "ba761918fd84f0f867489429b210d60fc2974eb91bae401532a75484234a1713",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512": "fc5dcaabde7077f1aaefab56e5034082d015df513d93b0d9b0ab7f6c2c10c8ff",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048": "8f3df422c9a88a08cfba667e761e98994a74eb9015a8e6ff7c2ed1791184e7d8",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512": "03d96ec9e4b5375c8c3c24f2c9bcccea6aa5eae6e05fee303a1b5ea30e648e25",
+    "benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512": "cc1787ee6959302ab6738020192e82ee70008aa550f18efc382b51ee6d1043b2"
+  },
+  "commands": [
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "1",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "32",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-2048",
+      "/dev/null",
+      "162",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "512",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-512-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-2048-512",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "64",
+      "512",
+      "2048",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-64-512-2048",
+      "/dev/null",
+      "256",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/study",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/own.metallib",
+      "baseline",
+      "512",
+      "2048",
+      "512",
+      "/Users/pouya/Projects/kalandra.dev/benchmarks/.build/mlx-steel-study-v4-2026-10-30/input-512-2048-512",
+      "/dev/null",
+      "160",
+      "3",
+      "0"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm/23.1.3_2/bin/clang++",
+      "--version"
+    ],
+    [
+      "/Users/pouya/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "--version",
+      "--verbose"
+    ],
+    [
+      "go",
+      "version"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ]
+  ],
+  "revision": "188e8d16925ce83dab939895825606d8d0ce7cbb",
+  "worktree_status": "?? benchmarks/results/mlx-steel-2026-10-30-aa-load.json\n?? benchmarks/results/mlx-steel-2026-10-30-aa.log\n?? benchmarks/results/mlx-steel-LICENSE-2026-10-30.txt\n?? benchmarks/results/mlx-steel-manifest-2026-10-30.json\n?? native/benchmarks/SteelMatrixStudy.mm\n?? native/benchmarks/fair/mlx_steel_report.py\n?? native/benchmarks/fair/steel_series.py\n?? native/benchmarks/mlx_steel_study.py\n",
+  "system": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "clang": "Homebrew clang version 23.1.3\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm/23.1.3_2/bin\nConfiguration file: /opt/homebrew/Cellar/llvm/23.1.3_2/etc/clang/arm64-apple-darwin27.cfg\n",
+    "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8\n",
+    "go": "go version go1.27.3 darwin/arm64\n"
+  },
+  "cpu": "Apple M2 Max"
+}
