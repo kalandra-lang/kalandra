@@ -75,7 +75,9 @@ def main():
     commands = []
     def run(command):
         commands.append(list(map(str, command)))
-        result = subprocess.run(commands[-1], text=True, capture_output=True, check=True, timeout=180)
+        result = subprocess.run(commands[-1], text=True, capture_output=True, timeout=180)
+        if result.returncode:
+            raise RuntimeError(f"{commands[-1]} failed ({result.returncode})\n{result.stdout}\n{result.stderr}")
         return result.stdout
     run([args.compiler, source, '-O2', '--test-entry', 'work', '--emit-llvm', ir, '-o', args.output / 'standalone.exe'])
     if '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1' not in ir.read_text():
@@ -101,7 +103,7 @@ def main():
             seconds, checksum, *values = run([executable, engine]).strip().split()
             values = list(map(int, values))
             if int(checksum) != expected or values != expected_values or not float(seconds) > 0:
-                raise RuntimeError('Incorrect native benchmark result')
+                raise RuntimeError(f'Incorrect {engine} benchmark result: checksum={checksum}, values={values}; expected {expected}, {expected_values}')
             samples.append(dict(block=block, position=position, engine=engine, seconds=float(seconds), checksum=int(checksum), values=values))
     medians = {engine: statistics.median(s['seconds'] for s in samples if s['block'] and s['engine'] == engine)
                for engine in ('cpp', 'kalandra')}
