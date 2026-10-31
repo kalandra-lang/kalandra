@@ -9,7 +9,7 @@ import subprocess
 
 from BundleMachO import digest, run
 
-PLATFORM = re.compile(r"^(?:linux-vdso\.so\.1|ld-linux-x86-64\.so\.2|lib(?:c|m|pthread|dl|rt|resolv|util|gcc_s|stdc\+\+)\.so(?:\..*)?)$")
+PLATFORM = re.compile(r"^(?:linux-vdso\.so\.1|ld-linux-x86-64\.so\.2|ld-linux-aarch64\.so\.1|lib(?:c|m|pthread|dl|rt|resolv|util|gcc_s|stdc\+\+)\.so(?:\..*)?)$")
 LICENSED = {"libz.so": "zlib1g", "libzstd.so": "libzstd1", "libxml2.so": "libxml2",
             "libffi.so": "libffi8", "libtinfo.so": "libtinfo6", "libncursesw.so": "libncursesw6",
             "libedit.so": "libedit2", "libz3.so": "libz3-4", "liblzma.so": "liblzma5",
@@ -21,7 +21,23 @@ def elf(path):
         return False
     with path.open("rb") as stream:
         header = stream.read(18)
-        return header[:4] == b"\x7fELF" and header[5] == 1 and int.from_bytes(header[16:18], "little") in (2, 3)
+        return len(header) == 18 and header[:4] == b"\x7fELF" and header[5] == 1 and int.from_bytes(header[16:18], "little") in (2, 3)
+
+
+def expected_machine(prefix):
+    info = json.loads((prefix / "share/kalandra-native-tools/toolchain.json").read_text())
+    try:
+        return {"linux-x86_64": 62, "linux-arm64": 183}[info["platform"]]
+    except KeyError as error:
+        raise RuntimeError("Unsupported ELF package platform") from error
+
+
+def check_machine(path, machine):
+    with path.open("rb") as stream:
+        header = stream.read(20)
+    if (len(header) != 20 or header[:6] != b"\x7fELF\x02\x01" or
+            int.from_bytes(header[18:20], "little") != machine):
+        raise RuntimeError(f"Wrong ELF architecture: {path}")
 
 
 def dependencies(path, sdk=None):
@@ -48,11 +64,11 @@ def dependencies(path, sdk=None):
 
 
 def audit(prefix):
+    machine = expected_machine(prefix)
     for path in prefix.rglob("*"):
         if not elf(path):
             continue
-        if "Advanced Micro Devices X86-64" not in run("readelf", "-h", path):
-            raise RuntimeError(f"Wrong ELF architecture: {path}")
+        check_machine(path, machine)
         for name, dependency in dependencies(path).items():
             if not PLATFORM.fullmatch(name) and not dependency.is_relative_to(prefix):
                 raise RuntimeError(f"ELF dependency escapes installed prefix: {path}: {dependency}")
@@ -64,6 +80,7 @@ def audit(prefix):
 
 def bundle(prefix, llvm):
     prefix, llvm = prefix.resolve(), llvm.resolve()
+    machine = expected_machine(prefix)
     library = prefix / "lib/kalandra/toolchain/lib"
     library.mkdir(parents=True)
     licenses = prefix / "share/licenses/kalandra-toolchain"
@@ -86,8 +103,7 @@ def bundle(prefix, llvm):
         if target in visited:
             continue
         visited.add(target)
-        if "Advanced Micro Devices X86-64" not in run("readelf", "-h", source):
-            raise RuntimeError(f"Wrong ELF architecture: {source}")
+        check_machine(source, machine)
         for name, dependency in dependencies(source, llvm).items():
             if PLATFORM.fullmatch(name):
                 continue

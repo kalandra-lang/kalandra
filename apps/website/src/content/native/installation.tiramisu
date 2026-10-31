@@ -10,7 +10,9 @@ Use macOS 26 or newer on Apple silicon. Native compilation requires the Apple SD
 
 h3 { "Linux" }
 
-Use x86-64 Linux with an Ubuntu 24.04 / glibc 2.39 baseline. Standalone archives include private compiler dependencies while retaining their declared system-runtime requirements.
+Linux packages target x86-64 and ARM64 with an Ubuntu 24.04 / glibc 2.39 baseline. ARM64 support is available in builds after v0.99.0; select a release that lists the linux-arm64 asset. Standalone archives include private compiler dependencies while retaining their declared system-runtime requirements. Install g++, binutils and Git using your distribution package manager. Git is required for dependency management.
+
+For Raspberry Pi, use a 64-bit OS on Pi 3, Pi 4, Pi 5 or Zero 2 W. Use Raspberry Pi OS Trixie (Debian 13); Bookworm has an older glibc than the packaged toolchain supports. Choose kalandra-native-cpu-standalone-linux-arm64.tar.gz. The target uses ordinary ARMv8-A CPU execution and does not provide VideoCore GPU acceleration. CI runs natively on ARM64 and checks the downloaded package in official Raspberry Pi OS userspace; physical Pi hardware, firmware and kernel variants are not qualified by that test. 32-bit OS installations and older 32-bit Pi models are unsupported.
 
 h3 { "Windows" }
 
