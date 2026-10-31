@@ -121,7 +121,7 @@ def lock(a):
         version = run('dpkg-query', '-W', '-f=${Version}', name + ':' + architecture)
         selector = name + ':' + architecture + '=' + version
         # APT authenticates repository metadata; request SHA256 explicitly.
-        lines = run('apt-get', '-o', 'APT::Hashes::SHA256=1', '--print-uris', 'download', selector).splitlines()
+        lines = run('apt-get', '-o', 'Acquire::ForceHash=SHA256', '--print-uris', 'download', selector).splitlines()
         fields, = [shlex.split(line) for line in lines if line.startswith("'")]
         url, filename, size, checksum = fields
         if not re.fullmatch(r'SHA256:[a-f0-9]{64}', checksum):
