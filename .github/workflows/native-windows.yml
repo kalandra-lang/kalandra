@@ -1,7 +1,7 @@
 name: Native Windows qualification
 on:
   push:
-    branches: ["native"]
+    branches: ["native", "develop"]
     tags: ["v*"]
     paths:
       [

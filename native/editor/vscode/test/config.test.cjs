@@ -1,4 +1,5 @@
 const { test, expect } = require("bun:test");
+const path = require("node:path");
 const { serverConfiguration } = require("../src/config.cjs");
 const base = { serverPath: "kalandra-lsp", projectPath: "", placement: false };
 test("launch a binary directly, preserving absolute paths with spaces", () => {
@@ -21,7 +22,11 @@ test("explicit project and placement arguments are separate argv entries", () =>
     ),
   ).toEqual({
     command: "kalandra-lsp",
-    args: ["--placement", "--project", "/workspace/project with spaces.toml"],
+    args: [
+      "--placement",
+      "--project",
+      path.resolve("/workspace", "project with spaces.toml"),
+    ],
   });
   expect(
     serverConfiguration({ ...base, projectPath: "/other/project.toml" }, [

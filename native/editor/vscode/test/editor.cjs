@@ -92,6 +92,7 @@ async function run() {
   const workspace = process.env.KALANDRA_EDITOR_WORKSPACE;
   const mainUri = vscode.Uri.file(path.join(workspace, "main.k"));
   const libraryUri = vscode.Uri.file(path.join(workspace, "library.k"));
+  const callerUri = vscode.Uri.file(path.join(workspace, "caller.k"));
   const mainDisk = await fs.readFile(mainUri.fsPath, "utf8");
   const libraryDisk = await fs.readFile(libraryUri.fsPath, "utf8");
   const extension = vscode.extensions.getExtension(
@@ -125,11 +126,7 @@ async function run() {
     mainUri,
     position(main, "double(21)"),
   );
-  assert(
-    references.some(
-      (value) => value.uri.fsPath === path.join(workspace, "caller.k"),
-    ),
-  );
+  assert(references.some((value) => value.uri.fsPath === callerUri.fsPath));
   assert(!references.some((value) => value.uri.fsPath.endsWith("outsider.k")));
   checks.push(
     "Workspace references find unopened callers and respect the selected root",
@@ -142,11 +139,7 @@ async function run() {
   );
   assert(rename instanceof vscode.WorkspaceEdit);
   assert(rename.entries().some(([uri]) => uri.fsPath === libraryUri.fsPath));
-  assert(
-    rename
-      .entries()
-      .some(([uri]) => uri.fsPath === path.join(workspace, "caller.k")),
-  );
+  assert(rename.entries().some(([uri]) => uri.fsPath === callerUri.fsPath));
   assert(
     rename
       .entries()
