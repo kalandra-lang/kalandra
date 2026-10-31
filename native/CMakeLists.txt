@@ -10,7 +10,7 @@ if(NOT TARGET LLVM)
   # The installed LLVM config does not populate the build-tree-only
   # LLVM_COMPONENT_LIBS property used by the `all` pseudo-component.
   llvm_map_components_to_libnames(KALANDRA_LLVM_COMPONENTS
-    Support Core AsmParser IRReader Passes Linker TargetParser)
+    Support Core AsmParser IRReader Passes Linker TargetParser Object)
   add_library(LLVM INTERFACE)
   target_link_libraries(LLVM INTERFACE ${KALANDRA_LLVM_COMPONENTS})
 endif()
@@ -188,6 +188,19 @@ if(BUILD_TESTING)
     target_compile_options(kalandra-checked-inlining-tests PRIVATE -fno-rtti)
   endif()
   add_test(NAME native-checked-inlining COMMAND kalandra-checked-inlining-tests)
+  add_executable(kalandra-cross-target-tests tests/CrossTargetTests.cpp)
+  target_include_directories(kalandra-cross-target-tests SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
+  target_link_libraries(kalandra-cross-target-tests PRIVATE kalandra-backend LLVM)
+  target_compile_options(kalandra-cross-target-tests PRIVATE -Wall -Wextra -Werror)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME native-cross-target-codegen
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/CrossTargetTests.py"
+      --driver "$<TARGET_FILE:kalandra-cross-target-tests>" --clang "${CMAKE_CXX_COMPILER}"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/cross-target-codegen")
+  if(NOT LLVM_ENABLE_RTTI)
+    target_compile_options(kalandra-cross-target-tests PRIVATE -fno-rtti)
+  endif()
+
   set_tests_properties(native-checked-inlining PROPERTIES TIMEOUT 30)
   add_executable(kalandra-local-storage-tests tests/LocalStorageTests.cpp)
   target_include_directories(kalandra-local-storage-tests SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})

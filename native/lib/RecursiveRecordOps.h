@@ -12,9 +12,9 @@ class RecursiveRecordOps {
 public:
   RecursiveRecordOps(const TypedModule &input, const RecordStoragePlan &storage,
                      const std::vector<mlir::LLVM::LLVMStructType> &types, mlir::OpBuilder &builder,
-                     mlir::ModuleOp module)
+                     mlir::ModuleOp module, std::string dataLayout = nativeCpuDataLayout)
       : input_(input), storage_(storage), types_(types), builder_(builder), module_(module),
-        variants_(input.records.size()) {
+        variants_(input.records.size()), dataLayout_(std::move(dataLayout)) {
     for (std::size_t id = 0; id < input.records.size(); ++id) {
       variants_[id].resize(input.records[id].fields.size());
       for (std::size_t variant = 0; variant < input.records[id].variants.size(); ++variant)
@@ -295,7 +295,7 @@ private:
     llvm::LLVMContext context;
     mlir::LLVM::TypeToLLVMIRTranslator translator(context);
     auto *type = translator.translateType(types_[id]);
-    llvm::DataLayout layout(nativeCpuDataLayout);
+    llvm::DataLayout layout(dataLayout_);
     return {layout.getTypeAllocSize(type).getFixedValue(), layout.getABITypeAlign(type).value()};
   }
   mlir::Value typeKey(mlir::Location loc, std::size_t id) {
@@ -325,5 +325,6 @@ private:
   mlir::OpBuilder &builder_;
   mlir::ModuleOp module_;
   std::vector<std::vector<std::size_t>> variants_;
+  std::string dataLayout_;
 };
 } // namespace kalandra

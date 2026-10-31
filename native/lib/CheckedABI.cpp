@@ -179,7 +179,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
   using namespace llvm;
   // Structural simplification must use the same target layout as storage and
   // stack admission, including i64/i128 alignment on the pinned ARM64 target.
-  module.setDataLayout(nativeCpuDataLayout);
+  if (module.getDataLayoutStr().empty()) module.setDataLayout(nativeCpuDataLayout);
   if (module.getTargetTriple().str().empty())
     module.setTargetTriple(llvm::Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE));
   auto &context = module.getContext();
@@ -272,7 +272,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                                 .removeAttribute(context, Attribute::ZExt);
     function->setAttributes(AttributeList::get(context, old->getAttributes().getFnAttrs(),
         indirectResult ? AttributeSet{} : returnAttributes, parameterAttributes));
-    function->setCallingConv(nativeInternalCallingConvention(function->getFunctionType()));
+    function->setCallingConv(nativeInternalCallingConvention(function->getFunctionType(), module.getTargetTriple()));
     function->removeFnAttr(Attribute::NoUnwind);
     function->setUWTableKind(UWTableKind::Sync);
     function->addFnAttr("kalandra.effects", statusFree.contains(old) ? "bounded-total" : "checked");
@@ -449,7 +449,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
       if (aggregate)
         arguments.insert(arguments.begin(), resultSlot);
       auto *replacement = builder.CreateCall(callee, arguments);
-      replacement->setCallingConv(internal ? nativeInternalCallingConvention(callee.getFunctionType()) : call->getCallingConv());
+      replacement->setCallingConv(internal ? nativeInternalCallingConvention(callee.getFunctionType(), module.getTargetTriple()) : call->getCallingConv());
       if (!internal)
         replacement->addFnAttr(Attribute::NoUnwind);
       if (!call->getType()->isVoidTy()) {
