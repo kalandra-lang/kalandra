@@ -12,14 +12,15 @@ def api(path):
     return json.loads(subprocess.check_output(["gh", "api", path], text=True))
 
 
-def qualified_artifact(repository, commit, platform, architecture="x86_64"):
+def qualified_artifact(repository, commit, platform, architecture="x86_64", rehearsal=False):
     artifact_name = f"native-{platform}-assets" if architecture == "x86_64" else f"native-{platform}-{architecture}-assets"
     deadline = time.monotonic() + 3600
     announced = False
     while True:
         runs = api(f"repos/{repository}/actions/workflows/native-{platform}.yml/runs?head_sha={commit}&per_page=100")["workflow_runs"]
-        candidates = [run for run in runs if run["head_sha"] == commit and run["event"] == "push" and
-                      run["head_branch"] in ("native", os.environ.get("RELEASE_TAG"))]
+        candidates = [run for run in runs if run["head_sha"] == commit and (
+            (run["event"] == "push" and run["head_branch"] in ("native", os.environ.get("RELEASE_TAG"))) or
+            (rehearsal and run.get("head_repository", {}).get("full_name") == repository))]
         for run in candidates:
             if run.get("status", "completed") != "completed" or run["conclusion"] != "success":
                 continue
@@ -36,13 +37,13 @@ def qualified_artifact(repository, commit, platform, architecture="x86_64"):
         time.sleep(30)
 
 
-def collect():
+def collect(rehearsal=False):
     repository = os.environ["GH_REPO"]
     commit = os.environ["GITHUB_SHA"]
     destination = Path("release-assets")
     receipts = []
     for platform, architecture in (("linux", "x86_64"), ("linux", "arm64"), ("windows", "x86_64"), ("windows", "arm64")):
-        run, artifact = qualified_artifact(repository, commit, platform, architecture)
+        run, artifact = qualified_artifact(repository, commit, platform, architecture, rehearsal)
         archive_name = f"kalandra-native-cpu-standalone-{platform}-{architecture}.tar.gz"
         expected = {archive_name, archive_name + ".sha256"}
         with tempfile.TemporaryFile() as download:

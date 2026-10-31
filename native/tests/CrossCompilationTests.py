@@ -22,7 +22,7 @@ TRIPLES = {
 }
 SYSTEM = {'Linux': 'linux', 'Windows': 'windows', 'Darwin': 'macos'}
 sys.path.insert(0, str(ROOT / 'native/packaging'))
-from WindowsPlatform import pe_machine, MACHINES
+from WindowsPlatform import pe_machine, MACHINES, coff_archive_machines
 
 
 def digest(path):
@@ -82,7 +82,16 @@ def build(a):
     host_suffix = '.exe' if host_system == 'windows' else ''
     a.output.mkdir(parents=True, exist_ok=True)
     host_root = extract(a.host_archive, a.output / 'host package')
-    target_root = extract(a.target_archive, a.output / 'target package')
+    bundled = a.target_archive is None
+    target_root = (host_root / 'lib/kalandra/targets' / (a.system + '-' + a.target) if bundled else
+                   extract(a.target_archive, a.output / 'target package'))
+    assert target_root.is_dir(), 'Host package lacks its bundled destination runtime'
+    if bundled:
+        metadata = json.loads((host_root / 'share/kalandra-native-tools/toolchain.json').read_text())
+        assert len(metadata['bundledCpuTargets']) == 5
+        driver = 'lld-link' if windows else 'ld64.lld' if a.system == 'macos' else 'ld.lld'
+        a.linker = host_root / 'libexec/kalandra' / (driver + host_suffix)
+    assert a.linker.is_file()
     compiler = host_root / ('bin/kalandra' + host_suffix)
     clang = host_root / ('libexec/kalandra/clang++' + host_suffix)
     triple = TRIPLES[a.system][a.target]
@@ -92,8 +101,9 @@ def build(a):
     assert documented_profile['format'] == 1 and documented_profile['target'] == 'aarch64-unknown-linux-gnu'
     documented_source = re.findall(r'codeblock \{ language = kalandra, """([\s\S]*?)""" \}', documentation)[0]
     assert documented_source == SOURCES['calls'], 'Cross-compiled documentation source drift'
-    profile = dict(format=1, target=triple, runtimePackage=str(target_root.resolve()),
-                   linker=str(a.linker.absolute()))
+    profile = dict(format=1, target=triple)
+    if not bundled:
+        profile.update(runtimePackage=str(target_root.resolve()), linker=str(a.linker.absolute()))
     sdk = None
     if a.windows_sdk:
         windows_template, = [json.loads(v) for v in templates
@@ -153,11 +163,21 @@ def build(a):
         mac_template, = [json.loads(v) for v in templates
                         if json.loads(v)['target'] == 'arm64-apple-macosx26.0.0']
         profile = dict(mac_template, **profile)
+    if bundled:
+        profile.pop('runtimePackage', None)
+        profile.pop('linker', None)
+    resolved_linker = a.linker.absolute().as_posix()
     profile_file = a.output / 'cross toolchain.json'
     profile_file.write_text(json.dumps(profile))
     # Hostile ambient toolchain hints must not replace the explicit target.
     environment = dict(os.environ, CCC_OVERRIDE_OPTIONS='+--target=' + TRIPLES[host_system][host],
                        LIBRARY_PATH='/not-a-target-library-directory')
+    platform_command = ['--platform', a.system + '-' + a.target]
+    for key, option in (('sysroot','--sysroot'),('gccDirectory','--gcc-directory')):
+        if key in profile: platform_command += [option, profile[key]]
+    for directory in profile.get('libraryDirectories', []):
+        platform_command += ['--library-directory', directory]
+    selected_command = platform_command if bundled else ['--toolchain', profile_file]
     products = a.output / 'products'
     products.mkdir()
     cases = program_cases()
@@ -169,10 +189,10 @@ def build(a):
         source.write_text(case['source'])
         for mode in ('-O0', '-O2'):
             binary = products / (name + mode + suffix)
-            run([compiler, source, '--toolchain', profile_file, mode, '-o', binary], env=environment)
+            run([compiler, source, *selected_command, mode, '-o', binary], env=environment)
             # A second independent invocation must reproduce the same bytes.
             repeat = repeats / binary.name
-            run([compiler, source, '--toolchain', profile_file, mode, '-o', repeat], env=environment)
+            run([compiler, source, *selected_command, mode, '-o', repeat], env=environment)
             assert digest(binary) == digest(repeat), (name, mode, 'non-reproducible')
             repeat.unlink()
             if windows:
@@ -196,7 +216,7 @@ def build(a):
              '--emit-llvm', ir, mode, '-o', a.output / ('foundation-main' + mode + suffix)], env=environment)
         binary = products / ('foundation' + mode + suffix)
         flags = ['--no-default-config', '--target=' + triple, '--sysroot=' + profile.get('sysroot', str(target_root / 'share/kalandra-native-tools/macos-link-imports/interfaces')),
-                 '--ld-path=' + profile['linker'],
+                 '--ld-path=' + resolved_linker,
                  '-resource-dir=' + str(target_root / 'lib/kalandra/toolchain/clang')]
         if windows:
             flags = [v for v in flags if not v.startswith('--ld-path=')]
@@ -212,11 +232,7 @@ def build(a):
                     if directory: flags += ['-isystem', directory]
             matches = []
             for library in resources.rglob('*builtins*.lib'):
-                readobj = (Path(os.environ['KALANDRA_LLVM_ROOT']) / 'bin' / ('llvm-readobj' + host_suffix)
-                           if 'KALANDRA_LLVM_ROOT' in os.environ else a.linker.parent / ('llvm-readobj' + host_suffix))
-                headers = run([readobj, '--file-headers', library])
-                machines = re.findall(r'Machine: .*\(0x([0-9A-Fa-f]+)\)', headers)
-                if machines and {int(v, 16) for v in machines} == {MACHINES['windows-' + a.target]}:
+                if coff_archive_machines(library) == {MACHINES['windows-' + a.target]}:
                     matches.append(library)
             assert len(matches) == 1, matches
             libraries = [target_root / 'lib/kalandra/native/kalandra-native-runtime.lib', matches[0]]
@@ -239,19 +255,19 @@ def build(a):
         assert digest(binary) == digest(repeat), (mode, 'non-reproducible conformance harness')
         repeat.unlink()
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(contains='passed')))
-    if windows and host_system == 'windows':
+    if windows and host_system == 'windows' and bundled:
         # Run the authored PowerShell recipe, substituting only installation
         # paths and the selected target. PowerShell supplies actual SDK paths.
         recipe, = re.findall(r'codeblock \{ language = powershell, """([\s\S]*?)""" \}', documentation)
-        recipe = recipe.replace('aarch64-pc-windows-msvc', triple)
-        recipe = recipe.replace('C:/kalandra/windows-arm64', target_root.resolve().as_posix())
-        recipe = recipe.replace('C:/llvm-23.1.3/bin/lld-link.exe', a.linker.absolute().as_posix())
+        recipe = recipe.replace('windows-arm64', 'windows-' + a.target)
         recipe = recipe.replace('kalandra compute.k', '& "' + compiler.resolve().as_posix() + '" compute.k')
         (a.output / 'compute.k').write_text(documented_source)
-        run(['pwsh', '-NoProfile', '-NonInteractive', '-Command', recipe], cwd=a.output)
+        recipe_environment = dict(os.environ, LIB=';'.join(profile['libraryDirectories']), WindowsSdkDir=profile['sysroot'])
+        run(['pwsh', '-NoProfile', '-NonInteractive', '-Command', recipe], cwd=a.output, env=recipe_environment)
         binary = products / 'documentation-O2.exe'
         binary.write_bytes((a.output / 'program-arm64.exe').read_bytes())
-        run(['pwsh', '-NoProfile', '-NonInteractive', '-Command', recipe], cwd=a.output)
+        recipe_environment = dict(os.environ, LIB=';'.join(profile['libraryDirectories']), WindowsSdkDir=profile['sysroot'])
+        run(['pwsh', '-NoProfile', '-NonInteractive', '-Command', recipe], cwd=a.output, env=recipe_environment)
         assert digest(binary) == digest(a.output / 'program-arm64.exe'), 'Non-reproducible documentation recipe'
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(output='1144\n')))
     else:
@@ -260,7 +276,7 @@ def build(a):
         (a.output / 'compute.k').write_text(documented_source)
         (a.output / 'cross.json').write_text(json.dumps(profile))
         snippets = re.findall(r'codeblock \{ language = bash, """([\s\S]*?)""" \}', documentation)
-        authored_command, = [shlex.split(v) for v in snippets if v.strip().startswith('kalandra compute.k ')]
+        authored_command, = [shlex.split(v) for v in snippets if v.strip().startswith('kalandra compute.k ') and '--toolchain' in v]
         assert authored_command[0] == 'kalandra'
         authored_command[0] = compiler.resolve()
         output_argument = authored_command.index('-o') + 1
@@ -278,7 +294,7 @@ def build(a):
     protected.write_text('keep executable')
     protected_ir = a.output / 'protected.ll'
     protected_ir.write_text('keep LLVM')
-    for change in ({'target': 'armv7-linux-gnueabihf'}, {'target': TRIPLES[host_system][host]},
+    for change in ({'target': 'armv7-linux-gnueabihf'}, {'target': TRIPLES[host_system][host], 'runtimePackage': str(target_root.resolve())},
                    {'sysroot': '/missing/sysroot'}, {'format': 2}, {'surprise': True}):
         profile_file.write_text(json.dumps(dict(profile, **change)))
         r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
@@ -359,7 +375,8 @@ def build(a):
         profile_file.write_text(json.dumps(profile))
     (products / 'qualification.json').write_text(json.dumps(dict(
         sourceSystem=host_system, destinationSystem=a.system, sourceArchitecture=host, destinationArchitecture=a.target, compilerSHA256=digest(compiler),
-        hostArchiveSHA256=digest(a.host_archive), targetArchiveSHA256=digest(a.target_archive),
+        hostArchiveSHA256=digest(a.host_archive), bundledTargets=bundled,
+        targetArchiveSHA256=digest(a.target_archive) if a.target_archive else None,
         linker=run([a.linker, '--version']).strip(), clang=run([clang, '--version']).strip(),
         toolchain=profile, targetInterfaces=sdk, sdkVersions={k: os.environ[k] for k in ('VCToolsVersion', 'WindowsSDKVersion') if k in os.environ},
         records=records), indent=2) + '\n')
@@ -376,6 +393,8 @@ def execute(a):
         binary = (a.output / record['file']).resolve()
         assert digest(binary) == record['sha256']
         binary.chmod(0o755)
+        if report['destinationSystem'] == 'macos':
+            run(['codesign', '--verify', '--strict', binary])
         r = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120)
         case = record['case']
         assert r.returncode == case.get('status', 0), (record['file'], r.returncode, r.stdout, r.stderr)

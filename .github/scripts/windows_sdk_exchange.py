@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'native/packaging'))
 from CreateArchive import create_archive
 
-RECEIVERS = ('linux-x86_64', 'linux-arm64', 'macos-arm64')
+RECEIVERS = ('linux-x86_64', 'linux-arm64', 'windows-x86_64', 'windows-arm64', 'macos-arm64')
 
 
 def api(path):
@@ -36,8 +36,8 @@ def wait_download(name, destination, seconds=4500):
                             '--dir', str(destination)], check=True)
             return
         if name.startswith('sdk-receiver-'):
-            producers = {'Windows cross-build from ' + name.removeprefix('sdk-receiver-'),
-                         'packages', 'macos-to-linux'}
+            producers = {'CPU cross-build from ' + name.removeprefix('sdk-receiver-'),
+                         'packages', 'macos-package', 'runtime-bundle'}
         elif name.startswith('sdk-sealed-'):
             architecture = name.removeprefix('sdk-sealed-').split('-', 1)[0]
             producers = {'Encrypted Windows SDK ' + architecture}

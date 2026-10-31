@@ -38,3 +38,29 @@ def rename_after_process_exit(source, destination):
                 raise
             print(f'Windows rename file-lock retry {attempt + 1}/5: {error.winerror}', flush=True)
             time.sleep(0.1 * 2 ** attempt)
+
+
+def coff_archive_machines(path):
+    """Inspect regular COFF/bigobj members without requiring a host LLVM SDK."""
+    data = Path(path).read_bytes()
+    if not data.startswith(b'!<arch>\n'):
+        raise ValueError('Expected a self-contained COFF archive')
+    offset, machines = 8, set()
+    while offset < len(data):
+        header = data[offset:offset+60]
+        if len(header) != 60 or header[58:60] != b'`\n':
+            raise ValueError('Invalid COFF archive member header')
+        size = int(header[48:58].decode('ascii').strip())
+        name = header[:16].decode('ascii').strip()
+        contents = data[offset+60:offset+60+size]
+        if len(contents) != size: raise ValueError('Truncated COFF archive member')
+        if name not in ('/', '//', '/SYM64/'):
+            if name.startswith('#1/'):
+                contents = contents[int(name[3:]):]
+            if len(contents) < 20: raise ValueError('Truncated COFF object')
+            machine = int.from_bytes(contents[6:8] if contents[:4] == b'\0\0\xff\xff' else contents[:2], 'little')
+            if machine not in MACHINES.values(): raise ValueError('Unsupported COFF object machine')
+            machines.add(machine)
+        offset += 60 + size + (size & 1)
+    if offset != len(data) or not machines: raise ValueError('Invalid or empty COFF archive')
+    return machines

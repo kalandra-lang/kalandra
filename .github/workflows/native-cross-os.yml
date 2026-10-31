@@ -2,6 +2,8 @@ name: Native cross-OS qualification
 on:
   pull_request:
     paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**", ".github/tools/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
+  push:
+    tags: ["v*"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,7 +19,7 @@ jobs:
       linux: ${{ steps.packages.outputs.linux }}
       windows: ${{ steps.packages.outputs.windows }}
     steps:
-      - name: Locate same-revision qualified native packages
+      - name: Locate same-revision native host packages and GNU SDK metadata
         id: packages
         uses: actions/github-script@v7
         env:
@@ -32,18 +34,18 @@ jobs:
               const found = {};
               for (const system of Object.keys(wanted)) {
                 const runs = await github.rest.actions.listWorkflowRuns({
-                  ...context.repo, workflow_id: `native-${system}.yml`, head_sha: process.env.SOURCE_SHA,
-                  per_page: 20,
+                  ...context.repo, workflow_id: 'native-' + system + '.yml',
+                  head_sha: process.env.SOURCE_SHA, per_page: 20,
                 });
                 const run = runs.data.workflow_runs.find(run => run.head_sha === process.env.SOURCE_SHA &&
-                  run.head_repository.full_name === `${context.repo.owner}/${context.repo.repo}`);
+                  run.head_repository.full_name === context.repo.owner + '/' + context.repo.repo);
                 if (!run) continue;
                 const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
                   {...context.repo, run_id: run.id, per_page: 100});
                 if (wanted[system].every(name => artifacts.some(a => a.name === name && !a.expired))) {
                   found[system] = run.id;
                 } else if (run.status === 'completed') {
-                  throw new Error(`${system} qualification ${run.id} ended without the required verified packages`);
+                  throw new Error(system + ' qualification ended without required packages');
                 }
               }
               if (Object.keys(found).length === 2) {
@@ -52,106 +54,9 @@ jobs:
               }
               await new Promise(resolve => setTimeout(resolve, 30000));
             }
-            throw new Error('Timed out waiting for same-revision Linux and Windows packages');
-  windows-to-linux:
-    needs: packages
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-2025
-            host: x86_64
-            target: x86_64
-          - runner: windows-2025
-            host: x86_64
-            target: arm64
-          - runner: windows-11-arm
-            host: arm64
-            target: x86_64
-          - runner: windows-11-arm
-            host: arm64
-            target: arm64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: pwsh
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-      - uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/kalandra-llvm/installation
-          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
-      - run: python .github/scripts/provision_native_platform.py
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: native-windows*assets
-          path: native-assets
-          merge-multiple: true
-          run-id: ${{ needs.packages.outputs.windows }}
-          github-token: ${{ github.token }}
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: native-linux*assets
-          path: native-assets
-          merge-multiple: true
-          run-id: ${{ needs.packages.outputs.linux }}
-          github-token: ${{ github.token }}
-      - uses: actions/download-artifact@v4
-        with:
-          name: linux-cross-sdk-${{ matrix.target }}
-          path: linux-sdk
-          run-id: ${{ needs.packages.outputs.linux }}
-          github-token: ${{ github.token }}
-      - name: Cross-link using verified upstream GNU libraries
-        run: >-
-          python native/tests/CrossCompilationTests.py build
-          --system linux --target ${{ matrix.target }} --output "build/cross os"
-          --host-archive native-assets/kalandra-native-cpu-standalone-windows-${{ matrix.host }}.tar.gz
-          --target-archive native-assets/kalandra-native-cpu-standalone-linux-${{ matrix.target }}.tar.gz
-          --linux-sdk linux-sdk --linker "$env:KALANDRA_LLVM_ROOT/bin/ld.lld.exe"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cross-windows-${{ matrix.host }}-to-linux-${{ matrix.target }}
-          path: build/cross os/products/*
-          if-no-files-found: error
-  execute-linux:
-    needs: windows-to-linux
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            host: x86_64
-            target: x86_64
-          - runner: ubuntu-24.04-arm
-            host: x86_64
-            target: arm64
-          - runner: ubuntu-24.04
-            host: arm64
-            target: x86_64
-          - runner: ubuntu-24.04-arm
-            host: arm64
-            target: arm64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-      - uses: actions/download-artifact@v4
-        with:
-          name: cross-windows-${{ matrix.host }}-to-linux-${{ matrix.target }}
-          path: cross-products
-      - name: Execute cross-built programs on the native Linux destination
-        run: python3 native/tests/CrossCompilationTests.py execute --output cross-products
+            throw new Error('Timed out waiting for matching native packages');
 
-  macos-to-linux:
-    needs: packages
+  macos-package:
     runs-on: macos-26
     timeout-minutes: 60
     env:
@@ -168,11 +73,9 @@ jobs:
           brew update
           brew install cmake ninja tomlplusplus zstd z3
           brew upgrade zstd z3
-      - name: Install verified pinned LLVM
-        run: python3 .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
-      - name: Build matching host cross linkers
-        run: python3 .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
-      - name: Build host standalone CPU compiler and target ABI checks
+      - run: python3 .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
+      - run: python3 .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
+      - name: Build host compiler with private cross linkers
         run: |
           cmake -S . -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
@@ -181,7 +84,7 @@ jobs:
           cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-cross-target-tests -j2
           ctest --test-dir build/macos --output-on-failure \
             -R '^native-(cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
-      - name: Validate SDK-free macOS system import interfaces
+      - name: Validate macOS 26 system imports and build own C++ safety objects
         run: >-
           python3 .github/scripts/macos_link_imports.py
           --package build/macos/native-cpu-standalone/package-stage/kalandra-native-cpu-standalone
@@ -197,144 +100,64 @@ jobs:
           name: macos-link-imports
           path: macos-link-imports/*
           if-no-files-found: error
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: native-linux*assets
-          path: native-assets
-          merge-multiple: true
-          run-id: ${{ needs.packages.outputs.linux }}
-          github-token: ${{ github.token }}
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: linux-cross-sdk-*
-          path: linux-sdk
-          run-id: ${{ needs.packages.outputs.linux }}
-          github-token: ${{ github.token }}
-      - name: Cross-link both Linux architectures
-        run: |
-          for target in x86_64 arm64; do
-            python3 native/tests/CrossCompilationTests.py build \
-              --system linux --target "$target" --output "build/cross-macos/$target" \
-              --host-archive build/macos/native-cpu-standalone/kalandra-native-cpu-standalone-macos-arm64.tar.gz \
-              --target-archive "native-assets/kalandra-native-cpu-standalone-linux-$target.tar.gz" \
-              --linux-sdk "linux-sdk/linux-cross-sdk-$target" --linker "$KALANDRA_CROSS_LLD_ROOT/ld.lld"
-          done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cross-macos-arm64-to-linux
-          path: |
-            build/cross-macos/x86_64/products/*
-            build/cross-macos/arm64/products/*
-          if-no-files-found: error
-  execute-linux-from-macos:
-    needs: macos-to-linux
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            target: x86_64
-          - runner: ubuntu-24.04-arm
-            target: arm64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-      - uses: actions/download-artifact@v4
-        with:
-          name: cross-macos-arm64-to-linux
-          path: cross-products
-      - name: Execute macOS-built programs on native Linux
-        run: python3 native/tests/CrossCompilationTests.py execute --output cross-products/${{ matrix.target }}/products
 
-  to-macos:
-    needs: [packages, macos-to-linux]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            system: linux
-            host: x86_64
-          - runner: ubuntu-24.04-arm
-            system: linux
-            host: arm64
-          - runner: windows-2025
-            system: windows
-            host: x86_64
-          - runner: windows-11-arm
-            system: windows
-            host: arm64
-    runs-on: ${{ matrix.runner }}
+  runtime-bundle:
+    needs: [packages, macos-package]
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
-      - uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/kalandra-llvm/installation
-          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
-      - run: python .github/scripts/provision_native_platform.py
       - uses: actions/download-artifact@v4
         with:
-          pattern: native-${{ matrix.system }}*assets
-          path: native-assets
+          pattern: native-linux*assets
+          path: source-assets
           merge-multiple: true
-          run-id: ${{ needs.packages.outputs[matrix.system] }}
+          run-id: ${{ needs.packages.outputs.linux }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-windows*assets
+          path: source-assets
+          merge-multiple: true
+          run-id: ${{ needs.packages.outputs.windows }}
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v4
         with:
           name: cross-native-macos-assets
-          path: native-assets
-      - uses: actions/download-artifact@v4
-        with:
-          name: macos-link-imports
-          path: macos-link-imports
-      - name: Cross-link Mach-O programs without an Apple SDK on this host
-        run: >-
-          python .github/scripts/qualify_to_macos.py
-          --system ${{ matrix.system }} --host ${{ matrix.host }}
-          --assets native-assets --imports macos-link-imports --output "build/cross macos"
+          path: source-assets
+      - name: Assemble each host package twice from frozen runtime bytes
+        run: |
+          python3 native/packaging/RuntimeBundles.py --assets source-assets --output bundled-assets
+          python3 native/packaging/RuntimeBundles.py --assets source-assets --output repeated-assets
+          python3 .github/scripts/compare_cross_bundles.py bundled-assets repeated-assets
       - uses: actions/upload-artifact@v4
         with:
-          name: cross-${{ matrix.system }}-${{ matrix.host }}-to-macos
-          path: build/cross macos/products/*
+          name: bundled-tools-linux-x86_64
+          path: bundled-assets/kalandra-native-cpu-standalone-linux-x86_64.tar.gz*
           if-no-files-found: error
-  execute-macos:
-    if: always() && !cancelled()
-    needs: to-macos
-    strategy:
-      fail-fast: false
-      matrix:
-        system: [linux, windows]
-        host: [x86_64, arm64]
-    runs-on: macos-26
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/upload-artifact@v4
         with:
-          python-version: "3.14"
-      - uses: actions/download-artifact@v4
+          name: bundled-tools-linux-arm64
+          path: bundled-assets/kalandra-native-cpu-standalone-linux-arm64.tar.gz*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
         with:
-          name: cross-${{ matrix.system }}-${{ matrix.host }}-to-macos
-          path: cross-products
-      - name: Verify signatures and execute on macOS 26
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import json, subprocess
-          root = Path('cross-products')
-          report = json.loads((root / 'qualification.json').read_text())
-          for record in report['records']:
-              subprocess.run(['codesign', '--verify', '--strict', str(root / record['file'])], check=True)
-          PY
-          python3 native/tests/CrossCompilationTests.py execute --output cross-products
+          name: bundled-tools-windows-x86_64
+          path: bundled-assets/kalandra-native-cpu-standalone-windows-x86_64.tar.gz*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundled-tools-windows-arm64
+          path: bundled-assets/kalandra-native-cpu-standalone-windows-arm64.tar.gz*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundled-tools-macos-arm64
+          path: bundled-assets/kalandra-native-cpu-standalone-macos-arm64.tar.gz*
+          if-no-files-found: error
 
   windows-sdk-send:
     name: Encrypted Windows SDK ${{ matrix.target }}
@@ -376,8 +199,8 @@ jobs:
           go build -o sdk-transfer.exe .github/tools/sdk-transfer/main.go
           if ($LASTEXITCODE -ne 0) { throw 'Transport build failed' }
           python .github/tools/sdk-transfer/test_transport.py sdk-transfer.exe
-          if ($LASTEXITCODE -ne 0) { throw 'Transport authentication tests failed' }
-      - name: Encrypt SDK for Linux x86-64 receiver
+          if ($LASTEXITCODE -ne 0) { throw 'Transport authentication failed' }
+      - name: Encrypt SDK for linux-x86_64
         shell: pwsh
         run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --receiver linux-x86_64 --output sealed-sdk
       - uses: actions/upload-artifact@v4
@@ -386,7 +209,7 @@ jobs:
           path: sealed-sdk/linux-x86_64/sdk.sealed
           retention-days: 1
           if-no-files-found: error
-      - name: Encrypt SDK for Linux ARM64 receiver
+      - name: Encrypt SDK for linux-arm64
         shell: pwsh
         run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --receiver linux-arm64 --output sealed-sdk
       - uses: actions/upload-artifact@v4
@@ -395,7 +218,25 @@ jobs:
           path: sealed-sdk/linux-arm64/sdk.sealed
           retention-days: 1
           if-no-files-found: error
-      - name: Encrypt SDK for macOS receiver
+      - name: Encrypt SDK for windows-x86_64
+        shell: pwsh
+        run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --receiver windows-x86_64 --output sealed-sdk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-sealed-${{ matrix.target }}-windows-x86_64
+          path: sealed-sdk/windows-x86_64/sdk.sealed
+          retention-days: 1
+          if-no-files-found: error
+      - name: Encrypt SDK for windows-arm64
+        shell: pwsh
+        run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --receiver windows-arm64 --output sealed-sdk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-sealed-${{ matrix.target }}-windows-arm64
+          path: sealed-sdk/windows-arm64/sdk.sealed
+          retention-days: 1
+          if-no-files-found: error
+      - name: Encrypt SDK for macos-arm64
         shell: pwsh
         run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --receiver macos-arm64 --output sealed-sdk
       - uses: actions/upload-artifact@v4
@@ -405,9 +246,9 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  to-windows:
-    name: Windows cross-build from ${{ matrix.system }}-${{ matrix.host }}
-    needs: [packages, macos-to-linux]
+  cross-build:
+    name: CPU cross-build from ${{ matrix.system }}-${{ matrix.host }}
+    needs: [packages, macos-package, runtime-bundle]
     strategy:
       fail-fast: false
       matrix:
@@ -418,15 +259,20 @@ jobs:
           - runner: ubuntu-24.04-arm
             system: linux
             host: arm64
+          - runner: windows-2025
+            system: windows
+            host: x86_64
+          - runner: windows-11-arm
+            system: windows
+            host: arm64
           - runner: macos-26
             system: macos
             host: arm64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 50
+    timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
       CGO_ENABLED: "0"
-      HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -436,114 +282,124 @@ jobs:
         with:
           go-version: "1.27.3"
           cache: false
-      - name: Create private one-job receiver key
+      - name: Create private receiver key
+        shell: bash
         run: |
-          go build -o sdk-transfer .github/tools/sdk-transfer/main.go
-          python .github/tools/sdk-transfer/test_transport.py ./sdk-transfer
-          ./sdk-transfer key "$RUNNER_TEMP/sdk-private.pem" "$RUNNER_TEMP/sdk-public.pem"
+          suffix=""
+          if [ "$RUNNER_OS" = Windows ]; then suffix=".exe"; fi
+          go build -o "sdk-transfer$suffix" .github/tools/sdk-transfer/main.go
+          python .github/tools/sdk-transfer/test_transport.py "./sdk-transfer$suffix"
+          "./sdk-transfer$suffix" key "$RUNNER_TEMP/sdk-private.pem" "$RUNNER_TEMP/sdk-public.pem"
       - uses: actions/upload-artifact@v4
         with:
           name: sdk-receiver-${{ matrix.system }}-${{ matrix.host }}
           path: ${{ runner.temp }}/sdk-public.pem
           retention-days: 1
           if-no-files-found: error
-      - name: Decrypt SDK link inputs inside this receiver job
-        run: >-
-          python .github/scripts/windows_sdk_exchange.py receive
-          --tool ./sdk-transfer --key "${{ runner.temp }}/sdk-private.pem"
-          --receiver ${{ matrix.system }}-${{ matrix.host }} --output private-sdk
-      - uses: actions/cache/restore@v4
-        if: runner.os == 'Linux'
-        with:
-          path: ${{ runner.temp }}/kalandra-llvm/installation
-          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
-      - name: Locate native Linux LLVM
-        if: runner.os == 'Linux'
-        run: python .github/scripts/provision_native_platform.py
-      - name: Install macOS LLVM dependencies
-        if: runner.os == 'macOS'
+      - name: Decrypt only within this build job
+        shell: bash
         run: |
-          brew update
-          brew install cmake ninja zstd z3
-          brew upgrade zstd z3
-          python .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
-      - name: Build pinned macOS cross linker
-        if: runner.os == 'macOS'
-        run: python .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
+          suffix=""
+          if [ "$RUNNER_OS" = Windows ]; then suffix=".exe"; fi
+          python .github/scripts/windows_sdk_exchange.py receive --tool "./sdk-transfer$suffix" \
+            --key "$RUNNER_TEMP/sdk-private.pem" --receiver ${{ matrix.system }}-${{ matrix.host }} --output private-sdk
       - uses: actions/download-artifact@v4
         with:
-          pattern: native-windows*assets
+          name: bundled-tools-${{ matrix.system }}-${{ matrix.host }}
           path: native-assets
-          merge-multiple: true
-          run-id: ${{ needs.packages.outputs.windows }}
-          github-token: ${{ github.token }}
       - uses: actions/download-artifact@v4
-        if: matrix.system == 'linux'
         with:
-          pattern: native-linux*assets
-          path: native-assets
-          merge-multiple: true
+          pattern: linux-cross-sdk-*
+          path: linux-sdk
           run-id: ${{ needs.packages.outputs.linux }}
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v4
-        if: matrix.system == 'macos'
         with:
-          name: cross-native-macos-assets
-          path: native-assets
-      - name: Cross-link both Windows destinations
+          name: macos-link-imports
+          path: macos-link-imports
+      - name: Retarget one host download using public CLI flags
         run: >-
-          python .github/scripts/qualify_to_windows.py
-          --system ${{ matrix.system }} --host ${{ matrix.host }}
-          --assets native-assets --sdk private-sdk --output build/cross-windows
+          python .github/scripts/qualify_bundled_cross.py --system ${{ matrix.system }}
+          --host ${{ matrix.host }} --assets native-assets --sdk private-sdk
+          --linux-sdk linux-sdk --imports macos-link-imports --output build/cross-products
       - uses: actions/upload-artifact@v4
         with:
-          name: cross-${{ matrix.system }}-${{ matrix.host }}-to-windows
-          path: |
-            build/cross-windows/x86_64/products/*
-            build/cross-windows/arm64/products/*
+          name: cross-products-${{ matrix.system }}-${{ matrix.host }}
+          path: build/cross-products/*/products/*
           if-no-files-found: error
-      - name: Remove private SDK inputs and receiver key
+      - name: Remove private SDK inputs and key
         if: always()
-        run: |
-          python - <<'PY'
-          import os, shutil
-          from pathlib import Path
-          folder = Path('private-sdk')
-          if folder.exists(): shutil.rmtree(folder)
-          Path(os.environ['RUNNER_TEMP'], 'sdk-private.pem').unlink(missing_ok=True)
-          PY
+        shell: bash
+        run: python .github/scripts/cleanup_sdk_receiver.py
 
-  execute-windows:
+  execute:
+    name: Native execution ${{ matrix.source }} to ${{ matrix.target }}
     if: always() && !cancelled()
-    needs: to-windows
+    needs: cross-build
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runner: windows-2025
-            system: linux
-            host: x86_64
-            target: x86_64
-          - runner: windows-11-arm
-            system: linux
-            host: x86_64
-            target: arm64
-          - runner: windows-2025
-            system: linux
-            host: arm64
-            target: x86_64
-          - runner: windows-11-arm
-            system: linux
-            host: arm64
-            target: arm64
-          - runner: windows-2025
-            system: macos
-            host: arm64
-            target: x86_64
-          - runner: windows-11-arm
-            system: macos
-            host: arm64
-            target: arm64
+          - source: linux-x86_64
+            target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - source: linux-x86_64
+            target: windows-x86_64
+            runner: windows-2025
+          - source: linux-x86_64
+            target: windows-arm64
+            runner: windows-11-arm
+          - source: linux-x86_64
+            target: macos-arm64
+            runner: macos-26
+          - source: linux-arm64
+            target: linux-x86_64
+            runner: ubuntu-24.04
+          - source: linux-arm64
+            target: windows-x86_64
+            runner: windows-2025
+          - source: linux-arm64
+            target: windows-arm64
+            runner: windows-11-arm
+          - source: linux-arm64
+            target: macos-arm64
+            runner: macos-26
+          - source: windows-x86_64
+            target: linux-x86_64
+            runner: ubuntu-24.04
+          - source: windows-x86_64
+            target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - source: windows-x86_64
+            target: windows-arm64
+            runner: windows-11-arm
+          - source: windows-x86_64
+            target: macos-arm64
+            runner: macos-26
+          - source: windows-arm64
+            target: linux-x86_64
+            runner: ubuntu-24.04
+          - source: windows-arm64
+            target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - source: windows-arm64
+            target: windows-x86_64
+            runner: windows-2025
+          - source: windows-arm64
+            target: macos-arm64
+            runner: macos-26
+          - source: macos-arm64
+            target: linux-x86_64
+            runner: ubuntu-24.04
+          - source: macos-arm64
+            target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - source: macos-arm64
+            target: windows-x86_64
+            runner: windows-2025
+          - source: macos-arm64
+            target: windows-arm64
+            runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     steps:
@@ -553,7 +409,7 @@ jobs:
           python-version: "3.14"
       - uses: actions/download-artifact@v4
         with:
-          name: cross-${{ matrix.system }}-${{ matrix.host }}-to-windows
+          name: cross-products-${{ matrix.source }}
           path: cross-products
-      - name: Execute on the native Windows destination
+      - name: Execute conformance on native destination hardware
         run: python native/tests/CrossCompilationTests.py execute --output cross-products/${{ matrix.target }}/products

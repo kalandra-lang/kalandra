@@ -30,11 +30,20 @@ with tempfile.TemporaryDirectory(prefix='kalandra toolchain validation ') as fol
             '-o', executable, '--emit-llvm', ir])), capture_output=True, text=True, timeout=30)
         assert result.returncode == 2, (config, result.returncode, result.stderr)
         assert executable.read_bytes() == b'executable sentinel' and ir.read_bytes() == b'IR sentinel'
-    for args in (['--toolchain'], ['--toolchain', ''], ['--toolchain', '--target', 'cpu'],
+    invalid_options = (['--toolchain'], ['--toolchain', ''], ['--toolchain', '--target', 'cpu'],
                  ['--toolchain', str(profile), '--toolchain', str(profile)],
                  ['--toolchain', str(profile), '--target', 'metal'],
                  ['--toolchain', str(profile), '--sanitize'],
-                 ['--toolchain', str(profile), '--thread-sanitize']):
+                 ['--toolchain', str(profile), '--thread-sanitize'],
+                 ['--platform'], ['--platform', ''], ['--platform', 'linux-armv7'],
+                 ['--platform', 'macos-arm64', '--platform', 'macos-arm64'],
+                 ['--platform', 'macos-arm64', '--toolchain', str(profile)],
+                 ['--platform', 'macos-arm64', '--target', 'metal'],
+                 ['--platform', 'macos-arm64', '--sanitize'],
+                 ['--platform', 'macos-arm64', '--thread-sanitize'],
+                 ['--sysroot', '/'], ['--gcc-directory', '/'], ['--library-directory', '/'],
+                 ['--platform', 'linux-arm64', '--sysroot', '/', '--sysroot', '/'])
+    for args in invalid_options:
         result = subprocess.run(list(map(str, [a.compiler, source, '-o', executable, *args])),
                                 capture_output=True, text=True, timeout=30)
         assert result.returncode == 2, (args, result.returncode, result.stderr)
@@ -51,4 +60,4 @@ with tempfile.TemporaryDirectory(prefix='kalandra toolchain validation ') as fol
         result = subprocess.run([str(output)], capture_output=True, text=True, timeout=30)
         assert result.returncode == 0 and result.stdout == '42\n', (relative, result.stdout, result.stderr)
     assert not list(root.rglob('.kalandra-link*')), 'Staging directory leaked after publication'
-print(f'{len(configs)+7} invalid toolchain/ABI/mode cases rejected without changing outputs')
+print(f'{len(configs)+len(invalid_options)} invalid toolchain/ABI/mode cases rejected without changing outputs')

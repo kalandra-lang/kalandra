@@ -150,7 +150,9 @@ struct CrossToolchain {
 };
 
 inline std::expected<CrossToolchain, std::string>
-loadCrossToolchain(const std::filesystem::path &profile, const std::string &clang) {
+loadCrossToolchain(const std::filesystem::path &profile, const std::string &clang,
+                   const std::filesystem::path &hostPrefix = {},
+                   std::optional<llvm::json::Object> direct = {}) {
   auto readJson = [](const std::filesystem::path &path) -> std::expected<llvm::json::Value, std::string> {
     auto buffer = llvm::MemoryBuffer::getFile(path.string());
     if (!buffer) return std::unexpected("cannot read toolchain configuration: " + path.string());
@@ -158,7 +160,9 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
     if (!parsed) return std::unexpected(llvm::toString(parsed.takeError()));
     return std::move(*parsed);
   };
-  auto config = readJson(profile);
+  auto config = direct
+      ? std::expected<llvm::json::Value, std::string>(llvm::json::Value(std::move(*direct)))
+      : readJson(profile);
   if (!config) return std::unexpected(config.error());
   auto *object = config->getAsObject();
   if (!object || object->getInteger("format") != 1)
@@ -187,16 +191,29 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
   auto path = [&](llvm::StringRef key, bool file = false) -> std::expected<std::filesystem::path, std::string> {
     auto text = object->getString(key);
     const bool bundledImports = key == "sysroot" && result.darwin() && !object->get(key);
-    if (!bundledImports && (!text || text->empty() || text->contains('\0')))
+    const bool bundledRuntime = key == "runtimePackage" && !object->get(key);
+    const bool bundledLinker = key == "linker" && !object->get(key);
+    if ((bundledRuntime || bundledLinker) && hostPrefix.empty())
+      return std::unexpected("CPU toolchain requires explicit runtimePackage/linker paths");
+    if (!bundledImports && !bundledRuntime && !bundledLinker && (!text || text->empty() || text->contains('\0')))
       return std::unexpected("CPU toolchain requires path: " + key.str());
     std::error_code error;
+    std::string linkerName = result.windows() ? "lld-link" : result.darwin() ? "ld64.lld" : "ld.lld";
+#ifdef _WIN32
+    linkerName += ".exe"; // Executed on the compiler host, not the destination.
+#endif
     auto value = bundledImports
         ? result.package / "share/kalandra-native-tools/macos-link-imports/interfaces"
+        : bundledRuntime ? hostPrefix / "lib/kalandra/targets" / result.platform
+        : bundledLinker ? hostPrefix / "libexec/kalandra" / linkerName
         : std::filesystem::path(text->str());
     if (value.is_relative()) value = std::filesystem::absolute(profile).parent_path() / value;
     const auto checked = std::filesystem::canonical(value, error);
-    if (error || (file ? !std::filesystem::is_regular_file(checked) : !std::filesystem::is_directory(checked)))
+    if (error || (file ? !std::filesystem::is_regular_file(checked) : !std::filesystem::is_directory(checked))) {
+      if (bundledRuntime || bundledLinker)
+        return std::unexpected("installed compiler lacks bundled CPU target resources for " + result.platform);
       return std::unexpected("invalid CPU toolchain path: " + key.str());
+    }
     // LLVM's ld.lld/ld64.lld/lld-link aliases select their driver by argv[0].
     // Validate the resolved file while retaining that executable basename.
     if (file) {

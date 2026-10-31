@@ -7,6 +7,8 @@ import re
 import shutil
 import subprocess
 
+from CrossLinkers import stage as stage_cross_linkers
+
 from BundleMachO import digest, run
 
 PLATFORM = re.compile(r"^(?:linux-vdso\.so\.1|ld-linux-x86-64\.so\.2|ld-linux-aarch64\.so\.1|lib(?:c|m|pthread|dl|rt|resolv|util|gcc_s|stdc\+\+)\.so(?:\..*)?)$")
@@ -103,7 +105,7 @@ def audit(prefix):
             raise RuntimeError(f"Unsafe ELF search path: {path}: {rpath}")
 
 
-def bundle(prefix, llvm):
+def bundle(prefix, llvm, cross_linkers=False):
     prefix, llvm = prefix.resolve(), llvm.resolve()
     machine = expected_machine(prefix)
     library = prefix / "lib/kalandra/toolchain/lib"
@@ -122,6 +124,8 @@ def bundle(prefix, llvm):
     shutil.copytree(resources, resource_copy)
     queue = [(p, p) for p in (prefix / "bin").iterdir() if elf(p)] + [(clang, destination)]
     queue += [(p, resource_copy / p.relative_to(resources)) for p in resources.rglob("*") if elf(p)]
+    if cross_linkers:
+        queue.extend(stage_cross_linkers(prefix, llvm))
     visited, origins, metadata = set(), {}, []
     while queue:
         source, target = queue.pop()
@@ -167,5 +171,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("prefix", type=Path)
     parser.add_argument("--llvm", type=Path, required=True)
+    parser.add_argument("--cross-linkers", action="store_true")
     args = parser.parse_args()
-    bundle(args.prefix, args.llvm)
+    bundle(args.prefix, args.llvm, args.cross_linkers)

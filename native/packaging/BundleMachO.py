@@ -13,6 +13,8 @@ import shutil
 import stat
 import subprocess
 
+from CrossLinkers import stage as stage_cross_linkers
+
 
 def run(*args):
     result = subprocess.run(list(map(str, args)), capture_output=True, text=True, timeout=120)
@@ -81,7 +83,7 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def bundle(prefix, llvm, cpu=False, cross=None, spirv=None):
+def bundle(prefix, llvm, cpu=False, cross=None, spirv=None, cross_linkers=False):
     prefix, llvm = prefix.resolve(), llvm.resolve()
     metal = cross is not None or spirv is not None
     if metal and (not cpu or cross is None or spirv is None):
@@ -119,6 +121,9 @@ def bundle(prefix, llvm, cpu=False, cross=None, spirv=None):
             seeds.append((original, destination))
         seeds.extend((p, p) for p in sorted((prefix / "lib/kalandra/native").iterdir())
                      if p.is_file() and macho(p))
+
+    if cross_linkers:
+        seeds.extend(stage_cross_linkers(prefix, llvm))
 
     copied, origins, edits, metadata = {}, {}, {}, []
     minimum = (0,)
@@ -246,7 +251,8 @@ if __name__ == "__main__":
     parser.add_argument("prefix", type=Path)
     parser.add_argument("--llvm", type=Path, required=True)
     parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--cross-linkers", action="store_true")
     parser.add_argument("--spirv-cross", type=Path)
     parser.add_argument("--spirv-tools", type=Path)
     args = parser.parse_args()
-    bundle(args.prefix, args.llvm, args.cpu, args.spirv_cross, args.spirv_tools)
+    bundle(args.prefix, args.llvm, args.cpu, args.spirv_cross, args.spirv_tools, args.cross_linkers)

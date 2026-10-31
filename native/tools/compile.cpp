@@ -91,7 +91,8 @@ int main(int argc, char **argv) {
     return 0;
   }
   std::vector<char *> filtered{argv[0]};
-  std::string target = "cpu", toolchainPath;
+  std::string target = "cpu", toolchainPath, platform;
+  llvm::json::Object platformOptions;
   bool selectedTarget = false;
   for (int i = 1; i < argc; ++i) {
     const std::string_view option = argv[i];
@@ -102,6 +103,25 @@ int main(int argc, char **argv) {
         return 2;
       }
       toolchainPath = argv[++i];
+    } else if (option == "--platform" || option == "--sysroot" ||
+               option == "--gcc-directory" || option == "--library-directory") {
+      if (i + 1 >= argc || std::string_view(argv[i + 1]).empty() ||
+          std::string_view(argv[i + 1]).starts_with("--")) {
+        std::cerr << "incomplete CPU platform option: " << option << '\n'; return 2;
+      }
+      const std::string value = argv[++i];
+      if (option == "--platform") {
+        if (!platform.empty()) { std::cerr << "one --platform is allowed\n"; return 2; }
+        platform = value;
+      } else if (option == "--library-directory") {
+        if (!platformOptions.get("libraryDirectories"))
+          platformOptions["libraryDirectories"] = llvm::json::Array{};
+        platformOptions.getArray("libraryDirectories")->push_back(value);
+      } else {
+        const auto key = option == "--sysroot" ? "sysroot" : "gccDirectory";
+        if (platformOptions.get(key)) { std::cerr << "duplicate CPU SDK option\n"; return 2; }
+        platformOptions[key] = value;
+      }
     } else if (option == "--target") {
       if (selectedTarget || i + 1 >= argc) {
         std::cerr << "one complete --target option is required\n";
@@ -118,7 +138,21 @@ int main(int argc, char **argv) {
         filtered.push_back(argv[++i]);
     }
   }
-  if (target == "metal" && !toolchainPath.empty()) {
+  if ((!platform.empty() && !toolchainPath.empty()) || (platform.empty() && !platformOptions.empty())) {
+    std::cerr << "choose --platform with SDK flags, or --toolchain with its profile\n"; return 2;
+  }
+  if (!platform.empty()) {
+    const std::map<std::string, std::string> triples{
+        {"linux-x86_64", "x86_64-unknown-linux-gnu"}, {"linux-arm64", "aarch64-unknown-linux-gnu"},
+        {"windows-x86_64", "x86_64-pc-windows-msvc"}, {"windows-arm64", "aarch64-pc-windows-msvc"},
+        {"macos-arm64", "arm64-apple-macosx26.0.0"}};
+    auto found = triples.find(platform);
+    if (found == triples.end()) { std::cerr << "unsupported CPU platform: " << platform << '\n'; return 2; }
+    platformOptions["format"] = 1;
+    platformOptions["target"] = found->second;
+  }
+  const bool selectedCpuToolchain = !toolchainPath.empty() || !platform.empty();
+  if (target == "metal" && selectedCpuToolchain) {
     std::cerr << "--toolchain selects a CPU ABI and cannot be combined with --target metal\n";
     return 2;
   }
@@ -159,7 +193,7 @@ int main(int argc, char **argv) {
            "hardware|software|hardware-with-software-fallback] [--sanitize|--thread-sanitize] "
            "[--matmul-policy optimized|fixed-tree] "
            "[-O0|-O2] [--target "
-           "cpu|metal] [--toolchain profile.json] [--package name=path.k ...] [--project manifest.toml instead of source]\n"
+           "cpu|metal] [--toolchain profile.json | --platform os-architecture [--sysroot path] [--gcc-directory path] [--library-directory path ...]] [--package name=path.k ...] [--project manifest.toml instead of source]\n"
            "       kalandra new directory\n";
     return 2;
   }
@@ -248,7 +282,7 @@ int main(int argc, char **argv) {
     std::cerr << "missing source file or --project\n";
     return 2;
   }
-  if (!toolchainPath.empty() && (sanitize || threadSanitize)) {
+  if (selectedCpuToolchain && (sanitize || threadSanitize)) {
     std::cerr << "cross-toolchain sanitizer modes are not yet qualified; use normal or optimized builds\n";
     return 2;
   }
@@ -338,20 +372,18 @@ int main(int argc, char **argv) {
       std::cerr << kalandra::renderDiagnostic(*typed.source, d);
     return 1;
   }
+  static int executableAnchor;
+  std::error_code resourceError;
+  const auto executable = std::filesystem::canonical(
+      llvm::sys::fs::getMainExecutable(argv[0], &executableAnchor), resourceError);
+  if (resourceError) { std::cerr << "cannot locate compiler executable\n"; return 1; }
+  const auto hostPrefix = executable.parent_path().parent_path();
   std::optional<kalandra::CrossToolchain> cross;
   // Installed compilers resolve only their adjacent private runtime resources.
   // Never fall back to the build-tree archives when an installed file is missing.
   std::string clang = KALANDRA_CLANGXX;
   std::optional<std::filesystem::path> clangResources;
 #ifdef KALANDRA_INSTALLED_COMPILER
-  static int executableAnchor;
-  std::error_code resourceError;
-  const auto executable = std::filesystem::canonical(
-      llvm::sys::fs::getMainExecutable(argv[0], &executableAnchor), resourceError);
-  if (resourceError) {
-    std::cerr << "cannot locate installed compiler executable\n";
-    return 1;
-  }
   const auto runtimeRoot = executable.parent_path() / KALANDRA_RUNTIME_RELATIVE_DIR;
   const auto runtimePath = [&](std::string_view name) {
     return cross ? cross->runtimeArchive(name) : (runtimeRoot / name).string();
@@ -377,8 +409,11 @@ int main(int argc, char **argv) {
     return cross ? cross->runtimeArchive(name) : std::string(name);
   };
 #endif
-  if (!toolchainPath.empty()) {
-    auto loaded = kalandra::loadCrossToolchain(toolchainPath, clang);
+  if (selectedCpuToolchain) {
+    auto loaded = kalandra::loadCrossToolchain(
+        platform.empty() ? std::filesystem::path(toolchainPath) : std::filesystem::current_path() / "command-line-toolchain.json",
+        clang, hostPrefix, platform.empty() ? std::optional<llvm::json::Object>{}
+                                           : std::optional<llvm::json::Object>(std::move(platformOptions)));
     if (!loaded) { std::cerr << "CPU toolchain: " << loaded.error() << '\n'; return 2; }
     cross = std::move(*loaded);
   }

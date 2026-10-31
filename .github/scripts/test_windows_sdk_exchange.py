@@ -14,9 +14,9 @@ class WindowsSDKExchangeTests(unittest.TestCase):
 
     def test_failed_producers_stop_waiting_without_downloading(self):
         cases = (
-            ('sdk-receiver-macos-arm64', 'Windows cross-build from macos-arm64'),
+            ('sdk-receiver-macos-arm64', 'CPU cross-build from macos-arm64'),
             ('sdk-sealed-arm64-linux-x86_64', 'Encrypted Windows SDK arm64'),
-            ('sdk-receiver-linux-arm64', 'macos-to-linux'),
+            ('sdk-receiver-linux-arm64', 'macos-package'),
         )
         for name, producer in cases:
             with self.subTest(name=name), self.environment(), \
@@ -42,7 +42,7 @@ class WindowsSDKExchangeTests(unittest.TestCase):
     def test_successful_producer_allows_eventual_artifact_visibility(self):
         name = 'sdk-receiver-linux-x86_64'
         with self.environment(), patch.object(exchange, 'api', side_effect=[
-                {'artifacts': []}, {'jobs': [dict(name='Windows cross-build from linux-x86_64',
+                {'artifacts': []}, {'jobs': [dict(name='CPU cross-build from linux-x86_64',
                                                  status='completed', conclusion='success')]},
                 {'artifacts': [dict(name=name, expired=False)]}]), \
                 patch.object(exchange.subprocess, 'run') as download, \

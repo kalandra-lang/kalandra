@@ -1,74 +1,10 @@
-meta { title = "Cross-compilation", description = "Select a destination CPU ABI, SDK, linker and runtime package.", order = 5, group = "Using Kalandra" }
+meta { title = "Cross-compilation", description = "Build for another CPU platform from one host compiler installation.", order = 5, group = "Using Kalandra" }
 
-Cross-compilation builds a CPU application for another operating system or architecture. Install Kalandra for the machine performing the build, and supply a toolchain profile for the destination. These options are available in builds after v0.99.0; choose a release that lists cross-compilation support.
+Install the standalone Kalandra package for the machine performing the build. It includes the CPU runtimes for Linux x86-64 and ARM64, Windows x86-64 and ARM64, and macOS ARM64, together with host-native LLVM linkers. You do not need a compiler executable for each destination.
 
-h2 { "Prepare the two toolchains" }
+Select the destination with --platform. Only its runtime libraries are linked into your program; the bundled alternatives add download and disk space, not execution overhead. These options are available in releases after v0.99.0 that list cross-compilation support.
 
-The compiler and linker must run on your build machine. Download the standalone Kalandra package for that machine. Also extract the standalone package for the destination, from the same Kalandra and LLVM versions. Verify both supplied SHA-256 checksums. The destination package supplies runtime archives and compiler resources; its compiler executable is not invoked.
-
-For Linux and Windows, provide the destination's system development libraries and SDK. The macOS package includes its own link-only import declarations. Provide a host-native linker that can produce the destination's executable format. The examples below use LLVM 23.1.3 linkers. An installed native Kalandra package supplies its private Clang; configure the linker path separately.
-
-A profile is an explicitly selected, trusted local build configuration. Its linker path names a program that will run on the build machine. Profiles are selected with --toolchain and are not loaded from imported packages.
-
-h2 { "Linux x86-64 to ARM64" }
-
-On Ubuntu 24.04 x86-64, install the ARM64 cross-development libraries:
-
-codeblock { language = bash, """sudo apt-get install g++-13-aarch64-linux-gnu
-""" }
-
-Extract the ARM64 Kalandra package under /opt/kalandra/linux-arm64 and the host LLVM 23.1.3 SDK under /opt/llvm-23.1.3, or replace those paths with your actual locations. Save this profile as cross.json:
-
-codeblock { language = json, """{
-  "format": 1,
-  "target": "aarch64-unknown-linux-gnu",
-  "sysroot": "/",
-  "gccDirectory": "/usr/lib/gcc-cross/aarch64-linux-gnu/13",
-  "runtimePackage": "/opt/kalandra/linux-arm64",
-  "linker": "/opt/llvm-23.1.3/bin/ld.lld"
-}
-""" }
-
-This profile uses Ubuntu's installed cross-development package layout. The explicit GCC directory selects the destination's startup objects and C++ libraries. The filesystem root contains those architecture-specific packages; /usr/aarch64-linux-gnu alone is not a complete sysroot. For a separate SDK filesystem, set sysroot to its root and gccDirectory to its target GCC runtime directory.
-
-For ARM64 to x86-64, install g++-13-x86-64-linux-gnu on the ARM64 build machine. Select x86_64-unknown-linux-gnu, /usr/lib/gcc-cross/x86_64-linux-gnu/13 and the x86-64 Kalandra runtime package. The linker must be the ARM64 host executable.
-
-h2 { "Windows x86-64 to ARM64" }
-
-Use PowerShell 7 with the Visual Studio C++ developer environment configured for the ARM64 destination. The selected Windows SDK and MSVC toolset must include ARM64 libraries. Install the x86-64 Kalandra compiler on the build machine; extract the ARM64 package separately. Configure a host-native LLVM 23.1.3 lld-link.exe.
-
-After saving compute.k from the example below, run this recipe. Replace the two installation paths:
-
-codeblock { language = powershell, """@{
-  format = 1
-  target = "aarch64-pc-windows-msvc"
-  sysroot = $env:WindowsSdkDir
-  runtimePackage = "C:/kalandra/windows-arm64"
-  linker = "C:/llvm-23.1.3/bin/lld-link.exe"
-  libraryDirectories = @($env:LIB -split ";" | Where-Object { $_ })
-} | ConvertTo-Json | Set-Content -Encoding utf8NoBOM cross.json
-kalandra compute.k --toolchain cross.json -O2 -o program-arm64.exe
-""" }
-
-Copy program-arm64.exe to Windows ARM64 and run it there. It prints 1144. For ARM64 to x86-64, use the ARM64 host compiler and linker, select the x86-64 C++ developer environment, change target to x86_64-pc-windows-msvc and select the x86-64 Kalandra runtime package. Windows profiles capture the selected SDK's library paths explicitly; the compiler does not inherit ambient LIB or INCLUDE paths.
-
-h2 { "Windows or Linux to macOS ARM64" }
-
-The macOS standalone CPU package includes Kalandra's own link-only system import declarations. These describe the public system-library functions used by the runtime and numerical code. They contain no Apple SDK headers or library implementations. Building a Kalandra application for macOS requires the target Kalandra package and a host-native LLVM linker; Apple’s SDK is not required on the build machine.
-
-Select the extracted macOS ARM64 package and a host-native LLVM 23.1.3 Mach-O linker:
-
-codeblock { language = json, """{
-  "format": 1,
-  "target": "arm64-apple-macosx26.0.0",
-  "runtimePackage": "/opt/kalandra/macos-arm64",
-  "linker": "/opt/llvm-23.1.3/bin/ld64.lld"
-}
-""" }
-
-On Windows, use Windows paths and ld64.lld.exe. The compiler verifies the bundled import declarations against the target package inventory. The resulting executable uses macOS's system libraries when it runs on macOS 26 or later. Developer ID signing and notarization are separate distribution steps.
-
-h2 { "Build and run on the destination" }
+h2 { "A shared example" }
 
 Save this program as compute.k:
 
@@ -82,33 +18,83 @@ fn main()->int:
   count(1000,0)+fib(12)
 """ }
 
-Build it using the profile:
+h2 { "Build for macOS" }
+
+From Linux, Windows or macOS, build for macOS 26 or later on Apple Silicon:
+
+codeblock { language = bash, """kalandra compute.k --platform macos-arm64 -O2 -o program-macos
+""" }
+
+The package contains Kalandra's own link-only system import declarations. They describe the public system-library functions used by the runtime and numerical code, and contain no Apple SDK headers or library implementations. No Apple SDK or separate LLVM installation is needed on the build machine.
+
+Copy program-macos to a compatible Mac, make it executable and run it. It prints 1144. Developer ID signing and notarization are separate distribution steps.
+
+h2 { "Build for Linux" }
+
+Linux targets also require GNU development libraries for the destination architecture. For Ubuntu 24.04 x86-64 to ARM64:
+
+codeblock { language = bash, """sudo apt-get install g++-13-aarch64-linux-gnu
+kalandra compute.k --platform linux-arm64 --sysroot / --gcc-directory /usr/lib/gcc-cross/aarch64-linux-gnu/13 -O2 -o program-linux-arm64
+""" }
+
+For ARM64 to x86-64, install g++-13-x86-64-linux-gnu, select linux-x86_64 and use /usr/lib/gcc-cross/x86_64-linux-gnu/13.
+
+On Windows or macOS, provide an extracted GNU development sysroot. It must include the destination's startup objects, GNU C library and C++ runtime. Set --sysroot to that filesystem's root and --gcc-directory to its GCC runtime directory. The host package supplies the linker and Kalandra runtime.
+
+Copy the output to a Linux system with compatible system libraries. An ARM64 build can run on supported 64-bit Raspberry Pi models using Raspberry Pi OS Trixie. A Linux executable built on Windows does not need an .exe suffix.
+
+h2 { "Build for Windows" }
+
+Windows targets require destination Windows SDK and MSVC CRT link libraries. Kalandra does not distribute Microsoft's SDK. Application compilation uses the bundled Kalandra runtime and does not require Windows headers on the source machine.
+
+On Windows, use PowerShell 7 with the Visual Studio developer environment configured for the destination. For Windows ARM64:
+
+codeblock { language = powershell, """$sdkArgs = @()
+$env:LIB -split ";" | Where-Object { $_ } | ForEach-Object {
+  $sdkArgs += @("--library-directory", $_)
+}
+kalandra compute.k --platform windows-arm64 --sysroot $env:WindowsSdkDir @sdkArgs -O2 -o program-arm64.exe
+""" }
+
+For x86-64, select windows-x86_64 and its developer environment. From Linux or macOS, supply your extracted Windows SDK and MSVC CRT directories with --sysroot and repeated --library-directory flags. Include the target's CRT, UCRT and Windows system import libraries. The compiler does not replace those selections with ambient LIB paths or registry-discovered libraries.
+
+Copy the .exe to the selected Windows architecture to run it. It prints 1144.
+
+h2 { "Reusable toolchain profiles" }
+
+Use --toolchain for a reusable local SDK configuration. A normal profile does not need runtimePackage or linker: the compiler selects those from its installation.
+
+A Linux ARM64 profile using Ubuntu's installed cross-development package layout:
+
+codeblock { language = json, """{
+  "format": 1,
+  "target": "aarch64-unknown-linux-gnu",
+  "sysroot": "/",
+  "gccDirectory": "/usr/lib/gcc-cross/aarch64-linux-gnu/13"
+}
+""" }
+
+Save it as cross.json and build:
 
 codeblock { language = bash, """kalandra compute.k --toolchain cross.json -O2 -o program-arm64
 """ }
 
-Copy the executable to the operating system and architecture selected by your profile. On Linux or macOS, make it executable and run it there. It prints 1144. The destination needs the target package's documented system-runtime baseline; it does not need the Kalandra compiler or LLVM to run this application. For an ARM64 Linux build on Raspberry Pi, use Raspberry Pi OS Trixie on a supported 64-bit Pi.
+The filesystem root in this example contains Ubuntu's architecture-specific cross packages. /usr/aarch64-linux-gnu alone is not a complete sysroot.
 
-h2 { "Build Linux programs from Windows or macOS" }
+A macOS profile needs only the target:
 
-Use the same Linux profile fields with an extracted GNU development sysroot for the destination architecture. Set sysroot to that filesystem's root and gccDirectory to its GCC runtime directory, such as usr/lib/gcc/aarch64-linux-gnu/13 inside the SDK. The SDK must include the destination's startup objects, GNU C library and C++ runtime. Keep a compatible version of those system libraries on the machine that will run your program.
+codeblock { language = json, """{
+  "format": 1,
+  "target": "arm64-apple-macosx26.0.0"
+}
+""" }
 
-The linker runs on the build machine and produces Linux ELF files. Use ld.lld.exe on Windows or ld.lld on macOS, built for your build machine. The examples use LLVM 23.1.3. The pinned macOS LLVM distribution may require a separate LLD installation or build. The destination Kalandra package supplies the language runtime archives and compiler resources.
-
-Choose a distinct output name for each destination, then copy the executable to that destination to run it. A Linux output built on Windows does not require an .exe suffix.
-
-h2 { "Build Windows programs from Linux or macOS" }
-
-Use a host-native LLVM 23.1.3 lld-link and the Windows destination package. Supply a legally obtained Windows SDK and MSVC CRT library set for that architecture. Kalandra does not bundle Microsoft's SDK. You need the link libraries, including startup code and the static C/C++ runtime; application compilation does not require Windows headers on the build machine.
-
-For an extracted x86-64 SDK, adapt this profile to its actual library layout:
+An extracted Windows x86-64 SDK may use this layout; replace the paths with your actual locations:
 
 codeblock { language = json, """{
   "format": 1,
   "target": "x86_64-pc-windows-msvc",
   "sysroot": "/opt/windows-sdk",
-  "runtimePackage": "/opt/kalandra/windows-x86_64",
-  "linker": "/opt/llvm-23.1.3/bin/lld-link",
   "libraryDirectories": [
     "/opt/windows-sdk/crt/lib/x64",
     "/opt/windows-sdk/sdk/lib/ucrt/x64",
@@ -117,15 +103,17 @@ codeblock { language = json, """{
 }
 """ }
 
-For ARM64, select aarch64-pc-windows-msvc, the Windows ARM64 Kalandra package and ARM64 SDK/CRT directories. Run the compiler command above with -o program.exe and copy the output to the Windows destination. Library paths are explicit; ambient SDK environment variables do not replace this profile.
+For ARM64, select aarch64-pc-windows-msvc and ARM64 SDK/CRT directories.
 
-h2 { "Profile fields" }
+h2 { "Profile fields and validation" }
 
-format must be 1. target is the destination CPU triple. sysroot identifies its system SDK filesystem; macOS uses the bundled import declarations when sysroot is omitted; runtimePackage identifies the extracted destination Kalandra package root. linker is a host executable. Linux profiles require gccDirectory. Windows profiles use libraryDirectories for explicit destination SDK and CRT library directories. Relative paths resolve against the profile file's directory.
+format must be 1. target is the destination CPU triple. Linux profiles require sysroot and gccDirectory. Windows profiles require sysroot and libraryDirectories. macOS uses the bundled import declarations when sysroot is omitted.
 
-The compiler queries the destination's data layout from its pinned Clang. It checks the target runtime package version, platform, macOS deployment compatibility, archive checksums and object architectures, and verifies the linked executable's architecture before publishing it. It does not substitute host runtime archives when target resources are missing.
+Advanced toolchain authors can override runtimePackage with another matching target runtime package and linker with a host-native linker executable. Relative paths resolve against the profile file's directory. A profile is trusted local configuration: its linker names a program that will execute on the build machine. Profiles are explicitly selected, not loaded from imported packages.
 
---toolchain selects the destination CPU ABI. --target cpu or --target metal selects the execution backend. Cross-toolchain profiles currently use the CPU backend. Normal and optimized builds retain the language's arithmetic, bounds, ownership and task checks. Cross-toolchain --sanitize and --thread-sanitize modes report an explicit unsupported-mode error while their target combinations remain unqualified.
+The compiler queries the destination data layout from its private Clang and checks runtime version, platform, LLVM version, macOS deployment compatibility, archive checksums and object architectures. It verifies the linked output's architecture before publication. Runtime alternatives are not emulated or loaded into the resulting application.
+
+--platform and --toolchain select a CPU ABI. --target cpu or --target metal selects the execution backend. Cross-compilation currently supports the CPU backend. Cross-toolchain --sanitize and --thread-sanitize modes fail explicitly while their target combinations remain unqualified. Normal and optimized builds retain the language's arithmetic, bounds, ownership and task checks.
 
 link { url = "/docs/installation", "Platform baselines and package installation" }
 link { url = "/docs/tooling", "Compiler and editor tools" }

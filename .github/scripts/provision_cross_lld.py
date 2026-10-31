@@ -46,7 +46,7 @@ def provision(directory, llvm):
             candidate.rename(sources)
     build = directory / ('build-' + source['sha256'][:12])
     subprocess.run(['cmake', '-S', str(sources / 'lld'), '-B', str(build), '-G', 'Ninja',
-                    '-DCMAKE_BUILD_TYPE=Release', '-DLLVM_DIR=' + str(llvm / 'lib/cmake/llvm'),
+                    '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_OSX_DEPLOYMENT_TARGET=26.0', '-DLLVM_DIR=' + str(llvm / 'lib/cmake/llvm'),
                     '-DLLVM_INCLUDE_TESTS=OFF', '-DLLVM_INCLUDE_BENCHMARKS=OFF'], check=True)
     subprocess.run(['cmake', '--build', str(build), '--target', 'lld', '-j2'], check=True)
     binary = build / 'bin/lld'
