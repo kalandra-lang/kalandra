@@ -377,6 +377,45 @@ int main(int argc, char **argv) {
       module->print(output, nullptr);
     }
   }
+  for (const char *triple : {"aarch64-pc-windows-msvc", "x86_64-pc-windows-msvc",
+                             "aarch64-apple-darwin", "aarch64-unknown-linux-gnu"}) {
+    LLVMContext context;
+    Module module("cross-convention-stack-cleanup", context);
+    module.setTargetTriple(Triple(triple));
+    auto *type = FunctionType::get(Type::getInt64Ty(context), {Type::getInt64Ty(context)}, false);
+    auto function = [&](const char *name, CallingConv::ID convention) {
+      auto *fn = Function::Create(type, GlobalValue::InternalLinkage, name, module);
+      fn->setCallingConv(convention);
+      return fn;
+    };
+    auto *fast = function("fast.callee", CallingConv::Fast);
+    IRBuilder<> f(BasicBlock::Create(context, "entry", fast));
+    f.CreateRet(fast->getArg(0));
+    auto *tail = function("tail.callee", CallingConv::Tail);
+    IRBuilder<> t(BasicBlock::Create(context, "entry", tail));
+    t.CreateRet(tail->getArg(0));
+    auto bridge = [&](const char *name, CallingConv::ID convention, Function *callee,
+                      CallInst::TailCallKind kind) {
+      auto *fn = function(name, convention);
+      IRBuilder<> ir(BasicBlock::Create(context, "entry", fn));
+      auto *call = ir.CreateCall(callee, {fn->getArg(0)});
+      call->setCallingConv(callee->getCallingConv());
+      call->setTailCallKind(kind);
+      ir.CreateRet(call);
+      return fn;
+    };
+    auto *outgoing = bridge("tail.to.fast", CallingConv::Tail, fast, CallInst::TCK_Tail);
+    auto *incoming = bridge("c.to.tail", CallingConv::C, tail, CallInst::TCK_Tail);
+    auto *guaranteed = bridge("tail.to.tail", CallingConv::Tail, tail, CallInst::TCK_MustTail);
+    check(!kalandra::normalizeWindowsTailPackets(module));
+    const bool armWindows = module.getTargetTriple().isOSWindows() && module.getTargetTriple().isAArch64();
+    for (auto *fn : {outgoing, incoming}) {
+      auto *call = cast<CallInst>(&fn->front().front());
+      check(call->getTailCallKind() == (armWindows ? CallInst::TCK_NoTail : CallInst::TCK_Tail));
+    }
+    check(cast<CallInst>(&guaranteed->front().front())->isMustTailCall());
+    check(!verifyModule(module, &errs()));
+  }
   {
     LLVMContext context;
     auto module = std::make_unique<Module>("native-helper-lifetime", context);

@@ -131,25 +131,7 @@ for name, flag, flags in variants:
     run([a.clang, '-std=c++23', *debug_flags, '-Wno-override-module', '-ffp-contract=off', '-pthread', *flags,
          *(['-fms-runtime-lib=static'] if sys.platform == 'win32' else []),
          root / 'native/tests/CallFoundationRuntimeTests.cpp', ir, runtime, '-o', binary])
-    try:
-        result = run([binary])
-    except AssertionError:
-        # Diagnostic only: preserve the failing production result, but test
-        # whether the already-uniform private packet works with the native C ABI.
-        if sys.platform == 'win32':
-            from WindowsPlatform import pe_machine, MACHINES
-            if pe_machine(a.compiler) == MACHINES['windows-arm64']:
-                native_ir = binary.with_name(name + '-c-abi.ll')
-                native_ir.write_text(ir.read_text().replace('tailcc ', ''))
-                native_binary = binary.with_name(name + '-c-abi.exe')
-                try:
-                    run([a.clang, '-std=c++23', *debug_flags, '-Wno-override-module', '-ffp-contract=off',
-                         *flags, '-fms-runtime-lib=static', root / 'native/tests/CallFoundationRuntimeTests.cpp',
-                         native_ir, runtime, '-o', native_binary])
-                    print('Diagnostic uniform C ABI: ' + run([native_binary]), flush=True)
-                except AssertionError as diagnostic:
-                    print('Diagnostic uniform C ABI failed: ' + str(diagnostic), flush=True)
-        raise
+    result = run([binary])
     assert run([standalone]) == '1000000\n'
     terminal = a.output / ('terminal-' + name + '.k')
     terminal.write_text('fn terminal(value:int)->int:\n  1/(value-value)\nfn main()->int:\n  terminal(0)\n')
