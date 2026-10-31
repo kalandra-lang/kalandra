@@ -7,6 +7,7 @@ import shutil
 import struct
 
 from BundleMachO import digest, run
+from WindowsPlatform import MACHINES, pe_machine
 
 SYSTEM = {name + ".dll" for name in (
     "kernel32", "kernelbase", "ntdll", "advapi32", "user32", "gdi32", "shell32", "shlwapi",
@@ -19,7 +20,10 @@ def system(name):
     return name.lower() in SYSTEM or bool(re.fullmatch(r"(?:api|ext)-ms-[a-z0-9-]+\.dll", name.lower()))
 
 
-def imports(path):
+def imports(path, expected_machine=None):
+    actual = pe_machine(path)
+    if expected_machine is not None and actual != expected_machine:
+        raise ValueError(f"Wrong PE architecture: {path}")
     data = path.read_bytes()
     if data[:2] != b"MZ":
         raise ValueError(f"Not a PE object: {path}")
@@ -29,8 +33,8 @@ def imports(path):
     machine, count = struct.unpack_from("<HH", data, pe + 4)
     optional_size = struct.unpack_from("<H", data, pe + 20)[0]
     optional = pe + 24
-    if machine != 0x8664 or struct.unpack_from("<H", data, optional)[0] != 0x20b:
-        raise ValueError(f"PE object must target Windows x86-64: {path}")
+    if machine != actual or struct.unpack_from("<H", data, optional)[0] != 0x20b:
+        raise ValueError(f"Invalid PE target: {path}")
     sections = []
     for index in range(count):
         start = optional + optional_size + index * 40
@@ -69,17 +73,28 @@ def imports(path):
     return sorted(result)
 
 
+def package_machine(prefix):
+    info = json.loads((prefix / "share/kalandra-native-tools/toolchain.json").read_text())
+    try:
+        return MACHINES[info["platform"]]
+    except KeyError as error:
+        raise ValueError("Unsupported Windows package platform") from error
+
+
 def audit(prefix):
+    machine = package_machine(prefix)
     for path in prefix.rglob("*"):
         if path.suffix.lower() not in (".dll", ".exe"):
             continue
-        for name in imports(path):
+        for name in imports(path, machine):
             if not system(name) and not (path.parent / name).is_file():
                 raise RuntimeError(f"PE import is not adjacent to its loader: {path}: {name}")
 
 
 def bundle(prefix, llvm):
     prefix, llvm = prefix.resolve(), llvm.resolve()
+    machine = package_machine(prefix)
+    triplet = "arm64-windows-static" if machine == MACHINES["windows-arm64"] else "x64-windows-static"
     private = prefix / "libexec/kalandra"
     private.mkdir(parents=True)
     resources = Path(run(llvm / "bin/clang++.exe", "-print-resource-dir").strip()).resolve()
@@ -92,7 +107,7 @@ def bundle(prefix, llvm):
     licenses.mkdir(parents=True)
     shutil.copy2(Path(__file__).resolve().parents[1] / "third-party/LLVM-23.1.3-LICENSE.txt", licenses / "LLVM-LICENSE.txt")
     for package in ("zlib", "zstd", "libxml2"):
-        copyright = llvm / "dependencies/x64-windows-static/share" / package / "copyright"
+        copyright = llvm / "dependencies" / triplet / "share" / package / "copyright"
         if not copyright.is_file():
             raise RuntimeError(f"Missing static LLVM dependency license: {package}")
         shutil.copy2(copyright, licenses / f"{package}-copyright")
@@ -103,7 +118,7 @@ def bundle(prefix, llvm):
         if target in visited:
             continue
         visited.add(target)
-        for name in imports(target):
+        for name in imports(target, machine):
             if system(name):
                 continue
             copied = target.parent / name
@@ -120,8 +135,8 @@ def bundle(prefix, llvm):
     path = prefix / "share/kalandra-native-tools/toolchain.json"
     info = json.loads(path.read_text())
     info.update({"standalone": True, "llvmRuntime": "bundled", "libraries": metadata,
-                 "platformRequirements": ["Windows 11 x86-64", "Visual Studio C++ Build Tools and Windows SDK", "Git for Windows for package management"],
-                 "unsupportedModes": ["ThreadSanitizer"]})
+                 "platformRequirements": ["Windows 11 ARM64" if machine == MACHINES["windows-arm64"] else "Windows 11 x86-64", "Visual Studio C++ Build Tools and Windows SDK", "Git for Windows for package management"],
+                 "unsupportedModes": ["ThreadSanitizer"] + (["ASan/UBSan"] if machine == MACHINES["windows-arm64"] else [])})
     path.write_text(json.dumps(info, indent=2) + "\n")
     print(f"PE closure audited: {len(visited)} objects, {len(metadata)} private DLL copies", flush=True)
 

@@ -14,7 +14,8 @@ target_compile_definitions(kalandra-installed PRIVATE KALANDRA_INSTALLED_COMPILE
 set(KALANDRA_CPU_RUNTIME_TARGETS)
 macro(kalandra_install_runtime MACRO TARGET)
   target_compile_definitions(kalandra-installed PRIVATE ${MACRO}="$<TARGET_FILE_NAME:${TARGET}>")
-  if(NOT WIN32 OR NOT VARIANT STREQUAL "thread-sanitized")
+  if(NOT WIN32 OR (NOT VARIANT STREQUAL "thread-sanitized" AND
+      (NOT KALANDRA_NATIVE_PLATFORM STREQUAL "windows-arm64" OR NOT VARIANT STREQUAL "sanitized")))
     add_dependencies(kalandra-installed ${TARGET})
     list(APPEND KALANDRA_CPU_RUNTIME_TARGETS ${TARGET})
     install(TARGETS ${TARGET} ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native"

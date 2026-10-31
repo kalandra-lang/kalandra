@@ -41,7 +41,7 @@ def collect():
     commit = os.environ["GITHUB_SHA"]
     destination = Path("release-assets")
     receipts = []
-    for platform, architecture in (("linux", "x86_64"), ("linux", "arm64"), ("windows", "x86_64")):
+    for platform, architecture in (("linux", "x86_64"), ("linux", "arm64"), ("windows", "x86_64"), ("windows", "arm64")):
         run, artifact = qualified_artifact(repository, commit, platform, architecture)
         archive_name = f"kalandra-native-cpu-standalone-{platform}-{architecture}.tar.gz"
         expected = {archive_name, archive_name + ".sha256"}

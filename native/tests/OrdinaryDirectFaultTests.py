@@ -1,7 +1,7 @@
 """Process-level parity of direct failure reporting and recoverable boundaries."""
 import argparse,json,os,subprocess,sys
 from pathlib import Path
-from OrdinaryTestEnvironment import configure
+from OrdinaryTestEnvironment import configure, qualified_variants
 q=argparse.ArgumentParser();q.add_argument('--compiler',type=Path,required=True);q.add_argument('--clang',type=Path,required=True);q.add_argument('--output',type=Path,required=True);a=q.parse_args();a.output.mkdir(parents=True,exist_ok=True)
 configure(a.clang)
 root=Path(__file__).resolve().parents[2]
@@ -12,6 +12,7 @@ def run(args):
  if r.returncode:raise RuntimeError(str(args)+'\n'+r.stdout+r.stderr)
  return r.stdout
 modes=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
+modes=qualified_variants(modes,a.compiler)
 if windows:modes=[mode for mode in modes if mode[0]!='thread-sanitized']
 values=[(0,1),(17,3),(2**63-1,0),(-2**63,0),(2**63-1,1),(-2**63,-1),(-2**63,1),(0,0),(17,-1),(-17,3),(2**63-1,2**63-1)]
 results=[]

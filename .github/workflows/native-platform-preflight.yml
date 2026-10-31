@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025, windows-11-arm]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
@@ -25,6 +25,8 @@ jobs:
           python-version: "3.14"
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
+        with:
+          arch: ${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/kalandra-llvm/installation

@@ -233,6 +233,12 @@ int main(int argc, char **argv) {
     std::cerr << "--sanitize and --thread-sanitize are separate builds\n";
     return 2;
   }
+#if defined(_WIN32) && defined(__aarch64__)
+  if (sanitize) {
+    std::cerr << "ASan/UBSan are unavailable in the pinned Windows ARM64 toolchain\n";
+    return 2;
+  }
+#endif
 #ifdef _WIN32
   if (threadSanitize) {
     std::cerr << "ThreadSanitizer is unavailable for the Windows native target\n";

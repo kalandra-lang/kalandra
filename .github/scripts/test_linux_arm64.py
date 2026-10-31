@@ -33,7 +33,7 @@ class LinuxArchitectureTests(unittest.TestCase):
             self.assertEqual(archive_key("Linux", machine), "linux-arm64")
         self.assertEqual(archive_key("Linux", "x86_64"), "linux-x64")
         self.assertEqual(archive_key("Windows", "AMD64"), "windows-x64")
-        for system, machine in (("Linux", "armv7l"), ("Windows", "arm64"), ("Darwin", "arm64")):
+        for system, machine in (("Linux", "armv7l"), ("Darwin", "arm64")):
             with self.assertRaises(RuntimeError):
                 archive_key(system, machine)
 

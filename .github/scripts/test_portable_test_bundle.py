@@ -19,7 +19,7 @@ class IsolatedHarnessTests(unittest.TestCase):
             prepare_tests(ROOT, tests)
             self.assertEqual(
                 {p.name for p in tests.iterdir()},
-                {"PortableCPUAcceptance.py", "VersionCheck.py", "expected-version.txt",
+                {"PortableCPUAcceptance.py", "VersionCheck.py", "WindowsPlatform.py", "expected-version.txt",
                  "ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py"})
             result = subprocess.run(
                 [sys.executable, "-I", "-c",

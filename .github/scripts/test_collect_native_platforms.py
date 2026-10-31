@@ -16,12 +16,12 @@ class QualificationGate(unittest.TestCase):
             return {"workflow_runs": [{"id": 1 if platform == "linux" else 2, "head_sha": "commit",
                                       "conclusion": "success", "event": "push", "head_branch": "native",
                                       "html_url": f"https://github.com/example/project/actions/runs/{platform}"}]}
-        return {"artifacts": [{"id": 11, "name": "native-linux-arm64-assets", "expired": False}, {"id": 10 if platform == "linux" else 20,
+        return {"artifacts": [{"id": 11, "name": "native-linux-arm64-assets", "expired": False}, {"id": 21, "name": "native-windows-arm64-assets", "expired": False}, {"id": 10 if platform == "linux" else 20,
                                "name": f"native-{platform}-assets", "expired": False}]}
 
     def download(self, arguments, stdout, check):
         platform = "linux" if any(f"/{n}/" in arguments[-1] for n in (10, 11)) else "windows"
-        architecture = "arm64" if "/11/" in arguments[-1] else "x86_64"
+        architecture = "arm64" if any(f"/{n}/" in arguments[-1] for n in (11, 21)) else "x86_64"
         with zipfile.ZipFile(stdout, "w") as archive:
             name = f"kalandra-native-cpu-standalone-{platform}-{architecture}.tar.gz"
             archive.writestr(name, b"qualified fixture")
@@ -42,9 +42,9 @@ class QualificationGate(unittest.TestCase):
         def check():
             with patch.object(collector, "api", side_effect=self.api), patch.object(collector.subprocess, "run", side_effect=self.download):
                 collector.collect()
-            self.assertEqual(len(list(Path("release-assets").iterdir())), 6)
+            self.assertEqual(len(list(Path("release-assets").iterdir())), 8)
             records = json.loads(Path("platform-qualification.json").read_text())
-            self.assertEqual([record["commit"] for record in records], ["commit", "commit", "commit"])
+            self.assertEqual([record["commit"] for record in records], ["commit", "commit", "commit", "commit"])
         self.run_in_workspace(check)
 
     def test_waits_for_pending_same_commit_qualification(self):
@@ -72,7 +72,7 @@ class QualificationGate(unittest.TestCase):
         def check():
             with patch.dict(os.environ, RELEASE_TAG="v1.2.3"), patch.object(collector, "api", side_effect=api), patch.object(collector.subprocess, "run", side_effect=self.download):
                 collector.collect()
-            self.assertEqual(len(list(Path("release-assets").iterdir())), 6)
+            self.assertEqual(len(list(Path("release-assets").iterdir())), 8)
         self.run_in_workspace(check)
 
     def test_failed_wrong_commit_and_unqualified_branch_cannot_publish(self):

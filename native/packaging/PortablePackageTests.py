@@ -23,7 +23,7 @@ def digest(path):
 def prepare_tests(repository, tests):
     """Carry the expected identity into isolation without reading the checkout."""
     tests.mkdir()
-    for name in ("PortableCPUAcceptance.py", "VersionCheck.py"):
+    for name in ("PortableCPUAcceptance.py", "VersionCheck.py", "WindowsPlatform.py"):
         shutil.copy2(Path(__file__).with_name(name), tests)
     for name in ("ProtocolClient.py", "ProtocolTests.py", "RecoveryProtocolTests.py"):
         shutil.copy2(repository / "native/lsp" / name, tests)

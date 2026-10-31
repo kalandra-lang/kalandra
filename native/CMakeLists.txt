@@ -248,7 +248,8 @@ target_compile_options(kalandra-native-runtime-thread-sanitized PRIVATE -Wall -W
   -fsanitize=thread -fno-omit-frame-pointer)
 function(kalandra_compiler_runtimes)
   foreach(_runtime IN LISTS ARGN)
-    if(NOT WIN32 OR NOT _runtime MATCHES "thread-sanitized")
+    if(NOT WIN32 OR (NOT _runtime MATCHES "thread-sanitized" AND
+        (NOT KALANDRA_NATIVE_PLATFORM STREQUAL "windows-arm64" OR NOT _runtime MATCHES "sanitized")))
       add_dependencies(kalandra ${_runtime})
     endif()
   endforeach()

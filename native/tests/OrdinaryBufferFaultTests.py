@@ -1,7 +1,7 @@
 """Process parity for live private buffers, settled replay and ambiguous values."""
 import argparse, json, os, subprocess, sys
 from pathlib import Path
-from OrdinaryTestEnvironment import configure
+from OrdinaryTestEnvironment import configure, qualified_variants
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
 configure(a.clang)
 root=Path(__file__).resolve().parents[2];windows=sys.platform=='win32';suffix='.exe' if windows else ''
@@ -10,7 +10,8 @@ def run(args,env=None):
  if r.returncode:raise RuntimeError(str(args)+'\n'+r.stdout+r.stderr)
  return r.stdout
 modes=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
-if windows:modes=modes[:-1]
+modes=qualified_variants(modes,a.compiler)
+if windows:modes=[mode for mode in modes if mode[0]!='thread-sanitized']
 fixtures={
  'index':('int64','std::int64_t',5,'  a=[seed,seed+1]\n  a[index]'),
  'map':('int64','std::int64_t',5,'  a=[seed,seed+1]\n  b=map(a,fn(value:int):value/index)\n  b[0]+b[1]'),
