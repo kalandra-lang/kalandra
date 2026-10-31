@@ -108,6 +108,12 @@ jobs:
           --compiler build/windows/native/kalandra.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/call-foundation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-call-foundation-${{ matrix.arch }}
+          path: build/windows/call-foundation/**
+          if-no-files-found: warn
       - name: Verify ordinary scalar ABI, private buffers and failure cleanup
         shell: pwsh
         run: |
