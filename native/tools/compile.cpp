@@ -1,5 +1,6 @@
 #include "../lib/NativeSanitizerFrames.h"
 #include "../lib/OrdinaryMain.h"
+#include "CrossToolchain.h"
 #include "../lib/PlatformFileSystem.h"
 #include "kalandra/Backend.h"
 #include "kalandra/PackageInstall.h"
@@ -23,6 +24,13 @@
 #include <span>
 
 namespace {
+struct LinkDirectory {
+  std::filesystem::path path;
+  ~LinkDirectory() {
+    std::error_code ignored;
+    std::filesystem::remove_all(path, ignored);
+  }
+};
 bool write(const std::filesystem::path &path, const std::string &contents) {
   std::ofstream output(path, std::ios::binary);
   output << contents;
@@ -83,11 +91,18 @@ int main(int argc, char **argv) {
     return 0;
   }
   std::vector<char *> filtered{argv[0]};
-  std::string target = "cpu";
+  std::string target = "cpu", toolchainPath;
   bool selectedTarget = false;
   for (int i = 1; i < argc; ++i) {
     const std::string_view option = argv[i];
-    if (option == "--target") {
+    if (option == "--toolchain") {
+      if (!toolchainPath.empty() || i + 1 >= argc || std::string_view(argv[i + 1]).empty() ||
+          std::string_view(argv[i + 1]).starts_with("--")) {
+        std::cerr << "one complete --toolchain option is required\n";
+        return 2;
+      }
+      toolchainPath = argv[++i];
+    } else if (option == "--target") {
       if (selectedTarget || i + 1 >= argc) {
         std::cerr << "one complete --target option is required\n";
         return 2;
@@ -102,6 +117,10 @@ int main(int argc, char **argv) {
           i + 1 < argc)
         filtered.push_back(argv[++i]);
     }
+  }
+  if (target == "metal" && !toolchainPath.empty()) {
+    std::cerr << "--toolchain selects a CPU ABI and cannot be combined with --target metal\n";
+    return 2;
   }
   if (target == "metal") {
 #ifdef KALANDRA_HAS_METAL_SOURCE
@@ -140,7 +159,7 @@ int main(int argc, char **argv) {
            "hardware|software|hardware-with-software-fallback] [--sanitize|--thread-sanitize] "
            "[--matmul-policy optimized|fixed-tree] "
            "[-O0|-O2] [--target "
-           "cpu|metal] [--package name=path.k ...] [--project manifest.toml instead of source]\n"
+           "cpu|metal] [--toolchain profile.json] [--package name=path.k ...] [--project manifest.toml instead of source]\n"
            "       kalandra new directory\n";
     return 2;
   }
@@ -229,6 +248,10 @@ int main(int argc, char **argv) {
     std::cerr << "missing source file or --project\n";
     return 2;
   }
+  if (!toolchainPath.empty() && (sanitize || threadSanitize)) {
+    std::cerr << "cross-toolchain sanitizer modes are not yet qualified; use normal or optimized builds\n";
+    return 2;
+  }
   if (sanitize && threadSanitize) {
     std::cerr << "--sanitize and --thread-sanitize are separate builds\n";
     return 2;
@@ -315,7 +338,52 @@ int main(int argc, char **argv) {
       std::cerr << kalandra::renderDiagnostic(*typed.source, d);
     return 1;
   }
-  auto lowered = kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic);
+  std::optional<kalandra::CrossToolchain> cross;
+  // Installed compilers resolve only their adjacent private runtime resources.
+  // Never fall back to the build-tree archives when an installed file is missing.
+  std::string clang = KALANDRA_CLANGXX;
+  std::optional<std::filesystem::path> clangResources;
+#ifdef KALANDRA_INSTALLED_COMPILER
+  static int executableAnchor;
+  std::error_code resourceError;
+  const auto executable = std::filesystem::canonical(
+      llvm::sys::fs::getMainExecutable(argv[0], &executableAnchor), resourceError);
+  if (resourceError) {
+    std::cerr << "cannot locate installed compiler executable\n";
+    return 1;
+  }
+  const auto runtimeRoot = executable.parent_path() / KALANDRA_RUNTIME_RELATIVE_DIR;
+  const auto runtimePath = [&](std::string_view name) {
+    return cross ? cross->runtimeArchive(name) : (runtimeRoot / name).string();
+  };
+  const auto toolchainRoot = runtimeRoot.parent_path() / "toolchain";
+  if (std::filesystem::exists(toolchainRoot)) {
+    clang = (executable.parent_path() / "../libexec/kalandra/clang++"
+#ifdef _WIN32
+                                        ".exe"
+#endif
+             )
+                .string();
+    clangResources = toolchainRoot / "clang";
+    if (!std::filesystem::is_regular_file(clang) ||
+        !std::filesystem::is_directory(*clangResources / "include") ||
+        !std::filesystem::is_directory(*clangResources / "lib")) {
+      std::cerr << "bundled Clang or its compiler resources are missing\n";
+      return 1;
+    }
+  }
+#else
+  const auto runtimePath = [&](std::string_view name) {
+    return cross ? cross->runtimeArchive(name) : std::string(name);
+  };
+#endif
+  if (!toolchainPath.empty()) {
+    auto loaded = kalandra::loadCrossToolchain(toolchainPath, clang);
+    if (!loaded) { std::cerr << "CPU toolchain: " << loaded.error() << '\n'; return 2; }
+    cross = std::move(*loaded);
+  }
+  auto lowered = kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic, false,
+      cross ? cross->target : kalandra::CpuTarget{});
   if (!lowered) {
     std::cerr << "native lowering: " << lowered.error() << '\n';
     return 1;
@@ -340,40 +408,6 @@ int main(int argc, char **argv) {
     llvm::raw_string_ostream outputIR(lowered->llvm);
     module->print(outputIR, nullptr);
   }
-  // Installed compilers resolve only their adjacent private runtime resources.
-  // Never fall back to the build-tree archives when an installed file is missing.
-  std::string clang = KALANDRA_CLANGXX;
-  std::optional<std::filesystem::path> clangResources;
-#ifdef KALANDRA_INSTALLED_COMPILER
-  static int executableAnchor;
-  std::error_code resourceError;
-  const auto executable = std::filesystem::canonical(
-      llvm::sys::fs::getMainExecutable(argv[0], &executableAnchor), resourceError);
-  if (resourceError) {
-    std::cerr << "cannot locate installed compiler executable\n";
-    return 1;
-  }
-  const auto runtimeRoot = executable.parent_path() / KALANDRA_RUNTIME_RELATIVE_DIR;
-  const auto runtimePath = [&](std::string_view name) { return (runtimeRoot / name).string(); };
-  const auto toolchainRoot = runtimeRoot.parent_path() / "toolchain";
-  if (std::filesystem::exists(toolchainRoot)) {
-    clang = (executable.parent_path() / "../libexec/kalandra/clang++"
-#ifdef _WIN32
-                                        ".exe"
-#endif
-             )
-                .string();
-    clangResources = toolchainRoot / "clang";
-    if (!std::filesystem::is_regular_file(clang) ||
-        !std::filesystem::is_directory(*clangResources / "include") ||
-        !std::filesystem::is_directory(*clangResources / "lib")) {
-      std::cerr << "bundled Clang or its compiler resources are missing\n";
-      return 1;
-    }
-  }
-#else
-  const auto runtimePath = [](std::string_view name) { return std::string(name); };
-#endif
   std::vector<std::string> archives{runtimePath(threadSanitize ? KALANDRA_THREAD_SANITIZED_RUNTIME
                                                 : sanitize     ? KALANDRA_SANITIZED_RUNTIME
                                                                : KALANDRA_RUNTIME)};
@@ -429,6 +463,11 @@ int main(int argc, char **argv) {
                                           ? runtimePath(KALANDRA_BOOL_THREAD_SANITIZED_ENTRY)
                                       : sanitize ? runtimePath(KALANDRA_BOOL_SANITIZED_ENTRY)
                                                  : runtimePath(KALANDRA_BOOL_ENTRY));
+  if (cross && cross->windows()) {
+    auto builtins = cross->windowsBuiltins();
+    if (!builtins) { std::cerr << "CPU toolchain: " << builtins.error() << '\n'; return 2; }
+    archives.push_back(builtins->string());
+  }
   for (const auto &archive : archives) {
     std::error_code error;
     if (!std::filesystem::is_regular_file(archive, error)) {
@@ -436,6 +475,11 @@ int main(int argc, char **argv) {
       return 1;
     }
   }
+  if (cross)
+    for (const auto &archive : archives)
+      if (auto error = cross->verifyArchive(archive)) {
+        std::cerr << "CPU toolchain: " << *error << '\n'; return 2;
+      }
   if (!mlirPath.empty() && !write(mlirPath, lowered->mlir)) {
     std::cerr << "cannot write MLIR\n";
     return 1;
@@ -480,21 +524,29 @@ int main(int argc, char **argv) {
       return 1;
     }
   }
-  llvm::SmallString<256> linkedOutput;
-  if (auto error = llvm::sys::fs::createUniqueFile(output.string() + ".tmp-%%%%%%", descriptor,
-                                                   linkedOutput)) {
+  if (output.filename().empty() || output.filename() == "." || output.filename() == "..") {
+    std::cerr << "output must name an executable file\n";
+    return 1;
+  }
+  // Mach-O linkers use the output basename as the ad-hoc signing identity.
+  // Keep that name stable while staging atomically on the destination volume.
+  llvm::SmallString<256> linkedDirectory;
+  if (auto error = llvm::sys::fs::createUniqueDirectory(
+          std::filesystem::absolute(output.parent_path() / ".kalandra-link").string(), linkedDirectory)) {
     std::cerr << "cannot create output: " << error.message() << '\n';
     return 1;
   }
-  if (auto error = llvm::sys::Process::SafelyCloseFileDescriptor(descriptor)) {
-    std::cerr << "cannot close temporary output: " << error.message() << '\n';
-    return 1;
-  }
-  llvm::FileRemover removeOutput(linkedOutput);
+  LinkDirectory staged{std::string(linkedDirectory)};
+  // LLD's Mach-O signing code recognizes '/' on every build host.
+  const auto linkedOutput = (staged.path / output.filename()).generic_string();
   std::vector<std::string> command{clang, optimization, "-ffp-contract=off", "-Wno-override-module",
                                    std::string(temporary)};
-  if (clangResources)
+  if (clangResources && !cross)
     command.push_back("-resource-dir=" + clangResources->string());
+  if (cross) {
+    auto flags = cross->clangArguments();
+    command.insert(command.end(), flags.begin(), flags.end());
+  } else {
 #ifdef _WIN32
   command.push_back("-fms-runtime-lib=static");
   command.push_back("--rtlib=compiler-rt");
@@ -504,6 +556,7 @@ int main(int argc, char **argv) {
   command.push_back("-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM);
 #endif
 #endif
+  }
   command.insert(command.end(), archives.begin(), archives.end());
   command.insert(command.end(), {"-o", std::string(linkedOutput)});
   if (sanitize) {
@@ -514,11 +567,19 @@ int main(int argc, char **argv) {
     command.push_back("-fsanitize=thread");
   std::vector<llvm::StringRef> invocation(command.begin(), command.end());
   std::string error;
-  const auto status = llvm::sys::ExecuteAndWait(command[0], invocation, {}, {}, 0, 0, &error);
+  auto environment = cross ? kalandra::crossToolEnvironment() : std::vector<std::string>{};
+  std::vector<llvm::StringRef> env(environment.begin(), environment.end());
+  const auto status = llvm::sys::ExecuteAndWait(command[0], invocation,
+      cross ? std::optional<llvm::ArrayRef<llvm::StringRef>>(env) : std::nullopt,
+      {}, 0, 0, &error);
   if (status != 0) {
     std::cerr << "native link failed: " << error << '\n';
     return 1;
   }
+  if (cross)
+    if (auto failure = cross->verifyOutput(std::string(linkedOutput))) {
+      std::cerr << "CPU toolchain: " << *failure << '\n'; return 1;
+    }
   const auto publishError =
       kalandra::detail::replaceFile(std::filesystem::path(std::string(linkedOutput)), output);
   if (publishError) {

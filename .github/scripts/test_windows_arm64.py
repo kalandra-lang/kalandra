@@ -1,5 +1,7 @@
 """Reject translated/mixed Windows packages and preserve explicit SDK limits."""
 import json
+import io
+import hashlib
 from pathlib import Path
 import struct
 import sys
@@ -10,7 +12,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'native/packaging'))
 sys.path.insert(0, str(ROOT / 'native/tests'))
-from WindowsPlatform import MACHINES, pe_machine, has_sanitizers
+from WindowsPlatform import MACHINES, pe_machine, has_sanitizers, rename_after_process_exit
 from BundlePE import imports, audit
 from OrdinaryTestEnvironment import qualified_variants
 from provision_native_platform import archive_key, windows_triplet
@@ -76,6 +78,75 @@ class WindowsArm64Tests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'disposable native Windows ARM64'):
                     editor.main()
                 download.assert_not_called()
+
+    def test_transient_windows_lock_retries_the_real_rename(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source, target = Path(folder) / 'source', Path(folder) / 'target'
+            source.write_bytes(b'original')
+            original = Path.rename
+            calls = []
+            def locked_once(path, destination):
+                calls.append(path)
+                if len(calls) == 1:
+                    error = PermissionError('file busy')
+                    error.winerror = 32
+                    raise error
+                return original(path, destination)
+            with patch.object(Path, 'rename', autospec=True, side_effect=locked_once), \
+                    patch('time.sleep'):
+                rename_after_process_exit(source, target)
+            self.assertEqual(len(calls), 2)
+            self.assertFalse(source.exists())
+            self.assertEqual(target.read_bytes(), b'original')
+            error = PermissionError('persistent file lock')
+            error.winerror = 32
+            with patch.object(Path, 'rename', side_effect=error) as rename, patch('time.sleep'):
+                with self.assertRaises(PermissionError):
+                    rename_after_process_exit(target, source)
+                self.assertEqual(rename.call_count, 6)
+            self.assertEqual(target.read_bytes(), b'original')
+
+    def test_editor_cleanup_retries_sharing_errors_but_rejects_permanent_leaks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'editor'
+            path.mkdir()
+            original = editor.shutil.rmtree
+            error = PermissionError('editor still exiting')
+            error.winerror = 32
+            calls = []
+            def locked_once(target):
+                calls.append(target)
+                if len(calls) == 1: raise error
+                return original(target)
+            with patch.object(editor.shutil, 'rmtree', side_effect=locked_once), patch.object(editor.time, 'sleep'):
+                editor.remove_editor_workspace(path)
+            self.assertFalse(path.exists())
+            self.assertEqual(len(calls), 2)
+            path.mkdir()
+            with patch.object(editor.shutil, 'rmtree', side_effect=error) as remove, patch.object(editor.time, 'sleep'):
+                with self.assertRaises(PermissionError): editor.remove_editor_workspace(path)
+                self.assertEqual(remove.call_count, 8)
+            self.assertTrue(path.exists())
+
+    def test_editor_retry_keeps_original_digest_and_never_publishes_bad_bytes(self):
+        payload = b"verified editor"
+        lock = {"url": "https://example.invalid/editor.zip", "sha256": hashlib.sha256(payload).hexdigest()}
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'editor.zip'
+            path.write_bytes(b'previous verified editor')
+            with patch.object(editor.urllib.request, 'urlopen', side_effect=[
+                    io.BytesIO(b'truncated'), io.BytesIO(payload)]) as download, \
+                    patch.object(editor.time, 'sleep'):
+                editor.download_editor(lock, path)
+                self.assertEqual(download.call_count, 2)
+                self.assertEqual(path.read_bytes(), payload)
+            with patch.object(editor.urllib.request, 'urlopen', side_effect=[
+                    io.BytesIO(b'wrong') for _ in range(3)]) as download, \
+                    patch.object(editor.time, 'sleep'):
+                with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                    editor.download_editor(lock, path)
+                self.assertEqual(download.call_count, 3)
+                self.assertEqual(path.read_bytes(), payload)
 
     def test_only_arm64_excludes_missing_sanitizer_modes(self):
         variants = [('debug',), ('optimized',), ('sanitized',), ('thread-sanitized',)]

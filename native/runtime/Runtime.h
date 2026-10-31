@@ -235,8 +235,8 @@ private:
   void attach(Owner *owner) noexcept;
   void remove(Owner *owner) noexcept;
 };
-// Native compiler and runtime are built for the same pinned host ABI. Keep the
-// field access used by checked fast paths explicit and mechanically verified.
+// The supported 64-bit CPU ABIs share this invocation layout. Keep compiler
+// field access and runtime storage identical even when built on different hosts.
 struct InvocationABI {
   static std::uint8_t armNativeCancellation(Invocation &invocation) noexcept {
     invocation.initializeControl();
@@ -272,6 +272,17 @@ struct InvocationABI {
   static constexpr std::size_t faultColumn = offsetof(Invocation, column_);
 };
 static_assert(std::is_standard_layout_v<Invocation>);
+// Generated entries allocate this storage and access these fields directly.
+// Fail the compiler/runtime build if a toolchain or future edit changes the ABI;
+// cross-compilers must never use a source-host layout for a different target.
+static_assert(sizeof(Invocation) == 248 && alignof(Invocation) == 8);
+static_assert(sizeof(std::atomic<std::uint64_t>) == 8 && alignof(std::atomic<std::uint64_t>) == 8);
+static_assert(InvocationABI::cancellation == 0 && InvocationABI::control == 8 &&
+              InvocationABI::pollMode == 12 && InvocationABI::depth == 24 &&
+              InvocationABI::faultCode == 32 && InvocationABI::faultLine == 40 &&
+              InvocationABI::faultColumn == 48 && InvocationABI::leaseDepth == 56 &&
+              InvocationABI::stackLow == 64 && InvocationABI::stackHigh == 72 &&
+              InvocationABI::ledgerStorage == 80);
 static_assert(sizeof(void *) == 8 && sizeof(std::atomic<bool>) == 1 &&
               alignof(std::atomic<bool>) == 1 && std::atomic<bool>::is_always_lock_free);
 } // namespace kalandra::runtime

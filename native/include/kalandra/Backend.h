@@ -3,6 +3,12 @@
 #include "kalandra/Semantics.h"
 #include <expected>
 namespace kalandra {
+// CPU ABI selection is independent of the CPU/Metal execution backend.
+// Empty fields select the configured native target; explicit targets require both.
+struct CpuTarget {
+  std::string triple;
+  std::string dataLayout;
+};
 struct BackendOutput {
   std::string mlir;
   std::string llvm;
@@ -19,5 +25,5 @@ struct BackendOutput {
 lowerNative(const TypedModule &module, std::optional<std::string> testEntry = {},
             const std::vector<std::string> &exports = {},
             ArithmeticMode arithmetic = ArithmeticMode::Hardware,
-            bool deferCallFinalization = false);
+            bool deferCallFinalization = false, CpuTarget target = {});
 } // namespace kalandra

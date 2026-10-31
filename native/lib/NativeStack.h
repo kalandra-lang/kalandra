@@ -13,13 +13,9 @@ namespace kalandra {
 // at the guard. Call-free leaf paths can be outlined before this physical
 // check. Targets are the native architectures qualified by CMake.
 inline llvm::Value *nativeStackPointer(llvm::IRBuilder<> &builder) {
-#if defined(__aarch64__)
-  const char *name = "sp";
-#elif defined(__x86_64__) || defined(_M_X64)
-  const char *name = "rsp";
-#else
-#error Unsupported native stack-pointer target
-#endif
+  auto target = builder.GetInsertBlock()->getModule()->getTargetTriple();
+  if (target.str().empty()) target = llvm::Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE);
+  const char *name = target.isAArch64() ? "sp" : "rsp";
   auto &context = builder.getContext();
   auto *read = llvm::Intrinsic::getOrInsertDeclaration(builder.GetInsertBlock()->getModule(),
       llvm::Intrinsic::read_volatile_register, {builder.getInt64Ty()});

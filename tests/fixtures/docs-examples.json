@@ -249,5 +249,11 @@
     }
   ],
   "tutorial": [],
-  "release-notes": []
+  "release-notes": [],
+  "cross-compilation": [
+    {
+      "kind": "cpu",
+      "expected": "1144"
+    }
+  ]
 }

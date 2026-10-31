@@ -60,7 +60,7 @@ public:
   Emitter(ModulePlan &planner, llvm::Module &module)
       : planner(planner), module(module), context(module.getContext()), builder(context),
         coordinating(coordinatingFunctions(planner.input)) {
-    module.setDataLayout(nativeCpuDataLayout);
+    if (module.getDataLayoutStr().empty()) module.setDataLayout(nativeCpuDataLayout);
     pointer = builder.getPtrTy();
     i32 = builder.getInt32Ty();
     i64 = builder.getInt64Ty();
@@ -2150,7 +2150,7 @@ std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &pl
 }
 std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &input,
                                                           std::optional<std::string> testEntry,
-                                                          ArithmeticMode arithmetic) {
+                                                          ArithmeticMode arithmetic, const CpuTarget &target) {
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   if (hasPlacement(input))
@@ -2161,7 +2161,7 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
       return std::unexpected(planned.error());
     std::optional<continuation::ModulePlan> fallback;
     auto *planner = &*planned;
-    auto kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true);
+    auto kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true, target);
     if (!kernels) {
       // Native subgraphs are an optimization, not a new source admission
       // requirement. A large synchronous body can still use budgeted checked
@@ -2170,7 +2170,7 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
       if (!legacy) return std::unexpected(legacy.error());
       fallback.emplace(std::move(*legacy));
       planner = &*fallback;
-      kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true);
+      kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true, target);
     }
     if (!kernels)
       return kernels;

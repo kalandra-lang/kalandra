@@ -28,8 +28,10 @@ def save_verified(response, destination, expected):
             temporary = Path(target.name)
             for chunk in iter(lambda: response.read(1024 * 1024), b""):
                 target.write(chunk)
-        if sha256(temporary) != expected:
-            raise ValueError("Pinned LLVM bottle checksum mismatch")
+        actual = sha256(temporary)
+        if actual != expected:
+            raise ValueError(f"Pinned download checksum mismatch: expected {expected}, got {actual}; "
+                             f"received {temporary.stat().st_size} bytes")
         temporary.replace(destination)
     finally:
         if temporary and temporary.exists():

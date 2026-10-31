@@ -16,24 +16,24 @@ namespace kalandra {
 // caller-pop native calls; explicit aggregate outputs still permit matching-
 // signature musttail calls. Register-only calls use tailcc, including differing
 // source parameter lists. Other qualified targets use tailcc throughout.
-inline llvm::CallingConv::ID nativeInternalCallingConvention(llvm::FunctionType *type) {
-#if defined(_WIN32)
-  for (auto *parameter : type->params())
-    if (!parameter->isPointerTy() && !parameter->isFloatTy() && !parameter->isDoubleTy() &&
-        !(parameter->isIntegerTy() && parameter->getIntegerBitWidth() <= 64))
-      return llvm::CallingConv::C;
-#elif defined(__APPLE__) && defined(__aarch64__)
-  unsigned general = 0, floating = 0;
-  for (auto *parameter : type->params()) {
-    if (parameter->isFloatingPointTy() || parameter->isVectorTy()) ++floating;
-    else if (parameter->isPointerTy() || parameter->isIntegerTy(64) ||
-             (parameter->isIntegerTy() && parameter->getIntegerBitWidth() < 64)) ++general;
-    else return llvm::CallingConv::C;
+inline llvm::CallingConv::ID nativeInternalCallingConvention(llvm::FunctionType *type,
+                                                            llvm::Triple target) {
+  if (target.str().empty()) target = llvm::Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE);
+  if (target.isOSWindows()) {
+    for (auto *parameter : type->params())
+      if (!parameter->isPointerTy() && !parameter->isFloatTy() && !parameter->isDoubleTy() &&
+          !(parameter->isIntegerTy() && parameter->getIntegerBitWidth() <= 64))
+        return llvm::CallingConv::C;
+  } else if (target.isOSDarwin() && target.isAArch64()) {
+    unsigned general = 0, floating = 0;
+    for (auto *parameter : type->params()) {
+      if (parameter->isFloatingPointTy() || parameter->isVectorTy()) ++floating;
+      else if (parameter->isPointerTy() || (parameter->isIntegerTy() &&
+               parameter->getIntegerBitWidth() <= 64)) ++general;
+      else return llvm::CallingConv::C;
+    }
+    if (general > 8 || floating > 8) return llvm::CallingConv::C;
   }
-  if (general > 8 || floating > 8) return llvm::CallingConv::C;
-#else
-  (void)type;
-#endif
   return llvm::CallingConv::Tail;
 }
 // Resolver construction is finalized only after task-owned callable entries
@@ -111,7 +111,7 @@ inline void finalizeNativeCallResolvers(llvm::Module &module) {
       if (plan->getFunctionType() != checkedType) continue;
       auto *adapter = llvm::Function::Create(internalType, GlobalValue::InternalLinkage,
                                             plan->getName() + ".native", module);
-      adapter->setCallingConv(nativeInternalCallingConvention(internalType));
+      adapter->setCallingConv(nativeInternalCallingConvention(internalType, module.getTargetTriple()));
       adapter->setUWTableKind(UWTableKind::Sync);
       adapter->addFnAttr("frame-pointer", "all");
       IRBuilder<> b(BasicBlock::Create(context, "entry", adapter));
