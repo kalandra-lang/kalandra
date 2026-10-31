@@ -87,7 +87,7 @@ Build it using the profile:
 codeblock { language = bash, """kalandra compute.k --toolchain cross.json -O2 -o program-arm64
 """ }
 
-Copy program-arm64 to a compatible ARM64 Linux machine, make it executable and run it there. It prints 1144. The destination needs the target package's documented system-runtime baseline; it does not need the Kalandra compiler or LLVM to run this application. Use Raspberry Pi OS Trixie on a supported 64-bit Pi.
+Copy the executable to the operating system and architecture selected by your profile. On Linux or macOS, make it executable and run it there. It prints 1144. The destination needs the target package's documented system-runtime baseline; it does not need the Kalandra compiler or LLVM to run this application. For an ARM64 Linux build on Raspberry Pi, use Raspberry Pi OS Trixie on a supported 64-bit Pi.
 
 h2 { "Build Linux programs from Windows or macOS" }
 

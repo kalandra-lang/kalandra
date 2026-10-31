@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import shlex
 import sys
 import subprocess
 import tarfile
@@ -254,11 +255,17 @@ def build(a):
         # the actual profile template, then run its product on the destination.
         (a.output / 'compute.k').write_text(documented_source)
         (a.output / 'cross.json').write_text(json.dumps(profile))
-        documented_output = 'program-arm64' + suffix
-        run([compiler.resolve(), 'compute.k', '--toolchain', 'cross.json', '-O2', '-o', documented_output], cwd=a.output)
+        snippets = re.findall(r'codeblock \{ language = bash, """([\s\S]*?)""" \}', documentation)
+        authored_command, = [shlex.split(v) for v in snippets if v.strip().startswith('kalandra compute.k ')]
+        assert authored_command[0] == 'kalandra'
+        authored_command[0] = compiler.resolve()
+        output_argument = authored_command.index('-o') + 1
+        authored_command[output_argument] += suffix
+        documented_output = authored_command[output_argument]
+        run(authored_command, cwd=a.output)
         binary = products / ('documentation-O2' + suffix)
         binary.write_bytes((a.output / documented_output).read_bytes())
-        run([compiler.resolve(), 'compute.k', '--toolchain', 'cross.json', '-O2', '-o', documented_output], cwd=a.output)
+        run(authored_command, cwd=a.output)
         assert digest(binary) == digest(a.output / documented_output), 'Non-reproducible documentation recipe'
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(output='1144\n')))
     # Misconfigured targets must preserve every requested output.
