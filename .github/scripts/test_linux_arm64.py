@@ -4,6 +4,9 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+
+import qualify_raspberry_pi_os as pi_os
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "native/packaging"))
 from BundleELF import check_machine, expected_machine, PLATFORM
@@ -69,6 +72,18 @@ class LinuxArchitectureTests(unittest.TestCase):
             path.write_bytes(fixture_elf(183)[:70])
             with self.assertRaisesRegex(RuntimeError, "Truncated"):
                 check_machine(path, 183)
+
+    def test_pi_image_preparation_rejects_other_hosts(self):
+        for actions, system, machine in (("false", "Linux", "aarch64"),
+                                         ("true", "Darwin", "arm64"),
+                                         ("true", "Linux", "x86_64")):
+            with patch.dict(pi_os.os.environ, GITHUB_ACTIONS=actions), \
+                    patch.object(pi_os.platform, "system", return_value=system), \
+                    patch.object(pi_os.platform, "machine", return_value=machine), \
+                    patch.object(pi_os.urllib.request, "urlopen") as download:
+                with self.assertRaisesRegex(RuntimeError, "disposable native ARM64"):
+                    pi_os.main()
+                download.assert_not_called()
 
     def test_system_loaders(self):
         self.assertTrue(PLATFORM.fullmatch("ld-linux-aarch64.so.1"))

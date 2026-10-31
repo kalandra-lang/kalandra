@@ -24,7 +24,8 @@ def run(*args, **kwargs):
 
 
 def main():
-    if os.environ.get("GITHUB_ACTIONS") != "true" or platform.machine().lower() not in ("aarch64", "arm64"):
+    if (os.environ.get("GITHUB_ACTIONS") != "true" or platform.system() != "Linux" or
+            platform.machine().lower() not in ("aarch64", "arm64")):
         raise RuntimeError("Requires a disposable native ARM64 GitHub runner")
     repository = Path.cwd()
     with tempfile.TemporaryDirectory(dir=os.environ["RUNNER_TEMP"]) as temporary:
@@ -41,6 +42,7 @@ def main():
         root = work / "root"
         root.mkdir()
         try:
+            run("sudo", "udevadm", "settle")
             table = json.loads(subprocess.check_output(["sudo", "sfdisk", "--json", loop], text=True))["partitiontable"]
             roots = [p["node"] for p in table["partitions"] if p.get("type") == "83"]
             if len(roots) != 1:
