@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - name: Validate publisher credentials without a release build
         env:
           KALANDRA_SIGNING_P12_BASE64: ${{ secrets.KALANDRA_SIGNING_P12_BASE64 }}
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - name: Validate release classifier
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
       - name: Classify version tag
@@ -207,7 +207,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - uses: actions/download-artifact@v4
         with:
           name: native-bundled-release-assets
@@ -238,7 +238,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - uses: actions/download-artifact@v4
         with:
           name: native-bundled-release-assets
