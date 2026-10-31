@@ -232,6 +232,19 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
             if page in ['installation', 'contributing'] and block['language'] == 'bash':
                 command(['sh', '-n', '-c', block['source']], BASE)
                 reason = 'Environment/contributor workflow recipe; syntax checked, full setup/build is not run by the examples verifier'
+            elif page == 'cross-compilation' and block['language'] == 'bash':
+                command(['sh', '-n', '-c', block['source']], BASE)
+                reason = 'Target SDK recipe; compiled programs and commands are exercised by native cross-platform qualification'
+            elif page == 'cross-compilation' and block['language'] == 'json':
+                profile = json.loads(block['source'])
+                assert profile['format'] == 1
+                schemas = {
+                    'aarch64-unknown-linux-gnu': {'format', 'target', 'sysroot', 'gccDirectory'},
+                    'arm64-apple-macosx26.0.0': {'format', 'target'},
+                    'x86_64-pc-windows-msvc': {'format', 'target', 'sysroot', 'libraryDirectories'},
+                }
+                assert profile['target'] in schemas and set(profile) == schemas[profile['target']]
+                reason = 'Toolchain profile template; native cross-platform qualification supplies the actual SDK/package paths'
             elif block['language'] == 'powershell':
                 reason = 'Windows-only invocation; not executed on this POSIX host'
             else:

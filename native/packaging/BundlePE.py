@@ -6,6 +6,7 @@ import re
 import shutil
 import struct
 
+from CrossLinkers import stage as stage_cross_linkers
 from BundleMachO import digest, run
 from WindowsPlatform import MACHINES, pe_machine
 
@@ -91,7 +92,7 @@ def audit(prefix):
                 raise RuntimeError(f"PE import is not adjacent to its loader: {path}: {name}")
 
 
-def bundle(prefix, llvm):
+def bundle(prefix, llvm, cross_linkers=False):
     prefix, llvm = prefix.resolve(), llvm.resolve()
     machine = package_machine(prefix)
     triplet = "arm64-windows-static" if machine == MACHINES["windows-arm64"] else "x64-windows-static"
@@ -111,6 +112,8 @@ def bundle(prefix, llvm):
         if not copyright.is_file():
             raise RuntimeError(f"Missing static LLVM dependency license: {package}")
         shutil.copy2(copyright, licenses / f"{package}-copyright")
+    if cross_linkers:
+        stage_cross_linkers(prefix, llvm)
     queue = [p for p in prefix.rglob("*") if p.suffix.lower() in (".exe", ".dll")]
     visited, metadata = set(), []
     while queue:
@@ -145,5 +148,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("prefix", type=Path)
     parser.add_argument("--llvm", type=Path, required=True)
+    parser.add_argument("--cross-linkers", action="store_true")
     args = parser.parse_args()
-    bundle(args.prefix, args.llvm)
+    bundle(args.prefix, args.llvm, args.cross_linkers)

@@ -90,6 +90,26 @@ class QualificationGate(unittest.TestCase):
                     download.assert_not_called()
             self.run_in_workspace(check)
 
+    def test_rehearsal_requires_same_repository_and_commit(self):
+        for repository, commit, accepted in (("example/project", "commit", True),
+                                              ("fork/project", "commit", False),
+                                              ("example/project", "other", False)):
+            def api(path):
+                response = self.api(path)
+                if "workflow_runs" in response:
+                    response["workflow_runs"][0].update(event="pull_request", head_branch="feature",
+                        head_sha=commit, head_repository={"full_name": repository})
+                return response
+            def check():
+                with patch.object(collector, "api", side_effect=api), patch.object(collector.subprocess, "run", side_effect=self.download):
+                    if accepted:
+                        collector.collect(rehearsal=True)
+                        self.assertEqual(len(list(Path("release-assets").iterdir())), 8)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, "exact release commit"):
+                            collector.collect(rehearsal=True)
+            self.run_in_workspace(check)
+
     def test_missing_arm64_artifact_blocks_release(self):
         for platform, staged_files in (("linux", 2), ("windows", 6)):
             def api(path):

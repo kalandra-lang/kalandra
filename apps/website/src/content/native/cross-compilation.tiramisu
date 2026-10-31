@@ -1,0 +1,119 @@
+meta { title = "Cross-compilation", description = "Build for another CPU platform from one host compiler installation.", order = 5, group = "Using Kalandra" }
+
+Install the standalone Kalandra package for the machine performing the build. It includes the CPU runtimes for Linux x86-64 and ARM64, Windows x86-64 and ARM64, and macOS ARM64, together with host-native LLVM linkers. You do not need a compiler executable for each destination.
+
+Select the destination with --platform. Only its runtime libraries are linked into your program; the bundled alternatives add download and disk space, not execution overhead. These options are available in releases after v0.99.0 that list cross-compilation support.
+
+h2 { "A shared example" }
+
+Save this program as compute.k:
+
+codeblock { language = kalandra, """fn count(n:int,a:int)->int:
+  if n==0:a
+  else:count(n-1,a+1)
+fn fib(n:int)->int:
+  if n<2:n
+  else:fib(n-1)+fib(n-2)
+fn main()->int:
+  count(1000,0)+fib(12)
+""" }
+
+h2 { "Build for macOS" }
+
+From Linux, Windows or macOS, build for macOS 26 or later on Apple Silicon:
+
+codeblock { language = bash, """kalandra compute.k --platform macos-arm64 -O2 -o program-macos
+""" }
+
+The package contains Kalandra's own link-only system import declarations. They describe the public system-library functions used by the runtime and numerical code, and contain no Apple SDK headers or library implementations. No Apple SDK or separate LLVM installation is needed on the build machine.
+
+Copy program-macos to a compatible Mac, make it executable and run it. It prints 1144. Developer ID signing and notarization are separate distribution steps.
+
+h2 { "Build for Linux" }
+
+Linux targets also require GNU development libraries for the destination architecture. For Ubuntu 24.04 x86-64 to ARM64:
+
+codeblock { language = bash, """sudo apt-get install g++-13-aarch64-linux-gnu
+kalandra compute.k --platform linux-arm64 --sysroot / --gcc-directory /usr/lib/gcc-cross/aarch64-linux-gnu/13 -O2 -o program-linux-arm64
+""" }
+
+For ARM64 to x86-64, install g++-13-x86-64-linux-gnu, select linux-x86_64 and use /usr/lib/gcc-cross/x86_64-linux-gnu/13.
+
+On Windows or macOS, provide an extracted GNU development sysroot. It must include the destination's startup objects, GNU C library and C++ runtime. Set --sysroot to that filesystem's root and --gcc-directory to its GCC runtime directory. The host package supplies the linker and Kalandra runtime.
+
+Copy the output to a Linux system with compatible system libraries. An ARM64 build can run on supported 64-bit Raspberry Pi models using Raspberry Pi OS Trixie. A Linux executable built on Windows does not need an .exe suffix.
+
+h2 { "Build for Windows" }
+
+Windows targets require destination Windows SDK and MSVC CRT link libraries. Kalandra does not distribute Microsoft's SDK. Application compilation uses the bundled Kalandra runtime and does not require Windows headers on the source machine.
+
+On Windows, use PowerShell 7 with the Visual Studio developer environment configured for the destination. For Windows ARM64:
+
+codeblock { language = powershell, """$sdkArgs = @()
+$env:LIB -split ";" | Where-Object { $_ } | ForEach-Object {
+  $sdkArgs += @("--library-directory", $_)
+}
+kalandra compute.k --platform windows-arm64 --sysroot $env:WindowsSdkDir @sdkArgs -O2 -o program-arm64.exe
+""" }
+
+For x86-64, select windows-x86_64 and its developer environment. From Linux or macOS, supply your extracted Windows SDK and MSVC CRT directories with --sysroot and repeated --library-directory flags. Include the target's CRT, UCRT and Windows system import libraries. The compiler does not replace those selections with ambient LIB paths or registry-discovered libraries.
+
+Copy the .exe to the selected Windows architecture to run it. It prints 1144.
+
+h2 { "Reusable toolchain profiles" }
+
+Use --toolchain for a reusable local SDK configuration. A normal profile does not need runtimePackage or linker: the compiler selects those from its installation.
+
+A Linux ARM64 profile using Ubuntu's installed cross-development package layout:
+
+codeblock { language = json, """{
+  "format": 1,
+  "target": "aarch64-unknown-linux-gnu",
+  "sysroot": "/",
+  "gccDirectory": "/usr/lib/gcc-cross/aarch64-linux-gnu/13"
+}
+""" }
+
+Save it as cross.json and build:
+
+codeblock { language = bash, """kalandra compute.k --toolchain cross.json -O2 -o program-arm64
+""" }
+
+The filesystem root in this example contains Ubuntu's architecture-specific cross packages. /usr/aarch64-linux-gnu alone is not a complete sysroot.
+
+A macOS profile needs only the target:
+
+codeblock { language = json, """{
+  "format": 1,
+  "target": "arm64-apple-macosx26.0.0"
+}
+""" }
+
+An extracted Windows x86-64 SDK may use this layout; replace the paths with your actual locations:
+
+codeblock { language = json, """{
+  "format": 1,
+  "target": "x86_64-pc-windows-msvc",
+  "sysroot": "/opt/windows-sdk",
+  "libraryDirectories": [
+    "/opt/windows-sdk/crt/lib/x64",
+    "/opt/windows-sdk/sdk/lib/ucrt/x64",
+    "/opt/windows-sdk/sdk/lib/um/x64"
+  ]
+}
+""" }
+
+For ARM64, select aarch64-pc-windows-msvc and ARM64 SDK/CRT directories.
+
+h2 { "Profile fields and validation" }
+
+format must be 1. target is the destination CPU triple. Linux profiles require sysroot and gccDirectory. Windows profiles require sysroot and libraryDirectories. macOS uses the bundled import declarations when sysroot is omitted.
+
+Advanced toolchain authors can override runtimePackage with another matching target runtime package and linker with a host-native linker executable. Relative paths resolve against the profile file's directory. A profile is trusted local configuration: its linker names a program that will execute on the build machine. Profiles are explicitly selected, not loaded from imported packages.
+
+The compiler queries the destination data layout from its private Clang and checks runtime version, platform, LLVM version, macOS deployment compatibility, archive checksums and object architectures. It verifies the linked output's architecture before publication. Runtime alternatives are not emulated or loaded into the resulting application.
+
+--platform and --toolchain select a CPU ABI. --target cpu or --target metal selects the execution backend. Cross-compilation currently supports the CPU backend. Cross-toolchain --sanitize and --thread-sanitize modes fail explicitly while their target combinations remain unqualified. Normal and optimized builds retain the language's arithmetic, bounds, ownership and task checks.
+
+link { url = "/docs/installation", "Platform baselines and package installation" }
+link { url = "/docs/tooling", "Compiler and editor tools" }

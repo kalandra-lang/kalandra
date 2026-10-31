@@ -1,6 +1,6 @@
 """Execute the native CPU language/runtime contract on Linux and Windows."""
 from VersionCheck import expected_version, verify_binary_version
-from WindowsPlatform import has_sanitizers, pe_machine
+from WindowsPlatform import has_sanitizers, pe_machine, rename_after_process_exit
 import argparse
 import json
 import os
@@ -210,21 +210,21 @@ fn main()->[int]:
             # Missing bundled tools must not fall back to an ambient LLVM install.
             source.write_text("fn main()->int:\n  42\n", encoding="utf-8")
             unavailable_clang = private_clang.with_name(private_clang.name + ".unavailable")
-            private_clang.rename(unavailable_clang)
+            rename_after_process_exit(private_clang, unavailable_clang)
             try:
                 rejected = run([compiler, source, "-o", executable], expected=1)
                 assert "bundled Clang or its compiler resources are missing" in rejected.stderr
                 assert executable.read_bytes() == prior
             finally:
-                unavailable_clang.rename(private_clang)
+                rename_after_process_exit(unavailable_clang, private_clang)
         # Ordinary applications must remain executable after removing the compiler.
         if (prefix / "SHA256SUMS").is_file():
             hidden = prefix.with_name(prefix.name + ".hidden")
-            prefix.rename(hidden)
+            rename_after_process_exit(prefix, hidden)
             try:
                 assert run([executable]).stdout.strip() == "[2, 4, 6]"
             finally:
-                hidden.rename(prefix)
+                rename_after_process_exit(hidden, prefix)
         print(json.dumps({"platform": platform.platform(), "programsCompiled": compiled + 3,
                           "numericTypes": list(values), "modes": [name for name, _ in modes],
                           "workerCounts": [1, 2, 4], "starter": "passed"}), flush=True)

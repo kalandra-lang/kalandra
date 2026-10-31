@@ -18,7 +18,7 @@ on:
         "bun.lock",
       ]
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-linux.yml", ".github/scripts/**"]
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-linux.yml", ".github/scripts/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -58,6 +58,7 @@ jobs:
       - name: Verify architecture and release gates
         run: |
           python3 -m unittest discover -s .github/scripts -p test_linux_arm64.py
+          python3 -m unittest discover -s .github/scripts -p test_linux_cross_sdk.py
           python3 -m unittest discover -s .github/scripts -p test_collect_native_platforms.py
           python3 -m unittest discover -s .github/scripts -p test_native_release_assets.py
       - name: Provision verified LLVM/MLIR
@@ -76,9 +77,9 @@ jobs:
         run: cmake --build build/linux --target native-cpu-toolchain kalandra -j2
       - name: Qualify checked recursive calls and signed remainder
         run: |
-          cmake --build build/linux --target kalandra-checked-inlining-tests -j2
+          cmake --build build/linux --target kalandra-checked-inlining-tests kalandra-cross-target-tests -j2
           ctest --test-dir build/linux --output-on-failure -j2 \
-            -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|call-foundation-source|windows-tail-codegen|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
+            -R '^native-(checked-inlining(-source(-float32)?-(hardware|software))?|cross-target-codegen|call-foundation-source|windows-tail-codegen|recursive-scalars|signed-remainder|tail-calls(-software)?|fast-calls)$'
       - name: Verify ordinary direct ABI and resource cleanup
         run: |
           cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j2
@@ -92,7 +93,7 @@ jobs:
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: >-
           ctest --test-dir build/linux --output-on-failure
-          -R '^native-(arithmetic-policy|fair-benchmark-evidence|steel-vendor-license)$'
+          -R '^native-(cross-toolchain-validation|arithmetic-policy|fair-benchmark-evidence|steel-vendor-license)$'
       - name: Qualify opaque synchronous task ownership
         run: |
           cmake --build build/linux --target kalandra-closed-task-tests-optimized -j2
@@ -121,6 +122,39 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: build/linux/native-cpu-standalone/*.tar.gz*
+          if-no-files-found: error
+  cross-sdk:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Locate verified native Clang
+        run: python3 .github/scripts/provision_native_platform.py
+      - name: Lock upstream GNU SDK inputs and compile owned test objects
+        run: |
+          sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo apt-get install -y libc6-dev libgcc-13-dev libstdc++-13-dev
+          python3 -m unittest discover -s .github/scripts -p test_linux_cross_sdk.py
+          python3 .github/scripts/linux_cross_sdk.py lock --clang "$KALANDRA_LLVM_ROOT/bin/clang++" --output cross-sdk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-cross-sdk-${{ matrix.arch }}
+          path: cross-sdk/*
           if-no-files-found: error
   downloaded-package:
     needs: cpu

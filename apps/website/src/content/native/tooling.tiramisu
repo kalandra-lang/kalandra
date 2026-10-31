@@ -35,6 +35,8 @@ kalandra main.k --emit-mlir program.mlir --emit-llvm program.ll -o program
 
 IR outputs are explicit inspection artifacts. Source paths, project manifests and installed dependency files are protected against accidental output replacement. Use the appropriate Metal-capable driver for --target metal.
 
+link { url = "/docs/cross-compilation", "Build for another CPU platform with an explicit toolchain profile" }
+
 h2 { "Other code editors" }
 
 Any editor with a Language Server Protocol client can launch kalandra-lsp directly over standard input/output. Associate .k files with Kalandra, configure the server command as the absolute path to kalandra-lsp and leave command arguments empty for ordinary relative-import projects. Do not launch the server through a shell. A native toolchain package supplies the executable and its resources; no JavaScript runtime is required.

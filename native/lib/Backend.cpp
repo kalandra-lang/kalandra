@@ -58,7 +58,7 @@
 
 namespace kalandra {
 std::expected<BackendOutput, std::string>
-lowerTaskNative(const TypedModule &, std::optional<std::string>, ArithmeticMode);
+lowerTaskNative(const TypedModule &, std::optional<std::string>, ArithmeticMode, const CpuTarget &);
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool functionValues);
 std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module) {
   // Fault exits are already explicit: optimizing unchecked fault helpers could
@@ -268,13 +268,17 @@ struct LoweringFailure {
 };
 class Lowerer {
   ArithmeticMode arithmetic_;
+  std::string dataLayout_;
   bool arrayTailLoops_;
 
 public:
   Lowerer(const TypedModule &input, MLIRContext &context, ArithmeticMode arithmetic,
-          bool arrayTailLoops)
-      : arithmetic_(arithmetic), arrayTailLoops_(arrayTailLoops), input_(input), builder_(&context),
-        module_(ModuleOp::create(builder_.getUnknownLoc())) {}
+          bool arrayTailLoops, const CpuTarget &target)
+      : arithmetic_(arithmetic), dataLayout_(target.dataLayout), arrayTailLoops_(arrayTailLoops), input_(input), builder_(&context),
+        module_(ModuleOp::create(builder_.getUnknownLoc())) {
+    (*module_)->setAttr("llvm.data_layout", builder_.getStringAttr(target.dataLayout));
+    (*module_)->setAttr("llvm.target_triple", builder_.getStringAttr(target.triple));
+  }
   OwningOpRef<ModuleOp> run(const std::optional<std::string> &testEntry,
                             const std::vector<std::string> &exports) {
     recursiveClosures_ = hasRecursiveStorage(*planRecordStorage(input_));
@@ -303,7 +307,7 @@ public:
     recordStorage_ = *planRecordStorage(*ownership);
     recursiveTypes_ = *records;
     recursive_ = std::make_unique<RecursiveRecordOps>(*ownership, recordStorage_, recursiveTypes_,
-                                                      builder_, *module_);
+                                                      builder_, *module_, dataLayout_);
     for (std::size_t id = 0; id < records->size(); ++id)
       recordTypes_.emplace(id, (*records)[id]);
     builder_.setInsertionPointToEnd(module_->getBody());
@@ -576,7 +580,7 @@ private:
       if (recursiveClosures_) {
         llvm::LLVMContext llvmContext;
         LLVM::TypeToLLVMIRTranslator translator(llvmContext);
-        llvm::DataLayout layout(nativeCpuDataLayout);
+        llvm::DataLayout layout(dataLayout_);
         auto bytes = layout.getTypeAllocSize(translator.translateType(closureEnvironment(id)))
                          .getFixedValue();
         address = func::CallOp::create(
@@ -812,7 +816,7 @@ private:
       return found->second;
     llvm::LLVMContext context;
     LLVM::TypeToLLVMIRTranslator translator(context);
-    llvm::DataLayout layout(nativeCpuDataLayout);
+    llvm::DataLayout layout(dataLayout_);
     auto *cell = translator.translateType(type(recordArrayElement(array)));
     return recordLayouts_[*array.record] = {layout.getTypeAllocSize(cell).getFixedValue(),
                                             layout.getABITypeAlign(cell).value()};
@@ -2972,7 +2976,7 @@ private:
               }
               llvm::LLVMContext llvmContext;
               LLVM::TypeToLLVMIRTranslator translator(llvmContext);
-              llvm::DataLayout dataLayout(nativeCpuDataLayout);
+              llvm::DataLayout dataLayout(dataLayout_);
               Value bytes = integer(
                   loc,
                   dataLayout.getTypeAllocSize(translator.translateType(layout)).getFixedValue());
@@ -3369,7 +3373,7 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
                                                       const std::vector<std::string> &exports,
                                                       ArithmeticMode arithmetic,
                                                       bool deferCallFinalization,
-                                                      bool arrayTailLoops) {
+                                                      bool arrayTailLoops, const CpuTarget &target) {
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   const auto storage = planRecordStorage(input);
@@ -3387,7 +3391,7 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
       })) {
     if (!exports.empty())
       return std::unexpected("CPU bridge exports require ordinary synchronous functions");
-    return lowerTaskNative(input, testEntry, arithmetic);
+    return lowerTaskNative(input, testEntry, arithmetic, target);
   }
   DialectRegistry registry;
   registerAllDialects(registry);
@@ -3398,7 +3402,7 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
   static std::once_flag passRegistration;
   std::call_once(passRegistration, [] { registerAllPasses(); });
   try {
-    auto module = Lowerer(input, context, arithmetic, arrayTailLoops).run(testEntry, exports);
+    auto module = Lowerer(input, context, arithmetic, arrayTailLoops, target).run(testEntry, exports);
     if (failed(verify(*module)))
       return std::unexpected("generated tensor MLIR failed verification");
     BackendOutput result;
@@ -3552,13 +3556,14 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
       return std::holds_alternative<FunctionReference>(value.operation) ||
              std::holds_alternative<FunctionInvoke>(value.operation);
     });
+    native->setTargetTriple(llvm::Triple(target.triple));
+    native->setDataLayout(target.dataLayout);
     if (auto error = addCheckedInvocationABI(*native, functionValues))
       return std::unexpected(*error);
     if (exports.empty())
       for (const auto &function : input.functions)
         if (function.name == "main" && function.resultType.tensor)
           collectionMetadata(*native, function.resultType);
-    native->setTargetTriple(llvm::Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE));
     if (!deferCallFinalization)
       if (auto error = optimizeNativeCalls(native)) return std::unexpected(*error);
     std::string errors;
@@ -3578,10 +3583,23 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
                                                       std::optional<std::string> testEntry,
                                                       const std::vector<std::string> &exports,
                                                       ArithmeticMode arithmetic,
-                                                      bool deferCallFinalization) {
-  auto result = lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, true);
+                                                      bool deferCallFinalization, CpuTarget target) {
+  if (target.triple.empty() && target.dataLayout.empty())
+    target = {KALANDRA_NATIVE_CPU_TARGET_TRIPLE, nativeCpuDataLayout};
+  target.triple = llvm::Triple::normalize(target.triple);
+  const llvm::Triple triple(target.triple);
+  if ((triple.getArchName() != "aarch64" && triple.getArchName() != "arm64" &&
+       triple.getArchName() != "x86_64") ||
+      (!triple.isOSLinux() && !triple.isOSWindows() && !triple.isOSDarwin()) ||
+      (triple.isOSDarwin() && !triple.isAArch64()) || target.dataLayout.empty())
+    return std::unexpected("unsupported or incomplete CPU target ABI");
+  auto layout = llvm::DataLayout::parse(target.dataLayout);
+  if (!layout) return std::unexpected(llvm::toString(layout.takeError()));
+  if (!layout->isLittleEndian() || layout->getPointerSizeInBits() != 64)
+    return std::unexpected("CPU target requires a little-endian 64-bit layout");
+  auto result = lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, true, target);
   if (!result && result.error().find("native stack budget") != std::string::npos)
-    return lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, false);
+    return lowerNativeImpl(input, testEntry, exports, arithmetic, deferCallFinalization, false, target);
   return result;
 }
 } // namespace kalandra
