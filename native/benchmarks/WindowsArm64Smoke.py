@@ -43,10 +43,16 @@ int main(int argc, char **argv) {
   volatile auto warm = function(17, 1000);
   (void)warm;
   std::int64_t checksum = 0;
+  std::int64_t values[4]{};
   const auto start = std::chrono::steady_clock::now();
-  for (std::int64_t seed = 17; seed < 21; ++seed) checksum += function(seed, 1000000);
+  for (std::int64_t seed = 17; seed < 21; ++seed) {
+    values[seed - 17] = function(seed, 1000000);
+    checksum += values[seed - 17];
+  }
   const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-  std::printf("%.17g %lld\\n", seconds, static_cast<long long>(checksum));
+  std::printf("%.17g %lld %lld %lld %lld %lld\\n", seconds, static_cast<long long>(checksum),
+              static_cast<long long>(values[0]), static_cast<long long>(values[1]),
+              static_cast<long long>(values[2]), static_cast<long long>(values[3]));
 }
 '''
 
@@ -81,26 +87,29 @@ def main():
         if pe_machine(path) != MACHINES['windows-arm64']:
             raise RuntimeError(f'Benchmark must run native ARM64: {path}')
     expected = 0
+    expected_values = []
     for seed in range(17, 21):
         value = seed
         for _ in range(1000000):
             value = (value * 13 + 7) % 1000003
         expected += value
+        expected_values.append(value)
     samples = []
     for block, order in enumerate([['cpp'] * 4, *[['kalandra', 'cpp', 'cpp', 'kalandra']] * 3,
                                    *[['cpp', 'kalandra', 'kalandra', 'cpp']] * 3]):
         for position, engine in enumerate(order):
-            seconds, checksum = run([executable, engine]).strip().split()
-            if int(checksum) != expected or not float(seconds) > 0:
+            seconds, checksum, *values = run([executable, engine]).strip().split()
+            values = list(map(int, values))
+            if int(checksum) != expected or values != expected_values or not float(seconds) > 0:
                 raise RuntimeError('Incorrect native benchmark result')
-            samples.append(dict(block=block, position=position, engine=engine, seconds=float(seconds), checksum=int(checksum)))
+            samples.append(dict(block=block, position=position, engine=engine, seconds=float(seconds), checksum=int(checksum), values=values))
     medians = {engine: statistics.median(s['seconds'] for s in samples if s['block'] and s['engine'] == engine)
                for engine in ('cpp', 'kalandra')}
     control = [s['seconds'] for s in samples if not s['block']]
     control_ratio = max(control) / min(control)
     report = dict(scope=__doc__, platform=platform.platform(), processor=os.environ.get('PROCESSOR_IDENTIFIER'),
                   clang=run([args.clang, '--version']), iterationsPerInvocation=1000000, invocationsPerSample=4,
-                  expectedChecksum=expected, samples=samples, processMedianSeconds=medians,
+                  expectedChecksum=expected, expectedValues=expected_values, samples=samples, processMedianSeconds=medians,
                   kalandraToCpp=medians['kalandra'] / medians['cpp'], identicalControlMaxToMin=control_ratio,
                   timingClaimQualified=False,
                   caveat='Shared hosted VM; one valid-input scalar workload. No general performance claim or timing acceptance threshold.',
