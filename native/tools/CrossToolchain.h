@@ -58,17 +58,22 @@ struct CrossToolchain {
     }
     return darwin() ? object.isMachO() : object.isELF();
   }
-  std::optional<std::string> verifyArchive(const std::filesystem::path &path) const {
-    auto buffer = llvm::MemoryBuffer::getFile(path.string());
-    if (!buffer) return "cannot read target runtime archive: " + path.string();
+  std::optional<std::string> verifyPackageBytes(const std::filesystem::path &path,
+                                               llvm::StringRef bytes) const {
     auto relative = path.lexically_relative(package).generic_string();
     auto found = inventory.find(relative);
     if (found == inventory.end()) return "target runtime is absent from package inventory: " + relative;
-    const auto bytes = (*buffer)->getBuffer();
     const auto digest = llvm::SHA256::hash(llvm::ArrayRef<std::uint8_t>(
         reinterpret_cast<const std::uint8_t *>(bytes.data()), bytes.size()));
     if (llvm::toHex(digest, true) != found->second)
       return "target runtime checksum mismatch: " + relative;
+    return {};
+  }
+  std::optional<std::string> verifyArchive(const std::filesystem::path &path) const {
+    const auto relative = path.lexically_relative(package).generic_string();
+    auto buffer = llvm::MemoryBuffer::getFile(path.string());
+    if (!buffer) return "cannot read target runtime archive: " + path.string();
+    if (auto error = verifyPackageBytes(path, (*buffer)->getBuffer())) return error;
     auto archive = llvm::object::Archive::create((*buffer)->getMemBufferRef());
     if (!archive) return llvm::toString(archive.takeError());
     if ((*archive)->isThin()) return "target runtime must be a self-contained archive";
@@ -166,10 +171,13 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
   else return std::unexpected("unsupported CPU toolchain OS/ABI or macOS minimum");
   auto path = [&](llvm::StringRef key, bool file = false) -> std::expected<std::filesystem::path, std::string> {
     auto text = object->getString(key);
-    if (!text || text->empty() || text->contains('\0'))
+    const bool bundledImports = key == "sysroot" && result.darwin() && !object->get(key);
+    if (!bundledImports && (!text || text->empty() || text->contains('\0')))
       return std::unexpected("CPU toolchain requires path: " + key.str());
     std::error_code error;
-    auto value = std::filesystem::path(text->str());
+    auto value = bundledImports
+        ? result.package / "share/kalandra-native-tools/macos-link-imports/interfaces"
+        : std::filesystem::path(text->str());
     if (value.is_relative()) value = std::filesystem::absolute(profile).parent_path() / value;
     const auto checked = std::filesystem::canonical(value, error);
     if (error || (file ? !std::filesystem::is_regular_file(checked) : !std::filesystem::is_directory(checked)))
@@ -184,7 +192,7 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
     return checked;
   };
   for (auto [key, destination] : {
-      std::pair{"sysroot", &result.sysroot}, {"runtimePackage", &result.package}, {"linker", &result.linker}}) {
+      std::pair{"runtimePackage", &result.package}, {"linker", &result.linker}, {"sysroot", &result.sysroot}}) {
     auto value = path(key, std::string_view(key) == "linker");
     if (!value) return std::unexpected(value.error());
     *destination = *value;
@@ -232,6 +240,15 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
       return std::unexpected("invalid target package inventory");
   }
   if (!sums.eof() || result.inventory.empty()) return std::unexpected("target package inventory is missing");
+  if (result.darwin() && !object->get("sysroot")) {
+    for (const auto *name : {"libSystem.tbd", "libc++.tbd"}) {
+      auto file = result.sysroot / "usr/lib" / name;
+      auto contents = llvm::MemoryBuffer::getFile(file.string());
+      if (!contents) return std::unexpected("bundled macOS import interface is missing");
+      if (auto error = result.verifyPackageBytes(file, (*contents)->getBuffer()))
+        return std::unexpected(*error);
+    }
+  }
   // Query the actual pinned host Clang for the destination layout, not the host
   // layout or user-supplied layout text. No target binary is executed.
   llvm::SmallString<256> input, output;

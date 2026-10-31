@@ -107,7 +107,11 @@ def build(a):
         for name, checksum in sdk['runtimeArchives'].items():
             path = (target_root / name).resolve()
             assert path.is_relative_to(target_root.resolve()) and digest(path) == checksum
-        profile.update(sysroot=str((a.macos_imports / 'interfaces').resolve()))
+        # Applications use the interfaces shipped in the release package.
+        # The C++ safety harness additionally imports its test-only stdlib API.
+        shipped = target_root / 'share/kalandra-native-tools/macos-link-imports/interfaces'
+        assert shipped.is_dir(), 'Target release package lacks SDK-free macOS interfaces'
+        # Omitting sysroot exercises the compiler's checked bundled default.
     elif a.linux_sdk:
         assert a.system == 'linux'
         sys.path.insert(0, str(ROOT / '.github/scripts'))
@@ -130,6 +134,10 @@ def build(a):
         # /usr/<triple> alone is incomplete and libc scripts use absolute paths.
         profile.update(sysroot='/', gccDirectory='/usr/lib/gcc-cross/' + triple + '/13')
         profile = dict(documented_profile, **profile)
+    if a.system == 'macos':
+        mac_template, = [json.loads(v) for v in templates
+                        if json.loads(v)['target'] == 'arm64-apple-macosx26.0.0']
+        profile = dict(mac_template, **profile)
     profile_file = a.output / 'cross toolchain.json'
     profile_file.write_text(json.dumps(profile))
     # Hostile ambient toolchain hints must not replace the explicit target.
@@ -172,7 +180,7 @@ def build(a):
         run([compiler, source, '--toolchain', profile_file, '--test-entry', 'run',
              '--emit-llvm', ir, mode, '-o', a.output / ('foundation-main' + mode + suffix)], env=environment)
         binary = products / ('foundation' + mode + suffix)
-        flags = ['--no-default-config', '--target=' + triple, '--sysroot=' + profile['sysroot'],
+        flags = ['--no-default-config', '--target=' + triple, '--sysroot=' + profile.get('sysroot', str(target_root / 'share/kalandra-native-tools/macos-link-imports/interfaces')),
                  '--ld-path=' + profile['linker'],
                  '-resource-dir=' + str(target_root / 'lib/kalandra/toolchain/clang')]
         if windows:
@@ -195,7 +203,9 @@ def build(a):
             flags += ['--gcc-install-dir=' + profile['gccDirectory'], '-pthread']
             libraries = [target_root / 'lib/kalandra/native/libkalandra-native-runtime.a']
         else:
-            flags += ['-mmacosx-version-min=26.0', '-pthread']
+            flags = [v for v in flags if not v.startswith('--sysroot=')]
+            flags += ['--sysroot=' + (a.macos_imports / 'interfaces').resolve().as_posix(),
+                      '-mmacosx-version-min=26.0', '-pthread']
             libraries = [target_root / 'lib/kalandra/native/libkalandra-native-runtime.a']
         harness = ((a.macos_imports or a.linux_sdk) / sdk['foundationObjects'][mode]['file'] if sdk else
                    ROOT / 'native/tests/CallFoundationRuntimeTests.cpp')

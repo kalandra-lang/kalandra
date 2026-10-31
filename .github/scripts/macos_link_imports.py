@@ -66,18 +66,22 @@ def produce(a):
     if (metadata['platform'] != 'macos-arm64' or metadata['version'] != (ROOT / 'VERSION').read_text().strip()
             or metadata['llvmVersion'] != lock['llvmVersion']):
         raise ValueError('Import interfaces require a matching macOS runtime package')
-    inventory = dict((line.split('  ', 1)[1], line.split('  ', 1)[0])
-                     for line in (a.package / 'SHA256SUMS').read_text().splitlines())
-    archives = sorted(p for p in (a.package / 'lib/kalandra/native').glob('*.a') if 'sanitized' not in p.name)
+    sums_file = a.package / 'SHA256SUMS'
+    if not sums_file.is_file() and not a.staged:
+        raise ValueError('Runtime package inventory is required')
+    inventory = (dict((line.split('  ', 1)[1], line.split('  ', 1)[0])
+                      for line in sums_file.read_text().splitlines()) if sums_file.is_file() else None)
+    archives = sorted(p for p in (a.package / 'lib/kalandra/native').glob('*.a')
+                      if p.name == 'libkalandra-native-runtime.a' or p.name.endswith('-entry-debug.a'))
     if not archives: raise ValueError('Missing normal CPU runtime archives')
     archive_hashes = {}
     for archive in archives:
         name, checksum = archive.relative_to(a.package).as_posix(), digest(archive)
-        if inventory.get(name) != checksum: raise ValueError('Runtime checksum mismatch: ' + name)
+        if inventory is not None and inventory.get(name) != checksum: raise ValueError('Runtime checksum mismatch: ' + name)
         archive_hashes[name] = checksum
     a.output.mkdir(parents=True)
     objects = {}
-    for mode in ('-O0', '-O2'):
+    for mode in (() if a.interfaces_only else ('-O0', '-O2')):
         obj = a.output / ('foundation' + mode + '.o')
         subprocess.run([str(a.clang), '--no-default-config', '--target=arm64-apple-macosx26.0.0',
                         '-mmacosx-version-min=26.0', '-std=c++23', '-ffp-contract=off', mode,
@@ -107,8 +111,9 @@ def produce(a):
         'Kalandra link-only interfaces for macOS ARM64. Generated from the Kalandra runtime import set '
         'and standard C math/memory names; validated against macOS system-library exports. '
         'Contains no Apple SDK files, headers or library implementations.\n')
+    commit = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True)
     result = dict(format=1, platform='macos-arm64', minimumMacOS='26.0', validatedOnMacOS=os_version,
-                  checkoutCommit=run(['git', 'rev-parse', 'HEAD']), toolchain=metadata,
+                  checkoutCommit=commit.stdout.strip() if commit.returncode == 0 else None, toolchain=metadata,
                   clang=run([a.clang, '--version']), runtimeArchives=archive_hashes,
                   foundationObjects=objects, imports={LIBRARIES[k]: v for k, v in imports.items()})
     (a.output / 'imports.json').write_text(json.dumps(result, indent=2) + '\n')
@@ -123,4 +128,6 @@ if __name__ == '__main__':
     p.add_argument('--clang', type=Path, required=True)
     p.add_argument('--nm', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--interfaces-only', action='store_true', help='Package only link metadata, without test objects')
+    p.add_argument('--staged', action='store_true', help='Packaging owns this fresh staging tree before its inventory is written')
     produce(p.parse_args())

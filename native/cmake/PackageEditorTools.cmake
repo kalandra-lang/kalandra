@@ -94,6 +94,16 @@ if(STANDALONE)
     message(FATAL_ERROR "Standalone dependency staging failed; previous archive preserved")
   endif()
 endif()
+if(STANDALONE AND PACKAGE_CPU AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+  execute_process(COMMAND "${_python}"
+    "${CMAKE_CURRENT_LIST_DIR}/../../.github/scripts/macos_link_imports.py"
+    --package "${_prefix}" --clang "${_llvm}/bin/clang++" --nm "${_llvm}/bin/llvm-nm"
+    --output "${_prefix}/share/kalandra-native-tools/macos-link-imports"
+    --interfaces-only --staged RESULT_VARIABLE _status)
+  if(NOT _status EQUAL 0)
+    message(FATAL_ERROR "macOS public import validation failed; previous archive preserved")
+  endif()
+endif()
 file(GLOB_RECURSE _files LIST_DIRECTORIES FALSE RELATIVE "${_prefix}" "${_prefix}/*")
 list(SORT _files)
 set(_checksums "")

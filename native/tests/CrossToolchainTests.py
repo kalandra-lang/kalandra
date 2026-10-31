@@ -3,11 +3,13 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--compiler', type=Path, required=True)
 a = p.parse_args()
+a.compiler = a.compiler.resolve()
 with tempfile.TemporaryDirectory(prefix='kalandra toolchain validation ') as folder:
     root = Path(folder)
     source = root / 'source.k'
@@ -37,4 +39,16 @@ with tempfile.TemporaryDirectory(prefix='kalandra toolchain validation ') as fol
                                 capture_output=True, text=True, timeout=30)
         assert result.returncode == 2, (args, result.returncode, result.stderr)
         assert executable.read_bytes() == b'executable sentinel'
+    # LLVM's temporary-directory helper relocates relative prefixes into the
+    # system temp folder. Exercise both ordinary output forms on every host.
+    for name in ('program', 'nested output/program'):
+        relative = name + ('.exe' if sys.platform == 'win32' else '')
+        output = root / relative
+        output.parent.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run([str(a.compiler), str(source), '-O2', '-o', relative],
+                                cwd=root, capture_output=True, text=True, timeout=60)
+        assert result.returncode == 0, (relative, result.stderr)
+        result = subprocess.run([str(output)], capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0 and result.stdout == '42\n', (relative, result.stdout, result.stderr)
+    assert not list(root.rglob('.kalandra-link*')), 'Staging directory leaked after publication'
 print(f'{len(configs)+7} invalid toolchain/ABI/mode cases rejected without changing outputs')

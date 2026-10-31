@@ -532,7 +532,7 @@ int main(int argc, char **argv) {
   // Keep that name stable while staging atomically on the destination volume.
   llvm::SmallString<256> linkedDirectory;
   if (auto error = llvm::sys::fs::createUniqueDirectory(
-          (output.parent_path() / ".kalandra-link").string(), linkedDirectory)) {
+          std::filesystem::absolute(output.parent_path() / ".kalandra-link").string(), linkedDirectory)) {
     std::cerr << "cannot create output: " << error.message() << '\n';
     return 1;
   }

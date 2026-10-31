@@ -10,6 +10,16 @@ concurrency:
   group: native-cross-os-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  microsoft-catalog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Verify Microsoft SDK catalog integrity before payload provisioning
+        run: python .github/scripts/check_microsoft_catalog.py
   packages:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
