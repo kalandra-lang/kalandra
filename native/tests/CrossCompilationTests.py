@@ -105,6 +105,10 @@ def build(a):
                       'float32': '-1.5', 'float64': '-1.5'}
     for numeric, value in numeric_values.items():
         cases[numeric] = dict(source=f'fn main()->{numeric}:\n  {value}\n', output=value+'\n')
+        cases['tensor-' + numeric] = dict(source=(
+            f'fn main()->{numeric}:\n'
+            f'  values: Tensor[{numeric}, 2, 2] = tensor([[1, 2], [3, 4]])\n'
+            '  reduceSum(transpose(matmul(values, values)))\n'), output='54\n')
     cases['bool'] = dict(source='fn main()->Bool:\n  true\n', output='true\n')
     for name, fixture, expected in (
         ('recursive-array', 'recursive-callables/array-result.k', '42\n'),
