@@ -1,7 +1,7 @@
 name: Native cross-OS qualification
 on:
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**"]
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,7 +12,7 @@ concurrency:
 jobs:
   packages:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     outputs:
       linux: ${{ steps.packages.outputs.linux }}
       windows: ${{ steps.packages.outputs.windows }}
@@ -28,7 +28,7 @@ jobs:
               linux: ['native-linux-assets', 'native-linux-arm64-assets', 'linux-cross-sdk-x86_64', 'linux-cross-sdk-arm64'],
               windows: ['native-windows-assets', 'native-windows-arm64-assets'],
             };
-            for (let attempt = 0; attempt < 70; attempt++) {
+            for (let attempt = 0; attempt < 100; attempt++) {
               const found = {};
               for (const system of Object.keys(wanted)) {
                 const runs = await github.rest.actions.listWorkflowRuns({
@@ -149,3 +149,87 @@ jobs:
           path: cross-products
       - name: Execute cross-built programs on the native Linux destination
         run: python3 native/tests/CrossCompilationTests.py execute --output cross-products
+
+  macos-to-linux:
+    needs: packages
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      ZERO_AR_DATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install native dependencies
+        run: |
+          brew update
+          brew install cmake ninja tomlplusplus zstd z3
+          brew upgrade zstd z3
+      - name: Install verified pinned LLVM
+        run: python3 .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
+      - name: Build matching host cross linkers
+        run: python3 .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
+      - name: Build host standalone CPU compiler and target ABI checks
+        run: |
+          cmake -S . -B build/macos -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+            -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
+            -Dtomlplusplus_DIR="$(brew --prefix tomlplusplus)/lib/cmake/tomlplusplus" \
+            -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+          cmake --build build/macos --target native-cpu-standalone-package kalandra-cross-target-tests -j2
+          ctest --test-dir build/macos --output-on-failure \
+            -R '^native-(cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-linux*assets
+          path: native-assets
+          merge-multiple: true
+          run-id: ${{ needs.packages.outputs.linux }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: linux-cross-sdk-*
+          path: linux-sdk
+          run-id: ${{ needs.packages.outputs.linux }}
+          github-token: ${{ github.token }}
+      - name: Cross-link both Linux architectures
+        run: |
+          for target in x86_64 arm64; do
+            python3 native/tests/CrossCompilationTests.py build \
+              --system linux --target "$target" --output "build/cross-macos/$target" \
+              --host-archive build/macos/native-cpu-standalone/kalandra-native-cpu-standalone-macos-arm64.tar.gz \
+              --target-archive "native-assets/kalandra-native-cpu-standalone-linux-$target.tar.gz" \
+              --linux-sdk "linux-sdk/linux-cross-sdk-$target" --linker "$KALANDRA_CROSS_LLD_ROOT/ld.lld"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-macos-arm64-to-linux
+          path: |
+            build/cross-macos/x86_64/products/*
+            build/cross-macos/arm64/products/*
+          if-no-files-found: error
+  execute-linux-from-macos:
+    needs: macos-to-linux
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64
+          - runner: ubuntu-24.04-arm
+            target: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-macos-arm64-to-linux
+          path: cross-products
+      - name: Execute macOS-built programs on native Linux
+        run: python3 native/tests/CrossCompilationTests.py execute --output cross-products/${{ matrix.target }}/products

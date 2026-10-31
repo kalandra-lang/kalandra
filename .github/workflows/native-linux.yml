@@ -18,7 +18,7 @@ on:
         "bun.lock",
       ]
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-linux.yml", ".github/scripts/**"]
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-linux.yml", ".github/scripts/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
   workflow_dispatch:
 permissions:
   contents: read

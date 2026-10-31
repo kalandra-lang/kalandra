@@ -16,9 +16,10 @@ from CrossTargetTests import SOURCES
 ROOT = Path(__file__).resolve().parents[2]
 TRIPLES = {
     'linux': {'x86_64': 'x86_64-linux-gnu', 'arm64': 'aarch64-linux-gnu'},
+    'macos': {'arm64': 'arm64-apple-macosx26.0.0'},
     'windows': {'x86_64': 'x86_64-pc-windows-msvc', 'arm64': 'aarch64-pc-windows-msvc'},
 }
-SYSTEM = {'Linux': 'linux', 'Windows': 'windows'}
+SYSTEM = {'Linux': 'linux', 'Windows': 'windows', 'Darwin': 'macos'}
 sys.path.insert(0, str(ROOT / 'native/packaging'))
 from WindowsPlatform import pe_machine, MACHINES
 
@@ -163,8 +164,13 @@ def build(a):
             libraries = [target_root / 'lib/kalandra/native/libkalandra-native-runtime.a']
         harness = (a.linux_sdk / sdk['foundationObjects'][mode]['file'] if sdk else
                    ROOT / 'native/tests/CallFoundationRuntimeTests.cpp')
-        run([clang, *flags, '-std=c++23', '-ffp-contract=off', '-Wno-override-module', mode,
-             harness, ir, *libraries, '-o', binary])
+        command = [clang, *flags, '-std=c++23', '-ffp-contract=off', '-Wno-override-module', mode,
+                   harness, ir, *libraries, '-o']
+        run([*command, binary])
+        repeat = a.output / ('foundation-repeat' + mode + suffix)
+        run([*command, repeat])
+        assert digest(binary) == digest(repeat), (mode, 'non-reproducible conformance harness')
+        repeat.unlink()
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(contains='passed')))
     if windows:
         # Run the authored PowerShell recipe, substituting only installation
@@ -178,6 +184,8 @@ def build(a):
         run(['pwsh', '-NoProfile', '-NonInteractive', '-Command', recipe], cwd=a.output)
         binary = products / 'documentation-O2.exe'
         binary.write_bytes((a.output / 'program-arm64.exe').read_bytes())
+        run(['pwsh', '-NoProfile', '-NonInteractive', '-Command', recipe], cwd=a.output)
+        assert digest(binary) == digest(a.output / 'program-arm64.exe'), 'Non-reproducible documentation recipe'
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(output='1144\n')))
     else:
         # Execute the documented compiler command with SDK paths substituted in
@@ -187,6 +195,8 @@ def build(a):
         run([compiler.resolve(), 'compute.k', '--toolchain', 'cross.json', '-O2', '-o', 'program-arm64'], cwd=a.output)
         binary = products / 'documentation-O2'
         binary.write_bytes((a.output / 'program-arm64').read_bytes())
+        run([compiler.resolve(), 'compute.k', '--toolchain', 'cross.json', '-O2', '-o', 'program-arm64'], cwd=a.output)
+        assert digest(binary) == digest(a.output / 'program-arm64'), 'Non-reproducible documentation recipe'
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(output='1144\n')))
     # Misconfigured targets must preserve every requested output.
     source = a.output / 'int64.k'
@@ -233,7 +243,7 @@ def build(a):
         linker=run([a.linker, '--version']).strip(), clang=run([clang, '--version']).strip(),
         toolchain=profile, linuxSDK=sdk, sdkVersions={k: os.environ[k] for k in ('VCToolsVersion', 'WindowsSDKVersion') if k in os.environ},
         records=records), indent=2) + '\n')
-    print(f'{host} -> {a.target}: {len(records)} reproducible target programs prepared; not executed on source host')
+    print(f'{host_system}/{host} -> {a.system}/{a.target}: {len(records)} reproducible target programs prepared; not executed on source host')
 
 
 def execute(a):
@@ -261,14 +271,14 @@ def execute(a):
                 assert math.isclose(float(r.stdout), expected, rel_tol=1e-13, abs_tol=1e-13)
             else:
                 assert r.stdout == case['output'], (record['file'], r.stdout, case['output'])
-    print(f"{report['sourceArchitecture']} -> {host}: {len(report['records'])} cross-built programs passed on native destination hardware")
+    print(f"{report['sourceSystem']}/{report['sourceArchitecture']} -> {report['destinationSystem']}/{host}: {len(report['records'])} cross-built programs passed on native destination hardware")
 
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('mode', choices=['build', 'execute'])
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--system', choices=TRIPLES)
+    p.add_argument('--system', choices=['linux', 'windows'])
     p.add_argument('--target', choices=['x86_64', 'arm64'])
     p.add_argument('--host-archive', type=Path)
     p.add_argument('--target-archive', type=Path)

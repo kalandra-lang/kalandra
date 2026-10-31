@@ -12,7 +12,7 @@ on:
         ".github/workflows/native-windows.yml",
       ]
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-windows.yml", ".github/scripts/**"]
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-windows.yml", ".github/scripts/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
   workflow_dispatch:
 defaults:
   run:
