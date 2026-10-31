@@ -109,6 +109,25 @@ def materialize_links(root, links):
         if source.is_dir(): shutil.copytree(source, root / name, dirs_exist_ok=True)
 
 
+def ubuntu_url(url, architecture):
+    parsed = urlsplit(url)
+    # Hosted x86-64 Ubuntu uses APT's mirror+file transport. Its package URI
+    # names a local mirror-list route, not a URL usable by another machine.
+    prefix = '/etc/apt/apt-mirrors.txt/pool/'
+    if parsed.scheme == 'mirror+file' and parsed.path.startswith(prefix):
+        relative = safe_name(parsed.path[len(prefix):])
+        origin = ('https://ports.ubuntu.com/ubuntu-ports/' if architecture == 'arm64'
+                  else 'https://archive.ubuntu.com/ubuntu/')
+        return origin + 'pool/' + relative
+    if parsed.hostname and parsed.hostname.endswith('.archive.ubuntu.com'):
+        parsed = parsed._replace(netloc='archive.ubuntu.com')
+    if (parsed.scheme not in ('http', 'https') or
+            parsed.hostname not in ('archive.ubuntu.com', 'security.ubuntu.com', 'ports.ubuntu.com') or
+            parsed.username or parsed.password or parsed.port or parsed.query or parsed.fragment):
+        raise ValueError('Unexpected Ubuntu package origin: ' + url)
+    return parsed._replace(scheme='https').geturl()
+
+
 def lock(a):
     if platform.system() != 'Linux' or os.environ.get('GITHUB_ACTIONS') != 'true':
         raise RuntimeError('SDK locking requires a disposable native Linux CI runner')
@@ -126,12 +145,7 @@ def lock(a):
         url, filename, size, checksum = fields
         if not re.fullmatch(r'SHA256:[a-f0-9]{64}', checksum):
             raise ValueError('APT did not supply SHA256: ' + repr(fields))
-        parsed = urlsplit(url)
-        if parsed.hostname and parsed.hostname.endswith('.archive.ubuntu.com'):
-            parsed = parsed._replace(netloc='archive.ubuntu.com')
-        if parsed.hostname not in ('archive.ubuntu.com', 'security.ubuntu.com', 'ports.ubuntu.com'):
-            raise ValueError('Unexpected Ubuntu package origin: ' + url)
-        url = parsed._replace(scheme='https').geturl()
+        url = ubuntu_url(url, architecture)
         packages.append(dict(package=name, version=version, architecture=architecture,
                              url=url, size=int(size), sha256=checksum.split(':')[1]))
     objects = {}

@@ -4,7 +4,7 @@ import tarfile
 import tempfile
 import unittest
 
-from linux_cross_sdk import deb_data, unpack, materialize_links, safe_name
+from linux_cross_sdk import deb_data, unpack, materialize_links, safe_name, ubuntu_url
 
 
 def deb(entries):
@@ -25,6 +25,16 @@ def deb(entries):
 
 
 class LinuxSDKTests(unittest.TestCase):
+    def test_hosted_apt_mirror_route_becomes_a_portable_upstream_url(self):
+        uri = 'mirror+file:/etc/apt/apt-mirrors.txt/pool/main/g/glibc/libc6_2.39-0ubuntu8.9_amd64.deb'
+        self.assertEqual(ubuntu_url(uri, 'amd64'),
+                         'https://archive.ubuntu.com/ubuntu/pool/main/g/glibc/libc6_2.39-0ubuntu8.9_amd64.deb')
+        self.assertEqual(ubuntu_url('http://azure.archive.ubuntu.com/ubuntu/pool/main/g/gcc.deb', 'amd64'),
+                         'https://archive.ubuntu.com/ubuntu/pool/main/g/gcc.deb')
+        for url in ('file:/etc/passwd', 'https://other.example/pool/a.deb',
+                    'mirror+file:/etc/apt/unexpected/pool/a.deb'):
+            with self.subTest(url=url), self.assertRaises(ValueError): ubuntu_url(url, 'amd64')
+
     def test_materializes_cross_package_links_and_usr_merge(self):
         with tempfile.TemporaryDirectory() as work:
             root, links = Path(work), {}
