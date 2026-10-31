@@ -124,10 +124,11 @@ def build(a):
              '--emit-llvm', ir, mode, '-o', a.output / ('foundation-main' + mode + suffix)], env=environment)
         binary = products / ('foundation' + mode + suffix)
         flags = ['--no-default-config', '--target=' + triple, '--sysroot=' + profile['sysroot'],
-                 '--ld-path=' + profile['linker']]
+                 '--ld-path=' + profile['linker'],
+                 '-resource-dir=' + str(target_root / 'lib/kalandra/toolchain/clang')]
         if windows:
             resources = target_root / 'lib/kalandra/toolchain/clang'
-            flags += ['-resource-dir=' + str(resources), '-fms-runtime-lib=static', '--rtlib=compiler-rt',
+            flags += ['-fms-runtime-lib=static', '--rtlib=compiler-rt',
                       '-nostdlib', '-Xlinker', '/defaultlib:libcmt', '-Xlinker', '/defaultlib:oldnames',
                       '-Xlinker', '/defaultlib:kernel32', '-Xlinker', '/Brepro']
             flags += ['-L' + directory for directory in profile['libraryDirectories']]
