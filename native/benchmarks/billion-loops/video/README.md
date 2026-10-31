@@ -1,6 +1,6 @@
 # Benchmark video
 
-12 seconds, 1080×1350, 60 fps, silent H.264 MP4. Ball positions use primary process medians from ../evidence/results.json with a common linear 10× slow-motion scale. No speed difference is exaggerated. The code panel is a static, reformatted version of ../benchmark.k; no algorithms are changed. Kalandra, C++ and Rust are effectively tied on this workload.
+8 seconds, 1080×1350, 60 fps, silent H.264 MP4. Ball positions use primary process medians from ../evidence/results.json at real time (1×): each outward leg lasts that language’s measured duration, followed immediately by a return at the same speed, repeating throughout the video. No speed difference is exaggerated. The code panel has no highlighted row and is a static, reformatted version of ../benchmark.k; no algorithms are changed. Kalandra, C++ and Rust are effectively tied on this workload.
 
 Requires Python 3 with Pillow and FFmpeg on PATH. Uses macOS Helvetica Neue/Menlo, or Linux DejaVu fonts.
 

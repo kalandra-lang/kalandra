@@ -1,7 +1,7 @@
 """Render the measured near-tie without exaggerating time differences.
 
 Requires Pillow, FFmpeg and macOS Helvetica Neue/Menlo (or DejaVu fallback).
-The code panel is static; ball position uses a common linear 10x time scale.
+The code panel is static; each one-way leg lasts the measured run duration.
 """
 import argparse,json,math,re,subprocess
 from pathlib import Path
@@ -12,8 +12,7 @@ ROOT=HERE.parents[3]
 OUT=ROOT/'build/billion-loops/video'
 DATA=HERE.parent/'evidence/results.json'
 if not DATA.exists(): DATA=ROOT/'build/billion-loops/results.json'
-W,H,FPS,SECONDS,SCALE=1080,1350,60,12,2
-START,SLOW=1.25,10
+W,H,FPS,SECONDS,SCALE=1080,1350,60,8,2
 BG='#09090b';FG='#f0eee9';MUTED='#96949b';ORANGE='#ff8057'
 LANES=[('kalandra','Kalandra','-O2',ORANGE),('cpp','C++','-O3','#92bdff'),('rust','Rust','-O3','#d7c3ad')]
 summary=json.loads(DATA.read_text())['summary']
@@ -43,7 +42,7 @@ def make_base():
  line(48,216,1032,216,'#38363b')
  text(50,231,'LANGUAGE / MEDIAN',14,MUTED,True)
  text(348,231,'START',14,MUTED,True)
- text(862,231,'10× SLOW MOTION',14,MUTED,True)
+ text(862,231,'1× REAL TIME',14,MUTED,True)
  for i,(key,name,flags,color) in enumerate(LANES):
   y=290+i*85
   if key=='kalandra':box((48,y-31,1032,y+39),'#17110f',radius=8)
@@ -52,7 +51,8 @@ def make_base():
   line(348,y+4,984,y+4,'#353339',2)
   for j in range(1,5):line(348+j*636/5,y-1,348+j*636/5,y+9,'#262429')
  line(984,266,984,482,'#c3bec7',1)
- text(48,515,'Same workload. Checked outputs.',20,MUTED)
+ text(48,511,'Effectively tied.',24,FG,bold=True)
+ text(304,515,'Sub-percent differences are within noise.',19,MUTED)
  box((48,566,1032,1235),'#131315','#343137',12)
  text(74,587,'benchmark.k',20,FG,True)
  text(723,590,'EXPERIMENTAL APIs',15,ORANGE,True)
@@ -62,7 +62,6 @@ def make_base():
  token=re.compile(r'\b[A-Za-z_][A-Za-z_0-9]*\b|\b[0-9]+\b|->|[^A-Za-z_0-9]')
  for i,code in enumerate(source):
   y=648+i*29
-  if 'values = generate' in code:box((59,y-3,1021,y+26),'#261a15',radius=3)
   text(72,y+1,str(i+1).rjust(2),16,'#67636c',True)
   x=120
   for match in token.finditer(code):
@@ -89,17 +88,18 @@ def ball(color):
  draw.ellipse((5*4,5*4,43*4,43*4),fill=color,outline='#eee8e0',width=2)
  return im.resize((size,size),Image.Resampling.LANCZOS)
 BALLS={key:ball(color) for key,_,_,color in LANES}
+def progress(elapsed, duration):
+ # A triangle wave preserves constant speed through each out-and-back leg.
+ phase=(elapsed/duration)%2
+ return phase if phase<=1 else 2-phase
+
 def frame(number):
  image=BASE.copy();d=ImageDraw.Draw(image)
- elapsed=max(0,(number/FPS-START)/SLOW)
+ elapsed=number/FPS
  for i,(key,_,_,color) in enumerate(LANES):
-  y=294+i*85;p=min(1,elapsed/summary[key]['medianSeconds']);x=348+p*636
+  y=294+i*85;p=progress(elapsed,summary[key]['medianSeconds']);x=348+p*636
   if p>0:d.line((348,y,x,y),fill=color,width=3)
   image.paste(BALLS[key],(round(x)-24,y-24),BALLS[key])
- if elapsed>=max(summary[key]['medianSeconds'] for key,_,_,_ in LANES):
-  d.rectangle((48,505,1032,548),fill=BG)
-  d.text((48,511),'Effectively tied.',font=font(24,bold=True),fill=FG)
-  d.text((304,515),'Sub-percent differences are within noise.',font=font(19),fill=MUTED)
  return image
 
 def main():
