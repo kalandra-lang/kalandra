@@ -8,6 +8,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ObjectFile.h"
+#include "llvm/Object/COFF.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/JSON.h"
@@ -48,6 +49,15 @@ struct CrossToolchain {
     return (package / "lib/kalandra/native" /
         (windows() ? name + ".lib" : "lib" + name + ".a")).string();
   }
+  bool matchesObject(const llvm::object::ObjectFile &object) const {
+    if (object.getArch() != llvm::Triple(target.triple).getArch() || object.getBytesInAddress() != 8)
+      return false;
+    if (windows()) {
+      const auto *coff = llvm::dyn_cast<llvm::object::COFFObjectFile>(&object);
+      return coff && coff->getMachine() == (llvm::Triple(target.triple).isAArch64() ? 0xaa64 : 0x8664);
+    }
+    return darwin() ? object.isMachO() : object.isELF();
+  }
   std::optional<std::string> verifyArchive(const std::filesystem::path &path) const {
     auto buffer = llvm::MemoryBuffer::getFile(path.string());
     if (!buffer) return "cannot read target runtime archive: " + path.string();
@@ -64,20 +74,40 @@ struct CrossToolchain {
     if ((*archive)->isThin()) return "target runtime must be a self-contained archive";
     llvm::Error error = llvm::Error::success();
     unsigned objects = 0;
-    const llvm::Triple triple(target.triple);
     for (auto child : (*archive)->children(error)) {
       auto contents = child.getMemoryBufferRef();
       if (!contents) return llvm::toString(contents.takeError());
       auto object = llvm::object::ObjectFile::createObjectFile(*contents);
       if (!object) return llvm::toString(object.takeError());
-      if ((*object)->getArch() != triple.getArch() ||
-          (windows() ? !(*object)->isCOFF() : darwin() ? !(*object)->isMachO() : !(*object)->isELF()))
+      if (!matchesObject(**object))
         return "target runtime object ABI mismatch: " + relative;
       ++objects;
     }
     if (error) return llvm::toString(std::move(error));
     if (!objects) return "target runtime archive contains no objects";
     return {};
+  }
+  std::optional<std::string> verifyOutput(const std::filesystem::path &path) const {
+    auto object = llvm::object::ObjectFile::createObjectFile(path.string());
+    if (!object) return llvm::toString(object.takeError());
+    auto *value = object->getBinary();
+    if (!matchesObject(*value))
+      return "linked executable does not match the destination ABI";
+    return {};
+  }
+  std::expected<std::filesystem::path, std::string> windowsBuiltins() const {
+    std::vector<std::filesystem::path> candidates;
+    for (const auto &[name, hash] : inventory) {
+      (void)hash;
+      if (name.starts_with("lib/kalandra/toolchain/clang/lib/") &&
+          name.find("clang_rt.builtins") != std::string::npos && name.ends_with(".lib")) {
+        const auto path = package / name;
+        if (!verifyArchive(path)) candidates.push_back(path);
+      }
+    }
+    if (candidates.size() != 1)
+      return std::unexpected("target package needs one checksum-verified Windows compiler-rt builtins archive");
+    return candidates.front();
   }
   std::vector<std::string> clangArguments() const {
     std::vector<std::string> args{"--no-default-config", "--target=" + target.triple,
@@ -89,7 +119,7 @@ struct CrossToolchain {
       // Never inherit the host's Visual Studio installation or LIB paths.
       args.insert(args.end(), {"-nostdlib", "-fms-runtime-lib=static", "--rtlib=compiler-rt",
           "-Xlinker", "/defaultlib:libcmt", "-Xlinker", "/defaultlib:oldnames",
-          "-Xlinker", "/defaultlib:kernel32"});
+          "-Xlinker", "/defaultlib:kernel32", "-Xlinker", "/Brepro"});
     } else {
       args.push_back("-pthread");
       if (darwin()) args.push_back("-mmacosx-version-min=26.0");
@@ -122,16 +152,16 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
   auto requested = object->getString("target");
   if (!requested || requested->contains('\0')) return std::unexpected("CPU toolchain requires a target triple");
   CrossToolchain result;
-  result.target.triple = requested->str();
+  result.target.triple = llvm::Triple::normalize(*requested);
   const llvm::Triple triple(result.target.triple);
-  if (triple.getArch() != llvm::Triple::x86_64 && !triple.isAArch64())
+  if (triple.getArchName() != "x86_64" && triple.getArchName() != "aarch64" && triple.getArchName() != "arm64")
     return std::unexpected("unsupported CPU toolchain architecture");
   const auto arch = triple.isAArch64() ? "arm64" : "x86_64";
   if (triple.isOSLinux() && triple.getEnvironment() == llvm::Triple::GNU)
     result.platform = std::string("linux-") + arch;
   else if (triple.isOSWindows() && triple.getEnvironment() == llvm::Triple::MSVC)
     result.platform = std::string("windows-") + arch;
-  else if (triple.isMacOSX() && triple.isAArch64() && triple.getOSVersion().getMajor() >= 26)
+  else if (triple.getOS() == llvm::Triple::MacOSX && triple.isAArch64() && triple.getOSVersion().getMajor() >= 26)
     result.platform = "macos-arm64";
   else return std::unexpected("unsupported CPU toolchain OS/ABI or macOS minimum");
   auto path = [&](llvm::StringRef key, bool file = false) -> std::expected<std::filesystem::path, std::string> {

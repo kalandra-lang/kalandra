@@ -89,7 +89,8 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; ++i) {
     const std::string_view option = argv[i];
     if (option == "--toolchain") {
-      if (!toolchainPath.empty() || i + 1 >= argc || std::string_view(argv[i + 1]).starts_with("--")) {
+      if (!toolchainPath.empty() || i + 1 >= argc || std::string_view(argv[i + 1]).empty() ||
+          std::string_view(argv[i + 1]).starts_with("--")) {
         std::cerr << "one complete --toolchain option is required\n";
         return 2;
       }
@@ -456,9 +457,9 @@ int main(int argc, char **argv) {
                                       : sanitize ? runtimePath(KALANDRA_BOOL_SANITIZED_ENTRY)
                                                  : runtimePath(KALANDRA_BOOL_ENTRY));
   if (cross && cross->windows()) {
-    const auto arch = llvm::Triple(cross->target.triple).isAArch64() ? "aarch64" : "x86_64";
-    archives.push_back((cross->resources / "lib/windows" /
-        (std::string("clang_rt.builtins-") + arch + ".lib")).string());
+    auto builtins = cross->windowsBuiltins();
+    if (!builtins) { std::cerr << "CPU toolchain: " << builtins.error() << '\n'; return 2; }
+    archives.push_back(builtins->string());
   }
   for (const auto &archive : archives) {
     std::error_code error;
@@ -564,6 +565,10 @@ int main(int argc, char **argv) {
     std::cerr << "native link failed: " << error << '\n';
     return 1;
   }
+  if (cross)
+    if (auto failure = cross->verifyOutput(std::string(linkedOutput))) {
+      std::cerr << "CPU toolchain: " << *failure << '\n'; return 1;
+    }
   const auto publishError =
       kalandra::detail::replaceFile(std::filesystem::path(std::string(linkedOutput)), output);
   if (publishError) {

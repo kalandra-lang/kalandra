@@ -3586,8 +3586,10 @@ std::expected<BackendOutput, std::string> lowerNative(const TypedModule &input,
                                                       bool deferCallFinalization, CpuTarget target) {
   if (target.triple.empty() && target.dataLayout.empty())
     target = {KALANDRA_NATIVE_CPU_TARGET_TRIPLE, nativeCpuDataLayout};
+  target.triple = llvm::Triple::normalize(target.triple);
   const llvm::Triple triple(target.triple);
-  if ((!triple.isAArch64() && triple.getArch() != llvm::Triple::x86_64) ||
+  if ((triple.getArchName() != "aarch64" && triple.getArchName() != "arm64" &&
+       triple.getArchName() != "x86_64") ||
       (!triple.isOSLinux() && !triple.isOSWindows() && !triple.isOSDarwin()) ||
       (triple.isOSDarwin() && !triple.isAArch64()) || target.dataLayout.empty())
     return std::unexpected("unsupported or incomplete CPU target ABI");

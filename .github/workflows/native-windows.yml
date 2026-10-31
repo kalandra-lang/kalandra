@@ -96,6 +96,8 @@ jobs:
           --output build/windows/recursive-scalars
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
         run: |
+          python native/tests/CrossToolchainTests.py --compiler build/windows/native/kalandra.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Cross-toolchain validation failed' }
           python native/tests/ArithmeticPolicyTests.py --compiler build/windows/native/kalandra.exe --output build/windows/arithmetic-policy
           if ($LASTEXITCODE -ne 0) { throw 'Arithmetic policy qualification failed' }
           python native/tests/FairBenchmarkTests.py

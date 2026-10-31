@@ -1345,6 +1345,8 @@ foreach(_tool IN ITEMS kalandra kalandra-installed kalandra-metal-installed
   endif()
 endforeach()
 if(BUILD_TESTING)
+  add_test(NAME native-cross-toolchain-validation COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/CrossToolchainTests.py" --compiler "$<TARGET_FILE:kalandra>")
   add_test(NAME native-cli-version COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/VersionTests.py"
     "${KALANDRA_VERSION}" "$<TARGET_FILE:kalandra>" "$<TARGET_FILE:kalandra-check>"
