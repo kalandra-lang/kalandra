@@ -11,7 +11,8 @@ await import("./build.mjs");
 await mkdir(path.dirname(output), { recursive: true });
 const command = Bun.spawn(
   [
-    path.join(root, "node_modules/.bin/vsce"),
+    process.execPath,
+    path.join(root, "node_modules/@vscode/vsce/vsce"),
     "package",
     "--no-dependencies",
     "--out",

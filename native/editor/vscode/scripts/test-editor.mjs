@@ -14,7 +14,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repo = path.resolve(root, "../../..");
 const server =
   process.env.KALANDRA_LSP ||
-  path.join(repo, "build/native/native/kalandra-lsp");
+  path.join(
+    repo,
+    "build/native/native/kalandra-lsp" +
+      (process.platform === "win32" ? ".exe" : ""),
+  );
 const executable = process.env.KALANDRA_VSCODE_EXECUTABLE;
 if (!executable || !path.isAbsolute(executable))
   throw new Error(
@@ -41,7 +45,7 @@ for (const folder of [
   await mkdir(folder, { recursive: true });
 const extract = Bun.spawn(
   [
-    "python3",
+    process.platform === "win32" ? "python" : "python3",
     "-c",
     `import sys,zipfile\nwith zipfile.ZipFile(sys.argv[1]) as z:\n names=z.namelist()\n assert 'extension/dist/extension.cjs' in names\n assert 'extension/dist/THIRD_PARTY_NOTICES.txt' in names\n assert not any('/node_modules/' in p or '/test/' in p or '/src/' in p or '/scripts/' in p for p in names)\n assert len(names) <= 12, names\n z.extractall(sys.argv[2])`,
     archive,
@@ -54,10 +58,17 @@ if ((await extract.exited) !== 0)
 const cli =
   process.env.KALANDRA_VSCODE_CLI ||
   path.resolve(path.dirname(executable), "../Resources/app/bin/code");
-await access(cli, constants.X_OK);
+const cliCommand =
+  process.platform === "win32"
+    ? [
+        executable,
+        path.join(path.dirname(executable), "resources/app/out/cli.js"),
+      ]
+    : [cli];
+if (process.platform !== "win32") await access(cli, constants.X_OK);
 const install = Bun.spawn(
   [
-    cli,
+    ...cliCommand,
     "--user-data-dir",
     profile,
     "--extensions-dir",
@@ -66,7 +77,14 @@ const install = Bun.spawn(
     archive,
     "--force",
   ],
-  { stdout: "inherit", stderr: "inherit" },
+  {
+    stdout: "inherit",
+    stderr: "inherit",
+    env:
+      process.platform === "win32"
+        ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+        : process.env,
+  },
 );
 if ((await install.exited) !== 0)
   throw new Error("Isolated VSIX installation failed");
@@ -143,6 +161,7 @@ await runTests({
     "--skip-release-notes",
     "--disable-workspace-trust",
     "--disable-updates",
+    "--disable-gpu",
   ],
   extensionTestsEnv: {
     KALANDRA_EDITOR_WORKSPACE: workspace,

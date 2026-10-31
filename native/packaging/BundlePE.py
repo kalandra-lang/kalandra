@@ -135,7 +135,7 @@ def bundle(prefix, llvm):
     path = prefix / "share/kalandra-native-tools/toolchain.json"
     info = json.loads(path.read_text())
     info.update({"standalone": True, "llvmRuntime": "bundled", "libraries": metadata,
-                 "platformRequirements": ["Windows 11 ARM64" if machine == MACHINES["windows-arm64"] else "Windows 11 x86-64", "Visual Studio C++ Build Tools and Windows SDK", "Git for Windows for package management"],
+                 "platformRequirements": ["Windows 11 ARM64" if machine == MACHINES["windows-arm64"] else "Windows 11 x86-64", "Visual Studio 2026 ARM64 C++ Build Tools and Windows SDK" if machine == MACHINES["windows-arm64"] else "Visual Studio C++ Build Tools and Windows SDK", "Git for Windows for package management"],
                  "unsupportedModes": ["ThreadSanitizer"] + (["ASan/UBSan"] if machine == MACHINES["windows-arm64"] else [])})
     path.write_text(json.dumps(info, indent=2) + "\n")
     print(f"PE closure audited: {len(visited)} objects, {len(metadata)} private DLL copies", flush=True)

@@ -19,7 +19,7 @@ The native toolchain version is **0.99.0**. Run `kalandra --version` to identify
 
 ## Install
 
-Download the toolchain and `kalandra-native.vsix` from [GitHub Releases](https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.0). Choose the standalone Metal DMG for macOS 26+ on Apple silicon, or the standalone CPU archive for Linux or Windows x86-64. Verify the accompanying SHA-256 checksum and keep the complete toolchain directory together. Linux ARM64 packages are added after v0.99.0 for Ubuntu 24.04+ and modern Raspberry Pi boards running 64-bit Raspberry Pi OS Trixie. Choose a release that includes the `linux-arm64` asset; the existing v0.99.0 release remains unchanged.
+Download the toolchain and `kalandra-native.vsix` from [GitHub Releases](https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.0). Choose the standalone Metal DMG for macOS 26+ on Apple silicon, or the standalone CPU archive for Linux or Windows x86-64. Verify the accompanying SHA-256 checksum and keep the complete toolchain directory together. Linux and Windows ARM64 packages are added after v0.99.0 for Ubuntu 24.04+, modern Raspberry Pi boards running 64-bit Raspberry Pi OS Trixie, and Windows 11 ARM64 with Visual Studio 2026 ARM64 C++ tools. Choose a release that includes the matching `linux-arm64` or `windows-arm64` asset; the existing v0.99.0 release remains unchanged.
 
 Follow the [installation guide](https://kalandra.dev/docs/installation) for platform prerequisites and PATH setup. The [editor guide](https://kalandra.dev/docs/tooling) covers VS Code's **Install from VSIX** command and other LSP editors. Native tools and the installed editor client require no JavaScript runtime.
 

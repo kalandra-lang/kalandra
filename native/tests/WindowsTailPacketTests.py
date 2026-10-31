@@ -23,20 +23,24 @@ text = ir.read_text()
 assert 'musttail call tailcc' in text and 'noipa noinline' in text
 assert 'define i64 @windows_tail_entry(i64' in text
 records = []
-for name, flags in [('debug', ['-O0']), ('optimized', ['-O2']),
-                    ('sanitized', ['-O1', '-fsanitize=address,undefined',
-                                   '-fno-sanitize-recover=all'])]:
-    binary = a.output / (name + '.obj')
-    run([a.clang, '-target', 'x86_64-pc-windows-msvc', '-Wno-override-module',
-         '-ffp-contract=off', *flags, '-c', ir, '-o', binary])
-    # COFF machine field: AMD64. Objects are inspected, never run on another OS.
-    data = binary.read_bytes()
-    assert data[:2] == b'\x64\x86', 'not an AMD64 COFF object'
-    records.append(dict(variant=name, sha256=hashlib.sha256(data).hexdigest(), bytes=len(data)))
+for architecture, target, machine in [('x86_64', 'x86_64-pc-windows-msvc', b'\x64\x86'),
+                                      ('arm64', 'aarch64-pc-windows-msvc', b'\x64\xaa')]:
+    modes = [('debug', ['-O0']), ('optimized', ['-O2'])]
+    if architecture == 'x86_64':
+        modes.append(('sanitized', ['-O1', '-fsanitize=address,undefined', '-fno-sanitize-recover=all']))
+    for name, flags in modes:
+        binary = a.output / (architecture + '-' + name + '.obj')
+        run([a.clang, '-target', target, '-Wno-override-module',
+             '-ffp-contract=off', *flags, '-c', ir, '-o', binary])
+        # COFF machine identity: inspected only; hosted suites execute natively.
+        data = binary.read_bytes()
+        assert data[:2] == machine, 'COFF architecture mismatch'
+        records.append(dict(architecture=architecture, variant=name,
+                            sha256=hashlib.sha256(data).hexdigest(), bytes=len(data)))
 (a.output / 'qualification.json').write_text(json.dumps(dict(
     scope='Code-generation qualification only. Mixed scalar, mutual, indirect and wider '
           'tail packets with Win64 unwind tables; public C entry retains its signature. '
           'Hosted Windows source suites separately verify execution and unwinding.',
     driver_sha256=hashlib.sha256(a.driver.read_bytes()).hexdigest(),
     ir_sha256=hashlib.sha256(ir.read_bytes()).hexdigest(), records=records, commands=commands), indent=2) + '\n')
-print('Win64 mutual/indirect/wide/mixed-scalar tail packets compiled in all three modes')
+print('Windows x86-64/ARM64 tail packets compiled; ARM64 sanitizer runtimes are unavailable')

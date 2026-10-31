@@ -209,3 +209,27 @@ jobs:
           path: downloaded
       - name: Qualify downloaded compiler without installing LLVM
         run: python native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-windows-${{ matrix.arch }}.tar.gz
+  editor-arm64:
+    needs: [cpu, downloaded-package]
+    runs-on: windows-11-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows-arm64-assets
+          path: downloaded
+      - name: Qualify the installed VSIX in native ARM64 VS Code
+        run: python .github/scripts/qualify_windows_arm64_editor.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-windows-arm64-editor-qualification
+          path: build/native/editor/**/result.json
+          if-no-files-found: warn

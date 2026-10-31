@@ -14,6 +14,7 @@ from WindowsPlatform import MACHINES, pe_machine, has_sanitizers
 from BundlePE import imports, audit
 from OrdinaryTestEnvironment import qualified_variants
 from provision_native_platform import archive_key, windows_triplet
+import qualify_windows_arm64_editor as editor
 
 
 def fixture(machine):
@@ -63,6 +64,18 @@ class WindowsArm64Tests(unittest.TestCase):
             (root / 'dependency.dll').write_bytes(fixture(0x8664))
             with self.assertRaisesRegex(ValueError, 'Wrong PE architecture'):
                 audit(root)
+
+    def test_editor_download_requires_disposable_arm64_windows(self):
+        for actions, system, machine in (("false", "Windows", "ARM64"),
+                                         ("true", "Darwin", "arm64"),
+                                         ("true", "Windows", "AMD64")):
+            with patch.dict(editor.os.environ, GITHUB_ACTIONS=actions), \
+                    patch.object(editor.platform, 'system', return_value=system), \
+                    patch.object(editor.platform, 'machine', return_value=machine), \
+                    patch.object(editor.urllib.request, 'urlopen') as download:
+                with self.assertRaisesRegex(RuntimeError, 'disposable native Windows ARM64'):
+                    editor.main()
+                download.assert_not_called()
 
     def test_only_arm64_excludes_missing_sanitizer_modes(self):
         variants = [('debug',), ('optimized',), ('sanitized',), ('thread-sanitized',)]
