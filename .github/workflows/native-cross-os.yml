@@ -1,7 +1,7 @@
 name: Native cross-OS qualification
 on:
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-*.yml", ".github/scripts/**", ".github/tools/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -306,6 +306,7 @@ jobs:
           path: build/cross macos/products/*
           if-no-files-found: error
   execute-macos:
+    if: always() && !cancelled()
     needs: to-macos
     strategy:
       fail-fast: false
@@ -347,7 +348,7 @@ jobs:
             target: arm64
             msvc: arm64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 75
+    timeout-minutes: 100
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -495,6 +496,7 @@ jobs:
           PY
 
   execute-windows:
+    if: always() && !cancelled()
     needs: to-windows
     strategy:
       fail-fast: false

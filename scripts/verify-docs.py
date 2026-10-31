@@ -241,6 +241,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
                 schemas = {
                     'aarch64-unknown-linux-gnu': {'format', 'target', 'sysroot', 'gccDirectory', 'runtimePackage', 'linker'},
                     'arm64-apple-macosx26.0.0': {'format', 'target', 'runtimePackage', 'linker'},
+                    'x86_64-pc-windows-msvc': {'format', 'target', 'sysroot', 'runtimePackage', 'linker', 'libraryDirectories'},
                 }
                 assert profile['target'] in schemas and set(profile) == schemas[profile['target']]
                 reason = 'Toolchain profile template; native cross-platform qualification supplies the actual SDK/package paths'

@@ -6,7 +6,7 @@ h2 { "Prepare the two toolchains" }
 
 The compiler and linker must run on your build machine. Download the standalone Kalandra package for that machine. Also extract the standalone package for the destination, from the same Kalandra and LLVM versions. Verify both supplied SHA-256 checksums. The destination package supplies runtime archives and compiler resources; its compiler executable is not invoked.
 
-Provide the destination's system development libraries and SDK, together with a linker that can produce its executable format. The examples below use LLVM 23.1.3 linkers. An installed native Kalandra package supplies its private Clang; configure the linker path separately.
+For Linux and Windows, provide the destination's system development libraries and SDK. The macOS package includes its own link-only import declarations. Provide a host-native linker that can produce the destination's executable format. The examples below use LLVM 23.1.3 linkers. An installed native Kalandra package supplies its private Clang; configure the linker path separately.
 
 A profile is an explicitly selected, trusted local build configuration. Its linker path names a program that will run on the build machine. Profiles are selected with --toolchain and are not loaded from imported packages.
 
@@ -96,6 +96,28 @@ Use the same Linux profile fields with an extracted GNU development sysroot for 
 The linker runs on the build machine and produces Linux ELF files. Use ld.lld.exe on Windows or ld.lld on macOS, built for your build machine. The examples use LLVM 23.1.3. The pinned macOS LLVM distribution may require a separate LLD installation or build. The destination Kalandra package supplies the language runtime archives and compiler resources.
 
 Choose a distinct output name for each destination, then copy the executable to that destination to run it. A Linux output built on Windows does not require an .exe suffix.
+
+h2 { "Build Windows programs from Linux or macOS" }
+
+Use a host-native LLVM 23.1.3 lld-link and the Windows destination package. Supply a legally obtained Windows SDK and MSVC CRT library set for that architecture. Kalandra does not bundle Microsoft's SDK. You need the link libraries, including startup code and the static C/C++ runtime; application compilation does not require Windows headers on the build machine.
+
+For an extracted x86-64 SDK, adapt this profile to its actual library layout:
+
+codeblock { language = json, """{
+  "format": 1,
+  "target": "x86_64-pc-windows-msvc",
+  "sysroot": "/opt/windows-sdk",
+  "runtimePackage": "/opt/kalandra/windows-x86_64",
+  "linker": "/opt/llvm-23.1.3/bin/lld-link",
+  "libraryDirectories": [
+    "/opt/windows-sdk/crt/lib/x64",
+    "/opt/windows-sdk/sdk/lib/ucrt/x64",
+    "/opt/windows-sdk/sdk/lib/um/x64"
+  ]
+}
+""" }
+
+For ARM64, select aarch64-pc-windows-msvc, the Windows ARM64 Kalandra package and ARM64 SDK/CRT directories. Run the compiler command above with -o program.exe and copy the output to the Windows destination. Library paths are explicit; ambient SDK environment variables do not replace this profile.
 
 h2 { "Profile fields" }
 

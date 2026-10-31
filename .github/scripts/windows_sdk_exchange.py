@@ -26,7 +26,7 @@ def api(path):
     return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
 
 
-def wait_download(name, destination, seconds=2400):
+def wait_download(name, destination, seconds=4500):
     repo, run = os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_RUN_ID']
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:

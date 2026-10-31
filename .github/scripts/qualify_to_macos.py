@@ -21,7 +21,7 @@ linker = sdk / 'bin' / ('ld64.lld' + suffix)
 if not linker.is_file():
     # Some official SDKs omit this driver alias. Keep it beside the original
     # binary so its DLL/RPATH dependency resolution remains unchanged.
-    shutil.copyfile(sdk / 'bin' / ('lld' + suffix), linker)
+    shutil.copy2(sdk / 'bin' / ('lld' + suffix), linker)
 lock = json.loads((ROOT / 'native/toolchain-proof/toolchain.json').read_text())
 reported = subprocess.check_output([str(linker), '--version'], text=True)
 if lock['llvmVersion'] not in reported: raise RuntimeError('Mach-O linker version mismatch')

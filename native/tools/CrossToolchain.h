@@ -127,7 +127,11 @@ struct CrossToolchain {
           "-Xlinker", "/defaultlib:kernel32", "-Xlinker", "/Brepro"});
     } else {
       args.push_back("-pthread");
-      if (darwin()) args.push_back("-mmacosx-version-min=26.0");
+      if (darwin()) {
+        // --ld-path chooses a binary but does not tell Clang its flavor.
+        // Non-Darwin hosts otherwise send legacy Apple ld flags to LLD.
+        args.insert(args.end(), {"-fuse-ld=lld", "-mmacosx-version-min=26.0"});
+      }
       else if (llvm::Triple(target.triple).isAArch64()) args.push_back("-Wl,-z,max-page-size=16384");
     }
     return args;

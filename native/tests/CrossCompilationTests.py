@@ -95,6 +95,9 @@ def build(a):
                    linker=str(a.linker.absolute()))
     sdk = None
     if a.windows_sdk:
+        windows_template, = [json.loads(v) for v in templates
+                            if json.loads(v)['target'] == 'x86_64-pc-windows-msvc']
+        profile = dict(windows_template, **profile)
         assert windows
         sdk = json.loads((a.windows_sdk / 'sdk.json').read_text())
         assert sdk['platform'] == 'windows-' + a.target
@@ -219,7 +222,7 @@ def build(a):
         else:
             flags = [v for v in flags if not v.startswith('--sysroot=')]
             flags += ['--sysroot=' + (a.macos_imports / 'interfaces').resolve().as_posix(),
-                      '-mmacosx-version-min=26.0', '-pthread']
+                      '-fuse-ld=lld', '-mmacosx-version-min=26.0', '-pthread']
             libraries = [target_root / 'lib/kalandra/native/libkalandra-native-runtime.a']
         harness = ((a.macos_imports or a.linux_sdk or a.windows_sdk) / sdk['foundationObjects'][mode]['file'] if sdk else
                    ROOT / 'native/tests/CallFoundationRuntimeTests.cpp')
@@ -297,6 +300,19 @@ def build(a):
     finally:
         library.write_bytes(original)
         inventory.write_bytes(original_inventory)
+    if a.system == 'macos':
+        # The SDK-free default is checked package data, not a trusted directory
+        # merely because it was installed next to the compiler.
+        interface = target_root / 'share/kalandra-native-tools/macos-link-imports/interfaces/usr/lib/libSystem.tbd'
+        original_interface = interface.read_bytes()
+        try:
+            interface.write_bytes(original_interface + b'\n# corrupt interface\n')
+            r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+                               '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True)
+            assert r.returncode == 2 and 'checksum mismatch' in r.stderr, (r.returncode, r.stderr)
+            assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
+        finally:
+            interface.write_bytes(original_interface)
     (products / 'qualification.json').write_text(json.dumps(dict(
         sourceSystem=host_system, destinationSystem=a.system, sourceArchitecture=host, destinationArchitecture=a.target, compilerSHA256=digest(compiler),
         hostArchiveSHA256=digest(a.host_archive), targetArchiveSHA256=digest(a.target_archive),
