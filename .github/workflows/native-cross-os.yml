@@ -178,9 +178,25 @@ jobs:
             -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 \
             -Dtomlplusplus_DIR="$(brew --prefix tomlplusplus)/lib/cmake/tomlplusplus" \
             -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
-          cmake --build build/macos --target native-cpu-standalone-package kalandra-cross-target-tests -j2
+          cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-cross-target-tests -j2
           ctest --test-dir build/macos --output-on-failure \
             -R '^native-(cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
+      - name: Validate SDK-free macOS system import interfaces
+        run: >-
+          python3 .github/scripts/macos_link_imports.py
+          --package build/macos/native-cpu-standalone/package-stage/kalandra-native-cpu-standalone
+          --clang "$KALANDRA_LLVM_ROOT/bin/clang++" --nm "$KALANDRA_LLVM_ROOT/bin/llvm-nm"
+          --output macos-link-imports
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-native-macos-assets
+          path: build/macos/native-cpu-standalone/*.tar.gz*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-link-imports
+          path: macos-link-imports/*
+          if-no-files-found: error
       - uses: actions/download-artifact@v4
         with:
           pattern: native-linux*assets
@@ -233,3 +249,88 @@ jobs:
           path: cross-products
       - name: Execute macOS-built programs on native Linux
         run: python3 native/tests/CrossCompilationTests.py execute --output cross-products/${{ matrix.target }}/products
+
+  to-macos:
+    needs: [packages, macos-to-linux]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            system: linux
+            host: x86_64
+          - runner: ubuntu-24.04-arm
+            system: linux
+            host: arm64
+          - runner: windows-2025
+            system: windows
+            host: x86_64
+          - runner: windows-11-arm
+            system: windows
+            host: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - run: python .github/scripts/provision_native_platform.py
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-${{ matrix.system }}*assets
+          path: native-assets
+          merge-multiple: true
+          run-id: ${{ needs.packages.outputs[matrix.system] }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-native-macos-assets
+          path: native-assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-link-imports
+          path: macos-link-imports
+      - name: Cross-link Mach-O programs without an Apple SDK on this host
+        run: >-
+          python .github/scripts/qualify_to_macos.py
+          --system ${{ matrix.system }} --host ${{ matrix.host }}
+          --assets native-assets --imports macos-link-imports --output "build/cross macos"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-${{ matrix.system }}-${{ matrix.host }}-to-macos
+          path: build/cross macos/products/*
+          if-no-files-found: error
+  execute-macos:
+    needs: to-macos
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [linux, windows]
+        host: [x86_64, arm64]
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-${{ matrix.system }}-${{ matrix.host }}-to-macos
+          path: cross-products
+      - name: Verify signatures and execute on macOS 26
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, subprocess
+          root = Path('cross-products')
+          report = json.loads((root / 'qualification.json').read_text())
+          for record in report['records']:
+              subprocess.run(['codesign', '--verify', '--strict', str(root / record['file'])], check=True)
+          PY
+          python3 native/tests/CrossCompilationTests.py execute --output cross-products

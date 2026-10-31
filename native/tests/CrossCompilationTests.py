@@ -29,7 +29,8 @@ def digest(path):
 
 
 def run(command, **kwargs):
-    r = subprocess.run(list(map(str, command)), capture_output=True, text=True, timeout=240, **kwargs)
+    argv = [v.as_posix() if isinstance(v, Path) else str(v) for v in command]
+    r = subprocess.run(argv, capture_output=True, text=True, timeout=240, **kwargs)
     assert r.returncode == 0, (command, r.returncode, r.stdout[-1000:], r.stderr[-4000:])
     return r.stdout
 
@@ -42,6 +43,31 @@ def extract(archive, destination):
         package.extractall(destination, filter='data')
     prefix, = destination.iterdir()
     return prefix
+
+
+def program_cases():
+    cases = {name: dict(source=text, output=expected) for name, text, expected in
+             [(name, text, {'calls': '1144\n', 'captures': '3000\n', 'tasks': '[2, 4, 6]\n',
+                            'records': '7\n', 'floating': None}[name]) for name, text in SOURCES.items()]}
+    numeric_values = {'int8': '-42', 'uint8': '255', 'int16': '-30000', 'uint16': '65535',
+                      'int32': '-2000000000', 'uint32': '4294967295',
+                      'int64': '-9223372036854775807', 'uint64': '18446744073709551615',
+                      'float32': '-1.5', 'float64': '-1.5'}
+    for numeric, value in numeric_values.items():
+        cases[numeric] = dict(source=f'fn main()->{numeric}:\n  {value}\n', output=value+'\n')
+        cases['tensor-' + numeric] = dict(source=(
+            f'fn main()->{numeric}:\n'
+            f'  values: Tensor[{numeric}, 2, 2] = tensor([[1, 2], [3, 4]])\n'
+            '  reduceSum(transpose(matmul(values, values)))\n'), output='54\n')
+    cases['bool'] = dict(source='fn main()->Bool:\n  true\n', output='true\n')
+    for name, fixture, expected in (
+        ('recursive-array', 'recursive-callables/array-result.k', '42\n'),
+        ('owned-error', 'recursive-callables/owned-error.k', '42\n'),
+        ('resumable', 'resumable-callables/recursive.k', '42\n')):
+        cases[name] = dict(source=(ROOT / 'native/tests/fixtures' / fixture).read_text(), output=expected)
+    cases['fault'] = dict(source='fn crash(n:int)->int:\n  1/(n-n)\nfn main()->int:\n  crash(0)\n',
+                         status=86, stderr='ArithmeticFault')
+    return cases
 
 
 def build(a):
@@ -68,7 +94,21 @@ def build(a):
     profile = dict(format=1, target=triple, runtimePackage=str(target_root.resolve()),
                    linker=str(a.linker.absolute()))
     sdk = None
-    if a.linux_sdk:
+    if a.macos_imports:
+        assert a.system == 'macos' and a.target == 'arm64'
+        sdk = json.loads((a.macos_imports / 'imports.json').read_text())
+        assert sdk['platform'] == 'macos-arm64' and sdk['minimumMacOS'] == '26.0'
+        assert sdk['validatedOnMacOS'].split('.')[0] == '26', 'Requires macOS 26 baseline validation'
+        assert sdk['checkoutCommit'] == run(['git', 'rev-parse', 'HEAD']).strip()
+        for line in (a.macos_imports / 'SHA256SUMS').read_text().splitlines():
+            checksum, name = line.split('  ', 1)
+            path = (a.macos_imports / name).resolve()
+            assert path.is_relative_to(a.macos_imports.resolve()) and digest(path) == checksum
+        for name, checksum in sdk['runtimeArchives'].items():
+            path = (target_root / name).resolve()
+            assert path.is_relative_to(target_root.resolve()) and digest(path) == checksum
+        profile.update(sysroot=str((a.macos_imports / 'interfaces').resolve()))
+    elif a.linux_sdk:
         assert a.system == 'linux'
         sys.path.insert(0, str(ROOT / '.github/scripts'))
         from linux_cross_sdk import fetch
@@ -85,6 +125,7 @@ def build(a):
         profile.update(sysroot=os.environ['WindowsSdkDir'],
                        libraryDirectories=[v for v in os.environ['LIB'].split(';') if v])
     else:
+        assert a.system == 'linux', 'macOS qualification requires its validated import interfaces'
         # Ubuntu cross-development packages form an architecture-aware / root;
         # /usr/<triple> alone is incomplete and libc scripts use absolute paths.
         profile.update(sysroot='/', gccDirectory='/usr/lib/gcc-cross/' + triple + '/13')
@@ -96,28 +137,10 @@ def build(a):
                        LIBRARY_PATH='/not-a-target-library-directory')
     products = a.output / 'products'
     products.mkdir()
-    cases = {name: dict(source=text, output=expected) for name, text, expected in
-             [(name, text, {'calls': '1144\n', 'captures': '3000\n', 'tasks': '[2, 4, 6]\n',
-                            'records': '7\n', 'floating': None}[name]) for name, text in SOURCES.items()]}
-    numeric_values = {'int8': '-42', 'uint8': '255', 'int16': '-30000', 'uint16': '65535',
-                      'int32': '-2000000000', 'uint32': '4294967295',
-                      'int64': '-9223372036854775807', 'uint64': '18446744073709551615',
-                      'float32': '-1.5', 'float64': '-1.5'}
-    for numeric, value in numeric_values.items():
-        cases[numeric] = dict(source=f'fn main()->{numeric}:\n  {value}\n', output=value+'\n')
-        cases['tensor-' + numeric] = dict(source=(
-            f'fn main()->{numeric}:\n'
-            f'  values: Tensor[{numeric}, 2, 2] = tensor([[1, 2], [3, 4]])\n'
-            '  reduceSum(transpose(matmul(values, values)))\n'), output='54\n')
-    cases['bool'] = dict(source='fn main()->Bool:\n  true\n', output='true\n')
-    for name, fixture, expected in (
-        ('recursive-array', 'recursive-callables/array-result.k', '42\n'),
-        ('owned-error', 'recursive-callables/owned-error.k', '42\n'),
-        ('resumable', 'resumable-callables/recursive.k', '42\n')):
-        cases[name] = dict(source=(ROOT / 'native/tests/fixtures' / fixture).read_text(), output=expected)
-    cases['fault'] = dict(source='fn crash(n:int)->int:\n  1/(n-n)\nfn main()->int:\n  crash(0)\n',
-                         status=86, stderr='ArithmeticFault')
+    cases = program_cases()
     records = []
+    repeats = a.output / 'independent repeat'
+    repeats.mkdir()
     for name, case in cases.items():
         source = a.output / (name + '.k')
         source.write_text(case['source'])
@@ -125,12 +148,17 @@ def build(a):
             binary = products / (name + mode + suffix)
             run([compiler, source, '--toolchain', profile_file, mode, '-o', binary], env=environment)
             # A second independent invocation must reproduce the same bytes.
-            repeat = a.output / (name + mode + '-repeat' + suffix)
+            repeat = repeats / binary.name
             run([compiler, source, '--toolchain', profile_file, mode, '-o', repeat], env=environment)
             assert digest(binary) == digest(repeat), (name, mode, 'non-reproducible')
             repeat.unlink()
             if windows:
                 assert pe_machine(binary) == MACHINES['windows-' + a.target]
+            elif a.system == 'macos':
+                data = binary.read_bytes()
+                assert data[:4] == b'\xcf\xfa\xed\xfe'
+                assert int.from_bytes(data[4:8], 'little') == 0x100000c
+                assert int.from_bytes(data[12:16], 'little') == 2
             else:
                 data = binary.read_bytes()
                 assert data[:6] == b'\x7fELF\x02\x01'
@@ -163,15 +191,18 @@ def build(a):
                     matches.append(library)
             assert len(matches) == 1, matches
             libraries = [target_root / 'lib/kalandra/native/kalandra-native-runtime.lib', matches[0]]
-        else:
+        elif a.system == 'linux':
             flags += ['--gcc-install-dir=' + profile['gccDirectory'], '-pthread']
             libraries = [target_root / 'lib/kalandra/native/libkalandra-native-runtime.a']
-        harness = (a.linux_sdk / sdk['foundationObjects'][mode]['file'] if sdk else
+        else:
+            flags += ['-mmacosx-version-min=26.0', '-pthread']
+            libraries = [target_root / 'lib/kalandra/native/libkalandra-native-runtime.a']
+        harness = ((a.macos_imports or a.linux_sdk) / sdk['foundationObjects'][mode]['file'] if sdk else
                    ROOT / 'native/tests/CallFoundationRuntimeTests.cpp')
         command = [clang, *flags, '-std=c++23', '-ffp-contract=off', '-Wno-override-module', mode,
                    harness, ir, *libraries, '-o']
         run([*command, binary])
-        repeat = a.output / ('foundation-repeat' + mode + suffix)
+        repeat = repeats / binary.name
         run([*command, repeat])
         assert digest(binary) == digest(repeat), (mode, 'non-reproducible conformance harness')
         repeat.unlink()
@@ -245,7 +276,7 @@ def build(a):
         sourceSystem=host_system, destinationSystem=a.system, sourceArchitecture=host, destinationArchitecture=a.target, compilerSHA256=digest(compiler),
         hostArchiveSHA256=digest(a.host_archive), targetArchiveSHA256=digest(a.target_archive),
         linker=run([a.linker, '--version']).strip(), clang=run([clang, '--version']).strip(),
-        toolchain=profile, linuxSDK=sdk, sdkVersions={k: os.environ[k] for k in ('VCToolsVersion', 'WindowsSDKVersion') if k in os.environ},
+        toolchain=profile, targetInterfaces=sdk, sdkVersions={k: os.environ[k] for k in ('VCToolsVersion', 'WindowsSDKVersion') if k in os.environ},
         records=records), indent=2) + '\n')
     print(f'{host_system}/{host} -> {a.system}/{a.target}: {len(records)} reproducible target programs prepared; not executed on source host')
 
@@ -282,11 +313,12 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('mode', choices=['build', 'execute'])
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--system', choices=['linux', 'windows'])
+    p.add_argument('--system', choices=TRIPLES)
     p.add_argument('--target', choices=['x86_64', 'arm64'])
     p.add_argument('--host-archive', type=Path)
     p.add_argument('--target-archive', type=Path)
     p.add_argument('--linker', type=Path)
     p.add_argument('--linux-sdk', type=Path)
+    p.add_argument('--macos-imports', type=Path)
     a = p.parse_args()
     build(a) if a.mode == 'build' else execute(a)

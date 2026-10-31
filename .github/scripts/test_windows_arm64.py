@@ -106,6 +106,28 @@ class WindowsArm64Tests(unittest.TestCase):
                 self.assertEqual(rename.call_count, 6)
             self.assertEqual(target.read_bytes(), b'original')
 
+    def test_editor_cleanup_retries_sharing_errors_but_rejects_permanent_leaks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'editor'
+            path.mkdir()
+            original = editor.shutil.rmtree
+            error = PermissionError('editor still exiting')
+            error.winerror = 32
+            calls = []
+            def locked_once(target):
+                calls.append(target)
+                if len(calls) == 1: raise error
+                return original(target)
+            with patch.object(editor.shutil, 'rmtree', side_effect=locked_once), patch.object(editor.time, 'sleep'):
+                editor.remove_editor_workspace(path)
+            self.assertFalse(path.exists())
+            self.assertEqual(len(calls), 2)
+            path.mkdir()
+            with patch.object(editor.shutil, 'rmtree', side_effect=error) as remove, patch.object(editor.time, 'sleep'):
+                with self.assertRaises(PermissionError): editor.remove_editor_workspace(path)
+                self.assertEqual(remove.call_count, 8)
+            self.assertTrue(path.exists())
+
     def test_editor_retry_keeps_original_digest_and_never_publishes_bad_bytes(self):
         payload = b"verified editor"
         lock = {"url": "https://example.invalid/editor.zip", "sha256": hashlib.sha256(payload).hexdigest()}

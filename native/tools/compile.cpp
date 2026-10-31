@@ -24,6 +24,13 @@
 #include <span>
 
 namespace {
+struct LinkDirectory {
+  std::filesystem::path path;
+  ~LinkDirectory() {
+    std::error_code ignored;
+    std::filesystem::remove_all(path, ignored);
+  }
+};
 bool write(const std::filesystem::path &path, const std::string &contents) {
   std::ofstream output(path, std::ios::binary);
   output << contents;
@@ -517,17 +524,21 @@ int main(int argc, char **argv) {
       return 1;
     }
   }
-  llvm::SmallString<256> linkedOutput;
-  if (auto error = llvm::sys::fs::createUniqueFile(output.string() + ".tmp-%%%%%%", descriptor,
-                                                   linkedOutput)) {
+  if (output.filename().empty() || output.filename() == "." || output.filename() == "..") {
+    std::cerr << "output must name an executable file\n";
+    return 1;
+  }
+  // Mach-O linkers use the output basename as the ad-hoc signing identity.
+  // Keep that name stable while staging atomically on the destination volume.
+  llvm::SmallString<256> linkedDirectory;
+  if (auto error = llvm::sys::fs::createUniqueDirectory(
+          (output.parent_path() / ".kalandra-link").string(), linkedDirectory)) {
     std::cerr << "cannot create output: " << error.message() << '\n';
     return 1;
   }
-  if (auto error = llvm::sys::Process::SafelyCloseFileDescriptor(descriptor)) {
-    std::cerr << "cannot close temporary output: " << error.message() << '\n';
-    return 1;
-  }
-  llvm::FileRemover removeOutput(linkedOutput);
+  LinkDirectory staged{std::string(linkedDirectory)};
+  // LLD's Mach-O signing code recognizes '/' on every build host.
+  const auto linkedOutput = (staged.path / output.filename()).generic_string();
   std::vector<std::string> command{clang, optimization, "-ffp-contract=off", "-Wno-override-module",
                                    std::string(temporary)};
   if (clangResources && !cross)
