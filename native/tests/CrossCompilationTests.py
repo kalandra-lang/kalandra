@@ -199,8 +199,11 @@ def build(a):
                  '--ld-path=' + profile['linker'],
                  '-resource-dir=' + str(target_root / 'lib/kalandra/toolchain/clang')]
         if windows:
+            flags = [v for v in flags if not v.startswith('--ld-path=')]
+            flags += ['-B' + a.linker.absolute().parent.as_posix(),
+                      '-fuse-ld=./' + a.linker.name]
             resources = target_root / 'lib/kalandra/toolchain/clang'
-            flags += ['-fms-runtime-lib=static', '--rtlib=compiler-rt',
+            flags += ['-fms-runtime-lib=static',
                       '-nostdlib', '-Xlinker', '/defaultlib:libcmt', '-Xlinker', '/defaultlib:oldnames',
                       '-Xlinker', '/defaultlib:kernel32', '-Xlinker', '/Brepro']
             flags += ['-L' + directory for directory in profile['libraryDirectories']]
@@ -229,9 +232,10 @@ def build(a):
                    ROOT / 'native/tests/CallFoundationRuntimeTests.cpp')
         command = [clang, *flags, '-std=c++23', '-ffp-contract=off', '-Wno-override-module', mode,
                    harness, ir, *libraries, '-o']
-        run([*command, binary])
+        harness_environment = dict(os.environ, LIB='')
+        run([*command, binary], env=harness_environment)
         repeat = repeats / binary.name
-        run([*command, repeat])
+        run([*command, repeat], env=harness_environment)
         assert digest(binary) == digest(repeat), (mode, 'non-reproducible conformance harness')
         repeat.unlink()
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(contains='passed')))
@@ -335,6 +339,24 @@ def build(a):
                 assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
         finally:
             metadata.write_bytes(original_metadata)
+    if windows:
+        # Clang must invoke the explicitly selected executable, not its default
+        # linker. Reusing the host compiler as an intentionally invalid linker
+        # gives a recognizable diagnostic on every source OS without a wrapper.
+        profile_file.write_text(json.dumps(dict(profile, linker=str(compiler.resolve()))))
+        r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+                           '-o', protected])), capture_output=True, text=True)
+        assert r.returncode == 1 and 'unknown or incomplete option: -out:' in r.stderr, (r.returncode, r.stderr)
+        assert protected.read_text() == 'keep executable'
+        empty_libraries = a.output / 'empty SDK libraries'
+        empty_libraries.mkdir()
+        profile_file.write_text(json.dumps(dict(profile, libraryDirectories=[str(empty_libraries.resolve())])))
+        r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+                           '-o', protected])), capture_output=True, text=True)
+        assert r.returncode == 1 and 'native link failed' in r.stderr, (r.returncode, r.stderr)
+        assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
+        assert not list(a.output.rglob('.kalandra-link*')), 'Failed link leaked a staging directory'
+        profile_file.write_text(json.dumps(profile))
     (products / 'qualification.json').write_text(json.dumps(dict(
         sourceSystem=host_system, destinationSystem=a.system, sourceArchitecture=host, destinationArchitecture=a.target, compilerSHA256=digest(compiler),
         hostArchiveSHA256=digest(a.host_archive), targetArchiveSHA256=digest(a.target_archive),

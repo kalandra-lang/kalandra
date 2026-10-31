@@ -337,6 +337,7 @@ jobs:
           python3 native/tests/CrossCompilationTests.py execute --output cross-products
 
   windows-sdk-send:
+    name: Encrypted Windows SDK ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
@@ -351,6 +352,7 @@ jobs:
     timeout-minutes: 100
     env:
       GH_TOKEN: ${{ github.token }}
+      CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -364,6 +366,10 @@ jobs:
           path: ${{ runner.temp }}/kalandra-llvm/installation
           key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
       - run: python .github/scripts/provision_native_platform.py
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.3"
+          cache: false
       - name: Build and verify authenticated CI transport
         shell: pwsh
         run: |
@@ -371,21 +377,27 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Transport build failed' }
           python .github/tools/sdk-transfer/test_transport.py sdk-transfer.exe
           if ($LASTEXITCODE -ne 0) { throw 'Transport authentication tests failed' }
-      - name: Encrypt installed SDK link inputs for each receiver
+      - name: Encrypt SDK for Linux x86-64 receiver
         shell: pwsh
-        run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --output sealed-sdk
+        run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --receiver linux-x86_64 --output sealed-sdk
       - uses: actions/upload-artifact@v4
         with:
           name: sdk-sealed-${{ matrix.target }}-linux-x86_64
           path: sealed-sdk/linux-x86_64/sdk.sealed
           retention-days: 1
           if-no-files-found: error
+      - name: Encrypt SDK for Linux ARM64 receiver
+        shell: pwsh
+        run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --receiver linux-arm64 --output sealed-sdk
       - uses: actions/upload-artifact@v4
         with:
           name: sdk-sealed-${{ matrix.target }}-linux-arm64
           path: sealed-sdk/linux-arm64/sdk.sealed
           retention-days: 1
           if-no-files-found: error
+      - name: Encrypt SDK for macOS receiver
+        shell: pwsh
+        run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --receiver macos-arm64 --output sealed-sdk
       - uses: actions/upload-artifact@v4
         with:
           name: sdk-sealed-${{ matrix.target }}-macos-arm64
@@ -394,6 +406,7 @@ jobs:
           if-no-files-found: error
 
   to-windows:
+    name: Windows cross-build from ${{ matrix.system }}-${{ matrix.host }}
     needs: [packages, macos-to-linux]
     strategy:
       fail-fast: false
@@ -412,12 +425,17 @@ jobs:
     timeout-minutes: 50
     env:
       GH_TOKEN: ${{ github.token }}
+      CGO_ENABLED: "0"
       HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.3"
+          cache: false
       - name: Create private one-job receiver key
         run: |
           go build -o sdk-transfer .github/tools/sdk-transfer/main.go

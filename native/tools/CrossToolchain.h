@@ -27,6 +27,9 @@ inline std::vector<std::string> crossToolEnvironment() {
                            "HOME", "USERPROFILE", "LANG", "LC_ALL"})
     if (auto value = llvm::sys::Process::GetEnv(key))
       environment.push_back(std::string(key) + "=" + *value);
+  // A present, empty LIB prevents Clang's MSVC driver from adding registry-
+  // discovered SDK paths before the profile's explicit -L directories.
+  environment.emplace_back("LIB=");
   return environment;
 }
 
@@ -116,16 +119,23 @@ struct CrossToolchain {
   }
   std::vector<std::string> clangArguments() const {
     std::vector<std::string> args{"--no-default-config", "--target=" + target.triple,
-        "--sysroot=" + sysroot.string(), "--ld-path=" + linker.string(),
+        "--sysroot=" + sysroot.string(),
         "-resource-dir=" + resources.string()};
     if (!gccDirectory.empty()) args.push_back("--gcc-install-dir=" + gccDirectory.string());
     for (const auto &directory : libraryDirectories) args.push_back("-L" + directory.string());
     if (windows()) {
+      // MSVC's driver ignores --ld-path. Its program lookup also prefixes
+      // absolute -fuse-ld values with the target triple; a private -B directory
+      // plus an explicit relative basename selects the configured executable
+      // directly, bypassing its special link/lld aliases too.
+      args.insert(args.end(), {"-B" + linker.parent_path().string(),
+                               "-fuse-ld=./" + linker.filename().string()});
       // Never inherit the host's Visual Studio installation or LIB paths.
-      args.insert(args.end(), {"-Wno-msvc-not-found", "-nostdlib", "-fms-runtime-lib=static", "--rtlib=compiler-rt",
+      args.insert(args.end(), {"-Wno-msvc-not-found", "-nostdlib", "-fms-runtime-lib=static",
           "-Xlinker", "/defaultlib:libcmt", "-Xlinker", "/defaultlib:oldnames",
           "-Xlinker", "/defaultlib:kernel32", "-Xlinker", "/Brepro"});
     } else {
+      args.push_back("--ld-path=" + linker.string());
       args.push_back("-pthread");
       if (darwin()) {
         // --ld-path chooses a binary but does not tell Clang its flavor.

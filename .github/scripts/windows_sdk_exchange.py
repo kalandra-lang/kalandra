@@ -35,7 +35,20 @@ def wait_download(name, destination, seconds=4500):
             subprocess.run(['gh', 'run', 'download', run, '--repo', repo, '--name', name,
                             '--dir', str(destination)], check=True)
             return
-        time.sleep(15)
+        if name.startswith('sdk-receiver-'):
+            producers = {'Windows cross-build from ' + name.removeprefix('sdk-receiver-'),
+                         'packages', 'macos-to-linux'}
+        elif name.startswith('sdk-sealed-'):
+            architecture = name.removeprefix('sdk-sealed-').split('-', 1)[0]
+            producers = {'Encrypted Windows SDK ' + architecture}
+        else:
+            raise ValueError('Unknown SDK artifact protocol name: ' + name)
+        jobs = api(f'repos/{repo}/actions/runs/{run}/jobs?per_page=100')['jobs']
+        failed = [v['name'] for v in jobs if v['name'] in producers and
+                  v['status'] == 'completed' and v['conclusion'] != 'success']
+        if failed:
+            raise RuntimeError('SDK producer failed before publishing ' + name + ': ' + ', '.join(failed))
+        time.sleep(45)
     raise RuntimeError('Timed out waiting for CI transfer artifact ' + name)
 
 
@@ -43,14 +56,14 @@ def send(a):
     if platform.system() != 'Windows' or os.environ.get('GITHUB_ACTIONS') != 'true':
         raise RuntimeError('SDK send requires native Windows CI')
     from windows_sdk_snapshot import prepare
-    a.output.mkdir(parents=True)
+    a.output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='private SDK snapshot ') as folder:
         private = Path(folder)
         snapshot = private / 'sdk'
         prepare(snapshot)
         archive = private / 'sdk.tar.gz'
         create_archive(snapshot, archive)
-        for receiver in RECEIVERS:
+        for receiver in ((a.receiver,) if a.receiver else RECEIVERS):
             public = private / receiver
             wait_download('sdk-receiver-' + receiver, public)
             destination = a.output / receiver
