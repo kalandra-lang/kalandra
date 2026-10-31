@@ -10,16 +10,6 @@ concurrency:
   group: native-cross-os-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  microsoft-catalog:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-      - name: Verify Microsoft SDK catalog integrity before payload provisioning
-        run: python .github/scripts/check_microsoft_catalog.py
   packages:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -344,3 +334,206 @@ jobs:
               subprocess.run(['codesign', '--verify', '--strict', str(root / record['file'])], check=True)
           PY
           python3 native/tests/CrossCompilationTests.py execute --output cross-products
+
+  windows-sdk-send:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            target: x86_64
+            msvc: x64
+          - runner: windows-11-arm
+            target: arm64
+            msvc: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - run: python .github/scripts/provision_native_platform.py
+      - name: Build and verify authenticated CI transport
+        shell: pwsh
+        run: |
+          go build -o sdk-transfer.exe .github/tools/sdk-transfer/main.go
+          if ($LASTEXITCODE -ne 0) { throw 'Transport build failed' }
+          python .github/tools/sdk-transfer/test_transport.py sdk-transfer.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Transport authentication tests failed' }
+      - name: Encrypt installed SDK link inputs for each receiver
+        shell: pwsh
+        run: python .github/scripts/windows_sdk_exchange.py send --tool sdk-transfer.exe --output sealed-sdk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-sealed-${{ matrix.target }}-linux-x86_64
+          path: sealed-sdk/linux-x86_64/sdk.sealed
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-sealed-${{ matrix.target }}-linux-arm64
+          path: sealed-sdk/linux-arm64/sdk.sealed
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-sealed-${{ matrix.target }}-macos-arm64
+          path: sealed-sdk/macos-arm64/sdk.sealed
+          retention-days: 1
+          if-no-files-found: error
+
+  to-windows:
+    needs: [packages, macos-to-linux]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            system: linux
+            host: x86_64
+          - runner: ubuntu-24.04-arm
+            system: linux
+            host: arm64
+          - runner: macos-26
+            system: macos
+            host: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Create private one-job receiver key
+        run: |
+          go build -o sdk-transfer .github/tools/sdk-transfer/main.go
+          python .github/tools/sdk-transfer/test_transport.py ./sdk-transfer
+          ./sdk-transfer key "$RUNNER_TEMP/sdk-private.pem" "$RUNNER_TEMP/sdk-public.pem"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-receiver-${{ matrix.system }}-${{ matrix.host }}
+          path: ${{ runner.temp }}/sdk-public.pem
+          retention-days: 1
+          if-no-files-found: error
+      - name: Decrypt SDK link inputs inside this receiver job
+        run: >-
+          python .github/scripts/windows_sdk_exchange.py receive
+          --tool ./sdk-transfer --key "${{ runner.temp }}/sdk-private.pem"
+          --receiver ${{ matrix.system }}-${{ matrix.host }} --output private-sdk
+      - uses: actions/cache/restore@v4
+        if: runner.os == 'Linux'
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Locate native Linux LLVM
+        if: runner.os == 'Linux'
+        run: python .github/scripts/provision_native_platform.py
+      - name: Install macOS LLVM dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake ninja zstd z3
+          brew upgrade zstd z3
+          python .github/scripts/provision_native_llvm.py --install --directory "$RUNNER_TEMP/pinned-llvm"
+      - name: Build pinned macOS cross linker
+        if: runner.os == 'macOS'
+        run: python .github/scripts/provision_cross_lld.py --llvm "$KALANDRA_LLVM_ROOT" --directory "$RUNNER_TEMP/cross-lld"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-windows*assets
+          path: native-assets
+          merge-multiple: true
+          run-id: ${{ needs.packages.outputs.windows }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        if: matrix.system == 'linux'
+        with:
+          pattern: native-linux*assets
+          path: native-assets
+          merge-multiple: true
+          run-id: ${{ needs.packages.outputs.linux }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        if: matrix.system == 'macos'
+        with:
+          name: cross-native-macos-assets
+          path: native-assets
+      - name: Cross-link both Windows destinations
+        run: >-
+          python .github/scripts/qualify_to_windows.py
+          --system ${{ matrix.system }} --host ${{ matrix.host }}
+          --assets native-assets --sdk private-sdk --output build/cross-windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-${{ matrix.system }}-${{ matrix.host }}-to-windows
+          path: |
+            build/cross-windows/x86_64/products/*
+            build/cross-windows/arm64/products/*
+          if-no-files-found: error
+      - name: Remove private SDK inputs and receiver key
+        if: always()
+        run: |
+          python - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          folder = Path('private-sdk')
+          if folder.exists(): shutil.rmtree(folder)
+          Path(os.environ['RUNNER_TEMP'], 'sdk-private.pem').unlink(missing_ok=True)
+          PY
+
+  execute-windows:
+    needs: to-windows
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            system: linux
+            host: x86_64
+            target: x86_64
+          - runner: windows-11-arm
+            system: linux
+            host: x86_64
+            target: arm64
+          - runner: windows-2025
+            system: linux
+            host: arm64
+            target: x86_64
+          - runner: windows-11-arm
+            system: linux
+            host: arm64
+            target: arm64
+          - runner: windows-2025
+            system: macos
+            host: arm64
+            target: x86_64
+          - runner: windows-11-arm
+            system: macos
+            host: arm64
+            target: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-${{ matrix.system }}-${{ matrix.host }}-to-windows
+          path: cross-products
+      - name: Execute on the native Windows destination
+        run: python native/tests/CrossCompilationTests.py execute --output cross-products/${{ matrix.target }}/products

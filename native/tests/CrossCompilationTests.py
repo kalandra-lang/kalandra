@@ -94,7 +94,18 @@ def build(a):
     profile = dict(format=1, target=triple, runtimePackage=str(target_root.resolve()),
                    linker=str(a.linker.absolute()))
     sdk = None
-    if a.macos_imports:
+    if a.windows_sdk:
+        assert windows
+        sdk = json.loads((a.windows_sdk / 'sdk.json').read_text())
+        assert sdk['platform'] == 'windows-' + a.target
+        assert sdk['checkoutCommit'] == run(['git', 'rev-parse', 'HEAD']).strip()
+        for line in (a.windows_sdk / 'SHA256SUMS').read_text().splitlines():
+            checksum, name = line.split('  ', 1)
+            path = (a.windows_sdk / name).resolve()
+            assert path.is_relative_to(a.windows_sdk.resolve()) and digest(path) == checksum
+        profile.update(sysroot=str(a.windows_sdk.resolve()),
+                       libraryDirectories=[str((a.windows_sdk / 'lib').resolve())])
+    elif a.macos_imports:
         assert a.system == 'macos' and a.target == 'arm64'
         sdk = json.loads((a.macos_imports / 'imports.json').read_text())
         assert sdk['platform'] == 'macos-arm64' and sdk['minimumMacOS'] == '26.0'
@@ -189,11 +200,14 @@ def build(a):
                       '-nostdlib', '-Xlinker', '/defaultlib:libcmt', '-Xlinker', '/defaultlib:oldnames',
                       '-Xlinker', '/defaultlib:kernel32', '-Xlinker', '/Brepro']
             flags += ['-L' + directory for directory in profile['libraryDirectories']]
-            for directory in os.environ['INCLUDE'].split(';'):
-                if directory: flags += ['-isystem', directory]
+            if not sdk:
+                for directory in os.environ['INCLUDE'].split(';'):
+                    if directory: flags += ['-isystem', directory]
             matches = []
             for library in resources.rglob('*builtins*.lib'):
-                headers = run([a.linker.parent / 'llvm-readobj.exe', '--file-headers', library])
+                readobj = (Path(os.environ['KALANDRA_LLVM_ROOT']) / 'bin' / ('llvm-readobj' + host_suffix)
+                           if 'KALANDRA_LLVM_ROOT' in os.environ else a.linker.parent / ('llvm-readobj' + host_suffix))
+                headers = run([readobj, '--file-headers', library])
                 machines = re.findall(r'Machine: .*\(0x([0-9A-Fa-f]+)\)', headers)
                 if machines and {int(v, 16) for v in machines} == {MACHINES['windows-' + a.target]}:
                     matches.append(library)
@@ -207,7 +221,7 @@ def build(a):
             flags += ['--sysroot=' + (a.macos_imports / 'interfaces').resolve().as_posix(),
                       '-mmacosx-version-min=26.0', '-pthread']
             libraries = [target_root / 'lib/kalandra/native/libkalandra-native-runtime.a']
-        harness = ((a.macos_imports or a.linux_sdk) / sdk['foundationObjects'][mode]['file'] if sdk else
+        harness = ((a.macos_imports or a.linux_sdk or a.windows_sdk) / sdk['foundationObjects'][mode]['file'] if sdk else
                    ROOT / 'native/tests/CallFoundationRuntimeTests.cpp')
         command = [clang, *flags, '-std=c++23', '-ffp-contract=off', '-Wno-override-module', mode,
                    harness, ir, *libraries, '-o']
@@ -217,7 +231,7 @@ def build(a):
         assert digest(binary) == digest(repeat), (mode, 'non-reproducible conformance harness')
         repeat.unlink()
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(contains='passed')))
-    if windows:
+    if windows and host_system == 'windows':
         # Run the authored PowerShell recipe, substituting only installation
         # paths and the selected target. PowerShell supplies actual SDK paths.
         recipe, = re.findall(r'codeblock \{ language = powershell, """([\s\S]*?)""" \}', documentation)
@@ -237,11 +251,12 @@ def build(a):
         # the actual profile template, then run its product on the destination.
         (a.output / 'compute.k').write_text(documented_source)
         (a.output / 'cross.json').write_text(json.dumps(profile))
-        run([compiler.resolve(), 'compute.k', '--toolchain', 'cross.json', '-O2', '-o', 'program-arm64'], cwd=a.output)
-        binary = products / 'documentation-O2'
-        binary.write_bytes((a.output / 'program-arm64').read_bytes())
-        run([compiler.resolve(), 'compute.k', '--toolchain', 'cross.json', '-O2', '-o', 'program-arm64'], cwd=a.output)
-        assert digest(binary) == digest(a.output / 'program-arm64'), 'Non-reproducible documentation recipe'
+        documented_output = 'program-arm64' + suffix
+        run([compiler.resolve(), 'compute.k', '--toolchain', 'cross.json', '-O2', '-o', documented_output], cwd=a.output)
+        binary = products / ('documentation-O2' + suffix)
+        binary.write_bytes((a.output / documented_output).read_bytes())
+        run([compiler.resolve(), 'compute.k', '--toolchain', 'cross.json', '-O2', '-o', documented_output], cwd=a.output)
+        assert digest(binary) == digest(a.output / documented_output), 'Non-reproducible documentation recipe'
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(output='1144\n')))
     # Misconfigured targets must preserve every requested output.
     source = a.output / 'int64.k'
@@ -330,5 +345,6 @@ if __name__ == '__main__':
     p.add_argument('--linker', type=Path)
     p.add_argument('--linux-sdk', type=Path)
     p.add_argument('--macos-imports', type=Path)
+    p.add_argument('--windows-sdk', type=Path)
     a = p.parse_args()
     build(a) if a.mode == 'build' else execute(a)
