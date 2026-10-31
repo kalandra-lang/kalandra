@@ -57,4 +57,4 @@ link { url = "/docs/contributing", "Contributor guide" }
 
 link { url = "https://github.com/kalandra-lang/kalandra/issues", "Report a bug" }
 
-link { url = "/docs/release-notes", "What’s new in Kalandra 0.99.0" }
+link { url = "/docs/release-notes", "What’s new in Kalandra 0.99.1" }

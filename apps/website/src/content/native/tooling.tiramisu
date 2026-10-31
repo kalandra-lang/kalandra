@@ -43,7 +43,7 @@ Any editor with a Language Server Protocol client can launch kalandra-lsp direct
 
 For package mappings, pass --project followed by the absolute kalandra.toml path as two server arguments. Add --placement when CPU/Metal placement diagnostics are wanted. The client should support UTF-16 positions and apply workspace edits for rename and formatting. Editor-specific adapters are not bundled beyond VS Code. The server provides language services, not a debugger or build runner.
 
-link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.0", "Download the toolchain and VS Code extension" }
+link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.1", "Download the toolchain and VS Code extension" }
 
 link { url = "/docs/troubleshooting", "Troubleshoot checks, builds and editor startup" }
 

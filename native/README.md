@@ -35,7 +35,14 @@ CMake 3.28+, Ninja, toml++ 3.4.0 and the pinned
 also require the pinned [Apple toolchain](metal-proof/toolchain.json). Follow the
 [platform qualification guide](../docs/design/native-distribution-qualification.md)
 for source builds and standalone packaging. Release targets are macOS 26+ ARM64
-CPU/Metal, Linux x86-64 CPU and Windows x86-64 CPU. Windows TSan is unsupported.
+CPU/Metal, Linux x86-64/ARM64 CPU and Windows x86-64/ARM64 CPU. Windows TSan and Windows ARM64 sanitizers are unsupported.
+
+Starting with 0.99.1, standalone compiler packages contain all five CPU runtimes
+and private host-native linkers. Select a destination using `--platform`, or
+configure its system libraries with a reusable `--toolchain` profile. Linux and
+Windows target development libraries remain separate; macOS CPU cross-linking
+uses bundled system import declarations without an Apple SDK. See the
+[cross-compilation guide](https://kalandra.dev/docs/cross-compilation).
 
 CTest covers frontend/lowering, numerical and ownership semantics, recursive
 calls, workers, cancellation/fault precedence, GPU capabilities, editor tools and

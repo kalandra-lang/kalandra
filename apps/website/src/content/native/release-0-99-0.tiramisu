@@ -1,0 +1,54 @@
+meta { title = "Kalandra 0.99.0 — the native revival", description = "Release notes for the native CPU and GPU toolchain.", order = 1, group = "Release archive" }
+
+Kalandra 0.99.0 revives an eight-year-old project with a new native implementation. The jump from the earlier 0.12.0 line is deliberate: this is a new direction and a substantial step toward 1.0.
+
+This release replaces the JavaScript-era implementation with a native C++23 compiler, LLVM/MLIR CPU lowering and Apple Metal GPU execution. It is a new language/toolchain generation, not a drop-in update to the earlier runtime.
+
+h2 { "One language, CPU and GPU" }
+
+Immutable typed values, automatic memory management, functions and closures, direct and mutual recursion, records, enums and explicit error handling.
+
+Ten numeric types, checked integer arithmetic and conversions, numeric arrays and dense tensors.
+
+Structured CPU tasks and ordered parallel mapping, with explicit lifetimes and task-error handling.
+
+Explicit tensor transfers and GPU task placement. Eligible numerical operations can compose while intermediate tensors remain resident on the device.
+
+Matrix multiplication, reductions, ReLU, transpose, row softmax and RMS normalization, with documented type and device restrictions.
+
+
+Hardware arithmetic is used where supported. Apple GPU float64 arithmetic requires an explicit software-fallback policy. GPU float32 matrix multiplication supports optimized full-precision accumulation and an explicit fixed-tree policy; neither policy promises universally greater accuracy. Performance depends on the workload and device.
+
+h2 { "A native development workflow" }
+
+The toolchain includes kalandra, kalandra-check, kalandra-fmt, kalandra-parse and kalandra-lsp, plus a separately versioned VS Code extension. Create native projects, import source modules, install pinned source dependencies, check types and shapes, and compile executable applications.
+
+The redesigned website includes a tutorial, language reference, an alphabetical reference for all 32 built-in callable names, practical guides and contributor documentation. The authored examples are checked against the native tools, including CPU execution and physical Metal GPU tests.
+
+h2 { "Install from GitHub Releases" }
+
+Download the package matching your platform from the GitHub release’s Assets section. Verify its accompanying SHA-256 checksum and keep the complete extracted toolchain directory together.
+
+
+The standalone macOS Metal DMG is the primary mixed CPU/GPU package. Standalone macOS distributions are Developer ID signed, notarized and stapled. CPU-only and editor-only packages are also available; standalone packages bundle their private open-source compiler dependencies. Download kalandra-native.vsix from the same release and install it with Extensions: Install from VSIX. Select your installed kalandra-lsp executable in Kalandra Native: Server Path. The extension is independently versioned at 0.1.0; the native server reports 0.99.0. No Node.js or npm installation is needed.
+
+
+
+
+
+
+
+h2 { "Moving from 0.12.0" }
+
+Native sources use .k and the native project manifest. Existing JavaScript-era programs, packages and runtime integrations require migration; there is no automatic compatibility layer. Start with the tutorial and port a small complete program before moving a larger application.
+
+h2 { "Before 1.0" }
+
+0.99.0 marks proximity to 1.0, not a promise that every API is frozen. Read the implemented CPU/GPU subset and numerical policies when porting code. CUDA, distributed execution, model loading and a complete LLM inference runtime are not included. GPU Strings, arbitrary records and general application-error handling are outside the numerical device subset. FreeBSD distribution qualification and Windows ThreadSanitizer are not supported by this release.
+
+Please report reproducible problems with a minimal program, platform, toolchain version and commands. Contributions to the language, portability, diagnostics, tooling and documentation are welcome.
+
+link { url = "/docs/installation", "Installation and platform requirements" }
+link { url = "/docs/tooling", "Set up your code editor" }
+link { url = "/docs/tutorial", "Start the tutorial" }
+link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.0", "Download Kalandra 0.99.0" }

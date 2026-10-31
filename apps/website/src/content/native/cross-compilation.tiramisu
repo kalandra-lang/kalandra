@@ -2,7 +2,7 @@ meta { title = "Cross-compilation", description = "Build for another CPU platfor
 
 Install the standalone Kalandra package for the machine performing the build. It includes the CPU runtimes for Linux x86-64 and ARM64, Windows x86-64 and ARM64, and macOS ARM64, together with host-native LLVM linkers. You do not need a compiler executable for each destination.
 
-Select the destination with --platform. Only its runtime libraries are linked into your program; the bundled alternatives add download and disk space, not execution overhead. These options are available in releases after v0.99.0 that list cross-compilation support.
+Select the destination with --platform. Only its runtime libraries are linked into your program; the bundled alternatives add download and disk space, not execution overhead. These options are available starting with v0.99.1.
 
 h2 { "A shared example" }
 

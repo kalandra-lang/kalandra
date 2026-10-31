@@ -379,7 +379,7 @@ kalandra --project my-app/kalandra.toml \
         ><a class="inline-link" href={`${repo}/blob/native/docs/roadmap.md`}
           >Development roadmap {@render arrow()}</a
         ><a class="inline-link" href="/docs/release-notes"
-          >0.99.0 release notes {@render arrow()}</a
+          >0.99.1 release notes {@render arrow()}</a
         >
       </div>
     </section>
