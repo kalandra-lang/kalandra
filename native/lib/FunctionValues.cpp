@@ -561,7 +561,7 @@ std::optional<std::string> functionValueTransportError(const TypedModule &module
   const auto arguments = std::visit(
       [](const auto &op) -> std::vector<ValueId> {
         using T = std::decay_t<decltype(op)>;
-        if constexpr (std::is_same_v<T, FunctionCall>)
+        if constexpr (std::is_same_v<T, FunctionCall> || std::is_same_v<T, RuntimeInput>)
           return op.arguments;
         else if constexpr (std::is_same_v<T, FunctionInvoke>) {
           auto args = op.arguments;

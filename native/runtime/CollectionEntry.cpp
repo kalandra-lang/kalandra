@@ -10,6 +10,13 @@ extern const std::uint64_t kalandra_collection_element_v1;
 extern const std::uint64_t kalandra_collection_array_v1;
 }
 int main(int argc, char **argv) {
+  int separator = 0;
+  for (int i = 1; i < argc; ++i)
+    if (std::string_view(argv[i]) == "--") { separator = i; break; }
+  if (separator) {
+    kalandra_process_arguments_v1(argc - separator, argv + separator);
+    argc = separator;
+  } else kalandra_process_arguments_v1(argc, argv);
   std::uint64_t limit = 100;
   bool valid = argc == 1;
   if (argc == 2 && std::string_view(argv[1]) == "--all") {

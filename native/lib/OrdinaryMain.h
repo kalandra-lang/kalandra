@@ -31,9 +31,18 @@ inline llvm::Function *addOrdinaryMain(llvm::Module &module) {
   if (!entry)
     return nullptr;
   auto &ctx = module.getContext();
-  auto *main = llvm::Function::Create(FunctionType::get(Type::getInt32Ty(ctx), false),
+  const bool processArgs = module.getFunction("kalandra_args_int32_v1") != nullptr;
+  auto *mainType = processArgs
+      ? FunctionType::get(Type::getInt32Ty(ctx), {Type::getInt32Ty(ctx), PointerType::getUnqual(ctx)}, false)
+      : FunctionType::get(Type::getInt32Ty(ctx), false);
+  auto *main = llvm::Function::Create(mainType,
                                       GlobalValue::ExternalLinkage, "main", module);
   IRBuilder<> b(BasicBlock::Create(ctx, "entry", main));
+  if (processArgs) {
+    auto init = module.getOrInsertFunction("kalandra_process_arguments_v1",
+        FunctionType::get(b.getVoidTy(), {b.getInt32Ty(), b.getPtrTy()}, false));
+    b.CreateCall(init, {main->getArg(0), main->getArg(1)});
+  }
   auto *fault = b.CreateAlloca(ArrayType::get(b.getInt64Ty(), 3));
   llvm::SmallVector<Value *, 1> args;
   if (!direct)

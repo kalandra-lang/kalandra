@@ -28,6 +28,10 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <charconv>
+#include <mutex>
+#include <random>
+#include <string_view>
 
 #if defined(__APPLE__)
 // Trivial TLS is zero-initialized for each physical pthread, including reused
@@ -1482,4 +1486,54 @@ kalandra_recursive_environment_transfer_v1(kalandra::runtime::Invocation *destin
     return nullptr;
   }
   return destination->retainRecursiveEnvironment(*source, environment, bytes, alignment, code);
+}
+
+// Process arguments are immutable once the executable enters user code. They
+// remain valid until process exit and can be read concurrently by CPU workers.
+namespace {
+int processArgumentCount = 0;
+char **processArguments = nullptr;
+void inputFailure(kalandra::runtime::Invocation *context, std::uint64_t code,
+                  const char *message) noexcept {
+  context->fault(code);
+  std::fprintf(stderr, "%s\n", message);
+}
+}
+extern "C" void kalandra_process_arguments_v1(std::int32_t argc, char **argv) noexcept {
+  processArgumentCount = argc;
+  processArguments = argv;
+}
+extern "C" std::int32_t kalandra_args_int32_v1(kalandra::runtime::Invocation *context,
+                                              std::int64_t index) noexcept {
+  if (context->poll()) return 0;
+  if (index < 0 || index >= std::int64_t(processArgumentCount) - 1 || !processArguments) {
+    inputFailure(context, 5, "args.int32: missing argument or invalid argument index");
+    return 0;
+  }
+  const std::string_view text(processArguments[index + 1]);
+  std::int32_t result{};
+  const auto parsed = std::from_chars(text.data(), text.data() + text.size(), result);
+  if (text.empty() || parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
+    inputFailure(context, 4, "args.int32: expected a complete, in-range decimal int32 argument");
+    return 0;
+  }
+  return result;
+}
+extern "C" std::int32_t kalandra_random_int32_v1(kalandra::runtime::Invocation *context,
+                                                std::int32_t minimum,
+                                                std::int32_t maximumExclusive) noexcept {
+  if (context->poll()) return 0;
+  if (minimum >= maximumExclusive) {
+    inputFailure(context, 5, "random.int32: minimum must be less than maximumExclusive");
+    return 0;
+  }
+  try {
+    static std::mutex mutex;
+    std::lock_guard lock(mutex);
+    static std::mt19937 engine(std::random_device{}());
+    return std::uniform_int_distribution<std::int32_t>(minimum, maximumExclusive - 1)(engine);
+  } catch (...) {
+    inputFailure(context, 3, "random.int32: randomness source unavailable");
+    return 0;
+  }
 }

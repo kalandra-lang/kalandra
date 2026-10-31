@@ -2,7 +2,8 @@
 #include <cinttypes>
 #include <cstdio>
 extern "C" std::int32_t _mlir_ciface_kalandra_int32_entry(kalandra::runtime::Invocation *);
-int main() {
+int main(int argc, char **argv) {
+  kalandra_process_arguments_v1(argc, argv);
   kalandra::runtime::Invocation context;
   const auto value = _mlir_ciface_kalandra_int32_entry(&context);
   if (context.live() != 0)

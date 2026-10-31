@@ -756,7 +756,15 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       auto outputElement = recordArrayElement(expression.type);
       outputElement.fallible = false;
       outputElement.errorRecord.reset();
-      const auto &input = module.expressions[map->input].type;
+      auto input = module.expressions[map->input].type;
+      if (map->generate) {
+        if (map->parallel || input.builtin != BuiltinValue::Numeric ||
+            input.element != NumericType::Int64 || input.tensor || input.array ||
+            input.task || input.fallible || input.device || !input.shape.empty())
+          return "generate requires a completed int count and sequential callback";
+        input.tensor = input.array = true;
+        input.shape = expression.type.shape;
+      }
       const auto scalar = [](const ValueType &type) {
         return (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Record ||
                 type.builtin == BuiltinValue::Bool || type.builtin == BuiltinValue::String ||
@@ -1065,7 +1073,7 @@ std::string dumpTypedIR(const TypedModule &module) {
                 arguments(*operation.dimensions);
               }
             } else if constexpr (std::is_same_v<T, ArrayMap>) {
-              out << (operation.parallel ? "array.parallelMap bounded @" : "array.map sequential @")
+              out << (operation.generate ? "array.generate sequential @" : operation.parallel ? "array.parallelMap bounded @" : "array.map sequential @")
                   << operation.function << " ";
               value(operation.input);
               if (!operation.captures.empty()) {
@@ -1081,6 +1089,9 @@ std::string dumpTypedIR(const TypedModule &module) {
             } else if constexpr (std::is_same_v<T, FunctionInvoke>) {
               out << "function.call ";
               value(operation.callee);
+              arguments(operation.arguments);
+            } else if constexpr (std::is_same_v<T, RuntimeInput>) {
+              out << (operation.kind == RuntimeInputKind::ArgumentInt32 ? "args.int32 " : "random.int32 ");
               arguments(operation.arguments);
             } else if constexpr (std::is_same_v<T, FunctionCall>) {
               out << "call @" << operation.function;

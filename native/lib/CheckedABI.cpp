@@ -434,7 +434,9 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                  target->getName() == "kalandra_string_length" ||
                  target->getName() == "kalandra_string_byte_length" ||
                  target->getName() == "kalandra_string_index" ||
-                 target->getName() == "kalandra_string_slice") {
+                 target->getName() == "kalandra_string_slice" ||
+                 target->getName() == "kalandra_args_int32" ||
+                 target->getName() == "kalandra_random_int32") {
         std::vector<Type *> parameters{pointer};
         parameters.insert(parameters.end(), target->getFunctionType()->param_begin(),
                           target->getFunctionType()->param_end());
@@ -732,7 +734,7 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
                            "kalandra_string_length",
                            "kalandra_string_byte_length",
                            "kalandra_string_index",
-                           "kalandra_string_slice"})
+                           "kalandra_string_slice", "kalandra_args_int32", "kalandra_random_int32"})
     if (auto *old = module.getFunction(name); old && old->use_empty())
       old->eraseFromParent();
   specializeInternalCallModes(module, bodies, simplifyCheckedStackIR);

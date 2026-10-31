@@ -388,3 +388,8 @@ extern "C" bool kalandra_invocation_ready_v1(kalandra::runtime::Invocation *) no
 extern "C" const void *kalandra_recursive_environment_transfer_v1(
     kalandra::runtime::Invocation *, const kalandra::runtime::Invocation *, const void *environment,
     std::uint64_t bytes, std::uint64_t alignment, const void *code) noexcept;
+
+// Experimental process-input prototype. Initialize before entering user code or workers.
+extern "C" void kalandra_process_arguments_v1(std::int32_t argc, char **argv) noexcept;
+extern "C" std::int32_t kalandra_args_int32_v1(kalandra::runtime::Invocation *, std::int64_t index) noexcept;
+extern "C" std::int32_t kalandra_random_int32_v1(kalandra::runtime::Invocation *, std::int32_t minimum, std::int32_t maximumExclusive) noexcept;

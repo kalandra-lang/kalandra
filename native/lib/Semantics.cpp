@@ -250,7 +250,7 @@ private:
       for (const auto *label :
            {"array", "tensor", "reshape", "map", "parallelMap", "matmul", "reduceSum", "relu",
             "transpose", "softmaxRows", "rmsNormRows",
-            "length", "byteLength", "shape", "slice", "concat"})
+            "length", "byteLength", "shape", "slice", "concat", "generate", "args.int32", "random.int32"})
         insert(label, ScopeNameKind::Function);
       if (allowTransfer && options_.placement && !frame.groups.empty())
         insert("transfer", ScopeNameKind::Function);
@@ -2059,6 +2059,12 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const CallExpr &call,
                                const std::optional<ValueType> &expected) {
+    if (const auto *field = std::get_if<FieldExpr>(&syntax_.expressions[call.callee].value)) {
+      if (const auto *owner = std::get_if<NameExpr>(&syntax_.expressions[field->input].value);
+          owner && !lookupSymbol(frame, owner->name) && name(field->field) == "int32" &&
+          (name(owner->name) == "args" || name(owner->name) == "random"))
+        return runtimeInput(frame, span, name(owner->name) + ".int32", call.arguments);
+    }
     const auto *callee = std::get_if<NameExpr>(&syntax_.expressions[call.callee].value);
     if (!callee)
       return invokeValue(frame, span, call.callee, call.arguments);
@@ -2529,7 +2535,13 @@ private:
     std::optional<ValueId> value;
     if (operation.prefix == TaskPrefix::Spawn) {
       const auto &call = std::get<CallExpr>(syntax_.expressions[operation.operand].value);
-      const auto *callee = std::get_if<NameExpr>(&syntax_.expressions[call.callee].value);
+      if (const auto *field = std::get_if<FieldExpr>(&syntax_.expressions[call.callee].value)) {
+      if (const auto *owner = std::get_if<NameExpr>(&syntax_.expressions[field->input].value);
+          owner && !lookupSymbol(frame, owner->name) && name(field->field) == "int32" &&
+          (name(owner->name) == "args" || name(owner->name) == "random"))
+        return runtimeInput(frame, span, name(owner->name) + ".int32", call.arguments);
+    }
+    const auto *callee = std::get_if<NameExpr>(&syntax_.expressions[call.callee].value);
       if (!callee) {
         if (operation.placement) {
           error("S074", "indirect spawn requires ordinary CPU execution", span);
@@ -3728,6 +3740,57 @@ private:
       floatConstants_.insert_or_assign(*id, *floating);
     return id;
   }
+  std::optional<ValueId> runtimeInput(Frame &frame, SourceSpan span, const std::string &callee,
+                                      const std::vector<ExprId> &arguments) {
+    if (options_.placement) {
+      error("S027", "experimental runtime inputs support CPU compilation only", span);
+      return {};
+    }
+    const bool argument = callee == "args.int32";
+    if (arguments.size() != (argument ? 1 : 2)) {
+      error("S027", callee + " has incorrect argument count", span);
+      return {};
+    }
+    ValueType parameter;
+    parameter.element = argument ? NumericType::Int64 : NumericType::Int32;
+    std::vector<ValueId> operands;
+    for (auto syntax : arguments) {
+      auto value = expression(frame, syntax, parameter);
+      if (!value) return {};
+      if ((node(*value).type.builtin != BuiltinValue::Numeric || node(*value).type.element != parameter.element || node(*value).type.tensor || node(*value).type.task || node(*value).type.fallible || node(*value).type.device)) {
+        error("S027", callee + " requires exact integer scalar argument types", span);
+        return {};
+      }
+      operands.push_back(*value);
+    }
+    ValueType result;
+    result.element = NumericType::Int32;
+    return add(frame, result, span, RuntimeInput{argument ? RuntimeInputKind::ArgumentInt32
+                                                        : RuntimeInputKind::RandomInt32,
+                                               std::move(operands)});
+  }
+  std::optional<ValueId> mapInput(Frame &frame, ExprId syntax,
+                                 std::optional<ValueType> context, bool generate) {
+    if (!generate) return expression(frame, syntax, context);
+    ValueType scalar;
+    scalar.element = NumericType::Int64;
+    if (context && (!context->array || context->builtin != BuiltinValue::Numeric ||
+                    context->element != NumericType::Int64)) {
+      error("S059", "generate callback requires one int index parameter", syntax_.expressions[syntax].span);
+      return {};
+    }
+    auto value = expression(frame, syntax, scalar);
+    if (value && (node(*value).type.builtin != BuiltinValue::Numeric || node(*value).type.element != NumericType::Int64 || node(*value).type.tensor || node(*value).type.task || node(*value).type.fallible || node(*value).type.device)) {
+      error("S059", "generate count must be an int scalar", syntax_.expressions[syntax].span);
+      return {};
+    }
+    return value;
+  }
+  ValueType mapInputType(ValueId value, bool generate) {
+    auto result = node(value).type;
+    if (generate) { result.tensor = result.array = true; result.shape = {dynamic()}; }
+    return result;
+  }
   std::optional<ValueId> finishMap(Frame &frame, SourceSpan span, ValueType output, ArrayMap map,
                                    bool parallel) {
     if (parallel) {
@@ -3744,7 +3807,7 @@ private:
   }
   std::optional<ValueId> anonymousMap(Frame &frame, SourceSpan span, ExprId inputSyntax,
                                       SourceSpan lambdaSpan, const LambdaExpr &lambda,
-                                      bool parallel = false) {
+                                      bool parallel = false, bool generate = false) {
     if (!parallel && !lambda.errorTypes.empty()) {
       error("S060",
             "map callbacks must return completed elements; handle errors inside an infallible "
@@ -3779,10 +3842,10 @@ private:
       inputContext->record = annotation->record;
       inputContext->callable = annotation->callable;
     }
-    auto input = expression(frame, inputSyntax, inputContext);
+    auto input = mapInput(frame, inputSyntax, inputContext, generate);
     if (!input)
       return {};
-    const auto inputType = node(*input).type;
+    const auto inputType = mapInputType(*input, generate);
     if (!inputType.array ||
         (inputType.builtin != BuiltinValue::Numeric && inputType.builtin != BuiltinValue::Record &&
          inputType.builtin != BuiltinValue::Bool && inputType.builtin != BuiltinValue::String &&
@@ -3886,17 +3949,17 @@ private:
     output.callable = resultType.callable;
     if (!validSize(output, span))
       return {};
-    return finishMap(frame, span, output, ArrayMap{*input, id, std::move(captures)}, parallel);
+    return finishMap(frame, span, output, ArrayMap{*input, id, std::move(captures), false, generate}, parallel);
   }
   std::optional<ValueId> arrayMap(Frame &frame, SourceSpan span,
-                                  const std::vector<ExprId> &arguments, bool parallel = false) {
+                                  const std::vector<ExprId> &arguments, bool parallel = false, bool generate = false) {
     if (arguments.size() != 2) {
       error("S027", "map expects an array and a one-argument function", span);
       return {};
     }
     if (const auto *lambda = std::get_if<LambdaExpr>(&syntax_.expressions[arguments[1]].value))
       return anonymousMap(frame, span, arguments[0], syntax_.expressions[arguments[1]].span,
-                          *lambda, parallel);
+                          *lambda, parallel, generate);
     const auto *callback = std::get_if<NameExpr>(&syntax_.expressions[arguments[1]].value);
     if (callback)
       completeScope(frame, callback->name);
@@ -3922,7 +3985,7 @@ private:
       auto inputType = targetType.callable->parameters[0];
       inputType.tensor = inputType.array = true;
       inputType.shape = {dynamic()};
-      auto input = expression(frame, arguments[0], inputType);
+      auto input = mapInput(frame, arguments[0], inputType, generate);
       if (!input)
         return {};
       const auto id = output_.functions.size();
@@ -3950,7 +4013,7 @@ private:
       output_.functions[id].resultType = resultType;
       output_.functions[id].result = *result;
       output_.functions[id].body = {{span, {}, *result}};
-      auto output = node(*input).type;
+      auto output = mapInputType(*input, generate);
       output.builtin = resultType.builtin;
       output.element = resultType.element;
       output.record = resultType.record;
@@ -3958,7 +4021,7 @@ private:
       output.callable = resultType.callable;
       if (!validSize(output, span))
         return {};
-      return finishMap(frame, span, output, ArrayMap{*input, id, {*target}}, parallel);
+      return finishMap(frame, span, output, ArrayMap{*input, id, {*target}, false, generate}, parallel);
     }
     auto found = functions_.find(functionKey(frame, name(callback->name)));
     if (found == functions_.end() || !analyzeFunction(found->second)) {
@@ -3990,17 +4053,17 @@ private:
     context.builtin = output_.symbols[fn.parameters[0]].type.builtin;
     context.record = output_.symbols[fn.parameters[0]].type.record;
     context.callable = output_.symbols[fn.parameters[0]].type.callable;
-    auto input = expression(frame, arguments[0], context);
+    auto input = mapInput(frame, arguments[0], context, generate);
     if (!input)
       return {};
-    auto output = node(*input).type;
+    auto output = mapInputType(*input, generate);
     output.element = result.element;
     output.builtin = result.builtin;
     output.record = result.record;
     output.callable = result.callable;
     if (!validSize(output, span))
       return {};
-    return finishMap(frame, span, output, ArrayMap{*input, id}, parallel);
+    return finishMap(frame, span, output, ArrayMap{*input, id, {}, false, generate}, parallel);
   }
   std::optional<ValueId> builtin(Frame &frame, SourceSpan span, const std::string &callee,
                                  const std::vector<ExprId> &arguments,
@@ -4296,6 +4359,15 @@ private:
         return collectionSlice(frame, span, arguments, expected);
       if (callee == "length" || callee == "shape" || callee == "byteLength")
         return collectionQuery(frame, span, callee, arguments);
+      if (callee == "args.int32" || callee == "random.int32")
+        return runtimeInput(frame, span, callee, arguments);
+      if (callee == "generate") {
+        if (options_.placement) {
+          error("S027", "experimental generate supports CPU compilation only", span);
+          return {};
+        }
+        return arrayMap(frame, span, arguments, false, true);
+      }
       if (callee == "map" || callee == "parallelMap")
         return arrayMap(frame, span, arguments, callee == "parallelMap");
       if (callee == "tensor" || callee == "matmul" || callee == "reduceSum" || callee == "relu" ||

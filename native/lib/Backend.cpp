@@ -316,6 +316,12 @@ public:
         builder_.getFunctionType(
             {builder_.getI64Type(), builder_.getI64Type(), builder_.getI64Type()}, {}));
     fault.setPrivate();
+    for (const auto &[name, signature] : std::vector<std::pair<std::string, FunctionType>>{
+             {"kalandra_args_int32", builder_.getFunctionType({builder_.getI64Type()}, {builder_.getI32Type()})},
+             {"kalandra_random_int32", builder_.getFunctionType({builder_.getI32Type(), builder_.getI32Type()}, {builder_.getI32Type()})}}) {
+      auto fn = func::FuncOp::create(builder_, builder_.getUnknownLoc(), name, signature);
+      fn.setPrivate();
+    }
     if (hasRecordBacking(input_) || hasOrdinaryStrings(input_)) {
       const auto ptr = LLVM::LLVMPointerType::get(builder_.getContext());
       for (const auto &[name, signature] : std::vector<std::pair<std::string, FunctionType>>{
@@ -2538,6 +2544,12 @@ private:
                   arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), position));
             }
             return tensor::ExtractOp::create(builder_, loc, input, offsets);
+          } else if constexpr (std::is_same_v<T, RuntimeInput>) {
+            SmallVector<Value> arguments;
+            for (auto child : operation.arguments) arguments.push_back(expression(frame, child));
+            return func::CallOp::create(builder_, loc,
+                operation.kind == RuntimeInputKind::ArgumentInt32 ? "kalandra_args_int32" : "kalandra_random_int32",
+                TypeRange{builder_.getI32Type()}, arguments).getResult(0);
           } else if constexpr (std::is_same_v<T, CollectionQuery>) {
             auto input = expression(frame, operation.input);
             const auto &array = input_.expressions[operation.input].type;
@@ -2840,14 +2852,18 @@ private:
             for (auto capture : operation.captures)
               captures.push_back(expression(frame, capture));
             const auto &inputType = input_.expressions[operation.input].type;
-            const bool ownedInput = isOwnedArray(inputType);
+            const bool ownedInput = !operation.generate && isOwnedArray(inputType);
             const bool ownedOutput = isOwnedArray(node.type);
-            Value count =
+            Value count;
+            if (operation.generate) {
+              guard(loc, compare(loc, arith::CmpIPredicate::sge, input, integer(loc, 0)), 5);
+              count = arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), input);
+            } else count =
                 ownedInput
                     ? Value(arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(),
                                                        recordArrayLength(loc, input, inputType)))
                     : dimensions(loc, input)[0];
-            if (!ownedInput)
+            if (!operation.generate && !ownedInput)
               checkedCount(loc, {count}, describeNumeric(inputType.element)->bytes());
             Value empty;
             if (ownedOutput) {
@@ -2868,7 +2884,9 @@ private:
                   Value element;
                   auto position =
                       arith::IndexCastOp::create(builder_, loc, builder_.getI64Type(), i);
-                  if (ownedInput) {
+                  if (operation.generate) {
+                    element = position;
+                  } else if (ownedInput) {
                     auto storage =
                         LLVM::ExtractValueOp::create(builder_, loc, input, ArrayRef<int64_t>{1});
                     auto cell = arrayCellType(inputType);

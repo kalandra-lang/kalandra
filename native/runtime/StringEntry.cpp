@@ -2,7 +2,8 @@
 #include <cstdio>
 extern "C" void _mlir_ciface_kalandra_string_entry(kalandra::runtime::StringDescriptor *,
                                                    kalandra::runtime::Invocation *);
-int main() {
+int main(int argc, char **argv) {
+  kalandra_process_arguments_v1(argc, argv);
   kalandra::runtime::Invocation context;
   kalandra::runtime::StringDescriptor value;
   _mlir_ciface_kalandra_string_entry(&value, &context);

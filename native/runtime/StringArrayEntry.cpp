@@ -35,6 +35,13 @@ static bool quoted(const kalandra::runtime::StringDescriptor &value) noexcept {
   return std::fputc('"', stdout) != EOF;
 }
 int main(int argc, char **argv) {
+  int separator = 0;
+  for (int i = 1; i < argc; ++i)
+    if (std::string_view(argv[i]) == "--") { separator = i; break; }
+  if (separator) {
+    kalandra_process_arguments_v1(argc - separator, argv + separator);
+    argc = separator;
+  } else kalandra_process_arguments_v1(argc, argv);
   using namespace kalandra;
   using namespace kalandra::runtime;
   std::uint64_t limit = 100;

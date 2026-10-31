@@ -1,7 +1,8 @@
 #include "Runtime.h"
 #include <cstdio>
 extern "C" bool _mlir_ciface_kalandra_bool_entry(kalandra::runtime::Invocation *);
-int main() {
+int main(int argc, char **argv) {
+  kalandra_process_arguments_v1(argc, argv);
   kalandra::runtime::Invocation context;
   const auto value = _mlir_ciface_kalandra_bool_entry(&context);
   if (context.live() != 0)

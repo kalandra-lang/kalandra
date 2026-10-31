@@ -175,6 +175,11 @@ struct NumericConvert {
 struct TensorLiteral {
   std::vector<ValueId> elements;
 }; // Flattened row-major scalar values.
+enum class RuntimeInputKind { ArgumentInt32, RandomInt32 };
+struct RuntimeInput {
+  RuntimeInputKind kind;
+  std::vector<ValueId> arguments;
+};
 struct FunctionCall {
   FunctionId function;
   std::vector<ValueId> arguments;
@@ -215,6 +220,7 @@ struct ArrayMap {
   FunctionId function; // One explicit element parameter, followed by lifted captures.
   std::vector<ValueId> captures = {};
   bool parallel = false;
+  bool generate = false; // input is an int64 count; callback receives its index.
 };
 enum class ReductionOrder { BalancedAdjacent };
 struct Matmul {
@@ -340,7 +346,7 @@ struct TypedExpr {
   SourceSpan span;
   ValueType type; // Concrete scalar/tensor numeric identity; builtins retain explicit tags.
   std::variant<Float64Literal, Float32Literal, Int32Literal, Int64Literal, UInt32Literal,
-               UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
+               UInt64Literal, RuntimeInput, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
                BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary,
                TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum,
                TensorTransform,

@@ -24,7 +24,7 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           auto values = op.arguments;
           values.insert(values.begin(), op.callee);
           return values;
-        } else if constexpr (std::is_same_v<T, FunctionCall>)
+        } else if constexpr (std::is_same_v<T, FunctionCall> || std::is_same_v<T, RuntimeInput>)
           return op.arguments;
         else if constexpr (std::is_same_v<T, RecordValue>) {
           std::vector<ValueId> values;
@@ -259,6 +259,8 @@ private:
             op.callee = importValue(op.callee);
             for (auto &argument : op.arguments)
               argument = importValue(argument);
+          } else if constexpr (std::is_same_v<T, RuntimeInput>) {
+            for (auto &argument : op.arguments) argument = importValue(argument);
           } else if constexpr (std::is_same_v<T, FunctionCall>) {
             op.function = importFunction(op.function);
             for (auto &argument : op.arguments)
@@ -405,7 +407,9 @@ private:
       kernels.expressions.push_back({source.span, type, SymbolRead{symbol}});
     }
     auto op = source.operation;
-    if (auto *call = std::get_if<FunctionCall>(&op)) {
+    if (auto *input = std::get_if<RuntimeInput>(&op)) {
+      input->arguments = reads;
+    } else if (auto *call = std::get_if<FunctionCall>(&op)) {
       call->function = called;
       call->arguments = reads;
     } else if (auto *reference = std::get_if<FunctionReference>(&op)) {
