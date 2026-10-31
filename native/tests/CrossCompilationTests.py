@@ -313,6 +313,21 @@ def build(a):
             assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
         finally:
             interface.write_bytes(original_interface)
+    if a.system == 'macos':
+        metadata = target_root / 'share/kalandra-native-tools/toolchain.json'
+        original_metadata = metadata.read_bytes()
+        try:
+            for minimum in ('27.0', 'not-a-version', None):
+                altered = json.loads(original_metadata)
+                if minimum is None: altered.pop('minimumMacOS')
+                else: altered['minimumMacOS'] = minimum
+                metadata.write_text(json.dumps(altered))
+                r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
+                                   '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True)
+                assert r.returncode == 2 and 'macOS minimum' in r.stderr, (r.returncode, r.stderr)
+                assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
+        finally:
+            metadata.write_bytes(original_metadata)
     (products / 'qualification.json').write_text(json.dumps(dict(
         sourceSystem=host_system, destinationSystem=a.system, sourceArchitecture=host, destinationArchitecture=a.target, compilerSHA256=digest(compiler),
         hostArchiveSHA256=digest(a.host_archive), targetArchiveSHA256=digest(a.target_archive),

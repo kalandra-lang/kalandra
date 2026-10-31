@@ -130,7 +130,8 @@ struct CrossToolchain {
       if (darwin()) {
         // --ld-path chooses a binary but does not tell Clang its flavor.
         // Non-Darwin hosts otherwise send legacy Apple ld flags to LLD.
-        args.insert(args.end(), {"-fuse-ld=lld", "-mmacosx-version-min=26.0"});
+        args.insert(args.end(), {"-fuse-ld=lld", "-mmacosx-version-min=" +
+            llvm::Triple(target.triple).getOSVersion().getAsString()});
       }
       else if (llvm::Triple(target.triple).isAArch64()) args.push_back("-Wl,-z,max-page-size=16384");
     }
@@ -231,6 +232,12 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
   if (!info || info->getString("platform") != result.platform || info->getString("version") != llvm::StringRef(version.data(), version.size()) ||
       info->getString("llvmVersion") != LLVM_VERSION_STRING)
     return std::unexpected("target runtime package platform/version/LLVM mismatch");
+  if (result.darwin()) {
+    auto minimum = info->getString("minimumMacOS");
+    llvm::VersionTuple runtimeMinimum;
+    if (!minimum || runtimeMinimum.tryParse(*minimum) || runtimeMinimum > triple.getOSVersion())
+      return std::unexpected("target runtime package has an incompatible macOS minimum");
+  }
   result.resources = result.package / "lib/kalandra/toolchain/clang";
   if (!std::filesystem::is_directory(result.resources / "include") ||
       !std::filesystem::is_directory(result.resources / "lib"))

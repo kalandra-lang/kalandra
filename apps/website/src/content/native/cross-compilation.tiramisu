@@ -123,7 +123,7 @@ h2 { "Profile fields" }
 
 format must be 1. target is the destination CPU triple. sysroot identifies its system SDK filesystem; macOS uses the bundled import declarations when sysroot is omitted; runtimePackage identifies the extracted destination Kalandra package root. linker is a host executable. Linux profiles require gccDirectory. Windows profiles use libraryDirectories for explicit destination SDK and CRT library directories. Relative paths resolve against the profile file's directory.
 
-The compiler queries the destination's data layout from its pinned Clang. It checks the target runtime package version, platform, archive checksums and object architectures, and verifies the linked executable's architecture before publishing it. It does not substitute host runtime archives when target resources are missing.
+The compiler queries the destination's data layout from its pinned Clang. It checks the target runtime package version, platform, macOS deployment compatibility, archive checksums and object architectures, and verifies the linked executable's architecture before publishing it. It does not substitute host runtime archives when target resources are missing.
 
 --toolchain selects the destination CPU ABI. --target cpu or --target metal selects the execution backend. Cross-toolchain profiles currently use the CPU backend. Normal and optimized builds retain the language's arithmetic, bounds, ownership and task checks. Cross-toolchain --sanitize and --thread-sanitize modes report an explicit unsupported-mode error while their target combinations remain unqualified.
 
