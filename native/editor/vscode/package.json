@@ -93,7 +93,7 @@
   },
   "scripts": {
     "build": "bun scripts/build.mjs",
-    "test": "bun test test/config.test.cjs test/grammar.test.cjs && bun test test/lifecycle.test.cjs",
+    "test": "bun test test/config.test.cjs test/grammar.test.cjs test/windows-cli.test.mjs && bun test test/lifecycle.test.cjs",
     "package": "bun scripts/package.mjs",
     "test:editor": "bun scripts/test-editor.mjs"
   },

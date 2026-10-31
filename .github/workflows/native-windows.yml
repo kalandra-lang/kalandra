@@ -254,5 +254,7 @@ jobs:
         if: always()
         with:
           name: native-windows-arm64-editor-qualification
-          path: build/native/editor/**/result.json
+          path: |
+            build/native/editor/**/result.json
+            build/native/editor/qualification.json
           if-no-files-found: warn

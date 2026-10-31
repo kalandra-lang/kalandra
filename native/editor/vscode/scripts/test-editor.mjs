@@ -10,6 +10,7 @@ import {
 import { constants } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { windowsCliEntry } from "./windows-cli.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repo = path.resolve(root, "../../..");
 const server =
@@ -62,7 +63,7 @@ const cliCommand =
   process.platform === "win32"
     ? [
         executable,
-        path.join(path.dirname(executable), "resources/app/out/cli.js"),
+        await windowsCliEntry(executable),
       ]
     : [cli];
 if (process.platform !== "win32") await access(cli, constants.X_OK);
