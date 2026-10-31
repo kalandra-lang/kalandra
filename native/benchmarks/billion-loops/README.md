@@ -1,6 +1,6 @@
 # Temporary CPU input and array generation experiment
 
-Local-only prototype based on Kalandra 0.99.1. Original workload: https://benjdd.com/languages2/. No GitHub push or release.
+Evidence-only prototype based on Kalandra 0.99.1. Original workload: https://benjdd.com/languages2/. This temporary branch is intentionally never to be merged or released. These experimental APIs are not available in published Kalandra 0.99.1.
 
 - `args.int32(index: int) -> int32`: zero-based user argument (excluding the executable name), strict decimal parsing and checked int32 range. Missing/negative indices are BoundsFaults; malformed/out-of-range values are ArithmeticFaults, with an input diagnostic.
 - `random.int32(min: int32, maxExclusive: int32) -> int32`: bounded, unbiased pseudorandom integer, seeded from `std::random_device`. Thread-safe CPU runtime; not cryptographic. Empty/reversed intervals fail with BoundsFault.
@@ -51,3 +51,5 @@ The collector waits at the pre-run load gate; `timing --resume` retains complete
 No measurements are compared directly with the linked website's different Mac.
 
 Measured results and qualification details: [REPORT.md](REPORT.md).
+
+Published measurement evidence is in [evidence/](evidence/), including all unfavorable samples and the interrupted study. Process names and PIDs are omitted for privacy; CPU percentages, timings, outputs, ordering and hashes are retained. Generated binaries and full IR/disassembly stay in ignored build output; reproduce them with the commands above. The [video renderer](video/) uses these same primary medians.

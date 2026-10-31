@@ -1,0 +1,482 @@
+{
+  "binarySHA256": {
+    "kalandra": "41aed553670ae0eea55d7669bdc97d6f372aa4ba111959f8bf170b718b9f7a09",
+    "cpp": "2485595fa24b67c548775a4b7630fabc6948c0fcb008776b949a16ac3164237d",
+    "rust": "a23c060580c324d926e22f87c8833d01eecd74891b0b5d510b7656bebfa0df9e",
+    "cpp-checked": "c194db0084708458b18e964bb6c782240a5fd0c96fec455e18dc9a4e56ac22bf",
+    "rust-checked": "e3962acfa3421ccbba430316ac1c17f5e0ef4c08263d06188b73828da4ebbf0a",
+    "cpp-repeat": "2485595fa24b67c548775a4b7630fabc6948c0fcb008776b949a16ac3164237d"
+  },
+  "seed": 202610311,
+  "observations": [
+    {
+      "block": 0,
+      "program": "cpp-repeat",
+      "seconds": 0.561053709,
+      "random": 3873,
+      "value": 1953873,
+      "backgroundBefore": {
+        "totalCPU": 342.59999999999997,
+        "top": [
+          {
+            "cpu": 204.2
+          },
+          {
+            "cpu": 72.6
+          },
+          {
+            "cpu": 11.1
+          },
+          {
+            "cpu": 10.3
+          },
+          {
+            "cpu": 9.2
+          },
+          {
+            "cpu": 7.5
+          },
+          {
+            "cpu": 6.2
+          },
+          {
+            "cpu": 6.0
+          }
+        ]
+      }
+    },
+    {
+      "block": 0,
+      "program": "rust",
+      "seconds": 0.564401167,
+      "random": 2501,
+      "value": 1952501,
+      "backgroundBefore": {
+        "totalCPU": 265.8,
+        "top": [
+          {
+            "cpu": 222.0
+          },
+          {
+            "cpu": 10.8
+          },
+          {
+            "cpu": 6.7
+          },
+          {
+            "cpu": 4.8
+          },
+          {
+            "cpu": 4.6
+          },
+          {
+            "cpu": 3.2
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "block": 0,
+      "program": "kalandra",
+      "seconds": 0.564164584,
+      "random": 5277,
+      "value": 1955277,
+      "backgroundBefore": {
+        "totalCPU": 269.09999999999997,
+        "top": [
+          {
+            "cpu": 227.2
+          },
+          {
+            "cpu": 13.8
+          },
+          {
+            "cpu": 4.7
+          },
+          {
+            "cpu": 4.1
+          },
+          {
+            "cpu": 3.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.1
+          },
+          {
+            "cpu": 1.1
+          }
+        ]
+      }
+    },
+    {
+      "block": 0,
+      "program": "cpp",
+      "seconds": 0.563060083,
+      "random": 6585,
+      "value": 1956585,
+      "backgroundBefore": {
+        "totalCPU": 264.90000000000003,
+        "top": [
+          {
+            "cpu": 218.3
+          },
+          {
+            "cpu": 10.5
+          },
+          {
+            "cpu": 4.6
+          },
+          {
+            "cpu": 4.4
+          },
+          {
+            "cpu": 3.2
+          },
+          {
+            "cpu": 2.9
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.7
+          }
+        ]
+      }
+    },
+    {
+      "block": 1,
+      "program": "kalandra",
+      "seconds": 0.556835166,
+      "random": 7111,
+      "value": 1957111,
+      "backgroundBefore": {
+        "totalCPU": 250.7,
+        "top": [
+          {
+            "cpu": 223.7
+          },
+          {
+            "cpu": 7.9
+          },
+          {
+            "cpu": 3.0
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.2
+          }
+        ]
+      }
+    },
+    {
+      "block": 1,
+      "program": "rust",
+      "seconds": 0.566463625,
+      "random": 9030,
+      "value": 1959030,
+      "backgroundBefore": {
+        "totalCPU": 246.4,
+        "top": [
+          {
+            "cpu": 224.5
+          },
+          {
+            "cpu": 4.7
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.3
+          },
+          {
+            "cpu": 1.2
+          }
+        ]
+      }
+    },
+    {
+      "block": 1,
+      "program": "cpp",
+      "seconds": 0.601405708,
+      "random": 1819,
+      "value": 1951819,
+      "backgroundBefore": {
+        "totalCPU": 281.5,
+        "top": [
+          {
+            "cpu": 220.8
+          },
+          {
+            "cpu": 27.8
+          },
+          {
+            "cpu": 7.4
+          },
+          {
+            "cpu": 6.5
+          },
+          {
+            "cpu": 4.4
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "block": 1,
+      "program": "cpp-repeat",
+      "seconds": 0.577468042,
+      "random": 866,
+      "value": 1950866,
+      "backgroundBefore": {
+        "totalCPU": 388.0,
+        "top": [
+          {
+            "cpu": 202.3
+          },
+          {
+            "cpu": 96.3
+          },
+          {
+            "cpu": 19.5
+          },
+          {
+            "cpu": 18.4
+          },
+          {
+            "cpu": 14.7
+          },
+          {
+            "cpu": 14.4
+          },
+          {
+            "cpu": 12.4
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "block": 2,
+      "program": "cpp",
+      "seconds": 0.561028125,
+      "random": 6605,
+      "value": 1956605,
+      "backgroundBefore": {
+        "totalCPU": 302.6,
+        "top": [
+          {
+            "cpu": 215.5
+          },
+          {
+            "cpu": 46.8
+          },
+          {
+            "cpu": 7.0
+          },
+          {
+            "cpu": 6.9
+          },
+          {
+            "cpu": 3.9
+          },
+          {
+            "cpu": 3.7
+          },
+          {
+            "cpu": 3.3
+          },
+          {
+            "cpu": 1.8
+          }
+        ]
+      }
+    },
+    {
+      "block": 2,
+      "program": "kalandra",
+      "seconds": 0.555390125,
+      "random": 885,
+      "value": 1950885,
+      "backgroundBefore": {
+        "totalCPU": 267.0,
+        "top": [
+          {
+            "cpu": 220.8
+          },
+          {
+            "cpu": 8.3
+          },
+          {
+            "cpu": 7.9
+          },
+          {
+            "cpu": 4.4
+          },
+          {
+            "cpu": 3.5
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 2.2
+          }
+        ]
+      }
+    },
+    {
+      "block": 2,
+      "program": "rust",
+      "seconds": 0.567542166,
+      "random": 6829,
+      "value": 1956829,
+      "backgroundBefore": {
+        "totalCPU": 249.9,
+        "top": [
+          {
+            "cpu": 224.1
+          },
+          {
+            "cpu": 6.5
+          },
+          {
+            "cpu": 3.3
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "block": 2,
+      "program": "cpp-repeat",
+      "seconds": 0.559212042,
+      "random": 3269,
+      "value": 1953269,
+      "backgroundBefore": {
+        "totalCPU": 241.8,
+        "top": [
+          {
+            "cpu": 217.9
+          },
+          {
+            "cpu": 5.9
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.4
+          }
+        ]
+      }
+    }
+  ],
+  "preflightWaits": [
+    {
+      "totalCPU": 409.7,
+      "top": [
+        {
+          "cpu": 215.7
+        },
+        {
+          "cpu": 93.0
+        },
+        {
+          "cpu": 69.4
+        },
+        {
+          "cpu": 7.5
+        },
+        {
+          "cpu": 5.8
+        },
+        {
+          "cpu": 2.0
+        },
+        {
+          "cpu": 1.7
+        },
+        {
+          "cpu": 1.6
+        }
+      ]
+    }
+  ],
+  "medianSeconds": {
+    "cpp": 0.563060083,
+    "kalandra": 0.556835166,
+    "rust": 0.566463625,
+    "cpp-repeat": 0.561053709
+  }
+}

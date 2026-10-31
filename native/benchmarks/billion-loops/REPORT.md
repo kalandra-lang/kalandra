@@ -1,6 +1,6 @@
-# One-billion-iteration CPU benchmark — local experiment
+# One-billion-iteration CPU benchmark — temporary branch experiment
 
-Kalandra is effectively tied with C++ and Rust on this workload. Its sub-percent primary median lead is not a demonstrated general speed advantage. Nothing was pushed to GitHub.
+Kalandra is effectively tied with C++ and Rust on this workload. Its sub-percent primary median lead is not a demonstrated general speed advantage. This evidence-only branch is intentionally never to be merged or released; its experimental APIs are not in published 0.99.1.
 
 ## Environment and method
 
@@ -62,7 +62,7 @@ Only this integer workload and this machine/toolchain combination are measured. 
 
 Commands, API contracts and prototype limits: [README](README.md). Sources: [Kalandra](benchmark.k), [C++](reference.cpp), [Rust](reference.rs), [API tests](test_apis.py), [runner](run.py). Original benchmark: https://benjdd.com/languages2/.
 
-Ignored local files under `build/billion-loops/`:
+Published JSON copies are in [evidence/](evidence/). Process names and PIDs are omitted for privacy; measurement values, CPU load, sample order, outputs and hashes are retained. Original local files and generated IR/disassembly are under ignored `build/billion-loops/`:
 
 - `results.json`: primary observations, binary/source hashes, load snapshots, pause record and summary.
 - `replication.json`: fresh-order confirmation and unchanged binary hashes.

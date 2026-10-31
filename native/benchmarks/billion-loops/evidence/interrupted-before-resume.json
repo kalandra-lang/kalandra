@@ -1,0 +1,3459 @@
+{
+  "sourceSHA256": {
+    "benchmark.k": "81c9820dde5c52a69ab87bf8637afac98288ce7f3ca36eb80d4b6c44890fe45f",
+    "verify.k": "0126b8a567b4115ac8c7070fcd2f91033b23fa6b7c2440a71c9e61f74de41589",
+    "reference.cpp": "70077a732d23f9157009f79e3af92660e62eb6adbc5c05a714414e7ad4ae15f0",
+    "reference.rs": "e14efca77eb71b8aaed7e424ddc4e5490fa770f51f50dcc61c143288882588f1"
+  },
+  "host": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "cpu": "Apple M2 Max",
+  "compiler": "kalandra 0.99.1 + local experimental APIs",
+  "clang": "Homebrew clang version 23.1.3",
+  "rust": "rustc 1.93.0 (254b59607 2026-01-19)\nbinary: rustc\ncommit-hash: 254b59607d4417e9dffbc307138ae5c86280fe4c\ncommit-date: 2026-01-19\nhost: aarch64-apple-darwin\nrelease: 1.93.0\nLLVM version: 21.1.8",
+  "git": "94bf569c57f7479cd25da0b02fde4a90b05b860e",
+  "diffSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "binarySHA256": {
+    "kalandra": "41aed553670ae0eea55d7669bdc97d6f372aa4ba111959f8bf170b718b9f7a09",
+    "cpp": "2485595fa24b67c548775a4b7630fabc6948c0fcb008776b949a16ac3164237d",
+    "rust": "a23c060580c324d926e22f87c8833d01eecd74891b0b5d510b7656bebfa0df9e",
+    "cpp-checked": "c194db0084708458b18e964bb6c782240a5fd0c96fec455e18dc9a4e56ac22bf",
+    "rust-checked": "e3962acfa3421ccbba430316ac1c17f5e0ef4c08263d06188b73828da4ebbf0a",
+    "cpp-repeat": "2485595fa24b67c548775a4b7630fabc6948c0fcb008776b949a16ac3164237d"
+  },
+  "protocol": {
+    "unit": "end-to-end process elapsed seconds",
+    "blocks": 7,
+    "seed": 20261031,
+    "u": 40,
+    "rows": 10000,
+    "inner": 100000,
+    "logicalIterations": 1000000000,
+    "parallelism": "sequential CPU",
+    "notes": [
+      "Runtime inputs; one random draw and array allocation included.",
+      "C++/Rust include original zero initialization; generate initializes each output once.",
+      "Random distributions are equivalent; RNG implementations differ.",
+      "Ordinary C++/Rust overflow checks disabled; extra controls enable checked accumulation.",
+      "Valid input domain excludes integer overflow.",
+      "Output packs actual random r and selected result into one int64 for independent per-run checks.",
+      "Identical C++ binary repeated as a timing control. Background macOS maintenance is recorded; 400% pre-run stop threshold."
+    ]
+  },
+  "observations": [
+    {
+      "program": "kalandra",
+      "kind": "warmup",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.880158084,
+      "output": 1950126,
+      "random": 126,
+      "packedOutput": 541167829422,
+      "backgroundBefore": {
+        "totalCPU": 295.8,
+        "top": [
+          {
+            "cpu": 215.5
+          },
+          {
+            "cpu": 13.7
+          },
+          {
+            "cpu": 12.9
+          },
+          {
+            "cpu": 10.5
+          },
+          {
+            "cpu": 7.7
+          },
+          {
+            "cpu": 7.5
+          },
+          {
+            "cpu": 3.5
+          },
+          {
+            "cpu": 3.2
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 311.0,
+        "top": [
+          {
+            "cpu": 215.9
+          },
+          {
+            "cpu": 57.9
+          },
+          {
+            "cpu": 7.1
+          },
+          {
+            "cpu": 3.1
+          },
+          {
+            "cpu": 3.0
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.8
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "warmup",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.564007958,
+      "output": 1957353,
+      "random": 7353,
+      "packedOutput": 31580896484841,
+      "backgroundBefore": {
+        "totalCPU": 318.5,
+        "top": [
+          {
+            "cpu": 210.2
+          },
+          {
+            "cpu": 57.9
+          },
+          {
+            "cpu": 16.5
+          },
+          {
+            "cpu": 7.1
+          },
+          {
+            "cpu": 3.1
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.8
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 269.0,
+        "top": [
+          {
+            "cpu": 213.6
+          },
+          {
+            "cpu": 18.1
+          },
+          {
+            "cpu": 8.2
+          },
+          {
+            "cpu": 4.9
+          },
+          {
+            "cpu": 2.9
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.2
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "warmup",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.566889709,
+      "output": 1953408,
+      "random": 3408,
+      "packedOutput": 14637250498176,
+      "backgroundBefore": {
+        "totalCPU": 267.4,
+        "top": [
+          {
+            "cpu": 216.2
+          },
+          {
+            "cpu": 11.2
+          },
+          {
+            "cpu": 8.2
+          },
+          {
+            "cpu": 5.0
+          },
+          {
+            "cpu": 4.8
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 263.8,
+        "top": [
+          {
+            "cpu": 219.2
+          },
+          {
+            "cpu": 5.4
+          },
+          {
+            "cpu": 4.8
+          },
+          {
+            "cpu": 3.1
+          },
+          {
+            "cpu": 3.1
+          },
+          {
+            "cpu": 3.0
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-checked",
+      "kind": "warmup",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.593968,
+      "output": 1953799,
+      "random": 3799,
+      "packedOutput": 16316582711303,
+      "backgroundBefore": {
+        "totalCPU": 274.9,
+        "top": [
+          {
+            "cpu": 219.2
+          },
+          {
+            "cpu": 13.5
+          },
+          {
+            "cpu": 7.6
+          },
+          {
+            "cpu": 6.0
+          },
+          {
+            "cpu": 3.5
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.0
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 406.8,
+        "top": [
+          {
+            "cpu": 211.1
+          },
+          {
+            "cpu": 86.5
+          },
+          {
+            "cpu": 51.4
+          },
+          {
+            "cpu": 32.3
+          },
+          {
+            "cpu": 7.3
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust-checked",
+      "kind": "warmup",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.633575,
+      "output": 1959183,
+      "random": 9183,
+      "packedOutput": 39440686638351,
+      "backgroundBefore": {
+        "totalCPU": 395.5,
+        "top": [
+          {
+            "cpu": 211.1
+          },
+          {
+            "cpu": 86.5
+          },
+          {
+            "cpu": 51.4
+          },
+          {
+            "cpu": 20.2
+          },
+          {
+            "cpu": 9.7
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 354.4,
+        "top": [
+          {
+            "cpu": 221.6
+          },
+          {
+            "cpu": 99.0
+          },
+          {
+            "cpu": 6.1
+          },
+          {
+            "cpu": 6.0
+          },
+          {
+            "cpu": 5.4
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-repeat",
+      "kind": "warmup",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.617365584,
+      "output": 1953153,
+      "random": 3153,
+      "packedOutput": 13542033837441,
+      "backgroundBefore": {
+        "totalCPU": 331.5,
+        "top": [
+          {
+            "cpu": 224.6
+          },
+          {
+            "cpu": 70.9
+          },
+          {
+            "cpu": 9.4
+          },
+          {
+            "cpu": 6.2
+          },
+          {
+            "cpu": 4.0
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 263.40000000000003,
+        "top": [
+          {
+            "cpu": 220.8
+          },
+          {
+            "cpu": 9.2
+          },
+          {
+            "cpu": 6.6
+          },
+          {
+            "cpu": 6.3
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust-checked",
+      "kind": "measurement",
+      "block": 0,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.613847291,
+      "output": 1954535,
+      "random": 4535,
+      "packedOutput": 19477678641895,
+      "backgroundBefore": {
+        "totalCPU": 250.6,
+        "top": [
+          {
+            "cpu": 213.5
+          },
+          {
+            "cpu": 11.3
+          },
+          {
+            "cpu": 6.1
+          },
+          {
+            "cpu": 3.2
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 241.4,
+        "top": [
+          {
+            "cpu": 216.0
+          },
+          {
+            "cpu": 5.0
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.1
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-repeat",
+      "kind": "measurement",
+      "block": 0,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.561170416,
+      "output": 1951712,
+      "random": 1712,
+      "packedOutput": 7352985962464,
+      "backgroundBefore": {
+        "totalCPU": 242.3,
+        "top": [
+          {
+            "cpu": 216.0
+          },
+          {
+            "cpu": 7.4
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.1
+          },
+          {
+            "cpu": 0.9
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 253.0,
+        "top": [
+          {
+            "cpu": 221.7
+          },
+          {
+            "cpu": 5.5
+          },
+          {
+            "cpu": 4.1
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "kalandra",
+      "kind": "measurement",
+      "block": 0,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.5586985,
+      "output": 1955627,
+      "random": 5627,
+      "packedOutput": 24167782930219,
+      "backgroundBefore": {
+        "totalCPU": 257.9,
+        "top": [
+          {
+            "cpu": 223.9
+          },
+          {
+            "cpu": 5.5
+          },
+          {
+            "cpu": 4.1
+          },
+          {
+            "cpu": 3.7
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 246.6,
+        "top": [
+          {
+            "cpu": 222.4
+          },
+          {
+            "cpu": 4.6
+          },
+          {
+            "cpu": 4.3
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.1
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-checked",
+      "kind": "measurement",
+      "block": 0,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.568692458,
+      "output": 1958397,
+      "random": 8397,
+      "packedOutput": 36064842342909,
+      "backgroundBefore": {
+        "totalCPU": 249.6,
+        "top": [
+          {
+            "cpu": 222.5
+          },
+          {
+            "cpu": 5.2
+          },
+          {
+            "cpu": 4.8
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.4
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 273.5,
+        "top": [
+          {
+            "cpu": 219.2
+          },
+          {
+            "cpu": 8.9
+          },
+          {
+            "cpu": 6.9
+          },
+          {
+            "cpu": 4.2
+          },
+          {
+            "cpu": 3.8
+          },
+          {
+            "cpu": 3.6
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.3
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "measurement",
+      "block": 0,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.570716667,
+      "output": 1950725,
+      "random": 725,
+      "packedOutput": 3113853240325,
+      "backgroundBefore": {
+        "totalCPU": 267.5,
+        "top": [
+          {
+            "cpu": 219.2
+          },
+          {
+            "cpu": 8.9
+          },
+          {
+            "cpu": 6.4
+          },
+          {
+            "cpu": 3.6
+          },
+          {
+            "cpu": 3.1
+          },
+          {
+            "cpu": 3.1
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.3
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 294.5,
+        "top": [
+          {
+            "cpu": 216.0
+          },
+          {
+            "cpu": 21.9
+          },
+          {
+            "cpu": 12.7
+          },
+          {
+            "cpu": 12.6
+          },
+          {
+            "cpu": 7.6
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.8
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "measurement",
+      "block": 0,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.6042035,
+      "output": 1957286,
+      "random": 7286,
+      "packedOutput": 31293133675942,
+      "backgroundBefore": {
+        "totalCPU": 279.0,
+        "top": [
+          {
+            "cpu": 216.0
+          },
+          {
+            "cpu": 12.7
+          },
+          {
+            "cpu": 12.6
+          },
+          {
+            "cpu": 8.2
+          },
+          {
+            "cpu": 5.9
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.8
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 353.09999999999997,
+        "top": [
+          {
+            "cpu": 224.6
+          },
+          {
+            "cpu": 94.3
+          },
+          {
+            "cpu": 9.1
+          },
+          {
+            "cpu": 5.8
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.8
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust-checked",
+      "kind": "measurement",
+      "block": 1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.631336542,
+      "output": 1951458,
+      "random": 1458,
+      "packedOutput": 6262064269026,
+      "backgroundBefore": {
+        "totalCPU": 386.5,
+        "top": [
+          {
+            "cpu": 224.6
+          },
+          {
+            "cpu": 96.0
+          },
+          {
+            "cpu": 41.8
+          },
+          {
+            "cpu": 6.2
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.8
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 319.3,
+        "top": [
+          {
+            "cpu": 221.3
+          },
+          {
+            "cpu": 40.0
+          },
+          {
+            "cpu": 30.5
+          },
+          {
+            "cpu": 6.0
+          },
+          {
+            "cpu": 5.5
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "measurement",
+      "block": 1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.561437583,
+      "output": 1951186,
+      "random": 1186,
+      "packedOutput": 5093833164242,
+      "backgroundBefore": {
+        "totalCPU": 288.2,
+        "top": [
+          {
+            "cpu": 221.0
+          },
+          {
+            "cpu": 25.0
+          },
+          {
+            "cpu": 19.0
+          },
+          {
+            "cpu": 5.5
+          },
+          {
+            "cpu": 3.7
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 260.6,
+        "top": [
+          {
+            "cpu": 222.9
+          },
+          {
+            "cpu": 7.2
+          },
+          {
+            "cpu": 6.3
+          },
+          {
+            "cpu": 4.5
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "kalandra",
+      "kind": "measurement",
+      "block": 1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.557751917,
+      "output": 1952527,
+      "random": 2527,
+      "packedOutput": 10853384309519,
+      "backgroundBefore": {
+        "totalCPU": 258.8,
+        "top": [
+          {
+            "cpu": 222.9
+          },
+          {
+            "cpu": 6.8
+          },
+          {
+            "cpu": 6.3
+          },
+          {
+            "cpu": 4.5
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 244.9,
+        "top": [
+          {
+            "cpu": 220.3
+          },
+          {
+            "cpu": 4.7
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.2
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-checked",
+      "kind": "measurement",
+      "block": 1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.560840583,
+      "output": 1954355,
+      "random": 4355,
+      "packedOutput": 18704584528435,
+      "backgroundBefore": {
+        "totalCPU": 243.20000000000002,
+        "top": [
+          {
+            "cpu": 219.8
+          },
+          {
+            "cpu": 4.7
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.3
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 253.70000000000002,
+        "top": [
+          {
+            "cpu": 222.3
+          },
+          {
+            "cpu": 9.6
+          },
+          {
+            "cpu": 5.4
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.3
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-repeat",
+      "kind": "measurement",
+      "block": 1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.575328458,
+      "output": 1957032,
+      "random": 7032,
+      "packedOutput": 30202211982504,
+      "backgroundBefore": {
+        "totalCPU": 264.0,
+        "top": [
+          {
+            "cpu": 216.5
+          },
+          {
+            "cpu": 12.0
+          },
+          {
+            "cpu": 8.3
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 3.3
+          },
+          {
+            "cpu": 3.0
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 2.1
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 266.3,
+        "top": [
+          {
+            "cpu": 210.7
+          },
+          {
+            "cpu": 10.0
+          },
+          {
+            "cpu": 6.0
+          },
+          {
+            "cpu": 5.6
+          },
+          {
+            "cpu": 4.4
+          },
+          {
+            "cpu": 2.9
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 2.3
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "measurement",
+      "block": 1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.559735042,
+      "output": 1950092,
+      "random": 92,
+      "packedOutput": 395138941324,
+      "backgroundBefore": {
+        "totalCPU": 265.0,
+        "top": [
+          {
+            "cpu": 216.9
+          },
+          {
+            "cpu": 10.0
+          },
+          {
+            "cpu": 5.5
+          },
+          {
+            "cpu": 3.9
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 263.4,
+        "top": [
+          {
+            "cpu": 223.5
+          },
+          {
+            "cpu": 8.6
+          },
+          {
+            "cpu": 7.5
+          },
+          {
+            "cpu": 7.1
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.3
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "measurement",
+      "block": 2,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.561254625,
+      "output": 1955823,
+      "random": 5823,
+      "packedOutput": 25009596520431,
+      "backgroundBefore": {
+        "totalCPU": 263.4,
+        "top": [
+          {
+            "cpu": 223.5
+          },
+          {
+            "cpu": 8.6
+          },
+          {
+            "cpu": 7.5
+          },
+          {
+            "cpu": 7.1
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.3
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 252.1,
+        "top": [
+          {
+            "cpu": 221.7
+          },
+          {
+            "cpu": 5.1
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-checked",
+      "kind": "measurement",
+      "block": 2,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.575746667,
+      "output": 1951711,
+      "random": 1711,
+      "packedOutput": 7348690995167,
+      "backgroundBefore": {
+        "totalCPU": 252.2,
+        "top": [
+          {
+            "cpu": 223.1
+          },
+          {
+            "cpu": 5.1
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 360.2,
+        "top": [
+          {
+            "cpu": 178.2
+          },
+          {
+            "cpu": 66.1
+          },
+          {
+            "cpu": 48.1
+          },
+          {
+            "cpu": 27.9
+          },
+          {
+            "cpu": 10.9
+          },
+          {
+            "cpu": 6.9
+          },
+          {
+            "cpu": 5.1
+          },
+          {
+            "cpu": 3.0
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "measurement",
+      "block": 2,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.561107583,
+      "output": 1950970,
+      "random": 970,
+      "packedOutput": 4166120228090,
+      "backgroundBefore": {
+        "totalCPU": 322.2,
+        "top": [
+          {
+            "cpu": 177.6
+          },
+          {
+            "cpu": 61.6
+          },
+          {
+            "cpu": 18.3
+          },
+          {
+            "cpu": 15.9
+          },
+          {
+            "cpu": 14.9
+          },
+          {
+            "cpu": 6.6
+          },
+          {
+            "cpu": 6.4
+          },
+          {
+            "cpu": 2.5
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 247.1,
+        "top": [
+          {
+            "cpu": 217.4
+          },
+          {
+            "cpu": 7.4
+          },
+          {
+            "cpu": 4.9
+          },
+          {
+            "cpu": 3.7
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-repeat",
+      "kind": "measurement",
+      "block": 2,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.562391625,
+      "output": 1954454,
+      "random": 4454,
+      "packedOutput": 19129786290838,
+      "backgroundBefore": {
+        "totalCPU": 249.70000000000002,
+        "top": [
+          {
+            "cpu": 217.4
+          },
+          {
+            "cpu": 7.4
+          },
+          {
+            "cpu": 5.2
+          },
+          {
+            "cpu": 3.7
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.0
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 246.0,
+        "top": [
+          {
+            "cpu": 221.4
+          },
+          {
+            "cpu": 4.8
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust-checked",
+      "kind": "measurement",
+      "block": 2,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.61263875,
+      "output": 1952789,
+      "random": 2789,
+      "packedOutput": 11978665741333,
+      "backgroundBefore": {
+        "totalCPU": 244.5,
+        "top": [
+          {
+            "cpu": 221.4
+          },
+          {
+            "cpu": 4.8
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.3
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 251.9,
+        "top": [
+          {
+            "cpu": 218.5
+          },
+          {
+            "cpu": 9.0
+          },
+          {
+            "cpu": 4.9
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "kalandra",
+      "kind": "measurement",
+      "block": 2,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.571899667,
+      "output": 1959804,
+      "random": 9804,
+      "packedOutput": 42107861329788,
+      "backgroundBefore": {
+        "totalCPU": 251.9,
+        "top": [
+          {
+            "cpu": 218.5
+          },
+          {
+            "cpu": 9.0
+          },
+          {
+            "cpu": 4.9
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 250.79999999999998,
+        "top": [
+          {
+            "cpu": 221.2
+          },
+          {
+            "cpu": 9.3
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.1
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "measurement",
+      "block": 3,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.572695125,
+      "output": 1951759,
+      "random": 1759,
+      "packedOutput": 7554849425423,
+      "backgroundBefore": {
+        "totalCPU": 249.79999999999998,
+        "top": [
+          {
+            "cpu": 222.7
+          },
+          {
+            "cpu": 9.3
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.3
+          },
+          {
+            "cpu": 1.1
+          },
+          {
+            "cpu": 1.0
+          },
+          {
+            "cpu": 1.0
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 279.3,
+        "top": [
+          {
+            "cpu": 216.9
+          },
+          {
+            "cpu": 19.1
+          },
+          {
+            "cpu": 7.6
+          },
+          {
+            "cpu": 6.1
+          },
+          {
+            "cpu": 5.2
+          },
+          {
+            "cpu": 5.1
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.9
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust-checked",
+      "kind": "measurement",
+      "block": 3,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.617849459,
+      "output": 1957022,
+      "random": 7022,
+      "packedOutput": 30159262309534,
+      "backgroundBefore": {
+        "totalCPU": 281.8,
+        "top": [
+          {
+            "cpu": 220.3
+          },
+          {
+            "cpu": 18.4
+          },
+          {
+            "cpu": 11.9
+          },
+          {
+            "cpu": 5.9
+          },
+          {
+            "cpu": 3.8
+          },
+          {
+            "cpu": 3.6
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 2.0
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 250.5,
+        "top": [
+          {
+            "cpu": 225.1
+          },
+          {
+            "cpu": 9.0
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.3
+          },
+          {
+            "cpu": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-repeat",
+      "kind": "measurement",
+      "block": 3,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.560987667,
+      "output": 1954242,
+      "random": 4242,
+      "packedOutput": 18219253223874,
+      "backgroundBefore": {
+        "totalCPU": 262.9,
+        "top": [
+          {
+            "cpu": 220.1
+          },
+          {
+            "cpu": 12.9
+          },
+          {
+            "cpu": 9.0
+          },
+          {
+            "cpu": 4.3
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 294.0,
+        "top": [
+          {
+            "cpu": 213.1
+          },
+          {
+            "cpu": 55.6
+          },
+          {
+            "cpu": 5.7
+          },
+          {
+            "cpu": 5.1
+          },
+          {
+            "cpu": 2.9
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.3
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-checked",
+      "kind": "measurement",
+      "block": 3,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.557201583,
+      "output": 1957674,
+      "random": 7674,
+      "packedOutput": 32959580987178,
+      "backgroundBefore": {
+        "totalCPU": 311.4,
+        "top": [
+          {
+            "cpu": 212.5
+          },
+          {
+            "cpu": 39.2
+          },
+          {
+            "cpu": 34.8
+          },
+          {
+            "cpu": 5.8
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 253.5,
+        "top": [
+          {
+            "cpu": 223.5
+          },
+          {
+            "cpu": 9.9
+          },
+          {
+            "cpu": 5.0
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.0
+          },
+          {
+            "cpu": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "measurement",
+      "block": 3,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.560354084,
+      "output": 1950751,
+      "random": 751,
+      "packedOutput": 3225522390047,
+      "backgroundBefore": {
+        "totalCPU": 253.0,
+        "top": [
+          {
+            "cpu": 223.5
+          },
+          {
+            "cpu": 9.9
+          },
+          {
+            "cpu": 5.3
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.0
+          },
+          {
+            "cpu": 1.0
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 248.60000000000002,
+        "top": [
+          {
+            "cpu": 222.8
+          },
+          {
+            "cpu": 10.1
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.3
+          },
+          {
+            "cpu": 1.2
+          }
+        ]
+      }
+    },
+    {
+      "program": "kalandra",
+      "kind": "measurement",
+      "block": 3,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.557081958,
+      "output": 1958556,
+      "random": 8556,
+      "packedOutput": 36747742143132,
+      "backgroundBefore": {
+        "totalCPU": 250.7,
+        "top": [
+          {
+            "cpu": 221.5
+          },
+          {
+            "cpu": 10.1
+          },
+          {
+            "cpu": 3.0
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.4
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 238.7,
+        "top": [
+          {
+            "cpu": 221.6
+          },
+          {
+            "cpu": 5.6
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.2
+          },
+          {
+            "cpu": 1.0
+          },
+          {
+            "cpu": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-checked",
+      "kind": "measurement",
+      "block": 4,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.569576583,
+      "output": 1957119,
+      "random": 7119,
+      "packedOutput": 30575874137343,
+      "backgroundBefore": {
+        "totalCPU": 245.0,
+        "top": [
+          {
+            "cpu": 222.1
+          },
+          {
+            "cpu": 6.0
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.3
+          },
+          {
+            "cpu": 1.2
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 246.5,
+        "top": [
+          {
+            "cpu": 224.5
+          },
+          {
+            "cpu": 6.7
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.2
+          },
+          {
+            "cpu": 1.0
+          },
+          {
+            "cpu": 0.9
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust-checked",
+      "kind": "measurement",
+      "block": 4,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.619617125,
+      "output": 1953401,
+      "random": 3401,
+      "packedOutput": 14607185727097,
+      "backgroundBefore": {
+        "totalCPU": 246.7,
+        "top": [
+          {
+            "cpu": 224.5
+          },
+          {
+            "cpu": 6.8
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.2
+          },
+          {
+            "cpu": 1.0
+          },
+          {
+            "cpu": 0.9
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 264.09999999999997,
+        "top": [
+          {
+            "cpu": 222.2
+          },
+          {
+            "cpu": 12.1
+          },
+          {
+            "cpu": 5.4
+          },
+          {
+            "cpu": 5.2
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "kalandra",
+      "kind": "measurement",
+      "block": 4,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.561434042,
+      "output": 1952107,
+      "random": 2107,
+      "packedOutput": 9049498044779,
+      "backgroundBefore": {
+        "totalCPU": 263.1,
+        "top": [
+          {
+            "cpu": 206.4
+          },
+          {
+            "cpu": 12.1
+          },
+          {
+            "cpu": 8.5
+          },
+          {
+            "cpu": 8.3
+          },
+          {
+            "cpu": 5.2
+          },
+          {
+            "cpu": 2.9
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 2.1
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 323.5,
+        "top": [
+          {
+            "cpu": 200.3
+          },
+          {
+            "cpu": 68.3
+          },
+          {
+            "cpu": 18.4
+          },
+          {
+            "cpu": 14.5
+          },
+          {
+            "cpu": 4.9
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "measurement",
+      "block": 4,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.560303,
+      "output": 1957408,
+      "random": 7408,
+      "packedOutput": 31817119686176,
+      "backgroundBefore": {
+        "totalCPU": 324.1,
+        "top": [
+          {
+            "cpu": 198.9
+          },
+          {
+            "cpu": 70.4
+          },
+          {
+            "cpu": 15.1
+          },
+          {
+            "cpu": 14.5
+          },
+          {
+            "cpu": 4.9
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 316.2,
+        "top": [
+          {
+            "cpu": 177.5
+          },
+          {
+            "cpu": 74.6
+          },
+          {
+            "cpu": 18.1
+          },
+          {
+            "cpu": 14.7
+          },
+          {
+            "cpu": 7.6
+          },
+          {
+            "cpu": 5.3
+          },
+          {
+            "cpu": 3.5
+          },
+          {
+            "cpu": 3.2
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "measurement",
+      "block": 4,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.562518375,
+      "output": 1956073,
+      "random": 6073,
+      "packedOutput": 26083338344681,
+      "backgroundBefore": {
+        "totalCPU": 308.5,
+        "top": [
+          {
+            "cpu": 152.9
+          },
+          {
+            "cpu": 74.8
+          },
+          {
+            "cpu": 18.2
+          },
+          {
+            "cpu": 14.8
+          },
+          {
+            "cpu": 14.2
+          },
+          {
+            "cpu": 11.4
+          },
+          {
+            "cpu": 3.2
+          },
+          {
+            "cpu": 3.0
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 340.6,
+        "top": [
+          {
+            "cpu": 166.3
+          },
+          {
+            "cpu": 73.8
+          },
+          {
+            "cpu": 31.5
+          },
+          {
+            "cpu": 19.3
+          },
+          {
+            "cpu": 15.0
+          },
+          {
+            "cpu": 13.3
+          },
+          {
+            "cpu": 5.5
+          },
+          {
+            "cpu": 5.1
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-repeat",
+      "kind": "measurement",
+      "block": 4,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.561302958,
+      "output": 1956789,
+      "random": 6789,
+      "packedOutput": 29158534929333,
+      "backgroundBefore": {
+        "totalCPU": 342.1,
+        "top": [
+          {
+            "cpu": 158.0
+          },
+          {
+            "cpu": 73.8
+          },
+          {
+            "cpu": 31.5
+          },
+          {
+            "cpu": 17.3
+          },
+          {
+            "cpu": 14.3
+          },
+          {
+            "cpu": 13.2
+          },
+          {
+            "cpu": 12.6
+          },
+          {
+            "cpu": 5.8
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 330.2,
+        "top": [
+          {
+            "cpu": 195.5
+          },
+          {
+            "cpu": 73.8
+          },
+          {
+            "cpu": 18.4
+          },
+          {
+            "cpu": 14.0
+          },
+          {
+            "cpu": 9.5
+          },
+          {
+            "cpu": 4.3
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "program": "kalandra",
+      "kind": "measurement",
+      "block": 5,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.56380425,
+      "output": 1951868,
+      "random": 1868,
+      "packedOutput": 8023000860796,
+      "backgroundBefore": {
+        "totalCPU": 365.0,
+        "top": [
+          {
+            "cpu": 195.5
+          },
+          {
+            "cpu": 73.8
+          },
+          {
+            "cpu": 42.7
+          },
+          {
+            "cpu": 18.4
+          },
+          {
+            "cpu": 14.0
+          },
+          {
+            "cpu": 5.8
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 286.6,
+        "top": [
+          {
+            "cpu": 138.3
+          },
+          {
+            "cpu": 81.6
+          },
+          {
+            "cpu": 19.8
+          },
+          {
+            "cpu": 13.7
+          },
+          {
+            "cpu": 7.1
+          },
+          {
+            "cpu": 5.3
+          },
+          {
+            "cpu": 4.3
+          },
+          {
+            "cpu": 2.8
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "measurement",
+      "block": 5,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.560006584,
+      "output": 1950127,
+      "random": 127,
+      "packedOutput": 545462796719,
+      "backgroundBefore": {
+        "totalCPU": 309.40000000000003,
+        "top": [
+          {
+            "cpu": 165.3
+          },
+          {
+            "cpu": 79.0
+          },
+          {
+            "cpu": 19.8
+          },
+          {
+            "cpu": 13.9
+          },
+          {
+            "cpu": 7.1
+          },
+          {
+            "cpu": 5.3
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.3
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 329.2,
+        "top": [
+          {
+            "cpu": 205.4
+          },
+          {
+            "cpu": 71.8
+          },
+          {
+            "cpu": 16.7
+          },
+          {
+            "cpu": 14.5
+          },
+          {
+            "cpu": 8.5
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.4
+          },
+          {
+            "cpu": 1.4
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust-checked",
+      "kind": "measurement",
+      "block": 5,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.626980583,
+      "output": 1954918,
+      "random": 4918,
+      "packedOutput": 21122651116646,
+      "backgroundBefore": {
+        "totalCPU": 333.7,
+        "top": [
+          {
+            "cpu": 205.6
+          },
+          {
+            "cpu": 72.4
+          },
+          {
+            "cpu": 16.2
+          },
+          {
+            "cpu": 14.4
+          },
+          {
+            "cpu": 7.2
+          },
+          {
+            "cpu": 4.2
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 1.8
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 287.6,
+        "top": [
+          {
+            "cpu": 135.1
+          },
+          {
+            "cpu": 77.4
+          },
+          {
+            "cpu": 20.1
+          },
+          {
+            "cpu": 13.6
+          },
+          {
+            "cpu": 9.3
+          },
+          {
+            "cpu": 7.1
+          },
+          {
+            "cpu": 5.4
+          },
+          {
+            "cpu": 3.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp-repeat",
+      "kind": "measurement",
+      "block": 5,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.618536,
+      "output": 1959656,
+      "random": 9656,
+      "packedOutput": 41472206169832,
+      "backgroundBefore": {
+        "totalCPU": 313.5,
+        "top": [
+          {
+            "cpu": 153.1
+          },
+          {
+            "cpu": 80.4
+          },
+          {
+            "cpu": 20.8
+          },
+          {
+            "cpu": 14.3
+          },
+          {
+            "cpu": 13.9
+          },
+          {
+            "cpu": 9.3
+          },
+          {
+            "cpu": 4.4
+          },
+          {
+            "cpu": 3.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 409.4,
+        "top": [
+          {
+            "cpu": 172.0
+          },
+          {
+            "cpu": 75.5
+          },
+          {
+            "cpu": 21.8
+          },
+          {
+            "cpu": 14.1
+          },
+          {
+            "cpu": 13.3
+          },
+          {
+            "cpu": 12.6
+          },
+          {
+            "cpu": 10.5
+          },
+          {
+            "cpu": 8.0
+          }
+        ]
+      }
+    }
+  ],
+  "scaling": [
+    {
+      "program": "kalandra",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 2500,
+      "inner": 100000,
+      "elapsedSeconds": 0.141897583,
+      "output": 1956043,
+      "random": 6043,
+      "packedOutput": 25954489325771,
+      "backgroundBefore": {
+        "totalCPU": 251.6,
+        "top": [
+          {
+            "cpu": 221.9
+          },
+          {
+            "cpu": 5.8
+          },
+          {
+            "cpu": 5.6
+          },
+          {
+            "cpu": 4.1
+          },
+          {
+            "cpu": 1.5
+          },
+          {
+            "cpu": 1.3
+          },
+          {
+            "cpu": 1.2
+          },
+          {
+            "cpu": 1.1
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 251.89999999999998,
+        "top": [
+          {
+            "cpu": 223.7
+          },
+          {
+            "cpu": 5.8
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 2500,
+      "inner": 100000,
+      "elapsedSeconds": 0.14314075,
+      "output": 1950828,
+      "random": 828,
+      "packedOutput": 3556234871916,
+      "backgroundBefore": {
+        "totalCPU": 256.0,
+        "top": [
+          {
+            "cpu": 224.3
+          },
+          {
+            "cpu": 5.8
+          },
+          {
+            "cpu": 3.8
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 2.7
+          },
+          {
+            "cpu": 2.4
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 253.79999999999998,
+        "top": [
+          {
+            "cpu": 223.6
+          },
+          {
+            "cpu": 5.7
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.4
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 2500,
+      "inner": 100000,
+      "elapsedSeconds": 0.144317708,
+      "output": 1959013,
+      "random": 9013,
+      "packedOutput": 38710542197861,
+      "backgroundBefore": {
+        "totalCPU": 253.0,
+        "top": [
+          {
+            "cpu": 223.6
+          },
+          {
+            "cpu": 6.5
+          },
+          {
+            "cpu": 3.4
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 255.79999999999998,
+        "top": [
+          {
+            "cpu": 224.6
+          },
+          {
+            "cpu": 6.1
+          },
+          {
+            "cpu": 4.0
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 2.1
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      }
+    },
+    {
+      "program": "kalandra",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 5000,
+      "inner": 100000,
+      "elapsedSeconds": 0.28364575,
+      "output": 1954662,
+      "random": 4662,
+      "packedOutput": 20023139488614,
+      "backgroundBefore": {
+        "totalCPU": 257.8,
+        "top": [
+          {
+            "cpu": 224.5
+          },
+          {
+            "cpu": 7.9
+          },
+          {
+            "cpu": 3.8
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.9
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 251.3,
+        "top": [
+          {
+            "cpu": 221.8
+          },
+          {
+            "cpu": 5.9
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 5000,
+      "inner": 100000,
+      "elapsedSeconds": 0.283894334,
+      "output": 1958752,
+      "random": 8752,
+      "packedOutput": 37589555733344,
+      "backgroundBefore": {
+        "totalCPU": 250.60000000000002,
+        "top": [
+          {
+            "cpu": 221.8
+          },
+          {
+            "cpu": 5.9
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 256.7,
+        "top": [
+          {
+            "cpu": 223.4
+          },
+          {
+            "cpu": 5.9
+          },
+          {
+            "cpu": 5.2
+          },
+          {
+            "cpu": 3.7
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 2.0
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 5000,
+      "inner": 100000,
+      "elapsedSeconds": 0.289189833,
+      "output": 1958186,
+      "random": 8186,
+      "packedOutput": 35158604243242,
+      "backgroundBefore": {
+        "totalCPU": 268.1,
+        "top": [
+          {
+            "cpu": 226.0
+          },
+          {
+            "cpu": 10.6
+          },
+          {
+            "cpu": 5.7
+          },
+          {
+            "cpu": 4.4
+          },
+          {
+            "cpu": 3.1
+          },
+          {
+            "cpu": 3.1
+          },
+          {
+            "cpu": 2.2
+          },
+          {
+            "cpu": 1.9
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 260.2,
+        "top": [
+          {
+            "cpu": 214.8
+          },
+          {
+            "cpu": 6.1
+          },
+          {
+            "cpu": 5.5
+          },
+          {
+            "cpu": 3.7
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.2
+          }
+        ]
+      }
+    },
+    {
+      "program": "kalandra",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.560463667,
+      "output": 1956762,
+      "random": 6762,
+      "packedOutput": 29042570812314,
+      "backgroundBefore": {
+        "totalCPU": 259.7,
+        "top": [
+          {
+            "cpu": 214.8
+          },
+          {
+            "cpu": 6.1
+          },
+          {
+            "cpu": 5.5
+          },
+          {
+            "cpu": 3.7
+          },
+          {
+            "cpu": 2.6
+          },
+          {
+            "cpu": 2.5
+          },
+          {
+            "cpu": 2.3
+          },
+          {
+            "cpu": 2.1
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 255.7,
+        "top": [
+          {
+            "cpu": 216.7
+          },
+          {
+            "cpu": 5.7
+          },
+          {
+            "cpu": 4.6
+          },
+          {
+            "cpu": 3.0
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      }
+    },
+    {
+      "program": "cpp",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.560233708,
+      "output": 1953234,
+      "random": 3234,
+      "packedOutput": 13889926188498,
+      "backgroundBefore": {
+        "totalCPU": 252.4,
+        "top": [
+          {
+            "cpu": 219.4
+          },
+          {
+            "cpu": 5.7
+          },
+          {
+            "cpu": 2.9
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.8
+          },
+          {
+            "cpu": 1.7
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.6
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 324.2,
+        "top": [
+          {
+            "cpu": 193.6
+          },
+          {
+            "cpu": 48.2
+          },
+          {
+            "cpu": 42.5
+          },
+          {
+            "cpu": 10.4
+          },
+          {
+            "cpu": 7.5
+          },
+          {
+            "cpu": 6.7
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.3
+          }
+        ]
+      }
+    },
+    {
+      "program": "rust",
+      "kind": "scaling",
+      "block": -1,
+      "rows": 10000,
+      "inner": 100000,
+      "elapsedSeconds": 0.565626583,
+      "output": 1956443,
+      "random": 6443,
+      "packedOutput": 27672476244571,
+      "backgroundBefore": {
+        "totalCPU": 330.90000000000003,
+        "top": [
+          {
+            "cpu": 181.8
+          },
+          {
+            "cpu": 45.0
+          },
+          {
+            "cpu": 42.5
+          },
+          {
+            "cpu": 30.8
+          },
+          {
+            "cpu": 10.2
+          },
+          {
+            "cpu": 6.7
+          },
+          {
+            "cpu": 1.6
+          },
+          {
+            "cpu": 1.4
+          }
+        ]
+      },
+      "backgroundAfter": {
+        "totalCPU": 274.4,
+        "top": [
+          {
+            "cpu": 213.5
+          },
+          {
+            "cpu": 23.4
+          },
+          {
+            "cpu": 11.3
+          },
+          {
+            "cpu": 5.7
+          },
+          {
+            "cpu": 3.2
+          },
+          {
+            "cpu": 2.8
+          },
+          {
+            "cpu": 1.9
+          },
+          {
+            "cpu": 1.7
+          }
+        ]
+      }
+    }
+  ],
+  "blocked": {
+    "reason": "Background CPU exceeds 400% before trial",
+    "load": {
+      "totalCPU": 411.7,
+      "top": [
+        {
+          "cpu": 176.0
+        },
+        {
+          "cpu": 77.0
+        },
+        {
+          "cpu": 21.8
+        },
+        {
+          "cpu": 14.1
+        },
+        {
+          "cpu": 13.3
+        },
+        {
+          "cpu": 12.6
+        },
+        {
+          "cpu": 10.5
+        },
+        {
+          "cpu": 8.0
+        }
+      ]
+    }
+  }
+}

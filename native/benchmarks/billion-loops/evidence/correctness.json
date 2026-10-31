@@ -1,0 +1,365 @@
+{
+  "reference": "independent integer arithmetic-series formula",
+  "cases": [
+    {
+      "program": "kalandra",
+      "u": 1,
+      "rows": 1,
+      "count": 0,
+      "r": 174,
+      "expected": 174,
+      "elementsVerified": 1
+    },
+    {
+      "program": "kalandra",
+      "u": 1,
+      "rows": 7,
+      "count": 100,
+      "r": 7558,
+      "expected": 7558,
+      "elementsVerified": 7
+    },
+    {
+      "program": "kalandra",
+      "u": 2,
+      "rows": 31,
+      "count": 101,
+      "r": 5613,
+      "expected": 5663,
+      "elementsVerified": 31
+    },
+    {
+      "program": "kalandra",
+      "u": 3,
+      "rows": 17,
+      "count": 1000,
+      "r": 239,
+      "expected": 1238,
+      "elementsVerified": 17
+    },
+    {
+      "program": "kalandra",
+      "u": 7,
+      "rows": 31,
+      "count": 97,
+      "r": 2038,
+      "expected": 2326,
+      "elementsVerified": 31
+    },
+    {
+      "program": "kalandra",
+      "u": 40,
+      "rows": 10000,
+      "count": 100000,
+      "r": 7656,
+      "expected": 1957656,
+      "elementsVerified": 10000
+    },
+    {
+      "program": "kalandra",
+      "u": 97,
+      "rows": 19,
+      "count": 1001,
+      "r": 5169,
+      "expected": 52194,
+      "elementsVerified": 19
+    },
+    {
+      "program": "kalandra",
+      "u": 2147483647,
+      "rows": 7,
+      "count": 100,
+      "r": 8733,
+      "expected": 13683,
+      "elementsVerified": 7
+    },
+    {
+      "program": "cpp",
+      "u": 1,
+      "rows": 1,
+      "count": 0,
+      "r": 9033,
+      "expected": 9033,
+      "elementsVerified": 1
+    },
+    {
+      "program": "cpp",
+      "u": 1,
+      "rows": 7,
+      "count": 100,
+      "r": 1511,
+      "expected": 1511,
+      "elementsVerified": 7
+    },
+    {
+      "program": "cpp",
+      "u": 2,
+      "rows": 31,
+      "count": 101,
+      "r": 8537,
+      "expected": 8587,
+      "elementsVerified": 31
+    },
+    {
+      "program": "cpp",
+      "u": 3,
+      "rows": 17,
+      "count": 1000,
+      "r": 5912,
+      "expected": 6911,
+      "elementsVerified": 17
+    },
+    {
+      "program": "cpp",
+      "u": 7,
+      "rows": 31,
+      "count": 97,
+      "r": 2019,
+      "expected": 2307,
+      "elementsVerified": 31
+    },
+    {
+      "program": "cpp",
+      "u": 40,
+      "rows": 10000,
+      "count": 100000,
+      "r": 3902,
+      "expected": 1953902,
+      "elementsVerified": 10000
+    },
+    {
+      "program": "cpp",
+      "u": 97,
+      "rows": 19,
+      "count": 1001,
+      "r": 58,
+      "expected": 47083,
+      "elementsVerified": 19
+    },
+    {
+      "program": "cpp",
+      "u": 2147483647,
+      "rows": 7,
+      "count": 100,
+      "r": 5076,
+      "expected": 10026,
+      "elementsVerified": 7
+    },
+    {
+      "program": "rust",
+      "u": 1,
+      "rows": 1,
+      "count": 0,
+      "r": 8302,
+      "expected": 8302,
+      "elementsVerified": 1
+    },
+    {
+      "program": "rust",
+      "u": 1,
+      "rows": 7,
+      "count": 100,
+      "r": 9676,
+      "expected": 9676,
+      "elementsVerified": 7
+    },
+    {
+      "program": "rust",
+      "u": 2,
+      "rows": 31,
+      "count": 101,
+      "r": 1814,
+      "expected": 1864,
+      "elementsVerified": 31
+    },
+    {
+      "program": "rust",
+      "u": 3,
+      "rows": 17,
+      "count": 1000,
+      "r": 228,
+      "expected": 1227,
+      "elementsVerified": 17
+    },
+    {
+      "program": "rust",
+      "u": 7,
+      "rows": 31,
+      "count": 97,
+      "r": 7617,
+      "expected": 7905,
+      "elementsVerified": 31
+    },
+    {
+      "program": "rust",
+      "u": 40,
+      "rows": 10000,
+      "count": 100000,
+      "r": 2555,
+      "expected": 1952555,
+      "elementsVerified": 10000
+    },
+    {
+      "program": "rust",
+      "u": 97,
+      "rows": 19,
+      "count": 1001,
+      "r": 2393,
+      "expected": 49418,
+      "elementsVerified": 19
+    },
+    {
+      "program": "rust",
+      "u": 2147483647,
+      "rows": 7,
+      "count": 100,
+      "r": 7628,
+      "expected": 12578,
+      "elementsVerified": 7
+    },
+    {
+      "program": "cpp-checked",
+      "u": 1,
+      "rows": 1,
+      "count": 0,
+      "r": 6224,
+      "expected": 6224,
+      "elementsVerified": 1
+    },
+    {
+      "program": "cpp-checked",
+      "u": 1,
+      "rows": 7,
+      "count": 100,
+      "r": 2609,
+      "expected": 2609,
+      "elementsVerified": 7
+    },
+    {
+      "program": "cpp-checked",
+      "u": 2,
+      "rows": 31,
+      "count": 101,
+      "r": 9456,
+      "expected": 9506,
+      "elementsVerified": 31
+    },
+    {
+      "program": "cpp-checked",
+      "u": 3,
+      "rows": 17,
+      "count": 1000,
+      "r": 8831,
+      "expected": 9830,
+      "elementsVerified": 17
+    },
+    {
+      "program": "cpp-checked",
+      "u": 7,
+      "rows": 31,
+      "count": 97,
+      "r": 9002,
+      "expected": 9290,
+      "elementsVerified": 31
+    },
+    {
+      "program": "cpp-checked",
+      "u": 40,
+      "rows": 10000,
+      "count": 100000,
+      "r": 6989,
+      "expected": 1956989,
+      "elementsVerified": 10000
+    },
+    {
+      "program": "cpp-checked",
+      "u": 97,
+      "rows": 19,
+      "count": 1001,
+      "r": 7528,
+      "expected": 54553,
+      "elementsVerified": 19
+    },
+    {
+      "program": "cpp-checked",
+      "u": 2147483647,
+      "rows": 7,
+      "count": 100,
+      "r": 1477,
+      "expected": 6427,
+      "elementsVerified": 7
+    },
+    {
+      "program": "rust-checked",
+      "u": 1,
+      "rows": 1,
+      "count": 0,
+      "r": 2500,
+      "expected": 2500,
+      "elementsVerified": 1
+    },
+    {
+      "program": "rust-checked",
+      "u": 1,
+      "rows": 7,
+      "count": 100,
+      "r": 6013,
+      "expected": 6013,
+      "elementsVerified": 7
+    },
+    {
+      "program": "rust-checked",
+      "u": 2,
+      "rows": 31,
+      "count": 101,
+      "r": 9600,
+      "expected": 9650,
+      "elementsVerified": 31
+    },
+    {
+      "program": "rust-checked",
+      "u": 3,
+      "rows": 17,
+      "count": 1000,
+      "r": 4103,
+      "expected": 5102,
+      "elementsVerified": 17
+    },
+    {
+      "program": "rust-checked",
+      "u": 7,
+      "rows": 31,
+      "count": 97,
+      "r": 576,
+      "expected": 864,
+      "elementsVerified": 31
+    },
+    {
+      "program": "rust-checked",
+      "u": 40,
+      "rows": 10000,
+      "count": 100000,
+      "r": 9355,
+      "expected": 1959355,
+      "elementsVerified": 10000
+    },
+    {
+      "program": "rust-checked",
+      "u": 97,
+      "rows": 19,
+      "count": 1001,
+      "r": 9954,
+      "expected": 56979,
+      "elementsVerified": 19
+    },
+    {
+      "program": "rust-checked",
+      "u": 2147483647,
+      "rows": 7,
+      "count": 100,
+      "r": 8226,
+      "expected": 13176,
+      "elementsVerified": 7
+    }
+  ]
+}
