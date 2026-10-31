@@ -34,10 +34,35 @@ def expected_machine(prefix):
 
 def check_machine(path, machine):
     with path.open("rb") as stream:
-        header = stream.read(20)
-    if (len(header) != 20 or header[:6] != b"\x7fELF\x02\x01" or
-            int.from_bytes(header[18:20], "little") != machine):
-        raise RuntimeError(f"Wrong ELF architecture: {path}")
+        header = stream.read(64)
+        if (len(header) != 64 or header[:6] != b"\x7fELF\x02\x01" or
+                int.from_bytes(header[18:20], "little") != machine):
+            raise RuntimeError(f"Wrong ELF architecture: {path}")
+        if machine != 183:
+            return
+        # Pi 5 kernels can use 16 KiB pages. Every LOAD segment, including the
+        # bundled SDK and sanitizer DSOs, must permit that mapping granularity.
+        offset = int.from_bytes(header[32:40], "little")
+        size = int.from_bytes(header[54:56], "little")
+        count = int.from_bytes(header[56:58], "little")
+        loads = 0
+        if size < 56 or not count:
+            raise RuntimeError(f"Invalid ELF program headers: {path}")
+        for index in range(count):
+            stream.seek(offset + index * size)
+            segment = stream.read(56)
+            if len(segment) != 56:
+                raise RuntimeError(f"Truncated ELF program headers: {path}")
+            if int.from_bytes(segment[:4], "little") != 1:
+                continue
+            loads += 1
+            file_offset = int.from_bytes(segment[8:16], "little")
+            address = int.from_bytes(segment[16:24], "little")
+            alignment = int.from_bytes(segment[48:56], "little")
+            if alignment < 16384 or (address - file_offset) % 16384:
+                raise RuntimeError(f"ELF LOAD segment is incompatible with 16 KiB Pi pages: {path}")
+        if not loads:
+            raise RuntimeError(f"ELF has no LOAD segments: {path}")
 
 
 def dependencies(path, sdk=None):

@@ -1,5 +1,4 @@
 """Guard architecture selection and reject mixed-architecture release packages."""
-import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -9,6 +8,20 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "native/packaging"))
 from BundleELF import check_machine, expected_machine, PLATFORM
 from provision_native_platform import archive_key
+
+
+def fixture_elf(machine, alignment=65536, address=65536):
+    header = bytearray(64)
+    header[:6] = b"\x7fELF\x02\x01"
+    header[18:20] = machine.to_bytes(2, "little")
+    header[32:40] = (64).to_bytes(8, "little")
+    header[54:56] = (56).to_bytes(2, "little")
+    header[56:58] = (1).to_bytes(2, "little")
+    segment = bytearray(56)
+    segment[:4] = (1).to_bytes(4, "little")
+    segment[16:24] = address.to_bytes(8, "little")
+    segment[48:56] = alignment.to_bytes(8, "little")
+    return header + segment
 
 
 class LinuxArchitectureTests(unittest.TestCase):
@@ -30,7 +43,7 @@ class LinuxArchitectureTests(unittest.TestCase):
             machine = expected_machine(root)
             path = root / "program"
             for actual in (62, 183):
-                path.write_bytes(b"\x7fELF\x02\x01" + bytes(12) + actual.to_bytes(2, "little"))
+                path.write_bytes(fixture_elf(actual))
                 if actual == machine:
                     check_machine(path, machine)
                 else:
@@ -42,6 +55,20 @@ class LinuxArchitectureTests(unittest.TestCase):
             metadata.write_text(json.dumps({"platform": "linux-armv7"}))
             with self.assertRaises(RuntimeError):
                 expected_machine(root)
+
+    def test_pi_16k_load_alignment(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "program"
+            for alignment, address in ((4096, 65536), (65536, 4096)):
+                path.write_bytes(fixture_elf(183, alignment, address))
+                with self.assertRaisesRegex(RuntimeError, "16 KiB"):
+                    check_machine(path, 183)
+            for alignment in (16384, 65536):
+                path.write_bytes(fixture_elf(183, alignment))
+                check_machine(path, 183)
+            path.write_bytes(fixture_elf(183)[:70])
+            with self.assertRaisesRegex(RuntimeError, "Truncated"):
+                check_machine(path, 183)
 
     def test_system_loaders(self):
         self.assertTrue(PLATFORM.fullmatch("ld-linux-aarch64.so.1"))

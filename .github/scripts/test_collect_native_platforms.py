@@ -90,6 +90,20 @@ class QualificationGate(unittest.TestCase):
                     download.assert_not_called()
             self.run_in_workspace(check)
 
+    def test_missing_arm64_artifact_blocks_release(self):
+        def api(path):
+            response = self.api(path)
+            if "artifacts" in response:
+                response["artifacts"] = [a for a in response["artifacts"] if "arm64" not in a["name"]]
+            return response
+        def check():
+            with patch.object(collector, "api", side_effect=api), patch.object(collector.subprocess, "run", side_effect=self.download):
+                with self.assertRaisesRegex(RuntimeError, "exact release commit"):
+                    collector.collect()
+                self.assertEqual(len(list(Path("release-assets").iterdir())), 2)
+                self.assertFalse(Path("platform-qualification.json").exists())
+        self.run_in_workspace(check)
+
     def test_unexpected_zip_members_are_rejected(self):
         def download(arguments, stdout, check):
             with zipfile.ZipFile(stdout, "w") as archive:

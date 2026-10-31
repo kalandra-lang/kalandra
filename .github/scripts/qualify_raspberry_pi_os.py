@@ -55,7 +55,7 @@ def main():
         finally:
             run("sudo", "losetup", "--detach", loop)
         # Install only documented system prerequisites; no LLVM/Clang package.
-        run("docker", "run", "--name", "kalandra-pi-prerequisites", "kalandra-pi-os:qualification", 
+        run("docker", "run", "--name", "kalandra-pi-prerequisites", "kalandra-pi-os:qualification",
             "/bin/sh", "-ec", "apt-get update && apt-get install -y --no-install-recommends python3 g++ binutils git ca-certificates patchelf bubblewrap")
         run("docker", "commit", "kalandra-pi-prerequisites", "kalandra-pi-os:ready")
         tests = work / "qualification"
