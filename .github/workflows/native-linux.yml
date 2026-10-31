@@ -208,8 +208,8 @@ jobs:
           sudo apt-get install -y g++-13-${{ matrix.gcc }}
       - name: Cross-link reproducible programs using downloaded packages
         run: >-
-          python3 native/tests/CrossLinuxTests.py build
-          --target ${{ matrix.target }} --output "build/cross linux"
+          python3 native/tests/CrossCompilationTests.py build
+          --system linux --target ${{ matrix.target }} --output "build/cross linux"
           --host-archive native-assets/kalandra-native-cpu-standalone-linux-${{ matrix.host }}.tar.gz
           --target-archive native-assets/kalandra-native-cpu-standalone-linux-${{ matrix.target }}.tar.gz
           --linker "$KALANDRA_LLVM_ROOT/bin/ld.lld"
@@ -242,4 +242,4 @@ jobs:
           name: cross-linux-${{ matrix.host }}-to-${{ matrix.target }}
           path: cross-products
       - name: Execute every cross-built program on the native destination
-        run: python3 native/tests/CrossLinuxTests.py execute --output cross-products
+        run: python3 native/tests/CrossCompilationTests.py execute --output cross-products

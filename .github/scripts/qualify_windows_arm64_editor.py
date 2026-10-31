@@ -1,5 +1,6 @@
 """Run the installed VSIX against the downloaded ARM64 server in native VS Code."""
 import hashlib
+from http.client import IncompleteRead
 import json
 import os
 from pathlib import Path
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 import zipfile
 
@@ -16,6 +18,19 @@ from provision_native_llvm import save_verified
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "native/packaging"))
 from WindowsPlatform import MACHINES, pe_machine
+
+
+def download_editor(lock, destination):
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(lock["url"], timeout=120) as response:
+                save_verified(response, destination, lock["sha256"])
+            return
+        except (OSError, IncompleteRead, ValueError) as error:
+            print(f"VS Code download attempt {attempt + 1}/3 failed: {error}", flush=True)
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
 
 
 def main():
@@ -41,8 +56,7 @@ def main():
         prefix, = package_root.iterdir()
         server = prefix / "bin/kalandra-lsp.exe"
         code_archive = work / "vscode.zip"
-        with urllib.request.urlopen(lock["url"], timeout=120) as response:
-            save_verified(response, code_archive, lock["sha256"])
+        download_editor(lock, code_archive)
         code_root = work / "vscode"
         with zipfile.ZipFile(code_archive) as package:
             package.extractall(code_root)

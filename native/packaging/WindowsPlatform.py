@@ -25,3 +25,16 @@ def has_sanitizers(path):
     # The official Windows ARM64 LLVM 23.1.3 archive contains compiler builtins
     # and profiling support, but no ASan/UBSan/TSan runtime libraries.
     return pe_machine(path) == MACHINES["windows-x86_64"]
+
+
+def rename_after_process_exit(source, destination):
+    """Keep the removal check strict while allowing bounded Windows file locks."""
+    import time
+    for attempt in range(6):
+        try:
+            return source.rename(destination)
+        except PermissionError as error:
+            if getattr(error, 'winerror', None) not in (5, 32) or attempt == 5:
+                raise
+            print(f'Windows rename file-lock retry {attempt + 1}/5: {error.winerror}', flush=True)
+            time.sleep(0.1 * 2 ** attempt)

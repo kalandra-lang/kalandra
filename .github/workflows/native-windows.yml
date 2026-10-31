@@ -260,3 +260,75 @@ jobs:
             build/native/editor/**/result.json
             build/native/editor/qualification.json
           if-no-files-found: warn
+  cross-build:
+    needs: cpu
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            host: x86_64
+            target: arm64
+            msvc: arm64
+          - runner: windows-11-arm
+            host: arm64
+            target: x86_64
+            msvc: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc }}
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Locate verified host LLVM linker
+        run: python .github/scripts/provision_native_platform.py
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-windows*assets
+          path: native-assets
+          merge-multiple: true
+      - name: Cross-link reproducible programs using downloaded packages
+        run: >-
+          python native/tests/CrossCompilationTests.py build
+          --system windows --target ${{ matrix.target }} --output "build/cross windows"
+          --host-archive native-assets/kalandra-native-cpu-standalone-windows-${{ matrix.host }}.tar.gz
+          --target-archive native-assets/kalandra-native-cpu-standalone-windows-${{ matrix.target }}.tar.gz
+          --linker "$env:KALANDRA_LLVM_ROOT/bin/lld-link.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-windows-${{ matrix.host }}-to-${{ matrix.target }}
+          path: build/cross windows/products/*
+          if-no-files-found: error
+  cross-execute:
+    needs: cross-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-11-arm
+            host: x86_64
+            target: arm64
+          - runner: windows-2025
+            host: arm64
+            target: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v4
+        with:
+          name: cross-windows-${{ matrix.host }}-to-${{ matrix.target }}
+          path: cross-products
+      - name: Execute every cross-built program on the native destination
+        run: python native/tests/CrossCompilationTests.py execute --output cross-products

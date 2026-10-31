@@ -117,7 +117,7 @@ struct CrossToolchain {
     for (const auto &directory : libraryDirectories) args.push_back("-L" + directory.string());
     if (windows()) {
       // Never inherit the host's Visual Studio installation or LIB paths.
-      args.insert(args.end(), {"-nostdlib", "-fms-runtime-lib=static", "--rtlib=compiler-rt",
+      args.insert(args.end(), {"-Wno-msvc-not-found", "-nostdlib", "-fms-runtime-lib=static", "--rtlib=compiler-rt",
           "-Xlinker", "/defaultlib:libcmt", "-Xlinker", "/defaultlib:oldnames",
           "-Xlinker", "/defaultlib:kernel32", "-Xlinker", "/Brepro"});
     } else {
@@ -171,10 +171,17 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
     std::error_code error;
     auto value = std::filesystem::path(text->str());
     if (value.is_relative()) value = std::filesystem::absolute(profile).parent_path() / value;
-    value = std::filesystem::canonical(value, error);
-    if (error || (file ? !std::filesystem::is_regular_file(value) : !std::filesystem::is_directory(value)))
+    const auto checked = std::filesystem::canonical(value, error);
+    if (error || (file ? !std::filesystem::is_regular_file(checked) : !std::filesystem::is_directory(checked)))
       return std::unexpected("invalid CPU toolchain path: " + key.str());
-    return value;
+    // LLVM's ld.lld/ld64.lld/lld-link aliases select their driver by argv[0].
+    // Validate the resolved file while retaining that executable basename.
+    if (file) {
+      const auto parent = std::filesystem::canonical(value.parent_path(), error);
+      if (error) return std::unexpected("invalid linker parent directory");
+      return parent / value.filename();
+    }
+    return checked;
   };
   for (auto [key, destination] : {
       std::pair{"sysroot", &result.sysroot}, {"runtimePackage", &result.package}, {"linker", &result.linker}}) {
@@ -237,6 +244,7 @@ loadCrossToolchain(const std::filesystem::path &profile, const std::string &clan
   { std::ofstream source(input.c_str()); source << "int kalandra_target_abi;\n"; }
   std::vector<std::string> command{clang, "--no-default-config", "--target=" + result.target.triple, "-S", "-emit-llvm",
       "-x", "c", std::string(input), "-o", std::string(output)};
+  if (result.windows()) command.push_back("-Wno-msvc-not-found");
   std::vector<llvm::StringRef> invocation(command.begin(), command.end());
   std::string failure;
   auto environment = crossToolEnvironment();
