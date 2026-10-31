@@ -12,7 +12,8 @@ def api(path):
     return json.loads(subprocess.check_output(["gh", "api", path], text=True))
 
 
-def qualified_artifact(repository, commit, platform):
+def qualified_artifact(repository, commit, platform, architecture="x86_64"):
+    artifact_name = f"native-{platform}-assets" if architecture == "x86_64" else f"native-{platform}-{architecture}-assets"
     deadline = time.monotonic() + 3600
     announced = False
     while True:
@@ -23,7 +24,7 @@ def qualified_artifact(repository, commit, platform):
             if run.get("status", "completed") != "completed" or run["conclusion"] != "success":
                 continue
             artifacts = api(f"repos/{repository}/actions/runs/{run['id']}/artifacts?per_page=100")["artifacts"]
-            available = [item for item in artifacts if item["name"] == f"native-{platform}-assets" and not item["expired"]]
+            available = [item for item in artifacts if item["name"] == artifact_name and not item["expired"]]
             if len(available) == 1:
                 return run, available[0]
         pending = any(run.get("status", "completed") != "completed" for run in candidates)
@@ -40,9 +41,9 @@ def collect():
     commit = os.environ["GITHUB_SHA"]
     destination = Path("release-assets")
     receipts = []
-    for platform in ("linux", "windows"):
-        run, artifact = qualified_artifact(repository, commit, platform)
-        archive_name = f"kalandra-native-cpu-standalone-{platform}-x86_64.tar.gz"
+    for platform, architecture in (("linux", "x86_64"), ("linux", "arm64"), ("windows", "x86_64")):
+        run, artifact = qualified_artifact(repository, commit, platform, architecture)
+        archive_name = f"kalandra-native-cpu-standalone-{platform}-{architecture}.tar.gz"
         expected = {archive_name, archive_name + ".sha256"}
         with tempfile.TemporaryFile() as download:
             subprocess.run(["gh", "api", f"repos/{repository}/actions/artifacts/{artifact['id']}/zip"], stdout=download, check=True)
@@ -57,7 +58,7 @@ def collect():
                     with package.open(member) as source, (destination / member.filename).open("xb") as output:
                         import shutil
                         shutil.copyfileobj(source, output)
-        receipts.append({"platform": platform, "commit": commit, "run": run["html_url"], "artifactId": artifact["id"]})
+        receipts.append({"platform": platform, "architecture": architecture, "commit": commit, "run": run["html_url"], "artifactId": artifact["id"]})
     Path("platform-qualification.json").write_text(json.dumps(receipts, indent=2) + "\n")
     print(json.dumps(receipts), flush=True)
 

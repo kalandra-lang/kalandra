@@ -11,13 +11,18 @@ from compression import zstd
 from provision_native_llvm import save_verified, sha256
 
 
+def archive_key(system, machine):
+    architecture = {"amd64": "x64", "x86_64": "x64", "aarch64": "arm64", "arm64": "arm64"}.get(machine.lower())
+    if (system, architecture) not in (("Linux", "x64"), ("Linux", "arm64"), ("Windows", "x64")):
+        raise RuntimeError("Unqualified CI platform")
+    return f"{system.lower()}-{architecture}"
+
+
 def main():
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("This provisioner is restricted to disposable GitHub runners")
     lock = json.loads(Path("native/toolchain-proof/toolchain.json").read_text())
-    key = {"Linux": "linux-x64", "Windows": "windows-x64"}.get(platform.system())
-    if key is None or platform.machine().lower() not in ("amd64", "x86_64"):
-        raise RuntimeError("Unqualified CI platform")
+    key = archive_key(platform.system(), platform.machine())
     asset = lock["officialArchives"][key]
     work = Path(os.environ["RUNNER_TEMP"]) / "kalandra-llvm"
     work.mkdir(exist_ok=True)

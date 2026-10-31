@@ -17,6 +17,8 @@ on:
         "package.json",
         "bun.lock",
       ]
+  pull_request:
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-linux.yml", ".github/scripts/**"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,7 +27,17 @@ concurrency:
   cancel-in-progress: false
 jobs:
   cpu:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+            artifact: native-linux-assets
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            artifact: native-linux-arm64-assets
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       ZERO_AR_DATE: "1"
@@ -42,7 +54,12 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/kalandra-llvm/installation
-          key: native-llvm-mlir-${{ runner.os }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Verify architecture and release gates
+        run: |
+          python3 -m unittest discover -s .github/scripts -p test_linux_arm64.py
+          python3 -m unittest discover -s .github/scripts -p test_collect_native_platforms.py
+          python3 -m unittest discover -s .github/scripts -p test_native_release_assets.py
       - name: Provision verified LLVM/MLIR
         run: python3 .github/scripts/provision_native_platform.py
       - name: Install system build prerequisites
@@ -88,7 +105,7 @@ jobs:
         run: bun run verify:docs -- --tools build/linux/native --report docs-verification.json
       - uses: actions/upload-artifact@v4
         with:
-          name: native-docs-verification
+          name: native-docs-verification-linux-${{ matrix.arch }}
           path: docs-verification.json
           if-no-files-found: error
       - name: Package standalone compiler
@@ -99,15 +116,25 @@ jobs:
             -DCMAKE_INSTALL_LIBDIR=lib -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT" \
             -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
           cmake --build build/linux-repro --target native-cpu-standalone-package -j2
-          python3 native/packaging/CompareDistributions.py build/linux build/linux-repro --platform linux-x86_64 --kind cpu
+          python3 native/packaging/CompareDistributions.py build/linux build/linux-repro --platform linux-${{ matrix.arch }} --kind cpu
       - uses: actions/upload-artifact@v4
         with:
-          name: native-linux-assets
+          name: ${{ matrix.artifact }}
           path: build/linux/native-cpu-standalone/*.tar.gz*
           if-no-files-found: error
   downloaded-package:
     needs: cpu
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+            artifact: native-linux-assets
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            artifact: native-linux-arm64-assets
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -116,7 +143,7 @@ jobs:
           python-version: "3.14"
       - uses: actions/download-artifact@v4
         with:
-          name: native-linux-assets
+          name: ${{ matrix.artifact }}
           path: downloaded
       - name: Install audit tools and enable process isolation
         run: |
@@ -125,4 +152,20 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Qualify downloaded compiler without LLVM or the checkout
-        run: python3 native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-linux-x86_64.tar.gz
+        run: python3 native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-linux-${{ matrix.arch }}.tar.gz
+  raspberry-pi-os:
+    needs: cpu
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-linux-arm64-assets
+          path: downloaded
+      - name: Permit isolated downloaded-package tests
+        run: |
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Qualify official Raspberry Pi OS Trixie ARM64 userspace
+        run: python3 .github/scripts/qualify_raspberry_pi_os.py

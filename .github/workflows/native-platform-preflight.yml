@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, windows-2025]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
@@ -28,6 +28,6 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/kalandra-llvm/installation
-          key: native-llvm-mlir-${{ runner.os }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
       - name: Verify LLVM/MLIR release development package
         run: python .github/scripts/provision_native_platform.py
