@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import struct
 import subprocess
+import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--compiler', type=Path, required=True)
@@ -20,15 +21,19 @@ def command(argv, ok=True):
     return result
 
 
+def binary(name):
+    return args.output / (name + ('.exe' if sys.platform == 'win32' else ''))
+
+
 def compile_source(name, text, *flags, ok=True):
-    source, output = args.output / f'{name}.k', args.output / name
+    source, output = args.output / f'{name}.k', binary(name)
     source.write_text(text)
     command([compiler, source, '-o', output, *flags], ok=ok)
     return output
 
 
 def cpu(name, text, flags=(), expected=None):
-    output = args.output / name
+    output = binary(name)
     compile_source(name, text, '--emit-llvm', output.with_suffix('.ll'), *flags)
     if expected is not None:
         assert command([output]).stdout.strip() == expected, name
@@ -65,7 +70,7 @@ for name, expression in [('nan', 'int32(0.0/0.0)'), ('infinity', 'int32(1.0/0.0)
 for flags in [('--arithmetic', 'unknown'), ('--arithmetic',), ('--arithmetic', 'hardware', '--arithmetic', 'software'),
               ('--matmul-policy', 'unknown'), ('--matmul-policy',),
               ('--matmul-policy', 'optimized', '--matmul-policy', 'fixed-tree')]:
-    output = args.output / 'invalid-policy'
+    output = binary('invalid-policy')
     output.write_text('sentinel')
     compile_source('invalid-policy', math_source, *flags, ok=False)
     assert output.read_text() == 'sentinel'

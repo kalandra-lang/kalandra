@@ -95,9 +95,13 @@ jobs:
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/recursive-scalars
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
-        run: >-
-          ctest --test-dir build/windows --output-on-failure
-          -R '^native-(arithmetic-policy|fair-benchmark-evidence|steel-vendor-license)$'
+        run: |
+          python native/tests/ArithmeticPolicyTests.py --compiler build/windows/native/kalandra.exe --output build/windows/arithmetic-policy
+          if ($LASTEXITCODE -ne 0) { throw 'Arithmetic policy qualification failed' }
+          python native/tests/FairBenchmarkTests.py
+          if ($LASTEXITCODE -ne 0) { throw 'Benchmark reference qualification failed' }
+          python native/third_party/mlx-steel/vendor.py
+          if ($LASTEXITCODE -ne 0) { throw 'MIT provenance qualification failed' }
       - name: Verify deep internal calls and physical stack safety
         run: >-
           python native/tests/CallFoundationTests.py
