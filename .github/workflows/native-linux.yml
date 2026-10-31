@@ -58,6 +58,7 @@ jobs:
       - name: Verify architecture and release gates
         run: |
           python3 -m unittest discover -s .github/scripts -p test_linux_arm64.py
+          python3 -m unittest discover -s .github/scripts -p test_linux_cross_sdk.py
           python3 -m unittest discover -s .github/scripts -p test_collect_native_platforms.py
           python3 -m unittest discover -s .github/scripts -p test_native_release_assets.py
       - name: Provision verified LLVM/MLIR
@@ -117,6 +118,16 @@ jobs:
             -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
           cmake --build build/linux-repro --target native-cpu-standalone-package -j2
           python3 native/packaging/CompareDistributions.py build/linux build/linux-repro --platform linux-${{ matrix.arch }} --kind cpu
+      - name: Lock upstream GNU SDK inputs for cross-OS qualification
+        run: |
+          sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo apt-get install -y libc6-dev libgcc-13-dev libstdc++-13-dev
+          python3 .github/scripts/linux_cross_sdk.py lock --clang "$KALANDRA_LLVM_ROOT/bin/clang++" --output cross-sdk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-cross-sdk-${{ matrix.arch }}
+          path: cross-sdk/*
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

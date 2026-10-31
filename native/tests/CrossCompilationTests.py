@@ -44,15 +44,19 @@ def extract(archive, destination):
 
 
 def build(a):
-    host = 'arm64' if platform.machine().lower() in ('aarch64', 'arm64') else 'x86_64'
-    assert SYSTEM.get(platform.system()) == a.system and host != a.target
+    machine = platform.machine().lower()
+    assert machine in ('aarch64', 'arm64', 'amd64', 'x86_64'), machine
+    host = 'arm64' if machine in ('aarch64', 'arm64') else 'x86_64'
+    host_system = SYSTEM.get(platform.system())
+    assert host_system in TRIPLES and (host_system != a.system or host != a.target)
     windows = a.system == 'windows'
     suffix = '.exe' if windows else ''
+    host_suffix = '.exe' if host_system == 'windows' else ''
     a.output.mkdir(parents=True, exist_ok=True)
     host_root = extract(a.host_archive, a.output / 'host package')
     target_root = extract(a.target_archive, a.output / 'target package')
-    compiler = host_root / ('bin/kalandra' + suffix)
-    clang = host_root / ('libexec/kalandra/clang++' + suffix)
+    compiler = host_root / ('bin/kalandra' + host_suffix)
+    clang = host_root / ('libexec/kalandra/clang++' + host_suffix)
     triple = TRIPLES[a.system][a.target]
     documentation = (ROOT / 'apps/website/src/content/native/cross-compilation.tiramisu').read_text()
     templates = re.findall(r'codeblock \{ language = json, """([\s\S]*?)""" \}', documentation)
@@ -62,7 +66,19 @@ def build(a):
     assert documented_source == SOURCES['calls'], 'Cross-compiled documentation source drift'
     profile = dict(format=1, target=triple, runtimePackage=str(target_root.resolve()),
                    linker=str(a.linker.absolute()))
-    if windows:
+    sdk = None
+    if a.linux_sdk:
+        assert a.system == 'linux'
+        sys.path.insert(0, str(ROOT / '.github/scripts'))
+        from linux_cross_sdk import fetch
+        sdk = json.loads((a.linux_sdk / 'sdk.json').read_text())
+        assert sdk['architecture'] == a.target
+        assert sdk['checkoutCommit'] == run(['git', 'rev-parse', 'HEAD']).strip()
+        sysroot = a.output / 'GNU sysroot'
+        fetch(argparse.Namespace(manifest=a.linux_sdk, output=sysroot))
+        profile.update(sysroot=str(sysroot.resolve()),
+                       gccDirectory=str((sysroot / sdk['gccDirectory']).resolve()))
+    elif windows:
         # Capture the selected destination's MSVC SDK paths explicitly. The
         # compiler child then drops ambient LIB/INCLUDE and uses this profile.
         profile.update(sysroot=os.environ['WindowsSdkDir'],
@@ -75,7 +91,7 @@ def build(a):
     profile_file = a.output / 'cross toolchain.json'
     profile_file.write_text(json.dumps(profile))
     # Hostile ambient toolchain hints must not replace the explicit target.
-    environment = dict(os.environ, CCC_OVERRIDE_OPTIONS='+--target=' + TRIPLES[a.system][host],
+    environment = dict(os.environ, CCC_OVERRIDE_OPTIONS='+--target=' + TRIPLES[host_system][host],
                        LIBRARY_PATH='/not-a-target-library-directory')
     products = a.output / 'products'
     products.mkdir()
@@ -145,10 +161,25 @@ def build(a):
         else:
             flags += ['--gcc-install-dir=' + profile['gccDirectory'], '-pthread']
             libraries = [target_root / 'lib/kalandra/native/libkalandra-native-runtime.a']
+        harness = (a.linux_sdk / sdk['foundationObjects'][mode]['file'] if sdk else
+                   ROOT / 'native/tests/CallFoundationRuntimeTests.cpp')
         run([clang, *flags, '-std=c++23', '-ffp-contract=off', '-Wno-override-module', mode,
-             ROOT / 'native/tests/CallFoundationRuntimeTests.cpp', ir, *libraries, '-o', binary])
+             harness, ir, *libraries, '-o', binary])
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(contains='passed')))
-    if not windows:
+    if windows:
+        # Run the authored PowerShell recipe, substituting only installation
+        # paths and the selected target. PowerShell supplies actual SDK paths.
+        recipe, = re.findall(r'codeblock \{ language = powershell, """([\s\S]*?)""" \}', documentation)
+        recipe = recipe.replace('aarch64-pc-windows-msvc', triple)
+        recipe = recipe.replace('C:/kalandra/windows-arm64', target_root.resolve().as_posix())
+        recipe = recipe.replace('C:/llvm-23.1.3/bin/lld-link.exe', a.linker.absolute().as_posix())
+        recipe = recipe.replace('kalandra compute.k', '& "' + compiler.resolve().as_posix() + '" compute.k')
+        (a.output / 'compute.k').write_text(documented_source)
+        run(['pwsh', '-NoProfile', '-NonInteractive', '-Command', recipe], cwd=a.output)
+        binary = products / 'documentation-O2.exe'
+        binary.write_bytes((a.output / 'program-arm64.exe').read_bytes())
+        records.append(dict(file=binary.name, sha256=digest(binary), case=dict(output='1144\n')))
+    else:
         # Execute the documented compiler command with SDK paths substituted in
         # the actual profile template, then run its product on the destination.
         (a.output / 'compute.k').write_text(documented_source)
@@ -163,7 +194,7 @@ def build(a):
     protected.write_text('keep executable')
     protected_ir = a.output / 'protected.ll'
     protected_ir.write_text('keep LLVM')
-    for change in ({'target': 'armv7-linux-gnueabihf'}, {'target': TRIPLES[a.system][host]},
+    for change in ({'target': 'armv7-linux-gnueabihf'}, {'target': TRIPLES[host_system][host]},
                    {'sysroot': '/missing/sysroot'}, {'format': 2}, {'surprise': True}):
         profile_file.write_text(json.dumps(dict(profile, **change)))
         r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
@@ -179,7 +210,9 @@ def build(a):
     original, original_inventory = library.read_bytes(), inventory.read_bytes()
     try:
         old_digest = digest(library)
-        library.write_bytes((host_root / 'lib/kalandra/native' / runtime_name).read_bytes())
+        host_runtime_name = ('kalandra-int64-entry-debug.lib' if host_system == 'windows' else
+                             'libkalandra-int64-entry-debug.a')
+        library.write_bytes((host_root / 'lib/kalandra/native' / host_runtime_name).read_bytes())
         inventory.write_text(original_inventory.decode().replace('\r\n', '\n').replace(old_digest, digest(library)))
         r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
                            '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True)
@@ -195,16 +228,18 @@ def build(a):
         library.write_bytes(original)
         inventory.write_bytes(original_inventory)
     (products / 'qualification.json').write_text(json.dumps(dict(
-        sourceSystem=a.system, destinationSystem=a.system, sourceArchitecture=host, destinationArchitecture=a.target, compilerSHA256=digest(compiler),
+        sourceSystem=host_system, destinationSystem=a.system, sourceArchitecture=host, destinationArchitecture=a.target, compilerSHA256=digest(compiler),
         hostArchiveSHA256=digest(a.host_archive), targetArchiveSHA256=digest(a.target_archive),
         linker=run([a.linker, '--version']).strip(), clang=run([clang, '--version']).strip(),
-        toolchain=profile, sdkVersions={k: os.environ[k] for k in ('VCToolsVersion', 'WindowsSDKVersion') if k in os.environ},
+        toolchain=profile, linuxSDK=sdk, sdkVersions={k: os.environ[k] for k in ('VCToolsVersion', 'WindowsSDKVersion') if k in os.environ},
         records=records), indent=2) + '\n')
     print(f'{host} -> {a.target}: {len(records)} reproducible target programs prepared; not executed on source host')
 
 
 def execute(a):
-    host = 'arm64' if platform.machine().lower() in ('aarch64', 'arm64') else 'x86_64'
+    machine = platform.machine().lower()
+    assert machine in ('aarch64', 'arm64', 'amd64', 'x86_64'), machine
+    host = 'arm64' if machine in ('aarch64', 'arm64') else 'x86_64'
     report = json.loads((a.output / 'qualification.json').read_text())
     assert SYSTEM.get(platform.system()) == report['destinationSystem'] and report['destinationArchitecture'] == host
     for record in report['records']:
@@ -238,5 +273,6 @@ if __name__ == '__main__':
     p.add_argument('--host-archive', type=Path)
     p.add_argument('--target-archive', type=Path)
     p.add_argument('--linker', type=Path)
+    p.add_argument('--linux-sdk', type=Path)
     a = p.parse_args()
     build(a) if a.mode == 'build' else execute(a)
