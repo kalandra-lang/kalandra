@@ -59,7 +59,7 @@ def load():
    except ValueError:pass
  return dict(totalCPU=sum(p['cpu'] for p in processes),top=sorted(processes,key=lambda p:p['cpu'],reverse=True)[:8])
 
-def timing():
+def timing(resume=False):
  frozen={name:sha(BUILD/name) for name in TIMED}
  assert frozen['cpp']==frozen['cpp-repeat']
  data=dict(sourceSHA256={name:sha(SOURCE/name) for name in ('benchmark.k','verify.k','reference.cpp','reference.rs')},host=platform.platform(),cpu=run(['sysctl','-n','machdep.cpu.brand_string']),
@@ -67,10 +67,21 @@ def timing():
   git=run(['git','rev-parse','HEAD']),diffSHA256=hashlib.sha256(run(['git','diff']).encode()).hexdigest(),binarySHA256=frozen,
   protocol=dict(unit='end-to-end process elapsed seconds',blocks=7,seed=20261031,u=40,rows=10000,inner=100000,logicalIterations=1000000000,parallelism='sequential CPU',notes=['Runtime inputs; one random draw and array allocation included.','C++/Rust include original zero initialization; generate initializes each output once.','Random distributions are equivalent; RNG implementations differ.','Ordinary C++/Rust overflow checks disabled; extra controls enable checked accumulation.','Valid input domain excludes integer overflow.', 'Output packs actual random r and selected result into one int64 for independent per-run checks.', 'Identical C++ binary repeated as a timing control. Background macOS maintenance is recorded; 400% pre-run stop threshold.']),observations=[],scaling=[])
  output=BUILD/'results.json'
+ if resume:
+  original=json.loads(output.read_text())
+  assert original['binarySHA256']==frozen and original['sourceSHA256']==data['sourceSHA256']
+  data=original
+  data.setdefault('interruptions',[]).append(dict(blocked=data.pop('blocked',None),resumedAt=time.time(),preservedTimedSamples=sum(r['kind']=='measurement' for r in data['observations'])))
  def trial(program,rows,count,kind,block):
-  before=load()
-  if before['totalCPU']>400:
-   data['blocked']=dict(reason='Background CPU exceeds 400% before trial',load=before)
+  existing=data['scaling' if kind=='scaling' else 'observations']
+  if any((r['program'],r['kind'],r['block'],r['rows'],r['inner'])==(program,kind,block,rows,count) for r in existing):return
+  for attempt in range(60):
+   before=load()
+   if before['totalCPU']<=400:break
+   data.setdefault('preflightLoadWaits',[]).append(dict(program=program,kind=kind,block=block,at=time.time(),load=before))
+   output.write_text(json.dumps(data,indent=2)+'\n');time.sleep(5)
+  else:
+   data['blocked']=dict(reason='Background CPU exceeds 400% before trial for five minutes',load=before)
    output.write_text(json.dumps(data,indent=2)+'\n');raise RuntimeError(data['blocked'])
   start=time.perf_counter_ns();packed=int(run([BUILD/program,'40',str(rows),str(count)]));elapsed=(time.perf_counter_ns()-start)/1e9
   total=mathematical_sum(40,count)
@@ -98,5 +109,5 @@ def timing():
  print(json.dumps(data['summary'],indent=2),flush=True)
 
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('phase',choices=['build','verify','timing']);a=p.parse_args()
- {'build':build,'verify':verify,'timing':timing}[a.phase]()
+ p=argparse.ArgumentParser();p.add_argument('phase',choices=['build','verify','timing']);p.add_argument('--resume',action='store_true');a=p.parse_args()
+ {'build':build,'verify':verify,'timing':lambda:timing(a.resume)}[a.phase]()

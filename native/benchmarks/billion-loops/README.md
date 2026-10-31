@@ -1,6 +1,6 @@
 # Temporary CPU input and array generation experiment
 
-Local-only prototype based on Kalandra 0.99.1. No GitHub push or release.
+Local-only prototype based on Kalandra 0.99.1. Original workload: https://benjdd.com/languages2/. No GitHub push or release.
 
 - `args.int32(index: int) -> int32`: zero-based user argument (excluding the executable name), strict decimal parsing and checked int32 range. Missing/negative indices are BoundsFaults; malformed/out-of-range values are ArithmeticFaults, with an input diagnostic.
 - `random.int32(min: int32, maxExclusive: int32) -> int32`: bounded, unbiased pseudorandom integer, seeded from `std::random_device`. Thread-safe CPU runtime; not cryptographic. Empty/reversed intervals fail with BoundsFault.
@@ -47,5 +47,7 @@ control. All outputs and frozen executable hashes are checked. Background
 process CPU snapshots are retained; a 400% pre-run CPU stop threshold bounds
 heavy competition on this 12-core Mac. macOS maintenance may remain active even
 when user workloads are idle, so these are not automatically uncontended claims.
-An identical-binary median difference above 5% makes the control inconclusive.
+The collector waits at the pre-run load gate; `timing --resume` retains completed samples and the original order after an interruption. An identical-binary median difference above 5% makes the control inconclusive.
 No measurements are compared directly with the linked website's different Mac.
+
+Measured results and qualification details: [REPORT.md](REPORT.md).
