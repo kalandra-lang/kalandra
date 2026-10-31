@@ -141,6 +141,23 @@ inline void finalizeNativeCallResolvers(llvm::Module &module) {
 }
 // Run after composing every execution engine that can produce source values.
 std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module);
+// Windows ARM64 must retain stack cleanup when crossing between tailcc
+// (callee-pop) and ordinary C/fastcc (caller-pop) functions. Optional tail
+// transfers can otherwise discard the required epilogue. Matching-convention
+// musttail edges keep their original guarantees and cancellation checkpoints.
+inline void sealWindowsArm64TailBoundaries(llvm::Module &module) {
+  if (!module.getTargetTriple().isOSWindows() || !module.getTargetTriple().isAArch64()) return;
+  for (auto &fn : module)
+    for (auto &block : fn)
+      for (auto &instruction : block)
+        if (auto *call = llvm::dyn_cast<llvm::CallInst>(&instruction)) {
+          const auto caller = fn.getCallingConv(), callee = call->getCallingConv();
+          if (caller != callee &&
+              (caller == llvm::CallingConv::Tail || callee == llvm::CallingConv::Tail) &&
+              !call->isMustTailCall())
+            call->setTailCallKind(llvm::CallInst::TCK_NoTail);
+        }
+}
 // Win64 cannot unwind a tailcc frame that reserves a larger outgoing tail
 // argument packet than its incoming packet. Equalize scalar packets within
 // each internal call component after optimization, then freeze those private
@@ -261,6 +278,7 @@ inline std::optional<std::string> normalizeWindowsTailPackets(llvm::Module &modu
       old->replaceAllUsesWith(replacement);
       old->eraseFromParent();
     }
+  sealWindowsArm64TailBoundaries(module);
   return {};
 }
 // Keep call-free return paths outside a recursive worker's physical frame.

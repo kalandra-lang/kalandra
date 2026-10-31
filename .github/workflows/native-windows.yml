@@ -1,7 +1,7 @@
 name: Native Windows qualification
 on:
   push:
-    branches: ["native"]
+    branches: ["native", "develop"]
     tags: ["v*"]
     paths:
       [
@@ -11,7 +11,12 @@ on:
         "apps/website/src/content/native/getting-started.tiramisu",
         ".github/workflows/native-windows.yml",
       ]
+  pull_request:
+    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-windows.yml", ".github/scripts/**"]
   workflow_dispatch:
+defaults:
+  run:
+    shell: pwsh
 permissions:
   contents: read
 concurrency:
@@ -19,7 +24,19 @@ concurrency:
   cancel-in-progress: false
 jobs:
   cpu:
-    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            msvc: x64
+            artifact: native-windows-assets
+          - runner: windows-11-arm
+            arch: arm64
+            msvc: arm64
+            artifact: native-windows-arm64-assets
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     outputs:
       archive-ready: ${{ steps.archive.outputs.artifact-id != '' }}
@@ -34,12 +51,29 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: python .github/scripts/release_version.py
       - uses: ilammy/msvc-dev-cmd@v1
-      - uses: actions/cache@v4
+        with:
+          arch: ${{ matrix.msvc }}
+      - uses: actions/cache/restore@v4
+        id: llvm-cache
         with:
           path: ${{ runner.temp }}/kalandra-llvm/installation
-          key: native-llvm-mlir-${{ runner.os }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Verify Windows architecture and release gates
+        run: |
+          python -m unittest discover -s .github/scripts -p test_windows_arm64.py
+          if ($LASTEXITCODE -ne 0) { throw "Architecture gate tests failed" }
+          python -m unittest discover -s .github/scripts -p test_collect_native_platforms.py
+          if ($LASTEXITCODE -ne 0) { throw "Release collector tests failed" }
+          python -m unittest discover -s .github/scripts -p test_native_release_assets.py
+          if ($LASTEXITCODE -ne 0) { throw "Release inventory tests failed" }
       - name: Provision verified LLVM and matching MLIR
         run: python .github/scripts/provision_native_platform.py
+      - name: Save qualified SDK before compiler tests
+        uses: actions/cache/save@v4
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: ${{ steps.llvm-cache.outputs.cache-primary-key }}
       - name: Configure native compiler
         run: >-
           cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -61,15 +95,25 @@ jobs:
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/recursive-scalars
       - name: Qualify arithmetic policy, benchmark references and MIT provenance
-        run: >-
-          ctest --test-dir build/windows --output-on-failure
-          -R '^native-(arithmetic-policy|fair-benchmark-evidence|steel-vendor-license)$'
+        run: |
+          python native/tests/ArithmeticPolicyTests.py --compiler build/windows/native/kalandra.exe --output build/windows/arithmetic-policy
+          if ($LASTEXITCODE -ne 0) { throw 'Arithmetic policy qualification failed' }
+          python native/tests/FairBenchmarkTests.py
+          if ($LASTEXITCODE -ne 0) { throw 'Benchmark reference qualification failed' }
+          python native/third_party/mlx-steel/vendor.py
+          if ($LASTEXITCODE -ne 0) { throw 'MIT provenance qualification failed' }
       - name: Verify deep internal calls and physical stack safety
         run: >-
           python native/tests/CallFoundationTests.py
           --compiler build/windows/native/kalandra.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/call-foundation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-call-foundation-${{ matrix.arch }}
+          path: build/windows/call-foundation/**
+          if-no-files-found: warn
       - name: Verify ordinary scalar ABI, private buffers and failure cleanup
         shell: pwsh
         run: |
@@ -95,7 +139,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: windows-ordinary-qualification
+          name: windows-ordinary-qualification-${{ matrix.arch }}
           path: build/windows/ordinary*/**/*.json
           if-no-files-found: warn
       - name: Qualify CPU tensor transforms
@@ -125,6 +169,19 @@ jobs:
               throw "Documented starter returned unexpected output: $result"
             }
           } finally { Pop-Location }
+      - name: Record native ARM64 scalar performance smoke evidence
+        if: matrix.arch == 'arm64'
+        run: >-
+          python native/benchmarks/WindowsArm64Smoke.py
+          --compiler build/windows/native/kalandra.exe
+          --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          --output build/windows/arm64-performance
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.arch == 'arm64'
+        with:
+          name: native-windows-arm64-performance-smoke
+          path: build/windows/arm64-performance/measurement.json
+          if-no-files-found: warn
       - name: Package standalone compiler
         run: cmake --build build/windows --target native-cpu-standalone-package
       - name: Independently configure the second build
@@ -136,18 +193,30 @@ jobs:
       - name: Independently rebuild and compare the distribution
         run: |
           cmake --build build/windows-repro --target native-cpu-standalone-package -j2
-          python native/packaging/CompareDistributions.py build/windows build/windows-repro --platform windows-x86_64 --kind cpu
+          python native/packaging/CompareDistributions.py build/windows build/windows-repro --platform windows-${{ matrix.arch }} --kind cpu
       - uses: actions/upload-artifact@v4
         id: archive
         if: ${{ always() && hashFiles('build/windows/native-cpu-standalone/*.tar.gz') != '' }}
         with:
-          name: native-windows-assets
+          name: ${{ matrix.artifact }}
           path: build/windows/native-cpu-standalone/*.tar.gz*
           if-no-files-found: error
   downloaded-package:
     needs: cpu
     if: ${{ always() && needs.cpu.outputs.archive-ready == 'true' }}
-    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            msvc: x64
+            artifact: native-windows-assets
+          - runner: windows-11-arm
+            arch: arm64
+            msvc: arm64
+            artifact: native-windows-arm64-assets
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -155,9 +224,37 @@ jobs:
         with:
           python-version: "3.14"
       - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc }}
       - uses: actions/download-artifact@v4
         with:
-          name: native-windows-assets
+          name: ${{ matrix.artifact }}
           path: downloaded
       - name: Qualify downloaded compiler without installing LLVM
-        run: python native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-windows-x86_64.tar.gz
+        run: python native/packaging/PortablePackageTests.py downloaded/kalandra-native-cpu-standalone-windows-${{ matrix.arch }}.tar.gz
+  editor-arm64:
+    needs: [cpu, downloaded-package]
+    runs-on: windows-11-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows-arm64-assets
+          path: downloaded
+      - name: Qualify the installed VSIX in native ARM64 VS Code
+        run: python .github/scripts/qualify_windows_arm64_editor.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-windows-arm64-editor-qualification
+          path: |
+            build/native/editor/**/result.json
+            build/native/editor/qualification.json
+          if-no-files-found: warn

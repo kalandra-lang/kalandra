@@ -1,5 +1,6 @@
 """Execute the native CPU language/runtime contract on Linux and Windows."""
 from VersionCheck import expected_version, verify_binary_version
+from WindowsPlatform import has_sanitizers, pe_machine
 import argparse
 import json
 import os
@@ -15,6 +16,9 @@ def qualify(compiler):
     verify_binary_version(compiler, expected_version(), "kalandra")
     windows = platform.system() == "Windows"
     modes = [("normal", []), ("optimized", ["-O2"]), ("address-undefined", ["--sanitize"])]
+    windows_arm64 = windows and not has_sanitizers(compiler)
+    if windows_arm64:
+        modes = [mode for mode in modes if mode[0] != "address-undefined"]
     if not windows:
         modes.append(("thread", ["--thread-sanitize"]))
     with tempfile.TemporaryDirectory(prefix="kalandra portable acceptance ") as folder:
@@ -123,6 +127,8 @@ fn main()->[int]:
             for name, text, expected in cases:
                 source.write_text(text, encoding="utf-8")
                 run([compiler, source, "-o", executable, *flags])
+                if windows:
+                    assert pe_machine(executable) == pe_machine(compiler), "Generated program architecture mismatch"
                 for workers in (1, 2, 4):
                     environment = dict(os.environ, KALANDRA_WORKERS=str(workers))
                     if windows and mode == "address-undefined":
@@ -190,6 +196,10 @@ fn main()->[int]:
         source.write_text("fn main():\n  missing_value\n", encoding="utf-8")
         run([compiler, source, "-o", executable], expected=1)
         assert executable.read_bytes() == prior
+        if windows_arm64:
+            rejected = run([compiler, source, "-o", executable, "--sanitize"], expected=2)
+            assert "ASan/UBSan are unavailable" in rejected.stderr
+            assert executable.read_bytes() == prior
         if windows:
             rejected = run([compiler, source, "-o", executable, "--thread-sanitize"], expected=2)
             assert "ThreadSanitizer is unavailable" in rejected.stderr

@@ -2,7 +2,7 @@
 import argparse, json, os, subprocess, sys
 from OrdinaryPairChecks import pair_checks
 from pathlib import Path
-from OrdinaryTestEnvironment import configure
+from OrdinaryTestEnvironment import configure, qualified_variants
 p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True);p.add_argument('--clang',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--buffer-entry',action='store_true');p.add_argument('--pair-entry',action='store_true');p.add_argument('--direct-entry',action='store_true');a=p.parse_args();a.pair_entry|=a.direct_entry
 configure(a.clang)
 root=Path(__file__).resolve().parents[2];a.output.mkdir(parents=True,exist_ok=True);windows=sys.platform=='win32'
@@ -12,6 +12,7 @@ def run(cmd, expected=0):
  return r.stdout
 entries=[(f'{s}int{w}',f'std::{s}int{w}_t',False) for s in ('','u') for w in (8,16,32,64)]+[('float32','float',True),('float64','double',True),('Bool','bool',False)]
 variants=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-core-optimized'),('sanitized',['-O2','--sanitize'],['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all'],'native-runtime-sanitized'),('thread-sanitized',['-O2','--thread-sanitize'],['-O1','-g','-fsanitize=thread'],'native-runtime-thread-sanitized')]
+variants=qualified_variants(variants,a.compiler)
 records=[]
 for mode,extra,flags,library in variants:
  if windows and mode=='thread-sanitized':continue

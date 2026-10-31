@@ -29,7 +29,7 @@ def write_fixture(root):
 class AssetTests(unittest.TestCase):
     def test_complete_release(self):
         with tempfile.TemporaryDirectory() as folder:
-            self.assertEqual(len(validate_assets(*write_fixture(Path(folder)))), 29)
+            self.assertEqual(len(validate_assets(*write_fixture(Path(folder)))), 31)
 
     def test_missing_receipt_blocks_release(self):
         with tempfile.TemporaryDirectory() as folder:

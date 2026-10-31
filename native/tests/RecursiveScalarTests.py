@@ -1,4 +1,5 @@
 """Independent arithmetic/state checks for recursive returns in all numeric widths and Bool."""
+from OrdinaryTestEnvironment import qualified_variants
 import argparse
 import hashlib
 import json
@@ -17,6 +18,7 @@ root = Path(__file__).resolve().parents[2]
 variants = [('debug', '-O0', ['-O0']), ('optimized', '-O2', ['-O2']),
             ('sanitized', '--sanitize', ['-O1', '-g', '-fsanitize=address,undefined',
              '-fno-sanitize-recover=all', '-fno-omit-frame-pointer'])]
+variants = qualified_variants(variants, a.compiler)
 if sys.platform != 'win32':
     variants.append(('thread-sanitized', '--thread-sanitize',
                      ['-O1', '-g', '-fsanitize=thread', '-fno-omit-frame-pointer']))

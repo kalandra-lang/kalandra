@@ -4,5 +4,12 @@
   "installCommand": "bunx bun@1.3.12 install --frozen-lockfile",
   "buildCommand": "bunx bun@1.3.12 run build:website",
   "outputDirectory": "apps/website/build",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "develop": true,
+      "master": true
+    }
+  }
 }

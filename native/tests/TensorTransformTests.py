@@ -4,6 +4,7 @@ Decimal references round every arithmetic step and preserve the adjacent-pair
 tree. Softmax propagates a four-ULP exp interval through the rounded denominator
 and division; it does not use a fitted absolute tolerance.
 """
+from OrdinaryTestEnvironment import qualified_variants
 import argparse
 import concurrent.futures
 import decimal as dec
@@ -34,6 +35,7 @@ variants=[('optimized','-O2',['-O2'])]
 if not args.quick:
     variants += [('debug','-O0',['-O0']),('sanitized','--sanitize',['-O1','-g','-fsanitize=address,undefined','-fno-sanitize-recover=all','-fno-omit-frame-pointer'])]
     if sys.platform!='win32':variants += [('thread-sanitized','--thread-sanitize',['-O1','-g','-fsanitize=thread','-fno-omit-frame-pointer'])]
+variants=qualified_variants(variants,args.compiler)
 def run(command,timeout=240):
     p=subprocess.run(list(map(str,command)),text=True,capture_output=True,timeout=timeout)
     assert not p.returncode,(command,p.returncode,p.stdout[-3000:],p.stderr[-3000:])

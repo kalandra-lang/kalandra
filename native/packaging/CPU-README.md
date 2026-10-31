@@ -20,7 +20,11 @@ symlinks are never replaced or merged. No packages are fetched or hooks run.
 The compiler locates `lib/kalandra/native` relative to its actual executable,
 including when invoked through a symlink or PATH. Keep this directory with the
 compiler when moving the package. Missing resources fail without falling back
-to development build files. Normal and ASan/UBSan (`--sanitize`) runtime archives are included.
+to development build files. Normal runtime archives are included on every supported target. ASan/UBSan
+(`--sanitize`) archives are included on macOS, Linux and Windows x86-64.
+The pinned Windows ARM64 SDK has no ASan/UBSan/TSan runtimes: both sanitizer
+options fail explicitly before replacing an output. Normal and optimized
+builds retain checked arithmetic, bounds checks and task safety.
 macOS and Linux also include separate TSan (`--thread-sanitize`) archives;
 Windows rejects that unsupported mode before changing an output. `-O0` and `-O2` select the
 existing native compilation modes.
@@ -34,9 +38,11 @@ statically and execute without the compiler package or LLVM.
 
 The supported macOS minimum is 26.0. Compilation requires Apple's SDK/linker on macOS, the system C/C++ development
 files on Linux (Ubuntu 24.04 / glibc 2.39 baseline), or Microsoft Visual Studio
-C++ Build Tools and the Windows SDK on Windows 11 x86-64. On Windows, run the
+C++ Build Tools and the Windows SDK on Windows 11 x86-64 or ARM64.
+Windows ARM64 uses Visual Studio 2026 ARM64 C++ tools/SDK libraries and an
+ARM64-targeting developer shell. On Windows, run the
 compiler in a Visual Studio developer shell and name executables `program.exe`.
-Windows ASan applications also need the package's
+Windows x86-64 ASan applications also need the package's
 `lib/kalandra/toolchain/clang/lib/windows` directory on PATH while running.
 Sanitizers instrument host execution; they are separate from ordinary builds.
 

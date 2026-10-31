@@ -21,7 +21,7 @@ The first command writes the formatted result to standard output; it does not ed
 
 h2 { "Set up VS Code" }
 
-Download kalandra-native.vsix and its SHA-256 sidecar from the same GitHub release as your toolchain. In VS Code, open the Command Palette and run Extensions: Install from VSIX, then select the downloaded file. The VSIX bundles the editor client and syntax grammar; it requires no Node.js, Bun or npm installation. Install the native compiler package separately, or use an editor-only package if you only need language services. Set Kalandra Native: Server Path in User Settings to the absolute kalandra-lsp path, or an executable name on PATH. Open a trusted local workspace with a .k file.
+Download kalandra-native.vsix and its SHA-256 sidecar from the same GitHub release as your toolchain. In VS Code, open the Command Palette and run Extensions: Install from VSIX, then select the downloaded file. The VSIX bundles the editor client and syntax grammar; it requires no Node.js, Bun or npm installation. Install the native compiler package separately, or use an editor-only package if you only need language services. Set Kalandra Native: Server Path in User Settings to the absolute kalandra-lsp path, or an executable name on PATH. Open a trusted local workspace with a .k file. The same VSIX works across supported architectures. On Windows ARM64, use native ARM64 VS Code and point Server Path to the ARM64 package's kalandra-lsp.exe.
 
 If the project uses package mappings, set Kalandra Native: Project Path to its explicit TOML manifest. Relative paths require a single local workspace folder. Restart the server after manifest-content changes with Kalandra: Restart Native Language Server.
 

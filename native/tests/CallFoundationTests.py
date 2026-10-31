@@ -1,4 +1,5 @@
 """Deep execution and resource safety for the internal call convention."""
+from OrdinaryTestEnvironment import qualified_variants
 import argparse
 import hashlib
 import json
@@ -97,6 +98,7 @@ compiler_sha = sha(a.compiler)
 variants = [('debug', '-O0', ['-O0']), ('optimized', '-O2', ['-O2']),
             ('sanitized', '--sanitize', ['-O1', '-g', '-fsanitize=address,undefined',
              '-fno-sanitize-recover=all', '-fno-omit-frame-pointer'])]
+variants = qualified_variants(variants, a.compiler)
 if sys.platform != 'win32':
     variants.append(('thread-sanitized', '--thread-sanitize',
                      ['-O1', '-g', '-fsanitize=thread', '-fno-omit-frame-pointer']))
@@ -125,7 +127,8 @@ for name, flag, flags in variants:
     runtime = a.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
         'kalandra-native-runtime' + ('-' + name if 'sanitized' in name else '') +
         ('.lib' if sys.platform == 'win32' else '.a'))
-    run([a.clang, '-std=c++23', '-Wno-override-module', '-ffp-contract=off', '-pthread', *flags,
+    debug_flags = ['-g', '-Wl,/debug'] if sys.platform == 'win32' else []
+    run([a.clang, '-std=c++23', *debug_flags, '-Wno-override-module', '-ffp-contract=off', '-pthread', *flags,
          *(['-fms-runtime-lib=static'] if sys.platform == 'win32' else []),
          root / 'native/tests/CallFoundationRuntimeTests.cpp', ir, runtime, '-o', binary])
     result = run([binary])
