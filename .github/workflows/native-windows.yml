@@ -163,6 +163,19 @@ jobs:
               throw "Documented starter returned unexpected output: $result"
             }
           } finally { Pop-Location }
+      - name: Record native ARM64 scalar performance smoke evidence
+        if: matrix.arch == 'arm64'
+        run: >-
+          python native/benchmarks/WindowsArm64Smoke.py
+          --compiler build/windows/native/kalandra.exe
+          --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
+          --output build/windows/arm64-performance
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.arch == 'arm64'
+        with:
+          name: native-windows-arm64-performance-smoke
+          path: build/windows/arm64-performance/measurement.json
+          if-no-files-found: warn
       - name: Package standalone compiler
         run: cmake --build build/windows --target native-cpu-standalone-package
       - name: Independently configure the second build
