@@ -326,11 +326,11 @@
               ></tr
             ><tr
               ><th scope="row">Linux</th><td>CPU</td><td
-                >x86-64, Ubuntu 24.04 / glibc 2.39</td
+                >x86-64 and ARM64, Ubuntu 24.04 / glibc 2.39</td
               ></tr
             ><tr
               ><th scope="row">Windows</th><td>CPU</td><td
-                >x86-64, Windows 11 with C++ build tools</td
+                >x86-64 and ARM64, Windows 11 with C++ build tools</td
               ></tr
             ></tbody
           >
