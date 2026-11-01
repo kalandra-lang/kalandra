@@ -33,6 +33,7 @@ jobs:
           python3 -m unittest discover -s .github/scripts -p test_collect_vulkan_release.py
           python3 -m unittest discover -s .github/scripts -p test_collect_cuda_release.py
           python3 -m unittest discover -s .github/scripts -p test_native_release_assets.py
+          python3 -m unittest discover -s .github/scripts -p test_editor_windows_processes.py
       - name: Provision production-pinned LLVM and isolated CUDA build inputs
         run: |
           python3 .github/scripts/provision_native_platform.py
