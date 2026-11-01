@@ -706,3 +706,11 @@ the two source binaries. GPU package staging now explicitly removes that one
 owned staged driver after installing CPU resources, before publishing the GPU
 variant. This also applies to the existing Metal package composition. The failed
 archive is not qualified; installed GPU compilation remains a mandatory gate.
+The existing installed Metal package regression passes after the staged-driver
+replacement fix. The next Vulkan run (41284357547) now passes relocated CPU
+execution and all fifteen installed GPU program builds/output protections. It
+then catches a qualification-helper mistake: the loader fixture invoked bundled
+Clang directly without its relocated resource directory. The compiler itself
+already supplies that directory correctly. The helper now accepts the explicit
+owned resource directory as well. The failed helper run is retained; archive
+readiness still waits for all missing-resource and reproducibility checks.

@@ -8,7 +8,9 @@ p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--probe', type=Path)
 p.add_argument('--application', type=Path)
 p.add_argument('--cxx', required=True)
+p.add_argument('--resource-dir', type=Path)
 a = p.parse_args()
+resource_flags = [] if a.resource_dir is None else ['-resource-dir='+str(a.resource_dir.resolve())]
 assert a.probe or a.application, 'Select a runtime probe or actual source application'
 programs = []
 if a.probe:
@@ -24,10 +26,10 @@ with tempfile.TemporaryDirectory(prefix='kalandra-vulkan-loader-') as directory:
     incomplete.write_text('''#include <cstdlib>
 extern "C" int vkCreateInstance(const void*,const void*,void*) { std::abort(); }
 ''')
-    subprocess.run([a.cxx, '-shared', '-fPIC', str(incomplete), '-o', str(root/'libvulkan.so.1')], check=True)
+    subprocess.run([a.cxx, *resource_flags, '-shared', '-fPIC', str(incomplete), '-o', str(root/'libvulkan.so.1')], check=True)
     absent = root/'absent.cpp'
     absent.write_text('extern "C" void *dlopen(const char*,int) { return nullptr; }\n')
-    subprocess.run([a.cxx, '-shared', '-fPIC', str(absent), '-o', str(root/'absent.so')], check=True)
+    subprocess.run([a.cxx, *resource_flags, '-shared', '-fPIC', str(absent), '-o', str(root/'absent.so')], check=True)
     for case, environment in [('incomplete', {'LD_LIBRARY_PATH': str(root)}),
                               ('absent', {'LD_PRELOAD': str(root/'absent.so')})]:
         for binary, application in programs:

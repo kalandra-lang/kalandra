@@ -60,7 +60,8 @@ if not a.execute:
 subprocess.run(command, check=True, timeout=1200)
 subprocess.run([sys.executable, repo/'native/vulkan/tests/loader.py',
                 '--application', a.root/'applications/matrix-hardware/program',
-                '--cxx', prefix/'libexec/kalandra/clang++'], check=True, timeout=90)
+                '--cxx', prefix/'libexec/kalandra/clang++',
+                '--resource-dir', prefix/'lib/kalandra/toolchain/clang'], check=True, timeout=90)
 # Individually remove required owned resources. An installed compiler must not
 # reuse its compiled-in build-tree paths or ambient PATH when one is missing.
 for relative in ['libexec/kalandra/clang++', 'libexec/kalandra/mlir-opt',
