@@ -1,0 +1,58 @@
+#pragma once
+#include <cstdint>
+#include <expected>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
+
+namespace kalandra::runtime::vulkan {
+// Private bring-up API. Not yet a source-language or task backend interface.
+enum class Error { Unavailable, Invalid, Allocation, Budget, Device, Unsupported };
+struct DeviceInfo {
+  std::string name;
+  std::uint32_t vendor = 0, device = 0, apiVersion = 0;
+  bool discrete = false, integrated = false;
+};
+struct Options {
+  bool validation = true;
+  std::uint32_t deviceIndex = 0;
+  std::uint64_t maxBytes = 64 * 1024 * 1024;
+};
+struct State;
+struct Storage;
+class Buffer final {
+public:
+  Buffer() = default;
+  std::uint64_t bytes() const noexcept;
+  explicit operator bool() const noexcept { return bool(storage_); }
+
+private:
+  std::shared_ptr<Storage> storage_;
+  explicit Buffer(std::shared_ptr<Storage> storage) : storage_(std::move(storage)) {}
+  friend class Runtime;
+};
+class Runtime final {
+public:
+  static std::expected<std::vector<DeviceInfo>, Error> enumerate(bool validation = true);
+  static std::expected<std::unique_ptr<Runtime>, Error> create(Options = {});
+  ~Runtime();
+  Runtime(const Runtime &) = delete;
+  Runtime &operator=(const Runtime &) = delete;
+  DeviceInfo device() const;
+  std::expected<Buffer, Error> upload(std::span<const float>);
+  std::expected<std::vector<float>, Error> download(const Buffer &);
+  std::expected<Buffer, Error> add(const Buffer &, const Buffer &);
+  // right is explicitly stored as [columns, contraction], not [contraction, columns].
+  // Result is [rows, columns]. No hidden CPU numerical implementation/fallback.
+  std::expected<Buffer, Error> matmulRightTransposed(const Buffer &left, const Buffer &right,
+                                                     std::uint32_t rows, std::uint32_t columns,
+                                                     std::uint32_t contraction);
+  std::uint64_t retainedBytes() const;
+  std::uint64_t validationErrors() const;
+
+private:
+  explicit Runtime(std::shared_ptr<State> state) : state_(std::move(state)) {}
+  std::shared_ptr<State> state_;
+};
+} // namespace kalandra::runtime::vulkan

@@ -1,0 +1,21 @@
+{
+  "repository": "https://github.com/ggml-org/llama.cpp",
+  "revision": "a91eab67d8389d979d29fdf6633b2edd0718eb4b",
+  "path": "ggml/src/ggml-vulkan/vulkan-shaders",
+  "license": "MIT",
+  "modifications": "None. Original files retained byte-for-byte; only float32 non-cooperative variants are built initially.",
+  "files": {
+    "LICENSE": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+    "add.comp": "99fb28c4e7651dcb02e5755592e5ed73fc8153adedce09847ef751b01a090d1d",
+    "dot_product_funcs.glsl": "682b600c705fe7a32de075c30c8a97df05c97b8d3e7c9277ed394a1a50751e97",
+    "generic_binary_head.glsl": "83503ffea9d60d69ac5e6497c5596a02fafd51984e939dc13005e4d5be53160f",
+    "ggml_type_ids.glsl": "1044c8dc42da7f4f245e3ab97887a940ddfdb133e53116a287f22093f20d364c",
+    "iq_shmem_init.glsl": "d8c55320d6bf9c0cd3f2f7e6ef77ad0bea59c08ba5a55a22fedd70c1a4f8741d",
+    "mul_mm.comp": "81db472d38b89c8555e3ee6facfec2d1140ab422472b8f8c34cdd56fd248ef9b",
+    "mul_mm_funcs.glsl": "71f86758ba309b36a9af0420e08abef386a3b3b08545e096cad10e16186ef61e",
+    "mul_mm_id_funcs.glsl": "a8a1dc994f6667425e7bef86058ff445f3c8272bfc939b7ba7954fd384975d1b",
+    "rope_params.glsl": "b7f2d17932f8d632556951f664f48f1da938387bd331b0f3b730dcdc7625651a",
+    "types.glsl": "a88aade2345ab25eb681632d79632df5da7579460e0781f616338343e823a84c",
+    "utils.glsl": "01905c09f8e295556dd569a7074f482d34d0af7ee349ee248fcdd4db4c8584fc"
+  }
+}

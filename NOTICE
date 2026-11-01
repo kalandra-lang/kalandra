@@ -8,3 +8,7 @@ Scaffold source revision: c5a3ca2b59f7845a75d9de38a4cfa4cf8763315a
 Native project manifest parsing uses toml++ 3.4.0 (MIT), by Mark Gillard:
 https://github.com/marzer/tomlplusplus/tree/v3.4.0
 The license is retained in native/third-party/tomlplusplus-LICENSE.
+
+Experimental Vulkan runtime shaders reuse the MIT-licensed ggml/llama.cpp sources:
+https://github.com/ggml-org/llama.cpp/tree/a91eab67d8389d979d29fdf6633b2edd0718eb4b/ggml/src/ggml-vulkan/vulkan-shaders
+The original license and per-file hashes are retained in native/vulkan/third_party/ggml/.

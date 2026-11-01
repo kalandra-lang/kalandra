@@ -477,6 +477,11 @@ if(BUILD_TESTING)
   endforeach()
 endif()
 
+option(KALANDRA_BUILD_VULKAN_RUNTIME "Build experimental Vulkan runtime bring-up (no compiler target yet)" OFF)
+if(KALANDRA_BUILD_VULKAN_RUNTIME)
+  add_subdirectory(vulkan)
+endif()
+
 option(KALANDRA_BUILD_METAL_RUNTIME "Build the Apple device and transfer runtime" OFF)
 if(KALANDRA_BUILD_METAL_RUNTIME)
   add_subdirectory(metal)

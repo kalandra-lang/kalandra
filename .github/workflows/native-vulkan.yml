@@ -1,0 +1,32 @@
+name: Native Vulkan bring-up
+on:
+  pull_request:
+    paths:
+      - 'native/vulkan/**'
+      - '.github/workflows/native-vulkan.yml'
+  push:
+    branches: [develop, codex/vulkan]
+    paths:
+      - 'native/vulkan/**'
+      - '.github/workflows/native-vulkan.yml'
+permissions:
+  contents: read
+jobs:
+  build-and-shader-audit:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+      # Hosted ephemeral CI only. The user's Linux test machine is managed manually.
+      - name: Install hosted build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvulkan-dev glslc spirv-tools ninja-build
+      - name: Configure standalone runtime qualification
+        run: cmake -S native/vulkan -B build/vulkan -G Ninja -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+      - name: Compile runtime, tests and validate SPIR-V
+        run: cmake --build build/vulkan --parallel 2
+      - name: Audit provenance and shader capabilities
+        run: ctest --test-dir build/vulkan -R native-vulkan-upstream-audit --output-on-failure
+      # Hardware correctness is separately qualified on physical NVIDIA/Intel GPUs.
+      # Never silently substitute lavapipe for that acceptance evidence.

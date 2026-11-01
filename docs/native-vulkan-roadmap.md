@@ -19,3 +19,14 @@ The user owns system software installation: do not install packages, drivers, SD
 ## Current status
 
 Draft implementation. No released Vulkan backend or CLI support is claimed. Keep the PR draft until the complete source-to-device path and the acceptance criteria in #263 are qualified.
+
+## 2026-11-01: first runtime slice
+
+- Added an opt-in standalone C++23 Vulkan runtime; default compiler builds and supported CLI targets are unchanged.
+- Imported the original MIT ggml addition/tiled matmul shaders and their 11-file textual dependency set, pinned at `a91eab67d8389d979d29fdf6633b2edd0718eb4b`. Full license and per-file SHA-256 hashes are retained. No Steel/CuTe dependencies were imported. Both built SPIR-V modules validate for Vulkan 1.1 and declare only Shader capability / float32 arithmetic.
+- Debug/Clang 23.1.4 and Release/GCC 16.2.1 hardware correctness/validation passed on NVIDIA RTX 5090 and Intel Graphics (ARL). Cases cover exact addition, resident chaining, non-tile-aligned matmul against independent double references, a full-precision operand probe, zero shapes/contraction, immutable copied inputs, foreign-context rejection, allocation-budget rollback, concurrent callers and resource retention after the runtime facade dies. This is runtime bring-up evidence, not source-language qualification or benchmark performance.
+- Initial tests rejected two host ABI mistakes (addition push constants are 116 bytes, and the matmul split width must be the contraction extent). Both were fixed; upstream shaders remain unmodified.
+- Sanitized correctness executes successfully but LeakSanitizer fails at process exit (initially 4,850 bytes / 14 allocations, with DBus and unloaded-module stacks). An independent loader-only control with no Kalandra runtime also fails (2,485 bytes / 7 allocations). Selecting NVIDIA alone and disabling implicit desktop layers process-locally did not eliminate the reports (one run 5,042 bytes / 14 allocations). No broad leak suppressions or sanitizer disabling were added. Leak-clean sanitizer qualification remains unresolved; the control is retained to investigate external initialization/teardown separately.
+- No packages/drivers/SDKs were installed by the agent on the Linux machine. No game processes were modified. Source/build files live in an isolated directory. No performance acceptance timings were collected.
+
+Next: finish teardown/sanitizer attribution, then introduce compiler-generated Vulkan artifacts and asynchronous task integration before expanding numerical/type coverage. This synchronous private bring-up has no cancellation contract and must not be exposed as the completed language backend. The existing source-language cancellation/fault rules remain unchanged.
