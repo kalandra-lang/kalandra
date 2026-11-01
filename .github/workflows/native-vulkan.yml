@@ -2,19 +2,36 @@ name: Native Vulkan bring-up
 on:
   pull_request:
     paths:
+      - 'CMakeLists.txt'
+      - 'VERSION'
+      - 'native/CMakeLists.txt'
       - 'native/vulkan/**'
       - 'native/gpu-source/**'
-      - 'native/cmake/DevelopmentToolchain.cmake'
-      - 'native/cmake/DevelopmentLLVMDependencies.cmake'
+      - 'native/metal-source/**'
+      - 'native/include/**'
+      - 'native/runtime/**'
+      - 'native/lib/**'
+      - 'native/cmake/**'
+      - 'native/toolchain-proof/toolchain.json'
+      - '.github/scripts/provision_native_platform.py'
       - '.github/workflows/native-vulkan.yml'
   push:
-    branches: [develop, codex/vulkan]
+    branches: [develop]
     paths:
+      - 'CMakeLists.txt'
+      - 'VERSION'
+      - 'native/CMakeLists.txt'
       - 'native/vulkan/**'
       - 'native/gpu-source/**'
-      - 'native/cmake/DevelopmentToolchain.cmake'
-      - 'native/cmake/DevelopmentLLVMDependencies.cmake'
+      - 'native/metal-source/**'
+      - 'native/include/**'
+      - 'native/runtime/**'
+      - 'native/lib/**'
+      - 'native/cmake/**'
+      - 'native/toolchain-proof/toolchain.json'
+      - '.github/scripts/provision_native_platform.py'
       - '.github/workflows/native-vulkan.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -36,3 +53,64 @@ jobs:
         run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain)$" --output-on-failure
       # Hardware correctness is separately qualified on physical NVIDIA/Intel GPUs.
       # Never silently substitute lavapipe for that acceptance evidence.
+  source-compiler:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Provision the existing verified production LLVM/MLIR
+        run: python3 .github/scripts/provision_native_platform.py
+      - name: Install hosted compiler prerequisites
+        run: |
+          sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo apt-get install -y cmake ninja-build libtomlplusplus-dev libvulkan-dev glslc spirv-tools zlib1g-dev libzstd-dev libxml2-dev
+      - name: Configure private Vulkan source qualification
+        run: >-
+          cmake -S . -B build/vulkan-source -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=OFF -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
+          -DKALANDRA_BUILD_VULKAN_RUNTIME=ON
+          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+      - name: Build the source supervisor and owned runtime
+        run: >-
+          cmake --build build/vulkan-source --parallel 2 --target
+          kalandra-vulkan-supervisor kalandra-vulkan-kernels kalandra-vulkan-lower
+          kalandra-vulkan-extract kalandra-vulkan-language
+      - name: Compile complete mixed CPU GPU source programs without a substitute device
+        run: |
+          for mode in hardware software; do
+            for fixture in placed cpu-spawn; do
+              python3 native/vulkan/qualification/source_program.py \
+                --build build/vulkan-source --llvm-root "$KALANDRA_LLVM_ROOT" \
+                --cxx "$KALANDRA_LLVM_ROOT/bin/clang++" \
+                --source "native/metal-source/$fixture.k" \
+                --output "build/vulkan-artifacts/$mode/$fixture" --arithmetic "$mode"
+            done
+          done
+      - name: Compile and validate ten-type numerical kernel artifacts
+        run: |
+          for mode in hardware software; do
+            for operation in map reduce matmul; do
+              python3 native/vulkan/qualification/source_kernels.py \
+                --compiler build/vulkan-source/native/gpu-source/kalandra-vulkan-kernels \
+                --lower build/vulkan-source/native/gpu-source/kalandra-vulkan-lower \
+                --extract build/vulkan-source/native/gpu-source/kalandra-vulkan-extract \
+                --llvm-root "$KALANDRA_LLVM_ROOT" --validator /usr/bin/spirv-val \
+                --arithmetic "$mode" --operation "$operation" \
+                --output "build/vulkan-artifacts/$mode/$operation"
+            done
+          done
+      # These hosted jobs compile/validate artifacts only. Physical execution and
+      # exact result/cancellation/ownership checks run on the qualified GPUs.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-vulkan-source-qualification
+          path: build/vulkan-artifacts
+          if-no-files-found: error
+          retention-days: 7
