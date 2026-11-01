@@ -1,0 +1,61 @@
+name: Native Windows GPU qualification
+on:
+  pull_request:
+    paths: ['CMakeLists.txt', 'native/**', '.github/workflows/native-windows-gpu.yml', '.github/scripts/provision_native_platform.py']
+  push:
+    branches: [develop, native]
+    paths: ['CMakeLists.txt', 'native/**', '.github/workflows/native-windows-gpu.yml', '.github/scripts/provision_native_platform.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    name: Windows GPU runtime admission (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            msvc: x64
+          - runner: windows-11-arm
+            arch: arm64
+            msvc: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc }}
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Provision pinned native host compiler
+        run: python .github/scripts/provision_native_platform.py
+      - name: Fetch verified public Driver API declarations
+        run: |
+          python native/vulkan/qualification/provision_headers.py --directory "$env:RUNNER_TEMP/windows-vulkan-headers"
+          if ($LASTEXITCODE -ne 0) { throw 'Vulkan headers failed verification' }
+          python native/cuda-source/qualification/provision_headers.py --output "$env:RUNNER_TEMP/windows-cuda-headers"
+          if ($LASTEXITCODE -ne 0) { throw 'CUDA headers failed verification' }
+      - name: Compile both runtimes and test secure native loader admission
+        run: |
+          python native/gpu-runtime/qualification/windows_runtime.py --backend vulkan --llvm-root "$env:KALANDRA_LLVM_ROOT" --headers "$env:KALANDRA_VULKAN_HEADERS_ROOT/include" --arch ${{ matrix.arch }} --output build/windows-gpu-${{ matrix.arch }}/vulkan
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Vulkan runtime qualification failed' }
+          python native/gpu-runtime/qualification/windows_runtime.py --backend cuda --llvm-root "$env:KALANDRA_LLVM_ROOT" --headers "$env:RUNNER_TEMP/windows-cuda-headers" --arch ${{ matrix.arch }} --output build/windows-gpu-${{ matrix.arch }}/cuda
+          if ($LASTEXITCODE -ne 0) { throw 'Windows CUDA runtime qualification failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows-gpu-runtime-${{ matrix.arch }}
+          path: build/windows-gpu-${{ matrix.arch }}/**/qualification.json
+          if-no-files-found: error
+          retention-days: 7
+      # Build/admission evidence only. No physical GPU or performance claim.

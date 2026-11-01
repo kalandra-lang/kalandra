@@ -1,4 +1,5 @@
 #include "Cuda.h"
+#include "DriverLibrary.h"
 #include "kalandra/CudaArtifact.h"
 #include "kalandra/CudaMatmul.h"
 #include <algorithm>
@@ -7,7 +8,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <cuda.h>
-#include <dlfcn.h>
 #include <fstream>
 #include <limits>
 #include <mutex>
@@ -20,7 +20,7 @@ bool driverSucceeded(CUresult status, const char *operation) {
   return status == CUDA_SUCCESS;
 }
 struct Driver {
-  void *library = nullptr;
+  DriverLibrary library;
 #define CUDA_FUNCTION(name, type) type name = nullptr
   using Init = CUresult (*)(unsigned);
   using Version = CUresult (*)(int *);
@@ -74,16 +74,11 @@ struct Driver {
   CUDA_FUNCTION(launch, Launch);
   CUDA_FUNCTION(granularity, Granularity);
 #undef CUDA_FUNCTION
-  ~Driver() {
-    if (library)
-      dlclose(library);
-  }
   bool open() {
-    library = dlopen("libcuda.so.1", RTLD_NOW | RTLD_LOCAL);
-    if (!library)
+    if (!library.open())
       return false;
 #define SYMBOL(field, name)                                                                        \
-  field = reinterpret_cast<decltype(field)>(dlsym(library, name));                                 \
+  field = reinterpret_cast<decltype(field)>(library.symbol(name));                                 \
   if (!field)                                                                                      \
   return false
     SYMBOL(version, "cuDriverGetVersion");
