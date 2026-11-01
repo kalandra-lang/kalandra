@@ -91,6 +91,8 @@ public:
   bool owns(const std::shared_ptr<const HostCharge> &) const noexcept;
   std::expected<Buffer, Error> upload(std::span<const float>);
   std::expected<Buffer, Error> uploadBytes(std::span<const std::byte>);
+  // Invocation-private scratch, zero initialized without an uncharged host copy.
+  std::expected<Buffer, Error> blankBytes(std::uint64_t);
   std::expected<std::vector<std::byte>, Error> downloadBytes(const Buffer &);
   std::expected<void, Error> readBytes(const Buffer &, std::span<std::byte>);
   // Compiler-owned SPIR-V only: flat set-0 storage buffers, fixed 1D workgroups.

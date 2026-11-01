@@ -39,6 +39,36 @@ bool computes(K kind) { return kind == K::Map || kind == K::Reduce || kind == K:
 bool produces(K kind) { return computes(kind) || kind == K::Alias; }
 std::expected<void, Error> validateKernel(const ProgramInstruction &op) {
   const auto &kernel = *op.kernel;
+  if (kernel.transform) {
+    const auto kind = *kernel.transform;
+    const bool rms = kind == TensorTransformKind::RmsNormRows;
+    const bool transpose = kind == TensorTransformKind::Transpose;
+    if ((!rms && !transpose && kind != TensorTransformKind::SoftmaxRows) || op.kind != K::Map ||
+        kernel.scalar || kernel.kernel.localSize() != 256 || kernel.kernel.parameterWords() != 6 ||
+        kernel.kernel.inputCount() != (transpose ? 1u
+                                       : rms     ? 3u
+                                                 : 2u) ||
+        op.inputs.size() != (rms && kernel.scalarTypes.empty() ? 2u : 1u) ||
+        (!transpose && kernel.type != NumericType::Float32) ||
+        !std::all_of(kernel.tensorTypes.begin(), kernel.tensorTypes.end(),
+                     [&](auto type) { return type == kernel.type; }) ||
+        kernel.scalarBuffers[0] != 0 || (op.inputs.size() == 2 && kernel.scalarBuffers[1] != 1) ||
+        kernel.scalarTypes.size() != (rms && op.inputs.size() == 1 ? 1u : 0u) ||
+        !std::all_of(kernel.scalarTypes.begin(), kernel.scalarTypes.end(),
+                     [&](auto type) { return type == kernel.type; }))
+      return std::unexpected(Error::Invalid);
+    if (kernel.reads)
+      for (std::size_t i = 0; i < op.inputs.size(); ++i)
+        if (kernel.reads->size() != op.inputs.size() || (*kernel.reads)[i] != i)
+          return std::unexpected(Error::Invalid);
+    try {
+      if (kernel.kernel.entryName() != vulkanTransformKernelName(kind, kernel.type))
+        return std::unexpected(Error::Invalid);
+      return {};
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    }
+  }
   const auto physical = op.kind == K::Map && kernel.reads ? kernel.reads->size() : op.inputs.size();
   if (kernel.kernel.inputCount() != physical)
     return std::unexpected(Error::Invalid);
@@ -155,12 +185,9 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
           !charge(kernel.scalarBuffers.size(), sizeof(std::uint8_t)) ||
           (kernel.reads && !charge(kernel.reads->size(), sizeof(std::uint32_t))))
         return std::unexpected(Error::Budget);
-      std::uint64_t words = op.kind == K::Matmul ? 4 : 2;
-      if (op.kind == K::Map)
-        for (auto type : kernel.scalarTypes)
-          words += describeNumeric(type)->bits == 64 ? 2 : 1;
-      peakDispatch = std::max(peakDispatch, op.inputs.size() * sizeof(Buffer) + words * 8 +
-                                                sizeof(ProgramDispatch));
+      const std::uint64_t words = kernel.kernel.parameterWords();
+      peakDispatch = std::max(peakDispatch, kernel.kernel.inputCount() * sizeof(Buffer) +
+                                                words * 8 + sizeof(ProgramDispatch));
     }
   }
   // Charge invocation slots too: a small code array must not authorize an
@@ -336,7 +363,71 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
       output_ = {};
       output_.type = schema.type;
       std::uint32_t count = 0;
-      if (op.kind == K::Map) {
+      if (schema.transform) {
+        if (a.type != schema.type)
+          return fail(Error::Invalid);
+        if (a.scalar || a.rank != 2)
+          return fail(Error::Shape);
+        const auto kind = *schema.transform;
+        const bool transpose = kind == TensorTransformKind::Transpose;
+        const bool rms = kind == TensorTransformKind::RmsNormRows;
+        auto size = cells(a);
+        if (!size)
+          return fail(size.error());
+        count = *size;
+        output_.rank = 2;
+        output_.dimensions = a.dimensions;
+        if (transpose)
+          std::swap(output_.dimensions[0], output_.dimensions[1]);
+        // Empty metadata can contain large extents. No coordinates are needed
+        // on device, but RMS epsilon must still execute its checked preflight.
+        std::uint32_t rows = 0, columns = 0;
+        if (count) {
+          if (a.dimensions[0] > UINT32_MAX || a.dimensions[1] > UINT32_MAX)
+            return fail(Error::Unsupported);
+          rows = a.dimensions[0];
+          columns = a.dimensions[1];
+        }
+        std::uint32_t epsilon = 0;
+        const bool deviceEpsilon = rms && op.inputs.size() == 2;
+        if (rms && !deviceEpsilon) {
+          std::uint64_t word;
+          if (!op.scalarSources.empty()) {
+            if (op.scalarSources[0] >= scalars_.size())
+              return fail(Error::Invalid);
+            word = scalars_[op.scalarSources[0]];
+          } else
+            word = op.constants[0];
+          if (word > UINT32_MAX)
+            return fail(Error::Invalid);
+          epsilon = word;
+        }
+        dispatch.inputs = {a.data};
+        if (deviceEpsilon) {
+          const auto &value = values_[op.inputs[1]];
+          if (!value.scalar || value.rank || value.type != schema.type || value.data.bytes() != 4)
+            return fail(Error::Invalid);
+          dispatch.inputs.push_back(value.data);
+        } else if (rms)
+          dispatch.inputs.push_back(a.data); // Unread unless device-epsilon flag is set.
+        if (!transpose) {
+          auto scratch = runtime.blankBytes(std::uint64_t(count) * 4);
+          if (!scratch)
+            return fail(scratch.error());
+          dispatch.inputs.push_back(std::move(*scratch));
+        }
+        dispatch.parameters = {count, rows, columns, epsilon, deviceEpsilon ? 1u : 0u, UINT32_MAX};
+        const auto groups = transpose ? std::uint64_t(rows / 32 + unsigned(rows % 32 != 0)) *
+                                            (columns / 32 + unsigned(columns % 32 != 0))
+                                      : rows;
+        if (groups > UINT32_MAX)
+          return fail(Error::Unsupported);
+        dispatch.groups = std::max(1u, std::uint32_t(groups));
+        dispatch.outputBytes = std::uint64_t(count) * describeNumeric(schema.type)->bytes();
+        parameterWords_ = 6;
+        pending_ = true;
+        return std::optional<ProgramDispatch>(std::move(dispatch));
+      } else if (op.kind == K::Map) {
         std::optional<std::size_t> domain;
         for (std::size_t i = 0; i < op.inputs.size(); ++i) {
           const auto &value = values_[op.inputs[i]];

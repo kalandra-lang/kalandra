@@ -1499,8 +1499,6 @@ class Compiler {
         reject(span, "unreferenced typed numerical program kernel");
       const auto kind = instruction->kind;
       if (kernel.transform) {
-        if (backend_ == GpuBackend::Vulkan)
-          reject(span, "Vulkan transform artifact integration is still in progress");
         const char *label = *kernel.transform == TensorTransformKind::Transpose     ? "Transpose"
                             : *kernel.transform == TensorTransformKind::SoftmaxRows ? "SoftmaxRows"
                                                                                     : "RmsNormRows";
@@ -3512,6 +3510,13 @@ public:
         for (std::size_t stage = 0; stage < found->second.kernels.size(); ++stage) {
           const auto &shader = found->second.kernels[stage];
           auto name = base + (stage ? "-stage" + std::to_string(stage) : "");
+          if (backend_ == GpuBackend::Vulkan && shader.transform) {
+            outputs[name + ".vulkan-transform"] =
+                "kalandra-vulkan-transform-v1\nkind=" +
+                std::string(tensorTransformName(*shader.transform)) +
+                "\ntype=" + std::string(describeNumeric(shader.element)->name) + "\n";
+            continue;
+          }
           outputs[name + (shader.nativeMetal.empty() ? ".mlir" : ".native.metal")] =
               shader.nativeMetal.empty() ? shader.mlir : shader.nativeMetal;
         }

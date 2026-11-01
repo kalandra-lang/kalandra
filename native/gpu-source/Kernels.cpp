@@ -80,8 +80,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   for (const auto &kernel : program->kernels)
-    if (!kernel.nativeMetal.empty()) {
-      llvm::errs() << "Vulkan row/transpose artifact integration is still in progress\n";
+    if (!kernel.nativeMetal.empty() && !kernel.transform) {
+      llvm::errs() << "unsupported native kernel artifact\n";
       return 1;
     }
   auto directory = std::filesystem::path(argv[3]);
@@ -94,8 +94,13 @@ int main(int argc, char **argv) {
   llvm::json::Array kernels, code, parameters;
   for (std::size_t i = 0; i < program->kernels.size(); ++i) {
     const auto &kernel = program->kernels[i];
-    auto file = "kernel" + std::to_string(i) + ".mlir";
-    if (!write(directory / file, kernel.mlir))
+    auto file = "kernel" + std::to_string(i) + (kernel.transform ? ".vulkan-transform" : ".mlir");
+    const auto contents =
+        kernel.transform ? "kalandra-vulkan-transform-v1\nkind=" +
+                               std::string(tensorTransformName(*kernel.transform)) +
+                               "\ntype=" + std::string(describeNumeric(kernel.element)->name) + "\n"
+                         : kernel.mlir;
+    if (!write(directory / file, contents))
       return 1;
     kernels.push_back(
         llvm::json::Object{{"file", file},

@@ -50,7 +50,7 @@ jobs:
       - name: Compile runtime, tests and validate SPIR-V
         run: cmake --build build/vulkan --parallel 2
       - name: Audit provenance and shader capabilities
-        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain)$" --output-on-failure
+        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain|transform-reference)$" --output-on-failure
       # Hardware correctness is separately qualified on physical NVIDIA/Intel GPUs.
       # Never silently substitute lavapipe for that acceptance evidence.
   source-compiler:
@@ -93,6 +93,12 @@ jobs:
                 --output "build/vulkan-artifacts/$mode/$fixture" --arithmetic "$mode"
             done
           done
+      - name: Compile full-source transform artifacts without hardware substitution
+        env:
+          KALANDRA_VULKAN_BUILD_ROOT: ${{ github.workspace }}/build/vulkan-source
+          KALANDRA_VULKAN_LLVM_ROOT: ${{ env.KALANDRA_LLVM_ROOT }}
+          KALANDRA_VULKAN_CXX: ${{ env.KALANDRA_LLVM_ROOT }}/bin/clang++
+        run: python3 native/vulkan/qualification/source_transforms.py --compile-only --output build/vulkan-artifacts/transforms
       - name: Compile and validate ten-type numerical kernel artifacts
         run: |
           for mode in hardware software; do

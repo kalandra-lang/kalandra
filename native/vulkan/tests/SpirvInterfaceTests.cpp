@@ -88,5 +88,23 @@ int main() {
     std::copy(module.begin() + 7, module.end(), changed.begin() + 9);
     check(bool(reflectSpirv(changed)));
   }
+  changed = module;
+  changed.insert(changed.begin() + 7, {(2u << 16) | 17, 4466});
+  const auto modesAt = 20u; // After the existing fixed local-size mode.
+  changed.insert(changed.begin() + modesAt, {(4u << 16) | 16, 1, 4461, 32});
+  result = reflectSpirv(changed);
+  check(result && result->preserveFloat32);
+  auto invalidMode = changed;
+  invalidMode[modesAt + 3] = 64;
+  check(!reflectSpirv(invalidMode));
+  invalidMode = changed;
+  invalidMode[modesAt + 1] = 2;
+  check(!reflectSpirv(invalidMode));
+  invalidMode = changed;
+  invalidMode.insert(invalidMode.begin() + modesAt, {(4u << 16) | 16, 1, 4461, 32});
+  check(!reflectSpirv(invalidMode));
+  invalidMode = changed;
+  invalidMode[8] = 4467; // Explicit RTE is intentionally not admitted.
+  check(!reflectSpirv(invalidMode));
   std::puts("PASS: compiler SPIR-V ABI reflection and malformed-interface rejection");
 }

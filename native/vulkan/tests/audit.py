@@ -25,4 +25,18 @@ for shader in ('add', 'mul_mm'):
     assert capabilities == ['Shader'], (shader, capabilities)
     widths = re.findall(r'OpTypeFloat (\d+)', assembly)
     assert widths and set(widths) == {'32'}, (shader, widths)
-print('PASS: pinned upstream hashes/includes, Shader-only capabilities, float32 arithmetic')
+for path in sorted((args.build/'transforms').glob('*.spv')):
+    assembly=subprocess.check_output([args.spirv_dis,str(path)],text=True)
+    kind,numeric=path.stem.split('-')
+    assert f'"kalandra_tensor_transform_v1_{kind}_{numeric}_vk_groups_v1"' in assembly,path
+    assert re.search(r'OpExecutionMode %\w+ LocalSize 256 1 1',assembly),path
+    if kind!='transpose':
+        assert 'OpCapability SignedZeroInfNanPreserve' in assembly,path
+        assert re.search(r'OpExecutionMode %\w+ SignedZeroInfNanPreserve 32',assembly),path
+        assert 'RoundingModeRTE' not in assembly,path
+        assert not re.search(r'OpExtInst .* Fma\b',assembly),path
+        decorated=set(re.findall(r'OpDecorate (%\w+) NoContraction',assembly))
+        operations=set(re.findall(r'(%\w+) = OpF(?:Add|Sub|Mul|Div)\b',assembly))
+        assert operations and operations<=decorated,(path,operations-decorated)
+assert len(list((args.build/'transforms').glob('*.spv')))==12
+print('PASS: pinned upstream hashes/includes, primitive/transform ABI, native precision decorations')

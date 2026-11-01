@@ -175,6 +175,35 @@ std::expected<Kernel, Error> Runtime::loadNumericMatmulKernel(std::string_view p
   schema.type = type;
   return load(path, std::move(device), std::move(schema), NumericInstructionKind::Matmul);
 }
+std::expected<Kernel, Error>
+Runtime::loadTensorTransformKernel(std::string_view path, Device device, TensorTransformKind kind,
+                                   NumericType type, bool deviceEpsilon) noexcept {
+  if (!describeNumeric(type))
+    return std::unexpected(Error::Invalid);
+  if (kind != TensorTransformKind::Transpose && type != NumericType::Float32)
+    return std::unexpected(Error::Unsupported);
+  if ((kind != TensorTransformKind::RmsNormRows && deviceEpsilon) ||
+      (kind != TensorTransformKind::Transpose && kind != TensorTransformKind::SoftmaxRows &&
+       kind != TensorTransformKind::RmsNormRows))
+    return std::unexpected(Error::Invalid);
+  try {
+    ProgramKernel schema;
+    schema.type = type;
+    schema.tensorTypes = {type};
+    schema.scalarBuffers = {0};
+    schema.transform = kind;
+    if (kind == TensorTransformKind::RmsNormRows) {
+      if (deviceEpsilon) {
+        schema.tensorTypes.push_back(type);
+        schema.scalarBuffers.push_back(1);
+      } else
+        schema.scalarTypes = {type};
+    }
+    return load(path, std::move(device), std::move(schema), NumericInstructionKind::Map);
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
 std::expected<NumericExecutable, Error>
 Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInstruction> code,
                                std::uint32_t result, NumericType type, bool scalar,

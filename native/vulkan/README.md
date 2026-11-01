@@ -1,8 +1,8 @@
 # Experimental Vulkan runtime bring-up
 
 This is an internal backend implementation, not a released Vulkan compiler target.
-The source-to-device compiler and structured task integration are still pending:
-see [implementation plan](../../docs/native-vulkan-roadmap.md) and #263.
+The private source compiler and structured tasks are qualified incrementally;
+release CLI integration and full Metal parity remain pending. See [implementation plan](../../docs/native-vulkan-roadmap.md) and #263.
 
 The opt-in root build flag is `KALANDRA_BUILD_VULKAN_RUNTIME`. To qualify just the
 runtime with existing Vulkan development tools, without installing LLVM/MLIR:
@@ -23,7 +23,7 @@ must be installed only by the user or with their explicit approval.
 
 ## Kernel provenance and numerical scope
 
-The two built kernels are unmodified upstream `add.comp` and `mul_mm.comp` from
+The two primitive kernels are unmodified upstream `add.comp` and `mul_mm.comp` from
 llama.cpp revision `a91eab67d8389d979d29fdf6633b2edd0718eb4b` (MIT). Their
 transitive textual includes are retained unmodified. [UPSTREAM.json](third_party/ggml/UPSTREAM.json)
 records SHA-256 hashes and [LICENSE](third_party/ggml/LICENSE) retains notices.
@@ -162,3 +162,45 @@ Repeat with `--arithmetic software` and a separate result directory. The replay
 helper checks the generated independent `expected.json` records; select the
 installed physical ICD through `VK_DRIVER_FILES` when testing a second device.
 The adapter preserves `-O0`/`-O2` and rejects unsupported target/policy arguments.
+
+## Predefined tensor transforms
+
+The private source pipeline supports bitwise rank-2 transpose for all ten numeric
+types in hardware/software arithmetic. The tile body is adapted from the pinned
+MIT ggml `copy_transpose.comp`; its two uint32 planes preserve every 64-bit cell,
+including NaN payloads and signed zeros. No float64 arithmetic is needed just to
+transpose float64 storage. Rounded tile tails and two-dimensional group grids
+are checked against logical bounds.
+
+Native float32 `softmaxRows` and `rmsNormRows` reuse Kalandra's owned Metal row
+algorithm, preserving its adjacent-pair tree, NaN/+infinity handling, host or
+device epsilon, and invalid-epsilon fault before empty-output handling. They
+require Vulkan 1.2 and advertised float32 SignedZeroInfNanPreserve. Missing
+capability is Unsupported (106); no CPU or software fallback is hidden. Software
+row arithmetic and float64 row arithmetic remain explicitly rejected, as on Metal.
+
+Hardware precision is device-specific. Vulkan's native division, exp and sqrt
+need not match CPU/Metal bits. Qualification propagates the normative SPIR-V
+bounds through the same reduction tree: division 2.5 ULP in its guaranteed
+range, exp `(3+2*abs(x))` ULP, sqrt inherited from reciprocal of a 2-ULP inverse
+sqrt. Basic operations use Vulkan's implementation-defined rounding; contraction
+and reassociation are disabled. Special-value handling and transpose payloads
+have separate stronger checks. See the [Khronos precision specification](https://docs.vulkan.org/spec/latest/appendices/spirvenv.html).
+The unchanged shared CPU/Metal Decimal oracle is retained separately. The Vulkan
+profile is selected explicitly with `transform_oracles.py --profile vulkan-hardware`.
+
+An exact Metal RMS oracle rejected NVIDIA's `[-3]` case by one ULP. Intermediate
+readback isolated native sqrt; integer midpoint correction exposed approximate
+division as well and was rejected. Explicit SPIR-V round-to-nearest then triggered
+SIGILL inside NVIDIA 595.112.07's GPU compiler. The separately tested
+NaN/infinity-preservation-only artifact works on NVIDIA and Intel. Neither the
+rounding-mode artifact nor the correction algorithm is selected by production
+code. These failures are retained in qualification evidence; they are not
+reported as exact-bit passes.
+
+The private `qualification/source_transforms.py` compiles 24 complete programs,
+including repeated awaits, device-computed epsilon and arithmetic faults. It runs
+both physical ICDs at worker counts 1/2/4; `--compile-only` lets hosted CI verify
+artifacts without substituting a software Vulkan implementation. Managed tests
+hold acknowledgement to check cancellation/deadline/fault precedence, scratch
+quota rollback and resource retirement.

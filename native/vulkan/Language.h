@@ -96,6 +96,9 @@ public:
                                                           NumericType) noexcept;
   std::expected<Kernel, Error> loadNumericMatmulKernel(std::string_view, Device,
                                                        NumericType) noexcept;
+  std::expected<Kernel, Error> loadTensorTransformKernel(std::string_view, Device,
+                                                         TensorTransformKind, NumericType,
+                                                         bool deviceEpsilon = false) noexcept;
   std::expected<NumericExecutable, Error> prepareNumericProgram(std::uint32_t,
                                                                 std::span<const NumericInstruction>,
                                                                 std::uint32_t, NumericType, bool,

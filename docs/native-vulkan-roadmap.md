@@ -264,3 +264,53 @@ so a changed enumeration index cannot silently select another GPU. Explicit
 identity selection and missing-identity rejection pass on both physical devices;
 Clang/GCC runtime, numerical and source-adapter regressions pass. Device UUIDs
 are not printed in qualification output.
+
+### Predefined transforms and native precision
+
+The next slice integrates all ten bitwise rank-2 transpose types and native
+float32 softmaxRows/rmsNormRows with the private complete-source task pipeline.
+Transpose adapts the pinned original MIT ggml tile, with preserved 64-bit payloads,
+rounded tails, a two-dimensional group grid and empty metadata. Row operations
+reuse the owned Metal adjacent-pair algorithm; unchanged upstream ggml row
+kernels were rejected because their reduction order and +infinity behavior differ.
+Host/device epsilon and invalid-epsilon-before-empty fault order are preserved.
+The row artifacts require Vulkan 1.2 and advertised float32 NaN/infinity/signed-
+zero preservation; unsupported capability returns 106 before pipeline creation.
+
+Independent qualification passes 190 cases / 37,323 cells per physical GPU;
+all ten transpose types are bit-exact. Twenty-four complete source programs pass
+on NVIDIA and Intel at workers 1/2/4 (144 executions): hardware/software
+transpose, native row operations, repeated awaits, device-computed epsilon and
+arithmetic failure. Managed transform checks pass scratch quota rollback, held
+cancellation/deadlines, cancellation over injected completion failure, and exact
+retirement of private backing at those worker counts. No scheduling or
+cancellation contract changes. The unchanged CPU transform oracle passes
+156,006 checks; the physical Metal transform regression passes (130.10 seconds).
+
+The initial exact CPU/Metal RMS oracle failed NVIDIA's `[-3]`, epsilon 1e-5 case:
+expected `bf7ffff7`, observed `bf7ffff8`. Intermediate readback found a one-ULP
+native sqrt difference. Precise local storage did not change it; an experimental
+integer midpoint correction exposed approximate native division and was rejected.
+The accepted hardware profile instead propagates Khronos SPIR-V bounds through
+the actual adjacent-pair tree: correctly rounded operations with implementation-
+defined rounding, division 2.5 ULP in its guaranteed range, exp
+`(3+2*abs(x))` ULP, and sqrt inherited from reciprocal of a 2-ULP inverse sqrt.
+The profile is explicit and separate from the unchanged CPU/Metal oracle;
+transpose payloads, NaN behavior and invalid-epsilon faults remain strong checks.
+Eight independent oracle tests include out-of-bound corruption rejection.
+
+Requesting explicit RTE additionally caused a reproducible NVIDIA 595.112.07
+SIGILL during pipeline compilation. The debugger identifies libnvidia-gpucomp;
+Intel accepts that artifact. The preservation-only shader passes both GPUs.
+Explicit RTE and the integer sqrt correction are not shipped. Original failed
+artifacts and debugger/control logs are retained in the isolated qualification
+workspace. No exact-bit or speed claims are inferred from the native profile.
+
+GCC 16.2.1 standalone Release passes all nine registered checks, including the
+new ABI/provenance/precision audit and managed transforms. Fully instrumented
+Intel ThreadSanitizer transform tests pass with the independently diagnosed
+validation-layer issue excluded by the existing private no-validation switch;
+normal NVIDIA/Intel tests retain validation. ASan/UBSan assertions pass, but
+unsuppressed LeakSanitizer still fails at exit (2,497 bytes / 7 allocations,
+including DBus/unloaded-module stacks), matching the earlier single-loader
+control's counts, not proving every stack is attributed. No suppression added.

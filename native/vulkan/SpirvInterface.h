@@ -12,7 +12,9 @@ struct SpirvInterface {
   std::uint32_t localSize = 0, buffers = 0, parameterWords = 0;
   bool int8 = false, int16 = false, int64 = false, float64 = false;
   bool storage8 = false, storage16 = false;
+  bool preserveFloat32 = false;
   bool flattenedGrid = false;
+  bool groupOnlyGrid = false;
 };
 std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uint32_t> words);
 } // namespace kalandra::runtime::vulkan

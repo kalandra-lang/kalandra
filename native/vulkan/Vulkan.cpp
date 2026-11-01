@@ -59,7 +59,11 @@ std::expected<std::unique_ptr<Instance>, Error> instance(bool debug) {
   }
   VkApplicationInfo application{VK_STRUCTURE_TYPE_APPLICATION_INFO};
   application.pApplicationName = "Kalandra Vulkan bring-up";
-  application.apiVersion = VK_API_VERSION_1_1;
+  std::uint32_t loaderVersion = VK_API_VERSION_1_0;
+  if (vkEnumerateInstanceVersion(&loaderVersion) != VK_SUCCESS ||
+      loaderVersion < VK_API_VERSION_1_1)
+    return std::unexpected(Error::Unsupported);
+  application.apiVersion = std::min(loaderVersion, std::uint32_t(VK_API_VERSION_1_2));
   VkDebugUtilsMessengerCreateInfoEXT callback{
       VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
   callback.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -145,6 +149,7 @@ struct State {
   std::atomic<bool> failed{false};
   VkPhysicalDeviceFeatures features{};
   bool storage8 = false, storage16 = false, int8 = false;
+  bool preserveFloat32 = false;
   std::uint32_t maxDescriptors = 0, kernels = 0;
   ~State() {
     if (!device)
@@ -545,6 +550,16 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
       storage16.pNext = &storage8;
       storage8.pNext = &narrow;
     }
+    if (state->properties.apiVersion >= VK_API_VERSION_1_2) {
+      if (hasExtension(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
+        enabledExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+      VkPhysicalDeviceFloatControlsProperties controls{
+          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES};
+      VkPhysicalDeviceProperties2 properties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+      properties.pNext = &controls;
+      vkGetPhysicalDeviceProperties2(state->physical, &properties);
+      state->preserveFloat32 = controls.shaderSignedZeroInfNanPreserveFloat32;
+    }
     VkPhysicalDeviceFeatures2 features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     features.pNext = &storage16;
     vkGetPhysicalDeviceFeatures2(state->physical, &features);
@@ -809,6 +824,23 @@ std::expected<Buffer, Error> Runtime::uploadBytes(std::span<const std::byte> byt
     return std::unexpected(Error::Allocation);
   }
 }
+std::expected<Buffer, Error> Runtime::blankBytes(std::uint64_t bytes) {
+  try {
+    if (state_->failed)
+      return std::unexpected(Error::Device);
+    auto storage = allocate(state_, bytes);
+    if (!storage)
+      return std::unexpected(storage.error());
+    if ((*storage)->capacity)
+      std::memset((*storage)->mapped, 0, (*storage)->capacity);
+    auto visible = visibility(**storage, true);
+    if (!visible)
+      return std::unexpected(visible.error());
+    return Buffer(std::move(*storage));
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
 std::expected<std::vector<std::byte>, Error> Runtime::downloadBytes(const Buffer &buffer) {
   try {
     if (!buffer.storage_ || buffer.storage_->state != state_)
@@ -853,6 +885,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &pa
         (interface->int8 && !state_->int8) || (interface->int16 && !state_->features.shaderInt16) ||
         (interface->int64 && !state_->features.shaderInt64) ||
         (interface->float64 && !state_->features.shaderFloat64) ||
+        (interface->preserveFloat32 && !state_->preserveFloat32) ||
         (interface->storage8 && !state_->storage8) || (interface->storage16 && !state_->storage16))
       return std::unexpected(Error::Unsupported);
     auto loaded = std::make_shared<KernelState>();
@@ -892,12 +925,14 @@ std::expected<KernelResult, Error> Runtime::execute(const Kernel &kernel,
       return std::unexpected(Error::Device);
     const auto &limits = state_->properties.limits;
     std::uint32_t x = groups, y = 1;
-    if (kernel.state_->interface.flattenedGrid) {
+    if (kernel.state_->interface.flattenedGrid || kernel.state_->interface.groupOnlyGrid) {
       x = std::min({groups, limits.maxComputeWorkGroupCount[0], 65535u});
       y = static_cast<std::uint32_t>((std::uint64_t(groups) + x - 1) / x);
       // Shared GPU indices lower to uint32. Include padded groups in the
       // overflow check so inactive tail lanes cannot wrap back into the tensor.
-      if (std::uint64_t(x) * y * kernel.state_->interface.localSize > UINT64_C(1) << 32)
+      const auto lanes =
+          kernel.state_->interface.groupOnlyGrid ? 1u : kernel.state_->interface.localSize;
+      if (std::uint64_t(x) * y * lanes > UINT64_C(1) << 32)
         return std::unexpected(Error::Unsupported);
     }
     if (x > limits.maxComputeWorkGroupCount[0] || y > limits.maxComputeWorkGroupCount[1])

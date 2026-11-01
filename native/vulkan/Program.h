@@ -1,6 +1,7 @@
 #pragma once
 #include "Vulkan.h"
 #include "kalandra/GpuProgram.h"
+#include "kalandra/GpuTransform.h"
 #include "kalandra/NumericType.h"
 #include <array>
 #include <optional>
@@ -30,6 +31,7 @@ struct ProgramKernel {
   // Logical-to-physical projection retained by the shared typed emitter.
   // Omission means identity; an explicitly empty projection binds no inputs.
   std::optional<std::vector<std::uint32_t>> reads{};
+  std::optional<TensorTransformKind> transform{};
 };
 struct ProgramInstruction {
   NumericProgramKind kind;

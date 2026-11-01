@@ -5,6 +5,7 @@ already configured project build and matching host LLVM tools; installs nothing.
 """
 import argparse
 from pathlib import Path
+import shutil
 import subprocess
 
 p = argparse.ArgumentParser()
@@ -25,6 +26,19 @@ def run(args):
 tools = a.build / 'native/gpu-source'
 run([tools/'kalandra-vulkan-supervisor', a.source, a.output, a.arithmetic])
 artifacts = (a.output / 'artifacts.txt').read_text().splitlines()
+for name in artifacts:
+    if not name.endswith('.vulkan-transform'):
+        continue
+    lines=(a.output/name).read_text().splitlines()
+    assert len(lines)==3 and lines[0]=='kalandra-vulkan-transform-v1'
+    fields=dict(line.split('=',1) for line in lines[1:])
+    kind,numeric=fields['kind'],fields['type']
+    assert kind in ('transpose','softmaxRows','rmsNormRows')
+    assert numeric in ('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')
+    source=a.build/'native/vulkan/transforms'/f'{kind}-{numeric}.spv'
+    destination=(a.output/name).with_suffix('.spv')
+    assert not destination.is_symlink() and destination.resolve()!=a.source.resolve()
+    shutil.copyfile(source,destination)
 for name in artifacts:
     if not name.startswith('kernel') or not name.endswith('.mlir'):
         continue

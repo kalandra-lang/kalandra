@@ -39,6 +39,8 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
       case 39:
         result.int8 = true;
         break;
+      case 4466: // SignedZeroInfNanPreserve; execution width checked below.
+        break;
       case 4433:
         result.storage16 = true;
         break;
@@ -59,10 +61,20 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
         return std::unexpected("invalid entry name");
       result.entry.assign(name, end);
       result.flattenedGrid = result.entry.ends_with("_vk_flat_v1");
+      result.groupOnlyGrid = result.entry.ends_with("_vk_groups_v1");
       entry = args[1];
       break;
     }
-    case 16: // OpExecutionMode: fixed one-dimensional local size only.
+    case 16: // Fixed grid and explicitly admitted float32 control modes only.
+      if (args.size() == 3 && args[1] == 4461) {
+        if (!id(args[0]) || args[0] != entry || args[2] != 32)
+          return std::unexpected("unsupported floating-point execution mode");
+        auto &mode = result.preserveFloat32;
+        if (mode)
+          return std::unexpected("duplicate floating-point execution mode");
+        mode = true;
+        break;
+      }
       if (args.size() != 5 || args[1] != 17 || !id(args[0]) || localEntry || !args[2] ||
           args[3] != 1 || args[4] != 1)
         return std::unexpected("unsupported execution mode");
