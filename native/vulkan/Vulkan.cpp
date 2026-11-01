@@ -11,6 +11,7 @@
 #include <mutex>
 #include <new>
 #include "VulkanLoader.h"
+#include "MemoryType.h"
 
 namespace kalandra::runtime::vulkan {
 namespace {
@@ -242,15 +243,7 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
     return std::unexpected(error(result));
   VkMemoryRequirements required;
   vulkanApi().vkGetBufferMemoryRequirements(state->device, s->buffer, &required);
-  std::uint32_t memoryType = UINT32_MAX;
-  for (std::uint32_t i = 0; i < state->memory.memoryTypeCount; ++i) {
-    auto flags = state->memory.memoryTypes[i].propertyFlags;
-    if ((required.memoryTypeBits & (1u << i)) && (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
-      memoryType = i;
-      if (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
-        break;
-    }
-  }
+  const auto memoryType = mappedMemoryType(state->memory, required.memoryTypeBits);
   if (memoryType == UINT32_MAX)
     return std::unexpected(Error::Unsupported);
   {

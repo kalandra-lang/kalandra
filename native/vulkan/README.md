@@ -443,7 +443,8 @@ must have no Vulkan PE import.
 
 This matrix does not execute GPU instructions or qualify the installed Windows
 Vulkan compiler. A successful build must not be described as Windows device
-coverage. Its exact current-head result remains pending.
+coverage. Both architecture jobs pass at 31d35168; physical Windows GPU execution
+and the installed Windows Vulkan compiler remain unqualified.
 
 
 ## Complete public source capability parity
@@ -471,3 +472,24 @@ Hosted checks compile these fixtures without substituting a software GPU. The
 Metal frontend diagnostics and original shader artifact regression pass after
 the shared builder change. Windows x86-64/ARM64 runtime-object and admission tests
 also pass at 88a9f58c; physical Windows GPU execution remains unqualified.
+
+## Physical memory placement and performance qualification
+
+Persistently mapped storage prefers compatible device-local memory, then
+coherence and host caching, with a deterministic host-visible fallback. Discrete
+GPUs with mappable VRAM therefore avoid repeatedly reading shader operands over
+PCIe. Devices without such memory retain the existing mapped host path;
+noncoherent allocations retain explicit flush/invalidate operations. This does
+not add a staging allocation, enlarge the byte budget or change cancellation,
+ownership or arithmetic policy. Allocation failure continues to fail within the
+normal checked path.
+Protected memory and AMD device-coherent memory are excluded because their
+optional device features are not enabled; see the
+[Vulkan allocation requirements](https://docs.vulkan.org/spec/latest/chapters/memory.html#VUID-vkAllocateMemory-deviceCoherentMemory-02790).
+
+The [prepared numerical-library benchmark](benchmarks/README.md) measures actual
+managed GPU API calls, CPU matrix calls and an existing OpenBLAS installation.
+It distinguishes resident from transfer-inclusive results, retains unfavorable
+baselines and requires correctness and load/control audits before accepting a
+performance claim. Raw timing reports belong in qualification evidence, not
+user documentation.
