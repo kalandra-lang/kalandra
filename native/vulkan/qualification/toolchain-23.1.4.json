@@ -1,0 +1,11 @@
+{
+  "scope": "Linux Vulkan development qualification only; production toolchain lock is unchanged",
+  "compiler": "/usr/bin/clang++",
+  "llvmVersion": "23.1.4",
+  "archive": "LLVM-23.1.4-Linux-X64.tar.zst",
+  "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.4/LLVM-23.1.4-Linux-X64.tar.zst",
+  "sha256": "efdd1dbd089b99bfcfcde7b8eb1236163f2e88df5a981cca4f783ec9cb5e0378",
+  "checksumSource": "Official llvm/llvm-project GitHub release asset digest",
+  "systemPackages": ["llvm23-devel", "tomlplusplus-devel", "zlib-devel", "libzstd-devel", "libxml2-devel"],
+  "note": "System packages installed by owner. Private development archive is never installed into system paths."
+}

@@ -3,11 +3,17 @@ on:
   pull_request:
     paths:
       - 'native/vulkan/**'
+      - 'native/gpu-source/**'
+      - 'native/cmake/DevelopmentToolchain.cmake'
+      - 'native/cmake/DevelopmentLLVMDependencies.cmake'
       - '.github/workflows/native-vulkan.yml'
   push:
     branches: [develop, codex/vulkan]
     paths:
       - 'native/vulkan/**'
+      - 'native/gpu-source/**'
+      - 'native/cmake/DevelopmentToolchain.cmake'
+      - 'native/cmake/DevelopmentLLVMDependencies.cmake'
       - '.github/workflows/native-vulkan.yml'
 permissions:
   contents: read
@@ -27,6 +33,6 @@ jobs:
       - name: Compile runtime, tests and validate SPIR-V
         run: cmake --build build/vulkan --parallel 2
       - name: Audit provenance and shader capabilities
-        run: ctest --test-dir build/vulkan -R native-vulkan-upstream-audit --output-on-failure
+        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain)$" --output-on-failure
       # Hardware correctness is separately qualified on physical NVIDIA/Intel GPUs.
       # Never silently substitute lavapipe for that acceptance evidence.

@@ -1,5 +1,5 @@
-add_library(kalandra-metal-source-backend STATIC Compiler.cpp NumericShader.cpp NumericProgram.cpp Build.cpp)
-target_link_libraries(kalandra-metal-source-backend PUBLIC kalandra-semantics PRIVATE kalandra-packages kalandra-backend kalandra-gpu-numeric MLIR LLVM)
+add_library(kalandra-metal-source-backend STATIC Compiler.cpp Build.cpp)
+target_link_libraries(kalandra-metal-source-backend PUBLIC kalandra-semantics PRIVATE kalandra-gpu-source-ir kalandra-packages kalandra-backend kalandra-gpu-numeric MLIR LLVM)
 target_include_directories(kalandra-metal-source-backend SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 target_compile_options(kalandra-metal-source-backend PRIVATE -Wall -Wextra -Werror)
 add_executable(kalandra-metal-source main.cpp)

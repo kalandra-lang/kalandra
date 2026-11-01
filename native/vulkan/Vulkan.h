@@ -1,6 +1,8 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <filesystem>
 #include <memory>
 #include <span>
 #include <string>
@@ -8,7 +10,18 @@
 
 namespace kalandra::runtime::vulkan {
 // Private bring-up API. Not yet a source-language or task backend interface.
-enum class Error { Unavailable, Invalid, Allocation, Budget, Device, Unsupported };
+enum class Error : std::int64_t {
+  Shape = 1,
+  Allocation = 2,
+  Invalid = 3,
+  Arithmetic = 4,
+  Bounds = 5,
+  Budget = 6,
+  Residency = 7,
+  Unavailable = 104,
+  Device = 105,
+  Unsupported = 106
+};
 struct DeviceInfo {
   std::string name;
   std::uint32_t vendor = 0, device = 0, apiVersion = 0;
@@ -21,6 +34,15 @@ struct Options {
 };
 struct State;
 struct Storage;
+struct KernelState;
+class Kernel final {
+public:
+  explicit operator bool() const noexcept { return bool(state_); }
+
+private:
+  std::shared_ptr<KernelState> state_;
+  friend class Runtime;
+};
 class Buffer final {
 public:
   Buffer() = default;
@@ -32,6 +54,10 @@ private:
   explicit Buffer(std::shared_ptr<Storage> storage) : storage_(std::move(storage)) {}
   friend class Runtime;
 };
+struct KernelResult {
+  Buffer output;
+  std::vector<std::uint32_t> parameters;
+};
 class Runtime final {
 public:
   static std::expected<std::vector<DeviceInfo>, Error> enumerate(bool validation = true);
@@ -41,6 +67,13 @@ public:
   Runtime &operator=(const Runtime &) = delete;
   DeviceInfo device() const;
   std::expected<Buffer, Error> upload(std::span<const float>);
+  std::expected<Buffer, Error> uploadBytes(std::span<const std::byte>);
+  std::expected<std::vector<std::byte>, Error> downloadBytes(const Buffer &);
+  // Compiler-owned SPIR-V only: flat set-0 storage buffers, fixed 1D workgroups.
+  std::expected<Kernel, Error> loadKernel(const std::filesystem::path &);
+  std::expected<KernelResult, Error> execute(const Kernel &, std::span<const Buffer> inputs,
+                                             std::span<const std::uint32_t> parameters,
+                                             std::uint64_t outputBytes, std::uint32_t groups);
   std::expected<std::vector<float>, Error> download(const Buffer &);
   std::expected<Buffer, Error> add(const Buffer &, const Buffer &);
   // right is explicitly stored as [columns, contraction], not [contraction, columns].

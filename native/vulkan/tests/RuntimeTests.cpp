@@ -1,3 +1,4 @@
+#include "SanitizerMaps.h"
 #include "Vulkan.h"
 #include <algorithm>
 #include <array>
@@ -96,7 +97,15 @@ void matrices(Runtime &runtime) {
 }
 } // namespace
 int main(int argc, char **argv) {
-  bool validation = true;
+  bool validation = true, maps = false;
+  for (int i = 2; i < argc; ++i) {
+    if (std::string_view(argv[i]) == "--maps")
+      maps = true;
+    else if (std::string_view(argv[i]) == "--no-validation")
+      validation = false;
+    else
+      return 2;
+  }
   auto devices = take(Runtime::enumerate(validation), "enumerate");
   check(!devices.empty(), "hardware GPU required; software fallback forbidden");
   std::uint32_t selected =
@@ -106,6 +115,16 @@ int main(int argc, char **argv) {
       take(Runtime::create({.validation = validation, .deviceIndex = selected}), "create runtime");
   std::printf("GPU: %s vendor=%x device=%x\n", runtime->device().name.c_str(),
               runtime->device().vendor, runtime->device().device);
+  std::array raw{std::byte{1}, std::byte{2}, std::byte{3}};
+  {
+    auto bytes = take(runtime->uploadBytes(raw), "odd byte upload");
+    check(take(runtime->downloadBytes(bytes), "odd byte download") ==
+              std::vector<std::byte>(raw.begin(), raw.end()),
+          "raw byte preservation");
+    check(!runtime->download(bytes), "float view rejects partial float cells");
+    check(!runtime->add(bytes, bytes) && !runtime->matmulRightTransposed(bytes, bytes, 0, 0, 0),
+          "float primitives reject partial float cells");
+  }
   additions(*runtime);
   matrices(*runtime);
   check(runtime->retainedBytes() == 0, "all buffers reclaimed");
@@ -127,13 +146,27 @@ int main(int argc, char **argv) {
     worker = std::thread([&] { additions(*runtime); });
   for (auto &worker : workers)
     worker.join();
+  // Host reads of the same immutable allocation may race independent queue
+  // work, and non-coherent cache invalidations must remain externally synced.
+  for (auto &worker : workers)
+    worker = std::thread([&] {
+      for (unsigned i = 0; i < 100; ++i)
+        check(take(runtime->download(a), "concurrent read") == std::vector<float>{1},
+              "concurrent immutable read");
+    });
+  additions(*runtime);
+  for (auto &worker : workers)
+    worker.join();
   check(runtime->validationErrors() == 0 && other->validationErrors() == 0 &&
             limited->validationErrors() == 0,
         "zero validation errors");
+  if (maps)
+    check(writeSanitizerMaps(), "capture loaded module maps");
   runtime.reset();
   // Buffers independently keep the device/context alive until their final owner.
   a = {};
   b = {};
-  std::puts("PASS: exact add/chain, float32 matmul references, tails/empty shapes, immutable "
-            "ownership, limits, concurrent calls, validation");
+  std::printf("PASS: exact add/chain, float32 matmul references, tails/empty shapes, immutable "
+              "ownership, limits, concurrent calls (Vulkan validation %s)\n",
+              validation ? "enabled" : "disabled");
 }

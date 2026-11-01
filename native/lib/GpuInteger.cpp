@@ -47,6 +47,18 @@ std::optional<GpuIntegerResult> emitCheckedGpuInteger(OpBuilder &builder, Locati
     return {};
   using P = arith::CmpIPredicate;
   Emitter e{builder, loc};
+  if (type == NumericType::UInt32 && operation == GpuIntegerOperation::Multiply) {
+    // Native low/high uint32 multiplication makes overflow explicit. NVIDIA
+    // 595.112.07 traps in its shader compiler on the redundant two-word uint64
+    // expansion inside the balanced matrix reduction loop.
+    auto a = arith::TruncIOp::create(builder, loc, builder.getI32Type(), left);
+    auto d = arith::TruncIOp::create(builder, loc, builder.getI32Type(), right);
+    auto product = arith::MulUIExtendedOp::create(builder, loc, a, d);
+    auto zero = arith::ConstantIntOp::create(builder, loc, 0, 32);
+    return GpuIntegerResult{
+        arith::ExtUIOp::create(builder, loc, builder.getI64Type(), product.getLow()),
+        arith::CmpIOp::create(builder, loc, P::eq, product.getHigh(), zero)};
+  }
   const auto width = describeNumeric(type)->bits;
   const auto mask = width == 64 ? UINT64_MAX : (UINT64_C(1) << width) - 1;
   auto a = e.both(left, e.c(mask)), d = e.both(right, e.c(mask));

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/native/toolchain-proof/toolchain.json" KALANDRA_TOOLCHAIN_LOCK)
 string(JSON KALANDRA_LLVM_VERSION GET "${KALANDRA_TOOLCHAIN_LOCK}" llvmVersion)
+include("${CMAKE_CURRENT_LIST_DIR}/native/cmake/DevelopmentToolchain.cmake")
 string(JSON KALANDRA_DEFAULT_LLVM_ROOT GET "${KALANDRA_TOOLCHAIN_LOCK}" defaultLlvmRoot)
 if(DEFINED ENV{KALANDRA_LLVM_ROOT})
   set(KALANDRA_DEFAULT_LLVM_ROOT "$ENV{KALANDRA_LLVM_ROOT}")

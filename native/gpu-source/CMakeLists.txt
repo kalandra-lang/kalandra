@@ -1,0 +1,19 @@
+# One typed map/program emitter for all GPU backends. Historical source paths
+# are retained while the host-supervisor/runtime interfaces are generalized.
+add_library(kalandra-gpu-source-ir STATIC
+  ../metal-source/NumericShader.cpp ../metal-source/NumericProgram.cpp)
+target_include_directories(kalandra-gpu-source-ir PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source")
+target_include_directories(kalandra-gpu-source-ir SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
+target_link_libraries(kalandra-gpu-source-ir PUBLIC kalandra-semantics PRIVATE kalandra-gpu-numeric MLIR LLVM)
+target_compile_options(kalandra-gpu-source-ir PRIVATE -Wall -Wextra -Werror)
+add_executable(kalandra-vulkan-lower EXCLUDE_FROM_ALL Lower.cpp)
+target_link_libraries(kalandra-vulkan-lower PRIVATE kalandra-strict-float MLIR LLVM)
+target_compile_options(kalandra-vulkan-lower PRIVATE -Wall -Wextra -Werror)
+add_executable(kalandra-vulkan-extract EXCLUDE_FROM_ALL ../metal-proof/Extract.cpp)
+target_include_directories(kalandra-vulkan-extract SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
+target_link_libraries(kalandra-vulkan-extract PRIVATE MLIR LLVM)
+target_compile_options(kalandra-vulkan-extract PRIVATE -Wall -Wextra -Werror)
+add_executable(kalandra-vulkan-kernels EXCLUDE_FROM_ALL Kernels.cpp)
+target_link_libraries(kalandra-vulkan-kernels PRIVATE kalandra-gpu-source-ir MLIR LLVM)
+target_include_directories(kalandra-vulkan-kernels SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
+target_compile_options(kalandra-vulkan-kernels PRIVATE -Wall -Wextra -Werror)

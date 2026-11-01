@@ -46,15 +46,18 @@ before source-language integration.
 Buffers own their allocation and retain the device independently of the runtime
 facade. Upload copies host data; inputs remain immutable; foreign contexts and
 invalid shapes are rejected. The quota covers actual live Vulkan allocation
-sizes, including alignment. Calls are serialized per runtime, with one command
+sizes, including alignment. Queue submissions are serialized per runtime, with one command
 in flight; fences settle submitted access before descriptor/command/buffer
 resources are released. Noncoherent mappings are flushed/invalidated explicitly.
+Published immutable buffers can be read while unrelated queue work runs; cache
+invalidation is synchronized per allocation. Fresh uploads and kernel creation
+also avoid holding the queue's fence-wait mutex.
 Software devices are excluded rather than used as a silent GPU fallback.
 
 This initial path uses host-visible storage on discrete GPUs, synchronous fence
 waits and an absolute build-tree shader directory. It is not a performance or
 relocatable-distribution implementation. Device-local staging, async task
-completion/cancellation/deadlines, injected failures, full type/rank support,
+completion/cancellation/deadlines in the source supervisor, full type/rank support,
 capability dispatch, fixed-tree policy, user-facing diagnostics and packaging
 remain required before the backend can be considered ready. The explicit
 right-transposed matmul interface is a private layout contract, not new language
@@ -63,3 +66,57 @@ syntax. Empty outputs and zero-contraction products perform no GPU dispatch.
 See the dated qualification entry in the implementation plan for actual tested
 hardware and unresolved sanitizer findings. Do not use wall-clock test duration
 as a kernel benchmark, and coordinate performance runs with the other GPU user.
+
+## Compiler artifacts and managed dispatch
+
+The shared `gpu-source` library retains the existing typed map/program emitter.
+Private `kalandra-vulkan-kernels`, `kalandra-vulkan-lower` and
+`kalandra-vulkan-extract` tools produce compiler-owned storage-buffer SPIR-V;
+this is not yet a user-facing source-to-executable backend. All ten numeric
+types have source-derived map-chain conformance on both NVIDIA and Intel,
+including checked integer overflow, packed narrow tails and empty domains.
+The Vulkan lowering preserves native float64 where supported; explicit software
+mode uses the existing integer IEEE implementation. Automatic fallback artifact
+selection is still pending. Hardware float32 follows the existing hardware FTZ
+contract; software tests use a separate gradual-underflow oracle.
+
+Versioned `_vk_flat_v1` entry points flatten a 2D physical grid into the shared
+linear tensor domain. Dispatches can exceed 65,535 groups; padded lanes retain
+the original bounds guard and uint32 index overflow is rejected before launch.
+The large-tail test checks all 4,194,257 elements through both map stages.
+
+`AsyncRuntime` integrates private dispatches with the existing task core through
+external completion capabilities. Its bounded foreign completion thread waits
+on GPU fences; scheduler workers do not. Captures copy parameter words and own
+immutable buffers. Cancellation/deadlines retain resources through completion
+acknowledgement; device errors remain native faults. Deterministic tests cover
+held completion, cancellation/fault precedence, capture limits, caller/facade/core
+teardown and cached output ownership at worker counts 1, 2 and 4. Full source
+program/transfer integration and sanitizer qualification remain unfinished.
+
+Sanitizer builds are separate: `KALANDRA_VULKAN_SANITIZERS=ON` enables ASan/UBSan;
+`KALANDRA_VULKAN_THREAD_SANITIZER=ON` enables TSan. They cannot be combined in one
+build directory. Default hardware tests enable Vulkan validation. Private
+runtime/async tests accept `--no-validation` after the positional device index
+for separate TSan investigation of third-party validation-layer reports. This
+does not disable Kalandra instrumentation or change production defaults. Their
+optional `--maps` and the independent loader control's `--maps-twice` capture
+Linux loaded-module mappings before unload to investigate unsuppressed exit
+leaks. See the roadmap for the retained failures and the exact qualified scope.
+
+## Linux development toolchain 23.1.4
+
+The production lock remains LLVM/Clang/MLIR 23.1.3. An opt-in Linux development
+profile accepts the matching 23.1.4 toolchain for Vulkan qualification:
+`-DKALANDRA_DEVELOPMENT_LLVM_VERSION=23.1.4`. It still requires exact agreement
+between the C compiler, C++ compiler, LLVM and MLIR versions and disables CMake
+installation rules. It does not certify or publish 23.1.4 release packages.
+
+With the owner's explicit authorization, `qualification/provision_llvm.py`
+downloads the official 23.1.4 development archive into a project-local directory,
+verifies its pinned SHA-256 digest and extracts it there. No system package,
+driver or compiler is installed or replaced. Configure the full project with
+`-DKALANDRA_LLVM_ROOT=<verified archive root>` and explicitly keep the installed
+compiler with `-DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++`.
+The owner installed `llvm23-devel` and `tomlplusplus-devel`; no toml++ download
+is needed. Provenance is retained in `qualification/toolchain-23.1.4.json`.
