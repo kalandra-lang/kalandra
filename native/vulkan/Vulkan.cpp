@@ -10,7 +10,7 @@
 #include <limits>
 #include <mutex>
 #include <new>
-#include <vulkan/vulkan.h>
+#include "VulkanLoader.h"
 
 namespace kalandra::runtime::vulkan {
 namespace {
@@ -26,12 +26,12 @@ struct Instance {
   ~Instance() {
     if (messenger) {
       auto destroy = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-          vkGetInstanceProcAddr(handle, "vkDestroyDebugUtilsMessengerEXT"));
+          vulkanApi().vkGetInstanceProcAddr(handle, "vkDestroyDebugUtilsMessengerEXT"));
       if (destroy)
         destroy(handle, messenger, nullptr);
     }
     if (handle)
-      vkDestroyInstance(handle, nullptr);
+      vulkanApi().vkDestroyInstance(handle, nullptr);
   }
 };
 VKAPI_ATTR VkBool32 VKAPI_CALL validation(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -45,15 +45,17 @@ VKAPI_ATTR VkBool32 VKAPI_CALL validation(VkDebugUtilsMessageSeverityFlagBitsEXT
   return VK_FALSE;
 }
 std::expected<std::unique_ptr<Instance>, Error> instance(bool debug) {
+  if (!vulkanApi().available)
+    return std::unexpected(Error::Unavailable);
   auto result = std::make_unique<Instance>();
   const char *layer = "VK_LAYER_KHRONOS_validation";
   const char *extension = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
   if (debug) {
     std::uint32_t count = 0;
-    if (vkEnumerateInstanceLayerProperties(&count, nullptr) != VK_SUCCESS)
+    if (vulkanApi().vkEnumerateInstanceLayerProperties(&count, nullptr) != VK_SUCCESS)
       return std::unexpected(Error::Unavailable);
     std::vector<VkLayerProperties> layers(count);
-    if (vkEnumerateInstanceLayerProperties(&count, layers.data()) != VK_SUCCESS ||
+    if (vulkanApi().vkEnumerateInstanceLayerProperties(&count, layers.data()) != VK_SUCCESS ||
         std::none_of(layers.begin(), layers.end(),
                      [&](const auto &p) { return std::strcmp(p.layerName, layer) == 0; }))
       return std::unexpected(Error::Unavailable);
@@ -61,7 +63,7 @@ std::expected<std::unique_ptr<Instance>, Error> instance(bool debug) {
   VkApplicationInfo application{VK_STRUCTURE_TYPE_APPLICATION_INFO};
   application.pApplicationName = "Kalandra Vulkan bring-up";
   std::uint32_t loaderVersion = VK_API_VERSION_1_0;
-  if (vkEnumerateInstanceVersion(&loaderVersion) != VK_SUCCESS ||
+  if (vulkanApi().vkEnumerateInstanceVersion(&loaderVersion) != VK_SUCCESS ||
       loaderVersion < VK_API_VERSION_1_1)
     return std::unexpected(Error::Unsupported);
   application.apiVersion = std::min(loaderVersion, std::uint32_t(VK_API_VERSION_1_2));
@@ -82,12 +84,12 @@ std::expected<std::unique_ptr<Instance>, Error> instance(bool debug) {
     info.ppEnabledExtensionNames = &extension;
     info.pNext = &callback;
   }
-  auto status = vkCreateInstance(&info, nullptr, &result->handle);
+  auto status = vulkanApi().vkCreateInstance(&info, nullptr, &result->handle);
   if (status != VK_SUCCESS)
     return std::unexpected(Error::Unavailable);
   if (debug) {
     auto create = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-        vkGetInstanceProcAddr(result->handle, "vkCreateDebugUtilsMessengerEXT"));
+        vulkanApi().vkGetInstanceProcAddr(result->handle, "vkCreateDebugUtilsMessengerEXT"));
     if (!create || create(result->handle, &callback, nullptr, &result->messenger) != VK_SUCCESS)
       return std::unexpected(Error::Unavailable);
   }
@@ -95,16 +97,16 @@ std::expected<std::unique_ptr<Instance>, Error> instance(bool debug) {
 }
 std::expected<std::vector<VkPhysicalDevice>, Error> physicals(VkInstance handle) {
   std::uint32_t count = 0;
-  if (vkEnumeratePhysicalDevices(handle, &count, nullptr) != VK_SUCCESS)
+  if (vulkanApi().vkEnumeratePhysicalDevices(handle, &count, nullptr) != VK_SUCCESS)
     return std::unexpected(Error::Unavailable);
   std::vector<VkPhysicalDevice> devices(count);
-  if (vkEnumeratePhysicalDevices(handle, &count, devices.data()) != VK_SUCCESS)
+  if (vulkanApi().vkEnumeratePhysicalDevices(handle, &count, devices.data()) != VK_SUCCESS)
     return std::unexpected(Error::Unavailable);
   devices.resize(count);
   // Never silently select software rendering as a GPU execution fallback.
   std::erase_if(devices, [](auto device) {
     VkPhysicalDeviceProperties p;
-    vkGetPhysicalDeviceProperties(device, &p);
+    vulkanApi().vkGetPhysicalDeviceProperties(device, &p);
     return p.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
            p.deviceType != VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
   });
@@ -114,7 +116,7 @@ DeviceInfo description(VkPhysicalDevice device) {
   VkPhysicalDeviceIDProperties identity{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES};
   VkPhysicalDeviceProperties2 properties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
   properties.pNext = &identity;
-  vkGetPhysicalDeviceProperties2(device, &properties);
+  vulkanApi().vkGetPhysicalDeviceProperties2(device, &properties);
   const auto &p = properties.properties;
   DeviceInfo result{p.deviceName,
                     p.vendorID,
@@ -132,11 +134,11 @@ struct Pipeline {
 };
 void destroyPipeline(VkDevice device, Pipeline &pipeline) noexcept {
   if (pipeline.handle)
-    vkDestroyPipeline(device, pipeline.handle, nullptr);
+    vulkanApi().vkDestroyPipeline(device, pipeline.handle, nullptr);
   if (pipeline.layout)
-    vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
+    vulkanApi().vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
   if (pipeline.descriptors)
-    vkDestroyDescriptorSetLayout(device, pipeline.descriptors, nullptr);
+    vulkanApi().vkDestroyDescriptorSetLayout(device, pipeline.descriptors, nullptr);
   pipeline = {};
 }
 } // namespace
@@ -171,14 +173,14 @@ struct State {
     if (!device)
       return;
     // No command resources may be freed while the device still owns them.
-    vkDeviceWaitIdle(device);
+    vulkanApi().vkDeviceWaitIdle(device);
     for (auto *p : {&addition, &matrix})
       destroyPipeline(device, *p);
     if (descriptors)
-      vkDestroyDescriptorPool(device, descriptors, nullptr);
+      vulkanApi().vkDestroyDescriptorPool(device, descriptors, nullptr);
     if (commands)
-      vkDestroyCommandPool(device, commands, nullptr);
-    vkDestroyDevice(device, nullptr);
+      vulkanApi().vkDestroyCommandPool(device, commands, nullptr);
+    vulkanApi().vkDestroyDevice(device, nullptr);
   }
 };
 struct Storage {
@@ -194,11 +196,11 @@ struct Storage {
   mutable std::mutex hostMutex;
   ~Storage() {
     if (mapped)
-      vkUnmapMemory(state->device, memory);
+      vulkanApi().vkUnmapMemory(state->device, memory);
     if (buffer)
-      vkDestroyBuffer(state->device, buffer, nullptr);
+      vulkanApi().vkDestroyBuffer(state->device, buffer, nullptr);
     if (memory)
-      vkFreeMemory(state->device, memory, nullptr);
+      vulkanApi().vkFreeMemory(state->device, memory, nullptr);
     std::lock_guard lock(state->budget->mutex);
     state->budget->bytes -= allocation;
   }
@@ -235,11 +237,11 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
   info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
   auto result = consumeFailure(*state, FailurePoint::BufferCreate)
                     ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-                    : vkCreateBuffer(state->device, &info, nullptr, &s->buffer);
+                    : vulkanApi().vkCreateBuffer(state->device, &info, nullptr, &s->buffer);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
   VkMemoryRequirements required;
-  vkGetBufferMemoryRequirements(state->device, s->buffer, &required);
+  vulkanApi().vkGetBufferMemoryRequirements(state->device, s->buffer, &required);
   std::uint32_t memoryType = UINT32_MAX;
   for (std::uint32_t i = 0; i < state->memory.memoryTypeCount; ++i) {
     auto flags = state->memory.memoryTypes[i].propertyFlags;
@@ -263,17 +265,17 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
   allocation.memoryTypeIndex = memoryType;
   result = consumeFailure(*state, FailurePoint::MemoryAllocate)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkAllocateMemory(state->device, &allocation, nullptr, &s->memory);
+               : vulkanApi().vkAllocateMemory(state->device, &allocation, nullptr, &s->memory);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
   result = consumeFailure(*state, FailurePoint::MemoryBind)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkBindBufferMemory(state->device, s->buffer, s->memory, 0);
+               : vulkanApi().vkBindBufferMemory(state->device, s->buffer, s->memory, 0);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
   result = consumeFailure(*state, FailurePoint::MemoryMap)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkMapMemory(state->device, s->memory, 0, VK_WHOLE_SIZE, 0, &s->mapped);
+               : vulkanApi().vkMapMemory(state->device, s->memory, 0, VK_WHOLE_SIZE, 0, &s->mapped);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
   s->coherent =
@@ -286,8 +288,8 @@ std::expected<void, Error> visibility(const Storage &s, bool flush) {
   VkMappedMemoryRange range{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
   range.memory = s.memory;
   range.size = VK_WHOLE_SIZE;
-  auto result = flush ? vkFlushMappedMemoryRanges(s.state->device, 1, &range)
-                      : vkInvalidateMappedMemoryRanges(s.state->device, 1, &range);
+  auto result = flush ? vulkanApi().vkFlushMappedMemoryRanges(s.state->device, 1, &range)
+                      : vulkanApi().vkInvalidateMappedMemoryRanges(s.state->device, 1, &range);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
   return {};
@@ -302,7 +304,7 @@ std::expected<void, Error> makePipeline(State &state, Pipeline &p,
   VkDescriptorSetLayoutCreateInfo descriptors{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
   descriptors.bindingCount = bindings;
   descriptors.pBindings = layouts.data();
-  auto status = vkCreateDescriptorSetLayout(state.device, &descriptors, nullptr, &p.descriptors);
+  auto status = vulkanApi().vkCreateDescriptorSetLayout(state.device, &descriptors, nullptr, &p.descriptors);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkPushConstantRange push{VK_SHADER_STAGE_COMPUTE_BIT, 0, pushBytes};
@@ -313,14 +315,14 @@ std::expected<void, Error> makePipeline(State &state, Pipeline &p,
   layout.pPushConstantRanges = &push;
   status = consumeFailure(state, FailurePoint::PipelineLayout)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkCreatePipelineLayout(state.device, &layout, nullptr, &p.layout);
+               : vulkanApi().vkCreatePipelineLayout(state.device, &layout, nullptr, &p.layout);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkShaderModuleCreateInfo shader{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
   shader.codeSize = code.size() * 4;
   shader.pCode = code.data();
   VkShaderModule module = VK_NULL_HANDLE;
-  status = vkCreateShaderModule(state.device, &shader, nullptr, &module);
+  status = vulkanApi().vkCreateShaderModule(state.device, &shader, nullptr, &module);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkComputePipelineCreateInfo compute{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
@@ -333,8 +335,8 @@ std::expected<void, Error> makePipeline(State &state, Pipeline &p,
   compute.stage.pSpecializationInfo = specialization;
   status = consumeFailure(state, FailurePoint::PipelineCreate)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkCreateComputePipelines(state.device, VK_NULL_HANDLE, 1, &compute, nullptr, &p.handle);
-  vkDestroyShaderModule(state.device, module, nullptr);
+               : vulkanApi().vkCreateComputePipelines(state.device, VK_NULL_HANDLE, 1, &compute, nullptr, &p.handle);
+  vulkanApi().vkDestroyShaderModule(state.device, module, nullptr);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   return {};
@@ -391,11 +393,11 @@ struct Dispatch {
   VkFence fence = VK_NULL_HANDLE;
   ~Dispatch() {
     if (fence)
-      vkDestroyFence(state.device, fence, nullptr);
+      vulkanApi().vkDestroyFence(state.device, fence, nullptr);
     if (command)
-      vkFreeCommandBuffers(state.device, state.commands, 1, &command);
+      vulkanApi().vkFreeCommandBuffers(state.device, state.commands, 1, &command);
     if (descriptors)
-      vkFreeDescriptorSets(state.device, state.descriptors, 1, &descriptors);
+      vulkanApi().vkFreeDescriptorSets(state.device, state.descriptors, 1, &descriptors);
   }
 };
 std::expected<void, Error> dispatch(State &state, Pipeline &p,
@@ -414,7 +416,7 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
   set.pSetLayouts = &p.descriptors;
   auto status = consumeFailure(state, FailurePoint::DescriptorAllocate)
                     ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-                    : vkAllocateDescriptorSets(state.device, &set, &run.descriptors);
+                    : vulkanApi().vkAllocateDescriptorSets(state.device, &set, &run.descriptors);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   std::vector<VkDescriptorBufferInfo> infos(buffers.size());
@@ -428,50 +430,50 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
     writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes[i].pBufferInfo = &infos[i];
   }
-  vkUpdateDescriptorSets(state.device, writes.size(), writes.data(), 0, nullptr);
+  vulkanApi().vkUpdateDescriptorSets(state.device, writes.size(), writes.data(), 0, nullptr);
   VkCommandBufferAllocateInfo allocation{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
   allocation.commandPool = state.commands;
   allocation.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   allocation.commandBufferCount = 1;
   status = consumeFailure(state, FailurePoint::CommandAllocate)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkAllocateCommandBuffers(state.device, &allocation, &run.command);
+               : vulkanApi().vkAllocateCommandBuffers(state.device, &allocation, &run.command);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   status = consumeFailure(state, FailurePoint::CommandBegin)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkBeginCommandBuffer(run.command, &begin);
+               : vulkanApi().vkBeginCommandBuffer(run.command, &begin);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkMemoryBarrier before{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
   before.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT;
   before.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  vkCmdPipelineBarrier(run.command,
+  vulkanApi().vkCmdPipelineBarrier(run.command,
                        VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &before, 0, nullptr, 0, nullptr);
-  vkCmdBindPipeline(run.command, VK_PIPELINE_BIND_POINT_COMPUTE, p.handle);
-  vkCmdBindDescriptorSets(run.command, VK_PIPELINE_BIND_POINT_COMPUTE, p.layout, 0, 1,
+  vulkanApi().vkCmdBindPipeline(run.command, VK_PIPELINE_BIND_POINT_COMPUTE, p.handle);
+  vulkanApi().vkCmdBindDescriptorSets(run.command, VK_PIPELINE_BIND_POINT_COMPUTE, p.layout, 0, 1,
                           &run.descriptors, 0, nullptr);
   if (!push.empty())
-    vkCmdPushConstants(run.command, p.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push.size_bytes(),
+    vulkanApi().vkCmdPushConstants(run.command, p.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push.size_bytes(),
                        push.data());
-  vkCmdDispatch(run.command, x, y, 1);
+  vulkanApi().vkCmdDispatch(run.command, x, y, 1);
   VkMemoryBarrier after{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
   after.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
   after.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
-  vkCmdPipelineBarrier(run.command, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+  vulkanApi().vkCmdPipelineBarrier(run.command, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                        VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &after, 0, nullptr, 0, nullptr);
   status = consumeFailure(state, FailurePoint::CommandEnd)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkEndCommandBuffer(run.command);
+               : vulkanApi().vkEndCommandBuffer(run.command);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkFenceCreateInfo fence{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
   status = consumeFailure(state, FailurePoint::FenceCreate)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkCreateFence(state.device, &fence, nullptr, &run.fence);
+               : vulkanApi().vkCreateFence(state.device, &fence, nullptr, &run.fence);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};
@@ -479,9 +481,9 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
   submit.pCommandBuffers = &run.command;
   status = consumeFailure(state, FailurePoint::QueueSubmit)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-               : vkQueueSubmit(state.queue, 1, &submit, run.fence);
+               : vulkanApi().vkQueueSubmit(state.queue, 1, &submit, run.fence);
   if (status == VK_SUCCESS)
-    status = vkWaitForFences(state.device, 1, &run.fence, VK_TRUE, UINT64_MAX);
+    status = vulkanApi().vkWaitForFences(state.device, 1, &run.fence, VK_TRUE, UINT64_MAX);
   // Do not simulate a failed wait while real commands still own these objects.
   // Exercise the same error/poison path only after actual fence quiescence.
   if (status == VK_SUCCESS && consumeFailure(state, FailurePoint::FenceWait))
@@ -489,7 +491,7 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
   if (status != VK_SUCCESS) {
     // A failed wait is not proof that resources can be reclaimed. Settle the
     // device before releasing local command/fence/descriptor/buffer owners.
-    vkDeviceWaitIdle(state.device);
+    vulkanApi().vkDeviceWaitIdle(state.device);
     state.failed = true;
     return std::unexpected(error(status));
   }
@@ -504,11 +506,11 @@ struct KernelState {
   bool tiledMatmul = false;
   ~KernelState() {
     if (pipeline.handle)
-      vkDestroyPipeline(state->device, pipeline.handle, nullptr);
+      vulkanApi().vkDestroyPipeline(state->device, pipeline.handle, nullptr);
     if (pipeline.layout)
-      vkDestroyPipelineLayout(state->device, pipeline.layout, nullptr);
+      vulkanApi().vkDestroyPipelineLayout(state->device, pipeline.layout, nullptr);
     if (pipeline.descriptors)
-      vkDestroyDescriptorSetLayout(state->device, pipeline.descriptors, nullptr);
+      vulkanApi().vkDestroyDescriptorSetLayout(state->device, pipeline.descriptors, nullptr);
     if (reserved) {
       std::lock_guard lock(state->budget->mutex);
       --state->kernels;
@@ -564,14 +566,14 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
         return std::unexpected(budget.error());
       state->budget = std::move(*budget);
     }
-    vkGetPhysicalDeviceProperties(state->physical, &state->properties);
-    vkGetPhysicalDeviceMemoryProperties(state->physical, &state->memory);
+    vulkanApi().vkGetPhysicalDeviceProperties(state->physical, &state->properties);
+    vulkanApi().vkGetPhysicalDeviceMemoryProperties(state->physical, &state->memory);
     if (state->properties.apiVersion < VK_API_VERSION_1_1)
       return std::unexpected(Error::Unsupported);
     std::uint32_t count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(state->physical, &count, nullptr);
+    vulkanApi().vkGetPhysicalDeviceQueueFamilyProperties(state->physical, &count, nullptr);
     std::vector<VkQueueFamilyProperties> queues(count);
-    vkGetPhysicalDeviceQueueFamilyProperties(state->physical, &count, queues.data());
+    vulkanApi().vkGetPhysicalDeviceQueueFamilyProperties(state->physical, &count, queues.data());
     std::uint32_t family = UINT32_MAX;
     for (std::uint32_t i = 0; i < count; ++i)
       if (queues[i].queueCount && (queues[i].queueFlags & VK_QUEUE_COMPUTE_BIT)) {
@@ -592,11 +594,11 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     VkPhysicalDeviceShaderFloat16Int8Features narrow{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES};
     std::uint32_t extensionCount = 0;
-    if (vkEnumerateDeviceExtensionProperties(state->physical, nullptr, &extensionCount, nullptr) !=
+    if (vulkanApi().vkEnumerateDeviceExtensionProperties(state->physical, nullptr, &extensionCount, nullptr) !=
         VK_SUCCESS)
       return std::unexpected(Error::Unavailable);
     std::vector<VkExtensionProperties> extensions(extensionCount);
-    if (vkEnumerateDeviceExtensionProperties(state->physical, nullptr, &extensionCount,
+    if (vulkanApi().vkEnumerateDeviceExtensionProperties(state->physical, nullptr, &extensionCount,
                                              extensions.data()) != VK_SUCCESS)
       return std::unexpected(Error::Unavailable);
     const auto hasExtension = [&](const char *name) {
@@ -618,12 +620,12 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
           VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES};
       VkPhysicalDeviceProperties2 properties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
       properties.pNext = &controls;
-      vkGetPhysicalDeviceProperties2(state->physical, &properties);
+      vulkanApi().vkGetPhysicalDeviceProperties2(state->physical, &properties);
       state->preserveFloat32 = controls.shaderSignedZeroInfNanPreserveFloat32;
     }
     VkPhysicalDeviceFeatures2 features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     features.pNext = &storage16;
-    vkGetPhysicalDeviceFeatures2(state->physical, &features);
+    vulkanApi().vkGetPhysicalDeviceFeatures2(state->physical, &features);
     state->features.shaderInt16 = features.features.shaderInt16;
     state->features.shaderInt64 = features.features.shaderInt64;
     state->features.shaderFloat64 = options.enableFloat64 && features.features.shaderFloat64;
@@ -641,14 +643,14 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     device.ppEnabledExtensionNames = enabledExtensions.data();
     device.queueCreateInfoCount = 1;
     device.pQueueCreateInfos = &queue;
-    auto status = vkCreateDevice(state->physical, &device, nullptr, &state->device);
+    auto status = vulkanApi().vkCreateDevice(state->physical, &device, nullptr, &state->device);
     if (status != VK_SUCCESS)
       return std::unexpected(error(status));
-    vkGetDeviceQueue(state->device, family, 0, &state->queue);
+    vulkanApi().vkGetDeviceQueue(state->device, family, 0, &state->queue);
     VkCommandPoolCreateInfo commands{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
     commands.queueFamilyIndex = family;
     commands.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-    status = vkCreateCommandPool(state->device, &commands, nullptr, &state->commands);
+    status = vulkanApi().vkCreateCommandPool(state->device, &commands, nullptr, &state->commands);
     if (status != VK_SUCCESS)
       return std::unexpected(error(status));
     state->maxDescriptors =
@@ -660,7 +662,7 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     descriptors.maxSets = 1;
     descriptors.poolSizeCount = 1;
     descriptors.pPoolSizes = &size;
-    status = vkCreateDescriptorPool(state->device, &descriptors, nullptr, &state->descriptors);
+    status = vulkanApi().vkCreateDescriptorPool(state->device, &descriptors, nullptr, &state->descriptors);
     if (status != VK_SUCCESS)
       return std::unexpected(error(status));
     return std::unique_ptr<Runtime>(new Runtime(std::move(state)));

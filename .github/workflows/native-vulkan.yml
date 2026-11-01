@@ -52,7 +52,7 @@ jobs:
       - name: Compile runtime, tests and validate SPIR-V
         run: cmake --build build/vulkan --parallel 2
       - name: Audit provenance and shader capabilities
-        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain|transform-reference|resources|executable-path)$" --output-on-failure
+        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain|transform-reference|resources|executable-path|loader)$" --output-on-failure
       # Hardware correctness is separately qualified on physical NVIDIA/Intel GPUs.
       # Never silently substitute lavapipe for that acceptance evidence.
   source-compiler:
@@ -90,6 +90,11 @@ jobs:
           python3 native/vulkan/qualification/public_cli.py --compile-only
           --compiler build/vulkan-source/native/kalandra
           --output build/vulkan-artifacts/public-cli
+      - name: Verify generated application fails closed without a usable loader
+        run: >-
+          python3 native/vulkan/tests/loader.py
+          --application build/vulkan-artifacts/public-cli/matrix-hardware/program
+          --cxx "$KALANDRA_LLVM_ROOT/bin/clang++"
       - name: Verify public host and CPU sanitizer selection
         run: >-
           python3 native/vulkan/qualification/public_sanitizers.py --compile-only

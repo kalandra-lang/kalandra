@@ -43,13 +43,18 @@ if(KALANDRA_BUILD_VULKAN_RUNTIME AND NOT KALANDRA_VULKAN_SANITIZERS AND NOT KALA
       "PUBLIC_INCLUDE|${CMAKE_CURRENT_SOURCE_DIR}/../include"
       "LANGUAGE|$<TARGET_FILE:kalandra-vulkan-language>" "ASYNC|$<TARGET_FILE:kalandra-vulkan-async>"
       "PROGRAM|$<TARGET_FILE:kalandra-vulkan-program>" "DRIVER|$<TARGET_FILE:kalandra-vulkan>"
-      "CORE|$<TARGET_FILE:kalandra-native-runtime>" "LOADER|${Vulkan_LIBRARY}"
+      "CORE|$<TARGET_FILE:kalandra-native-runtime>"
       "EXE_SUFFIX|${CMAKE_EXECUTABLE_SUFFIX}")
     string(REPLACE "|" ";" _fields "${_pair}")
     list(GET _fields 0 _key)
     list(GET _fields 1 _value)
     string(APPEND _vulkan_build_config "#define KALANDRA_VULKAN_${_key} R\"cfg(${_value})cfg\"\n")
   endforeach()
+  string(APPEND _vulkan_build_config "inline const char *const kalandraVulkanHostLibraries[] = {")
+  foreach(_library IN LISTS CMAKE_DL_LIBS)
+    string(APPEND _vulkan_build_config "\"-l${_library}\",")
+  endforeach()
+  string(APPEND _vulkan_build_config "nullptr};\n")
   if(TARGET kalandra-vulkan-language-sanitized)
     foreach(_pair IN ITEMS
         "LANGUAGE|kalandra-vulkan-language-sanitized" "ASYNC|kalandra-vulkan-async-sanitized"

@@ -612,3 +612,42 @@ TSan run includes the ten algorithm-admission cases and remains clean. All
 twelve registered standalone GCC tests pass. macOS shared compiler, Metal
 frontend diagnostics and artifact regressions pass. These targeted checks do
 not assert that the entire CPU test suite was executed.
+
+### System-loader boundary for GPU application distribution
+
+Generated Vulkan applications and the raw runtime now resolve the OS Vulkan
+loader dynamically instead of linking its SDK/import library. Every used core
+entry is resolved into an immutable table before any Vulkan entry is invoked.
+Concurrent first initialization uses C++ static publication. Missing or incomplete
+loaders return Unavailable (104); malformed loader admission cannot reach a
+partial table. Linux uses libvulkan.so.1 through normal OS search. The Windows
+implementation restricts vulkan-1.dll loading to System32; Windows qualification
+is still pending. This does not supply a driver, SDK or GPU compiler package.
+
+One successfully opened OS-loader handle is process lifetime, equivalent to the
+previous ordinary loader import. This explicitly preserves dispatch pointers for
+captures owned by unrelated static TaskCore objects at shutdown. It does not pin
+individual ICDs, devices, instances or buffers. Failed table publication closes
+the handle. No external leak suppression or artificial ICD retention is added.
+
+Thirteen standalone tests pass, including eight concurrent callers repeatedly
+attempting enumeration/context creation against missing and incomplete loaders.
+An incomplete fixture aborts if vkCreateInstance is entered; admission rejects it
+without entry. ELF audits confirm no Vulkan NEEDED import in either the probe
+or complete generated application. Both application failure modes produce exactly
+`Vulkan unavailable: 104`, before touching a GPU. Hosted checks perform these
+negative tests without claiming substitute-device execution.
+
+Both GPUs still pass the matrix/admission/managed corpus. Actual CLI applications
+pass 15 builds/90 physical executions and six negative/output protections after
+the loader change. Public ASan/UBSan again checks three applications/18 executions:
+Intel clean, NVIDIA unchanged 5,082 bytes/14 exit-time allocations. The isolated
+matrix sanitizer run is Intel clean and NVIDIA unchanged 2,509 bytes/7 allocations;
+private Intel TSan also passes. The loader change does not erase vendor findings.
+
+Hosted run 41281315132 rejected the preceding matrix commit under GCC 13 Release
+with a maybe-uninitialized diagnostic in move-assignment of optional/vector
+schema metadata; GCC 16/Clang had passed. Loaded kernels now construct their
+schema directly. Warnings remain errors; the rejected log is retained. Both
+physical matrix/admission corpora and the Clang compiler build pass this change;
+exact new-head hosted qualification remains required.

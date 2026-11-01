@@ -81,10 +81,10 @@ add_custom_command(OUTPUT "${_embedded_shaders}"
 # runtime archive as well, so consumers do not need an extra link-order contract.
 add_library(kalandra-vulkan-resources OBJECT "${_embedded_shaders}")
 target_include_directories(kalandra-vulkan-resources PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-add_library(kalandra-vulkan STATIC Vulkan.cpp SpirvInterface.cpp)
+add_library(kalandra-vulkan STATIC Vulkan.cpp VulkanLoader.cpp SpirvInterface.cpp)
 target_link_libraries(kalandra-vulkan PRIVATE kalandra-vulkan-resources)
-target_link_libraries(kalandra-vulkan PUBLIC Vulkan::Vulkan Threads::Threads)
-target_include_directories(kalandra-vulkan PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(kalandra-vulkan PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+target_include_directories(kalandra-vulkan PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" PRIVATE ${Vulkan_INCLUDE_DIRS})
 target_compile_options(kalandra-vulkan PRIVATE -Wall -Wextra -Werror -Wno-missing-field-initializers)
 add_dependencies(kalandra-vulkan kalandra-vulkan-shaders)
 add_library(kalandra-vulkan-program STATIC Program.cpp TensorBridge.cpp)
@@ -154,6 +154,15 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-vulkan-interface-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
   target_compile_options(kalandra-vulkan-interface-tests PRIVATE -Wall -Wextra -Werror)
   add_test(NAME native-vulkan-interface COMMAND kalandra-vulkan-interface-tests)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSSCOMPILING AND NOT _vulkan_sanitizers)
+    add_executable(kalandra-vulkan-loader-tests tests/LoaderTests.cpp)
+    target_link_libraries(kalandra-vulkan-loader-tests PRIVATE kalandra-vulkan)
+    target_compile_options(kalandra-vulkan-loader-tests PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME native-vulkan-loader COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/loader.py"
+      --probe $<TARGET_FILE:kalandra-vulkan-loader-tests> --cxx "${CMAKE_CXX_COMPILER}")
+    set_tests_properties(native-vulkan-loader PROPERTIES TIMEOUT 60)
+  endif()
   add_executable(kalandra-vulkan-loader-control tests/LoaderControl.cpp)
   target_link_libraries(kalandra-vulkan-loader-control PRIVATE Vulkan::Vulkan)
   if(_vulkan_sanitizers)
@@ -197,10 +206,10 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../runtime/Tasks.cpp")
   if(TARGET kalandra-native-runtime-sanitized AND NOT _vulkan_sanitizers AND NOT WIN32)
     # Keep the normal compiler uninstrumented. A generated --sanitize program
     # selects these separately instrumented libraries and the matching CPU core.
-    add_library(kalandra-vulkan-sanitized STATIC EXCLUDE_FROM_ALL Vulkan.cpp SpirvInterface.cpp)
-    target_include_directories(kalandra-vulkan-sanitized PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+    add_library(kalandra-vulkan-sanitized STATIC EXCLUDE_FROM_ALL Vulkan.cpp VulkanLoader.cpp SpirvInterface.cpp)
+    target_include_directories(kalandra-vulkan-sanitized PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" PRIVATE ${Vulkan_INCLUDE_DIRS})
     target_link_libraries(kalandra-vulkan-sanitized PRIVATE kalandra-vulkan-resources
-      PUBLIC Vulkan::Vulkan Threads::Threads)
+      PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
     target_compile_options(kalandra-vulkan-sanitized PRIVATE -Wall -Wextra -Werror -Wno-missing-field-initializers)
     target_compile_options(kalandra-vulkan-sanitized PUBLIC -O1 -g -fsanitize=address,undefined
       -fno-sanitize-recover=all -fno-omit-frame-pointer)

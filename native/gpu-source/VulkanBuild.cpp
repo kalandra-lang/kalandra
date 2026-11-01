@@ -110,7 +110,8 @@ void buildVulkanProgram(const std::filesystem::path &directory,
   const auto &libraries = normalLibraries;
 #endif
   link.insert(link.end(), libraries.begin(), libraries.end());
-  link.emplace_back(KALANDRA_VULKAN_LOADER);
+  for (const auto *library : kalandraVulkanHostLibraries)
+    if (library) link.emplace_back(library);
   link.insert(link.end(), sanitizerFlags.begin(), sanitizerFlags.end());
 #ifndef _WIN32
   link.emplace_back("-pthread");

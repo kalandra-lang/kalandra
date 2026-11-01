@@ -354,3 +354,20 @@ Public sanitized optimized-matmul programs retain exact results on both GPUs,
 with clean Intel exits and the existing NVIDIA two-initialization loader leak
 (5,082 bytes/14 allocations). Public TSan remains unavailable; the separate
 Intel TSan profile is private qualification only.
+
+## System Vulkan loader
+
+The raw runtime and generated applications dynamically resolve the system loader
+instead of importing its SDK library. A missing or incomplete loader returns
+Unavailable (104), including a complete application's `Vulkan unavailable: 104`
+diagnostic. All used core functions must resolve before any driver entry.
+Linux uses `libvulkan.so.1`; the Windows implementation restricts `vulkan-1.dll`
+to System32 and remains platform-unqualified. There is no macOS Vulkan claim.
+
+One successful OS-loader handle remains process lifetime, matching the old
+ordinary library import, so captures released during static shutdown retain valid
+function pointers. Individual instances/devices/ICDs still retire normally.
+Negative tests cover concurrent first use, missing/incomplete loaders and ELF
+imports without needing a GPU. This removes the SDK loader link dependency from
+applications; configured compiler tools/C++ development headers and installed
+GPU drivers are still required. Installed one-download packages remain pending.
