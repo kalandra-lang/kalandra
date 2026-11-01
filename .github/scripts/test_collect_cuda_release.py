@@ -69,6 +69,10 @@ class CudaReleaseTests(unittest.TestCase):
         release=(root/'.github/workflows/native-release.yml').read_text()
         from native_release_assets import ARCHIVES
         self.assertIn(ARCHIVE,ARCHIVES)
+        import re
+        for text in (workflow,release):
+            for script in re.findall(r'python3 (native/[\w/.-]*cuda[\w/.-]*\.py)',text):
+                self.assertTrue((root/script).is_file(),script)
         self.assertIn('tags: ["v*"]',workflow)
         self.assertIn('  qualify-cuda:',release)
         self.assertIn(ARCHIVE,release)
