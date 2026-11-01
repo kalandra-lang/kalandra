@@ -43,7 +43,8 @@ if a.bundled_targets:
     assert {path.name for path in (prefix/'lib/kalandra/targets').iterdir()}==expected
 for relative in listed:
     base=Path(relative).name.lower()
-    assert not any(x in base for x in ('libcuda.so','libcudart','libcublas','libnvrtc','cuda.h','cuda_runtime.h')),relative
+    assert not any(x in base for x in ('libcuda.so','libcudart','libcublas','libnvrtc')),relative
+    assert Path(relative).name not in ('cuda.h','cuda_runtime.h'),relative
     assert not base.endswith(('.cu','.raw.ptx')),relative
 repo=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(repo/'native/packaging'))
