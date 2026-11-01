@@ -222,7 +222,7 @@ Program::start(Runtime &runtime, std::span<const TensorValue> inputs,
     if (op.kernel && !runtime.owns(op.kernel->kernel))
       return std::unexpected(Error::Residency);
   for (const auto &input : inputs) {
-    if (!runtime.owns(input.data))
+    if (input.host || !runtime.owns(input.data))
       return std::unexpected(Error::Residency);
     auto count = cells(input);
     auto type = describeNumeric(input.type);

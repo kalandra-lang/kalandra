@@ -1,10 +1,9 @@
+#include "../gpu-source/Supervisor.h"
 #include "../metal/ElementwiseLayout.h"
-#include "Build.h"
 #include "MatmulShader.h"
 #include "MatmulTiles.h"
 #include "NumericProgram.h"
 #include "NumericShader.h"
-#include "../third_party/mlx-steel/SteelUpstream.h"
 #include "kalandra/Backend.h"
 #include "kalandra/Continuation.h"
 #include "kalandra/MetalSource.h"
@@ -55,6 +54,7 @@ struct Value {
 };
 class Compiler {
   ArithmeticMode arithmetic_;
+  GpuBackend backend_;
   bool testCpuExports_;
   Module syntax;
   std::map<std::string, std::size_t> cpuFunctions;
@@ -129,7 +129,7 @@ class Compiler {
                             cpu.expressions[cast->input].type.element == NumericType::Float64;
         if (auto *compare = std::get_if<ScalarCompare>(&op))
           requiresDouble |= cpu.expressions[compare->left].type.element == NumericType::Float64;
-        if (requiresDouble)
+        if (requiresDouble && backend_ == GpuBackend::Metal)
           reject(expression.span, "Metal has no hardware float64 arithmetic; explicitly select "
                                   "--arithmetic hardware-with-software-fallback or software");
       }
@@ -1491,13 +1491,16 @@ class Compiler {
     for (std::size_t i = 0; i < program.kernels.size(); ++i) {
       const auto &kernel = program.kernels[i];
       const auto name = "kernel" + std::to_string(i);
-      const auto path = base + (i ? "-stage" + std::to_string(i) : "") + ".metallib";
+      const auto path = base + (i ? "-stage" + std::to_string(i) : "") +
+                        (backend_ == GpuBackend::Vulkan ? ".spv" : ".metallib");
       auto instruction = std::find_if(program.code.begin(), program.code.end(),
                                       [i](const auto &op) { return op.kernel == i; });
       if (instruction == program.code.end())
         reject(span, "unreferenced typed numerical program kernel");
       const auto kind = instruction->kind;
       if (kernel.transform) {
+        if (backend_ == GpuBackend::Vulkan)
+          reject(span, "Vulkan transform artifact integration is still in progress");
         const char *label = *kernel.transform == TensorTransformKind::Transpose     ? "Transpose"
                             : *kernel.transform == TensorTransformKind::SoftmaxRows ? "SoftmaxRows"
                                                                                     : "RmsNormRows";
@@ -1545,7 +1548,8 @@ class Compiler {
     }
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
             "u,code," + std::to_string(program.result) + "u," + elementName(program.type.element) +
-            "," + (result.scalarTask ? "true" : "false") + ");if(!prepared){" +
+            "," + (result.scalarTask ? "true" : "false") +
+            (backend_ == GpuBackend::Vulkan ? ",*target" : "") + ");if(!prepared){" +
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\nf." + out +
             "=r.executeNumericProgram(task," + activeGroup + ",f." + executable +
             ",std::array<m::Buffer," + std::to_string(tensors.size()) + ">{";
@@ -1560,7 +1564,7 @@ class Compiler {
                      SourceSpan span) {
     admitGpuTypes(function);
     const auto &fn = cpu.functions.at(function);
-    if (numericPrograms.contains(function))
+    if (backend_ == GpuBackend::Vulkan || numericPrograms.contains(function))
       return spawnNumericProgram(function, inputs, target, span);
     auto found = numericShaders.find(function);
     if (found == numericShaders.end()) {
@@ -1696,6 +1700,8 @@ class Compiler {
               SourceSpan span) {
     if (!target.gpu)
       return cpuCall(function, inputs, span, false, true);
+    if (backend_ == GpuBackend::Vulkan)
+      return spawnNumericProgram(function, inputs, target, span);
     bool mixed = false;
     bool conditional = false, primitive = false, transform = false;
     std::set<FunctionId> inspected;
@@ -3298,8 +3304,10 @@ class Compiler {
   }
 
 public:
-  explicit Compiler(Module module, ArithmeticMode arithmetic, bool testCpuExports)
-      : arithmetic_(arithmetic), testCpuExports_(testCpuExports), syntax(std::move(module)) {}
+  explicit Compiler(Module module, ArithmeticMode arithmetic, bool testCpuExports,
+                    GpuBackend backend)
+      : arithmetic_(arithmetic), backend_(backend), testCpuExports_(testCpuExports),
+        syntax(std::move(module)) {}
   std::map<std::string, std::string> run() {
     auto checkedPlacement = kalandra::check({syntax, {}}, {}, {.placement = true});
     if (!checkedPlacement.ok())
@@ -3592,8 +3600,9 @@ public:
       outputs["cpu.ll"] = lowered->llvm;
     }
     std::ostringstream host;
-    host << R"(#include "Metal.h"
-#include <array>
+    host << (backend_ == GpuBackend::Vulkan ? "#include \"Language.h\"\n"
+                                            : "#include \"Metal.h\"\n")
+         << R"(#include <array>
 #include <bit>
 #include <charconv>
 #include <cstdio>
@@ -3603,9 +3612,10 @@ public:
 #include <new>
 #include <string>
 using namespace kalandra::runtime;
-namespace m = kalandra::runtime::metal;
- )" << declarations
-         << helperDeclarations << cpuEntries;
+)"
+         << (backend_ == GpuBackend::Vulkan ? "namespace m = kalandra::runtime::vulkan::language;\n"
+                                            : "namespace m = kalandra::runtime::metal;\n")
+         << " " << declarations << helperDeclarations << cpuEntries;
     if (scalarResult)
       host << "const ValueLayout &scalarLayout=*numericScalarLayout(" + elementName(mainElement) +
                   ");\n";
@@ -3710,7 +3720,22 @@ void resume(Task &task) {
   return status;
 }
 )";
-    outputs["host.cpp"] = host.str();
+    auto hostText = host.str();
+    if (backend_ == GpuBackend::Vulkan) {
+      const std::string destruction = "value->~Buffer()";
+      for (std::size_t at = 0; (at = hostText.find(destruction, at)) != std::string::npos;)
+        hostText.replace(at, destruction.size(), "std::destroy_at(value)");
+      for (std::size_t at = 0; (at = hostText.find("Metal unavailable", at)) != std::string::npos;)
+        hostText.replace(at, 17, "Vulkan unavailable");
+      for (std::size_t at = 0; (at = hostText.find("Metal task failed", at)) != std::string::npos;)
+        hostText.replace(at, 17, "Vulkan task failed");
+      const std::string metalCleanup =
+          "s.bytes || s.metalBuffers || s.hostBackings || s.deviceBackings || s.inFlight || "
+          "s.stagingBuffers || s.argumentBytes || s.argumentPacks";
+      if (auto at = hostText.find(metalCleanup); at != std::string::npos)
+        hostText.replace(at, metalCleanup.size(), "s.bytes || s.inFlight || s.argumentBytes");
+    }
+    outputs["host.cpp"] = std::move(hostText);
     std::string manifest = "kernel_count=" + std::to_string(entries.size()) + "\n";
     for (auto [function, index] : entries) {
       if (auto found = numericPrograms.find(function); found != numericPrograms.end()) {
@@ -3899,202 +3924,15 @@ void resume(Task &task) {
   }
 };
 } // namespace
-int kalandra::compileMetalCommand(int argc, char **argv) {
-  const auto usage = [] {
-    std::cerr << "usage: kalandra-metal-source <source.k | --project "
-                 "manifest.toml> -o directory "
-                 "[--arithmetic hardware|software|hardware-with-software-fallback] "
-                 "[--matmul-policy optimized|fixed-tree] "
-                 "[--package name=path.k ...] [--build "
-                 "[-O0|-O2|--sanitize|--thread-sanitize]]\n";
-    return 2;
-  };
-  bool build = false, testCpuExports = false;
-  ArithmeticMode arithmetic = ArithmeticMode::Hardware;
-  bool selectedArithmetic = false;
-  MatmulPolicy matmul = MatmulPolicy::Optimized;
-  bool selectedMatmul = false;
-  std::string variant = "debug", sourcePath, projectPath;
-  std::filesystem::path directory;
-  std::optional<NativeProject> project;
-  std::vector<ModulePackage> packages;
-  bool selected = false;
-  for (int i = 1; i < argc; ++i) {
-    std::string_view option = argv[i];
-    if (option == "-o" || option == "--project" || option == "--package") {
-      if (++i >= argc || std::string_view(argv[i]).empty())
-        return usage();
-      if (option == "-o") {
-        if (!directory.empty())
-          return usage();
-        directory = argv[i];
-      } else if (option == "--project") {
-        if (!projectPath.empty())
-          return usage();
-        projectPath = argv[i];
-      } else {
-        auto package = parseModulePackage(argv[i]);
-        if (!package) {
-          std::cerr << package.error() << '\n';
-          return 2;
-        }
-        packages.push_back(std::move(*package));
-      }
-    } else if (option == "--arithmetic" && !selectedArithmetic) {
-      if (++i >= argc)
-        return usage();
-      auto parsed = parseArithmeticMode(argv[i]);
-      if (!parsed)
-        return usage();
-      arithmetic = *parsed;
-      selectedArithmetic = true;
-    } else if (option == "--matmul-policy" && !selectedMatmul) {
-      if (++i >= argc)
-        return usage();
-      auto parsed = parseMatmulPolicy(argv[i]);
-      if (!parsed)
-        return usage();
-      matmul = *parsed;
-      selectedMatmul = true;
-    } else if (option == "--test-cpu-exports" && !testCpuExports) {
-      testCpuExports = true;
-    } else if (option == "--build" && !build)
-      build = true;
-    else if (!selected && (option == "-O0" || option == "-O2" || option == "--sanitize" ||
-                           option == "--thread-sanitize")) {
-      selected = true;
-      variant = option == "-O2"          ? "optimized"
-                : option == "--sanitize" ? "sanitized"
-                : option == "-O0"        ? "debug"
-                                         : "thread-sanitized";
-    } else if (!option.starts_with('-') && sourcePath.empty())
-      sourcePath = option;
-    else
-      return usage();
-  }
-  if (directory.empty() || (selected && !build) || (!sourcePath.empty() && !projectPath.empty()))
-    return usage();
-  if (arithmetic == ArithmeticMode::Software)
-    matmul = MatmulPolicy::FixedTree;
-  if (!projectPath.empty()) {
-    auto loaded = loadNativeProject(projectPath);
-    if (!loaded) {
-      std::cerr << loaded.error() << '\n';
-      return 1;
-    }
-    project = std::move(*loaded);
-    sourcePath = project->entry;
-    packages.insert(packages.end(), project->packages.begin(), project->packages.end());
-  }
-  if (sourcePath.empty())
-    return usage();
-  std::optional<InstalledNativeProject> managed;
-  if (project && !project->dependencies.empty()) {
-    auto loaded = loadInstalledNativeProject(*project);
-    if (!loaded) {
-      std::cerr << loaded.error() << '\n';
-      return 1;
-    }
-    managed = std::move(*loaded);
-    managed->nodes[0].localPackages = packages;
-  }
-  auto parsed =
-      managed ? loadPackageModules(managed->nodes) : loadModules(sourcePath, {}, {}, packages);
-  if (!parsed) {
-    std::cerr << parsed.error() << '\n';
-    return 1;
-  }
-  auto source = parsed->module.source;
+std::expected<std::map<std::string, std::string>, Diagnostic>
+kalandra::emitGpuSupervisor(Module module, ArithmeticMode arithmetic, bool testCpuExports,
+                            GpuBackend backend) {
+  if (backend == GpuBackend::Vulkan && arithmetic == ArithmeticMode::HardwareWithSoftwareFallback)
+    return std::unexpected(
+        Diagnostic{"G001", "Vulkan automatic fallback artifact bundling is still in progress", {}});
   try {
-    if (!parsed->ok()) {
-      for (auto &d : parsed->diagnostics)
-        std::cerr << renderDiagnostic(*source, d);
-      return 1;
-    }
-    auto outputs = Compiler(std::move(parsed->module), arithmetic, testCpuExports).run();
-    outputs["manifest.txt"] += "matmul_policy=" + std::string(matmulPolicyName(matmul)) + "\n";
-    if (matmul == MatmulPolicy::Optimized)
-      outputs["THIRD_PARTY_NOTICES.txt"] = kalandraSteelLicense;
-    if (outputs.contains("cpu.ll") && (variant == "sanitized" || variant == "thread-sanitized")) {
-      llvm::LLVMContext context;
-      llvm::SMDiagnostic diagnostic;
-      auto module = llvm::parseAssemblyString(outputs.at("cpu.ll"), diagnostic, context);
-      if (!module)
-        throw std::runtime_error("cannot prepare CPU sanitizer attributes");
-      for (auto &function : *module)
-        if (!function.isDeclaration())
-          function.addFnAttr(variant == "sanitized" ? llvm::Attribute::SanitizeAddress
-                                                    : llvm::Attribute::SanitizeThread);
-      outputs["cpu.ll"].clear();
-      llvm::raw_string_ostream stream(outputs["cpu.ll"]);
-      module->print(stream, nullptr);
-    }
-    std::vector<std::string> paths;
-    for (const auto &[name, contents] : outputs) {
-      (void)contents;
-      paths.push_back(name);
-      if (build && name.starts_with("kernel") && name.ends_with(".mlir"))
-        for (const auto *suffix : {".lowered.mlir", ".converted.mlir", ".kernel.mlir", ".spv",
-                                   ".metal", ".air", ".metallib"})
-          paths.push_back(std::filesystem::path(name).stem().string() + suffix);
-      if (build && name.starts_with("kernel") && name.ends_with(".native.metal")) {
-        const auto base = name.substr(0, name.size() - std::string(".native.metal").size());
-        paths.push_back(base + ".air");
-        paths.push_back(base + ".metallib");
-      }
-    }
-    if (build)
-      paths.push_back("program");
-    for (const auto &name : paths) {
-      auto target = directory / name;
-      if (project) {
-        auto allowed = protectNativePackageOutput(*project, target.string());
-        if (!allowed)
-          throw std::runtime_error(allowed.error());
-      }
-      std::error_code ec;
-      auto protect = [&](const std::filesystem::path &input) {
-        std::error_code first, second;
-        const bool equivalent = std::filesystem::equivalent(target, input, ec);
-        const auto a = std::filesystem::weakly_canonical(target, first);
-        const auto b = std::filesystem::weakly_canonical(input, second);
-        if (equivalent || (!first && !second && a == b))
-          throw std::runtime_error("source and output paths must be distinct");
-      };
-      protect(source->path());
-      for (const auto &part : source->parts())
-        protect(part.source->path());
-      if (project) {
-        protect(project->manifest);
-        if (project->libraryEntry)
-          protect(*project->libraryEntry);
-      }
-      if (std::filesystem::is_symlink(std::filesystem::symlink_status(target)))
-        throw std::runtime_error("refusing symlink output");
-    }
-    std::filesystem::create_directories(directory);
-    for (auto &[name, contents] : outputs) {
-      llvm::SmallString<256> temporary;
-      int descriptor = -1;
-      auto target = directory / name;
-      if (auto ec = llvm::sys::fs::createUniqueFile(target.string() + ".tmp-%%%%%%", descriptor,
-                                                    temporary))
-        throw std::runtime_error(ec.message());
-      llvm::FileRemover remove(temporary);
-      llvm::raw_fd_ostream file(descriptor, true);
-      file << contents;
-      file.close();
-      if (file.has_error())
-        throw std::runtime_error("cannot write compiler output");
-      std::filesystem::rename(std::string(temporary), target);
-    }
-    if (build)
-      buildMetalProgram(directory, outputs, variant, arithmetic, matmul);
-    return 0;
-  } catch (const Rejected &e) {
-    std::cerr << renderDiagnostic(*source, e.diagnostic);
-  } catch (const std::exception &e) {
-    std::cerr << "Metal source compilation: " << e.what() << '\n';
+    return Compiler(std::move(module), arithmetic, testCpuExports, backend).run();
+  } catch (const Rejected &error) {
+    return std::unexpected(error.diagnostic);
   }
-  return 1;
 }

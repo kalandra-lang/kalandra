@@ -47,9 +47,31 @@ struct AsyncRuntime::State {
 };
 struct AsyncRuntime::Bridge {
   struct Reservation {
+    Reservation() = default;
+    Reservation(const Reservation &) = delete;
+    Reservation &operator=(const Reservation &) = delete;
     std::shared_ptr<State> state;
     std::uint64_t bytes = 0;
     bool held = false;
+    std::shared_ptr<const HostCharge> metadataCharge, pendingCharge;
+    std::expected<void, Error> acquire() {
+      if (!state->reserve(bytes))
+        return std::unexpected(Error::Budget);
+      held = true;
+      if (state->limits.metadataBudget) {
+        auto charge = Runtime::reserveBytes(state->limits.metadataBudget, bytes);
+        if (!charge)
+          return std::unexpected(charge.error());
+        metadataCharge = std::move(*charge);
+      }
+      if (state->limits.pendingBudget) {
+        auto charge = Runtime::reserveBytes(state->limits.pendingBudget, 1);
+        if (!charge)
+          return std::unexpected(charge.error());
+        pendingCharge = std::move(*charge);
+      }
+      return {};
+    }
     ~Reservation() {
       if (held)
         state->release(bytes);
@@ -68,6 +90,8 @@ struct AsyncRuntime::Bridge {
     std::optional<std::uint32_t> faultWord;
     std::optional<ProgramExecution> program;
     std::optional<NumericType> scalarType{};
+    std::optional<TensorValue> transferInput{};
+    bool upload = false;
   };
   struct PacketData {
     std::shared_ptr<Operation> operation;
@@ -86,7 +110,8 @@ struct AsyncRuntime::Bridge {
   static bool construct(Invocation &, void *memory, const Packet &packet) {
     auto &data = *static_cast<const PacketData *>(packet.data);
     auto *frame = new (memory) Frame{data.operation, data.operation->state};
-    frame->tensorResult = data.operation->program.has_value();
+    frame->tensorResult =
+        data.operation->program.has_value() || data.operation->transferInput.has_value();
     frame->scalarType = data.operation->scalarType;
     return true;
   }
@@ -171,7 +196,14 @@ struct AsyncRuntime::Bridge {
       auto &operation = *frame.operation;
       bool reschedule = false, stage = false;
       if (!work.completion.cancelled()) {
-        if (operation.program) {
+        if (operation.transferInput) {
+          stage = true;
+          auto result = transferTensor(*state.runtime, *operation.transferInput, operation.upload);
+          if (!result)
+            frame.error = result.error();
+          else
+            frame.tensorOutput = std::move(*result);
+        } else if (operation.program) {
           auto command = operation.program->next(*state.runtime);
           if (!command)
             frame.error = command.error();
@@ -306,9 +338,9 @@ struct AsyncRuntime::Bridge {
       operation->reservation.state = operation->state;
       operation->reservation.bytes =
           inputs.size_bytes() + 2 * parameters.size_bytes() + sizeof(Operation);
-      if (!operation->state->reserve(operation->reservation.bytes))
-        return rejected(caller, group, Error::Budget);
-      operation->reservation.held = true;
+      auto reserved = operation->reservation.acquire();
+      if (!reserved)
+        return rejected(caller, group, reserved.error());
       operation->kernel = std::move(kernel);
       operation->inputs.assign(inputs.begin(), inputs.end());
       operation->parameters.assign(parameters.begin(), parameters.end());
@@ -319,6 +351,29 @@ struct AsyncRuntime::Bridge {
       return submit(caller, group, entry, {entry.packetLayout, &packet, sizeof(packet)});
     } catch (const std::bad_alloc &) {
       return rejected(caller, group, Error::Allocation);
+    }
+  }
+  template <class Caller>
+  static TaskHandle transfer(Caller &caller, GroupHandle group, std::shared_ptr<State> state,
+                             const TensorValue &input, bool upload) noexcept {
+    auto valid = validateTransfer(*state->runtime, input, upload);
+    if (!valid)
+      return rejected(caller, group, valid.error(), true);
+    try {
+      auto operation = std::make_shared<Operation>();
+      operation->state = std::move(state);
+      operation->reservation.state = operation->state;
+      operation->reservation.bytes = sizeof(Operation);
+      auto reserved = operation->reservation.acquire();
+      if (!reserved)
+        return rejected(caller, group, reserved.error(), true);
+      operation->transferInput = input;
+      operation->upload = upload;
+      PacketData packet{std::move(operation)};
+      return submit(caller, group, programEntry,
+                    {programEntry.packetLayout, &packet, sizeof(packet)});
+    } catch (const std::bad_alloc &) {
+      return rejected(caller, group, Error::Allocation, true);
     }
   }
   template <class Caller>
@@ -336,9 +391,9 @@ struct AsyncRuntime::Bridge {
       operation->state = std::move(state);
       operation->reservation.state = operation->state;
       operation->reservation.bytes = *bytes + sizeof(Operation);
-      if (!operation->state->reserve(operation->reservation.bytes))
-        return rejected(caller, group, Error::Budget, true, scalarType);
-      operation->reservation.held = true;
+      auto reserved = operation->reservation.acquire();
+      if (!reserved)
+        return rejected(caller, group, reserved.error(), true, scalarType);
       auto invocation = program.start(*operation->state->runtime, inputs, scalars);
       if (!invocation)
         return rejected(caller, group, invocation.error(), true, scalarType);
@@ -482,5 +537,21 @@ TaskHandle AsyncRuntime::executeProgram(Task &task, GroupHandle group, const Pro
                                         std::span<const TensorValue> inputs,
                                         std::span<const std::uint64_t> scalars) noexcept {
   return Bridge::executeProgram(task, group, state_, program, inputs, scalars);
+}
+TaskHandle AsyncRuntime::transfer(TaskCore &core, GroupHandle group, const TensorValue &input,
+                                  bool upload) noexcept {
+  return Bridge::transfer(core, group, state_, input, upload);
+}
+TaskHandle AsyncRuntime::transfer(Task &task, GroupHandle group, const TensorValue &input,
+                                  bool upload) noexcept {
+  return Bridge::transfer(task, group, state_, input, upload);
+}
+TaskHandle AsyncRuntime::reject(TaskCore &core, GroupHandle group, Error error,
+                                std::optional<NumericType> scalar) noexcept {
+  return Bridge::rejected(core, group, error, true, scalar);
+}
+TaskHandle AsyncRuntime::reject(Task &task, GroupHandle group, Error error,
+                                std::optional<NumericType> scalar) noexcept {
+  return Bridge::rejected(task, group, error, true, scalar);
 }
 } // namespace kalandra::runtime::vulkan

@@ -28,14 +28,17 @@ struct DeviceInfo {
   std::uint32_t vendor = 0, device = 0, apiVersion = 0;
   bool discrete = false, integrated = false;
 };
+struct ByteBudget;
 struct Options {
   bool validation = true;
   std::uint32_t deviceIndex = 0;
   std::uint64_t maxBytes = 64 * 1024 * 1024;
+  std::shared_ptr<ByteBudget> budget{};
 };
 struct State;
 struct Storage;
 struct KernelState;
+struct HostCharge;
 class Kernel final {
 public:
   explicit operator bool() const noexcept { return bool(state_); }
@@ -67,12 +70,19 @@ class Runtime final {
 public:
   static std::expected<std::vector<DeviceInfo>, Error> enumerate(bool validation = true);
   static std::expected<std::unique_ptr<Runtime>, Error> create(Options = {});
+  static std::expected<std::shared_ptr<ByteBudget>, Error> createByteBudget(std::uint64_t maximum);
+  static std::expected<std::shared_ptr<const HostCharge>, Error>
+  reserveBytes(const std::shared_ptr<ByteBudget> &, std::uint64_t);
+  static std::uint64_t reservedBytes(const std::shared_ptr<ByteBudget> &) noexcept;
   ~Runtime();
   Runtime(const Runtime &) = delete;
   Runtime &operator=(const Runtime &) = delete;
   DeviceInfo device() const;
   bool owns(const Buffer &) const noexcept;
   bool owns(const Kernel &) const noexcept;
+  // Host snapshots and retained CPU allocations share the device-byte ledger.
+  std::expected<std::shared_ptr<const HostCharge>, Error> reserveHostBytes(std::uint64_t);
+  bool owns(const std::shared_ptr<const HostCharge> &) const noexcept;
   std::expected<Buffer, Error> upload(std::span<const float>);
   std::expected<Buffer, Error> uploadBytes(std::span<const std::byte>);
   std::expected<std::vector<std::byte>, Error> downloadBytes(const Buffer &);

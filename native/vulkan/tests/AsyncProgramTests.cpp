@@ -94,6 +94,39 @@ int run(int argc, char **argv) {
     auto async = v::AsyncRuntime::create(runtime);
     auto core = TaskCore::create({.workers = workers, .records = 1});
     check(bool(async) && bool(core), "program service/core");
+    {
+      Invocation producer;
+      auto cpu = copyCpuTensor<NumericType::Float32, 3>(producer, NumericType::Float32,
+                                                        std::as_bytes(std::span(initial)),
+                                                        std::array<std::int64_t, 3>{1, 3, 1});
+      check(bool(cpu), "pipeline CPU descriptor");
+      auto host = take(v::fromCpu(*runtime, producer, cpu->view()), "pipeline retained input");
+      producer.settle();
+      auto transferGroup = core->openRoot();
+      auto upload = async->transfer(*core, transferGroup, host, true);
+      host = {};
+      check(bool(upload) && core->close(transferGroup) && core->drain(), "pipeline upload");
+      auto resident = observe(*core, upload);
+      release(*core, transferGroup, *async);
+      auto computeGroup = core->openRoot();
+      auto compute = async->executeProgram(*core, computeGroup, program, std::array{resident}, {});
+      resident = {};
+      check(bool(compute) && core->close(computeGroup) && core->drain(), "pipeline compute");
+      auto output = observe(*core, compute);
+      release(*core, computeGroup, *async);
+      auto downloadGroup = core->openRoot();
+      auto download = async->transfer(*core, downloadGroup, output, false);
+      output = {};
+      check(bool(download) && core->close(downloadGroup) && core->drain(), "pipeline download");
+      auto downloaded = observe(*core, download);
+      release(*core, downloadGroup, *async);
+      Invocation consumer;
+      auto result =
+          take(v::toCpuTyped<NumericType::Float32, 3>(consumer, downloaded), "pipeline CPU result");
+      for (unsigned i = 0; i < 3; ++i)
+        check(result.aligned[i] == initial[i] + stages * 3,
+              "CPU/upload/resident program/download/CPU independent reference");
+    }
     auto group = core->openRoot();
     const auto before = async->stats().stages;
     auto task = async->executeProgram(*core, group, program, inputs, {});

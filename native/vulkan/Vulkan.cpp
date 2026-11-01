@@ -121,6 +121,10 @@ struct Pipeline {
   VkPipeline handle = VK_NULL_HANDLE;
 };
 } // namespace
+struct ByteBudget {
+  mutable std::mutex mutex;
+  std::uint64_t bytes = 0, maximum = 0;
+};
 struct State {
   std::unique_ptr<Instance> instance;
   VkPhysicalDevice physical = VK_NULL_HANDLE;
@@ -131,8 +135,8 @@ struct State {
   VkCommandPool commands = VK_NULL_HANDLE;
   VkDescriptorPool descriptors = VK_NULL_HANDLE;
   Pipeline addition, matrix;
-  mutable std::mutex queueMutex, budgetMutex;
-  std::uint64_t bytes = 0, maxBytes = 0;
+  mutable std::mutex queueMutex;
+  std::shared_ptr<ByteBudget> budget;
   std::atomic<bool> failed{false};
   VkPhysicalDeviceFeatures features{};
   bool storage8 = false, storage16 = false, int8 = false;
@@ -175,8 +179,16 @@ struct Storage {
       vkDestroyBuffer(state->device, buffer, nullptr);
     if (memory)
       vkFreeMemory(state->device, memory, nullptr);
-    std::lock_guard lock(state->budgetMutex);
-    state->bytes -= allocation;
+    std::lock_guard lock(state->budget->mutex);
+    state->budget->bytes -= allocation;
+  }
+};
+struct HostCharge {
+  std::shared_ptr<ByteBudget> budget;
+  std::uint64_t bytes = 0;
+  ~HostCharge() {
+    std::lock_guard lock(budget->mutex);
+    budget->bytes -= bytes;
   }
 };
 namespace {
@@ -213,10 +225,10 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
   if (memoryType == UINT32_MAX)
     return std::unexpected(Error::Unsupported);
   {
-    std::lock_guard lock(state->budgetMutex);
-    if (required.size > state->maxBytes - state->bytes)
+    std::lock_guard lock(state->budget->mutex);
+    if (required.size > state->budget->maximum - state->budget->bytes)
       return std::unexpected(Error::Budget);
-    state->bytes += required.size;
+    state->budget->bytes += required.size;
     s->allocation = required.size;
   }
   VkMemoryAllocateInfo allocation{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
@@ -424,7 +436,7 @@ struct KernelState {
     if (pipeline.descriptors)
       vkDestroyDescriptorSetLayout(state->device, pipeline.descriptors, nullptr);
     if (reserved) {
-      std::lock_guard lock(state->budgetMutex);
+      std::lock_guard lock(state->budget->mutex);
       --state->kernels;
     }
   }
@@ -460,7 +472,14 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     if (options.deviceIndex >= devices->size())
       return std::unexpected(Error::Unavailable);
     state->physical = (*devices)[options.deviceIndex];
-    state->maxBytes = options.maxBytes;
+    if (options.budget)
+      state->budget = std::move(options.budget);
+    else {
+      auto budget = createByteBudget(options.maxBytes);
+      if (!budget)
+        return std::unexpected(budget.error());
+      state->budget = std::move(*budget);
+    }
     vkGetPhysicalDeviceProperties(state->physical, &state->properties);
     vkGetPhysicalDeviceMemoryProperties(state->physical, &state->memory);
     if (state->properties.apiVersion < VK_API_VERSION_1_1 ||
@@ -585,8 +604,51 @@ std::string_view Kernel::entryName() const noexcept {
   return state_ ? std::string_view(state_->interface.entry) : std::string_view{};
 }
 std::uint64_t Runtime::retainedBytes() const {
-  std::lock_guard lock(state_->budgetMutex);
-  return state_->bytes;
+  std::lock_guard lock(state_->budget->mutex);
+  return state_->budget->bytes;
+}
+std::expected<std::shared_ptr<ByteBudget>, Error> Runtime::createByteBudget(std::uint64_t maximum) {
+  if (!maximum)
+    return std::unexpected(Error::Invalid);
+  try {
+    auto result = std::make_shared<ByteBudget>();
+    result->maximum = maximum;
+    return result;
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
+std::expected<std::shared_ptr<const HostCharge>, Error>
+Runtime::reserveHostBytes(std::uint64_t bytes) {
+  if (state_->failed)
+    return std::unexpected(Error::Device);
+  return reserveBytes(state_->budget, bytes);
+}
+std::uint64_t Runtime::reservedBytes(const std::shared_ptr<ByteBudget> &budget) noexcept {
+  if (!budget)
+    return 0;
+  std::lock_guard lock(budget->mutex);
+  return budget->bytes;
+}
+std::expected<std::shared_ptr<const HostCharge>, Error>
+Runtime::reserveBytes(const std::shared_ptr<ByteBudget> &budget, std::uint64_t bytes) {
+  if (!budget)
+    return std::unexpected(Error::Invalid);
+  try {
+    auto charge = std::make_shared<HostCharge>();
+    charge->budget = budget;
+    std::lock_guard lock(budget->mutex);
+    if (bytes > budget->maximum - budget->bytes)
+      return std::unexpected(Error::Budget);
+    budget->bytes += bytes;
+    charge->bytes = bytes;
+    return charge;
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
+bool Runtime::owns(const std::shared_ptr<const HostCharge> &charge) const noexcept {
+  return charge && charge->budget == state_->budget;
 }
 std::uint64_t Runtime::validationErrors() const { return state_->instance->errors.load(); }
 std::expected<Buffer, Error> Runtime::upload(std::span<const float> data) {
@@ -783,7 +845,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &pa
     loaded->state = state_;
     loaded->interface = *interface;
     {
-      std::lock_guard budget(state_->budgetMutex);
+      std::lock_guard budget(state_->budget->mutex);
       if (state_->kernels >= 64)
         return std::unexpected(Error::Budget);
       ++state_->kernels;

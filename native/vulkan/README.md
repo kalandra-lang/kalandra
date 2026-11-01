@@ -120,3 +120,45 @@ driver or compiler is installed or replaced. Configure the full project with
 compiler with `-DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++`.
 The owner installed `llvm23-devel` and `tomlplusplus-devel`; no toml++ download
 is needed. Provenance is retained in `qualification/toolchain-23.1.4.json`.
+
+## Private source-supervisor qualification
+
+`kalandra-vulkan-supervisor` now shares the existing typed host continuation
+emitter with Metal. The private `qualification/source_program.py` driver emits
+that supervisor and any CPU exports, compiles the numerical MLIR to validated
+SPIR-V, and links the native Vulkan task/transfer runtime. It uses an existing
+configured project build and installs nothing. This is not an installed
+`--target vulkan` command or distribution qualification.
+
+The source adapter supports explicit CPU/GPU transfers over retained immutable
+CPU descriptors, typed results, prepared resident numerical programs and
+selected-path source control. CPU exports require a downloaded host result;
+there is no implicit numerical CPU fallback. Host allocations and device
+allocations share a registry byte ledger, including full retained CPU allocation
+sizes for subviews. Prepared code and captured invocation metadata share a
+separate argument ledger; all device services share one pending-operation limit.
+Cancellation retains captured backing through acknowledgement on both uploads
+and downloads. The scheduler never waits on a transfer fence.
+
+The same source-program fixtures used by Metal can select the private Vulkan
+driver with `--backend vulkan`. Their independently checked expected-output
+records can be replayed with `qualification/replay_programs.py` under an explicitly
+selected physical Vulkan ICD. Generated artifacts/results remain outside the
+repository. Transform/fallback artifact support and release packaging are still
+unfinished; see the tracked completion boundary before making support claims.
+
+For the shared fixtures, use the checked-in private adapter with existing paths:
+
+```sh
+export KALANDRA_VULKAN_BUILD_ROOT=/absolute/project/build
+export KALANDRA_VULKAN_LLVM_ROOT=/absolute/verified/llvm-root
+python3 native/metal-source/NumericProgramTests.py \
+  --compiler "$PWD/native/vulkan/qualification/compiler_driver.py" \
+  --backend vulkan --arithmetic hardware --variant optimized \
+  --root /absolute/qualification/results
+```
+
+Repeat with `--arithmetic software` and a separate result directory. The replay
+helper checks the generated independent `expected.json` records; select the
+installed physical ICD through `VK_DRIVER_FILES` when testing a second device.
+The adapter preserves `-O0`/`-O2` and rejects unsupported target/policy arguments.

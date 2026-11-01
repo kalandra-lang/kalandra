@@ -5,6 +5,7 @@
 #include <array>
 #include <optional>
 namespace kalandra::runtime::vulkan {
+struct HostTensorStorage;
 // Invocation-local metadata over immutable device storage. A scalar is distinct
 // from a rank-zero tensor, although both contain one numeric cell.
 struct TensorValue {
@@ -13,6 +14,11 @@ struct TensorValue {
   std::array<std::uint64_t, 8> dimensions{};
   std::uint8_t rank = 0;
   bool scalar = false;
+  std::shared_ptr<const HostTensorStorage> host{};
+  explicit operator bool() const noexcept { return bool(data) || bool(host); }
+  bool onDevice() const noexcept { return bool(data) && !host; }
+  NumericType format() const noexcept { return type; }
+  std::uint64_t bytes() const noexcept;
   std::span<const std::uint64_t> shape() const { return {dimensions.data(), rank}; }
 };
 struct ProgramKernel {

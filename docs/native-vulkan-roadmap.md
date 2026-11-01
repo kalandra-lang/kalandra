@@ -193,3 +193,58 @@ The source supervisor/CPU descriptor and transfer bridge, transform kernels,
 comprehensive conversion/feature/fallback admission, shared registry quotas,
 fault injection and distribution remain required before exposing a CLI target.
 No cancellation contract or supported production target changed in this slice.
+
+### Complete-source supervisor and explicit transfers
+
+The common host continuation emitter is now shared by Metal and a private Vulkan
+source compiler. Metal's command/build driver remains separate; its placed
+supervisor and shader control remain byte-identical. Vulkan placements always
+use the typed numerical program path, producing SPIR-V and native CPU exports
+instead of Metal artifacts. This is a private complete-source qualification path,
+not a released CLI target or completed distribution milestone.
+
+Explicit uploads and downloads run through managed external completion. CPU
+imports validate the invocation-owned descriptor, retain immutable backing,
+respect offsets and charge the full allocation rather than just the visible
+subview. CPU exports copy into the receiving invocation and reject device or
+foreign-registry backing. Owned host snapshots and device allocations share one
+registry-wide byte quota across physical contexts. Prepared definitions and
+invocation captures share an argument quota; pending admission is likewise
+shared across device completion services. Reservations retire after their
+backing. No transfer or numerical fence blocks a scheduler worker.
+
+The transfer harness passes all ten types, every byte pattern, ranks 0/1/3/8,
+empty domains, invalid descriptors, producer teardown, aggregate quotas and
+rollback, and held upload/download cancellation/deadlines at 1/2/4 workers on
+NVIDIA and Intel. The composed-program harness also checks a CPU descriptor →
+upload → 257-stage resident program → download → independently owned CPU result.
+Source-adapter tests cover each selected device, dropped prepared-plan/kernel
+aliases, a registry-wide single-operation limit, and foreign-registry rejection.
+Clang and GCC checks pass. Fully instrumented Intel TSan adapter, transfer and
+program checks pass with the separately diagnosed validation layer disabled.
+
+The same 67 source-program cases used by Metal pass through Vulkan at 1/2/4
+workers on both physical GPUs in both hardware and explicit software arithmetic. Independent
+expected records cover all ten basic type cases and expanded int8/float32/
+float64 reductions, feedback, branches, local shape obligations, conversions and
+fault precedence. The native policy includes actual hardware float64 on both
+devices. These finite source references do not replace the still-pending
+comprehensive floating-point special-value/conversion admission below. No performance acceptance is inferred from these
+correctness runs.
+
+Instrumented registry assertions pass without access/UB reports, while LSan
+still exits unsuccessfully: 5,090 bytes / 14 allocations in the latest multi-
+registry test, with DBus and unloaded-module stacks. Its DBus retained byte
+count differs from the earlier two-initialization loader control; matching
+allocation classes/counts do not prove complete attribution. This finding is
+retained without suppressions, alongside the earlier transfer/program findings.
+Transforms, automatic fallback selection, broader numerical/capability and
+failure-injection coverage, and relocatable CLI packages remain unfinished.
+
+The mixed CPU/GPU source fixture also passes both arithmetic modes on both GPUs
+at 1/2/4 workers: native CPU matmul/reduction tasks, captured tensor/scalar CPU
+exports, repeated uploads/downloads, GPU scaling, then a CPU tensor result.
+Its exact result matches the existing Metal fixture oracle, `[52,54,64,66]`.
+Metal's optimized source-program suite and installed-package/relocation check
+pass after sharing the supervisor; normal and instrumented frontend diagnostics
+also pass. These checks retain Metal behavior while Vulkan integration proceeds.

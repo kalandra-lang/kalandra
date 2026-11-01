@@ -1,11 +1,13 @@
 #pragma once
 #include "../runtime/Tasks.h"
 #include "Program.h"
+#include "TensorBridge.h"
 #include <optional>
 namespace kalandra::runtime::vulkan {
 struct AsyncLimits {
   std::uint32_t maxPending = 64;
   std::uint64_t maxCaptureBytes = 1024 * 1024;
+  std::shared_ptr<ByteBudget> metadataBudget{}, pendingBudget{};
 };
 struct AsyncStats {
   std::uint32_t pending = 0, queued = 0, running = 0, held = 0;
@@ -29,6 +31,11 @@ public:
                             std::span<const std::uint64_t>) noexcept;
   TaskHandle executeProgram(Task &, GroupHandle, const Program &, std::span<const TensorValue>,
                             std::span<const std::uint64_t>) noexcept;
+  TaskHandle transfer(TaskCore &, GroupHandle, const TensorValue &, bool upload) noexcept;
+  TaskHandle transfer(Task &, GroupHandle, const TensorValue &, bool upload) noexcept;
+  TaskHandle reject(TaskCore &, GroupHandle, Error,
+                    std::optional<NumericType> scalar = {}) noexcept;
+  TaskHandle reject(Task &, GroupHandle, Error, std::optional<NumericType> scalar = {}) noexcept;
   static const ValueLayout &bufferLayout() noexcept;
   static const ValueLayout &tensorLayout() noexcept;
   AsyncStats stats() const noexcept;
