@@ -427,3 +427,18 @@ external development-library requirements; this does not cross-compile GPU code.
 PR qualification waits for same-revision CPU runtime data, assembles twice and
 rechecks the combined installed compiler. That gate remains pending until its
 current-head workflow completes.
+
+
+## Windows build qualification
+
+A separate hosted matrix compiles the seven actual runtime translation units on
+Windows x86-64 and ARM64 with the existing pinned Clang/MSVC toolchain and verified
+Khronos Vulkan-Headers source. The headers retain their upstream notices in the
+private CI directory; no Vulkan SDK/driver is installed. Native tests check
+SPIR-V reflection, executable-relative UTF-8 paths and system-only Vulkan loader
+lookup, including a local DLL decoy that must never be loaded. The executables
+must have no Vulkan PE import.
+
+This matrix does not execute GPU instructions or qualify the installed Windows
+Vulkan compiler. A successful build must not be described as Windows device
+coverage. Its exact current-head result remains pending.

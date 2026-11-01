@@ -1,0 +1,10 @@
+{
+  "scope": "Private Windows build qualification headers; no SDK/driver installation",
+  "repository": "https://github.com/KhronosGroup/Vulkan-Headers",
+  "tag": "vulkan-sdk-1.4.335.0",
+  "commit": "2fa203425eb4af9dfc6b03f97ef72b0b5bcb8350",
+  "url": "https://github.com/KhronosGroup/Vulkan-Headers/archive/2fa203425eb4af9dfc6b03f97ef72b0b5bcb8350.tar.gz",
+  "sha256": "66e0dc7932203def85d94bf65a4fa3a3b29e61366713404f0465cdeb02e6ffd3",
+  "licenses": ["Apache-2.0", "MIT"],
+  "notice": "LICENSE.md and LICENSES remain in the private extracted source"
+}
