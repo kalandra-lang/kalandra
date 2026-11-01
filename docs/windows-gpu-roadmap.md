@@ -21,8 +21,22 @@ build/package CI first and physical GPU testing later.
    cancellation/deadlines, ownership, fault precedence and resource limits.
    Performance is measured separately with idle and stability controls.
 
-The current runtime slice is not a Windows GPU execution or installed-compiler
-qualification. Windows ARM64 runtime compilation is not evidence that a vendor
+## Qualification status
+
+The native runtime slice passed both backends on Windows x86-64 and ARM64.
+Full installed compiler/package CI is in progress in PR #275. It includes native
+CPU execution, all ten CUDA types with three arithmetic policies (51 complete
+source builds), Vulkan public/source-capability compilation, secure loader tests,
+PE import closure, missing owned resources and reproducible archives.
+
+The device-resource producer builds PTX/SPIR-V from the same canonical Git source
+inputs on Linux. Windows verifies the source inventory and each payload before
+compilation. This avoids requiring an ARM64 NVRTC host binary. No Linux host
+executable or SDK library crosses into the Windows package. The Windows-native
+SPIR-V validator is built through the existing pinned vcpkg baseline with a static
+CRT; its Apache notice and installed binary digest are retained.
+
+Windows GPU execution remains unqualified. Windows ARM64 runtime compilation is not evidence that a vendor
 provides an ARM64 CUDA driver. Do not claim a supported hardware matrix from
 header/object compilation, a software Vulkan device or a CPU substitute.
 

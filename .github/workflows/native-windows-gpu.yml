@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   device-resources:
     runs-on: ubuntu-24.04
@@ -133,8 +134,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Vulkan headers failed' }
           python native/cuda-source/qualification/provision_headers.py --output "$env:RUNNER_TEMP/compiler-cuda-headers"
           if ($LASTEXITCODE -ne 0) { throw 'CUDA headers failed' }
-          python native/gpu-runtime/qualification/provision_validator.py --directory "$env:RUNNER_TEMP/native-spirv-validator" --arch ${{ matrix.arch }}
-          if ($LASTEXITCODE -ne 0) { throw 'Native validator build failed' }
+      - uses: actions/cache/restore@v4
+        id: validator-cache
+        with:
+          path: ${{ runner.temp }}/spirv-binary-cache
+          key: native-spirv-tools-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json', 'native/gpu-runtime/qualification/provision_validator.py') }}
+      - name: Build the pinned native Windows SPIR-V validator
+        env:
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/spirv-binary-cache
+        run: python native/gpu-runtime/qualification/provision_validator.py --directory "$env:RUNNER_TEMP/native-spirv-validator" --arch ${{ matrix.arch }}
+      - uses: actions/cache/save@v4
+        if: steps.validator-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/spirv-binary-cache
+          key: ${{ steps.validator-cache.outputs.cache-primary-key }}
       - name: Configure both native source backends
         run: >-
           cmake -S . -B build/windows-gpu -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -156,6 +169,14 @@ jobs:
             python native/gpu-runtime/qualification/windows_installed.py --backend $backend --archive "build/windows-gpu/native-$backend-standalone/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/installed-$backend" --arch ${{ matrix.arch }}
             if ($LASTEXITCODE -ne 0) { throw "$backend installed package failed" }
           }
+      - name: Preserve native validator diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-spirv-validator-logs-${{ matrix.arch }}
+          path: ${{ runner.temp }}/native-spirv-validator/vcpkg/buildtrees/**/*.log
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Verify frozen archive reproducibility
         run: |
           foreach ($backend in @('cuda', 'vulkan')) {
@@ -172,5 +193,94 @@ jobs:
             build/windows-gpu/native-cuda-standalone/*.tar.gz*
             build/windows-gpu/native-vulkan-standalone/*.tar.gz*
             build/installed-*/qualification.json
+          if-no-files-found: error
+          retention-days: 7
+
+  bundled-package:
+    name: Windows GPU bundled CPU targets (${{ matrix.arch }})
+    if: github.event_name == 'pull_request'
+    needs: compiler-package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            msvc: x64
+          - runner: windows-11-arm
+            arch: arm64
+            msvc: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows-gpu-packages-${{ matrix.arch }}
+          path: gpu-assets
+      - name: Locate same-revision CPU runtime data
+        id: runtimes
+        uses: actions/github-script@v7
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        with:
+          script: |
+            for (let attempt = 0; attempt < 100; attempt++) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                ...context.repo, workflow_id: 'native-cross-os.yml',
+                head_sha: process.env.SOURCE_SHA, per_page: 20,
+              });
+              const run = runs.data.workflow_runs.find(run => run.head_sha === process.env.SOURCE_SHA &&
+                run.head_repository.full_name === context.repo.owner + '/' + context.repo.repo);
+              if (run) {
+                const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
+                  {...context.repo, run_id: run.id, per_page: 100});
+                if (artifacts.some(a => a.name === 'cpu-target-runtimes' && !a.expired)) {
+                  core.setOutput('run', String(run.id));
+                  return;
+                }
+                if (run.status === 'completed') throw new Error('CPU qualification ended without runtime data');
+              }
+              await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+            throw new Error('Timed out waiting for same-revision CPU runtime data');
+      - uses: actions/download-artifact@v4
+        with:
+          name: cpu-target-runtimes
+          path: runtime-assets
+          run-id: ${{ steps.runtimes.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Attach same-revision CPU runtime data reproducibly
+        run: |
+          foreach ($backend in @('cuda', 'vulkan')) {
+            $archive = Get-Item "gpu-assets/windows-gpu/native-$backend-standalone/*.tar.gz"
+            python native/packaging/RuntimeBundles.py --host-package $archive.FullName --runtime-bundle runtime-assets/kalandra-cpu-target-runtimes.tar.gz --output bundled-assets
+            if ($LASTEXITCODE -ne 0) { throw "$backend CPU runtime attachment failed" }
+            python native/packaging/RuntimeBundles.py --host-package $archive.FullName --runtime-bundle runtime-assets/kalandra-cpu-target-runtimes.tar.gz --output repeated-assets
+            if ($LASTEXITCODE -ne 0) { throw "$backend repeated attachment failed" }
+            $first = (Get-FileHash "bundled-assets/$($archive.Name)" -Algorithm SHA256).Hash
+            if ((Get-FileHash "repeated-assets/$($archive.Name)" -Algorithm SHA256).Hash -ne $first) { throw "$backend runtime attachment is not reproducible" }
+          }
+      - name: Qualify relocated Windows GPU compilers with five bundled CPU targets
+        run: |
+          foreach ($backend in @('cuda', 'vulkan')) {
+            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --bundled-targets --archive "bundled-assets/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/combined-$backend" --arch ${{ matrix.arch }}
+            if ($LASTEXITCODE -ne 0) { throw "$backend combined package qualification failed" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows-gpu-bundled-packages-${{ matrix.arch }}
+          path: |
+            bundled-assets/*.tar.gz*
+            build/combined-*/qualification.json
           if-no-files-found: error
           retention-days: 7

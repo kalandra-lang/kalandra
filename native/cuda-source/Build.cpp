@@ -123,6 +123,9 @@ void buildCudaProgram(const std::filesystem::path &directory,
   const auto optimization = variant == "optimized" ? "-O2" : "-O0";
   std::vector<std::string> link{clang};
   link.insert(link.end(), clangFlags.begin(), clangFlags.end());
+#ifdef _WIN32
+  link.emplace_back("--rtlib=compiler-rt");
+#endif
   if (outputs.contains("cpu.ll")) {
     compile({clang, optimization, "-ffp-contract=off", "-c", (directory / "cpu.ll").string(), "-o",
              (directory / "cpu.o").string()});

@@ -13,6 +13,7 @@ p.add_argument('--backend', choices=('cuda', 'vulkan'), required=True)
 p.add_argument('--archive', type=Path, required=True)
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--arch', choices=('x86_64', 'arm64'), required=True)
+p.add_argument('--bundled-targets', action='store_true')
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(repo/'native/packaging'))
@@ -61,6 +62,12 @@ if a.backend == 'vulkan':
     assert metadata['validatorNoticeSHA256'] == digest(prefix/'share/licenses/kalandra-vulkan/SPIRV-Tools-COPYRIGHT')
 audit(prefix)
 verify_package_version(prefix)
+if a.bundled_targets:
+    cpu = json.loads((prefix/'share/kalandra-native-tools/toolchain.json').read_text())
+    targets = {'linux-x86_64', 'linux-arm64', 'windows-x86_64', 'windows-arm64', 'macos-arm64'}
+    assert set(cpu['bundledCpuTargets']) == targets
+    assert {p.name for p in (prefix/'lib/kalandra/targets').iterdir()} == targets
+    assert set(cpu['crossLinkers']) == {'elf', 'macho', 'coff'}
 compiler = prefix/'bin/kalandra.exe'
 source = root/'cpu.k'
 source.write_text('fn main()->int32:\n  42\n')
@@ -69,6 +76,7 @@ assert subprocess.check_output([root/'cpu.exe'], text=True, timeout=30) == '42\n
 if a.backend == 'cuda':
     run([sys.executable, repo/'native/cuda-source/qualification/applications.py', '--build', root,
          '--compiler', compiler, '--output', root/'applications', '--compile-only'])
+    assert len(list((root/'applications').rglob('program.exe'))) == 51
     probe = root/'applications/hardware/float32/program.exe'
 else:
     run([sys.executable, repo/'native/vulkan/qualification/public_cli.py', '--compiler', compiler,
@@ -95,20 +103,36 @@ checks = ['libexec/kalandra/clang++.exe', f'libexec/kalandra/kalandra-{a.backend
           f'lib/kalandra/native/headers/{a.backend}', 'lib/kalandra/toolchain/clang/include']
 if a.backend == 'vulkan':
     checks += ['libexec/kalandra/mlir-opt.exe', 'libexec/kalandra/spirv-val.exe']
-for index, relative in enumerate(checks):
+checks += ['lib/kalandra/native/headers/gpu-runtime/ProgramDecl.inc']
+checks = [(relative, placed) for relative in checks]
+if a.backend == 'cuda':
+    transform = root/'transpose.k'
+    transform.write_text("""fn work(v:Tensor[float32,?,?])->Tensor[float32,?,?]:
+  transpose(v)
+fn main()->Tensor[float32,?,?] ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    a:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
+    x=try await transfer(a,gpu)
+    y=try await spawn work(x) on gpu
+    try await transfer(y,devices.cpu())
+""")
+    checks += [('lib/kalandra/native/cuda/transforms/transpose-float32.ptx', transform),
+               ('lib/kalandra/native/cuda/kernels/matmul-catalog.ptx', repo/'native/metal-source/matmul.k')]
+for index, (relative, fixture) in enumerate(checks):
     owned = prefix/relative
     saved = owned.with_name(owned.name+'.qualification-hidden')
     owned.rename(saved)
     try:
         output = root/f'missing-{index}'
-        result = subprocess.run([compiler, '--target', a.backend, placed, '-O2', '-o', output],
+        result = subprocess.run([compiler, '--target', a.backend, fixture, '--matmul-policy', 'optimized', '-O2', '-o', output],
                                 capture_output=True, text=True, timeout=180)
         assert result.returncode == 1 and not (output/'program.exe').exists(), (relative, result)
     finally:
         saved.rename(owned)
 report = {'backend': a.backend, 'architecture': a.arch, 'archiveSHA256': digest(archive),
-          'installedCompiler': True, 'cpuExecution': True, 'gpuSourceBuilds': len(list((root/'applications').rglob('program.exe'))),
-          'missingResourceChecks': checks, 'missingSystemDriverTested': absent,
+          'installedCompiler': True, 'cpuExecution': True, 'bundledTargets': a.bundled_targets, 'gpuSourceBuilds': len(list((root/'applications').rglob('program.exe'))),
+          'missingResourceChecks': [relative for relative, _ in checks], 'missingSystemDriverTested': absent,
           'gpuExecution': False, 'performanceQualified': False}
 (root/'qualification.json').write_text(json.dumps(report, indent=2)+'\n')
 print('PASS: relocated Windows compiler, CPU execution, real GPU source compilation, PE closure and missing resources; physical GPU unqualified')

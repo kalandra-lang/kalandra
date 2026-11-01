@@ -11,6 +11,8 @@ p.add_argument('--arch', choices=('x86_64', 'arm64'), required=True)
 a = p.parse_args()
 root = a.directory.resolve()
 root.mkdir(parents=True, exist_ok=False)
+if os.environ.get('VCPKG_DEFAULT_BINARY_CACHE'):
+    Path(os.environ['VCPKG_DEFAULT_BINARY_CACHE']).mkdir(parents=True, exist_ok=True)
 repo = Path(__file__).resolve().parents[3]
 baseline = json.loads((repo/'native/toolchain-proof/toolchain.json').read_text())['windowsDependencies']['vcpkgBaseline']
 checkout = root/'vcpkg'

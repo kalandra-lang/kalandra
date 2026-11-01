@@ -144,6 +144,9 @@ void buildVulkanProgram(const std::filesystem::path &directory,
   };
   std::vector<std::string> link{clang};
   link.insert(link.end(), resourceFlags.begin(), resourceFlags.end());
+#ifdef _WIN32
+  link.emplace_back("--rtlib=compiler-rt");
+#endif
   if (outputs.contains("cpu.ll")) {
     compile({clang, optimization, "-c", (directory / "cpu.ll").string(),
          "-o", (directory / "cpu.o").string()});
