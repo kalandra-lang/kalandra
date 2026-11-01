@@ -167,7 +167,8 @@ int main(int argc, char **argv) {
       filtered.push_back(build);
     return kalandra::compileVulkanCommand(static_cast<int>(filtered.size()), filtered.data());
 #else
-    std::cerr << "Vulkan source support is disabled; configure KALANDRA_BUILD_VULKAN_RUNTIME\n";
+    std::cerr << "Vulkan source support is disabled; configure KALANDRA_BUILD_VULKAN_RUNTIME "
+                 "in a normal compiler build\n";
     return 2;
 #endif
   }

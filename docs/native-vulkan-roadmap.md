@@ -524,3 +524,27 @@ Remaining: installed/runtime variant packages, agreed platform/driver matrix,
 optimized matmul routing and broader native floating arithmetic qualification,
 end-to-end performance evidence and release-facing user documentation. Explicit
 unsupported-mode errors are retained until these paths actually exist.
+
+### Public Linux host ASan/UBSan variant
+
+Normal Linux root builds now provide separate instrumented raw, program, async
+and language archives with the matching sanitized CPU core. Public `--sanitize`
+selects those archives, instruments generated host C++, and marks CPU exports
+with LLVM SanitizeAddress attributes before compilation. The normal compiler
+itself remains uninstrumented and keeps its loader-independent startup. GPU
+instructions are not ASan-instrumented. Windows sanitizer variants and public
+TSan remain explicitly unsupported; private instrumented-root proof profiles
+retain their existing role rather than linking mismatched runtime variants.
+
+Two actual public source builds pass twelve numerical/ownership executions
+across both devices at workers 1/2/4. Binary symbols and CPU export attributes
+confirm instrumentation selection. Intel exits cleanly in all six cases; NVIDIA
+has unsuppressed exit-time LSan failures at 5,082 bytes/14 allocations in all six.
+There are no access/UB reports. Those exit failures remain open, and the checked-in
+driver records their full output rather than suppressing them.
+Two independent Vulkan-loader initializations with no Kalandra code reproduce
+the exact NVIDIA total and Intel clean exit; this strengthens external attribution
+without turning the NVIDIA runs into clean sanitizer exits. Normal mode is
+rechecked separately: eleven builds/66 executions and six negative cases pass.
+Hosted qualification compiles instrumented applications and checks symbols/IR;
+it does not silently execute a substitute GPU.

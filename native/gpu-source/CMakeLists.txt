@@ -31,7 +31,7 @@ add_executable(kalandra-vulkan-conversion-kernels EXCLUDE_FROM_ALL ../metal-proo
 target_link_libraries(kalandra-vulkan-conversion-kernels PRIVATE kalandra-gpu-numeric MLIR LLVM)
 target_compile_options(kalandra-vulkan-conversion-kernels PRIVATE -Wall -Wextra -Werror)
 
-if(KALANDRA_BUILD_VULKAN_RUNTIME)
+if(KALANDRA_BUILD_VULKAN_RUNTIME AND NOT KALANDRA_VULKAN_SANITIZERS AND NOT KALANDRA_VULKAN_THREAD_SANITIZER)
   # Development command uses configured host tools. Installed resources are a
   # separate qualification step; the CPU-only installed compiler stays intact.
   set(_vulkan_build_config "#pragma once\n")
@@ -50,6 +50,21 @@ if(KALANDRA_BUILD_VULKAN_RUNTIME)
     list(GET _fields 1 _value)
     string(APPEND _vulkan_build_config "#define KALANDRA_VULKAN_${_key} R\"cfg(${_value})cfg\"\n")
   endforeach()
+  if(TARGET kalandra-vulkan-language-sanitized)
+    foreach(_pair IN ITEMS
+        "LANGUAGE|kalandra-vulkan-language-sanitized" "ASYNC|kalandra-vulkan-async-sanitized"
+        "PROGRAM|kalandra-vulkan-program-sanitized" "DRIVER|kalandra-vulkan-sanitized"
+        "CORE|kalandra-native-runtime-sanitized")
+      string(REPLACE "|" ";" _fields "${_pair}")
+      list(GET _fields 0 _key)
+      list(GET _fields 1 _target)
+      string(APPEND _vulkan_build_config "#define KALANDRA_VULKAN_${_key}_SANITIZED R\"cfg($<TARGET_FILE:${_target}>)cfg\"\n")
+    endforeach()
+    string(APPEND _vulkan_build_config "#define KALANDRA_VULKAN_HAS_ASAN 1\n")
+    add_dependencies(kalandra kalandra-vulkan-language-sanitized)
+  else()
+    string(APPEND _vulkan_build_config "#define KALANDRA_VULKAN_HAS_ASAN 0\n")
+  endif()
   file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../vulkan/third_party/ggml/LICENSE" _vulkan_notice)
   string(APPEND _vulkan_build_config
     "inline const char kalandraVulkanNotice[] = R\"notice(${_vulkan_notice})notice\";\n")

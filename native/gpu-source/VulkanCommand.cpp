@@ -5,8 +5,11 @@
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/AsmParser/Parser.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 #include <filesystem>
 #include <iostream>
@@ -23,7 +26,7 @@ int kalandra::compileVulkanCommand(int argc, char **argv) {
                  "[--arithmetic hardware|software|hardware-with-software-fallback] "
                  "[--matmul-policy fixed-tree] "
                  "[--package name=path.k ...] [--build "
-                 "[-O0|-O2]]\n";
+                 "[-O0|-O2|--sanitize]]\n";
     return 2;
   };
   bool build = false, testCpuExports = false;
@@ -91,7 +94,7 @@ int kalandra::compileVulkanCommand(int argc, char **argv) {
   }
   if (directory.empty() || (selected && !build) || (!sourcePath.empty() && !projectPath.empty()))
     return usage();
-  if (variant == "sanitized" || variant == "thread-sanitized") {
+  if ((variant == "sanitized" && !KALANDRA_VULKAN_HAS_ASAN) || variant == "thread-sanitized") {
     std::cerr << "Vulkan sanitizer packages are not integrated yet\n";
     return 2;
   }
@@ -142,6 +145,21 @@ int kalandra::compileVulkanCommand(int argc, char **argv) {
     auto outputs = std::move(*emitted);
     outputs["manifest.txt"] += "matmul_policy=" + std::string(matmulPolicyName(matmul)) + "\n";
     outputs["THIRD_PARTY_NOTICES.txt"] = kalandraVulkanNotice;
+    if (variant == "sanitized" && outputs.contains("cpu.ll")) {
+      llvm::LLVMContext context;
+      llvm::SMDiagnostic diagnostic;
+      auto module = llvm::parseAssemblyString(outputs.at("cpu.ll"), diagnostic, context);
+      if (!module)
+        throw std::runtime_error("cannot prepare CPU sanitizer attributes");
+      for (auto &function : *module)
+        if (!function.isDeclaration())
+          function.addFnAttr(llvm::Attribute::SanitizeAddress);
+      outputs["cpu.ll"].clear();
+      llvm::raw_string_ostream stream(outputs["cpu.ll"]);
+      module->print(stream, nullptr);
+    }
+    outputs["manifest.txt"] += "host_instrumentation=" +
+        std::string(variant == "sanitized" ? "address,undefined" : "none") + "\n";
     std::vector<std::string> paths;
     for (const auto &[name, contents] : outputs) {
       (void)contents;

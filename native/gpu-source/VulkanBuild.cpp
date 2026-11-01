@@ -60,21 +60,41 @@ void buildVulkanProgram(const std::filesystem::path &directory,
         compile(target.string() + ".spv.software", "hardware-with-software-fallback");
     }
   }
-  const auto optimization = variant == "optimized" ? "-O2" : "-O0";
+  const bool sanitized = variant == "sanitized";
+  const auto optimization = sanitized ? "-O1" : variant == "optimized" ? "-O2" : "-O0";
+  const std::vector<std::string> sanitizerFlags = sanitized
+      ? std::vector<std::string>{"-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-fno-omit-frame-pointer"}
+      : std::vector<std::string>{};
+  const auto compile = [&](std::vector<std::string> command) {
+    command.insert(command.end(), sanitizerFlags.begin(), sanitizerFlags.end());
+    run(std::move(command));
+  };
   std::vector<std::string> link{KALANDRA_VULKAN_CLANG};
   if (outputs.contains("cpu.ll")) {
-    run({KALANDRA_VULKAN_CLANG, optimization, "-c", (directory / "cpu.ll").string(),
+    compile({KALANDRA_VULKAN_CLANG, optimization, "-c", (directory / "cpu.ll").string(),
          "-o", (directory / "cpu.o").string()});
     link.push_back((directory / "cpu.o").string());
   }
-  run({KALANDRA_VULKAN_CLANG, "-std=c++23", optimization, "-Wall", "-Wextra", "-Werror",
+  compile({KALANDRA_VULKAN_CLANG, "-std=c++23", optimization, "-Wall", "-Wextra", "-Werror",
        "-I" KALANDRA_VULKAN_INCLUDE, "-I" KALANDRA_VULKAN_PUBLIC_INCLUDE,
        "-c", (directory / "host.cpp").string(), "-o", (directory / "host.o").string()});
   link.push_back((directory / "host.o").string());
-  for (const char *library : {KALANDRA_VULKAN_LANGUAGE, KALANDRA_VULKAN_ASYNC,
+  const std::vector<std::string> normalLibraries{KALANDRA_VULKAN_LANGUAGE, KALANDRA_VULKAN_ASYNC,
                               KALANDRA_VULKAN_PROGRAM, KALANDRA_VULKAN_DRIVER,
-                              KALANDRA_VULKAN_CORE, KALANDRA_VULKAN_LOADER})
-    link.emplace_back(library);
+                              KALANDRA_VULKAN_CORE};
+#if KALANDRA_VULKAN_HAS_ASAN
+  const std::vector<std::string> sanitizedLibraries{KALANDRA_VULKAN_LANGUAGE_SANITIZED,
+      KALANDRA_VULKAN_ASYNC_SANITIZED, KALANDRA_VULKAN_PROGRAM_SANITIZED,
+      KALANDRA_VULKAN_DRIVER_SANITIZED, KALANDRA_VULKAN_CORE_SANITIZED};
+  const auto &libraries = sanitized ? sanitizedLibraries : normalLibraries;
+#else
+  if (sanitized)
+    throw std::runtime_error("Vulkan sanitizer runtime unavailable");
+  const auto &libraries = normalLibraries;
+#endif
+  link.insert(link.end(), libraries.begin(), libraries.end());
+  link.emplace_back(KALANDRA_VULKAN_LOADER);
+  link.insert(link.end(), sanitizerFlags.begin(), sanitizerFlags.end());
 #ifndef _WIN32
   link.emplace_back("-pthread");
 #endif

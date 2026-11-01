@@ -72,7 +72,7 @@ for name, source, policy, optimization, values, fmt, fault in cases:
     print('PASS:', name, 'public command compilation'+(' only' if args.compile_only else ' and physical execution'), flush=True)
 
 for label, options, message in [
-    ('sanitize', ['--sanitize'], 'sanitizer packages'),
+    ('conflicting-sanitizers', ['--sanitize', '--thread-sanitize'], 'usage:'),
     ('thread-sanitize', ['--thread-sanitize'], 'sanitizer packages'),
     ('optimized', ['--matmul-policy', 'optimized'], 'optimized Vulkan matmul'),
     ('cross-cpu', ['--platform', 'linux-x86_64'], 'selects a CPU ABI')]:

@@ -90,6 +90,11 @@ jobs:
           python3 native/vulkan/qualification/public_cli.py --compile-only
           --compiler build/vulkan-source/native/kalandra
           --output build/vulkan-artifacts/public-cli
+      - name: Verify public host and CPU sanitizer selection
+        run: >-
+          python3 native/vulkan/qualification/public_sanitizers.py --compile-only
+          --compiler build/vulkan-source/native/kalandra
+          --output build/vulkan-artifacts/public-sanitizers
       - name: Compile and audit all-pair conversion policy artifacts
         run: >-
           python3 native/vulkan/qualification/conversion_kernels.py

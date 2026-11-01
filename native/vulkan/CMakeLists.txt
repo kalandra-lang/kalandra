@@ -194,6 +194,30 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../runtime/Tasks.cpp")
   add_library(kalandra-vulkan-language STATIC Language.cpp)
   target_link_libraries(kalandra-vulkan-language PUBLIC kalandra-vulkan-async)
   target_compile_options(kalandra-vulkan-language PRIVATE -Wall -Wextra -Werror)
+  if(TARGET kalandra-native-runtime-sanitized AND NOT _vulkan_sanitizers AND NOT WIN32)
+    # Keep the normal compiler uninstrumented. A generated --sanitize program
+    # selects these separately instrumented libraries and the matching CPU core.
+    add_library(kalandra-vulkan-sanitized STATIC EXCLUDE_FROM_ALL Vulkan.cpp SpirvInterface.cpp)
+    target_include_directories(kalandra-vulkan-sanitized PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(kalandra-vulkan-sanitized PRIVATE kalandra-vulkan-resources
+      PUBLIC Vulkan::Vulkan Threads::Threads)
+    target_compile_options(kalandra-vulkan-sanitized PRIVATE -Wall -Wextra -Werror -Wno-missing-field-initializers)
+    target_compile_options(kalandra-vulkan-sanitized PUBLIC -O1 -g -fsanitize=address,undefined
+      -fno-sanitize-recover=all -fno-omit-frame-pointer)
+    target_link_options(kalandra-vulkan-sanitized PUBLIC -fsanitize=address,undefined)
+    add_library(kalandra-vulkan-program-sanitized STATIC EXCLUDE_FROM_ALL Program.cpp TensorBridge.cpp)
+    target_include_directories(kalandra-vulkan-program-sanitized PUBLIC ../include)
+    target_link_libraries(kalandra-vulkan-program-sanitized PUBLIC kalandra-vulkan-sanitized
+      kalandra-native-runtime-sanitized)
+    add_library(kalandra-vulkan-async-sanitized STATIC EXCLUDE_FROM_ALL Async.cpp)
+    target_link_libraries(kalandra-vulkan-async-sanitized PUBLIC kalandra-vulkan-program-sanitized)
+    add_library(kalandra-vulkan-language-sanitized STATIC EXCLUDE_FROM_ALL Language.cpp)
+    target_link_libraries(kalandra-vulkan-language-sanitized PUBLIC kalandra-vulkan-async-sanitized)
+    foreach(_target IN ITEMS kalandra-vulkan-program-sanitized kalandra-vulkan-async-sanitized
+                             kalandra-vulkan-language-sanitized)
+      target_compile_options(${_target} PRIVATE -Wall -Wextra -Werror)
+    endforeach()
+  endif()
   if(BUILD_TESTING)
     add_executable(kalandra-vulkan-fallback-tests tests/FallbackTests.cpp)
     target_link_libraries(kalandra-vulkan-fallback-tests PRIVATE kalandra-vulkan-language)

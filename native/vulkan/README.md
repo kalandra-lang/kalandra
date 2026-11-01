@@ -14,9 +14,14 @@ build/vulkan-hello/program
 
 The output is a directory containing the executable and its generated SPIR-V.
 Project manifests and local packages use the common `--project`/`--package`
-options. All three arithmetic policies and `-O0`/`-O2` are supported. At this
-checkpoint matmul uses `fixed-tree`; `optimized` and public sanitizer modes are
-explicitly rejected until their runtime/package paths are integrated. The build
+options. All three arithmetic policies and `-O0`/`-O2` are supported. Normal
+Linux root builds also support `--sanitize` with separate ASan/UBSan host/runtime
+libraries and instrumented CPU exports; this does not instrument GPU instructions.
+NVIDIA exit-time LeakSanitizer findings remain open. `--thread-sanitize` is still
+rejected; private Intel TSan qualification is a separate configuration. Private
+instrumented root profiles expose the proof tools rather than the public Vulkan
+command. At this checkpoint matmul uses `fixed-tree`; `optimized` is explicitly
+rejected until source routing is integrated. The build
 uses configured host C++/LLVM/SPIR-V tools and host development headers. This is
 not yet a standalone one-download GPU compiler package or a cross-target GPU
 workflow. No system dependencies are installed by the compiler.
