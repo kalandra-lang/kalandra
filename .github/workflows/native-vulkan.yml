@@ -9,6 +9,7 @@ on:
       - 'native/gpu-source/**'
       - 'native/metal-source/**'
       - 'native/include/**'
+      - 'native/tools/compile.cpp'
       - 'native/runtime/**'
       - 'native/lib/**'
       - 'native/cmake/**'
@@ -25,6 +26,7 @@ on:
       - 'native/gpu-source/**'
       - 'native/metal-source/**'
       - 'native/include/**'
+      - 'native/tools/compile.cpp'
       - 'native/runtime/**'
       - 'native/lib/**'
       - 'native/cmake/**'
@@ -50,7 +52,7 @@ jobs:
       - name: Compile runtime, tests and validate SPIR-V
         run: cmake --build build/vulkan --parallel 2
       - name: Audit provenance and shader capabilities
-        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain|transform-reference|resources)$" --output-on-failure
+        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain|transform-reference|resources|executable-path)$" --output-on-failure
       # Hardware correctness is separately qualified on physical NVIDIA/Intel GPUs.
       # Never silently substitute lavapipe for that acceptance evidence.
   source-compiler:
@@ -82,6 +84,12 @@ jobs:
           cmake --build build/vulkan-source --parallel 2 --target
           kalandra-vulkan-supervisor kalandra-vulkan-kernels kalandra-vulkan-lower
           kalandra-vulkan-extract kalandra-vulkan-language kalandra-vulkan-conversion-kernels
+          kalandra
+      - name: Qualify the actual Vulkan development compiler command
+        run: >-
+          python3 native/vulkan/qualification/public_cli.py --compile-only
+          --compiler build/vulkan-source/native/kalandra
+          --output build/vulkan-artifacts/public-cli
       - name: Compile and audit all-pair conversion policy artifacts
         run: >-
           python3 native/vulkan/qualification/conversion_kernels.py

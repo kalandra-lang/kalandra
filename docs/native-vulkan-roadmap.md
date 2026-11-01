@@ -484,3 +484,43 @@ ASan/UBSan raw/managed assertions pass on both devices without access/UB reports
 unsuppressed LSan still fails at 2,509 bytes/7 allocations on each device. Isolated
 Intel TSan passes the same suite with the already documented validation-layer
 isolation. These are not leak-clean or NVIDIA TSan claims.
+
+### Development CLI and executable-relative artifacts
+
+The actual opt-in `kalandra --target vulkan` command now compiles source or project
+manifests without the Python qualification adapter. It uses configured native
+host C++ tools, shared supervisor/CPU exports, the existing lower/extract stages,
+explicit native/software/fallback modules and embedded transform resources.
+Compiler startup has no Vulkan-loader dependency; ordinary CPU compilation and
+execution still work with an unavailable ICD. This is development integration,
+not installed one-download distribution or cross-target GPU compilation.
+
+Public `-O0`/`-O2`, all arithmetic policies, CPU/GPU mixing and project builds are
+checked. Eleven real-command builds pass 66 executions across both GPUs/workers
+1/2/4, including transpose, softmax and checked overflow. Six negative cases
+exercise unsupported sanitizer/optimized-matmul/CPU-cross flags and symlink/hard
+link source-output protection. The initial collision fixture used `.cpp` as the
+Kalandra source and correctly failed the extension gate; the corrected fixture
+uses a valid `.k` source hard-linked to the generated `host.cpp` output.
+
+The generated Vulkan host resolves its executable location via platform APIs,
+rather than treating argv[0] as a path. The language loader consumes UTF-8 paths
+and reports conversion errors; Metal output remains byte-identical. Linux and
+macOS helper tests cover Unicode/spaces, relative, PATH and symlink launches.
+Three complete Vulkan programs (resident arithmetic, mixed CPU tasks and a
+feature-disabled float64 fallback cast) pass another 90 physical executions with
+their original artifact directories absent, across five launch modes on both
+GPUs at workers 1/2/4. Twelve registered standalone GCC tests pass. Windows helper
+code is implemented but not yet qualified on Windows.
+
+The common compiler builds on macOS, Metal frontend diagnostics pass, and the
+unchanged Metal placed supervisor is byte-identical. CPU smoke programs produce
+42 on macOS/Linux. The production-pinned hosted workflow now builds the actual
+compiler and checks all public command artifacts/output protections without
+substituting a software GPU. Current-head results must still finish before
+claiming that hosted check passed.
+
+Remaining: installed/runtime variant packages, agreed platform/driver matrix,
+optimized matmul routing and broader native floating arithmetic qualification,
+end-to-end performance evidence and release-facing user documentation. Explicit
+unsupported-mode errors are retained until these paths actually exist.

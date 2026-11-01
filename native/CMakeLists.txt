@@ -478,7 +478,7 @@ if(BUILD_TESTING)
   endforeach()
 endif()
 
-option(KALANDRA_BUILD_VULKAN_RUNTIME "Build experimental Vulkan runtime bring-up (no compiler target yet)" OFF)
+option(KALANDRA_BUILD_VULKAN_RUNTIME "Build experimental Vulkan runtime and development compiler target" OFF)
 if(KALANDRA_BUILD_VULKAN_RUNTIME)
   add_subdirectory(vulkan)
 endif()

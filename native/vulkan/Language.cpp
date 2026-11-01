@@ -154,13 +154,15 @@ std::expected<Kernel, Error> Runtime::load(std::string_view path, Device device,
     return std::unexpected(Error::Residency);
   try {
     auto &driver = *state_->contexts[device.index_].driver;
-    auto loaded = driver.loadKernel(std::filesystem::path(path));
+    const std::filesystem::path nativePath(std::u8string(path.begin(), path.end()));
+    auto loaded = driver.loadKernel(nativePath);
     bool softwareFallback = false;
     // Only explicit policy and unsupported capability can select the bundled
     // GPU software variant. Never retry a malformed module or a device fault.
     if (!loaded && loaded.error() == Error::Unsupported && state_->options.allowSoftwareFallback) {
-      auto alternate =
-          driver.loadKernel(std::filesystem::path(std::string(path) + ".software.spv"));
+      auto alternatePath = nativePath;
+      alternatePath += u8".software.spv";
+      auto alternate = driver.loadKernel(alternatePath);
       if (!alternate)
         return std::unexpected(alternate.error() == Error::Unavailable ? Error::Unsupported
                                                                        : alternate.error());
@@ -178,6 +180,8 @@ std::expected<Kernel, Error> Runtime::load(std::string_view path, Device device,
     return result;
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
+  } catch (const std::filesystem::filesystem_error &) {
+    return std::unexpected(Error::Invalid);
   }
 }
 std::expected<Kernel, Error> Runtime::loadNumericGraphKernel(

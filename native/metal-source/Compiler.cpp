@@ -3727,6 +3727,16 @@ void resume(Task &task) {
 )";
     auto hostText = host.str();
     if (backend_ == GpuBackend::Vulkan) {
+      hostText = "#include \"ExecutablePath.h\"\n" + hostText;
+      const std::string oldDirectory =
+          "const auto directory=argc==2 ? std::string(argv[1]) : std::filesystem::absolute(argv[0]).parent_path().string();";
+      const auto directoryAt = hostText.find(oldDirectory);
+      if (directoryAt == std::string::npos)
+        reject({}, "missing Vulkan artifact-directory initialization");
+      hostText.replace(directoryAt, oldDirectory.size(),
+          "auto resolvedDirectory=argc==2 ? std::expected<std::string,std::error_code>(std::string(argv[1])) : kalandra::runtime::vulkan::executableDirectoryUtf8();\n"
+          "  if (!resolvedDirectory) { std::fprintf(stderr,\"Vulkan artifact directory unavailable\\n\"); return 1; }\n"
+          "  const auto &directory=*resolvedDirectory;");
       if (arithmetic_ == ArithmeticMode::HardwareWithSoftwareFallback) {
         const std::string create = "auto made=m::Runtime::create();";
         const auto at = hostText.find(create);

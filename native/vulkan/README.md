@@ -1,8 +1,25 @@
 # Experimental Vulkan runtime bring-up
 
-This is an internal backend implementation, not a released Vulkan compiler target.
-The private source compiler and structured tasks are qualified incrementally;
-release CLI integration and full Metal parity remain pending. See [implementation plan](../../docs/native-vulkan-roadmap.md) and #263.
+This is an experimental opt-in backend, not a released Vulkan compiler package.
+The development compiler accepts `--target vulkan`; installed package integration
+and full Metal parity remain pending. See [implementation plan](../../docs/native-vulkan-roadmap.md) and #263.
+
+With an already configured root build using `KALANDRA_BUILD_VULKAN_RUNTIME=ON`:
+
+```sh
+cmake --build build/native --target kalandra --parallel 2
+build/native/native/kalandra --target vulkan native/metal-source/placed.k -O2 -o build/vulkan-hello
+build/vulkan-hello/program
+```
+
+The output is a directory containing the executable and its generated SPIR-V.
+Project manifests and local packages use the common `--project`/`--package`
+options. All three arithmetic policies and `-O0`/`-O2` are supported. At this
+checkpoint matmul uses `fixed-tree`; `optimized` and public sanitizer modes are
+explicitly rejected until their runtime/package paths are integrated. The build
+uses configured host C++/LLVM/SPIR-V tools and host development headers. This is
+not yet a standalone one-download GPU compiler package or a cross-target GPU
+workflow. No system dependencies are installed by the compiler.
 
 The opt-in root build flag is `KALANDRA_BUILD_VULKAN_RUNTIME`. To qualify just the
 runtime with existing Vulkan development tools, without installing LLVM/MLIR:
@@ -75,7 +92,7 @@ as a kernel benchmark, and coordinate performance runs with the other GPU user.
 The shared `gpu-source` library retains the existing typed map/program emitter.
 Private `kalandra-vulkan-kernels`, `kalandra-vulkan-lower` and
 `kalandra-vulkan-extract` tools produce compiler-owned storage-buffer SPIR-V;
-this is not yet a user-facing source-to-executable backend. All ten numeric
+the development `--target vulkan` command drives those stages in C++. All ten numeric
 types have source-derived map-chain conformance on both NVIDIA and Intel,
 including checked integer overflow, packed narrow tails and empty domains.
 The Vulkan lowering preserves native float64 where supported; explicit software

@@ -98,6 +98,12 @@ endif()
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   find_program(KALANDRA_SPIRV_DIS spirv-dis REQUIRED)
+  add_executable(kalandra-vulkan-executable-path-tests tests/ExecutablePathTests.cpp)
+  target_include_directories(kalandra-vulkan-executable-path-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_compile_options(kalandra-vulkan-executable-path-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-vulkan-executable-path
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/executable_path.py"
+      $<TARGET_FILE:kalandra-vulkan-executable-path-tests>)
   add_executable(kalandra-vulkan-resource-tests tests/ResourceTests.cpp)
   target_link_libraries(kalandra-vulkan-resource-tests PRIVATE kalandra-vulkan-resources)
   target_compile_options(kalandra-vulkan-resource-tests PRIVATE -Wall -Wextra -Werror)
