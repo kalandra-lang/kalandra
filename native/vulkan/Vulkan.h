@@ -1,9 +1,11 @@
 #pragma once
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -27,6 +29,7 @@ struct DeviceInfo {
   std::string name;
   std::uint32_t vendor = 0, device = 0, apiVersion = 0;
   bool discrete = false, integrated = false;
+  std::array<std::uint8_t, 16> uuid{};
 };
 struct ByteBudget;
 struct Options {
@@ -34,6 +37,9 @@ struct Options {
   std::uint32_t deviceIndex = 0;
   std::uint64_t maxBytes = 64 * 1024 * 1024;
   std::shared_ptr<ByteBudget> budget{};
+  // A retained enumeration selects by stable device identity, not a second
+  // enumeration's possibly changed index. When present this replaces the index.
+  std::optional<std::array<std::uint8_t, 16>> deviceUuid{};
 };
 struct State;
 struct Storage;

@@ -248,3 +248,19 @@ Its exact result matches the existing Metal fixture oracle, `[52,54,64,66]`.
 Metal's optimized source-program suite and installed-package/relocation check
 pass after sharing the supervisor; normal and instrumented frontend diagnostics
 also pass. These checks retain Metal behavior while Vulkan integration proceeds.
+
+### Hosted source artifacts and stable device selection
+
+Hosted Vulkan qualification now builds the shared supervisor and runtime with the
+unchanged production-pinned LLVM/MLIR 23.1.3 toolchain, compiles complete placed
+and mixed CPU/GPU source programs in both policies, and validates all ten types'
+map/reduction/matmul SPIR-V. That source job and the standalone GCC Debug/Release
+jobs pass. Hosted checks compile artifacts; physical execution remains the
+separate NVIDIA/Intel evidence above. PR updates trigger one Vulkan run rather
+than duplicate push/PR runs for the same branch.
+
+The source device registry retains Vulkan device UUIDs when opening contexts,
+so a changed enumeration index cannot silently select another GPU. Explicit
+identity selection and missing-identity rejection pass on both physical devices;
+Clang/GCC runtime, numerical and source-adapter regressions pass. Device UUIDs
+are not printed in qualification output.

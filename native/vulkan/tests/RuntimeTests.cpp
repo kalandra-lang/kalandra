@@ -113,6 +113,25 @@ int main(int argc, char **argv) {
   check(selected < devices.size(), "device index");
   auto runtime =
       take(Runtime::create({.validation = validation, .deviceIndex = selected}), "create runtime");
+  check(runtime->device().uuid == devices[selected].uuid, "enumerated physical identity retained");
+  {
+    auto identified = take(Runtime::create({.validation = validation,
+                                            .deviceIndex = UINT32_MAX,
+                                            .deviceUuid = devices[selected].uuid}),
+                           "select retained identity after index changes");
+    check(identified->device().uuid == devices[selected].uuid,
+          "stable identity selection replaces stale index");
+    check(!identified->validationErrors(), "identity selection validation");
+    std::array<std::uint8_t, 16> absent{};
+    while (std::any_of(devices.begin(), devices.end(),
+                       [&](const auto &device) { return device.uuid == absent; }))
+      for (auto &byte : absent)
+        if (++byte)
+          break;
+    auto missing = Runtime::create({.validation = validation, .deviceUuid = absent});
+    check(!missing && missing.error() == Error::Unavailable,
+          "disappeared physical identity never selects another device");
+  }
   std::printf("GPU: %s vendor=%x device=%x\n", runtime->device().name.c_str(),
               runtime->device().vendor, runtime->device().device);
   std::array raw{std::byte{1}, std::byte{2}, std::byte{3}};

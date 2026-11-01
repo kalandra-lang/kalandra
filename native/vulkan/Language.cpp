@@ -53,8 +53,10 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     state->metadata = std::move(*metadata);
     state->pending = std::move(*pending);
     for (std::uint32_t i = 0; i < state->devices.size(); ++i) {
-      auto made = vulkan::Runtime::create(
-          {.validation = options.validation, .deviceIndex = i, .budget = state->bytes});
+      auto made = vulkan::Runtime::create({.validation = options.validation,
+                                           .deviceIndex = i,
+                                           .budget = state->bytes,
+                                           .deviceUuid = state->devices[i].uuid});
       if (!made)
         return std::unexpected(made.error());
       Registry::Context context;

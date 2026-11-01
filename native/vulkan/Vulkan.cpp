@@ -106,14 +106,19 @@ std::expected<std::vector<VkPhysicalDevice>, Error> physicals(VkInstance handle)
   return devices;
 }
 DeviceInfo description(VkPhysicalDevice device) {
-  VkPhysicalDeviceProperties p;
-  vkGetPhysicalDeviceProperties(device, &p);
-  return {p.deviceName,
-          p.vendorID,
-          p.deviceID,
-          p.apiVersion,
-          p.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
-          p.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU};
+  VkPhysicalDeviceIDProperties identity{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES};
+  VkPhysicalDeviceProperties2 properties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+  properties.pNext = &identity;
+  vkGetPhysicalDeviceProperties2(device, &properties);
+  const auto &p = properties.properties;
+  DeviceInfo result{p.deviceName,
+                    p.vendorID,
+                    p.deviceID,
+                    p.apiVersion,
+                    p.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+                    p.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU};
+  std::copy_n(identity.deviceUUID, result.uuid.size(), result.uuid.begin());
+  return result;
 }
 struct Pipeline {
   VkDescriptorSetLayout descriptors = VK_NULL_HANDLE;
@@ -469,9 +474,18 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     auto devices = physicals(state->instance->handle);
     if (!devices)
       return std::unexpected(devices.error());
-    if (options.deviceIndex >= devices->size())
-      return std::unexpected(Error::Unavailable);
-    state->physical = (*devices)[options.deviceIndex];
+    if (options.deviceUuid) {
+      auto found = std::find_if(devices->begin(), devices->end(), [&](auto device) {
+        return description(device).uuid == *options.deviceUuid;
+      });
+      if (found == devices->end())
+        return std::unexpected(Error::Unavailable);
+      state->physical = *found;
+    } else {
+      if (options.deviceIndex >= devices->size())
+        return std::unexpected(Error::Unavailable);
+      state->physical = (*devices)[options.deviceIndex];
+    }
     if (options.budget)
       state->budget = std::move(options.budget);
     else {
