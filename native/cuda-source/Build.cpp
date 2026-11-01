@@ -128,7 +128,11 @@ void buildCudaProgram(const std::filesystem::path &directory,
              (directory / "cpu.o").string()});
     link.push_back((directory / "cpu.o").string());
   }
-  compile({clang, "-std=c++23", optimization, "-ffp-contract=off", "-Wall", "-Wextra", "-Werror",
+  compile({clang, "-std=c++23", optimization,
+#ifdef _WIN32
+           "-DNOMINMAX", "-DWIN32_LEAN_AND_MEAN", "-D_CRT_SECURE_NO_WARNINGS",
+#endif
+           "-ffp-contract=off", "-Wall", "-Wextra", "-Werror",
            "-I" + resource(KALANDRA_CUDA_INCLUDE, "headers/cuda", true),
            "-I" + resource(KALANDRA_CUDA_PUBLIC_INCLUDE, "headers/include", true), "-c",
            (directory / "host.cpp").string(), "-o", (directory / "host.o").string()});

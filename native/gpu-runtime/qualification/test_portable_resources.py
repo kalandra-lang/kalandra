@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -15,6 +16,25 @@ spec.loader.exec_module(resources)
 
 
 class ResourceAdmission(unittest.TestCase):
+    def test_canonical_source_identity_survives_crlf_but_rejects_edits(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            def git(*args):
+                return subprocess.run(['git', *args], cwd=root, check=True, capture_output=True)
+            git('init')
+            git('config', 'core.autocrlf', 'true')
+            source = root/'CMakeLists.txt'
+            source.write_bytes(b'first line\nsecond line\n')
+            git('add', 'CMakeLists.txt')
+            with patch.object(resources, 'ROOT', root):
+                before = resources.source_hash()
+                source.write_bytes(b'first line\r\nsecond line\r\n')
+                self.assertEqual(before, resources.source_hash())
+                source.write_bytes(b'changed line\r\n')
+                with self.assertRaises(subprocess.CalledProcessError):
+                    resources.source_hash()
+
+
     def test_roundtrip_and_reject_modified_payload_source_inventory(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

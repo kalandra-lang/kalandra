@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
+      - name: Verify portable resource admission guards
+        run: python3 -m unittest discover -s native/gpu-runtime/qualification -p 'test_*.py'
       - name: Provision isolated device compiler inputs
         run: |
           python3 .github/scripts/provision_cuda_build.py

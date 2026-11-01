@@ -149,7 +149,11 @@ void buildVulkanProgram(const std::filesystem::path &directory,
          "-o", (directory / "cpu.o").string()});
     link.push_back((directory / "cpu.o").string());
   }
-  compile({clang, "-std=c++23", optimization, "-Wall", "-Wextra", "-Werror",
+  compile({clang, "-std=c++23", optimization,
+#ifdef _WIN32
+           "-DNOMINMAX", "-DWIN32_LEAN_AND_MEAN", "-D_CRT_SECURE_NO_WARNINGS",
+#endif
+           "-Wall", "-Wextra", "-Werror",
        "-I" + resource(KALANDRA_VULKAN_INCLUDE, "headers/vulkan"),
        "-I" + resource(KALANDRA_VULKAN_PUBLIC_INCLUDE, "headers/include"),
        "-c", (directory / "host.cpp").string(), "-o", (directory / "host.o").string()});
