@@ -192,6 +192,7 @@ struct Storage {
   VkDeviceSize allocation = 0;
   std::uint64_t bytes = 0, capacity = 0;
   bool coherent = false;
+  VkMemoryPropertyFlags memoryFlags = 0;
   // Published storage is immutable and fence-complete. Serialize host cache
   // invalidations per allocation, without waiting on unrelated queue work.
   mutable std::mutex hostMutex;
@@ -221,7 +222,7 @@ bool consumeFailure(State &state, FailurePoint point) noexcept {
   return state.failure.compare_exchange_strong(point, FailurePoint::None);
 }
 std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<State> &state,
-                                                        std::uint64_t bytes) {
+                                                        std::uint64_t bytes, bool readback = false) {
   auto s = std::make_shared<Storage>();
   s->state = state;
   s->bytes = bytes;
@@ -234,7 +235,8 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
   if (s->capacity > state->properties.limits.maxStorageBufferRange)
     return std::unexpected(Error::Unsupported);
   info.size = s->capacity;
-  info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  info.usage = readback ? VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                        : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
   info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
   auto result = consumeFailure(*state, FailurePoint::BufferCreate)
                     ? VK_ERROR_OUT_OF_DEVICE_MEMORY
@@ -243,7 +245,7 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
     return std::unexpected(error(result));
   VkMemoryRequirements required;
   vulkanApi().vkGetBufferMemoryRequirements(state->device, s->buffer, &required);
-  const auto memoryType = mappedMemoryType(state->memory, required.memoryTypeBits);
+  const auto memoryType = mappedMemoryType(state->memory, required.memoryTypeBits, readback);
   if (memoryType == UINT32_MAX)
     return std::unexpected(Error::Unsupported);
   {
@@ -271,8 +273,8 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
                : vulkanApi().vkMapMemory(state->device, s->memory, 0, VK_WHOLE_SIZE, 0, &s->mapped);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
-  s->coherent =
-      state->memory.memoryTypes[memoryType].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+  s->memoryFlags = state->memory.memoryTypes[memoryType].propertyFlags;
+  s->coherent = s->memoryFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
   return s;
 }
 std::expected<void, Error> visibility(const Storage &s, bool flush) {
@@ -393,42 +395,13 @@ struct Dispatch {
       vulkanApi().vkFreeDescriptorSets(state.device, state.descriptors, 1, &descriptors);
   }
 };
-std::expected<void, Error> dispatch(State &state, Pipeline &p,
-                                    std::span<const std::shared_ptr<Storage>> buffers,
-                                    std::span<const std::uint32_t> push, std::uint32_t x,
-                                    std::uint32_t y) {
-  if (state.failed)
-    return std::unexpected(Error::Device);
-  if (x > state.properties.limits.maxComputeWorkGroupCount[0] ||
-      y > state.properties.limits.maxComputeWorkGroupCount[1])
-    return std::unexpected(Error::Unsupported);
-  Dispatch run{state};
-  VkDescriptorSetAllocateInfo set{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-  set.descriptorPool = state.descriptors;
-  set.descriptorSetCount = 1;
-  set.pSetLayouts = &p.descriptors;
-  auto status = consumeFailure(state, FailurePoint::DescriptorAllocate)
-                    ? VK_ERROR_OUT_OF_DEVICE_MEMORY
-                    : vulkanApi().vkAllocateDescriptorSets(state.device, &set, &run.descriptors);
-  if (status != VK_SUCCESS)
-    return std::unexpected(error(status));
-  std::vector<VkDescriptorBufferInfo> infos(buffers.size());
-  std::vector<VkWriteDescriptorSet> writes(buffers.size());
-  for (std::uint32_t i = 0; i < buffers.size(); ++i) {
-    infos[i] = {buffers[i]->buffer, 0, buffers[i]->capacity};
-    writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-    writes[i].dstSet = run.descriptors;
-    writes[i].dstBinding = i;
-    writes[i].descriptorCount = 1;
-    writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[i].pBufferInfo = &infos[i];
-  }
-  vulkanApi().vkUpdateDescriptorSets(state.device, writes.size(), writes.data(), 0, nullptr);
+std::expected<void, Error> beginDispatch(Dispatch &run) {
+  auto &state = run.state;
   VkCommandBufferAllocateInfo allocation{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
   allocation.commandPool = state.commands;
   allocation.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   allocation.commandBufferCount = 1;
-  status = consumeFailure(state, FailurePoint::CommandAllocate)
+  auto status = consumeFailure(state, FailurePoint::CommandAllocate)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
                : vulkanApi().vkAllocateCommandBuffers(state.device, &allocation, &run.command);
   if (status != VK_SUCCESS)
@@ -440,25 +413,11 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
                : vulkanApi().vkBeginCommandBuffer(run.command, &begin);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
-  VkMemoryBarrier before{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-  before.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-  before.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  vulkanApi().vkCmdPipelineBarrier(run.command,
-                       VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &before, 0, nullptr, 0, nullptr);
-  vulkanApi().vkCmdBindPipeline(run.command, VK_PIPELINE_BIND_POINT_COMPUTE, p.handle);
-  vulkanApi().vkCmdBindDescriptorSets(run.command, VK_PIPELINE_BIND_POINT_COMPUTE, p.layout, 0, 1,
-                          &run.descriptors, 0, nullptr);
-  if (!push.empty())
-    vulkanApi().vkCmdPushConstants(run.command, p.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push.size_bytes(),
-                       push.data());
-  vulkanApi().vkCmdDispatch(run.command, x, y, 1);
-  VkMemoryBarrier after{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-  after.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-  after.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
-  vulkanApi().vkCmdPipelineBarrier(run.command, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                       VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &after, 0, nullptr, 0, nullptr);
-  status = consumeFailure(state, FailurePoint::CommandEnd)
+  return {};
+}
+std::expected<void, Error> finishDispatch(Dispatch &run) {
+  auto &state = run.state;
+  auto status = consumeFailure(state, FailurePoint::CommandEnd)
                ? VK_ERROR_OUT_OF_DEVICE_MEMORY
                : vulkanApi().vkEndCommandBuffer(run.command);
   if (status != VK_SUCCESS)
@@ -490,6 +449,124 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
   }
   return {};
 }
+std::expected<void, Error> dispatch(State &state, Pipeline &p,
+                                    std::span<const std::shared_ptr<Storage>> buffers,
+                                    std::span<const std::uint32_t> push, std::uint32_t x,
+                                    std::uint32_t y) {
+  if (state.failed)
+    return std::unexpected(Error::Device);
+  if (x > state.properties.limits.maxComputeWorkGroupCount[0] ||
+      y > state.properties.limits.maxComputeWorkGroupCount[1])
+    return std::unexpected(Error::Unsupported);
+  Dispatch run{state};
+  VkDescriptorSetAllocateInfo set{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+  set.descriptorPool = state.descriptors;
+  set.descriptorSetCount = 1;
+  set.pSetLayouts = &p.descriptors;
+  auto status = consumeFailure(state, FailurePoint::DescriptorAllocate)
+                    ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+                    : vulkanApi().vkAllocateDescriptorSets(state.device, &set, &run.descriptors);
+  if (status != VK_SUCCESS)
+    return std::unexpected(error(status));
+  std::vector<VkDescriptorBufferInfo> infos(buffers.size());
+  std::vector<VkWriteDescriptorSet> writes(buffers.size());
+  for (std::uint32_t i = 0; i < buffers.size(); ++i) {
+    infos[i] = {buffers[i]->buffer, 0, buffers[i]->capacity};
+    writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    writes[i].dstSet = run.descriptors;
+    writes[i].dstBinding = i;
+    writes[i].descriptorCount = 1;
+    writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes[i].pBufferInfo = &infos[i];
+  }
+  vulkanApi().vkUpdateDescriptorSets(state.device, writes.size(), writes.data(), 0, nullptr);
+  auto begun = beginDispatch(run);
+  if (!begun)
+    return std::unexpected(begun.error());
+  VkMemoryBarrier before{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+  before.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+  before.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  vulkanApi().vkCmdPipelineBarrier(run.command,
+                       VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &before, 0, nullptr, 0, nullptr);
+  vulkanApi().vkCmdBindPipeline(run.command, VK_PIPELINE_BIND_POINT_COMPUTE, p.handle);
+  vulkanApi().vkCmdBindDescriptorSets(run.command, VK_PIPELINE_BIND_POINT_COMPUTE, p.layout, 0, 1,
+                          &run.descriptors, 0, nullptr);
+  if (!push.empty())
+    vulkanApi().vkCmdPushConstants(run.command, p.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push.size_bytes(),
+                       push.data());
+  vulkanApi().vkCmdDispatch(run.command, x, y, 1);
+  VkMemoryBarrier after{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+  after.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  after.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+  vulkanApi().vkCmdPipelineBarrier(run.command, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &after, 0, nullptr, 0, nullptr);
+  return finishDispatch(run);
+}
+// Called with queueMutex held. Owners and command resources remain alive until
+// the real fence completes, including the existing device-loss settlement path.
+std::expected<void, Error> copyStorage(State &state, const Storage &source, const Storage &target) {
+  Dispatch run{state};
+  auto begun = beginDispatch(run);
+  if (!begun)
+    return std::unexpected(begun.error());
+  VkMemoryBarrier before{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+  before.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+  before.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+  vulkanApi().vkCmdPipelineBarrier(run.command,
+      VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &before, 0, nullptr, 0, nullptr);
+  VkBufferCopy region{0, 0, source.capacity};
+  vulkanApi().vkCmdCopyBuffer(run.command, source.buffer, target.buffer, 1, &region);
+  VkMemoryBarrier after{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+  after.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  after.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+  vulkanApi().vkCmdPipelineBarrier(run.command, VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &after, 0, nullptr, 0, nullptr);
+  return finishDispatch(run);
+}
+std::expected<void, Error> readStorage(const std::shared_ptr<Storage> &source,
+                                      std::span<std::byte> output) {
+  auto &state = *source->state;
+  // Small/cached reads avoid an extra submission. Larger uncached mapped reads
+  // otherwise serialize thousands of CPU transactions across PCIe or uncached RAM.
+  if (output.size() >= 64 * 1024 &&
+      !(source->memoryFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) &&
+      mappedMemoryType(state.memory, UINT32_MAX, true) != UINT32_MAX) {
+    std::lock_guard queue(state.queueMutex);
+    if (state.failed)
+      return std::unexpected(Error::Device);
+    bool room;
+    {
+      std::lock_guard budget(state.budget->mutex);
+      room = source->capacity <= state.budget->maximum - state.budget->bytes;
+    }
+    if (room) {
+      auto staging = allocate(source->state, source->bytes, true);
+      if (staging) {
+        auto copied = copyStorage(state, *source, **staging);
+        if (!copied)
+          return std::unexpected(copied.error());
+        auto visible = visibility(**staging, false);
+        if (!visible)
+          return std::unexpected(visible.error());
+        std::memcpy(output.data(), (*staging)->mapped, output.size());
+        return {};
+      }
+      // Preserve transfers that fit the existing budget without staging. Other
+      // failures remain real errors rather than being hidden by an optimization.
+      if (staging.error() != Error::Budget && staging.error() != Error::Unsupported)
+        return std::unexpected(staging.error());
+    }
+  }
+  auto visible = visibility(*source, false);
+  if (!visible)
+    return std::unexpected(visible.error());
+  if (!output.empty())
+    std::memcpy(output.data(), source->mapped, output.size());
+  return {};
+}
+
 } // namespace
 struct KernelState {
   std::shared_ptr<State> state;
@@ -756,15 +833,12 @@ std::expected<std::vector<float>, Error> Runtime::download(const Buffer &buffer)
   try {
     if (!buffer.storage_ || buffer.storage_->state != state_ || buffer.bytes() % sizeof(float))
       return std::unexpected(Error::Invalid);
-    std::lock_guard lock(buffer.storage_->hostMutex);
     if (state_->failed)
       return std::unexpected(Error::Device);
-    auto visible = visibility(*buffer.storage_, false);
-    if (!visible)
-      return std::unexpected(visible.error());
     std::vector<float> result(buffer.bytes() / sizeof(float));
-    if (!result.empty())
-      std::memcpy(result.data(), buffer.storage_->mapped, buffer.bytes());
+    auto copied = readBytes(buffer, std::as_writable_bytes(std::span(result)));
+    if (!copied)
+      return std::unexpected(copied.error());
     return result;
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
@@ -918,17 +992,16 @@ std::expected<std::vector<std::byte>, Error> Runtime::downloadBytes(const Buffer
   }
 }
 std::expected<void, Error> Runtime::readBytes(const Buffer &buffer, std::span<std::byte> output) {
-  if (!buffer.storage_ || buffer.storage_->state != state_ || output.size() != buffer.bytes())
-    return std::unexpected(Error::Invalid);
-  std::lock_guard lock(buffer.storage_->hostMutex);
-  if (state_->failed)
-    return std::unexpected(Error::Device);
-  auto visible = visibility(*buffer.storage_, false);
-  if (!visible)
-    return std::unexpected(visible.error());
-  if (!output.empty())
-    std::memcpy(output.data(), buffer.storage_->mapped, output.size());
-  return {};
+  try {
+    if (!buffer.storage_ || buffer.storage_->state != state_ || output.size() != buffer.bytes())
+      return std::unexpected(Error::Invalid);
+    std::lock_guard lock(buffer.storage_->hostMutex);
+    if (state_->failed)
+      return std::unexpected(Error::Device);
+    return readStorage(buffer.storage_, output);
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
 }
 std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &path, const KernelContract *contract) {
   try {

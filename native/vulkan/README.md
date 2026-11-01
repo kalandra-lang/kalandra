@@ -479,10 +479,26 @@ Persistently mapped storage prefers compatible device-local memory, then
 coherence and host caching, with a deterministic host-visible fallback. Discrete
 GPUs with mappable VRAM therefore avoid repeatedly reading shader operands over
 PCIe. Devices without such memory retain the existing mapped host path;
-noncoherent allocations retain explicit flush/invalidate operations. This does
-not add a staging allocation, enlarge the byte budget or change cancellation,
-ownership or arithmetic policy. Allocation failure continues to fail within the
-normal checked path.
+noncoherent allocations retain explicit flush/invalidate operations. The arithmetic policy and byte limit are unchanged. Allocation failures remain
+checked errors.
+
+Downloads of at least 64 KiB from uncached mapped storage use an internal GPU
+copy into compatible cached host memory when the device supports it and the
+existing byte budget permits it. The temporary allocation is charged by its
+actual Vulkan memory requirement and retired after a real fence completes.
+Explicit transfer barriers and noncoherent cache invalidation precede the CPU
+read. Smaller or already cached buffers use direct mapped reads. When additional
+quota or compatible cached memory is unavailable, the original direct read still
+works; the optimization does not make a formerly valid near-budget transfer
+require a larger configured limit. Other allocation/submission failures retain
+the normal checked error and poisoned-device paths.
+
+Compute and readback reuse the same command/fence settlement path. The completion
+service performs the wait; TaskCore workers remain available. Cancellation and
+deadline precedence, acknowledgement-based ownership and device-loss cleanup
+remain unchanged. New tests cover large and unaligned byte tails, GPU-written
+results, concurrent reads, all ten copy failure points, exact host/device quota,
+and managed copy failure/cancellation/deadline races.
 Protected memory and AMD device-coherent memory are excluded because their
 optional device features are not enabled; see the
 [Vulkan allocation requirements](https://docs.vulkan.org/spec/latest/chapters/memory.html#VUID-vkAllocateMemory-deviceCoherentMemory-02790).

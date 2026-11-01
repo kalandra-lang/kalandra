@@ -126,10 +126,12 @@ int run(int argc, char **argv) {
           check(!v::hostBytes(forged), "host metadata cannot retype backing");
         }
     check(!runtime->retainedBytes(), "all transfer backing retired");
-    for (bool uploading : {false, true})
-      for (bool deadline : {false, true}) {
-        auto host = take(v::hostTensor(*runtime, NumericType::UInt8, std::array{std::byte{7}},
-                                       std::array<std::int64_t, 1>{1}),
+    for (auto length : {1u, 65537u})
+      for (bool uploading : {false, true})
+        for (bool deadline : {false, true}) {
+        const std::vector<std::byte> bytes(length, std::byte{7});
+        auto host = take(v::hostTensor(*runtime, NumericType::UInt8, bytes,
+                                       std::array<std::int64_t, 1>{length}),
                          "cancel snapshot");
         if (!uploading)
           host = transfer(*core, *async, host, true);
@@ -157,6 +159,65 @@ int run(int argc, char **argv) {
               "cancelled transfer retires backing");
       }
   }
+  bool stagedReadback = false;
+  {
+    const std::vector<std::byte> bytes(65536, std::byte{0x43});
+    auto source = take(runtime->uploadBytes(bytes), "staging capability source");
+    runtime->injectFailure(v::FailurePoint::CommandAllocate);
+    auto copied = runtime->downloadBytes(source);
+    runtime->injectFailure(v::FailurePoint::None);
+    stagedReadback = !copied && copied.error() == v::Error::Allocation;
+    check(stagedReadback || (copied && *copied == bytes), "staged or direct transfer capability");
+  }
+  // Large downloads exercise cached staging on the named hardware. An error
+  // held before acknowledgement must preserve TaskCore's cancellation precedence.
+  if (stagedReadback)
+  for (auto point : {v::FailurePoint::MemoryAllocate, v::FailurePoint::CommandEnd,
+                     v::FailurePoint::QueueSubmit, v::FailurePoint::FenceWait})
+    for (unsigned workers : {1u, 2u, 4u})
+      for (unsigned cancellation : {0u, 1u, 2u}) {
+        auto driver = take(v::Runtime::create({.validation = validation,
+            .deviceIndex = argc > 1 ? unsigned(std::strtoul(argv[1], nullptr, 10)) : 0}),
+            "staged transfer fault context");
+        auto core = TaskCore::create({.workers = workers});
+        std::shared_ptr<v::Runtime> shared(std::move(driver));
+        auto async = v::AsyncRuntime::create(shared);
+        check(core && async, "staged transfer fault services");
+        const std::vector<std::byte> bytes(1024 * 1024, std::byte{0x73});
+        v::TensorValue input{take(shared->uploadBytes(bytes), "staged fault input"),
+                            NumericType::UInt8, {std::uint64_t(bytes.size())}, 1};
+        auto group = core->openRoot();
+        Hold hold(*async);
+        shared->injectFailure(point);
+        auto task = async->transfer(*core, group, input, false);
+        input = {};
+        check(bool(task) && core->close(group), "staged transfer submitted");
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        while (!async->stats().held && std::chrono::steady_clock::now() < end) {
+          core->step();
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const bool held = async->stats().held == 1;
+        const auto retained = shared->retainedBytes();
+        const bool pending = core->stats().externalPending == 1 && !core->settled(group);
+        const bool cancelled = !cancellation || core->cancel(group, cancellation == 2);
+        const bool pinned = retained && shared->retainedBytes() == retained;
+        async->holdCompletions(false);
+        check(held && pending && cancelled && pinned, "readback fault remains acknowledged and owned");
+        check(core->drain(), "readback fault drained");
+        const auto kind = cancellation ? TaskFailure::Cancelled : TaskFailure::Fault;
+        const auto groupKind = cancellation == 2 ? TaskFailure::DeadlineExceeded : kind;
+        const auto failure = core->failure(task);
+        check(failure.kind == kind && core->failure(group).kind == groupKind,
+              "staged readback fault/cancellation/deadline precedence");
+        if (!cancellation)
+          check(failure.code == static_cast<std::int64_t>(
+                    point == v::FailurePoint::FenceWait ? v::Error::Device : v::Error::Allocation),
+                "staged copy fault code retained");
+        check(core->release(group) && !core->stats().records && !core->stats().externalPending &&
+              !async->stats().pending && !async->stats().captureBytes &&
+              !shared->retainedBytes() && !shared->validationErrors(), "readback failure ownership retired");
+      }
   descriptor<NumericType::Int8>(*runtime);
   descriptor<NumericType::UInt8>(*runtime);
   descriptor<NumericType::Int16>(*runtime);
@@ -167,6 +228,26 @@ int run(int argc, char **argv) {
   descriptor<NumericType::UInt64>(*runtime);
   descriptor<NumericType::Float32>(*runtime);
   descriptor<NumericType::Float64>(*runtime);
+  {
+    const std::vector<std::byte> bytes(65537, std::byte{0x29});
+    auto probe = take(runtime->uploadBytes(bytes), "budget size probe");
+    const auto maximum = runtime->retainedBytes() + bytes.size();
+    probe = {};
+    std::shared_ptr<v::Runtime> bounded = take(v::Runtime::create({.validation = validation,
+        .deviceIndex = argc > 1 ? unsigned(std::strtoul(argv[1], nullptr, 10)) : 0,
+        .maxBytes = maximum}), "managed staging budget");
+    auto core = TaskCore::create({.workers = 1});
+    auto async = v::AsyncRuntime::create(bounded);
+    check(core && async, "bounded transfer services");
+    {
+      v::TensorValue source{take(bounded->uploadBytes(bytes), "bounded GPU source"),
+                            NumericType::UInt8, {std::uint64_t(bytes.size())}, 1};
+      auto result = transfer(*core, *async, source, false);
+      check(std::ranges::equal(take(v::hostBytes(result), "bounded CPU result"), bytes) &&
+            bounded->retainedBytes() <= maximum, "valid managed transfer needs no extra staging quota");
+    }
+    check(!bounded->retainedBytes() && !bounded->validationErrors(), "bounded transfer ownership retired");
+  }
   auto small = take(v::Runtime::create(
                         {.validation = validation,
                          .deviceIndex = argc > 1 ? unsigned(std::strtoul(argv[1], nullptr, 10)) : 0,
@@ -214,8 +295,8 @@ int run(int argc, char **argv) {
           "host value survives device context teardown");
   }
   std::printf("PASS: typed CPU descriptors, managed explicit transfers, cancellation and combined "
-              "host/device quotas on %s\n",
-              runtime->device().name.c_str());
+              "host/device quotas on %s; staged readback fault/cancel/deadline cases=%u\n",
+              runtime->device().name.c_str(), stagedReadback ? 36u : 0u);
   return 0;
 }
 } // namespace

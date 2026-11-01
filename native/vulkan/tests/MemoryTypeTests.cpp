@@ -22,6 +22,9 @@ int main() {
   check(mappedMemoryType(memory, 0) == UINT32_MAX);
   check(mappedMemoryType(memory, 1) == UINT32_MAX);
   check(mappedMemoryType(memory, UINT32_MAX) == 3); // Stable tie.
+  check(mappedMemoryType(memory, UINT32_MAX, true) == 2);
+  check(mappedMemoryType(memory, 3, true) == UINT32_MAX);
+  check(mappedMemoryType(memory, 0x10, true) == 4);
   check(mappedMemoryType(memory, 7) == 2); // Host fallback prefers cached.
   check(mappedMemoryType(memory, 3) == 1);
   check(mappedMemoryType(memory, 0x14) == 4); // Noncoherent VRAM is usable.
