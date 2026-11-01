@@ -2,6 +2,7 @@
 #include "VulkanBuildConfig.h"
 #include "BuiltinShaders.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/FileSystem.h"
 #include <fstream>
 #include <stdexcept>
 #include <vector>
@@ -12,6 +13,43 @@ void run(std::vector<std::string> command) {
   std::string error;
   if (llvm::sys::ExecuteAndWait(command[0], arguments, {}, {}, 0, 0, &error))
     throw std::runtime_error("Vulkan build stage failed: " + command[0] + " " + error);
+}
+#ifdef KALANDRA_INSTALLED_COMPILER
+std::filesystem::path resourceRoot() {
+  static int anchor;
+  const auto raw = llvm::sys::fs::getMainExecutable(nullptr, &anchor);
+  std::error_code error;
+  auto executable = std::filesystem::canonical(std::filesystem::path(std::u8string(raw.begin(), raw.end())), error);
+  if (error)
+    throw std::runtime_error("cannot locate installed Vulkan compiler executable");
+  return executable.parent_path() / KALANDRA_RUNTIME_RELATIVE_DIR;
+}
+#endif
+std::string tool(const char *configured, const char *name) {
+#ifdef KALANDRA_INSTALLED_COMPILER
+  (void)configured;
+  auto path = (resourceRoot() / "../../../libexec/kalandra" / name).lexically_normal();
+  if (!std::filesystem::is_regular_file(path))
+    throw std::runtime_error("bundled Vulkan tool is missing: " + path.string());
+  return path.string();
+#else
+  (void)name;
+  return configured;
+#endif
+}
+std::string resource(const char *configured, const char *headers = nullptr) {
+#ifdef KALANDRA_INSTALLED_COMPILER
+  auto path = resourceRoot() / (headers ? std::filesystem::path(headers)
+                                      : std::filesystem::path(configured).filename());
+  const bool present = headers ? std::filesystem::is_directory(path)
+                               : std::filesystem::is_regular_file(path);
+  if (!present)
+    throw std::runtime_error("installed Vulkan resource is missing: " + path.string());
+  return path.string();
+#else
+  (void)headers;
+  return configured;
+#endif
 }
 void transform(const std::filesystem::path &path, const std::string &contents) {
   constexpr std::string_view header = "kalandra-vulkan-transform-v1\nkind=";
@@ -38,6 +76,20 @@ void buildVulkanProgram(const std::filesystem::path &directory,
                         const std::map<std::string, std::string> &outputs,
                         const std::string &variant, kalandra::ArithmeticMode arithmetic,
                         kalandra::MatmulPolicy matmul) {
+  const auto lower = tool(KALANDRA_VULKAN_LOWER, "kalandra-vulkan-lower" KALANDRA_VULKAN_EXE_SUFFIX);
+  const auto opt = tool(KALANDRA_VULKAN_OPT, "mlir-opt" KALANDRA_VULKAN_EXE_SUFFIX);
+  const auto extract = tool(KALANDRA_VULKAN_EXTRACT, "kalandra-vulkan-extract" KALANDRA_VULKAN_EXE_SUFFIX);
+  const auto translate = tool(KALANDRA_VULKAN_TRANSLATE, "mlir-translate" KALANDRA_VULKAN_EXE_SUFFIX);
+  const auto validate = tool(KALANDRA_VULKAN_VALIDATE, "spirv-val" KALANDRA_VULKAN_EXE_SUFFIX);
+  const auto clang = tool(KALANDRA_VULKAN_CLANG, "clang++" KALANDRA_VULKAN_EXE_SUFFIX);
+  std::vector<std::string> resourceFlags;
+#ifdef KALANDRA_INSTALLED_COMPILER
+  const auto clangResources = resourceRoot().parent_path() / "toolchain/clang";
+  if (!std::filesystem::is_directory(clangResources / "include") ||
+      !std::filesystem::is_directory(clangResources / "lib"))
+    throw std::runtime_error("bundled Vulkan Clang resources are missing");
+  resourceFlags.push_back("-resource-dir=" + clangResources.string());
+#endif
   for (const auto &[name, contents] : outputs) {
     if (name.ends_with(".vulkan-transform")) {
       auto target = directory / name;
@@ -47,14 +99,14 @@ void buildVulkanProgram(const std::filesystem::path &directory,
       auto target = directory / name;
       target.replace_extension();
       const auto compile = [&](const std::string &base, const char *policy) {
-        run({KALANDRA_VULKAN_LOWER, (directory / name).string(), base + ".lowered.mlir", policy});
-        run({KALANDRA_VULKAN_OPT, base + ".lowered.mlir", "--verify-each",
+        run({lower, (directory / name).string(), base + ".lowered.mlir", policy});
+        run({opt, base + ".lowered.mlir", "--verify-each",
              "--pass-pipeline=builtin.module(canonicalize,cse,convert-gpu-to-spirv,spirv.module(spirv-lower-abi-attrs,spirv-update-vce))",
              "-o", base + ".converted.mlir"});
-        run({KALANDRA_VULKAN_EXTRACT, base + ".converted.mlir", base + ".kernel.mlir"});
-        run({KALANDRA_VULKAN_TRANSLATE, "--no-implicit-module", "--serialize-spirv",
+        run({extract, base + ".converted.mlir", base + ".kernel.mlir"});
+        run({translate, "--no-implicit-module", "--serialize-spirv",
              base + ".kernel.mlir", "-o", base + ".spv"});
-        run({KALANDRA_VULKAN_VALIDATE, "--target-env", "vulkan1.0", base + ".spv"});
+        run({validate, "--target-env", "vulkan1.0", base + ".spv"});
       };
       compile(target.string(), arithmetic == kalandra::ArithmeticMode::Software ? "software" : "hardware");
       if (arithmetic == kalandra::ArithmeticMode::HardwareWithSoftwareFallback)
@@ -84,16 +136,19 @@ void buildVulkanProgram(const std::filesystem::path &directory,
       : std::vector<std::string>{};
   const auto compile = [&](std::vector<std::string> command) {
     command.insert(command.end(), sanitizerFlags.begin(), sanitizerFlags.end());
+    command.insert(command.end(), resourceFlags.begin(), resourceFlags.end());
     run(std::move(command));
   };
-  std::vector<std::string> link{KALANDRA_VULKAN_CLANG};
+  std::vector<std::string> link{clang};
+  link.insert(link.end(), resourceFlags.begin(), resourceFlags.end());
   if (outputs.contains("cpu.ll")) {
-    compile({KALANDRA_VULKAN_CLANG, optimization, "-c", (directory / "cpu.ll").string(),
+    compile({clang, optimization, "-c", (directory / "cpu.ll").string(),
          "-o", (directory / "cpu.o").string()});
     link.push_back((directory / "cpu.o").string());
   }
-  compile({KALANDRA_VULKAN_CLANG, "-std=c++23", optimization, "-Wall", "-Wextra", "-Werror",
-       "-I" KALANDRA_VULKAN_INCLUDE, "-I" KALANDRA_VULKAN_PUBLIC_INCLUDE,
+  compile({clang, "-std=c++23", optimization, "-Wall", "-Wextra", "-Werror",
+       "-I" + resource(KALANDRA_VULKAN_INCLUDE, "headers/vulkan"),
+       "-I" + resource(KALANDRA_VULKAN_PUBLIC_INCLUDE, "headers/include"),
        "-c", (directory / "host.cpp").string(), "-o", (directory / "host.o").string()});
   link.push_back((directory / "host.o").string());
   const std::vector<std::string> normalLibraries{KALANDRA_VULKAN_LANGUAGE, KALANDRA_VULKAN_ASYNC,
@@ -109,7 +164,8 @@ void buildVulkanProgram(const std::filesystem::path &directory,
     throw std::runtime_error("Vulkan sanitizer runtime unavailable");
   const auto &libraries = normalLibraries;
 #endif
-  link.insert(link.end(), libraries.begin(), libraries.end());
+  for (const auto &library : libraries)
+    link.push_back(resource(library.c_str()));
   for (const auto *library : kalandraVulkanHostLibraries)
     if (library) link.emplace_back(library);
   link.insert(link.end(), sanitizerFlags.begin(), sanitizerFlags.end());

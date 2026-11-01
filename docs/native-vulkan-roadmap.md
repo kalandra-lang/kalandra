@@ -651,3 +651,38 @@ schema metadata; GCC 16/Clang had passed. Loaded kernels now construct their
 schema directly. Warnings remain errors; the rejected log is retained. Both
 physical matrix/admission corpora and the Clang compiler build pass this change;
 exact new-head hosted qualification remains required.
+
+### Installed Vulkan package candidate (qualification pending)
+
+A separately compiled `kalandra-vulkan-installed` driver resolves its adjacent
+private tools, Clang resource directory, host headers and runtime archives. There
+is no installed fallback to configured build-tree resources or ambient PATH.
+The optional NativeVulkanCompiler component retains CPU compilation, adds owned
+lower/extract/mlir-opt/mlir-translate/spirv-val tools and preserves ggml/validator
+notices. The ELF bundler audits the additional private tools, retains the original
+validator digest and records its final digest after RPATH relocation. No Vulkan
+loader/driver/system SDK library is redistributed. System C++ development
+headers/runtime remain required, as a platform SDK is required for Metal.
+
+The development-profile driver compiles with system Clang 23.1.4; its installation
+guard remains unchanged and no local installation/staging was performed. The
+refactored development path passes another 15 builds/90 physical executions and
+six negative/output protections. The unchanged CPU archive's macOS install/
+relocation regression passes after the optional packager extension.
+
+Production-pinned CI will build and stage the candidate, audit its ELF closure,
+compile after Unicode/space relocation, run a native CPU program and missing-
+loader application checks, remove seven owned resources individually to prove
+failure without build-tree fallback, and compare two archive digests from the
+same frozen build. This is an implementation awaiting those gates, not qualified
+installed GPU distribution. The resulting draft artifact must then be downloaded
+into the isolated Linux project for physical GPU recompilation/execution.
+Windows/ARM platform packages and integration with the five CPU target-runtime
+packs remain separate qualification work; no readiness/release claim is made.
+
+The shared Metal/Vulkan compiler explicitly restricts GPU row math to native
+float32. Float64/software softmax/RMS are rejected by the shared source contract
+on both backends; adding them is not needed to match current Metal support.
+Current committed loader/matrix head 6fe71632 passes all three hosted Vulkan jobs,
+including production-pinned source compilation. Broader CPU/platform workflows
+are still queued/running and must be audited at the eventual current head.

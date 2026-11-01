@@ -57,7 +57,7 @@ jobs:
       # Never silently substitute lavapipe for that acceptance evidence.
   source-compiler:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -72,7 +72,7 @@ jobs:
       - name: Install hosted compiler prerequisites
         run: |
           sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
-          sudo apt-get install -y cmake ninja-build libtomlplusplus-dev libvulkan-dev glslc spirv-tools zlib1g-dev libzstd-dev libxml2-dev
+          sudo apt-get install -y cmake ninja-build libtomlplusplus-dev libvulkan-dev glslc spirv-tools zlib1g-dev libzstd-dev libxml2-dev patchelf
       - name: Configure private Vulkan source qualification
         run: >-
           cmake -S . -B build/vulkan-source -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -100,6 +100,24 @@ jobs:
           python3 native/vulkan/qualification/public_sanitizers.py --compile-only
           --compiler build/vulkan-source/native/kalandra
           --output build/vulkan-artifacts/public-sanitizers
+      - name: Build production-pinned relocatable Vulkan package
+        run: cmake --build build/vulkan-source --parallel 2 --target native-vulkan-standalone-package
+      - name: Qualify installed compiler and missing-resource isolation
+        run: >-
+          python3 native/vulkan/qualification/installed.py
+          --archive build/vulkan-source/native-vulkan-standalone/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz
+          --root build/vulkan-installed-qualification
+      - name: Recheck deterministic archive output from the frozen build
+        run: |
+          cp build/vulkan-source/native-vulkan-standalone/*.tar.gz.sha256 "$RUNNER_TEMP/vulkan-first.sha256"
+          cmake --build build/vulkan-source --parallel 2 --target native-vulkan-standalone-package
+          cmp "$RUNNER_TEMP/vulkan-first.sha256" build/vulkan-source/native-vulkan-standalone/*.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-vulkan-package-linux-x86_64
+          path: build/vulkan-source/native-vulkan-standalone/*.tar.gz*
+          if-no-files-found: error
+          retention-days: 7
       - name: Compile and audit all-pair conversion policy artifacts
         run: >-
           python3 native/vulkan/qualification/conversion_kernels.py

@@ -108,6 +108,14 @@ def audit(prefix):
 def bundle(prefix, llvm, cross_linkers=False):
     prefix, llvm = prefix.resolve(), llvm.resolve()
     machine = expected_machine(prefix)
+    vulkan_metadata = prefix / "share/kalandra-native-vulkan/toolchain.json"
+    vulkan_info = None
+    if vulkan_metadata.is_file():
+        vulkan_info = json.loads(vulkan_metadata.read_text())
+        validator = prefix / "libexec/kalandra/spirv-val"
+        if digest(validator) != vulkan_info["validatorSourceSHA256"]:
+            raise RuntimeError("Staged SPIR-V validator differs from its recorded source")
+
     library = prefix / "lib/kalandra/toolchain/lib"
     library.mkdir(parents=True)
     licenses = prefix / "share/licenses/kalandra-toolchain"
@@ -123,6 +131,9 @@ def bundle(prefix, llvm, cross_linkers=False):
     resource_copy = library.parent / "clang"
     shutil.copytree(resources, resource_copy)
     queue = [(p, p) for p in (prefix / "bin").iterdir() if elf(p)] + [(clang, destination)]
+    # Optional GPU components stage their owned lowering/validation tools here.
+    # CPU-only packages still contain just Clang at this point; their closure is unchanged.
+    queue += [(p, p) for p in destination.parent.iterdir() if p != destination and elf(p)]
     queue += [(p, resource_copy / p.relative_to(resources)) for p in resources.rglob("*") if elf(p)]
     if cross_linkers:
         queue.extend(stage_cross_linkers(prefix, llvm))
@@ -164,6 +175,9 @@ def bundle(prefix, llvm, cross_linkers=False):
     info.update({"llvmRuntime": "bundled", "standalone": True, "minimumLinux": "Ubuntu 24.04 / glibc 2.39",
                  "platformRuntime": ["glibc", "libstdc++", "libgcc_s"], "libraries": sorted(metadata, key=lambda x: x["name"])})
     metadata_path.write_text(json.dumps(info, indent=2) + "\n")
+    if vulkan_info is not None:
+        vulkan_info["validatorBundledSHA256"] = digest(validator)
+        vulkan_metadata.write_text(json.dumps(vulkan_info, indent=2) + "\n")
     print(f"ELF closure audited: {len(visited)} objects, {len(metadata)} bundled libraries", flush=True)
 
 
