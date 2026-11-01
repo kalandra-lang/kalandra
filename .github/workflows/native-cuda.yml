@@ -132,4 +132,3 @@ jobs:
           path: bundled-assets/*.tar.gz*
           if-no-files-found: error
           retention-days: 7
-

@@ -59,6 +59,7 @@ if(KALANDRA_BUILD_CUDA_RUNTIME AND NOT KALANDRA_CUDA_SANITIZERS)
   string(APPEND _cuda_config "inline const char kalandraCudaNotice[] = R\"notice(CUDA device programs use project-owned algorithms and standard compiler scalar math. No CUDA SDK libraries are included.\nOptional optimized SGEMM: Simon Boehm SGEMM_CUDA 5a7dcc513d951ba764d51bc9d587b3163f3a894d\n${_cuda_mit_notice})notice\";\n")
   file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/CudaBuildConfig.h" CONTENT "${_cuda_config}")
   add_library(kalandra-cuda-source-backend STATIC Command.cpp Build.cpp)
+  target_include_directories(kalandra-cuda-source-backend SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_include_directories(kalandra-cuda-source-backend PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
   target_link_libraries(kalandra-cuda-source-backend PUBLIC kalandra-semantics PRIVATE
     kalandra-gpu-supervisor kalandra-packages kalandra-backend LLVM MLIR)

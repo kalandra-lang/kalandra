@@ -19,7 +19,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--gpu', action='store_true')
-parser.add_argument('--gpu-backend', choices=('metal', 'vulkan'), default='metal')
+parser.add_argument('--gpu-backend', choices=('metal', 'vulkan', 'cuda'), default='metal')
 parser.add_argument('--tools', type=Path, default=ROOT / 'build/native/native')
 parser.add_argument('--report', type=Path)
 args = parser.parse_args()
@@ -146,7 +146,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
             # policy examples and later programs cannot silently escape checks.
             program = max((item for item in items if item[0] == page and item[2] < block_index),
                           key=lambda item: item[2])
-            backend = 'vulkan' if '--target vulkan' in source else 'metal'
+            backend = next((name for name in ('vulkan', 'cuda') if '--target '+name in source), 'metal')
             if args.gpu and args.gpu_backend == backend:
                 shell(page, shell_index, BASE / page / str(program[1]), program[4]['expected'])
             else:
