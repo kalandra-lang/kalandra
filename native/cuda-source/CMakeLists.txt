@@ -53,12 +53,18 @@ if(KALANDRA_BUILD_CUDA_RUNTIME AND NOT KALANDRA_CUDA_SANITIZERS)
       "LANGUAGE|$<TARGET_FILE:kalandra-cuda-language>"
       "PROGRAM|$<TARGET_FILE:kalandra-cuda-program>"
       "DRIVER|$<TARGET_FILE:kalandra-cuda>"
-      "CORE|$<TARGET_FILE:kalandra-native-runtime>")
+      "CORE|$<TARGET_FILE:kalandra-native-runtime>"
+      "EXE_SUFFIX|${CMAKE_EXECUTABLE_SUFFIX}")
     string(REPLACE "|" ";" _fields "${_pair}")
     list(GET _fields 0 _name)
     list(GET _fields 1 _value)
     string(APPEND _cuda_config "#define KALANDRA_CUDA_${_name} R\"cfg(${_value})cfg\"\n")
   endforeach()
+  string(APPEND _cuda_config "inline const char *const kalandraCudaHostLibraries[] = {")
+  foreach(_library IN LISTS CMAKE_DL_LIBS)
+    string(APPEND _cuda_config "\"-l${_library}\",")
+  endforeach()
+  string(APPEND _cuda_config "nullptr};\n")
   file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../cuda/third_party/sgemm-cuda/LICENSE" _cuda_mit_notice)
   file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../cuda/third_party/cutlass/LICENSE" _cuda_bsd_notice)
   string(APPEND _cuda_config "inline const char kalandraCudaNotice[] = R\"notice(CUDA device programs use project-owned algorithms and standard compiler scalar math. No CUDA SDK libraries are included.\nOptional optimized SGEMM: Simon Boehm SGEMM_CUDA 5a7dcc513d951ba764d51bc9d587b3163f3a894d\n${_cuda_mit_notice}\nOptional optimized split-K SGEMM: CUTLASS C++ headers 2c85f497547eb441f0fe80bfb0fb2e6f9add1719\n${_cuda_bsd_notice})notice\";\n")

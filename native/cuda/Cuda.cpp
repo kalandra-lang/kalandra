@@ -1,4 +1,4 @@
-#include "Cuda.h"
+#include "CudaRuntime.h"
 #include "DriverLibrary.h"
 #include "kalandra/CudaArtifact.h"
 #include "kalandra/CudaMatmul.h"

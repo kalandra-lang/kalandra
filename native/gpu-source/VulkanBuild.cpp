@@ -129,6 +129,9 @@ void buildVulkanProgram(const std::filesystem::path &directory,
       }
     }
   }
+#ifdef _WIN32
+  resourceFlags.emplace_back("-fms-runtime-lib=static");
+#endif
   const bool sanitized = variant == "sanitized";
   const auto optimization = sanitized ? "-O1" : variant == "optimized" ? "-O2" : "-O0";
   const std::vector<std::string> sanitizerFlags = sanitized

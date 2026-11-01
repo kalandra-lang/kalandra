@@ -13,7 +13,7 @@ a=p.parse_args()
 repo=Path(__file__).resolve().parents[3];source=repo/'native'/a.backend
 out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
 cxx=a.llvm_root/'bin/clang++.exe';readobj=a.llvm_root/'bin/llvm-readobj.exe'
-flags=['-std=c++23','-O2','-fms-runtime-lib=static','-DNOMINMAX','-Wall','-Wextra','-Werror',
+flags=['-std=c++23','-O2','-fms-runtime-lib=static','-DNOMINMAX','-D_CRT_SECURE_NO_WARNINGS','-Wall','-Wextra','-Werror',
        '-Wno-missing-field-initializers','-I'+str(source),'-I'+str(repo/'native/include'),'-isystem'+str(a.headers)]
 def run(command,**kwargs):return subprocess.run(list(map(str,command)),check=True,timeout=240,**kwargs)
 objects=['Cuda','Program','TensorBridge','Async','Language'] if a.backend=='cuda' else ['Vulkan','VulkanLoader','SpirvInterface','Program','TensorBridge','Async','Language']
