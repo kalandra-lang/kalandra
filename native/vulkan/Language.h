@@ -35,6 +35,9 @@ public:
   bool usesTiledMatmul() const noexcept { return schema_.kernel.tiledMatmul(); }
 
 private:
+  Kernel(ProgramKernel schema, bool softwareFallback, Device device, NumericInstructionKind kind)
+      : schema_(std::move(schema)), softwareFallback_(softwareFallback),
+        device_(std::move(device)), kind_(kind) {}
   ProgramKernel schema_{};
   bool softwareFallback_ = false;
   Device device_;

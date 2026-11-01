@@ -186,12 +186,7 @@ std::expected<Kernel, Error> Runtime::load(std::string_view path, Device device,
         return std::unexpected(transpose.error());
       schema.matmulTranspose = std::move(*transpose);
     }
-    Kernel result;
-    result.schema_ = std::move(schema);
-    result.softwareFallback_ = softwareFallback;
-    result.device_ = std::move(device);
-    result.kind_ = kind;
-    return result;
+    return Kernel(std::move(schema), softwareFallback, std::move(device), kind);
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
   } catch (const std::filesystem::filesystem_error &) {
