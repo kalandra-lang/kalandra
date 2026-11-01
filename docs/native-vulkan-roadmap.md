@@ -18,7 +18,14 @@ The user owns system software installation: do not install packages, drivers, SD
 
 ## Current status
 
-Draft implementation. The opt-in development CLI is available; installed release packages remain unfinished. Keep the PR draft until the complete source-to-device path and the acceptance criteria in #263 are qualified.
+The complete Linux x86-64 source-to-device path and production-pinned installed
+archive are qualified on NVIDIA RTX 5090 and Intel ARL, including all five CPU
+target-runtime datasets. Version-tag release collection and downloaded-package
+gates are implemented; no Vulkan release has been published. Review remains
+gated on the final revision's hosted checks. Windows x86-64/ARM64 has runtime
+build/admission coverage only, with no installed Windows compiler or physical
+Windows GPU execution claim. The chronological records below retain rejected
+experiments and describe the state at each earlier checkpoint.
 
 ## 2026-11-01: first runtime slice
 
@@ -45,7 +52,7 @@ The draft status is not lifted by a successful primitive or kernel-only probe.
 - [x] Transpose, ReLU, softmaxRows and rmsNormRows with existing numerical/fault contracts.
 - [x] Real hardware feature admission and explicit arithmetic fallback, comprehensive independent numerical oracles and same-source Metal parity fixtures.
 - [x] Allocation/submission/completion fault injection, concurrent ownership/resource bounds and ASan/UBSan/TSan qualification with external loader findings resolved or precisely attributed.
-- [ ] Relocatable CLI/distributions, editor/docs/install updates, reproducible hosted checks and complete user applications.
+- [x] Linux x86-64 relocatable CLI/distributions, editor/docs/install updates, reproducible hosted packaging and complete physical user applications. Final-revision CI remains a review gate; Windows installed/compiler GPU qualification is outside this qualified platform matrix.
 
 ### Linux development compiler
 

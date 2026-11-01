@@ -2,8 +2,11 @@
 
 This is an experimental opt-in backend, not a released Vulkan compiler package.
 The development compiler and a production-pinned Linux archive candidate accept
-`--target vulkan`. The archive passes physical relocation checks; combined CPU
-target-runtime packages and the full platform matrix still require qualification. See [implementation plan](../../docs/native-vulkan-roadmap.md) and #263.
+`--target vulkan`. The Linux x86-64 archive, including all five CPU target-runtime
+packs, passes installed application and relocation checks on NVIDIA RTX 5090 and
+Intel ARL. Windows runtime builds pass on x86-64 and ARM64; installed Windows
+compiler and physical Windows GPU execution are not qualified. See
+[implementation plan](../../docs/native-vulkan-roadmap.md) and #263.
 
 With an already configured root build using `KALANDRA_BUILD_VULKAN_RUNTIME=ON`:
 
@@ -404,7 +407,9 @@ function pointers. Individual instances/devices/ICDs still retire normally.
 Negative tests cover concurrent first use, missing/incomplete loaders and ELF
 imports without needing a GPU. This removes the SDK loader link dependency from
 applications; configured compiler tools/C++ development headers and installed
-GPU drivers are still required. Installed one-download packages remain pending.
+GPU drivers are still required. The qualified Linux archive owns its compiler,
+GPU resources and all five CPU runtime datasets; it is not yet published in a
+GitHub release.
 
 
 ## Combined CPU target runtimes
@@ -427,8 +432,9 @@ targets, macOS 26 minimum and the host's private cross linkers. It rejects stale
 runtime packs rather than mixing versions. CPU destinations retain their usual
 external development-library requirements; this does not cross-compile GPU code.
 PR qualification waits for same-revision CPU runtime data, assembles twice and
-rechecks the combined installed compiler. That gate remains pending until its
-current-head workflow completes.
+rechecks the combined installed compiler. A passing same-revision workflow is
+required for review; version-tag publication separately collects that exact
+tag's qualified archive and attaches the release's own runtime data.
 
 
 ## Windows build qualification
