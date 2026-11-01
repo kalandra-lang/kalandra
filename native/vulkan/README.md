@@ -444,3 +444,30 @@ must have no Vulkan PE import.
 This matrix does not execute GPU instructions or qualify the installed Windows
 Vulkan compiler. A successful build must not be described as Windows device
 coverage. Its exact current-head result remains pending.
+
+
+## Complete public source capability parity
+
+`qualification/shared_capabilities.py` reads the actual public Metal capability
+matrix and compiles all 66 supported source fixtures through the selected full
+compiler. Explicit software arithmetic fixes the numerical contract for this
+comparison. Physical Metal reference results match NVIDIA and Intel Vulkan at
+workers 1/2/4 (594 comparison executions), covering indirect/high-arity calls,
+module forwarding, nested groups, recovery and all advertised graph controls.
+Separate APFloat/APInt, IEEE and bounded row-math tests remain the independent
+numerical oracles; backend agreement alone is not an arithmetic proof.
+
+This full-source gate exposed an identity-function gap missed by the generated
+numerical tests: the Vulkan program builder rejected a resident return value
+when it needed no arithmetic stage. The builder now emits the existing bounded,
+bit-preserving copy stage without inventing arithmetic or requiring native FP64.
+Twenty complete hardware/software identity tasks pass 120 executions on both
+GPUs. A separate corpus verifies 811,168 raw input/output bit patterns across all
+ten types and both policies/devices, including NaNs, signed zeros, subnormals,
+empty buffers and packed tails, with Float64 disabled on the actual VkDevice.
+Input immutability, retirement and validation checks remain active.
+
+Hosted checks compile these fixtures without substituting a software GPU. The
+Metal frontend diagnostics and original shader artifact regression pass after
+the shared builder change. Windows x86-64/ARM64 runtime-object and admission tests
+also pass at 88a9f58c; physical Windows GPU execution remains unqualified.

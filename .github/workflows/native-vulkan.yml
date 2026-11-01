@@ -93,6 +93,16 @@ jobs:
           python3 native/vulkan/qualification/public_cli.py --compile-only
           --compiler build/vulkan-source/native/kalandra
           --output build/vulkan-artifacts/public-cli
+      - name: Compile every shared public Metal capability fixture through Vulkan
+        run: >-
+          python3 native/vulkan/qualification/shared_capabilities.py --backend vulkan --compile-only
+          --compiler build/vulkan-source/native/kalandra
+          --output build/vulkan-artifacts/shared-capabilities
+      - name: Compile all ten identity types without requiring floating arithmetic
+        run: >-
+          python3 native/vulkan/qualification/identity_sources.py
+          --compiler build/vulkan-source/native/kalandra
+          --output build/vulkan-artifacts/identity
       - name: Verify generated application fails closed without a usable loader
         run: >-
           python3 native/vulkan/tests/loader.py

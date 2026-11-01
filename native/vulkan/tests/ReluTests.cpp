@@ -29,11 +29,21 @@ std::uint64_t reference(NumericType type, std::uint64_t bits) {
   return value.isNegative() && !value.isNaN() ? 0 : bits;
 }
 int run(int argc, char **argv) {
-  if (argc < 2 || argc > 4)
+  if (argc < 2 || argc > 5)
     return 2;
   // ReLU is a sign/selection operation. Even float64 storage must not require
   // float64 arithmetic capability or select an emulated arithmetic pipeline.
-  const bool validation = argc < 4 || std::string_view(argv[3]) != "--no-validation";
+  bool validation = true, identity = false;
+  for (int i = 3; i < argc; ++i) {
+    const std::string_view flag(argv[i]);
+    if (flag == "--identity" && !identity)
+      identity = true;
+    else if (flag == "--no-validation" && validation)
+      validation = false;
+    else
+      return 2;
+  }
+  const char *operation = identity ? "identity" : "ReLU";
   auto runtime = take(
       Runtime::create({.validation = validation,
                        .deviceIndex = argc >= 3 ? unsigned(std::strtoul(argv[2], nullptr, 10)) : 0,
@@ -62,10 +72,11 @@ int run(int argc, char **argv) {
       for (std::size_t i = 0; i < batch.size(); ++i) {
         std::uint64_t actual = 0;
         std::memcpy(&actual, output.data() + i * type.bytes(), type.bytes());
-        if (actual != reference(type.type, batch[i])) {
-          std::fprintf(stderr, "%.*s ReLU input=%016llx output=%016llx\n", int(type.name.size()),
-                       type.name.data(), (unsigned long long)batch[i], (unsigned long long)actual);
-          throw std::runtime_error("ReLU bitwise payload/sign contract");
+        if (actual != (identity ? batch[i] : reference(type.type, batch[i]))) {
+          std::fprintf(stderr, "%.*s %s input=%016llx output=%016llx\n", int(type.name.size()),
+                       type.name.data(), operation, (unsigned long long)batch[i],
+                       (unsigned long long)actual);
+          throw std::runtime_error("bitwise unary payload/sign contract");
         }
         ++checks;
       }
@@ -78,13 +89,13 @@ int run(int argc, char **argv) {
     for (std::size_t count : {1u, 63u, 65u, 129u})
       execute(std::span(values).first(count));
     check(!runtime->retainedBytes(), "ReLU ownership retired");
-    std::printf("PASS: %.*s ReLU bitwise corpus/empty/tails\n", int(type.name.size()),
-                type.name.data());
+    std::printf("PASS: %.*s %s bitwise corpus/empty/tails\n", int(type.name.size()),
+                type.name.data(), operation);
     std::fflush(stdout);
   }
   check(!runtime->validationErrors(), "zero ReLU validation errors");
-  std::printf("PASS: %llu bitwise ReLU cells without Float64 feature on %s\n",
-              (unsigned long long)checks, runtime->device().name.c_str());
+  std::printf("PASS: %llu bitwise %s cells without Float64 feature on %s\n",
+              (unsigned long long)checks, operation, runtime->device().name.c_str());
   return 0;
 }
 } // namespace

@@ -820,3 +820,36 @@ The user-facing arithmetic description also states the existing fallback
 boundary precisely: the selected companion replaces float64 arithmetic for a
 whole kernel, retaining native float32. Kernels without unsupported division
 remain native; per-instruction fallback selection is not claimed.
+
+
+### Full public source parity and resident identity repair
+
+The full public capability matrix has 66 supported source fixtures. All run on
+physical Metal under explicit software arithmetic at workers 1/2/4. Comparing
+those outputs through the complete Vulkan compiler finds a real omission:
+matrix-elementwise.k's resident identity helper is rejected with G001 because
+the generic numerical builder had no device stage. The existing classic Metal
+path accepts it. The failed compilation is retained in shared-capabilities-build.log.
+
+The shared builder now materializes that resident result using its normal map
+copy stage only when the program would otherwise have no kernels. It retains
+the original expression/type, ordinary output allocation, capture ownership,
+shape checks, quota and cancellation path. No fake arithmetic is inserted and
+there is no precision policy relaxation. Metal frontend diagnostic and original
+artifact checks pass after rebuilding the shared compiler.
+
+All 66 fixtures now match the Metal reference on explicitly selected NVIDIA and
+Intel ICDs at workers 1/2/4: 594 primary comparison executions across three
+backends. Initial/default-device replays remain separate controls. The comparison
+uses software arithmetic and supplements independent numerical proofs.
+Twenty additional complete identity tasks (hardware/software, all ten types)
+pass 120 source executions. Independent raw copy tests pass 202,792 bit patterns
+per policy/device, 811,168 total, without native Float64 enabled on the VkDevice.
+This checks signaling/quiet NaN payloads, signed zeros, subnormals, empty buffers,
+packed tails, unchanged inputs, ownership retirement and zero validation errors.
+Hosted source compilation now retains both the full capability and identity gates.
+
+The corrected 88a9f58c Windows runs pass on both x86-64 and ARM64: all seven actual
+runtime objects have the expected COFF machine; native reflection/path/loader
+checks pass, the adjacent DLL decoy is ignored and no Vulkan PE import is present.
+These records explicitly report gpuExecution=false and installedCompiler=false.

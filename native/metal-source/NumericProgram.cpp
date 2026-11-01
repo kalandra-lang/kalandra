@@ -526,10 +526,15 @@ public:
       args.push_back(type.tensor ? resident(type, value()) : leaf(type, scalar++, true));
     }
     auto result = force(invoke(id, args));
+    if (program.kernels.empty()) {
+      // A resident identity/selected input still needs the same owned, bounded
+      // copy stage as the classic GPU path. Reset only the materialization tag;
+      // the expression retains its resident input and exact numeric type.
+      result.buffer.reset();
+      result = map(std::move(result));
+    }
     program.result = *result.buffer;
     program.type = root.resultType;
-    if (program.kernels.empty())
-      reject(root.declaration, "GPU numerical program has no device stage");
     return std::move(program);
   }
 };
