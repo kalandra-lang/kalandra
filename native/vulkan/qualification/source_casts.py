@@ -8,6 +8,7 @@ import subprocess
 import sys
 p=argparse.ArgumentParser(description=__doc__)
 for name in ('build','llvm-root','output'):p.add_argument('--'+name,type=Path,required=True)
+p.add_argument('--backend',choices=('vulkan','cuda'),default='vulkan')
 p.add_argument('--cxx',type=Path,default=Path('/usr/bin/clang++'))
 p.add_argument('--compile-only',action='store_true')
 p.add_argument('--relu-only',action='store_true')
@@ -22,6 +23,9 @@ def qualify(name,source,mode,values,destination,fault=0,disable_native_float64=F
     path=output/'source.k';path.write_text(source)
     command=[sys.executable,Path(__file__).with_name('source_program.py'),'--build',a.build,
        '--llvm-root',a.llvm_root,'--source',path,'--output',output,'--cxx',a.cxx,'--arithmetic',mode]
+    if a.backend=='cuda':
+        command=[sys.executable,Path(__file__).resolve().parents[2]/'cuda-source/qualification/build_application.py',
+                 '--build',a.build,'--source',path,'--output',output,'--clang',a.cxx,'--arithmetic',mode]
     if disable_native_float64 or mode=='hardware-with-software-fallback':command.append('--test-disable-native-float64')
     built=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=180)
     (output/'compile.log').write_text(built.stdout+built.stderr)
@@ -35,12 +39,13 @@ def qualify(name,source,mode,values,destination,fault=0,disable_native_float64=F
         return int(value)&((1<<width)-1)
     expected='['+','.join(f'{bits(x):0{width//4}x}' for x in values)+']\n'
     (output/'expected.json').write_text(json.dumps({'stdout':expected,'fault':fault})+'\n')
-    for label,icd in [('nvidia','nvidia_icd.x86_64.json'),('intel','intel_icd.x86_64.json')]:
+    devices=[('nvidia','nvidia_icd.x86_64.json')] if a.backend=='cuda' else [('nvidia','nvidia_icd.x86_64.json'),('intel','intel_icd.x86_64.json')]
+    for label,icd in devices:
         for workers in (1,2,4):
             result=subprocess.run([output/'program'],capture_output=True,text=True,timeout=60,
                 env=os.environ|{'VK_DRIVER_FILES':'/usr/share/vulkan/icd.d/'+icd,'KALANDRA_WORKERS':str(workers)})
             (output/f'{label}-{workers}.json').write_text(json.dumps({'status':result.returncode,'stdout':result.stdout,'stderr':result.stderr},indent=2)+'\n')
-            if fault:assert result.returncode and not result.stdout and f'Vulkan task failed: 1/{fault}' in result.stderr,(output,result)
+            if fault:assert result.returncode and not result.stdout and f"{'CUDA' if a.backend=='cuda' else 'Vulkan'} task failed: 1/{fault}" in result.stderr,(output,result)
             else:assert not result.returncode and not result.stderr and result.stdout==expected,(output,result,expected)
             checks+=1
 

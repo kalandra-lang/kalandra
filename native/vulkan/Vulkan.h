@@ -67,6 +67,7 @@ public:
   std::uint32_t parameterWords() const noexcept;
   std::string_view entryName() const noexcept;
   bool tiledMatmul() const noexcept;
+  bool rightTransposedMatmul() const noexcept { return tiledMatmul(); }
 
 private:
   std::shared_ptr<KernelState> state_;

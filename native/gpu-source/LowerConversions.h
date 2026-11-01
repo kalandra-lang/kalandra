@@ -5,7 +5,8 @@
 // Vulkan's fallback artifact retains native binary32, but removes native
 // binary64 conversions as well as arithmetic. Keep this out of Metal's default
 // strict pass; its source emitter already generates integer conversion code.
-inline mlir::LogicalResult lowerVulkanFloat64Conversions(mlir::Operation *root) {
+inline mlir::LogicalResult lowerGpuFloat64Conversions(
+    mlir::Operation *root, const char *diagnostic = "GPU float64 software conversion requires supported scalar numeric types") {
   using namespace mlir;
   using namespace kalandra;
   llvm::SmallVector<Operation *> operations;
@@ -32,7 +33,7 @@ inline mlir::LogicalResult lowerVulkanFloat64Conversions(mlir::Operation *root) 
     const auto source = numeric(op->getOperand(0).getType(), isa<arith::UIToFPOp>(op));
     const auto destination = numeric(op->getResult(0).getType(), isa<arith::FPToUIOp>(op));
     if (!source || !destination) {
-      op->emitError("Vulkan float64 fallback conversion requires supported scalar numeric types");
+      op->emitError(diagnostic);
       return failure();
     }
     OpBuilder builder(op);
@@ -56,4 +57,10 @@ inline mlir::LogicalResult lowerVulkanFloat64Conversions(mlir::Operation *root) 
     op->erase();
   }
   return success();
+}
+
+// Preserve Vulkan's existing entry point and diagnostic while sharing the
+// backend-independent integer conversion algorithm with CUDA.
+inline mlir::LogicalResult lowerVulkanFloat64Conversions(mlir::Operation *root) {
+  return lowerGpuFloat64Conversions(root, "Vulkan float64 fallback conversion requires supported scalar numeric types");
 }

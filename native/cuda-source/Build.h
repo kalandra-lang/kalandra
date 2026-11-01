@@ -1,0 +1,7 @@
+#pragma once
+#include "kalandra/Arithmetic.h"
+#include <filesystem>
+#include <map>
+#include <string>
+void buildCudaProgram(const std::filesystem::path &, const std::map<std::string, std::string> &,
+                      const std::string &, kalandra::ArithmeticMode, kalandra::MatmulPolicy);

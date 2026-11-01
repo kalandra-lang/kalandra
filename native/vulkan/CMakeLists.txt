@@ -12,6 +12,12 @@ find_package(Vulkan REQUIRED COMPONENTS glslc)
 find_package(Threads REQUIRED)
 find_program(KALANDRA_SPIRV_VAL spirv-val REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if(BUILD_TESTING AND NOT KALANDRA_BUILD_CUDA_SOURCE)
+  add_test(NAME native-gpu-shared-installed-headers COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../gpu-runtime/InstalledHeadersTests.py" --compiler "${CMAKE_CXX_COMPILER}")
+  set_tests_properties(native-gpu-shared-installed-headers PROPERTIES TIMEOUT 60)
+endif()
+
 if(BUILD_TESTING)
   add_executable(kalandra-vulkan-memory-type-tests tests/MemoryTypeTests.cpp)
   target_include_directories(kalandra-vulkan-memory-type-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" ${Vulkan_INCLUDE_DIRS})

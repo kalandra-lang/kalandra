@@ -15,7 +15,7 @@ p.add_argument('--driver',type=Path,required=True)
 p.add_argument('--shaders',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--device',type=int,default=0)
-p.add_argument('--profile',choices=('metal-exact','vulkan-hardware'),default='metal-exact')
+p.add_argument('--profile',choices=('metal-exact','vulkan-hardware','cuda-hardware'),default='metal-exact')
 a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
 repo=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(repo/'native/tests'))
@@ -62,7 +62,7 @@ try:
                 values=[to_bits(D(((i*37+11)%101)-50)/13,fmt,wire) for i in range(m*n)] if fmt else [((i*0x9e3779b97f4a7c15)^0xa55a0ff00f5aa5)&((1<<width)-1) for i in range(m*n)]
                 for device_epsilon in ((0,1) if operation==2 else (0,)):
                     invoke(name,fmt,wire,width,operation,values,m,n,epsilon,device_epsilon)
-            if name=='float32' and operation in (1,2) and a.profile=='vulkan-hardware':
+            if name=='float32' and operation in (1,2) and a.profile in ('vulkan-hardware','cuda-hardware'):
                 for power in (-30,-10,0,10,30):
                     values=[to_bits(D(((i*73+19)%211)-105)/17*(D(2)**power),fmt,wire) for i in range(3*33)]
                     invoke(name,fmt,wire,width,operation,values,3,33,epsilon)

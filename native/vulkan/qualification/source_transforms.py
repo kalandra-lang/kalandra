@@ -1,4 +1,4 @@
-"""Compile and execute complete Vulkan transform tasks against independent references.
+"""Compile and execute complete GPU transform tasks against independent references.
 
 Runs selected physical ICDs at 1/2/4 workers, including repeated awaits and an
 explicit CPU download. Private qualification adapter only; installs nothing.
@@ -10,13 +10,19 @@ from pathlib import Path
 import subprocess
 import sys
 p=argparse.ArgumentParser(description=__doc__)
+p.add_argument('--backend',choices=('vulkan','cuda'),default='vulkan')
+p.add_argument('--build',type=Path)
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--compile-only',action='store_true',help='Hosted artifact qualification; never execute a substitute GPU')
 a=p.parse_args();a.output=a.output.resolve();a.output.mkdir(parents=True,exist_ok=True)
 repo=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(repo/'native/tests'))
 from TensorTransformReference import D,to_bits,from_bits
-from TransformReference import reference
+if a.backend=='cuda':
+    from TensorTransformReference import reference as strict_reference
+    def reference(*args):return strict_reference(*args,True)
+else:
+    from TransformReference import reference
 
 def run(command,**kwargs):
     return subprocess.run(list(map(str,command)),text=True,capture_output=True,timeout=180,**kwargs)
@@ -47,7 +53,12 @@ fn main()->Tensor[{name},?,?] ! TaskError:
     again=try await pending
     try await transfer(again,cpu)
 ''')
-    compiled=run([sys.executable,Path(__file__).with_name('compiler_driver.py'),source,'--arithmetic',mode,'-O2','-o',case])
+    command=[sys.executable,Path(__file__).with_name('compiler_driver.py'),source,'--arithmetic',mode,'-O2','-o',case]
+    if a.backend=='cuda':
+        assert a.build,'CUDA qualification requires the existing root build'
+        command=[sys.executable,repo/'native/cuda-source/qualification/build_application.py','--build',a.build,
+                 '--source',source,'--output',case,'--arithmetic',mode]
+    compiled=run(command)
     (case/'compile.log').write_text(compiled.stdout+compiled.stderr)
     assert compiled.returncode==0,(case,compiled.stderr[-3000:])
     if a.compile_only:
@@ -55,12 +66,13 @@ fn main()->Tensor[{name},?,?] ! TaskError:
         continue
     inputs=[to_bits(x,fmt,wire) for x in range(1,7)] if fmt else list(range(1,7))
     expected=reference(inputs,2,3,operation,epsilon,fmt,wire) if not fault else None
-    for label,icd in [('nvidia','/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json'),('intel','/usr/share/vulkan/icd.d/intel_icd.x86_64.json')]:
+    devices=[('nvidia','')] if a.backend=='cuda' else [('nvidia','/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json'),('intel','/usr/share/vulkan/icd.d/intel_icd.x86_64.json')]
+    for label,icd in devices:
         for workers in (1,2,4):
             got=run([case/'program'],env=os.environ|{'KALANDRA_WORKERS':str(workers),'VK_DRIVER_FILES':icd})
             (case/f'{label}-{workers}.json').write_text(json.dumps({'status':got.returncode,'stdout':got.stdout,'stderr':got.stderr},indent=2)+'\n')
             if fault:
-                assert got.returncode and not got.stdout and 'Vulkan task failed: 1/4' in got.stderr,(case,label,workers,got)
+                assert got.returncode and not got.stdout and ('CUDA task failed: 1/4' if a.backend=='cuda' else 'Vulkan task failed: 1/4') in got.stderr,(case,label,workers,got)
                 continue
             assert got.returncode==0 and not got.stderr,(case,label,workers,got)
             bits=[int(x,16) for x in got.stdout.strip().strip('[]').split(',')]
@@ -70,5 +82,5 @@ fn main()->Tensor[{name},?,?] ! TaskError:
                 else:
                     value=D.from_float(from_bits(observed,fmt,wire));lo,hi=wanted
                     assert lo<=value<=hi,(case,label,value,wanted)
-    print('PASS:',case.name,'both GPUs workers1/2/4',flush=True)
-print('PASS:',len(cases),'source artifact compilations' if a.compile_only else 'complete source programs;144 physical GPU executions',flush=True)
+    print('PASS:',case.name,a.backend+' workers1/2/4',flush=True)
+print('PASS:',len(cases),'source artifact compilations' if a.compile_only else f'complete source programs;{len(cases)*3*(1 if a.backend=="cuda" else 2)} physical GPU executions',flush=True)

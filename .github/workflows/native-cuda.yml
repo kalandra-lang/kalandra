@@ -1,0 +1,65 @@
+name: Native CUDA qualification
+on:
+  pull_request:
+    paths: ['CMakeLists.txt', 'VERSION', 'native/**', '.github/scripts/provision_cuda_build.py', '.github/workflows/native-cuda.yml']
+  push:
+    branches: [develop]
+    paths: ['CMakeLists.txt', 'VERSION', 'native/**', '.github/scripts/provision_cuda_build.py', '.github/workflows/native-cuda.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compiler-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Provision production-pinned LLVM and isolated CUDA build inputs
+        run: |
+          python3 .github/scripts/provision_native_platform.py
+          python3 .github/scripts/provision_cuda_build.py
+      - name: Install hosted build prerequisites
+        run: |
+          sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo apt-get install -y ninja-build libtomlplusplus-dev zlib1g-dev libzstd-dev libxml2-dev patchelf
+      - name: Configure opt-in CUDA compiler
+        run: >-
+          cmake -S . -B build/cuda -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
+          -DKALANDRA_BUILD_CUDA_SOURCE=ON -DKALANDRA_BUILD_CUDA_RUNTIME=ON
+          -DKALANDRA_CUDA_HEADERS="$KALANDRA_CUDA_HEADERS"
+          -DKALANDRA_CUDA_NVRTC="$KALANDRA_CUDA_NVRTC"
+          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+      - name: Build compiler, package and CPU-only contract checks
+        run: >-
+          cmake --build build/cuda --parallel 2 --target kalandra native-cuda-standalone-package
+          kalandra-cuda-artifact-tests
+      - name: Check PTX, provenance, private ABI and installed header ownership
+        run: ctest --test-dir build/cuda -R 'native-(cuda-(artifacts|artifact-contract|upstream-audit)|gpu-shared-installed-headers)$' --output-on-failure
+      - name: Check source/output protection and public command options
+        run: python3 native/cuda-source/qualification/command.py --compiler build/cuda/native/kalandra
+      - name: Qualify relocated package and missing-resource guards
+        run: >-
+          python3 native/cuda-source/qualification/installed.py
+          --archive build/cuda/native-cuda-standalone/kalandra-native-cuda-standalone-linux-x86_64.tar.gz
+          --root build/cuda-installed
+      - name: Verify reproducible archive from the frozen build
+        run: |
+          cp build/cuda/native-cuda-standalone/*.tar.gz.sha256 "$RUNNER_TEMP/cuda-first.sha256"
+          cmake --build build/cuda --parallel 2 --target native-cuda-standalone-package
+          cmp "$RUNNER_TEMP/cuda-first.sha256" build/cuda/native-cuda-standalone/*.tar.gz.sha256
+      # Hosted machines have no qualified GPU. Execute these exact downloaded
+      # archives on physical hardware separately; never call a CPU substitute CUDA.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-cuda-package-linux-x86_64
+          path: build/cuda/native-cuda-standalone/*.tar.gz*
+          if-no-files-found: error
+          retention-days: 7
