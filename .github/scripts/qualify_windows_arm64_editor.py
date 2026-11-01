@@ -15,6 +15,7 @@ import urllib.request
 import zipfile
 
 from provision_native_llvm import save_verified
+from editor_windows_processes import EditorProcessScope
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "native/packaging"))
@@ -62,7 +63,9 @@ def main():
         if hashlib.file_digest(source, "sha256").hexdigest() != archive.with_suffix(".gz.sha256").read_text().split()[0]:
             raise RuntimeError("Downloaded compiler checksum mismatch")
     folder = tempfile.mkdtemp(prefix="kalandra ARM64 editor ", dir=os.environ["RUNNER_TEMP"])
+    processes = None
     try:
+        processes = EditorProcessScope()
         work = Path(folder)
         package_root = work / "toolchain"
         package_root.mkdir()
@@ -93,7 +96,16 @@ def main():
             raise RuntimeError("Editor qualification identity mismatch")
         print(f"Native Windows ARM64 VS Code {lock['version']}: {len(result['checks'])} installed-VSIX checks passed", flush=True)
     finally:
-        remove_editor_workspace(Path(folder))
+        try:
+            # Pinned VS Code probes WSL even for a native-only window. Its
+            # system helpers can outlive the editor while holding its cwd.
+            # Reap only this job's allowlisted helpers; an orphaned LSP fails.
+            if processes is not None:
+                processes.settle_helpers()
+            remove_editor_workspace(Path(folder))
+        finally:
+            if processes is not None:
+                processes.close()
 
 
 if __name__ == "__main__":
