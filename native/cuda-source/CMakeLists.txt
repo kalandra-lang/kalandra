@@ -1,4 +1,6 @@
 add_executable(kalandra-cuda-lower Lower.cpp)
+llvm_map_components_to_libnames(_cuda_nvptx_libraries NVPTX)
+target_link_libraries(kalandra-cuda-lower PRIVATE ${_cuda_nvptx_libraries})
 target_link_libraries(kalandra-cuda-lower PRIVATE kalandra-strict-float kalandra-gpu-numeric MLIR LLVM)
 target_compile_options(kalandra-cuda-lower PRIVATE -Wall -Wextra -Werror)
 # PassOptions instantiates LLVM virtual option types. Match the linked SDK's

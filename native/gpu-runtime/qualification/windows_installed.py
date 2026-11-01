@@ -54,6 +54,11 @@ for relative in listed:
     assert not base.endswith(('.cu', '.raw.ptx')), relative
 metadata = json.loads((prefix/f'share/kalandra-native-{a.backend}/toolchain.json').read_text())
 assert metadata['format'] == 1 and metadata['llvmVersion'] == '23.1.3'
+assert metadata['platform'] == 'windows-'+a.arch
+assert metadata['windowsGpuExecutionQualified'] is False and metadata['windowsGpuPerformanceQualified'] is False
+if a.backend == 'vulkan':
+    assert metadata['validatorBundledSHA256'] == digest(prefix/'libexec/kalandra/spirv-val.exe')
+    assert metadata['validatorNoticeSHA256'] == digest(prefix/'share/licenses/kalandra-vulkan/SPIRV-Tools-COPYRIGHT')
 audit(prefix)
 verify_package_version(prefix)
 compiler = prefix/'bin/kalandra.exe'

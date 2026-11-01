@@ -14,12 +14,14 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def source_hash():
-    names = subprocess.check_output(['git', 'ls-files', '-z', 'native', 'CMakeLists.txt'], cwd=ROOT).decode().split('\0')
-    digest = hashlib.sha256()
-    for name in sorted(filter(None, names)):
-        digest.update(name.encode() + b'\0')
-        digest.update((ROOT/name).read_bytes())
-    return digest.hexdigest()
+    # Git's canonical blobs give the same source identity for LF and Windows
+    # autocrlf checkouts. First reject real worktree changes; index-only hashing
+    # must never bless bytecode built from modified inputs.
+    subprocess.run(['git', 'diff', '--quiet', '--exit-code', '--', 'native', 'CMakeLists.txt'],
+                   cwd=ROOT, check=True)
+    entries = subprocess.check_output(['git', 'ls-files', '--stage', '-z', '--', 'native', 'CMakeLists.txt'], cwd=ROOT)
+    return hashlib.sha256(entries).hexdigest()
+
 
 
 def expected():

@@ -33,10 +33,12 @@ int main(int argc, char **argv) {
   const std::string_view chip(argv[4]);
   if (!policy || (chip != "sm_80" && chip != "sm_120"))
     return 2;
-  llvm::InitializeAllTargetInfos();
-  llvm::InitializeAllTargets();
-  llvm::InitializeAllTargetMCs();
-  llvm::InitializeAllAsmPrinters();
+  // This process emits PTX only. Registering every host target accidentally
+  // requires every LLVM backend in static Windows distributions.
+  LLVMInitializeNVPTXTargetInfo();
+  LLVMInitializeNVPTXTarget();
+  LLVMInitializeNVPTXTargetMC();
+  LLVMInitializeNVPTXAsmPrinter();
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
   mlir::registerAllExtensions(registry);
