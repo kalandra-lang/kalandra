@@ -1,5 +1,6 @@
 """Compile and optionally run higher-rank numerical source programs."""
 import argparse
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -8,9 +9,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--compiler", required=True)
 parser.add_argument("--root", type=Path, required=True)
 parser.add_argument("--variant", choices=("debug", "optimized", "sanitized", "thread-sanitized"))
+parser.add_argument('--backend', choices=('metal','vulkan'), default='metal')
+parser.add_argument('--arithmetic', choices=('hardware','software','hardware-with-software-fallback'), default='software')
 args = parser.parse_args()
 args.root.mkdir(parents=True, exist_ok=True)
-flags = [] if not args.variant else ["--target", "metal", {
+flags = [] if not args.variant else ["--target", args.backend, {
     "debug": "-O0", "optimized": "-O2", "sanitized": "--sanitize",
     "thread-sanitized": "--thread-sanitize"}[args.variant]]
 
@@ -58,11 +61,13 @@ for rank in range(3, 9):
         identifier = f"rank{rank}-{name}"
         path, destination = args.root / (identifier + ".k"), args.root / identifier
         path.write_text(source)
-        run([args.compiler,"--arithmetic","software", path, *flags, "-o", destination])
+        run([args.compiler,"--arithmetic",args.arithmetic, path, *flags, "-o", destination])
         if args.variant:
             for workers in (1, 2, 4):
                 run([destination / "program"], output=expected,
                     env=dict(os.environ, KALANDRA_WORKERS=str(workers)))
+            if args.backend=='vulkan':
+                (destination/'expected.json').write_text(json.dumps({'stdout':expected,'fault':0})+'\n')
         cases += 1
     # Equal element counts do not establish shape equality on higher axes.
     other = "[[1],[2],[3]]"
@@ -81,11 +86,13 @@ for rank in range(3, 9):
               "    try await transfer(result,devices.cpu())\n")
     path, destination = args.root / f"rank{rank}-shape.k", args.root / f"rank{rank}-shape"
     path.write_text(source)
-    run([args.compiler,"--arithmetic","software", path, *flags, "-o", destination])
+    run([args.compiler,"--arithmetic",args.arithmetic, path, *flags, "-o", destination])
     if args.variant:
         for workers in (1, 2, 4):
             failure = run([destination / "program"], expected=1, output="",
                           env=dict(os.environ, KALANDRA_WORKERS=str(workers)))
-            assert "Metal task failed: 1/1" in failure.stderr, failure.stderr
+            assert f"{args.backend.capitalize()} task failed: 1/1" in failure.stderr, failure.stderr
+        if args.backend=='vulkan':
+            (destination/'expected.json').write_text(json.dumps({'stdout':'','fault':1})+'\n')
     cases += 1
 print(f"Higher-rank numerical integration: {cases} programs, ranks 3..8, maps/sums/resident feedback/multiple reductions/choices/empty shapes/extent faults")

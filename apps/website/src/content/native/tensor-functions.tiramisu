@@ -6,7 +6,7 @@ h2 { "matmul" }
 
 code { "matmul(left: Tensor[T, M, K], right: Tensor[T, K, N]) -> Tensor[T, M, N]" }
 
-Multiply two rank-two tensors of the same numeric type. Inner extents must match; there is no batched multiplication, implicit element conversion or broadcasting. Zero inner extent yields additive zeros. Integer products and accumulation are checked. CPU execution keeps a balanced adjacent-pair contraction tree. Hardware GPU float32 defaults to optimized full-precision accumulation; --matmul-policy fixed-tree requests separately rounded products and the fixed tree. GPU float64 arithmetic requires explicit software fallback. Shape and allocation sizes are checked.
+Multiply two rank-two tensors of the same numeric type. Inner extents must match; there is no batched multiplication, implicit element conversion or broadcasting. Zero inner extent yields additive zeros. Integer products and accumulation are checked. CPU execution keeps a balanced adjacent-pair contraction tree. Metal hardware float32 defaults to optimized full-precision accumulation. Experimental Vulkan defaults to fixed-tree; use --matmul-policy optimized explicitly for its tiled float32 kernel. --matmul-policy fixed-tree requests separately rounded products and the fixed tree. Metal float64 arithmetic requires explicit software fallback; Vulkan float64 depends on the device and operation, as described in the GPU guide. Shape and allocation sizes are checked.
 
 h2 { "reduceSum" }
 
@@ -24,19 +24,19 @@ h2 { "transpose" }
 
 code { "transpose(values: Tensor[T, M, N]) -> Tensor[T, N, M]" }
 
-Swap the axes of a rank-two tensor. Every element bit is preserved, including NaN payloads and signed zero. CPU and Metal support all ten numeric types, including float64 without arithmetic emulation for the transpose itself. This operation changes logical element order; it is different from reshape.
+Swap the axes of a rank-two tensor. Every element bit is preserved, including NaN payloads and signed zero. CPU, Metal and experimental Vulkan support all ten numeric types, including float64 without arithmetic emulation for the transpose itself. This operation changes logical element order; it is different from reshape.
 
 h2 { "softmaxRows" }
 
 code { "softmaxRows(values: Tensor[F, M, N]) -> Tensor[F, M, N]" }
 
-Normalize each row by subtracting its maximum, exponentiating, and dividing by the balanced sum of exponentials. F is float32 or float64 in CPU hardware mode; Metal currently accepts hardware float32 only. Software arithmetic is rejected. Empty dimensions remain empty. NaNs, or a row consisting entirely of negative infinity, produce a NaN row. Positive infinities share the probability equally, with zero elsewhere. Finite results are approximate and need not be bit-identical between devices; no lower input precision is selected implicitly.
+Normalize each row by subtracting its maximum, exponentiating, and dividing by the balanced sum of exponentials. F is float32 or float64 in CPU hardware mode; Metal and experimental Vulkan currently accept hardware float32 only. Software arithmetic is rejected. Empty dimensions remain empty. NaNs, or a row consisting entirely of negative infinity, produce a NaN row. Positive infinities share the probability equally, with zero elsewhere. Finite results are approximate and need not be bit-identical between devices; no lower input precision is selected implicitly.
 
 h2 { "rmsNormRows" }
 
 code { "rmsNormRows(values: Tensor[F, M, N], epsilon: F) -> Tensor[F, M, N]" }
 
-Divide each element by sqrt(mean(square(row)) + epsilon), preserving shape and type. Epsilon must be finite, strictly positive and of the same floating type; invalid epsilon is an arithmetic failure even for an empty tensor. This operation has unit gain, with no implicit learned weights. CPU supports hardware float32 and float64; Metal supports hardware float32. Software arithmetic and GPU float64 row normalization are rejected. Floating results are approximate and device underflow behavior applies.
+Divide each element by sqrt(mean(square(row)) + epsilon), preserving shape and type. Epsilon must be finite, strictly positive and of the same floating type; invalid epsilon is an arithmetic failure even for an empty tensor. This operation has unit gain, with no implicit learned weights. CPU supports hardware float32 and float64; Metal and experimental Vulkan support hardware float32. Software arithmetic and GPU float64 row normalization are rejected. Floating results are approximate and device underflow behavior applies.
 
 h2 { "Example" }
 

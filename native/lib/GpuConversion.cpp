@@ -1,6 +1,7 @@
 #include "kalandra/GpuConversion.h"
 #include "kalandra/HardwareConversion.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include <algorithm>
 namespace kalandra {
 namespace {
 using namespace mlir;
@@ -118,10 +119,11 @@ public:
 } // namespace
 std::pair<mlir::Value, mlir::Value>
 gpuNumericConversion(mlir::OpBuilder &builder, mlir::Location loc, mlir::Value input,
-                     NumericType source, NumericType destination, ArithmeticMode arithmetic) {
+                     NumericType source, NumericType destination, ArithmeticMode arithmetic,
+                     bool nativeFloat64) {
   auto result = Converter(builder, loc).run(input, source, destination);
   if (arithmetic == ArithmeticMode::Software || source == destination ||
-      source == NumericType::Float64 || destination == NumericType::Float64 ||
+      (!nativeFloat64 && (source == NumericType::Float64 || destination == NumericType::Float64)) ||
       (isInteger(source) && isInteger(destination)))
     return result;
   const auto src = describeNumeric(source), dst = describeNumeric(destination);
@@ -130,7 +132,61 @@ gpuNumericConversion(mlir::OpBuilder &builder, mlir::Location loc, mlir::Value i
     decoded =
         mlir::arith::TruncIOp::create(builder, loc, builder.getIntegerType(src->bits), decoded);
   if (!isInteger(source))
-    decoded = mlir::arith::BitcastOp::create(builder, loc, builder.getF32Type(), decoded);
+    decoded = mlir::arith::BitcastOp::create(
+        builder, loc, src->bits == 64 ? builder.getF64Type() : builder.getF32Type(), decoded);
+  if (source == NumericType::Float64 || destination == NumericType::Float64) {
+    // Keep the checked branch ABI in integer carriers. A software fallback can
+    // then replace native casts without leaving floating-point SCF phi values
+    // that would require Float64 capability just to transport their bits.
+    using namespace mlir;
+    if (isInteger(source) && src->bits < 32) {
+      auto mask = arith::ConstantIntOp::create(builder, loc, (UINT64_C(1) << src->bits) - 1, 64);
+      Value word = arith::AndIOp::create(builder, loc, input, mask);
+      if (!isUnsigned(source)) {
+        auto shift = arith::ConstantIntOp::create(builder, loc, 64 - src->bits, 64);
+        word = arith::ShRSIOp::create(builder, loc,
+                                      arith::ShLIOp::create(builder, loc, word, shift), shift);
+      }
+      decoded = arith::TruncIOp::create(builder, loc, builder.getI32Type(), word);
+    }
+    auto choice =
+        scf::IfOp::create(builder, loc, TypeRange{builder.getI64Type()}, result.second, true, true);
+    {
+      OpBuilder::InsertionGuard guard(builder);
+      builder.setInsertionPointToStart(&choice.getThenRegion().front());
+      Type target = isInteger(destination)
+                        ? Type(builder.getIntegerType(std::max(32u, unsigned(dst->bits))))
+                    : dst->bits == 64 ? Type(builder.getF64Type())
+                                      : Type(builder.getF32Type());
+      Value converted;
+      if (isInteger(source))
+        converted = isUnsigned(source)
+                        ? Value(arith::UIToFPOp::create(builder, loc, target, decoded))
+                        : Value(arith::SIToFPOp::create(builder, loc, target, decoded));
+      else if (isInteger(destination))
+        converted = isUnsigned(destination)
+                        ? Value(arith::FPToUIOp::create(builder, loc, target, decoded))
+                        : Value(arith::FPToSIOp::create(builder, loc, target, decoded));
+      else if (src->bits < dst->bits)
+        converted = arith::ExtFOp::create(builder, loc, target, decoded);
+      else
+        converted = arith::TruncFOp::create(builder, loc, target, decoded);
+      if (!isInteger(destination))
+        converted =
+            arith::BitcastOp::create(builder, loc, builder.getIntegerType(dst->bits), converted);
+      if (dst->bits < 64) {
+        converted = arith::ExtUIOp::create(builder, loc, builder.getI64Type(), converted);
+        auto mask = arith::ConstantIntOp::create(builder, loc, (UINT64_C(1) << dst->bits) - 1, 64);
+        converted = arith::AndIOp::create(builder, loc, converted, mask);
+      }
+      scf::YieldOp::create(builder, loc, ValueRange{converted});
+      builder.setInsertionPointToStart(&choice.getElseRegion().front());
+      auto zero = arith::ConstantIntOp::create(builder, loc, 0, 64);
+      scf::YieldOp::create(builder, loc, ValueRange{zero});
+    }
+    result.first = choice.getResult(0);
+    return result;
+  }
   auto converted = hardwareConversion(builder, loc, decoded, source, destination, result.second);
   if (!isInteger(destination))
     converted = mlir::arith::BitcastOp::create(builder, loc, builder.getI32Type(), converted);

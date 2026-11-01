@@ -1,5 +1,6 @@
 """Reject translated/mixed Windows packages and preserve explicit SDK limits."""
 import json
+import subprocess
 import io
 import hashlib
 from pathlib import Path
@@ -127,6 +128,33 @@ class WindowsArm64Tests(unittest.TestCase):
                 with self.assertRaises(PermissionError): editor.remove_editor_workspace(path)
                 self.assertEqual(remove.call_count, 8)
             self.assertTrue(path.exists())
+
+    @unittest.skipUnless(sys.platform == 'win32', 'real Windows job ownership')
+    def test_editor_job_rejects_orphan_without_killing_it_or_unowned_process(self):
+        # A peer started before the scope must never enter its cleanup set.
+        command = [sys.executable, '-c', 'import time; time.sleep(60)']
+        peer = subprocess.Popen(command)
+        scope = None
+        child = None
+        try:
+            scope = editor.EditorProcessScope()
+            child = subprocess.Popen(command)
+            self.assertIn(child.pid, scope.children())
+            self.assertNotIn(peer.pid, scope.children())
+            with self.assertRaisesRegex(RuntimeError, 'Unexpected surviving editor child'):
+                scope.settle_helpers()
+            self.assertIsNone(child.poll())
+            self.assertIsNone(peer.poll())
+            child.terminate()
+            child.wait(timeout=10)
+            scope.settle_helpers()
+        finally:
+            for process in (child, peer):
+                if process is not None and process.poll() is None:
+                    process.terminate()
+                    process.wait(timeout=10)
+            if scope is not None:
+                scope.close()
 
     def test_editor_retry_keeps_original_digest_and_never_publishes_bad_bytes(self):
         payload = b"verified editor"

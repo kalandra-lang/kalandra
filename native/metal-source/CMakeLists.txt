@@ -1,5 +1,5 @@
-add_library(kalandra-metal-source-backend STATIC Compiler.cpp NumericShader.cpp NumericProgram.cpp Build.cpp)
-target_link_libraries(kalandra-metal-source-backend PUBLIC kalandra-semantics PRIVATE kalandra-packages kalandra-backend kalandra-gpu-numeric MLIR LLVM)
+add_library(kalandra-metal-source-backend STATIC Command.cpp Build.cpp)
+target_link_libraries(kalandra-metal-source-backend PUBLIC kalandra-semantics PRIVATE kalandra-gpu-supervisor kalandra-gpu-source-ir kalandra-packages kalandra-backend kalandra-gpu-numeric MLIR LLVM)
 target_include_directories(kalandra-metal-source-backend SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 target_compile_options(kalandra-metal-source-backend PRIVATE -Wall -Wextra -Werror)
 add_executable(kalandra-metal-source main.cpp)
@@ -74,7 +74,7 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-metal-source-lowering-sanitized SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-metal-source-lowering-sanitized PRIVATE -Wall -Wextra -Werror
     -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-  add_executable(kalandra-metal-source-compiler-sanitized main.cpp Compiler.cpp NumericShader.cpp NumericProgram.cpp ../lib/GpuInteger.cpp ../lib/GpuConversion.cpp Build.cpp)
+  add_executable(kalandra-metal-source-compiler-sanitized main.cpp Compiler.cpp Command.cpp NumericShader.cpp NumericProgram.cpp ../lib/GpuInteger.cpp ../lib/GpuConversion.cpp Build.cpp)
   target_link_libraries(kalandra-metal-source-compiler-sanitized PRIVATE kalandra-semantics-sanitized kalandra-packages-sanitized kalandra-metal-source-lowering-sanitized MLIR LLVM)
   target_include_directories(kalandra-metal-source-compiler-sanitized SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-metal-source-compiler-sanitized PRIVATE -Wall -Wextra -Werror -O1 -g

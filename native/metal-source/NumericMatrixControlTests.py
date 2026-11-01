@@ -1,5 +1,6 @@
 """Selected shape checks after a resident matrix product."""
 import argparse
+import json
 import os
 from pathlib import Path
 import struct
@@ -9,9 +10,13 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--compiler',required=True)
 parser.add_argument('--root',type=Path,required=True)
 parser.add_argument('--variant',choices=('debug','optimized','sanitized','thread-sanitized'))
+parser.add_argument('--backend', choices=('metal','vulkan'), default='metal')
+parser.add_argument('--arithmetic', choices=('hardware','software','hardware-with-software-fallback'), default='software')
+parser.add_argument('--matmul-policy', choices=('optimized','fixed-tree'))
 args=parser.parse_args()
 args.root.mkdir(parents=True,exist_ok=True)
-flags=[] if not args.variant else ['--target','metal',{'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[args.variant]]
+flags=[] if not args.variant else ['--target',args.backend,{'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[args.variant]]
+if args.matmul_policy: flags += ['--matmul-policy',args.matmul_policy]
 programs=0
 
 def check(name,width,label,a,b,expected,total=False,fault=False,columns=None,expression="matmul(a,b)",fault_code=4):
@@ -29,7 +34,7 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None,exp
             ('    answer\n' if total else '    try await transfer(answer,devices.cpu())\n'))
     path,destination=args.root/f'{name}-{label}.k',args.root/f'{name}-{label}'
     path.write_text(source)
-    built=subprocess.run(list(map(str,[args.compiler,"--arithmetic","software",path,*flags,'-o',destination])),capture_output=True,text=True,timeout=120)
+    built=subprocess.run(list(map(str,[args.compiler,"--arithmetic",args.arithmetic,path,*flags,'-o',destination])),capture_output=True,text=True,timeout=120)
     assert built.returncode==0,(path,built.stdout,built.stderr)
     if args.variant:
         def bits(value):
@@ -42,9 +47,11 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None,exp
             ran=subprocess.run([destination/'program'],capture_output=True,text=True,timeout=60,env=dict(os.environ,KALANDRA_WORKERS=str(workers)))
             assert not any(t in ran.stderr for t in ('AddressSanitizer','ThreadSanitizer','runtime error:')),ran.stderr
             if fault:
-                assert ran.returncode!=0 and ran.stdout=='' and f'Metal task failed: 1/{fault_code}' in ran.stderr,(path,ran)
+                assert ran.returncode!=0 and ran.stdout=='' and f'{args.backend.capitalize()} task failed: 1/{fault_code}' in ran.stderr,(path,ran)
             else:
                 assert ran.returncode==0 and ran.stdout==output and all(line.endswith('Metal API Validation Enabled') for line in ran.stderr.splitlines()),(path,ran,output)
+        if args.backend=='vulkan':
+            (destination/'expected.json').write_text(json.dumps({'stdout':output,'fault':fault_code if fault else 0})+'\n')
     programs+=1
 
 for name,width in (('int8',8),('uint8',8),('int16',16),('uint16',16),('int32',32),('uint32',32),('int64',64),('uint64',64),('float32',32),('float64',64)):

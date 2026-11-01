@@ -47,6 +47,9 @@ def extract(archive, destination):
     checksum = archive.with_name(archive.name + '.sha256')
     if not checksum.is_file() or checksum.read_text().split()[0] != digest(archive):
         raise ValueError('Source archive checksum mismatch: ' + str(archive))
+    # Containment checks compare resolved members with this prefix. Canonicalize
+    # the root too (notably macOS /var -> /private/var and caller-owned aliases).
+    destination = destination.resolve()
     destination.mkdir(parents=True)
     with tarfile.open(archive) as package:
         if not all(v.isdir() or v.isfile() for v in package.getmembers()):
@@ -134,10 +137,64 @@ def assemble(assets, output, host=None):
             print('Bundled five CPU runtimes: ' + result.name, flush=True)
 
 
+def attach(host_archive, runtime_archive, output):
+    """Add independently inventoried runtime data to an unchanged GPU host."""
+    output.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='gpu runtime bundle ', dir=output) as work:
+        root = Path(work)
+        host = extract(host_archive, root / 'host')
+        common = extract(runtime_archive, root / 'runtime-data')
+        metadata = json.loads((host / META).read_text())
+        version = (ROOT / 'VERSION').read_text().strip()
+        llvm = json.loads((ROOT / 'native/toolchain-proof/toolchain.json').read_text())['llvmVersion']
+        if (metadata['format'] != 1 or metadata['version'] != version or
+                metadata['llvmVersion'] != llvm or metadata['platform'] not in PLATFORMS):
+            raise ValueError('GPU host version/platform/LLVM mismatch')
+        if set(metadata.get('crossLinkers', {})) != {'elf', 'macho', 'coff'}:
+            raise ValueError('GPU host lacks its bundled cross linkers')
+        for relative in metadata['crossLinkers'].values():
+            linker = host / relative
+            if not linker.resolve().is_relative_to(host) or not linker.is_file():
+                raise ValueError('Missing or unsafe GPU host linker')
+        runtimes = common / TARGETS
+        if {path.name for path in runtimes.iterdir()} != set(PLATFORMS):
+            raise ValueError('Expected exactly five CPU runtime targets')
+        for platform in PLATFORMS:
+            target = runtimes / platform
+            verify(target)
+            info = json.loads((target / META).read_text())
+            if (info['format'] != 1 or info['package'] != 'kalandra-cpu-target-runtime' or info['platform'] != platform or
+                    info['version'] != version or info['llvmVersion'] != llvm):
+                raise ValueError('CPU target runtime version/platform/LLVM mismatch')
+            if platform == 'macos-arm64' and info.get('minimumMacOS') != '26.0':
+                raise ValueError('CPU target runtime macOS minimum mismatch')
+            if any(path.suffix.lower() in ('.exe', '.dll', '.so', '.dylib') or '.so.' in path.name.lower()
+                   for path in target.rglob('*') if path.is_file()):
+                raise ValueError('CPU runtime bundle contains destination tools or dynamic libraries')
+        shutil.copytree(runtimes, host / TARGETS)
+        metadata['bundledCpuTargets'] = list(PLATFORMS)
+        (host / META).write_text(json.dumps(metadata, indent=2) + '\n')
+        inventory(host)
+        result = output / host_archive.name
+        create_archive(host, result)
+        result.with_name(result.name + '.sha256').write_text(digest(result) + '  ' + result.name + '\n')
+        print('Bundled five CPU runtimes into GPU host: ' + result.name, flush=True)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--assets', type=Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument('--assets', type=Path)
+    source.add_argument('--host-package', type=Path)
+    parser.add_argument('--runtime-bundle', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--host', choices=PLATFORMS, help='Build only this host package; still include all five runtimes')
     args = parser.parse_args()
-    assemble(args.assets.resolve(), args.output.resolve(), args.host)
+    if args.host_package:
+        if not args.runtime_bundle or args.host:
+            parser.error('--host-package requires --runtime-bundle and does not accept --host')
+        attach(args.host_package.resolve(), args.runtime_bundle.resolve(), args.output.resolve())
+    else:
+        if args.runtime_bundle:
+            parser.error('--runtime-bundle requires --host-package')
+        assemble(args.assets.resolve(), args.output.resolve(), args.host)

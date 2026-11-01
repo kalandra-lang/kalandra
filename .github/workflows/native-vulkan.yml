@@ -1,0 +1,319 @@
+name: Native Vulkan bring-up
+on:
+  pull_request:
+    paths:
+      - 'CMakeLists.txt'
+      - 'VERSION'
+      - 'native/CMakeLists.txt'
+      - 'native/vulkan/**'
+      - 'native/gpu-source/**'
+      - 'native/metal-source/**'
+      - 'native/include/**'
+      - 'native/tools/compile.cpp'
+      - 'native/runtime/**'
+      - 'native/lib/**'
+      - 'native/cmake/**'
+      - 'native/packaging/**'
+      - 'native/toolchain-proof/toolchain.json'
+      - '.github/scripts/provision_native_platform.py'
+      - '.github/workflows/native-vulkan.yml'
+  push:
+    branches: [develop, native]
+    tags: ["v*"]
+    paths:
+      - 'CMakeLists.txt'
+      - 'VERSION'
+      - 'native/CMakeLists.txt'
+      - 'native/vulkan/**'
+      - 'native/gpu-source/**'
+      - 'native/metal-source/**'
+      - 'native/include/**'
+      - 'native/tools/compile.cpp'
+      - 'native/runtime/**'
+      - 'native/lib/**'
+      - 'native/cmake/**'
+      - 'native/packaging/**'
+      - 'native/toolchain-proof/toolchain.json'
+      - '.github/scripts/provision_native_platform.py'
+      - '.github/workflows/native-vulkan.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build-and-shader-audit:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Vulkan release asset gates
+        run: |
+          python3 -m unittest discover -s .github/scripts -p test_collect_vulkan_release.py
+          python3 -m unittest discover -s .github/scripts -p test_native_release_assets.py
+      # Hosted ephemeral CI only. The user's Linux test machine is managed manually.
+      - name: Install hosted build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvulkan-dev glslc spirv-tools ninja-build
+      - name: Configure standalone runtime qualification
+        run: cmake -S native/vulkan -B build/vulkan -G Ninja -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+      - name: Compile runtime, tests and validate SPIR-V
+        run: cmake --build build/vulkan --parallel 2
+      - name: Audit provenance and shader capabilities
+        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|float-controls|development-toolchain|transform-reference|resources|executable-path|loader|memory-type)$" --output-on-failure
+      # Hardware correctness is separately qualified on physical NVIDIA/Intel GPUs.
+      # Never silently substitute lavapipe for that acceptance evidence.
+  source-compiler:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Validate tagged version and release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 .github/scripts/release_version.py
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Provision the existing verified production LLVM/MLIR
+        run: python3 .github/scripts/provision_native_platform.py
+      - name: Install hosted compiler prerequisites
+        run: |
+          sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo apt-get install -y cmake ninja-build libtomlplusplus-dev libvulkan-dev glslc spirv-tools zlib1g-dev libzstd-dev libxml2-dev patchelf
+      - name: Configure private Vulkan source qualification
+        run: >-
+          cmake -S . -B build/vulkan-source -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=OFF -DKALANDRA_LLVM_ROOT="$KALANDRA_LLVM_ROOT"
+          -DKALANDRA_BUILD_VULKAN_RUNTIME=ON
+          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+      - name: Build the source supervisor and owned runtime
+        run: >-
+          cmake --build build/vulkan-source --parallel 2 --target
+          kalandra-vulkan-supervisor kalandra-vulkan-kernels kalandra-vulkan-lower
+          kalandra-vulkan-extract kalandra-vulkan-language kalandra-vulkan-conversion-kernels
+          kalandra
+      - name: Qualify the actual Vulkan development compiler command
+        run: >-
+          python3 native/vulkan/qualification/public_cli.py --compile-only
+          --compiler build/vulkan-source/native/kalandra
+          --output build/vulkan-artifacts/public-cli
+      - name: Compile every shared public Metal capability fixture through Vulkan
+        run: >-
+          python3 native/vulkan/qualification/shared_capabilities.py --backend vulkan --compile-only
+          --compiler build/vulkan-source/native/kalandra
+          --output build/vulkan-artifacts/shared-capabilities
+      - name: Compile all ten identity types without requiring floating arithmetic
+        run: >-
+          python3 native/vulkan/qualification/identity_sources.py
+          --compiler build/vulkan-source/native/kalandra
+          --output build/vulkan-artifacts/identity
+      - name: Verify generated application fails closed without a usable loader
+        run: >-
+          python3 native/vulkan/tests/loader.py
+          --application build/vulkan-artifacts/public-cli/matrix-hardware/program
+          --cxx "$KALANDRA_LLVM_ROOT/bin/clang++"
+      - name: Verify public host and CPU sanitizer selection
+        run: >-
+          python3 native/vulkan/qualification/public_sanitizers.py --compile-only
+          --compiler build/vulkan-source/native/kalandra
+          --output build/vulkan-artifacts/public-sanitizers
+      - name: Verify read-only ELF relocation admission
+        run: python3 native/packaging/BundleELFTests.py --cxx "$KALANDRA_LLVM_ROOT/bin/clang++"
+      - name: Build production-pinned relocatable Vulkan package
+        run: cmake --build build/vulkan-source --parallel 2 --target native-vulkan-standalone-package
+      - name: Qualify installed compiler and missing-resource isolation
+        run: >-
+          python3 native/vulkan/qualification/installed.py
+          --archive build/vulkan-source/native-vulkan-standalone/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz
+          --root build/vulkan-installed-qualification
+      - name: Recheck deterministic archive output from the frozen build
+        run: |
+          cp build/vulkan-source/native-vulkan-standalone/*.tar.gz.sha256 "$RUNNER_TEMP/vulkan-first.sha256"
+          cmake --build build/vulkan-source --parallel 2 --target native-vulkan-standalone-package
+          cmp "$RUNNER_TEMP/vulkan-first.sha256" build/vulkan-source/native-vulkan-standalone/*.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-vulkan-package-linux-x86_64
+          path: build/vulkan-source/native-vulkan-standalone/*.tar.gz*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Compile and audit all-pair conversion policy artifacts
+        run: >-
+          python3 native/vulkan/qualification/conversion_kernels.py
+          --build build/vulkan-source --llvm-root "$KALANDRA_LLVM_ROOT"
+          --output build/vulkan-artifacts/conversions
+      - name: Compile source conversion and ReLU artifacts without hardware substitution
+        run: >-
+          python3 native/vulkan/qualification/source_casts.py --quick --compile-only
+          --build build/vulkan-source --llvm-root "$KALANDRA_LLVM_ROOT"
+          --cxx "$KALANDRA_LLVM_ROOT/bin/clang++"
+          --output build/vulkan-artifacts/source-casts
+      - name: Qualify selective fallback lowering
+        run: >-
+          python3 native/vulkan/qualification/fallback_lowering.py
+          --lower build/vulkan-source/native/gpu-source/kalandra-vulkan-lower
+          --output build/vulkan-artifacts/fallback-lowering
+      - name: Compile fallback policy source artifacts without hardware substitution
+        run: >-
+          python3 native/vulkan/qualification/fallback_sources.py --compile-only
+          --build build/vulkan-source --llvm-root "$KALANDRA_LLVM_ROOT"
+          --cxx "$KALANDRA_LLVM_ROOT/bin/clang++"
+          --output build/vulkan-artifacts/fallback-policies
+      - name: Compile complete mixed CPU GPU source programs without a substitute device
+        run: |
+          for mode in hardware software; do
+            for fixture in placed cpu-spawn; do
+              python3 native/vulkan/qualification/source_program.py \
+                --build build/vulkan-source --llvm-root "$KALANDRA_LLVM_ROOT" \
+                --cxx "$KALANDRA_LLVM_ROOT/bin/clang++" \
+                --source "native/metal-source/$fixture.k" \
+                --output "build/vulkan-artifacts/$mode/$fixture" --arithmetic "$mode"
+            done
+          done
+      - name: Compile full-source transform artifacts without hardware substitution
+        env:
+          KALANDRA_VULKAN_BUILD_ROOT: ${{ github.workspace }}/build/vulkan-source
+          KALANDRA_VULKAN_LLVM_ROOT: ${{ env.KALANDRA_LLVM_ROOT }}
+          KALANDRA_VULKAN_CXX: ${{ env.KALANDRA_LLVM_ROOT }}/bin/clang++
+        run: python3 native/vulkan/qualification/source_transforms.py --compile-only --output build/vulkan-artifacts/transforms
+      - name: Compile and validate ten-type numerical kernel artifacts
+        run: |
+          for mode in hardware software hardware-with-software-fallback; do
+            for operation in map relu reduce matmul; do
+              python3 native/vulkan/qualification/source_kernels.py \
+                --compiler build/vulkan-source/native/gpu-source/kalandra-vulkan-kernels \
+                --lower build/vulkan-source/native/gpu-source/kalandra-vulkan-lower \
+                --extract build/vulkan-source/native/gpu-source/kalandra-vulkan-extract \
+                --llvm-root "$KALANDRA_LLVM_ROOT" --validator /usr/bin/spirv-val \
+                --arithmetic "$mode" --operation "$operation" \
+                --output "build/vulkan-artifacts/$mode/$operation"
+            done
+          done
+      # These hosted jobs compile/validate artifacts only. Physical execution and
+      # exact result/cancellation/ownership checks run on the qualified GPUs.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-vulkan-source-qualification
+          path: build/vulkan-artifacts
+          if-no-files-found: error
+          retention-days: 7
+
+  bundled-package:
+    # Cross-OS packages are produced for PR heads, not ordinary develop pushes.
+    if: github.event_name == 'pull_request'
+    needs: source-compiler
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-vulkan-package-linux-x86_64
+          path: gpu-assets
+      - name: Locate same-revision CPU runtime data
+        id: runtimes
+        uses: actions/github-script@v7
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        with:
+          script: |
+            for (let attempt = 0; attempt < 100; attempt++) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                ...context.repo, workflow_id: 'native-cross-os.yml',
+                head_sha: process.env.SOURCE_SHA, per_page: 20,
+              });
+              const run = runs.data.workflow_runs.find(run => run.head_sha === process.env.SOURCE_SHA &&
+                run.head_repository.full_name === context.repo.owner + '/' + context.repo.repo);
+              if (run) {
+                const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
+                  {...context.repo, run_id: run.id, per_page: 100});
+                if (artifacts.some(a => a.name === 'cpu-target-runtimes' && !a.expired)) {
+                  core.setOutput('run', String(run.id));
+                  return;
+                }
+                if (run.status === 'completed') throw new Error('CPU qualification ended without runtime data');
+              }
+              await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+            throw new Error('Timed out waiting for same-revision CPU runtime data');
+      - uses: actions/download-artifact@v4
+        with:
+          name: cpu-target-runtimes
+          path: runtime-assets
+          run-id: ${{ steps.runtimes.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Attach runtime data twice without changing GPU code or importing destination tools
+        run: |
+          python3 native/packaging/RuntimeBundles.py \
+            --host-package gpu-assets/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz \
+            --runtime-bundle runtime-assets/kalandra-cpu-target-runtimes.tar.gz --output bundled-assets
+          python3 native/packaging/RuntimeBundles.py \
+            --host-package gpu-assets/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz \
+            --runtime-bundle runtime-assets/kalandra-cpu-target-runtimes.tar.gz --output repeated-assets
+          cmp bundled-assets/*.tar.gz.sha256 repeated-assets/*.tar.gz.sha256
+      - name: Qualify relocated combined CPU Vulkan compiler
+        run: >-
+          python3 native/vulkan/qualification/installed.py --bundled-targets
+          --archive bundled-assets/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz
+          --root build/vulkan-bundled-qualification
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-vulkan-bundled-package-linux-x86_64
+          path: bundled-assets/*.tar.gz*
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-runtime:
+    name: Windows runtime build (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            msvc: x64
+          - runner: windows-11-arm
+            arch: arm64
+            msvc: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc }}
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - name: Provision existing pinned host compiler
+        run: python .github/scripts/provision_native_platform.py
+      - name: Fetch verified public headers into temporary source directory
+        run: python native/vulkan/qualification/provision_headers.py --directory "$env:RUNNER_TEMP/vulkan-headers"
+      - name: Build runtime objects and verify native admission without a GPU substitute
+        run: >-
+          python native/vulkan/qualification/windows_runtime.py
+          --llvm-root "$env:KALANDRA_LLVM_ROOT" --headers "$env:KALANDRA_VULKAN_HEADERS_ROOT"
+          --arch ${{ matrix.arch }} --output build/vulkan-windows-${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-vulkan-windows-build-${{ matrix.arch }}
+          path: build/vulkan-windows-${{ matrix.arch }}/qualification.json
+          if-no-files-found: error
+          retention-days: 7
+      # No physical Windows GPU, installed Vulkan compiler or release claim.

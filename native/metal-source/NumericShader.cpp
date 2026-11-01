@@ -392,8 +392,9 @@ public:
         if (out.boolean)
           reject(node.span, "GPU numeric conversion requires a numeric value");
         auto &b = out.tensor ? lane : header;
-        auto [converted, valid] = gpuNumericConversion(b, loc(), materialize(out), out.element,
-                                                       node.type.element, options.arithmetic);
+        auto [converted, valid] =
+            gpuNumericConversion(b, loc(), materialize(out), out.element, node.type.element,
+                                 options.arithmetic, options.nativeFloat64Conversions);
         out.value = converted;
         out.valid = both(lane, out.valid, valid);
         if (!out.tensor)

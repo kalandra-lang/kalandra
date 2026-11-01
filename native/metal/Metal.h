@@ -1,4 +1,5 @@
 #pragma once
+#include "../include/kalandra/GpuProgram.h"
 #include "../include/kalandra/TensorTransform.h"
 #include "../runtime/Tasks.h"
 #include "../runtime/Tensor.h"
@@ -198,18 +199,7 @@ struct MatrixScalar {
 };
 // Private, compiler-owned numerical control program. Value IDs address input
 // buffers and instruction outputs. All spans are copied before admission.
-enum class NumericInstructionKind {
-  Map,
-  Reduce,
-  Matmul,
-  Branch,
-  Jump,
-  Alias,
-  EqualShape,
-  Extent,
-  MatrixShape,
-  ShapeFault
-};
+using NumericInstructionKind = kalandra::NumericProgramKind;
 struct NumericInstruction {
   NumericInstructionKind kind;
   Kernel kernel{};

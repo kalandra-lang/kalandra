@@ -37,6 +37,12 @@ also require the pinned [Apple toolchain](metal-proof/toolchain.json). Follow th
 for source builds and standalone packaging. Release targets are macOS 26+ ARM64
 CPU/Metal, Linux x86-64/ARM64 CPU and Windows x86-64/ARM64 CPU. Windows TSan and Windows ARM64 sanitizers are unsupported.
 
+Experimental Linux Vulkan builds use `KALANDRA_BUILD_VULKAN_RUNTIME=ON` and
+`--target vulkan`, with Vulkan headers, glslc and SPIR-V tools available at build
+time. The same numerical placement/transfer APIs are shared with Metal. Vulkan
+is not included in v0.99.1 release assets; candidate package and physical-device
+qualification are documented in the [Vulkan source guide](vulkan/README.md).
+
 Starting with 0.99.1, standalone compiler packages contain all five CPU runtimes
 and private host-native linkers. Select a destination using `--platform`, or
 configure its system libraries with a reusable `--toolchain` profile. Linux and

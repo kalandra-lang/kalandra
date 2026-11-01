@@ -9,6 +9,9 @@
 #ifdef KALANDRA_HAS_METAL_SOURCE
 #include "kalandra/MetalSource.h"
 #endif
+#ifdef KALANDRA_HAS_VULKAN_SOURCE
+#include "kalandra/VulkanSource.h"
+#endif
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -152,9 +155,22 @@ int main(int argc, char **argv) {
     platformOptions["target"] = found->second;
   }
   const bool selectedCpuToolchain = !toolchainPath.empty() || !platform.empty();
-  if (target == "metal" && selectedCpuToolchain) {
-    std::cerr << "--toolchain selects a CPU ABI and cannot be combined with --target metal\n";
+  if ((target == "metal" || target == "vulkan") && selectedCpuToolchain) {
+    std::cerr << "--toolchain selects a CPU ABI and cannot be combined with --target " << target << '\n';
     return 2;
+  }
+  if (target == "vulkan") {
+#ifdef KALANDRA_HAS_VULKAN_SOURCE
+    char build[] = "--build";
+    if (std::none_of(filtered.begin() + 1, filtered.end(),
+                     [](const char *argument) { return std::string_view(argument) == "--build"; }))
+      filtered.push_back(build);
+    return kalandra::compileVulkanCommand(static_cast<int>(filtered.size()), filtered.data());
+#else
+    std::cerr << "Vulkan source support is disabled; configure KALANDRA_BUILD_VULKAN_RUNTIME "
+                 "in a normal compiler build\n";
+    return 2;
+#endif
   }
   if (target == "metal") {
 #ifdef KALANDRA_HAS_METAL_SOURCE
@@ -193,7 +209,7 @@ int main(int argc, char **argv) {
            "hardware|software|hardware-with-software-fallback] [--sanitize|--thread-sanitize] "
            "[--matmul-policy optimized|fixed-tree] "
            "[-O0|-O2] [--target "
-           "cpu|metal] [--toolchain profile.json | --platform os-architecture [--sysroot path] [--gcc-directory path] [--library-directory path ...]] [--package name=path.k ...] [--project manifest.toml instead of source]\n"
+           "cpu|metal|vulkan] [--toolchain profile.json | --platform os-architecture [--sysroot path] [--gcc-directory path] [--library-directory path ...]] [--package name=path.k ...] [--project manifest.toml instead of source]\n"
            "       kalandra new directory\n";
     return 2;
   }

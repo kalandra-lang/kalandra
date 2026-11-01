@@ -2,6 +2,7 @@ find_package(Threads REQUIRED)
 if(WIN32)
   include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/WindowsLLVMDependencies.cmake")
 endif()
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/DevelopmentLLVMDependencies.cmake")
 find_package(MLIR REQUIRED CONFIG PATHS "${KALANDRA_LLVM_ROOT}/lib/cmake/mlir" NO_DEFAULT_PATH)
 if(NOT LLVM_PACKAGE_VERSION VERSION_EQUAL KALANDRA_LLVM_VERSION)
   message(FATAL_ERROR "MLIR/LLVM libraries must match ${KALANDRA_LLVM_VERSION}")
@@ -477,11 +478,19 @@ if(BUILD_TESTING)
   endforeach()
 endif()
 
+option(KALANDRA_BUILD_VULKAN_RUNTIME "Build experimental Vulkan runtime and development compiler target" OFF)
+if(KALANDRA_BUILD_VULKAN_RUNTIME)
+  add_subdirectory(vulkan)
+endif()
+
 option(KALANDRA_BUILD_METAL_RUNTIME "Build the Apple device and transfer runtime" OFF)
 if(KALANDRA_BUILD_METAL_RUNTIME)
   add_subdirectory(metal)
 endif()
 
+if((KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME) OR KALANDRA_BUILD_VULKAN_RUNTIME)
+  add_subdirectory(gpu-source)
+endif()
 if(KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
   add_subdirectory(metal-source)
 endif()
@@ -1159,6 +1168,7 @@ include(cmake/Formatter.cmake)
 include(cmake/EditorToolsInstall.cmake)
 include(cmake/CPUCompilerInstall.cmake)
 include(cmake/MetalCompilerInstall.cmake)
+include(cmake/VulkanCompilerInstall.cmake)
 
 include(cmake/Scaffold.cmake)
 
@@ -1336,7 +1346,7 @@ if(BUILD_TESTING)
 endif()
 
 # All public CLI variants share the configured toolchain version.
-foreach(_tool IN ITEMS kalandra kalandra-installed kalandra-metal-installed
+foreach(_tool IN ITEMS kalandra kalandra-installed kalandra-metal-installed kalandra-vulkan-installed
     kalandra-check kalandra-check-sanitized kalandra-parse kalandra-mlir-check
     kalandra-lsp kalandra-lsp-sanitized kalandra-fmt kalandra-fmt-debug
     kalandra-fmt-optimized kalandra-fmt-sanitized kalandra-fmt-thread-sanitized)

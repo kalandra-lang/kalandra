@@ -24,6 +24,7 @@ struct NumericShaderOptions {
   std::span<const std::uint8_t> deviceScalarParameters{};
   bool boolResult = false;
   ArithmeticMode arithmetic = ArithmeticMode::Hardware;
+  bool nativeFloat64Conversions = false;
 };
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});

@@ -1,5 +1,6 @@
 """Resident typed graph composition and selected-path numerical/shape obligations."""
 import argparse
+import json
 import os
 from pathlib import Path
 import struct
@@ -8,8 +9,10 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--compiler',required=True)
 parser.add_argument('--root',type=Path,required=True)
 parser.add_argument('--variant',choices=('debug','optimized','sanitized','thread-sanitized'))
+parser.add_argument('--backend', choices=('metal', 'vulkan'), default='metal')
+parser.add_argument('--arithmetic', choices=('hardware', 'software', 'hardware-with-software-fallback'), default='software')
 args=parser.parse_args();args.root.mkdir(parents=True,exist_ok=True)
-flags=[] if not args.variant else ['--target','metal',{'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[args.variant]]
+flags=[] if not args.variant else ['--target',args.backend,{'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[args.variant]]
 names=('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')
 widths=(8,8,16,16,32,32,64,64,32,64)
 programs=0
@@ -35,7 +38,7 @@ def check(name,case,body,expected,*,rank=1,scale=0,empty=False,tensor=False,extr
             ('    try await transfer(answer,devices.cpu())\n' if tensor else '    answer\n'))
     path,destination=args.root/f'{name}-{case}.k',args.root/f'{name}-{case}'
     path.write_text(source)
-    built=subprocess.run(list(map(str,[args.compiler,"--arithmetic","software",path,*flags,'-o',destination])),capture_output=True,text=True,timeout=180)
+    built=subprocess.run(list(map(str,[args.compiler,"--arithmetic",args.arithmetic,path,*flags,'-o',destination])),capture_output=True,text=True,timeout=180)
     assert built.returncode==0,(path,built.returncode,built.stdout,built.stderr)
     if args.variant:
         def bits(v):return int.from_bytes(struct.pack('<f' if width==32 else '<d',v),'little') if target.startswith('float') else v & ((1<<width)-1)
@@ -45,9 +48,11 @@ def check(name,case,body,expected,*,rank=1,scale=0,empty=False,tensor=False,extr
             ran=subprocess.run([destination/'program'],capture_output=True,text=True,timeout=60,env=os.environ|{'KALANDRA_WORKERS':str(workers)})
             assert not any(t in ran.stderr for t in ('AddressSanitizer','ThreadSanitizer','runtime error:')),ran.stderr
             if fault:
-                assert ran.returncode!=0 and ran.stdout=='' and f'Metal task failed: 1/{fault}' in ran.stderr,(path,ran)
+                assert ran.returncode!=0 and ran.stdout=='' and f'{args.backend.capitalize()} task failed: 1/{fault}' in ran.stderr,(path,ran)
             else:
                 assert ran.returncode==0 and ran.stdout==output+'\n' and all(line.endswith(('Metal API Validation Enabled','Metal GPU Validation Enabled')) for line in ran.stderr.splitlines()),(path,ran,output)
+        if args.backend == 'vulkan':
+            (destination/'expected.json').write_text(json.dumps({'stdout': output+'\n', 'fault': fault})+'\n')
     programs+=1
 
 for name in names:

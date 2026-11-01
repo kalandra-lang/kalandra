@@ -9,6 +9,7 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'native/packaging'))
 from RuntimeBundles import assemble
 from collect_native_platforms import collect
+from collect_vulkan_release import collect as collect_vulkan
 
 collect(rehearsal=not os.environ['GITHUB_REF'].startswith('refs/tags/'))
 assets=Path('release-assets')
@@ -18,3 +19,6 @@ with tempfile.TemporaryDirectory(prefix='bundled release ') as temporary:
     for file in output.iterdir():
         if file.is_file() and file.name.startswith('kalandra-native-'):
             shutil.copyfile(file,assets/file.name)
+
+    collect_vulkan(output/'kalandra-cpu-target-runtimes.tar.gz', assets,
+                   rehearsal=not os.environ['GITHUB_REF'].startswith('refs/tags/'))

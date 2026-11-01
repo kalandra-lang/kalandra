@@ -21,12 +21,32 @@ kalandra main.k --arithmetic software -O2 -o app
 
 The policy propagates to ordinary functions, CPU workers, CPU exports in mixed programs, and all generated numerical graph stages. Metal bundles record `arithmetic=...` in `manifest.txt`. Hardware mode rejects unsupported float64 GPU arithmetic, comparisons and conversions with an actionable diagnostic. Merely transporting float64 data does not authorize emulation or require floating-point computation. A GPU fallback still runs integer instructions **on the GPU**; there is no implicit CPU fallback.
 
+## Experimental Vulkan target
+
+Vulkan uses the same explicit arithmetic policies. Native float64 instructions
+are retained on supported devices, with signed-zero/infinity/NaN preservation
+and advertised denormal controls requested at load time. RTX 5090 passes the
+native four-operation edge corpus. Intel native float64 division currently fails
+that contract, so hardware-only loading returns Unsupported (106); explicit
+`hardware-with-software-fallback` may select the integer GPU companion. Intel kernels without
+float64 division remain native. The current companion replaces float64 arithmetic
+for the whole selected kernel while retaining native float32, rather than
+substituting only division instructions. This is a conservative Intel restriction
+based on the tested ARL driver, not universal driver qualification.
+
+A missing or malformed primary shader never triggers numerical fallback. Vulkan
+currently defaults to fixed-tree matmul; `--matmul-policy optimized` explicitly
+selects the full-float32 tiled algorithm and its extra GPU layout workspace.
+Software arithmetic retains fixed-tree products. This target is experimental and
+is not part of the v0.99.1 release assets. See the
+[Vulkan source guide](../../native/vulkan/README.md) for device and package limits.
+
 ## Numerical contract
 
 Hardware mode preserves numeric types, checked integers, shape checks and checked
 conversion admission. Scalar/elementwise arithmetic and ReduceSum retain their
 existing separately emitted operations and reduction order. `-O2` does not turn
-on generic fast math or scalar FMA contraction. Hardware float32 **matmul** uses
+on generic fast math or scalar FMA contraction. Metal hardware float32 **matmul** uses
 the optimized full-precision tensor policy by default: fused accumulation and
 implementation-dependent contraction order are allowed without dropping input
 precision. See [tensor numerical policies](tensors.md#precision-reductions-and-optimization).
@@ -67,3 +87,13 @@ Fresh Apple M2 Max/macOS 27.2 reports:
 Each profile has 42 timing cells, 126 fresh measured processes, 882 measured batches and 252 warmup batches. All checksums, recorded source/compiler hashes and arithmetic-artifact assertions were verified. Python retains binary64 in both profiles. Raw JSON accompanies each report.
 
 Compared with the retained earlier all-software float64 run, CPU float64 improved by 22–34× across these six local cases. For example, the 262,144-element dot product went from 15,323 to 566 microseconds, scaled addition plus sum from 17,944 to 809 microseconds, and the 96×96 matrix case from 48,505 to 1,434 microseconds. These are separate local runs, not isolated frequency-controlled measurements. GPU dispatch/transfers still dominate several small cases, and remaining CPU allocation/loop costs are visible relative to the other compiled implementations.
+
+## Experimental Vulkan backend
+
+The in-development Vulkan backend uses driver-advertised float32/float64
+arithmetic and checked native conversions. Its explicit fallback bundle retains
+native binary32 while replacing unsupported double arithmetic/casts with integer
+GPU code. ReLU, transport, identity casts and bit-preserving operations do not
+require double arithmetic. Missing/corrupt artifacts and device faults are not
+fallback triggers. This backend is still being qualified for released CLI and
+relocatable packages; see the [Vulkan implementation boundary](../native-vulkan-roadmap.md).
