@@ -15,6 +15,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--archive',type=Path,required=True)
 p.add_argument('--root',type=Path,required=True)
 p.add_argument('--execute',action='store_true')
+p.add_argument('--bundled-targets',action='store_true')
 a=p.parse_args();a.archive=a.archive.resolve();a.root=a.root.resolve()
 a.root.mkdir(parents=True,exist_ok=False)
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -35,6 +36,11 @@ assert {str(path.relative_to(prefix)) for path in prefix.rglob('*') if path.is_f
 metadata=json.loads((prefix/'share/kalandra-native-cuda/toolchain.json').read_text())
 assert metadata['format']==1 and metadata['llvmVersion']=='23.1.3'
 assert metadata['cudaSDKIncluded'] is False and metadata['optimizedMatmulTile']==64
+if a.bundled_targets:
+    cpu=json.loads((prefix/'share/kalandra-native-tools/toolchain.json').read_text())
+    expected={'linux-x86_64','linux-arm64','windows-x86_64','windows-arm64','macos-arm64'}
+    assert set(cpu['bundledCpuTargets'])==expected
+    assert {path.name for path in (prefix/'lib/kalandra/targets').iterdir()}==expected
 for relative in listed:
     base=Path(relative).name.lower()
     assert not any(x in base for x in ('libcuda.so','libcudart','libcublas','libnvrtc','cuda.h','cuda_runtime.h')),relative
@@ -51,6 +57,10 @@ assert subprocess.check_output([a.root/'cpu'],text=True,timeout=30)=='42\n'
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',
     '--execute' if a.execute else '--compile-only'],check=True,timeout=1200)
+subprocess.run([sys.executable,Path(__file__).parents[2]/'cuda/tests/loader.py',
+    '--application',a.root/'applications/hardware/float32/program',
+    '--cxx',prefix/'libexec/kalandra/clang++',
+    '--resource-dir',prefix/'lib/kalandra/toolchain/clang'],check=True,timeout=90)
 # Use different source constructs to require the precise missing resource.
 transform=a.root/'transpose.k'
 transform.write_text('''fn work(v:Tensor[float32,?,?])->Tensor[float32,?,?]:

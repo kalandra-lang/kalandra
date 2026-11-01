@@ -1,6 +1,16 @@
 add_executable(kalandra-cuda-lower Lower.cpp)
 target_link_libraries(kalandra-cuda-lower PRIVATE kalandra-strict-float kalandra-gpu-numeric MLIR LLVM)
 target_compile_options(kalandra-cuda-lower PRIVATE -Wall -Wextra -Werror)
+# PassOptions instantiates LLVM virtual option types. Match the linked SDK's
+# RTTI ABI rather than relying on the host compiler's default (official Linux
+# LLVM archives disable RTTI; Homebrew's SDK may enable it).
+if(NOT LLVM_ENABLE_RTTI)
+  if(MSVC)
+    target_compile_options(kalandra-cuda-lower PRIVATE /GR-)
+  else()
+    target_compile_options(kalandra-cuda-lower PRIVATE -fno-rtti)
+  endif()
+endif()
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME native-cuda-artifacts COMMAND "${Python3_EXECUTABLE}"

@@ -4,7 +4,7 @@ Place an eligible numerical function on the GPU, then compose operations inside 
 
 h2 { "Row math for attention" }
 
-transpose, softmaxRows, and rmsNormRows compose with matrix multiplication inside numerical GPU programs. Transpose preserves bits for all ten numeric types. The two row-math operations currently require hardware float32 on Metal and experimental Vulkan; their CPU implementations also support hardware float64. RMS normalization takes an explicit finite, positive epsilon of the same type as its tensor. It has unit gain. These operations do not move data between CPU and GPU implicitly.
+transpose, softmaxRows, and rmsNormRows compose with matrix multiplication inside numerical GPU programs. Transpose preserves bits for all ten numeric types. The two row-math operations currently require hardware float32 on Metal and experimental Vulkan/CUDA; their CPU implementations also support hardware float64. RMS normalization takes an explicit finite, positive epsilon of the same type as its tensor. It has unit gain. These operations do not move data between CPU and GPU implicitly.
 
 codeblock { language = kalandra, """fn normalize(scores: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
   softmaxRows(scores)
@@ -62,13 +62,13 @@ The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int
 
 h2 { "Hardware arithmetic and explicit fallback" }
 
-Float32 uses hardware arithmetic on both CPU and Metal by default. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling a float64 GPU operation requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
+Float32 uses hardware arithmetic on CPU, Metal and the experimental Vulkan/CUDA backends by default. CUDA also uses native float64 on supported hardware. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling a float64 GPU operation requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
 
 Use --arithmetic software for the strict software implementation on both CPU and GPU. This selects software arithmetic with gradual underflow and its defined numerical contract. Default hardware mode follows device behavior, so Metal float32 subnormals may flush to zero. reduceSum keeps its balanced adjacent-pair tree, and scalar arithmetic retains its separately rounded operations. -O2 does not enable generic fast math.
 
 h2 { "Matrix precision policies" }
 
-Metal hardware float32 matmul defaults to optimized full-precision accumulation. Experimental Vulkan defaults to fixed-tree and requires explicit --matmul-policy optimized for its tiled kernel. The compiler may use fused multiply-add and choose a contraction order suited to the device while preserving float32 inputs and accumulators. This does not silently convert inputs to float16 or TF32.
+Metal hardware float32 matmul defaults to optimized full-precision accumulation. Experimental Vulkan and CUDA default to fixed-tree and require explicit --matmul-policy optimized for their tiled kernels. The compiler may use fused multiply-add and choose a contraction order suited to the device while preserving float32 inputs and accumulators. This does not silently convert inputs to float16 or TF32.
 
 Use --matmul-policy fixed-tree to require separately rounded products and the existing balanced contraction tree. This selects a calculation order, not exact real arithmetic or universally greater accuracy. Optimized results may differ in rounding, signed zero and intermediate overflow. Severe cancellation can lose accuracy in either mode. Checked integer operations are unchanged, and CPU matmul currently retains the fixed tree under either policy.
 
@@ -84,7 +84,7 @@ Eligible GPU functions can use numeric comparisons, Boolean expressions and cond
 
 h2 { "AI and LLM foundations" }
 
-Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. The current language does not supply model loading, tokenizers or a full LLM inference runtime, and CUDA is not supported. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
+Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. The current language does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
 
 link { url = "/docs/tensors", "Tensor construction and shape rules" }
 
