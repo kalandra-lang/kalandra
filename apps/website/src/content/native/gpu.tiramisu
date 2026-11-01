@@ -44,7 +44,7 @@ GPU compilation requires system C++23 development headers in addition to the com
 
 Vulkan currently defaults to fixed-tree matmul. Select --matmul-policy optimized explicitly to use the full-float32 tiled matrix kernel. Its private right-operand transpose consumes an extra GPU buffer and dispatch within the normal resource limits. Matrix optimization does not enable fast math for ordinary elementwise expressions.
 
-Native float64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel float64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Other Intel float64 operations remain native. Missing or malformed shader resources never trigger numerical fallback, and hardware-only mode never silently selects software.
+Native float64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel float64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Intel kernels without float64 division remain native. The current fallback companion replaces float64 arithmetic for the selected kernel as a whole while retaining native float32; it does not substitute individual instructions. Missing or malformed shader resources never trigger numerical fallback, and hardware-only mode never silently selects software.
 
 h2 { "Keep intermediates resident" }
 

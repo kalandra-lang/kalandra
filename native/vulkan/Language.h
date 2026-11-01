@@ -14,6 +14,8 @@ constexpr std::optional<Format> storageFormat(NumericType type) {
   return describeNumeric(type) ? std::optional(type) : std::nullopt;
 }
 struct Registry;
+class Runtime;
+class NumericExecutable;
 class Device {
 public:
   Device() = default;

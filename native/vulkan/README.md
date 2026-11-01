@@ -109,10 +109,12 @@ requests signed-zero/infinity/NaN preservation and, when advertised, denormal
 preservation. These controls do not substitute software arithmetic or enable
 fast math. Intel native float64 division currently fails the independent edge
 corpus even with those controls, so it reports Unsupported (106). Use explicit
-`hardware-with-software-fallback` for that operation on Intel; other float64
-operations remain native. NVIDIA RTX 5090 passes the same native division corpus.
+`hardware-with-software-fallback` for that operation on Intel; kernels without float64
+division remain native. NVIDIA RTX 5090 passes the same native division corpus.
 This is a conservative Intel capability restriction, not a claim that every
-Intel driver has been tested. No fallback is selected in `hardware` mode. Explicit native-first software-fallback
+Intel driver has been tested. No fallback is selected in `hardware` mode.
+Fallback selection currently replaces float64 operations for the whole selected
+kernel; it is not a per-instruction substitution. Native float32 is preserved. Explicit native-first software-fallback
 bundles are qualified below. Hardware float32 follows the existing hardware FTZ
 contract; software tests use a separate gradual-underflow oracle.
 

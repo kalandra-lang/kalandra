@@ -23,7 +23,8 @@ Native float64 requests supported preservation controls. Intel float64 division
 currently reports Unsupported because the tested hardware division does not
 satisfy the edge-case numerical contract. Select explicit
 `--arithmetic hardware-with-software-fallback` for that operation on Intel;
-add/subtract/multiply still use hardware. NVIDIA RTX 5090 passes the native
+kernels without float64 division still use hardware. Fallback replaces float64
+arithmetic for the selected kernel as a whole while preserving native float32. NVIDIA RTX 5090 passes the native
 four-operation edge corpus. Hardware-only mode never selects software silently.
 
 Matrix products default to `--matmul-policy fixed-tree`. Explicit `optimized`

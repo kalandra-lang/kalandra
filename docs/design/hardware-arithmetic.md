@@ -28,8 +28,10 @@ are retained on supported devices, with signed-zero/infinity/NaN preservation
 and advertised denormal controls requested at load time. RTX 5090 passes the
 native four-operation edge corpus. Intel native float64 division currently fails
 that contract, so hardware-only loading returns Unsupported (106); explicit
-`hardware-with-software-fallback` may select the integer GPU companion. Other
-Intel float64 arithmetic remains native. This is a conservative Intel restriction
+`hardware-with-software-fallback` may select the integer GPU companion. Intel kernels without
+float64 division remain native. The current companion replaces float64 arithmetic
+for the whole selected kernel while retaining native float32, rather than
+substituting only division instructions. This is a conservative Intel restriction
 based on the tested ARL driver, not universal driver qualification.
 
 A missing or malformed primary shader never triggers numerical fallback. Vulkan

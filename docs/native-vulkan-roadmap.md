@@ -803,3 +803,20 @@ seven owned-resource failures. Its host/resource byte-preservation and repeated
 archive digest checks pass. The new read-only ELF admission check passes through
 root CTest as well. Exact current-head combined-package CI remains mandatory;
 these local checks do not substitute older runtime data for that gate.
+
+
+### Windows runtime object qualification
+
+The first native Windows x86-64 and ARM64 runs (41287276948) compile six runtime
+translation units, then expose a genuine namespace-lookup portability error in
+Language.h: an unqualified friend Runtime resolves to the outer raw runtime under
+MSVC lookup rules. Explicit forward declarations in the language namespace bind
+the intended runtime and numeric executable without relaxing private access or
+disabling warnings. Linux rebuild and all fourteen standalone tests pass after
+the correction. Both rejected Windows logs are retained; Windows success remains
+pending the corrected run. These are build/admission checks, not device execution.
+
+The user-facing arithmetic description also states the existing fallback
+boundary precisely: the selected companion replaces float64 arithmetic for a
+whole kernel, retaining native float32. Kernels without unsupported division
+remain native; per-instruction fallback selection is not claimed.
