@@ -37,3 +37,26 @@ source.write_text('''module {
 result=subprocess.run([a.lower,source,a.output/'unsupported.lowered.mlir','hardware-with-software-fallback'],capture_output=True,text=True)
 assert result.returncode and 'strict binary32' in result.stderr,result
 print('PASS: selective float64 fallback retains native float32/comparisons; unsupported types fail closed',flush=True)
+
+source=a.output/'casts.mlir'
+source.write_text("""module {
+  func.func @casts(%u:i32,%s:i64,%f:f32,%d:f64) -> (f64,f64,i64,i32,f64,f32,f32) {
+    %a=arith.uitofp %u:i32 to f64
+    %b=arith.sitofp %s:i64 to f64
+    %c=arith.fptosi %d:f64 to i64
+    %e=arith.fptoui %d:f64 to i32
+    %g=arith.extf %f:f32 to f64
+    %h=arith.truncf %d:f64 to f32
+    %native=arith.uitofp %u:i32 to f32
+    return %a,%b,%c,%e,%g,%h,%native:f64,f64,i64,i32,f64,f32,f32
+  }
+}
+""")
+output=a.output/'casts.lowered.mlir'
+result=subprocess.run([a.lower,source,output,'hardware-with-software-fallback'],capture_output=True,text=True)
+assert not result.returncode,result.stderr
+text=output.read_text()
+assert 'arith.sitofp' not in text and 'arith.fptosi' not in text and 'arith.fptoui' not in text,text
+assert 'arith.extf' not in text and 'arith.truncf' not in text,text
+assert text.count('arith.uitofp')==1 and 'i32 to f32' in text,text
+print('PASS: all binary64 cast opcodes use integer fallback; native binary32 conversion survives',flush=True)

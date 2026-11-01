@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     llvm::errs() << "function not found\n";
     return 1;
   }
-  auto program = emitNumericProgram(*checked.module, *selected, *arithmetic);
+  auto program = emitNumericProgram(*checked.module, *selected, *arithmetic, true);
   if (!program) {
     llvm::errs() << renderDiagnostic(*source, program.error());
     return 1;

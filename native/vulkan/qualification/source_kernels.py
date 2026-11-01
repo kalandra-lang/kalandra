@@ -12,15 +12,15 @@ p=argparse.ArgumentParser()
 for option in ('compiler','lower','extract','llvm-root','validator','output'):
     p.add_argument('--'+option,type=Path,required=True)
 p.add_argument('--arithmetic',choices=('hardware','software','hardware-with-software-fallback'),default='software')
-p.add_argument('--operation', choices=('map', 'reduce', 'matmul', 'scalar'), default='map')
+p.add_argument('--operation', choices=('map', 'relu', 'reduce', 'matmul', 'scalar'), default='map')
 a=p.parse_args()
 a.output.mkdir(parents=True,exist_ok=True)
 types=('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')
 for name in types:
     source=a.output/(name+'.k')
-    if a.operation == 'map':
+    if a.operation in ('map','relu'):
         source.write_text(f'''fn operation(v:Tensor[{name},?])->Tensor[{name},?]:
-  v*2+3
+  {'relu(v)' if a.operation=='relu' else 'v*2+3'}
 fn main()->Tensor[{name},3] ! TaskError:
   try parallel:
     gpu=devices.gpu()
@@ -51,7 +51,7 @@ fn main()->int32:
     subprocess.run([str(a.compiler),str(source),'operation',str(directory),a.arithmetic],check=True)
     program=json.loads((directory/'program.json').read_text())
     assert program['arithmetic']==a.arithmetic
-    if a.operation == 'map':
+    if a.operation in ('map','relu'):
         assert all(op['kind']=='Map' and len(op['inputs'])==1 and not op['scalarSources'] and not op['constants'] for op in program['code'])
         assert program['result']==len(program['code'])
     elif a.operation == 'scalar':
@@ -65,7 +65,7 @@ fn main()->int32:
     for i,op in enumerate(program['code']):
         if op['kernel'] == 2**32-1:
             continue
-        if a.operation == 'map':
+        if a.operation in ('map','relu'):
             assert op['inputs']==[i] and op['output']==i+1 and op['kernel']==i
         base=directory/('kernel'+str(op['kernel']))
         variants=[('software' if a.arithmetic=='software' else 'hardware',base)]

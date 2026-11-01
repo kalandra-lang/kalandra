@@ -17,6 +17,7 @@ struct Ref {
 };
 class Builder {
   ArithmeticMode arithmetic_;
+  bool nativeFloat64Conversions_;
   const TypedModule &input;
   const TypedFunction &root;
   TypedModule normalized;
@@ -149,6 +150,7 @@ class Builder {
     }
     NumericShaderOptions options;
     options.arithmetic = arithmetic_;
+    options.nativeFloat64Conversions = nativeFloat64Conversions_;
     options.boolResult = ref.type.builtin == BuiltinValue::Bool;
     std::vector<std::uint8_t> roles;
     NumericProgramInstruction instruction{NumericProgramKind::Map};
@@ -504,8 +506,10 @@ class Builder {
   }
 
 public:
-  Builder(const TypedModule &module, FunctionId id, ArithmeticMode arithmetic)
-      : arithmetic_(arithmetic), input(module), root(module.functions.at(id)) {
+  Builder(const TypedModule &module, FunctionId id, ArithmeticMode arithmetic,
+          bool nativeFloat64Conversions)
+      : arithmetic_(arithmetic), nativeFloat64Conversions_(nativeFloat64Conversions), input(module),
+        root(module.functions.at(id)) {
     normalized.source = input.source;
   }
   NumericProgram run(FunctionId id) {
@@ -530,10 +534,12 @@ public:
   }
 };
 } // namespace
-std::expected<NumericProgram, Diagnostic>
-emitNumericProgram(const TypedModule &input, FunctionId function, ArithmeticMode arithmetic) {
+std::expected<NumericProgram, Diagnostic> emitNumericProgram(const TypedModule &input,
+                                                             FunctionId function,
+                                                             ArithmeticMode arithmetic,
+                                                             bool nativeFloat64Conversions) {
   try {
-    return Builder(input, function, arithmetic).run(function);
+    return Builder(input, function, arithmetic, nativeFloat64Conversions).run(function);
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }

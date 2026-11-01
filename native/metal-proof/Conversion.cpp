@@ -25,10 +25,11 @@ bool save(ModuleOp module, const char *path) {
   return true;
 }
 SmallVector<Value> convert(OpBuilder &b, Location loc, Value input, Value mode, NumericType source,
-                           unsigned n = 0) {
+                           ArithmeticMode arithmetic = ArithmeticMode::Software,
+                           bool nativeFloat64 = false, unsigned n = 0) {
   if (n + 1 == numericTypes.size()) {
-    auto [bits, valid] =
-        gpuNumericConversion(b, loc, input, source, numericTypes[n].type, ArithmeticMode::Software);
+    auto [bits, valid] = gpuNumericConversion(b, loc, input, source, numericTypes[n].type,
+                                              arithmetic, nativeFloat64);
     return {bits, valid};
   }
   auto which = arith::ConstantIntOp::create(b, loc, n, 32);
@@ -37,20 +38,26 @@ SmallVector<Value> convert(OpBuilder &b, Location loc, Value input, Value mode, 
   {
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToStart(&branch.getThenRegion().front());
-    auto [bits, valid] =
-        gpuNumericConversion(b, loc, input, source, numericTypes[n].type, ArithmeticMode::Software);
+    auto [bits, valid] = gpuNumericConversion(b, loc, input, source, numericTypes[n].type,
+                                              arithmetic, nativeFloat64);
     scf::YieldOp::create(b, loc, ValueRange{bits, valid});
   }
   {
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToStart(&branch.getElseRegion().front());
-    scf::YieldOp::create(b, loc, convert(b, loc, input, mode, source, n + 1));
+    scf::YieldOp::create(b, loc,
+                         convert(b, loc, input, mode, source, arithmetic, nativeFloat64, n + 1));
   }
   return {branch.getResult(0), branch.getResult(1)};
 }
 } // namespace
 int main(int argc, char **argv) {
-  if (argc != 4)
+  if (argc != 4 && argc != 6)
+    return 2;
+  const bool vulkan = argc == 6;
+  const auto arithmetic =
+      vulkan ? parseArithmeticMode(argv[4]) : std::optional{ArithmeticMode::Software};
+  if (!arithmetic || (vulkan && std::string_view(argv[5]) != "--vulkan"))
     return 2;
   auto source = resolveNumeric(argv[1]);
   if (!source)
@@ -75,7 +82,7 @@ int main(int argc, char **argv) {
         validity ? Value(arith::ExtUIOp::create(b, loc, b.getI32Type(), result[1])) : result[0];
     func::ReturnOp::create(b, loc, value);
   }
-  auto gpu = parseSourceString<ModuleOp>(R"(module attributes {gpu.container_module,
+  const std::string gpuTemplate = R"(module attributes {gpu.container_module,
     spirv.target_env = #spirv.target_env<#spirv.vce<v1.0, [Shader, Int64], [SPV_KHR_storage_buffer_storage_class]>, #spirv.resource_limits<>>} {
     gpu.module @kernels {
       gpu.func @checked_conversion(%in:memref<4096xi64>,%out:memref<4096xi64>,%validity:memref<4096xi32>,%params:memref<2xi32>)
@@ -102,8 +109,16 @@ int main(int argc, char **argv) {
         gpu.return
       }
     }
-  })",
-                                         &context);
+  })";
+  auto gpuText = gpuTemplate;
+  if (vulkan) {
+    const std::string original = "%out:memref<4096xi64>,%validity:memref<4096xi32>";
+    const auto at = gpuText.find(original);
+    if (at == std::string::npos)
+      return 2;
+    gpuText.replace(at, original.size(), "%validity:memref<4096xi32>,%out:memref<4096xi64>");
+  }
+  auto gpu = parseSourceString<ModuleOp>(gpuText, &context);
   if (!gpu)
     return 1;
   arith::ConstantOp bits, valid;
@@ -123,7 +138,7 @@ int main(int argc, char **argv) {
     }
   });
   b.setInsertionPoint(bits);
-  auto result = convert(b, loc, input, mode, *source);
+  auto result = convert(b, loc, input, mode, *source, *arithmetic, vulkan);
   bits.getResult().replaceAllUsesWith(result[0]);
   valid.getResult().replaceAllUsesWith(result[1]);
   bits.erase();

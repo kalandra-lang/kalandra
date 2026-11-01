@@ -12,7 +12,7 @@ target_link_libraries(kalandra-gpu-supervisor PUBLIC kalandra-semantics PRIVATE
 target_include_directories(kalandra-gpu-supervisor SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 target_compile_options(kalandra-gpu-supervisor PRIVATE -Wall -Wextra -Werror)
 add_executable(kalandra-vulkan-lower EXCLUDE_FROM_ALL Lower.cpp)
-target_link_libraries(kalandra-vulkan-lower PRIVATE kalandra-strict-float MLIR LLVM)
+target_link_libraries(kalandra-vulkan-lower PRIVATE kalandra-strict-float kalandra-gpu-numeric MLIR LLVM)
 target_compile_options(kalandra-vulkan-lower PRIVATE -Wall -Wextra -Werror)
 add_executable(kalandra-vulkan-extract EXCLUDE_FROM_ALL ../metal-proof/Extract.cpp)
 target_include_directories(kalandra-vulkan-extract SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
@@ -25,3 +25,8 @@ target_compile_options(kalandra-vulkan-kernels PRIVATE -Wall -Wextra -Werror)
 add_executable(kalandra-vulkan-supervisor EXCLUDE_FROM_ALL SupervisorMain.cpp)
 target_link_libraries(kalandra-vulkan-supervisor PRIVATE kalandra-gpu-supervisor)
 target_compile_options(kalandra-vulkan-supervisor PRIVATE -Wall -Wextra -Werror)
+
+# Independent all-pair conversion qualification; Metal's generator defaults stay unchanged.
+add_executable(kalandra-vulkan-conversion-kernels EXCLUDE_FROM_ALL ../metal-proof/Conversion.cpp)
+target_link_libraries(kalandra-vulkan-conversion-kernels PRIVATE kalandra-gpu-numeric MLIR LLVM)
+target_compile_options(kalandra-vulkan-conversion-kernels PRIVATE -Wall -Wextra -Werror)

@@ -1,3 +1,4 @@
+#include "LowerConversions.h"
 #include "kalandra/StrictFloat.h"
 #include "mlir/AsmParser/AsmParser.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -25,6 +26,9 @@ int main(int argc, char **argv) {
   mlir::MLIRContext context(registry);
   auto module = mlir::parseSourceFile<mlir::ModuleOp>(argv[1], &context);
   if (!module || mlir::failed(mlir::verify(*module)))
+    return 1;
+  if (*policy != kalandra::ArithmeticMode::Hardware &&
+      mlir::failed(lowerVulkanFloat64Conversions(*module)))
     return 1;
   if (*policy != kalandra::ArithmeticMode::Hardware &&
       mlir::failed(kalandra::lowerStrictGpuFloat64(

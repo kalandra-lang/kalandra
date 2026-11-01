@@ -379,3 +379,39 @@ state at those earlier checkpoints, not the current implementation.
 Ten-type native/fallback map/reduction/matrix artifact bundles validate. The
 existing independent reduction/matrix/overflow/empty/tail primitive suite passes
 on both GPUs with native float64 disabled.
+
+### Native float64 casts and complete conversion/ReLU qualification
+
+The cast audit found a shared Metal restriction that forced float64 conversions
+through integer code even on capable Vulkan devices. A backend capability option
+now enables native double casts for Vulkan, retaining checked bounds and the
+unchanged Metal/default behavior. Checked GPU branches carry integer bits;
+the Vulkan fallback pass removes double cast opcodes before strict arithmetic
+lowering, keeping native float32 operations/comparisons intact. Narrow integer
+native cast carriers are explicitly canonicalized. No runtime/task ABI change.
+
+Independent APFloat/APInt tests cover all 100 pairs with exhaustive narrow
+integers, floating exponent fields/boundaries and deterministic random data.
+Native/software/fallback on each physical GPU passes 2,008,620 cells (12,051,720
+total) with input immutability and inactive guards. Native profiles each admit
+136 documented device NaN/FTZ results; software/fallback profiles admit zero.
+Actual SPIR-V audits confirm native double casts and double-free fallback while
+retaining native binary32 casts. These checks establish emitted driver-native
+operations, not unmeasured silicon performance.
+
+All 100 pairs also pass complete rank-3 source tasks under native and fallback
+policies. Checked overflow, repeated awaits, downloads and an invalid uniform
+cast before empty output add coverage: 212 programs / 1,272 executions across
+both GPUs at workers 1/2/4. Thirty full-source ReLU policy/type programs pass
+another 180 executions with native float64 disabled. Independent bitwise ReLU
+corpora pass 202,792 cells per policy/device (1,216,752 total), including NaN
+payloads, signed zeros, signed minima, unsigned identity, empty domains and tails.
+
+The default Metal proof generator's float32 AND float64 CPU/GPU artifacts remain
+byte-identical. Existing Metal frontend, full numerical-program and arithmetic
+policy checks pass (128.13 seconds). ASan/UBSan assertions pass for conversion and
+ReLU; isolated Intel TSan checks pass. Unsuppressed LSan exit findings remain:
+2,497 bytes/7 allocations for conversions and 2,509 bytes/7 for ReLU. The 12-byte
+ReLU difference is retained without claiming an exact loader-control match.
+Hosted qualification now compiles/audits all conversion policies and representative
+complete-source casts/ReLU without a software GPU substitute.

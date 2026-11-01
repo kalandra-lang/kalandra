@@ -67,3 +67,13 @@ Fresh Apple M2 Max/macOS 27.2 reports:
 Each profile has 42 timing cells, 126 fresh measured processes, 882 measured batches and 252 warmup batches. All checksums, recorded source/compiler hashes and arithmetic-artifact assertions were verified. Python retains binary64 in both profiles. Raw JSON accompanies each report.
 
 Compared with the retained earlier all-software float64 run, CPU float64 improved by 22–34× across these six local cases. For example, the 262,144-element dot product went from 15,323 to 566 microseconds, scaled addition plus sum from 17,944 to 809 microseconds, and the 96×96 matrix case from 48,505 to 1,434 microseconds. These are separate local runs, not isolated frequency-controlled measurements. GPU dispatch/transfers still dominate several small cases, and remaining CPU allocation/loop costs are visible relative to the other compiled implementations.
+
+## Experimental Vulkan backend
+
+The in-development Vulkan backend uses driver-advertised float32/float64
+arithmetic and checked native conversions. Its explicit fallback bundle retains
+native binary32 while replacing unsupported double arithmetic/casts with integer
+GPU code. ReLU, transport, identity casts and bit-preserving operations do not
+require double arithmetic. Missing/corrupt artifacts and device faults are not
+fallback triggers. This backend is still being qualified for released CLI and
+relocatable packages; see the [Vulkan implementation boundary](../native-vulkan-roadmap.md).

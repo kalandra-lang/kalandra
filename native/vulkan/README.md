@@ -254,3 +254,38 @@ the failing leak check as clean.
 All ten native/fallback map, reduction and matrix bundles compile and validate;
 the reduction/matrix overflow, empty-domain and tail conformance checks also pass
 on both physical GPUs with native float64 disabled.
+
+## Native conversions and bitwise ReLU
+
+The Vulkan source emitter enables driver-advertised float64 conversion
+instructions where available. The shared Metal default retains its existing
+integer path. Checked admission still precedes a native float-to-integer cast;
+invalid inputs never reach the conversion instruction. Narrow integer casts use
+canonical carriers, and checked branches return integer bits so the explicit
+float64 fallback can remove every double conversion without leaving a double
+transport requirement. Identity conversions preserve payloads exactly.
+
+The independent LLVM APFloat/APInt oracle covers every one of the 100 pairs,
+including exhaustive 8/16-bit input domains, all floating exponent fields,
+boundaries and deterministic random inputs. Each policy/device run checks
+2,008,620 cells and guards/immutability across 760 submissions: 12,051,720 cells
+across three policies and both physical GPUs. Native runs each use the documented
+NaN/FTZ allowance for 136 results; software and float64-fallback runs use none.
+SPIR-V audits require real double conversion instructions in native artifacts,
+no double types/capabilities in fallback artifacts, and retained native binary32
+casts. These are driver/API-native checks, not a silicon-throughput claim.
+
+Complete-source checks add all 100 pairs under native and fallback policy,
+repeated awaits, rank-3 storage and explicit downloads. Invalid overflow and
+uniform conversion before an empty output also retain ArithmeticFault order:
+212 programs, 1,272 source executions at workers 1/2/4 on both GPUs. Another
+30 source ReLU programs pass all policies with float64 disabled (180 executions).
+Bitwise ReLU qualification checks 202,792 cells per policy/device, preserving
+NaN payloads and clamping negative zero without needing float64 arithmetic.
+
+Default float32 and float64 CPU/Metal proof-generator artifacts remain
+byte-identical; Metal graph/policy/frontend regressions pass. ASan/UBSan numerical
+assertions and isolated Intel TSan checks pass. LSan still fails unsuppressed:
+2,497 bytes/7 allocations for conversions and 2,509 bytes/7 allocations for ReLU.
+The latter differs from the single-loader control by 12 bytes; it is not reported
+as an exact match or a leak-clean result.

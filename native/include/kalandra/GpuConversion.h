@@ -8,5 +8,6 @@ namespace kalandra {
 // bit carriers; validity must be checked before publishing the destination.
 std::pair<mlir::Value, mlir::Value> gpuNumericConversion(mlir::OpBuilder &, mlir::Location,
                                                          mlir::Value, NumericType, NumericType,
-                                                         ArithmeticMode = ArithmeticMode::Hardware);
+                                                         ArithmeticMode = ArithmeticMode::Hardware,
+                                                         bool nativeFloat64 = false);
 } // namespace kalandra

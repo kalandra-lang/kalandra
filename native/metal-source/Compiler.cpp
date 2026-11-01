@@ -1381,7 +1381,7 @@ class Compiler {
     const auto &fn = cpu.functions.at(function);
     auto found = numericPrograms.find(function);
     if (found == numericPrograms.end()) {
-      auto program = emitNumericProgram(cpu, function, arithmetic_);
+      auto program = emitNumericProgram(cpu, function, arithmetic_, backend_ == GpuBackend::Vulkan);
       if (!program)
         throw Rejected{program.error()};
       found = numericPrograms.emplace(function, std::move(*program)).first;
