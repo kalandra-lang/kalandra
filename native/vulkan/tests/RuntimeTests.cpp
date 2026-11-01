@@ -134,6 +134,24 @@ int main(int argc, char **argv) {
   }
   std::printf("GPU: %s vendor=%x device=%x\n", runtime->device().name.c_str(),
               runtime->device().vendor, runtime->device().device);
+  {
+    // First-use pipeline publication must also serialize concurrent callers.
+    // Use a cold context; the ordinary concurrency checks below use warm slots.
+    auto cold = take(Runtime::create({.validation = validation, .deviceIndex = selected}),
+                     "cold context");
+    std::array<std::thread, 3> callers;
+    for (auto &caller : callers)
+      caller = std::thread([&] {
+        auto input = take(cold->upload(std::array{2.0f}), "cold input");
+        auto sum = take(cold->add(input, input), "cold addition");
+        auto product = take(cold->matmulRightTransposed(sum, input, 1, 1, 1), "cold matrix");
+        check(take(cold->download(product), "cold result") == std::vector<float>{8},
+              "concurrent first-use result");
+      });
+    for (auto &caller : callers)
+      caller.join();
+    check(!cold->retainedBytes() && !cold->validationErrors(), "cold context ownership/validation");
+  }
   std::array raw{std::byte{1}, std::byte{2}, std::byte{3}};
   {
     auto bytes = take(runtime->uploadBytes(raw), "odd byte upload");

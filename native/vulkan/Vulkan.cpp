@@ -1,4 +1,5 @@
 #include "Vulkan.h"
+#include "BuiltinShaders.h"
 #include "SpirvInterface.h"
 #include <algorithm>
 #include <array>
@@ -129,6 +130,15 @@ struct Pipeline {
   VkPipelineLayout layout = VK_NULL_HANDLE;
   VkPipeline handle = VK_NULL_HANDLE;
 };
+void destroyPipeline(VkDevice device, Pipeline &pipeline) noexcept {
+  if (pipeline.handle)
+    vkDestroyPipeline(device, pipeline.handle, nullptr);
+  if (pipeline.layout)
+    vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
+  if (pipeline.descriptors)
+    vkDestroyDescriptorSetLayout(device, pipeline.descriptors, nullptr);
+  pipeline = {};
+}
 } // namespace
 struct ByteBudget {
   mutable std::mutex mutex;
@@ -156,14 +166,8 @@ struct State {
       return;
     // No command resources may be freed while the device still owns them.
     vkDeviceWaitIdle(device);
-    for (auto *p : {&addition, &matrix}) {
-      if (p->handle)
-        vkDestroyPipeline(device, p->handle, nullptr);
-      if (p->layout)
-        vkDestroyPipelineLayout(device, p->layout, nullptr);
-      if (p->descriptors)
-        vkDestroyDescriptorSetLayout(device, p->descriptors, nullptr);
-    }
+    for (auto *p : {&addition, &matrix})
+      destroyPipeline(device, *p);
     if (descriptors)
       vkDestroyDescriptorPool(device, descriptors, nullptr);
     if (commands)
@@ -329,13 +333,33 @@ std::expected<std::vector<std::uint32_t>, Error> readSpirv(const std::filesystem
 std::expected<void, Error> pipeline(State &state, Pipeline &p, const char *name,
                                     std::uint32_t bindings, std::uint32_t pushBytes,
                                     bool addition) {
-  auto code = readSpirv(std::string(KALANDRA_VULKAN_SHADER_DIR) + "/" + name + ".spv");
-  if (!code)
-    return std::unexpected(code.error());
+  // Called under queueMutex. Failed preparation releases partial objects and
+  // leaves the slot empty, so a recoverable allocation failure can be retried.
+  if (p.handle)
+    return {};
+  const auto &limits = state.properties.limits;
+  const std::uint32_t threads = addition ? 256 : 128;
+  // The selected F32 ggml tile uses two [64 * (32/2 + 1)] vec2 arrays.
+  const std::uint32_t sharedBytes = addition ? 0 : 2 * 64 * 17 * 8;
+  if (limits.maxPushConstantsSize < pushBytes || state.maxDescriptors < bindings ||
+      limits.maxComputeWorkGroupInvocations < threads ||
+      limits.maxComputeWorkGroupSize[0] < threads ||
+      limits.maxComputeSharedMemorySize < sharedBytes)
+    return std::unexpected(Error::Unsupported);
+  auto code = builtinShader(name);
+  if (code.empty())
+    return std::unexpected(Error::Unavailable);
   std::uint32_t value = addition ? VK_TRUE : 128;
   VkSpecializationMapEntry entry{0, 0, sizeof(value)};
   VkSpecializationInfo constants{1, &entry, sizeof(value), &value};
-  return makePipeline(state, p, *code, "main", bindings, pushBytes, &constants);
+  Pipeline candidate;
+  auto made = makePipeline(state, candidate, code, "main", bindings, pushBytes, &constants);
+  if (!made) {
+    destroyPipeline(state.device, candidate);
+    return std::unexpected(made.error());
+  }
+  p = candidate;
+  return {};
 }
 struct Dispatch {
   State &state;
@@ -501,11 +525,7 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     }
     vkGetPhysicalDeviceProperties(state->physical, &state->properties);
     vkGetPhysicalDeviceMemoryProperties(state->physical, &state->memory);
-    if (state->properties.apiVersion < VK_API_VERSION_1_1 ||
-        state->properties.limits.maxPushConstantsSize < 116 ||
-        state->properties.limits.maxComputeWorkGroupInvocations < 256 ||
-        state->properties.limits.maxComputeWorkGroupSize[0] < 256 ||
-        state->properties.limits.maxComputeSharedMemorySize < 64 * 20 * 8 * 2)
+    if (state->properties.apiVersion < VK_API_VERSION_1_1)
       return std::unexpected(Error::Unsupported);
     std::uint32_t count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(state->physical, &count, nullptr);
@@ -602,12 +622,6 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     status = vkCreateDescriptorPool(state->device, &descriptors, nullptr, &state->descriptors);
     if (status != VK_SUCCESS)
       return std::unexpected(error(status));
-    auto built = pipeline(*state, state->addition, "add", 4, 116, true);
-    if (!built)
-      return std::unexpected(built.error());
-    built = pipeline(*state, state->matrix, "mul_mm", 3, 64, false);
-    if (!built)
-      return std::unexpected(built.error());
     return std::unique_ptr<Runtime>(new Runtime(std::move(state)));
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
@@ -731,6 +745,9 @@ std::expected<Buffer, Error> Runtime::add(const Buffer &a, const Buffer &b) {
     if (!output)
       return std::unexpected(output.error());
     if (count) {
+      auto prepared = pipeline(*state_, state_->addition, "add.spv", 4, 116, true);
+      if (!prepared)
+        return std::unexpected(prepared.error());
       std::array<std::uint32_t, 29> push{};
       push[0] = count;
       for (std::size_t base : {1u, 9u, 17u}) {
@@ -776,6 +793,9 @@ std::expected<Buffer, Error> Runtime::matmulRightTransposed(const Buffer &a, con
       if (!visible)
         return std::unexpected(visible.error());
     } else if (cells) {
+      auto prepared = pipeline(*state_, state_->matrix, "mul_mm.spv", 3, 64, false);
+      if (!prepared)
+        return std::unexpected(prepared.error());
       std::array<std::uint32_t, 16> push{columns,
                                          rows,
                                          k,

@@ -72,13 +72,20 @@ foreach(_source IN LISTS _transform_sources)
   list(APPEND _outputs "${_output}")
 endforeach()
 add_custom_target(kalandra-vulkan-shaders DEPENDS ${_outputs})
+set(_embedded_shaders "${CMAKE_CURRENT_BINARY_DIR}/BuiltinShaders.cpp")
+add_custom_command(OUTPUT "${_embedded_shaders}"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/EmbedShaders.py"
+    --root "${CMAKE_CURRENT_BINARY_DIR}" --output "${_embedded_shaders}" ${_outputs}
+  DEPENDS ${_outputs} EmbedShaders.py VERBATIM)
+# The object library has no Vulkan/OS dependency. Include its objects in the raw
+# runtime archive as well, so consumers do not need an extra link-order contract.
+add_library(kalandra-vulkan-resources OBJECT "${_embedded_shaders}")
+target_include_directories(kalandra-vulkan-resources PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 add_library(kalandra-vulkan STATIC Vulkan.cpp SpirvInterface.cpp)
+target_link_libraries(kalandra-vulkan PRIVATE kalandra-vulkan-resources)
 target_link_libraries(kalandra-vulkan PUBLIC Vulkan::Vulkan Threads::Threads)
 target_include_directories(kalandra-vulkan PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_options(kalandra-vulkan PRIVATE -Wall -Wextra -Werror -Wno-missing-field-initializers)
-# Temporary bring-up artifact paths. Release packaging/relocation is not implemented.
-target_compile_definitions(kalandra-vulkan PRIVATE
-  KALANDRA_VULKAN_SHADER_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 add_dependencies(kalandra-vulkan kalandra-vulkan-shaders)
 add_library(kalandra-vulkan-program STATIC Program.cpp TensorBridge.cpp)
 target_include_directories(kalandra-vulkan-program PUBLIC ../include)
@@ -91,6 +98,12 @@ endif()
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   find_program(KALANDRA_SPIRV_DIS spirv-dis REQUIRED)
+  add_executable(kalandra-vulkan-resource-tests tests/ResourceTests.cpp)
+  target_link_libraries(kalandra-vulkan-resource-tests PRIVATE kalandra-vulkan-resources)
+  target_compile_options(kalandra-vulkan-resource-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-vulkan-resources
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/resources.py"
+      --build "${CMAKE_CURRENT_BINARY_DIR}" --extract $<TARGET_FILE:kalandra-vulkan-resource-tests>)
   add_test(NAME native-vulkan-transform-reference
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/qualification/TransformReferenceTests.py")
   if(TARGET LLVM)

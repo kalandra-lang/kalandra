@@ -54,12 +54,15 @@ invalidation is synchronized per allocation. Fresh uploads and kernel creation
 also avoid holding the queue's fence-wait mutex.
 Software devices are excluded rather than used as a silent GPU fallback.
 
-This initial path uses host-visible storage on discrete GPUs, synchronous fence
-waits and an absolute build-tree shader directory. It is not a performance or
-relocatable-distribution implementation. Device-local staging, async task
-completion/cancellation/deadlines in the source supervisor, full type/rank support,
-capability dispatch, fixed-tree policy, user-facing diagnostics and packaging
-remain required before the backend can be considered ready. The explicit
+This path uses host-visible storage on discrete GPUs and synchronous raw fence
+waits. Managed tasks put those waits on a foreign completion service. All 14
+predefined shaders are embedded in the runtime archive; raw primitive execution
+does not read build-tree shader files. Addition and tiled matrix pipelines are
+created on first nonempty use, with their own workgroup/shared-memory limits.
+Creating a context for a basic map does not require the matrix kernel's tile
+resources. The data-only resource object has no Vulkan-loader dependency.
+Device-local staging, optimized source matmul routing, user-facing diagnostics
+and installed compiler packaging remain unfinished. The explicit
 right-transposed matmul interface is a private layout contract, not new language
 syntax. Empty outputs and zero-contraction products perform no GPU dispatch.
 
@@ -92,7 +95,8 @@ immutable buffers. Cancellation/deadlines retain resources through completion
 acknowledgement; device errors remain native faults. Deterministic tests cover
 held completion, cancellation/fault precedence, capture limits, caller/facade/core
 teardown and cached output ownership at worker counts 1, 2 and 4. Full source
-program/transfer integration and sanitizer qualification remain unfinished.
+program/transfer integration is exercised by the complete-source checks below;
+sanitizer findings remain open as documented below.
 
 Sanitizer builds are separate: `KALANDRA_VULKAN_SANITIZERS=ON` enables ASan/UBSan;
 `KALANDRA_VULKAN_THREAD_SANITIZER=ON` enables TSan. They cannot be combined in one

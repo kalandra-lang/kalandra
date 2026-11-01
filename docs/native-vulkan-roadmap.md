@@ -415,3 +415,38 @@ ReLU; isolated Intel TSan checks pass. Unsuppressed LSan exit findings remain:
 ReLU difference is retained without claiming an exact loader-control match.
 Hosted qualification now compiles/audits all conversion policies and representative
 complete-source casts/ReLU without a software GPU substitute.
+
+### Embedded resources and lazy primitive pipelines
+
+The raw runtime archive now contains all 14 validated built-in SPIR-V modules.
+The generator accepts only the closed built-in set and emits deterministic words,
+without absolute paths or timestamps. A data-only object is independently usable
+by compiler tools without linking the Vulkan loader. Round-trip tests extract
+every module byte-for-byte, check order/path independence, and reject missing,
+repeated or malformed resource inputs. No generated shader arrays enter Git.
+
+Addition/matrix pipelines initialize transactionally on first nonempty use under
+the existing queue mutex. Partial Vulkan objects are destroyed on failure before
+publication; later calls can retry. Their own limits are checked there: addition
+uses 256 threads/116 push bytes; the selected matrix tile uses 128 threads/64 push
+bytes and 17,408 shared bytes. Unrelated kernels no longer inherit the former
+global 256-thread/20-KiB admission gate. Empty and zero-contraction results retain
+their previous behavior. No numerical, cancellation or task-ABI contract changes.
+
+Standalone GCC's ten tests pass. With all 14 original built-in files temporarily
+absent, a copied executable passes exact additions and independent matrix
+references on RTX 5090 and Intel ARL, including concurrent cold pipeline creation,
+tails, empty domains and ownership cleanup, with zero validation errors. This
+proves raw runtime resource relocation; it does not qualify installed compiler
+packages or eliminate the per-application generated numerical artifacts.
+
+Isolated Intel TSan raw runtime checks pass. Both physical GPUs pass ASan/UBSan
+correctness assertions without access/UB reports; unsuppressed exit-time LSan
+still fails (5,078 bytes/14 allocations on NVIDIA, 5,066 bytes/14 on Intel). These
+totals are retained, not treated as leak-clean or an exact prior-control match.
+
+Hosted source qualification caught an indentation error in the committed
+conversion fixture generator after the earlier local source run. The fixture
+was corrected explicitly; current-head hosted and physical source runs are
+required before counting this slice as fully qualified. The rejected CI run
+41274313326 remains evidence; its source build did not pass.

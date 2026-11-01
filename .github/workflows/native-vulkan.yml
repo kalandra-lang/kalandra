@@ -50,7 +50,7 @@ jobs:
       - name: Compile runtime, tests and validate SPIR-V
         run: cmake --build build/vulkan --parallel 2
       - name: Audit provenance and shader capabilities
-        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain|transform-reference)$" --output-on-failure
+        run: ctest --test-dir build/vulkan -R "native-vulkan-(upstream-audit|interface|development-toolchain|transform-reference|resources)$" --output-on-failure
       # Hardware correctness is separately qualified on physical NVIDIA/Intel GPUs.
       # Never silently substitute lavapipe for that acceptance evidence.
   source-compiler:
