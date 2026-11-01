@@ -12,7 +12,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra GPU headers λ ') as folder:
     root=Path(folder)
     for backend in ('vulkan','cuda'):
         for name in (backend,'runtime','gpu-runtime','include/kalandra'):(root/name).mkdir(parents=True,exist_ok=True)
-        for name in ('Language','Async','Program','Vulkan' if backend=='vulkan' else 'Cuda','TensorBridge','ExecutablePath'):
+        for name in ('Language','Async','Program','Vulkan' if backend=='vulkan' else 'CudaRuntime','TensorBridge','ExecutablePath'):
             shutil.copyfile(native/backend/(name+'.h'),root/backend/(name+'.h'))
         for source in (native/'runtime').glob('*.h'):shutil.copyfile(source,root/'runtime'/source.name)
         for source in (native/'include/kalandra').glob('*.h'):shutil.copyfile(source,root/'include/kalandra'/source.name)
