@@ -18,7 +18,8 @@ on:
       - '.github/scripts/provision_native_platform.py'
       - '.github/workflows/native-vulkan.yml'
   push:
-    branches: [develop]
+    branches: [develop, native]
+    tags: ["v*"]
     paths:
       - 'CMakeLists.txt'
       - 'VERSION'
@@ -47,6 +48,10 @@ jobs:
         build_type: [Debug, Release]
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Vulkan release asset gates
+        run: |
+          python3 -m unittest discover -s .github/scripts -p test_collect_vulkan_release.py
+          python3 -m unittest discover -s .github/scripts -p test_native_release_assets.py
       # Hosted ephemeral CI only. The user's Linux test machine is managed manually.
       - name: Install hosted build dependencies
         run: sudo apt-get update && sudo apt-get install -y libvulkan-dev glslc spirv-tools ninja-build
@@ -66,6 +71,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
+      - name: Validate tagged version and release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 .github/scripts/release_version.py
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/kalandra-llvm/installation

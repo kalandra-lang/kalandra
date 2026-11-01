@@ -61,6 +61,7 @@ jobs:
           python3 -m unittest discover -s .github/scripts -p test_linux_cross_sdk.py
           python3 -m unittest discover -s .github/scripts -p test_collect_native_platforms.py
           python3 -m unittest discover -s .github/scripts -p test_native_release_assets.py
+          python3 -m unittest discover -s .github/scripts -p test_collect_vulkan_release.py
       - name: Provision verified LLVM/MLIR
         run: python3 .github/scripts/provision_native_platform.py
       - name: Install system build prerequisites

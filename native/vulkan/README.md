@@ -509,3 +509,13 @@ It distinguishes resident from transfer-inclusive results, retains unfavorable
 baselines and requires correctness and load/control audits before accepting a
 performance claim. Raw timing reports belong in qualification evidence, not
 user documentation.
+
+## Version-tag release integration
+
+Vulkan qualification also runs for version tags. The release collector requires
+a successful run from the exact tag/revision and repository, checks the archive
+pair, then attaches the release's five CPU runtime datasets twice and compares
+the resulting digests. The Linux Vulkan standalone archive and its checksum are
+required release assets. A separate hosted job checks the downloaded combined
+compiler before publication; it does not claim physical GPU execution. Branch
+and manual rehearsals retain their existing non-publication behavior.

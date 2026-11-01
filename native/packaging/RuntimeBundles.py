@@ -47,6 +47,9 @@ def extract(archive, destination):
     checksum = archive.with_name(archive.name + '.sha256')
     if not checksum.is_file() or checksum.read_text().split()[0] != digest(archive):
         raise ValueError('Source archive checksum mismatch: ' + str(archive))
+    # Containment checks compare resolved members with this prefix. Canonicalize
+    # the root too (notably macOS /var -> /private/var and caller-owned aliases).
+    destination = destination.resolve()
     destination.mkdir(parents=True)
     with tarfile.open(archive) as package:
         if not all(v.isdir() or v.isfile() for v in package.getmembers()):
