@@ -698,3 +698,11 @@ already exist. The GPU component legitimately creates that directory for its
 owned tools. The bundler now reuses it; the rejected log is retained. No archive
 or installed-distribution qualification is claimed from that failed run. The
 install-relative driver additionally respects explicit GNUInstallDirs tool paths.
+The next run (41283224494) built and audited the archive, then correctly rejected
+it at the first installed GPU compilation: CMake had called the CPU-only driver
+"up-to-date" when the GPU component tried to replace the same staged filename.
+Stripping the CPU destination changes timestamps; timestamps cannot distinguish
+the two source binaries. GPU package staging now explicitly removes that one
+owned staged driver after installing CPU resources, before publishing the GPU
+variant. This also applies to the existing Metal package composition. The failed
+archive is not qualified; installed GPU compilation remains a mandatory gate.

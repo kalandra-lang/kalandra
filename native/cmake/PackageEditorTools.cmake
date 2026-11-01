@@ -66,6 +66,17 @@ if(PACKAGE_CPU)
     message(FATAL_ERROR "CPU compiler staging failed; no archive published")
   endif()
 endif()
+if(PACKAGE_METAL OR PACKAGE_VULKAN)
+  # CPU resources install first, including a same-named CPU-only driver. Strip
+  # can make its destination newer than the GPU binary, causing CMake to skip
+  # replacement as "up-to-date". The variant owns this staged path; force its
+  # publication rather than trusting timestamps across different source files.
+  if(CMAKE_HOST_WIN32)
+    file(REMOVE "${_prefix}/bin/kalandra.exe")
+  else()
+    file(REMOVE "${_prefix}/bin/kalandra")
+  endif()
+endif()
 if(PACKAGE_METAL)
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=DESTDIR
     "${CMAKE_COMMAND}" --install "${BUILD_DIR}" --config "${CONFIG}"
