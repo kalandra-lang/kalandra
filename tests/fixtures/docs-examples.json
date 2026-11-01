@@ -73,7 +73,8 @@
   "gpu-numerics": [
     {
       "kind": "gpu",
-      "expected": "40000000"
+      "expected": "40000000",
+      "float32Ulps": 4
     },
     {
       "kind": "gpu",

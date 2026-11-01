@@ -5,7 +5,22 @@ import json
 from pathlib import Path
 
 def compile_ptx(source,output_path,chip='80',fmad=False,library='/usr/local/cuda/lib64/libnvrtc.so.13'):
-    lib=c.CDLL(library);ptr=c.c_void_p
+    # NVRTC dlopens its matching builtins by SONAME. An explicitly supplied
+    # redistributable SDK is not necessarily on the process loader search path.
+    # Preload the exact adjacent version without changing LD_LIBRARY_PATH or
+    # accidentally mixing this NVRTC with ambient toolkit installations.
+    library_path=Path(library).resolve()
+    lib=c.CDLL(str(library_path));ptr=c.c_void_p
+    lib.nvrtcVersion.argtypes=[c.POINTER(c.c_int),c.POINTER(c.c_int)]
+    lib.nvrtcVersion.restype=c.c_int
+    major=c.c_int();minor=c.c_int()
+    if lib.nvrtcVersion(c.byref(major),c.byref(minor)):
+        raise RuntimeError('Cannot query NVRTC version')
+    builtins=library_path.parent/f'libnvrtc-builtins.so.{major.value}.{minor.value}'
+    if not builtins.is_file():
+        raise RuntimeError('Matching NVRTC builtins are missing: '+str(builtins))
+    builtins_library=c.CDLL(str(builtins))
+
     signatures={'nvrtcCreateProgram':[c.POINTER(ptr),c.c_char_p,c.c_char_p,c.c_int,ptr,ptr],
      'nvrtcCompileProgram':[ptr,c.c_int,ptr], 'nvrtcGetProgramLogSize':[ptr,c.POINTER(c.c_size_t)],
      'nvrtcGetProgramLog':[ptr,ptr], 'nvrtcGetPTXSize':[ptr,c.POINTER(c.c_size_t)],

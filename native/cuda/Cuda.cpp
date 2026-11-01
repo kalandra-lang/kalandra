@@ -197,14 +197,19 @@ struct KernelState {
   CudaArtifact artifact;
   bool charged = false;
   ~KernelState() {
+    if (module) {
+      std::lock_guard lock(owner->mutex);
+      Current current(*owner);
+      if (!current.entered || owner->driver.unload(module) != CUDA_SUCCESS) {
+        // A failed unload remains charged until context destruction. Releasing
+        // the slot before acquiring the queue lock would allow new admissions
+        // to outrun pending cleanup and exceed the actual module bound.
+        owner->poisoned = true;
+        return;
+      }
+    }
     if (charged)
       owner->modules.fetch_sub(1);
-    if (!module)
-      return;
-    std::lock_guard lock(owner->mutex);
-    Current current(*owner);
-    if (!current.entered || owner->driver.unload(module) != CUDA_SUCCESS)
-      owner->poisoned = true;
   }
 };
 std::uint64_t Buffer::bytes() const noexcept { return storage_ ? storage_->size : 0; }

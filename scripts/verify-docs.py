@@ -43,6 +43,18 @@ def command(argv, cwd, expected=None):
     return result.stdout.strip()
 
 
+def expected_output(actual, plan):
+    if 'float32Ulps' not in plan:
+        return actual.strip() == plan['expected']
+    # This example sums approximate softmax rows. The documented contract does
+    # not promise cross-device bit identity; keep a narrow explicit float32
+    # bound for this example only, rather than weakening all output checks.
+    expected = int(plan['expected'], 16)
+    assert 0 < expected < 0x7f800000 and 0 < plan['float32Ulps'] <= 4
+    observed = actual.strip()
+    return len(observed) == 8 and abs(int(observed, 16) - expected) <= plan['float32Ulps']
+
+
 def blocks(page, language):
     return [(i, b['source']) for i, b in enumerate(PAGES[page]) if b['language'] == language]
 
@@ -123,7 +135,8 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
             compile_flags = ['--target', args.gpu_backend] if plan['kind'] == 'gpu' else []
             command([TOOLS / 'kalandra', directory / 'main.k', *compile_flags, mode, '-o', output], directory)
             binary = output / 'program' if plan['kind'] == 'gpu' else output
-            outputs[mode] = command([binary], directory, plan['expected'])
+            outputs[mode] = command([binary], directory)
+            assert expected_output(outputs[mode], plan), (page, ordinal, mode, plan, outputs[mode])
         return {'page': page, 'block': index, 'kind': 'gpu' if plan['kind'] == 'gpu' else 'cpu', 'status': 'passed', 'expected': plan['expected'], 'outputs': outputs}
 
     items = [(page, n, i, source, PLAN[page][n]) for page in PAGES
