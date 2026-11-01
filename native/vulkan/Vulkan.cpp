@@ -565,7 +565,7 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     vkGetPhysicalDeviceFeatures2(state->physical, &features);
     state->features.shaderInt16 = features.features.shaderInt16;
     state->features.shaderInt64 = features.features.shaderInt64;
-    state->features.shaderFloat64 = features.features.shaderFloat64;
+    state->features.shaderFloat64 = options.enableFloat64 && features.features.shaderFloat64;
     state->storage16 = storage16.storageBuffer16BitAccess;
     state->storage8 = storage8.storageBuffer8BitAccess;
     state->int8 = narrow.shaderInt8;

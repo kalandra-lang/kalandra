@@ -24,7 +24,8 @@ struct Registry {
       auto made = vulkan::Runtime::create({.validation = options.validation,
                                            .deviceIndex = index,
                                            .budget = bytes,
-                                           .deviceUuid = devices[index].uuid});
+                                           .deviceUuid = devices[index].uuid,
+                                           .enableFloat64 = options.enableFloat64});
       if (!made)
         return std::unexpected(made.error());
       Context context;
@@ -154,11 +155,24 @@ std::expected<Kernel, Error> Runtime::load(std::string_view path, Device device,
   try {
     auto &driver = *state_->contexts[device.index_].driver;
     auto loaded = driver.loadKernel(std::filesystem::path(path));
+    bool softwareFallback = false;
+    // Only explicit policy and unsupported capability can select the bundled
+    // GPU software variant. Never retry a malformed module or a device fault.
+    if (!loaded && loaded.error() == Error::Unsupported && state_->options.allowSoftwareFallback) {
+      auto alternate =
+          driver.loadKernel(std::filesystem::path(std::string(path) + ".software.spv"));
+      if (!alternate)
+        return std::unexpected(alternate.error() == Error::Unavailable ? Error::Unsupported
+                                                                       : alternate.error());
+      loaded = std::move(alternate);
+      softwareFallback = true;
+    }
     if (!loaded)
       return std::unexpected(loaded.error());
     schema.kernel = std::move(*loaded);
     Kernel result;
     result.schema_ = std::move(schema);
+    result.softwareFallback_ = softwareFallback;
     result.device_ = std::move(device);
     result.kind_ = kind;
     return result;

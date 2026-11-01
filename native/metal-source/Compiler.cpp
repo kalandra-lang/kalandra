@@ -3727,6 +3727,14 @@ void resume(Task &task) {
 )";
     auto hostText = host.str();
     if (backend_ == GpuBackend::Vulkan) {
+      if (arithmetic_ == ArithmeticMode::HardwareWithSoftwareFallback) {
+        const std::string create = "auto made=m::Runtime::create();";
+        const auto at = hostText.find(create);
+        if (at == std::string::npos)
+          reject({}, "missing Vulkan arithmetic-policy initialization");
+        hostText.replace(at, create.size(),
+                         "auto made=m::Runtime::create({.allowSoftwareFallback=true});");
+      }
       const std::string destruction = "value->~Buffer()";
       for (std::size_t at = 0; (at = hostText.find(destruction, at)) != std::string::npos;)
         hostText.replace(at, destruction.size(), "std::destroy_at(value)");
@@ -3924,6 +3932,8 @@ void resume(Task &task) {
                   "\n";
     }
     manifest += "arithmetic=" + std::string(arithmeticModeName(arithmetic_)) + "\n";
+    if (backend_ == GpuBackend::Vulkan)
+      manifest += "arithmetic_policy=" + std::string(arithmeticModeName(arithmetic_)) + "\n";
     outputs["manifest.txt"] = std::move(manifest);
     return outputs;
   }
@@ -3932,9 +3942,6 @@ void resume(Task &task) {
 std::expected<std::map<std::string, std::string>, Diagnostic>
 kalandra::emitGpuSupervisor(Module module, ArithmeticMode arithmetic, bool testCpuExports,
                             GpuBackend backend) {
-  if (backend == GpuBackend::Vulkan && arithmetic == ArithmeticMode::HardwareWithSoftwareFallback)
-    return std::unexpected(
-        Diagnostic{"G001", "Vulkan automatic fallback artifact bundling is still in progress", {}});
   try {
     return Compiler(std::move(module), arithmetic, testCpuExports, backend).run();
   } catch (const Rejected &error) {

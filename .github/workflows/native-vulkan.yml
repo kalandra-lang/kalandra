@@ -82,6 +82,17 @@ jobs:
           cmake --build build/vulkan-source --parallel 2 --target
           kalandra-vulkan-supervisor kalandra-vulkan-kernels kalandra-vulkan-lower
           kalandra-vulkan-extract kalandra-vulkan-language
+      - name: Qualify selective fallback lowering
+        run: >-
+          python3 native/vulkan/qualification/fallback_lowering.py
+          --lower build/vulkan-source/native/gpu-source/kalandra-vulkan-lower
+          --output build/vulkan-artifacts/fallback-lowering
+      - name: Compile fallback policy source artifacts without hardware substitution
+        run: >-
+          python3 native/vulkan/qualification/fallback_sources.py --compile-only
+          --build build/vulkan-source --llvm-root "$KALANDRA_LLVM_ROOT"
+          --cxx "$KALANDRA_LLVM_ROOT/bin/clang++"
+          --output build/vulkan-artifacts/fallback-policies
       - name: Compile complete mixed CPU GPU source programs without a substitute device
         run: |
           for mode in hardware software; do
@@ -101,7 +112,7 @@ jobs:
         run: python3 native/vulkan/qualification/source_transforms.py --compile-only --output build/vulkan-artifacts/transforms
       - name: Compile and validate ten-type numerical kernel artifacts
         run: |
-          for mode in hardware software; do
+          for mode in hardware software hardware-with-software-fallback; do
             for operation in map reduce matmul; do
               python3 native/vulkan/qualification/source_kernels.py \
                 --compiler build/vulkan-source/native/gpu-source/kalandra-vulkan-kernels \

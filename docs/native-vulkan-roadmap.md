@@ -336,3 +336,46 @@ workers 1/2/4 (24 executions). ASan/UBSan assertions pass; exit-time LSan remain
 unsuppressed (5,066 bytes / 14 allocations), with external-loader attribution
 limits unchanged. The preceding transform commit also passes all three hosted
 Vulkan jobs, including production-pinned compiler/artifact qualification.
+
+
+### Native-first explicit arithmetic fallback
+
+Source bundles now carry a native module and an ABI-compatible GPU integer
+float64 alternative when `hardware-with-software-fallback` is requested.
+Native loads first; only Unsupported capability can select the alternative.
+Missing/corrupt primary artifacts and device failures never trigger fallback;
+a missing backup retains Unsupported and a corrupt backup remains Invalid.
+Native float32 instructions/comparisons are retained in the fallback variant.
+The initial all-width lowering failed at a float32 comparison and was rejected;
+a mixed-width pass regression also verifies the existing software behavior and
+fail-closed unsupported widths. Default CPU/Metal lowering remains unchanged.
+
+A private test ceiling omits float64 from VkDeviceCreateInfo, ensuring tests run
+the software GPU implementation rather than accidentally using available native
+float64. Hardware-only correctly rejects under that ceiling. Native-enabled
+controls prefer hardware; explicit fallback passes 6,032 independent IEEE
+arithmetic checks per GPU across add/subtract/multiply/divide (including
+canonical arithmetic NaNs). The full 67-case graph suite passes both GPUs at workers 1/2/4
+with float64 disabled (402 executions), covering selected shapes/branches,
+reductions, feedback, conversions and fault precedence. Twelve full-source
+policy/operation variants pass 72 source executions, including 24 expected
+hardware-only capability rejections. Repeated awaits and CPU transfers remain
+explicit. GCC and Intel's separately documented TSan configuration pass;
+CPU/Metal arithmetic-policy and frontend regressions pass (55.73 seconds).
+
+ASan/UBSan assertions pass, but LSan still fails unsuppressed at exit with
+28,563 bytes / 77 allocations in this repeated-registry fixture. An independent
+control with eleven direct Vulkan-loader initializations and no Kalandra code
+reproduces exactly that total. Allocation-class/mapping evidence is retained;
+matching totals strengthen attribution but do not constitute a leak-clean run.
+The prior lazy-context commit also passes all three hosted Vulkan jobs.
+
+Automatic fallback is now implemented for unsupported float64 arithmetic;
+integer capability ceilings, native row-math limitations, remaining numerical
+edge/conversion coverage, fault injection and released CLI/distribution work
+remain open. Earlier entries describing fallback as unimplemented record the
+state at those earlier checkpoints, not the current implementation.
+
+Ten-type native/fallback map/reduction/matrix artifact bundles validate. The
+existing independent reduction/matrix/overflow/empty/tail primitive suite passes
+on both GPUs with native float64 disabled.

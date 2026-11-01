@@ -14,25 +14,21 @@
 int main(int argc, char **argv) {
   if (argc != 4) {
     llvm::errs() << "usage: kalandra-vulkan-lower input.mlir output.mlir "
-                    "hardware|software\n";
+                    "hardware|software|hardware-with-software-fallback\n";
     return 2;
   }
   auto policy = kalandra::parseArithmeticMode(argv[3]);
   if (!policy)
     return 2;
-  if (*policy == kalandra::ArithmeticMode::HardwareWithSoftwareFallback) {
-    llvm::errs() << "Vulkan fallback artifact bundling is still in progress; choose hardware or "
-                    "software explicitly\n";
-    return 2;
-  }
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
   mlir::MLIRContext context(registry);
   auto module = mlir::parseSourceFile<mlir::ModuleOp>(argv[1], &context);
   if (!module || mlir::failed(mlir::verify(*module)))
     return 1;
-  if (*policy == kalandra::ArithmeticMode::Software &&
-      mlir::failed(kalandra::lowerStrictGpuFloat64(*module)))
+  if (*policy != kalandra::ArithmeticMode::Hardware &&
+      mlir::failed(kalandra::lowerStrictGpuFloat64(
+          *module, *policy == kalandra::ArithmeticMode::HardwareWithSoftwareFallback)))
     return 1;
   // The shared emitter has a linear work domain. Fold a physical 2D dispatch
   // into that domain rather than imposing Vulkan's per-axis group limit on
@@ -61,7 +57,7 @@ int main(int argc, char **argv) {
   bool gpu = false;
   module->walk([&](mlir::gpu::GPUModuleOp) { gpu = true; });
   if (gpu) {
-    auto environment = *policy == kalandra::ArithmeticMode::Software
+    auto environment = *policy != kalandra::ArithmeticMode::Hardware
                            ? "#spirv.target_env<#spirv.vce<v1.0, [Shader, Int64], "
                              "[SPV_KHR_storage_buffer_storage_class]>, #spirv.resource_limits<>>"
                            : "#spirv.target_env<#spirv.vce<v1.0, [Shader, Int64, Float64], "

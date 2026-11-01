@@ -10,7 +10,7 @@ parser.add_argument('--compiler',required=True)
 parser.add_argument('--root',type=Path,required=True)
 parser.add_argument('--variant',choices=('debug','optimized','sanitized','thread-sanitized'))
 parser.add_argument('--backend', choices=('metal', 'vulkan'), default='metal')
-parser.add_argument('--arithmetic', choices=('hardware', 'software'), default='software')
+parser.add_argument('--arithmetic', choices=('hardware', 'software', 'hardware-with-software-fallback'), default='software')
 args=parser.parse_args();args.root.mkdir(parents=True,exist_ok=True)
 flags=[] if not args.variant else ['--target',args.backend,{'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[args.variant]]
 names=('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')

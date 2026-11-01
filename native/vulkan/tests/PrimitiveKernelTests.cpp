@@ -154,20 +154,27 @@ void uint32Products(Runtime &runtime, const Kernel &matrix) {
   }
 }
 int run(int argc, char **argv) {
-  if (argc != 2 && argc != 3)
+  if (argc < 2 || argc > 4)
     return 2;
-  auto runtime =
-      take(Runtime::create(
-               {.deviceIndex = argc == 3 ? unsigned(std::strtoul(argv[2], nullptr, 10)) : 0}),
-           "runtime");
+  const bool fallback = argc == 4 && std::string_view(argv[3]) == "--software-fallback";
+  if (argc == 4 && !fallback)
+    return 2;
+  auto runtime = take(
+      Runtime::create({.deviceIndex = argc >= 3 ? unsigned(std::strtoul(argv[2], nullptr, 10)) : 0,
+                       .enableFloat64 = !fallback}),
+      "runtime");
+  const auto load = [&](const std::filesystem::path &path) {
+    auto kernel = runtime->loadKernel(path);
+    if (!kernel && kernel.error() == Error::Unsupported && fallback)
+      return runtime->loadKernel(path.string() + ".software.spv");
+    return kernel;
+  };
   for (auto type : numericTypes) {
     std::fprintf(stderr, "Checking %.*s source primitives\n", int(type.name.size()),
                  type.name.data());
     auto root = std::filesystem::path(argv[1]);
-    auto reduce =
-        take(runtime->loadKernel(root / "reduce" / type.name / "kernel0.spv"), "load reduction");
-    auto matrix =
-        take(runtime->loadKernel(root / "matmul" / type.name / "kernel0.spv"), "load matrix");
+    auto reduce = take(load(root / "reduce" / type.name / "kernel0.spv"), "load reduction");
+    auto matrix = take(load(root / "matmul" / type.name / "kernel0.spv"), "load matrix");
     reductions(*runtime, reduce, type);
     matrices(*runtime, matrix, type);
     faults(*runtime, reduce, matrix, type);

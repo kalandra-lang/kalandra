@@ -76,8 +76,8 @@ this is not yet a user-facing source-to-executable backend. All ten numeric
 types have source-derived map-chain conformance on both NVIDIA and Intel,
 including checked integer overflow, packed narrow tails and empty domains.
 The Vulkan lowering preserves native float64 where supported; explicit software
-mode uses the existing integer IEEE implementation. Automatic fallback artifact
-selection is still pending. Hardware float32 follows the existing hardware FTZ
+mode uses the existing integer IEEE implementation. Explicit native-first software-fallback
+bundles are qualified below. Hardware float32 follows the existing hardware FTZ
 contract; software tests use a separate gradual-underflow oracle.
 
 Versioned `_vk_flat_v1` entry points flatten a 2D physical grid into the shared
@@ -144,8 +144,9 @@ The same source-program fixtures used by Metal can select the private Vulkan
 driver with `--backend vulkan`. Their independently checked expected-output
 records can be replayed with `qualification/replay_programs.py` under an explicitly
 selected physical Vulkan ICD. Generated artifacts/results remain outside the
-repository. Transform/fallback artifact support and release packaging are still
-unfinished; see the tracked completion boundary before making support claims.
+repository. Transform/fallback artifacts are covered below; release CLI and
+packaging remain unfinished. See the tracked completion boundary before making
+support claims.
 
 For the shared fixtures, use the checked-in private adapter with existing paths:
 
@@ -211,3 +212,45 @@ context/service pair and preserves shared quotas. The default service is still
 created at startup for CPU imports and structured error tasks; failure of that
 selected default remains a startup error. Private stats expose the initialized
 context count for qualification.
+
+
+## Explicit arithmetic fallback bundles
+
+`hardware-with-software-fallback` emits the native SPIR-V plus an ABI-compatible
+GPU integer float64 variant. The generated host enables fallback only for that
+explicit policy. Loading tries native first; only Unsupported (106) can select
+the bundled alternative. A missing native artifact, malformed module or device
+fault is not a fallback trigger. A missing alternative retains Unsupported;
+a malformed alternative remains an artifact error. No CPU numerical fallback.
+
+The fallback variant preserves supported native float32 instructions and
+comparisons. An initial all-width lowering attempt failed the shared graph
+suite at a float32 comparison and was rejected. The selective float64 pass has
+an independent mixed-width regression; default CPU/Metal/software lowering is
+unchanged, and unsupported widths still fail closed. Plain `software` remains
+an explicitly selected implementation for both floating widths.
+
+A private capability ceiling disables float64 in VkDeviceCreateInfo as well as
+admission, so tests cannot accidentally execute native float64. Under that
+ceiling, hardware-only source programs reject with 106; explicit software and
+fallback programs execute on the physical GPU. Native-enabled controls verify
+native is preferred. The private source builder keeps the original generated
+host and records the ceiling in a separate test host; this is not a released
+compiler flag.
+
+Qualification covers 67 graph cases on both GPUs at workers 1/2/4 (402 source
+executions), plus twelve add/subtract/multiply/divide policy variants (72 source
+executions, including 24 expected hardware capability rejections). Independent
+CPU hardware checks verify 6,032 software IEEE arithmetic results per GPU,
+including gradual underflow, signed zeros, overflow and canonical arithmetic NaNs.
+Artifact-error tests verify the fallback trigger rules above. GCC and the
+isolated Intel TSan configuration pass; CPU/Metal policy regressions pass.
+ASan/UBSan assertions pass, but LeakSanitizer still exits unsuccessfully:
+28,563 bytes / 77 allocations after repeated registry creation. Eleven direct
+Vulkan-loader initializations with no Kalandra runtime reproduce that exact total.
+This strengthens external-loader attribution without suppressing or relabelling
+the failing leak check as clean.
+
+All ten native/fallback map, reduction and matrix bundles compile and validate;
+the reduction/matrix overflow, empty-domain and tail conformance checks also pass
+on both physical GPUs with native float64 disabled.

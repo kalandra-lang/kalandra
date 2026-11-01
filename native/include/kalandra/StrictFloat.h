@@ -12,7 +12,11 @@ mlir::LogicalResult lowerStrictFloat32(mlir::Operation *root);
 // Binary64 arithmetic using only 64-bit integer words. GPU entry boundaries must
 // carry its bits as i64; canonicalization removes temporary f64 bitcasts before
 // SPIR-V conversion. This does not enable source/ABI capabilities by itself.
-mlir::LogicalResult lowerStrictGpuFloat64(mlir::Operation *root);
+// A fallback artifact can retain supported native float32 instructions while
+// replacing only float64 arithmetic. Existing software/Metal callers keep the
+// default behavior and continue to lower both widths.
+mlir::LogicalResult lowerStrictGpuFloat64(mlir::Operation *root,
+                                          bool preserveNativeFloat32 = false);
 // CPU-only binary32/binary64 implementation. Binary64 uses i128 intermediates;
 // this entry point rejects GPU/SPIR-V modules. Source admission and typed
 // native/worker ABI validation belong to their respective compiler layers.

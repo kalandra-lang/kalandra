@@ -244,7 +244,8 @@ public:
 };
 } // namespace
 namespace {
-mlir::LogicalResult lowerStrictFloat(mlir::Operation *root, bool cpu, bool compact = false) {
+mlir::LogicalResult lowerStrictFloat(mlir::Operation *root, bool cpu, bool compact = false,
+                                     bool preserveNativeFloat32 = false) {
   root->getContext()->getOrLoadDialect<mlir::scf::SCFDialect>();
   llvm::SmallVector<mlir::Operation *> operations;
   bool valid = true;
@@ -260,6 +261,21 @@ mlir::LogicalResult lowerStrictFloat(mlir::Operation *root, bool cpu, bool compa
       return;
     if (mlir::isa<mlir::arith::BitcastOp>(op))
       return;
+    if (preserveNativeFloat32) {
+      bool binary64 = false, unsupportedFloat = false;
+      const auto inspect = [&](mlir::Type type) {
+        auto element = mlir::getElementTypeOrSelf(type);
+        binary64 |= element.isF64();
+        unsupportedFloat |=
+            mlir::isa<mlir::FloatType>(element) && !element.isF32() && !element.isF64();
+      };
+      for (auto type : op->getOperandTypes())
+        inspect(type);
+      for (auto type : op->getResultTypes())
+        inspect(type);
+      if (!binary64 && !unsupportedFloat)
+        return;
+    }
     bool floating = false;
     for (auto type : op->getOperandTypes())
       floating |= mlir::isa<mlir::FloatType>(mlir::getElementTypeOrSelf(type));
@@ -295,8 +311,8 @@ mlir::LogicalResult lowerStrictFloat(mlir::Operation *root, bool cpu, bool compa
 mlir::LogicalResult lowerStrictFloat32(mlir::Operation *root) {
   return lowerStrictFloat(root, false);
 }
-mlir::LogicalResult lowerStrictGpuFloat64(mlir::Operation *root) {
-  return lowerStrictFloat(root, false, true);
+mlir::LogicalResult lowerStrictGpuFloat64(mlir::Operation *root, bool preserveNativeFloat32) {
+  return lowerStrictFloat(root, false, true, preserveNativeFloat32);
 }
 mlir::LogicalResult lowerStrictCpuFloat(mlir::Operation *root) {
   return lowerStrictFloat(root, true);

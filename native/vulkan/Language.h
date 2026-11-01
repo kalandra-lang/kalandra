@@ -31,9 +31,11 @@ class Kernel {
 public:
   Kernel() = default;
   explicit operator bool() const noexcept { return bool(schema_.kernel); }
+  bool usedSoftwareFallback() const noexcept { return softwareFallback_; }
 
 private:
   ProgramKernel schema_{};
+  bool softwareFallback_ = false;
   Device device_;
   NumericInstructionKind kind_ = NumericInstructionKind::Map;
   friend class Runtime;
@@ -61,6 +63,7 @@ struct Options {
   std::uint64_t maxBytes = 64 * 1024 * 1024;
   std::uint64_t maxArgumentBytes = 1024 * 1024;
   std::uint32_t maxInFlight = 64, defaultDevice = 0;
+  bool allowSoftwareFallback = false, enableFloat64 = true;
 };
 struct Stats {
   std::uint64_t bytes = 0, inFlight = 0, argumentBytes = 0;

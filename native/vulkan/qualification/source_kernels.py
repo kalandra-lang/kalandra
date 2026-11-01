@@ -11,7 +11,7 @@ import subprocess
 p=argparse.ArgumentParser()
 for option in ('compiler','lower','extract','llvm-root','validator','output'):
     p.add_argument('--'+option,type=Path,required=True)
-p.add_argument('--arithmetic',choices=('hardware','software'),default='software')
+p.add_argument('--arithmetic',choices=('hardware','software','hardware-with-software-fallback'),default='software')
 p.add_argument('--operation', choices=('map', 'reduce', 'matmul', 'scalar'), default='map')
 a=p.parse_args()
 a.output.mkdir(parents=True,exist_ok=True)
@@ -68,13 +68,17 @@ fn main()->int32:
         if a.operation == 'map':
             assert op['inputs']==[i] and op['output']==i+1 and op['kernel']==i
         base=directory/('kernel'+str(op['kernel']))
-        commands=[
-          [a.lower,str(base)+'.mlir',str(base)+'.lowered.mlir',a.arithmetic],
-          [a.llvm_root/'bin/mlir-opt',str(base)+'.lowered.mlir','--verify-each',
-           '--pass-pipeline=builtin.module(canonicalize,cse,convert-gpu-to-spirv,spirv.module(spirv-lower-abi-attrs,spirv-update-vce))','-o',str(base)+'.converted.mlir'],
-          [a.extract,str(base)+'.converted.mlir',str(base)+'.kernel.mlir'],
-          [a.llvm_root/'bin/mlir-translate','--no-implicit-module','--serialize-spirv',str(base)+'.kernel.mlir','-o',str(base)+'.spv'],
-          [a.validator,'--target-env','vulkan1.0',str(base)+'.spv']]
-        for command in commands:subprocess.run(list(map(str,command)),check=True)
+        variants=[('software' if a.arithmetic=='software' else 'hardware',base)]
+        if a.arithmetic=='hardware-with-software-fallback':
+            variants.append(('hardware-with-software-fallback',Path(str(base)+'.spv.software')))
+        for policy,output in variants:
+            commands=[
+              [a.lower,str(base)+'.mlir',str(output)+'.lowered.mlir',policy],
+              [a.llvm_root/'bin/mlir-opt',str(output)+'.lowered.mlir','--verify-each',
+               '--pass-pipeline=builtin.module(canonicalize,cse,convert-gpu-to-spirv,spirv.module(spirv-lower-abi-attrs,spirv-update-vce))','-o',str(output)+'.converted.mlir'],
+              [a.extract,str(output)+'.converted.mlir',str(output)+'.kernel.mlir'],
+              [a.llvm_root/'bin/mlir-translate','--no-implicit-module','--serialize-spirv',str(output)+'.kernel.mlir','-o',str(output)+'.spv'],
+              [a.validator,'--target-env','vulkan1.0',str(output)+'.spv']]
+            for command in commands:subprocess.run(list(map(str,command)),check=True)
     print('Compiled and validated',name,flush=True)
 (a.output/'qualification.json').write_text(json.dumps({'scope':'kernel-only conformance','operation':a.operation,'arithmetic':a.arithmetic,'types':types},indent=2)+'\n')

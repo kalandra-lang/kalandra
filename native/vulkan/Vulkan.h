@@ -40,6 +40,9 @@ struct Options {
   // A retained enumeration selects by stable device identity, not a second
   // enumeration's possibly changed index. When present this replaces the index.
   std::optional<std::array<std::uint8_t, 16>> deviceUuid{};
+  // Private capability ceiling for deterministic unsupported-device tests.
+  // False also omits shaderFloat64 from VkDeviceCreateInfo, not only admission.
+  bool enableFloat64 = true;
 };
 struct State;
 struct Storage;

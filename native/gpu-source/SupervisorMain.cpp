@@ -7,12 +7,12 @@ using namespace kalandra;
 // Private source-supervisor qualification tool, not an installed CLI target.
 int main(int argc, char **argv) {
   if (argc != 4) {
-    std::cerr << "usage: kalandra-vulkan-supervisor source.k directory hardware|software\n";
+    std::cerr << "usage: kalandra-vulkan-supervisor source.k directory arithmetic-mode\n";
     return 2;
   }
   auto arithmetic = parseArithmeticMode(argv[3]);
-  if (!arithmetic || *arithmetic == ArithmeticMode::HardwareWithSoftwareFallback) {
-    std::cerr << "Vulkan automatic fallback artifact bundling is still in progress\n";
+  if (!arithmetic) {
+    std::cerr << "unknown arithmetic policy\n";
     return 2;
   }
   auto loaded = loadModules(argv[1]);

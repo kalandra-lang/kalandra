@@ -1,5 +1,6 @@
 // Independent sanitizer control: uses Vulkan directly, no Kalandra runtime.
 #include "SanitizerMaps.h"
+#include <charconv>
 #include <cstdio>
 #include <string_view>
 #include <vector>
@@ -27,11 +28,25 @@ int control(bool maps) {
   return !mapped ? 2 : status == VK_SUCCESS ? 0 : 1;
 }
 int main(int argc, char **argv) {
-  const bool twice = argc == 2 && std::string_view(argv[1]) == "--maps-twice";
-  if (argc > 2 || (argc == 2 && !twice && std::string_view(argv[1]) != "--maps"))
+  unsigned iterations = 1;
+  bool maps = false;
+  if (argc == 2) {
+    const std::string_view option(argv[1]);
+    if (option != "--maps" && option != "--maps-twice")
+      return 2;
+    maps = true;
+    iterations = option == "--maps-twice" ? 2 : 1;
+  } else if (argc == 3 && std::string_view(argv[1]) == "--maps-iterations") {
+    const std::string_view count(argv[2]);
+    auto [end, error] = std::from_chars(count.data(), count.data() + count.size(), iterations);
+    if (error != std::errc{} || end != count.data() + count.size() || !iterations ||
+        iterations > 64)
+      return 2;
+    maps = true;
+  } else if (argc != 1)
     return 2;
-  for (unsigned i = 0; i < (twice ? 2u : 1u); ++i)
-    if (auto result = control(argc == 2))
+  for (unsigned i = 0; i < iterations; ++i)
+    if (auto result = control(maps))
       return result;
   return 0;
 }

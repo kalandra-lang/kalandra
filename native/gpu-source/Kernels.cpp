@@ -44,11 +44,6 @@ int main(int argc, char **argv) {
   auto arithmetic = parseArithmeticMode(argv[4]);
   if (!arithmetic)
     return 2;
-  if (*arithmetic == ArithmeticMode::HardwareWithSoftwareFallback) {
-    llvm::errs() << "Vulkan fallback artifact bundling is still in progress; choose hardware or "
-                    "software explicitly\n";
-    return 2;
-  }
   auto loaded = loadModules(argv[1]);
   if (!loaded) {
     llvm::errs() << loaded.error() << '\n';

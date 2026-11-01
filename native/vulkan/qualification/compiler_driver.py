@@ -11,7 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument('--arithmetic', choices=('hardware', 'software'), default='hardware')
+p.add_argument('--arithmetic', choices=('hardware', 'software', 'hardware-with-software-fallback'), default='hardware')
 p.add_argument('--target', choices=('vulkan',), default='vulkan')
 optimization = p.add_mutually_exclusive_group()
 optimization.add_argument('-O0', dest='optimization', action='store_const', const='0')
@@ -27,6 +27,8 @@ command = [sys.executable, str(Path(__file__).with_name('source_program.py')),
     '--llvm-root', os.environ['KALANDRA_VULKAN_LLVM_ROOT'],
     '--source', str(a.source), '--output', str(a.o), '--arithmetic', a.arithmetic,
     '--optimization', a.optimization or '2']
+if os.environ.get('KALANDRA_VULKAN_TEST_DISABLE_NATIVE_FLOAT64') == '1':
+    command += ['--test-disable-native-float64']
 if os.environ.get('KALANDRA_VULKAN_CXX'):
     command += ['--cxx', os.environ['KALANDRA_VULKAN_CXX']]
 raise SystemExit(subprocess.run(command).returncode)
