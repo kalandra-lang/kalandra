@@ -129,3 +129,19 @@ The production-pinned `native-cuda-standalone-package` target stages an owned,
 relocatable compiler. Its exact hosted artifact, missing-resource behavior and
 physical execution still require qualification before release. The development
 LLVM 23.1.4 profile continues to disable install rules; it cannot satisfy that gate.
+
+Whole-application latency is a different measurement. `benchmarks/program_latency.py`
+separates preparation from execution, hashes every generated application, checks
+all result cells, and includes process/context setup, module/JIT-cache work,
+transfers, scheduling, output formatting and cleanup. It leaves the driver cache
+untouched and does not call its first observation a cold JIT. An initial
+LLVM 23.1.4 development series completed all 68 program executions correctly,
+but five of eight identical-program controls exceeded the predeclared 5% gate.
+Those samples are retained; there is no accepted end-to-end speedup claim.
+
+`qualification/float_conformance.py` under `native/cuda-source` generates four
+basic operations for float32/float64 and all three arithmetic policies. The
+explicit hardware test compares 916,272 outputs with LLVM APFloat, bit-exact for
+non-NaNs (including subnormals and signed zero), NaN classification for hardware,
+and canonical NaNs for software. This oracle is test-only and adds no LLVM
+requirement to the standalone runtime or generated programs.

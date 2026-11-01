@@ -52,7 +52,7 @@ jobs:
       - name: Build compiler, package and CPU-only contract checks
         run: >-
           cmake --build build/cuda --parallel 2 --target kalandra native-cuda-standalone-package
-          kalandra-cuda-artifact-tests
+          kalandra-cuda-artifact-tests kalandra-cuda-float-tests
       - name: Check PTX, provenance, private ABI and installed header ownership
         run: ctest --test-dir build/cuda -R 'native-(cuda-(artifacts|artifact-contract|upstream-audit)|gpu-shared-installed-headers)$' --output-on-failure
       - name: Check source/output protection and public command options
