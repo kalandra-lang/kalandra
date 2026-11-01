@@ -51,7 +51,7 @@ if a.matmul_policy=='optimized' and a.arithmetic!='software':
         target=marker.with_suffix('.ptx')
         shutil.copyfile(target,str(target)+'.fixed-tree.ptx')
         target.with_suffix('.ptx.json').rename(str(target)+'.fixed-tree.ptx.json')
-        shutil.copyfile(build/'cuda/kernels/matmul-warp64.ptx',target)
+        shutil.copyfile(build/'cuda/kernels/matmul-catalog.ptx',target)
 if list(out.glob('*.native.metal')) or list(out.glob('*.vulkan-transform')):
     raise RuntimeError('CUDA transform resources have not been integrated; refusing an incomplete application')
 objects=[]

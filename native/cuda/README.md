@@ -63,7 +63,10 @@ other enabled GPU targets remain available in the same executable. No CUDA
 system software is installed by the compiler.
 
 Matmul defaults to `fixed-tree`. Explicit `--matmul-policy optimized` uses the
-pinned MIT full-float32 warp-tiled kernel for supported aligned float32 shapes.
+pinned BSD-3-Clause CUTLASS C++ full-float32 SIMT kernels for supported aligned
+float32 shapes. The build downloads only the pinned C++ include tree and license
+into a build-local cache; Python/CuTeDSL's separate license is excluded. Offline
+builds can set `KALANDRA_CUTLASS_ARCHIVE` to the hash-verified source archive.
 Its FMA/accumulation order differs from the adjacent-pair fixed tree; it never
 selects TF32 or reduced-precision input storage. Other shapes, zero dimensions,
 odd K, and the disabled tiled capability use the bundled fixed-tree **GPU**
@@ -74,7 +77,7 @@ trait leaves Vulkan's existing imported-kernel layout unchanged.
 Applications deploy as a directory: keep `program`, every `.ptx` file (including
 `.fixed-tree.ptx` / `.software.ptx` companions), and `THIRD_PARTY_NOTICES.txt`
 together. Kernel paths resolve relative to the actual executable, including PATH
-and symlink launches. Native matrix artifacts have an integrity-covered V2 tile
+and symlink launches. Legacy native matrix artifacts have an integrity-covered V2 tile
 contract; ordinary NVVM kernels retain the V1 descriptor contract. This is a
 private compiler/runtime ABI, not the user-written-kernel interface.
 
@@ -101,29 +104,79 @@ resources. Applications receive resolved PTX and require no NVRTC/math-library
 runtime dependency. CUDA row tests use the CPU/Metal rounding oracle, including
 its four-ULP exp interval, rather than Vulkan's wider hardware bounds.
 
-## Initial performance qualification
+## Optimized matrix catalog
 
-Two frozen RTX 5090 series on 2026-11-01 compared the production-descriptor
-64/128 tile kernels with cuBLAS 13.4.1 in `CUBLAS_COMPUTE_32F_PEDANTIC` mode.
-Four ABBA blocks per pair and identical-kernel controls passed the predeclared
-5% gate in both series. Every timed output and separate nonuniform, sub-TF32
-precision and prior-NaN controls passed. The 64 tile was consistently faster,
-so it is the installed optimized resource; the 128 tile remains a candidate.
+The private V3 artifact admits four reflected descriptor functions in one module:
+a 64×128 tile (128 threads), a 128×256 tile (256 threads), a 256-thread reduction,
+and a 256-thread scratch-free fallback. Legacy V1/V2 artifacts remain supported.
+Every function has the same twenty 64-bit descriptor arguments. The bounded
+catalog does not introduce public user kernels, module-cache growth or a new
+source ABI.
 
-| M×N×K | 128 tile / 64 tile time | 64 tile / cuBLAS time (approximately) |
+Both tiled entries split K into five independent, eight-element-padded slices.
+They use float32 SIMT FMA and a fixed balanced eight-leaf reduction (unused leaves
+are zero). There are no floating atomics or inter-CTA waits. Products retain the
+previous aligned accelerated domain; tails, empty tensors, K=0, disabled tiled
+capability and unsupported geometry use the fixed-tree GPU companion. The
+optimized policy already permits FMA, reassociation and intermediate-overflow
+behavior differing from a serial or fixed-tree dot product.
+
+Optional scratch is five float32 output planes, charged at the device allocation
+granularity. When full planes exceed the quota, the runtime reuses 512 or 256
+output rows of scratch with a separately budgeted per-band shape table. Every
+band preserves the same K slices and reduction order. If even that cannot fit,
+the scratch-free route is used. Scratch is fully overwritten before use. Partial and reduction launches
+share one context lock, stream and final completion fence. Failures in either
+launch still settle before resources retire. OOM/quota rejection before launch
+selects the scratch-free function, which computes the same partitions, padding,
+FMA order and reduction tree. Device errors propagate; they never trigger this
+fallback. Scratch is released after completion and before status-readback
+staging. Cancellation/deadline acknowledgement stays at the completed source
+primitive; the two private launches remain one language stage.
+
+`tests/CatalogTests.cpp` covers independent numerical oracles, full-FP32 low-bit
+and subnormal witnesses, bit-identical workspace fallback, real tight quotas,
+module admission, foreign ownership, narrow/wide bands and final row tails, partial/reducer failure settlement and
+cancellation/deadline acknowledgement with 1/2/4 workers. Compute Sanitizer and
+host ASan/UBSan exercise the actual runtime, not only a kernel launch prototype.
+
+`benchmarks/RuntimeMatmul.cpp` separately measures actual runtime invocations
+against the legacy kernel at the unchanged default 64 MiB budget and an explicit
+256 MiB ceiling. It includes output/parameter/workspace allocation, completion,
+status readback and cleanup with resident inputs; task scheduling, process startup
+and input transfer remain outside that scope. Do not confuse its wall times with
+the prepared resident GPU-event numbers below.
+
+## Resident performance evidence
+
+Four frozen idle RTX 5090 runs on 2026-11-01 (two repetitions per tile orientation)
+passed complete-output correctness and all 768 identical-kernel controls at the
+predeclared 5% threshold. Twelve shapes included eight holdouts. Best tested
+mirrored split-K kernels compared with the earlier tile64 baseline and cuBLAS
+13.4.1 `CUBLAS_COMPUTE_32F_PEDANTIC` as follows:
+
+| M×N×K | Time / tile64 baseline | Time / cuBLAS |
 | --- | ---: | ---: |
-| 512×512×512 | 1.72 | 3.55 |
-| 1024×1024×1024 | 1.42 | 2.14 |
-| 2048×2048×2048 | 1.18 | 1.51 |
-| 512×1024×768 | 1.72 | 1.89 |
+| 512×512×512 | 0.246 | 0.885 |
+| 1024×1024×1024 | 0.434 | 0.934 |
+| 1536×1536×1536 | 0.824 | 1.254 |
+| 2048×2048×2048 | 0.772 | 1.176 |
+| 512×1024×768 | 0.358 | 0.677 |
 
-These are resident prepared-launch GPU-event intervals, including submission
-gaps. They exclude compilation, allocation, transfers and language scheduling;
-they are **not** end-to-end language measurements or a claim of vendor parity.
-cuBLAS is reference-only. `benchmarks/ResidentMatmul.cpp` and `run_resident.py`
-retain the protocol, full output checks, frozen hashes and failed-control
-handling. Raw machine-specific series belong in qualification artifacts, not
-large checked-in reports. No clock/driver settings were changed.
+Lower is faster. These are prepared resident prototype kernel intervals,
+including both launches and submission gaps, excluding compilation, allocation,
+transfers and task scheduling. They are not end-to-end compiler results. The
+wide tile regresses on the 64³ holdout, so it is not selected universally. Large
+1536³/2048³ products still trail cuBLAS. Earlier shared-desktop series failed
+controls and remain separate; they are not pooled into the accepted results.
+
+`benchmarks/CatalogResident.cpp` loads the production V3 and legacy V2 resources
+for repeatable reference-only comparisons. It is never linked into applications.
+Build it with the existing CUDA SDK (`clang++ -std=c++20 -O2`, CUDA include/lib
+paths, `-lcublas -ldl`). Its arguments are catalog PTX, output JSONL, and legacy
+warp64 PTX. It validates all output cells before timing and retains four ABBA
+blocks per pair, independent controls and eight holdouts. Raw machine-specific
+series belong in qualification artifacts, not large checked-in reports.
 
 The production-pinned `native-cuda-standalone-package` target stages an owned,
 relocatable compiler. The downloaded hosted artifact passed relocation, 153 GPU executions, eight

@@ -40,6 +40,7 @@ fn main()->Tensor[float32,?,?] ! TaskError:
         assert built.returncode==0,(directory,built.stderr[-4000:])
         notices=(directory/'THIRD_PARTY_NOTICES.txt').read_text()
         assert 'MIT License' in notices and 'Simon Boehm' in notices
+        assert 'BSD-3-Clause' in notices and 'NVIDIA' in notices
         native=policy=='optimized' and arithmetic!='software' and name=='aligned'
         for workers in (1,2,4):
             run=subprocess.run([directory/'program'],env=os.environ|{'KALANDRA_WORKERS':str(workers),'KALANDRA_CUDA_DIAGNOSTICS':'1'},

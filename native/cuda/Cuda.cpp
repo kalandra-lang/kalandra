@@ -1,5 +1,6 @@
 #include "Cuda.h"
 #include "kalandra/CudaArtifact.h"
+#include "kalandra/CudaMatmul.h"
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
@@ -43,6 +44,7 @@ struct Driver {
   using Unload = CUresult (*)(CUmodule);
   using Function = CUresult (*)(CUfunction *, CUmodule, const char *);
   using Count = CUresult (*)(CUfunction, size_t *);
+  using FunctionAttribute = CUresult (*)(int *, CUfunction_attribute, CUfunction);
   using Parameter = CUresult (*)(CUfunction, size_t, size_t *, size_t *);
   using Launch = CUresult (*)(CUfunction, unsigned, unsigned, unsigned, unsigned, unsigned,
                               unsigned, unsigned, CUstream, void **, void **);
@@ -67,6 +69,7 @@ struct Driver {
   CUDA_FUNCTION(unload, Unload);
   CUDA_FUNCTION(function, Function);
   CUDA_FUNCTION(count, Count);
+  CUDA_FUNCTION(functionAttribute, FunctionAttribute);
   CUDA_FUNCTION(parameter, Parameter);
   CUDA_FUNCTION(launch, Launch);
   CUDA_FUNCTION(granularity, Granularity);
@@ -104,6 +107,7 @@ struct Driver {
     SYMBOL(unload, "cuModuleUnload");
     SYMBOL(function, "cuModuleGetFunction");
     SYMBOL(count, "cuFuncGetParamCount");
+    SYMBOL(functionAttribute, "cuFuncGetAttribute");
     SYMBOL(parameter, "cuFuncGetParamInfo");
     SYMBOL(launch, "cuLaunchKernel");
     SYMBOL(granularity, "cuMemGetAllocationGranularity");
@@ -142,7 +146,8 @@ struct State {
   std::uint64_t granularity = 0, deferredBytes = 0;
   DeviceInfo info;
   bool enableFloat64 = true, enableTiled = true;
-  std::atomic<std::uint64_t> nativeMatmuls{0}, fixedMatmuls{0};
+  std::atomic<std::uint64_t> nativeMatmuls{0}, fixedMatmuls{0}, splitMatmuls{0},
+      scratchFreeMatmuls{0}, bandedMatmuls{0};
   int chip = 0, maxThreads = 0, maxGrid = 0, maxGridY = 0;
   std::atomic<unsigned> modules{0};
   unsigned maxModules = 0;
@@ -194,6 +199,7 @@ struct KernelState {
   std::shared_ptr<State> owner;
   CUmodule module{};
   CUfunction function{};
+  std::array<CUfunction, 3> catalog{}; // large, reducer, same-arithmetic no-scratch
   CudaArtifact artifact;
   bool charged = false;
   ~KernelState() {
@@ -283,6 +289,10 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
   return std::unique_ptr<Runtime>(new Runtime(std::move(state)));
 }
 std::expected<Buffer, Error> Runtime::blankBytes(std::uint64_t size) {
+  return allocateBytes(size, true, false);
+}
+std::expected<Buffer, Error> Runtime::allocateBytes(std::uint64_t size, bool initialize,
+                                                    bool optional) {
   {
     std::lock_guard lock(state_->mutex);
     if (state_->poisoned)
@@ -308,13 +318,27 @@ std::expected<Buffer, Error> Runtime::blankBytes(std::uint64_t size) {
   std::unique_lock lock(state_->mutex);
   Current current(*state_);
   CUdeviceptr pointer{};
-  if (!current.entered || state_->poisoned || state_->fail(FailurePoint::Allocate) ||
-      state_->driver.alloc(&pointer, size) != CUDA_SUCCESS) {
+  CUresult allocated = CUDA_ERROR_OUT_OF_MEMORY;
+  if (!current.entered || state_->poisoned ||
+      (optional && state_->fail(FailurePoint::ScratchDevice))) {
     state_->budget->retained.fetch_sub(charge);
+    state_->poisoned = true;
+    return std::unexpected(Error::Device);
+  }
+  if (!state_->fail(optional ? FailurePoint::ScratchAllocate : FailurePoint::Allocate))
+    allocated = state_->driver.alloc(&pointer, size);
+  if (allocated != CUDA_SUCCESS) {
+    state_->budget->retained.fetch_sub(charge);
+    if (allocated != CUDA_ERROR_OUT_OF_MEMORY) {
+      state_->poisoned = true;
+      return std::unexpected(Error::Device);
+    }
     return std::unexpected(Error::Allocation);
   }
-  const auto initialized = state_->driver.zero(pointer, 0, size);
-  const auto completed = state_->driver.sync();
+  // Private split-K scratch is completely overwritten before it is consumed.
+  // Avoid a zero fill and completion fence solely for optional workspace.
+  const auto initialized = initialize ? state_->driver.zero(pointer, 0, size) : CUDA_SUCCESS;
+  const auto completed = initialize ? state_->driver.sync() : CUDA_SUCCESS;
   if (initialized != CUDA_SUCCESS || completed != CUDA_SUCCESS) {
     if (state_->driver.free(pointer) == CUDA_SUCCESS)
       state_->budget->retained.fetch_sub(charge);
@@ -378,7 +402,8 @@ std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &pa
     return std::unexpected(Error::Invalid);
   if (artifact->nativeFloat64 && !state_->enableFloat64)
     return std::unexpected(Error::Unsupported);
-  if (artifact->chip > unsigned(state_->chip) || artifact->threads > unsigned(state_->maxThreads))
+  if (artifact->chip > unsigned(state_->chip) || artifact->threads > unsigned(state_->maxThreads) ||
+      (artifact->catalog && state_->maxThreads < 256))
     return std::unexpected(Error::Unsupported);
   std::erase_if(state_->moduleCache, [](auto &value) { return value.expired(); });
   for (auto &weak : state_->moduleCache)
@@ -405,13 +430,32 @@ std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &pa
         state_->driver.load(&kernel->module, text.c_str(), 0, nullptr, nullptr) == CUDA_SUCCESS &&
         state_->driver.function(&kernel->function, kernel->module,
                                 kernel->artifact.entry.c_str()) == CUDA_SUCCESS) {
-      size_t count{};
-      valid = state_->driver.count(kernel->function, &count) == CUDA_SUCCESS &&
-              count == kernel->artifact.buffers.size() * 5;
-      for (size_t i = 0; valid && i < count; ++i) {
-        size_t offset{}, size{};
-        valid = state_->driver.parameter(kernel->function, i, &offset, &size) == CUDA_SUCCESS &&
-                offset == i * 8 && size == 8;
+      const auto reflected = [&](CUfunction function) {
+        size_t count{};
+        if (state_->driver.count(function, &count) != CUDA_SUCCESS ||
+            count != kernel->artifact.buffers.size() * 5)
+          return false;
+        for (size_t i = 0; i < count; ++i) {
+          size_t offset{}, size{};
+          if (state_->driver.parameter(function, i, &offset, &size) != CUDA_SUCCESS ||
+              offset != i * 8 || size != 8)
+            return false;
+        }
+        return true;
+      };
+      valid = reflected(kernel->function);
+      if (kernel->artifact.catalog) {
+        constexpr std::array suffixes{"_large", "_reduce", "_no_scratch"};
+        for (unsigned i = 0; valid && i < suffixes.size(); ++i)
+          valid = state_->driver.function(&kernel->catalog[i], kernel->module,
+                                          (kernel->artifact.entry + suffixes[i]).c_str()) ==
+                      CUDA_SUCCESS &&
+                  reflected(kernel->catalog[i]);
+        int localBytes = -1;
+        valid = valid &&
+                state_->driver.functionAttribute(&localBytes, CU_FUNC_ATTRIBUTE_LOCAL_SIZE_BYTES,
+                                                 kernel->catalog[2]) == CUDA_SUCCESS &&
+                localBytes == 0;
       }
     }
   }
@@ -472,12 +516,105 @@ std::expected<void, Error> Runtime::executeGrid(const Kernel &kernel,
   }
   return {};
 }
+std::expected<void, Error>
+Runtime::executeCatalog(const Kernel &kernel, std::span<const Buffer> buffers,
+                        const Buffer &scratch, const Buffer &bandParameters, bool wide, unsigned m,
+                        unsigned n, unsigned k, unsigned bandRows) {
+  if (!owns(kernel) || !kernel.state_->artifact.catalog || buffers.size() != 4)
+    return std::unexpected(Error::Invalid);
+  std::array<std::uint64_t, 20> descriptor{};
+  std::array<void *, 20> arguments{};
+  for (unsigned i = 0; i < buffers.size(); ++i) {
+    if (!owns(buffers[i]) || buffers[i].bytes() % 4)
+      return std::unexpected(Error::Invalid);
+    const auto base = i * 5;
+    descriptor[base] = descriptor[base + 1] = buffers[i].storage_->pointer;
+    descriptor[base + 3] = buffers[i].bytes() / 4;
+    descriptor[base + 4] = 1;
+  }
+  if (scratch &&
+      (!owns(scratch) || scratch.bytes() != std::uint64_t(bandRows) * n * 4 * cudaMatmulParts))
+    return std::unexpected(Error::Invalid);
+  const unsigned bands = scratch ? (m + bandRows - 1) / bandRows : 1;
+  if (bandParameters &&
+      (!owns(bandParameters) || bandParameters.bytes() != std::uint64_t(bands) * 16))
+    return std::unexpected(Error::Invalid);
+  if (scratch && bandRows != m && !bandParameters)
+    return std::unexpected(Error::Invalid);
+  for (unsigned i = 0; i < descriptor.size(); ++i)
+    arguments[i] = &descriptor[i];
+  const auto linearGroups = unsigned((std::uint64_t(m) * n + 255) / 256);
+  std::lock_guard lock(state_->mutex);
+  Current current(*state_);
+  if (!current.entered || state_->poisoned)
+    return std::unexpected(Error::Device);
+  if (state_->fail(FailurePoint::Launch)) {
+    state_->poisoned = true;
+    return std::unexpected(Error::Device);
+  }
+  CUresult launched;
+  if (!scratch) {
+    launched = state_->driver.launch(kernel.state_->catalog[2], linearGroups, 1, 1, 256, 1, 1, 0,
+                                     nullptr, arguments.data(), nullptr);
+  } else {
+    launched = CUDA_SUCCESS;
+    const auto original = descriptor;
+    const unsigned tm = wide ? 128 : 64, tn = wide ? 256 : 128;
+    for (unsigned band = 0; band < bands && launched == CUDA_SUCCESS; ++band) {
+      descriptor = original;
+      const auto row = std::uint64_t(band) * bandRows;
+      const auto rows = unsigned(std::min<std::uint64_t>(bandRows, m - row));
+      descriptor[2] = row * k;
+      if (bandParameters) {
+        descriptor[15] = descriptor[16] = bandParameters.storage_->pointer;
+        descriptor[17] = std::uint64_t(band) * 4;
+      }
+      descriptor[10] = descriptor[11] = scratch.storage_->pointer;
+      descriptor[13] = scratch.bytes() / 4;
+      launched =
+          state_->driver.launch(wide ? kernel.state_->catalog[0] : kernel.state_->function,
+                                (n + tn - 1) / tn, (rows + tm - 1) / tm, cudaMatmulParts,
+                                wide ? 256 : 128, 1, 1, 0, nullptr, arguments.data(), nullptr);
+      if (launched == CUDA_SUCCESS) {
+        // CUDA copies arguments before returning. All bands reuse the scratch
+        // on one stream, so each reduction completes before the next overwrite.
+        descriptor[0] = descriptor[1] = scratch.storage_->pointer;
+        descriptor[2] = 0;
+        descriptor[3] = std::uint64_t(rows) * n * cudaMatmulParts;
+        descriptor[10] = descriptor[11] = buffers[2].storage_->pointer;
+        descriptor[12] = row * n;
+        descriptor[13] = buffers[2].bytes() / 4;
+        launched = state_->fail(FailurePoint::ReduceLaunch)
+                       ? CUDA_ERROR_INVALID_VALUE
+                       : state_->driver.launch(kernel.state_->catalog[1],
+                                               unsigned((std::uint64_t(rows) * n + 255) / 256), 1,
+                                               1, 256, 1, 1, 0, nullptr, arguments.data(), nullptr);
+      }
+    }
+  }
+  // Settle even after the first or second launch fails. Capture/scratch owners
+  // cannot retire while submitted work may still access them. The language's
+  // cancellation acknowledgement remains the completed source primitive.
+  auto settled = state_->driver.sync();
+  if (launched != CUDA_SUCCESS || settled != CUDA_SUCCESS ||
+      state_->fail(FailurePoint::WaitAfterCompletion)) {
+    state_->poisoned = true;
+    return std::unexpected(Error::Device);
+  }
+  (scratch ? state_->splitMatmuls : state_->scratchFreeMatmuls).fetch_add(1);
+  if (scratch && bands > 1)
+    state_->bandedMatmuls.fetch_add(1);
+  return {};
+}
 } // namespace kalandra::runtime::cuda
 
 namespace kalandra::runtime::cuda {
-bool Kernel::tiledMatmul() const noexcept { return state_ && state_->artifact.tile != 0; }
+bool Kernel::tiledMatmul() const noexcept {
+  return state_ && (state_->artifact.tile != 0 || state_->artifact.catalog != 0);
+}
 DispatchStats Runtime::dispatchStats() const noexcept {
-  return {state_->nativeMatmuls.load(), state_->fixedMatmuls.load()};
+  return {state_->nativeMatmuls.load(), state_->fixedMatmuls.load(), state_->splitMatmuls.load(),
+          state_->scratchFreeMatmuls.load(), state_->bandedMatmuls.load()};
 }
 std::expected<Kernel, Error> Runtime::loadMatmulKernel(const std::filesystem::path &path) {
   auto native = loadKernel(path);
@@ -604,14 +741,26 @@ std::expected<KernelResult, Error> Runtime::execute(const Kernel &kernel,
         inputs[0].bytes() != m * k * 4 || inputs[1].bytes() != k * n * 4)
       return std::unexpected(Error::Invalid);
     const auto tile = kernel.state_->artifact.tile;
-    nativeMatrix = m && n && k && !(m % tile) && !(n % tile) && !(k % 16) &&
-                   std::max({m * n, m * k, k * n}) < std::uint64_t(INT32_MAX) &&
-                   m / tile <= unsigned(state_->maxGridY) &&
-                   n / tile <= unsigned(state_->maxGrid) &&
-                   inputs[0].storage_ != inputs[1].storage_;
+    if (kernel.state_->artifact.catalog) {
+      const bool wide = cudaMatmulWide(m, n, k);
+      const unsigned tm = wide ? 128 : 64, tn = wide ? 256 : 128;
+      nativeMatrix = cudaMatmulCatalogShape(m, n, k) &&
+                     (m + tm - 1) / tm <= unsigned(state_->maxGridY) &&
+                     (n + tn - 1) / tn <= unsigned(state_->maxGrid) &&
+                     (m * n + 255) / 256 <= unsigned(state_->maxGrid) &&
+                     inputs[0].storage_ != inputs[1].storage_;
+    } else {
+      nativeMatrix = m && n && k && !(m % tile) && !(n % tile) && !(k % 16) &&
+                     std::max({m * n, m * k, k * n}) < std::uint64_t(INT32_MAX) &&
+                     m / tile <= unsigned(state_->maxGridY) &&
+                     n / tile <= unsigned(state_->maxGrid) &&
+                     inputs[0].storage_ != inputs[1].storage_;
+    }
     if (nativeMatrix) {
-      groups = n / tile;
-      gridRows = m / tile;
+      if (tile) {
+        groups = n / tile;
+        gridRows = m / tile;
+      }
     } else {
       if (!kernel.fixed_)
         return std::unexpected(Error::Unsupported);
@@ -663,14 +812,74 @@ std::expected<KernelResult, Error> Runtime::execute(const Kernel &kernel,
   std::vector<Buffer> bindings(inputs.begin(), inputs.end());
   bindings.push_back(*output);
   bindings.push_back(*parameters);
-  auto executed = executeGrid(dispatched, bindings, groups, gridRows);
+  Buffer scratch, bandParameters;
+  unsigned bandRows = words.empty() ? 0 : words[0];
+  const bool catalog = nativeMatrix && kernel.state_->artifact.catalog;
+  if (catalog) {
+    auto made = allocateBytes(outputBytes * cudaMatmulParts, false, true);
+    if (made)
+      scratch = std::move(*made);
+    else if (made.error() != Error::Budget && made.error() != Error::Allocation)
+      return std::unexpected(made.error()); // Device errors never become fallback.
+    else if (made.error() == Error::Budget && words[0] > 256) {
+      // Bound workspace without raising the byte limit. Larger bands reduce
+      // submission overhead; at most two fixed shapes are attempted on Budget.
+      // Allocation/device errors never cause an unbounded retry loop.
+      for (unsigned rows : {512u, 256u}) {
+        if (rows >= words[0])
+          continue;
+        auto bounded =
+            allocateBytes(std::uint64_t(rows) * words[2] * 4 * cudaMatmulParts, false, true);
+        if (!bounded) {
+          if (bounded.error() == Error::Budget)
+            continue;
+          if (bounded.error() == Error::Allocation)
+            break;
+          return std::unexpected(bounded.error());
+        }
+        const auto bands = (words[0] + rows - 1) / rows;
+        const auto tableBytes = std::uint64_t(bands) * 16;
+        auto host = reserveHostBytes(tableBytes);
+        if (!host)
+          continue;
+        std::vector<std::uint32_t> table(std::size_t(bands) * 4);
+        for (unsigned band = 0; band < bands; ++band) {
+          table[band * 4] = std::min(rows, words[0] - band * rows);
+          table[band * 4 + 1] = words[1];
+          table[band * 4 + 2] = words[2];
+          table[band * 4 + 3] = UINT32_MAX;
+        }
+        auto uploaded = uploadBytes(std::as_bytes(std::span(table)));
+        if (!uploaded) {
+          if (uploaded.error() == Error::Budget)
+            continue;
+          if (uploaded.error() == Error::Allocation)
+            break;
+          return std::unexpected(uploaded.error());
+        }
+        scratch = std::move(*bounded);
+        bandParameters = std::move(*uploaded);
+        bandRows = rows;
+        break;
+      }
+    }
+  }
+  auto executed = catalog ? executeCatalog(dispatched, bindings, scratch, bandParameters,
+                                           cudaMatmulWide(words[0], words[2], words[1]), words[0],
+                                           words[2], words[1], bandRows)
+                          : executeGrid(dispatched, bindings, groups, gridRows);
   if (!executed)
     return std::unexpected(executed.error());
+  // Completion has settled both launches. Return optional workspace quota
+  // before mandatory status readback reserves its host staging bytes.
+  scratch = {};
+  bandParameters = {};
   if (kernel.entryName().starts_with("kalandra_numeric_v1_matmul_")) {
     if (std::getenv("KALANDRA_CUDA_DIAGNOSTICS"))
       std::fprintf(stderr, "CUDA matmul route=%s tile=%u shape=%u,%u,%u\n",
                    nativeMatrix ? "tiled" : "fixed-tree",
-                   nativeMatrix ? kernel.state_->artifact.tile : 0, words[0], words[1], words[2]);
+                   nativeMatrix ? (catalog ? 64u : kernel.state_->artifact.tile) : 0, words[0],
+                   words[1], words[2]);
     if (nativeMatrix)
       state_->nativeMatmuls.fetch_add(1);
     else

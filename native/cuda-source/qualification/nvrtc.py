@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-def compile_ptx(source,output_path,chip='80',fmad=False,library='/usr/local/cuda/lib64/libnvrtc.so.13'):
+def compile_ptx(source,output_path,chip='80',fmad=False,library='/usr/local/cuda/lib64/libnvrtc.so.13',extra_options=()):
     # NVRTC dlopens its matching builtins by SONAME. An explicitly supplied
     # redistributable SDK is not necessarily on the process loader search path.
     # Preload the exact adjacent version without changing LD_LIBRARY_PATH or
@@ -32,6 +32,7 @@ def compile_ptx(source,output_path,chip='80',fmad=False,library='/usr/local/cuda
     check(lib.nvrtcCreateProgram(c.byref(program),source,b'kalandra-device.cu',0,None,None))
     try:
      options=[f'--gpu-architecture=compute_{chip}'.encode(),b'--std=c++17',b'--fmad=true' if fmad else b'--fmad=false',b'--ftz=false']
+     options.extend(v.encode() for v in extra_options)
      arguments=(c.c_char_p*len(options))(*options)
      status=lib.nvrtcCompileProgram(program,len(options),arguments)
      size=c.c_size_t();check(lib.nvrtcGetProgramLogSize(program,c.byref(size)))
@@ -41,7 +42,9 @@ def compile_ptx(source,output_path,chip='80',fmad=False,library='/usr/local/cuda
      check(lib.nvrtcGetPTXSize(program,c.byref(size)))
      output=c.create_string_buffer(size.value);check(lib.nvrtcGetPTX(program,output))
      ptx=output.value
-     assert b'tf32' not in ptx and b'mma.sync' not in ptx and b'.extern .func' not in ptx
+     # C++ headers contain an unused __kind_tf32 type tag. Reject actual
+     # reduced-precision instructions, not that non-arithmetic symbol.
+     assert all(op not in ptx for op in (b'.tf32',b'.f16',b'.bf16',b'mma.sync',b'wgmma.',b'tcgen05.',b'.extern .func'))
      output_path.write_bytes(ptx)
      output_path.with_suffix('.json').write_text(json.dumps({'options':[v.decode() for v in options],
         'sourceSHA256':hashlib.sha256(source).hexdigest(),'ptxSHA256':hashlib.sha256(ptx).hexdigest(),

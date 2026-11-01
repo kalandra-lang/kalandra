@@ -1,4 +1,5 @@
 #include "kalandra/CudaArtifact.h"
+#include "kalandra/CudaMatmul.h"
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -9,7 +10,8 @@ int main(int argc, char **argv) {
     return 2;
   const std::string kind(argv[3]), numeric(argv[4]);
   const bool transpose = kind == "transpose", rms = kind == "rmsNormRows";
-  const bool matrix = kind == "matmul64" || kind == "matmul128";
+  const bool catalog = kind == "matmul-catalog";
+  const bool matrix = catalog || kind == "matmul64" || kind == "matmul128";
   if (!transpose && !rms && !matrix && kind != "softmaxRows")
     return 2;
   if (!transpose && numeric != "float32")
@@ -33,18 +35,24 @@ int main(int argc, char **argv) {
       : rms ? std::vector<kalandra::CudaBufferSpec>{{32, -1}, {32, -1}, {32, -1}, {32, -1}, {32, 6}}
             : std::vector<kalandra::CudaBufferSpec>{{32, -1}, {32, -1}, {32, -1}, {32, 6}};
   if (matrix) {
-    artifact.tile = kind == "matmul64" ? 64 : 128;
+    artifact.tile = catalog ? 0 : kind == "matmul64" ? 64 : 128;
+    artifact.catalog = catalog ? 1 : 0;
     artifact.threads = 128;
-    artifact.entry =
-        "kalandra_numeric_v1_matmul_float32_tile" + std::to_string(artifact.tile) + "_cuda_desc_v1";
+    artifact.entry = catalog ? kalandra::cudaMatmulEntry
+                             : "kalandra_numeric_v1_matmul_float32_tile" +
+                                   std::to_string(artifact.tile) + "_cuda_desc_v1";
     artifact.buffers = {{32, -1}, {32, -1}, {32, -1}, {32, 4}};
   }
   input.seekg(0);
   artifact.ptx.assign(std::istreambuf_iterator<char>(input), {});
   if (artifact.ptx.find(".extern .func") != std::string::npos ||
       artifact.ptx.find(artifact.entry) == std::string::npos ||
-      artifact.ptx.find("tf32") != std::string::npos ||
-      artifact.ptx.find("mma.sync") != std::string::npos)
+      artifact.ptx.find(".tf32") != std::string::npos ||
+      artifact.ptx.find("mma.sync") != std::string::npos ||
+      artifact.ptx.find(".f16") != std::string::npos ||
+      artifact.ptx.find(".bf16") != std::string::npos ||
+      artifact.ptx.find("wgmma.") != std::string::npos ||
+      artifact.ptx.find("tcgen05.") != std::string::npos)
     return 1;
   auto bytes = kalandra::encodeCudaArtifact(artifact);
   if (!kalandra::decodeCudaArtifact(bytes))

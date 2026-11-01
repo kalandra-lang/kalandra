@@ -34,21 +34,25 @@ install(FILES runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/Numeric
 install(FILES include/kalandra/NumericType.h include/kalandra/TensorTransform.h
               include/kalandra/GpuProgram.h include/kalandra/GpuTransform.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/include/kalandra" COMPONENT NativeCudaCompiler)
-# Only project-owned PTX and the audited MIT-derived kernel are runtime resources.
+# Only project-owned PTX and audited MIT/BSD-3-derived kernels are runtime resources.
 # No CUDA headers, NVRTC, cuBLAS, driver, CRT or system SDK libraries are staged.
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/cuda/transforms/"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/cuda/transforms"
   COMPONENT NativeCudaCompiler FILES_MATCHING PATTERN "*.ptx" PATTERN "*.raw.ptx" EXCLUDE)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cuda/kernels/matmul-warp64.ptx"
+  "${CMAKE_CURRENT_BINARY_DIR}/cuda/kernels/matmul-catalog.ptx"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/cuda/kernels" COMPONENT NativeCudaCompiler)
 install(FILES cuda/third_party/sgemm-cuda/LICENSE
   DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/licenses/kalandra-cuda"
   RENAME SGEMM_CUDA-LICENSE COMPONENT NativeCudaCompiler)
+install(FILES cuda/third_party/cutlass/LICENSE
+  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/licenses/kalandra-cuda"
+  RENAME CUTLASS-CXX-LICENSE COMPONENT NativeCudaCompiler)
 install(FILES packaging/Cuda-README.md
   DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/kalandra-native-cuda"
   RENAME README.md COMPONENT NativeCudaCompiler)
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/cuda-install/$<CONFIG>/toolchain.json"
-  CONTENT "{\n  \"format\": 1,\n  \"version\": \"${KALANDRA_VERSION}\",\n  \"package\": \"kalandra-native-cuda\",\n  \"llvmVersion\": \"${KALANDRA_LLVM_VERSION}\",\n  \"externalDependencies\": [\"system C++ development headers and runtime\", \"system NVIDIA driver with PTX 9.2 support\"],\n  \"cudaSDKIncluded\": false,\n  \"optimizedMatmulTile\": 64\n}\n")
+  CONTENT "{\n  \"format\": 1,\n  \"version\": \"${KALANDRA_VERSION}\",\n  \"package\": \"kalandra-native-cuda\",\n  \"llvmVersion\": \"${KALANDRA_LLVM_VERSION}\",\n  \"externalDependencies\": [\"system C++ development headers and runtime\", \"system NVIDIA driver with PTX 9.2 support\"],\n  \"cudaSDKIncluded\": false,\n  \"optimizedMatmulCatalog\": 1\n}\n")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cuda-install/$<CONFIG>/toolchain.json"
   DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/kalandra-native-cuda" COMPONENT NativeCudaCompiler)
 foreach(_standalone IN ITEMS OFF ON)

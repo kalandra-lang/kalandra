@@ -15,8 +15,12 @@ Arithmetic defaults to hardware. `--arithmetic software` explicitly selects
 software floating arithmetic; `--arithmetic hardware-with-software-fallback`
 allows a floating capability fallback. Matrix products default to `fixed-tree`.
 `--matmul-policy optimized` permits full-float32 FMA and a different accumulation
-order. Eligible products use the audited MIT SGEMM_CUDA kernel; unsupported
-shapes use a native-arithmetic fixed-tree GPU companion. No CPU or cuBLAS
+order. Eligible aligned products use pinned BSD-3-Clause CUTLASS C++ SIMT
+kernels, with five independent contraction partitions and a deterministic
+reduction. Narrow/wide output tiles are selected from shape alone. Temporary
+workspace is budgeted and can be reused in bounded row bands. If it cannot be reserved, a scratch-free GPU kernel
+computes the same arithmetic order. Unsupported shapes use a native-arithmetic
+fixed-tree GPU companion. No CPU or cuBLAS
 substitution occurs. The optimized policy does not use TF32 or reduced precision.
 
 macOS continues to use native Metal. This package does not add a CUDA cross-GPU

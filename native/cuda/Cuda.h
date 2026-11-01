@@ -40,7 +40,10 @@ enum class FailurePoint {
   ModuleLoad,
   Launch,
   WaitAfterCompletion,
-  Readback
+  Readback,
+  ScratchAllocate,
+  ScratchDevice,
+  ReduceLaunch
 };
 struct State;
 struct Storage;
@@ -84,6 +87,7 @@ struct KernelContract {
 };
 struct DispatchStats {
   std::uint64_t nativeMatmuls = 0, fixedMatmuls = 0;
+  std::uint64_t splitMatmuls = 0, scratchFreeMatmuls = 0, bandedMatmuls = 0;
 };
 struct KernelResult {
   Buffer output;
@@ -96,6 +100,12 @@ class Runtime {
   explicit Runtime(std::shared_ptr<State> value) : state_(std::move(value)) {}
   std::expected<void, Error> executeGrid(const Kernel &, std::span<const Buffer>, unsigned,
                                          unsigned);
+
+  std::expected<Buffer, Error> allocateBytes(std::uint64_t, bool initialize, bool optional);
+  std::expected<void, Error> executeCatalog(const Kernel &, std::span<const Buffer>,
+                                            const Buffer &scratch, const Buffer &bandParameters,
+                                            bool wide, unsigned m, unsigned n, unsigned k,
+                                            unsigned bandRows);
 
 public:
   Runtime(const Runtime &) = delete;

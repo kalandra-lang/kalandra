@@ -49,13 +49,15 @@ jobs:
           -DKALANDRA_BUILD_CUDA_SOURCE=ON -DKALANDRA_BUILD_CUDA_RUNTIME=ON
           -DKALANDRA_CUDA_HEADERS="$KALANDRA_CUDA_HEADERS"
           -DKALANDRA_CUDA_NVRTC="$KALANDRA_CUDA_NVRTC"
+          -DKALANDRA_CUDA_CCCL_HEADERS="$KALANDRA_CUDA_CCCL_HEADERS"
+          -DKALANDRA_CUDA_CRT_HEADERS="$KALANDRA_CUDA_CRT_HEADERS"
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build compiler, package and CPU-only contract checks
         run: >-
           cmake --build build/cuda --parallel 2 --target kalandra native-cuda-standalone-package
-          kalandra-cuda-artifact-tests kalandra-cuda-float-tests
+          kalandra-cuda-artifact-tests kalandra-cuda-float-tests kalandra-cuda-catalog-tests
       - name: Check PTX, provenance, private ABI and installed header ownership
-        run: ctest --test-dir build/cuda -R 'native-(cuda-(artifacts|artifact-contract|upstream-audit)|gpu-shared-installed-headers)$' --output-on-failure
+        run: ctest --test-dir build/cuda -R 'native-(cuda-(artifacts|artifact-contract|upstream-audit|cutlass-audit|wrap-precision)|gpu-shared-installed-headers)$' --output-on-failure
       - name: Check source/output protection and public command options
         run: python3 native/cuda-source/qualification/command.py --compiler build/cuda/native/kalandra
       - name: Qualify relocated package and missing-resource guards

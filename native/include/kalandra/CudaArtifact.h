@@ -23,6 +23,7 @@ struct CudaArtifact {
   std::vector<CudaBufferSpec> buffers;
   std::string ptx;
   std::uint32_t tile = 0;
+  std::uint32_t catalog = 0; // V3: bounded full-FP32 split-K catalog, no public ABI change.
   bool operator==(const CudaArtifact &) const = default;
 };
 inline std::uint64_t cudaArtifactChecksum(std::string_view bytes) noexcept {
@@ -34,13 +35,17 @@ inline std::uint64_t cudaArtifactChecksum(std::string_view bytes) noexcept {
   return value;
 }
 inline std::string encodeCudaArtifact(const CudaArtifact &value) {
-  std::string header = std::string(value.tile ? "// KALANDRA_CUDA_V2 " : "// KALANDRA_CUDA_V1 ") +
+  if (value.tile && value.catalog)
+    return {};
+  std::string header = std::string(value.catalog ? "// KALANDRA_CUDA_V3 "
+                                   : value.tile  ? "// KALANDRA_CUDA_V2 "
+                                                 : "// KALANDRA_CUDA_V1 ") +
                        std::to_string(value.chip) + " " + std::to_string(value.threads) + " " +
                        std::to_string(value.policy) + " " + std::to_string(value.nativeFloat64) +
                        " " + std::to_string(value.buffers.size()) + " " + value.entry + " " +
                        std::to_string(value.ptx.size());
-  if (value.tile)
-    header += " " + std::to_string(value.tile);
+  if (value.tile || value.catalog)
+    header += " " + std::to_string(value.catalog ? value.catalog : value.tile);
   std::string tail;
   for (auto buffer : value.buffers)
     tail += "// BUFFER " + std::to_string(buffer.bits) + " " + std::to_string(buffer.extent) + "\n";
@@ -83,7 +88,9 @@ inline std::optional<CudaArtifact> decodeCudaArtifact(std::string_view input) {
   if (fields.size() < 2 || fields[0] != "//")
     return {};
   const bool tiled = fields[1] == "KALANDRA_CUDA_V2";
-  if ((!tiled && fields[1] != "KALANDRA_CUDA_V1") || fields.size() != (tiled ? 11u : 10u))
+  const bool catalog = fields[1] == "KALANDRA_CUDA_V3";
+  if ((!tiled && !catalog && fields[1] != "KALANDRA_CUDA_V1") ||
+      fields.size() != (tiled || catalog ? 11u : 10u))
     return {};
   CudaArtifact result;
   std::uint32_t count = 0, native = 0;
@@ -99,6 +106,8 @@ inline std::optional<CudaArtifact> decodeCudaArtifact(std::string_view input) {
     if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
       return {};
   if (tiled && (!number(fields[9], result.tile) || (result.tile != 64 && result.tile != 128)))
+    return {};
+  if (catalog && (!number(fields[9], result.catalog) || result.catalog != 1))
     return {};
   result.entry = fields[7];
   result.nativeFloat64 = native;
@@ -120,11 +129,12 @@ inline std::optional<CudaArtifact> decodeCudaArtifact(std::string_view input) {
       result.buffers.back().bits != 32 || result.buffers.back().extent <= 0 ||
       result.buffers.back().extent > 65536)
     return {};
-  if (tiled) {
+  if (tiled || catalog) {
     if (result.policy || result.nativeFloat64 || result.threads != 128 ||
         result.buffers.size() != 4 ||
-        result.entry != "kalandra_numeric_v1_matmul_float32_tile" + std::to_string(result.tile) +
-                            "_cuda_desc_v1" ||
+        result.entry != (catalog ? "kalandra_numeric_v1_matmul_float32_catalog_cuda_desc_v1"
+                                 : "kalandra_numeric_v1_matmul_float32_tile" +
+                                       std::to_string(result.tile) + "_cuda_desc_v1") ||
         result.buffers.back().extent != 4)
       return {};
     for (std::size_t i = 0; i < result.buffers.size(); ++i)

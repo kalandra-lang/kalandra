@@ -35,7 +35,7 @@ for line in (prefix/'SHA256SUMS').read_text().splitlines():
 assert {str(path.relative_to(prefix)) for path in prefix.rglob('*') if path.is_file()}==set(listed)|{'SHA256SUMS'}
 metadata=json.loads((prefix/'share/kalandra-native-cuda/toolchain.json').read_text())
 assert metadata['format']==1 and metadata['llvmVersion']=='23.1.3'
-assert metadata['cudaSDKIncluded'] is False and metadata['optimizedMatmulTile']==64
+assert metadata['cudaSDKIncluded'] is False and metadata['optimizedMatmulCatalog']==1
 if a.bundled_targets:
     cpu=json.loads((prefix/'share/kalandra-native-tools/toolchain.json').read_text())
     expected={'linux-x86_64','linux-arm64','windows-x86_64','windows-arm64','macos-arm64'}
@@ -82,7 +82,7 @@ checks=[('libexec/kalandra/clang++',placed),('libexec/kalandra/kalandra-cuda-low
     ('lib/kalandra/native/headers/gpu-runtime/ProgramDecl.inc',placed),
     ('lib/kalandra/toolchain/clang/include',placed),
     ('lib/kalandra/native/cuda/transforms/transpose-float32.ptx',transform),
-    ('lib/kalandra/native/cuda/kernels/matmul-warp64.ptx',matrix)]
+    ('lib/kalandra/native/cuda/kernels/matmul-catalog.ptx',matrix)]
 for index,(relative,source) in enumerate(checks):
     owned=prefix/relative;saved=owned.with_name(owned.name+'.qualification-hidden');owned.rename(saved)
     try:

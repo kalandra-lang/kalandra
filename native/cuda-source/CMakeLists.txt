@@ -35,6 +35,10 @@ if(BUILD_TESTING)
 endif()
 add_executable(kalandra-cuda-wrap Wrap.cpp)
 target_include_directories(kalandra-cuda-wrap PRIVATE ../include)
+if(BUILD_TESTING)
+  add_test(NAME native-cuda-wrap-precision COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/wrap.py" $<TARGET_FILE:kalandra-cuda-wrap>)
+endif()
 target_compile_options(kalandra-cuda-wrap PRIVATE -Wall -Wextra -Werror)
 # The public development target is opt-in. CPU-only compilers retain no CUDA
 # runtime/import dependency; installed delivery is a separate qualification gate.
@@ -45,7 +49,7 @@ if(KALANDRA_BUILD_CUDA_RUNTIME AND NOT KALANDRA_CUDA_SANITIZERS)
       "INCLUDE|${CMAKE_CURRENT_SOURCE_DIR}/../cuda"
       "PUBLIC_INCLUDE|${CMAKE_CURRENT_SOURCE_DIR}/../include"
       "TRANSFORMS|${CMAKE_CURRENT_BINARY_DIR}/../cuda/transforms"
-      "MATMUL|${CMAKE_CURRENT_BINARY_DIR}/../cuda/kernels/matmul-warp64.ptx"
+      "MATMUL|${CMAKE_CURRENT_BINARY_DIR}/../cuda/kernels/matmul-catalog.ptx"
       "LANGUAGE|$<TARGET_FILE:kalandra-cuda-language>"
       "PROGRAM|$<TARGET_FILE:kalandra-cuda-program>"
       "DRIVER|$<TARGET_FILE:kalandra-cuda>"
@@ -56,7 +60,8 @@ if(KALANDRA_BUILD_CUDA_RUNTIME AND NOT KALANDRA_CUDA_SANITIZERS)
     string(APPEND _cuda_config "#define KALANDRA_CUDA_${_name} R\"cfg(${_value})cfg\"\n")
   endforeach()
   file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../cuda/third_party/sgemm-cuda/LICENSE" _cuda_mit_notice)
-  string(APPEND _cuda_config "inline const char kalandraCudaNotice[] = R\"notice(CUDA device programs use project-owned algorithms and standard compiler scalar math. No CUDA SDK libraries are included.\nOptional optimized SGEMM: Simon Boehm SGEMM_CUDA 5a7dcc513d951ba764d51bc9d587b3163f3a894d\n${_cuda_mit_notice})notice\";\n")
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../cuda/third_party/cutlass/LICENSE" _cuda_bsd_notice)
+  string(APPEND _cuda_config "inline const char kalandraCudaNotice[] = R\"notice(CUDA device programs use project-owned algorithms and standard compiler scalar math. No CUDA SDK libraries are included.\nOptional optimized SGEMM: Simon Boehm SGEMM_CUDA 5a7dcc513d951ba764d51bc9d587b3163f3a894d\n${_cuda_mit_notice}\nOptional optimized split-K SGEMM: CUTLASS C++ headers 2c85f497547eb441f0fe80bfb0fb2e6f9add1719\n${_cuda_bsd_notice})notice\";\n")
   file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/CudaBuildConfig.h" CONTENT "${_cuda_config}")
   add_library(kalandra-cuda-source-backend STATIC Command.cpp Build.cpp)
   target_include_directories(kalandra-cuda-source-backend SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})

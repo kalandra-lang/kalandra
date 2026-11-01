@@ -130,3 +130,38 @@ if(BUILD_TESTING)
   target_compile_options(kalandra-cuda-matmul-tests PRIVATE -Wall -Wextra -Werror)
 endif()
 target_link_libraries(kalandra-cuda PUBLIC Threads::Threads)
+if(TARGET kalandra-cuda-wrap)
+  set(KALANDRA_CUDA_CRT_HEADERS "${KALANDRA_CUDA_HEADERS}" CACHE PATH "Build-only CUDA compiler headers")
+  set(KALANDRA_CUDA_CCCL_HEADERS "${KALANDRA_CUDA_HEADERS}/cccl" CACHE PATH "Build-only CUDA C++ core headers")
+  set(KALANDRA_CUTLASS_ARCHIVE "" CACHE FILEPATH "Optional offline pinned CUTLASS source archive")
+  set(_cutlass_archive_args)
+  if(KALANDRA_CUTLASS_ARCHIVE)
+    list(APPEND _cutlass_archive_args --archive "${KALANDRA_CUTLASS_ARCHIVE}")
+  endif()
+  set(_cuda_catalog "${CMAKE_CURRENT_BINARY_DIR}/kernels/matmul-catalog.ptx")
+  set(_cuda_catalog_raw "${CMAKE_CURRENT_BINARY_DIR}/kernels/matmul-catalog.raw.ptx")
+  add_custom_command(OUTPUT "${_cuda_catalog}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../cuda-source/qualification/compile_cutlass.py"
+      --nvrtc "${KALANDRA_CUDA_NVRTC}" --output "${_cuda_catalog_raw}"
+      --cache "${CMAKE_CURRENT_BINARY_DIR}/cutlass-headers" --sdk-include "${KALANDRA_CUDA_HEADERS}" --cccl-include "${KALANDRA_CUDA_CCCL_HEADERS}" --crt-include "${KALANDRA_CUDA_CRT_HEADERS}"
+      ${_cutlass_archive_args}
+    COMMAND $<TARGET_FILE:kalandra-cuda-wrap> "${_cuda_catalog_raw}" "${_cuda_catalog}" matmul-catalog float32 80
+    DEPENDS third_party/cutlass/Matmul.cu third_party/cutlass/provision.py
+      third_party/cutlass/upstream.json third_party/cutlass/LICENSE
+      ../cuda-source/qualification/compile_cutlass.py ../cuda-source/qualification/nvrtc.py kalandra-cuda-wrap
+    BYPRODUCTS "${_cuda_catalog_raw}" "${CMAKE_CURRENT_BINARY_DIR}/kernels/matmul-catalog.raw.json"
+      "${CMAKE_CURRENT_BINARY_DIR}/kernels/matmul-catalog.raw.compile.log"
+    VERBATIM)
+  add_custom_target(kalandra-cuda-matmul-catalog DEPENDS "${_cuda_catalog}")
+  if(BUILD_TESTING)
+    add_test(NAME native-cuda-cutlass-audit COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cutlass/provision.py"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/cutlass-headers" --audit-only)
+  endif()
+  add_dependencies(kalandra-cuda-matmul-kernels kalandra-cuda-matmul-catalog)
+endif()
+if(BUILD_TESTING)
+  add_executable(kalandra-cuda-catalog-tests tests/CatalogTests.cpp)
+  target_link_libraries(kalandra-cuda-catalog-tests PRIVATE kalandra-cuda-language)
+  target_compile_options(kalandra-cuda-catalog-tests PRIVATE -Wall -Wextra -Werror)
+endif()

@@ -70,6 +70,8 @@ h2 { "Matrix precision policies" }
 
 Metal hardware float32 matmul defaults to optimized full-precision accumulation. Experimental Vulkan and CUDA default to fixed-tree and require explicit --matmul-policy optimized for their tiled kernels. The compiler may use fused multiply-add and choose a contraction order suited to the device while preserving float32 inputs and accumulators. This does not silently convert inputs to float16 or TF32.
 
+For eligible aligned float32 products, CUDA's optimized path splits the contraction into five independent GPU partitions and reduces them deterministically. It keeps full float32 inputs and accumulators. Temporary workspace counts against the device budget; if that workspace cannot fit, a slower GPU route computes the same accumulation order. Memory pressure does not select a different numerical result. Unsupported shapes keep the fixed-tree GPU companion.
+
 Use --matmul-policy fixed-tree to require separately rounded products and the existing balanced contraction tree. This selects a calculation order, not exact real arithmetic or universally greater accuracy. Optimized results may differ in rounding, signed zero and intermediate overflow. Severe cancellation can lose accuracy in either mode. Checked integer operations are unchanged, and CPU matmul currently retains the fixed tree under either policy.
 
 codeblock { language = bash, """kalandra main.k --target metal --matmul-policy fixed-tree -O2 -o app

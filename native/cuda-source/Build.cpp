@@ -111,7 +111,7 @@ void buildCudaProgram(const std::filesystem::path &directory,
         std::filesystem::copy_file(ptx, ptx.string() + ".fixed-tree.ptx",
                                    std::filesystem::copy_options::overwrite_existing);
         std::filesystem::rename(ptx.string() + ".json", ptx.string() + ".fixed-tree.ptx.json");
-        std::filesystem::copy_file(resource(KALANDRA_CUDA_MATMUL, "cuda/kernels/matmul-warp64.ptx"),
+        std::filesystem::copy_file(resource(KALANDRA_CUDA_MATMUL, "cuda/kernels/matmul-catalog.ptx"),
                                    ptx, std::filesystem::copy_options::overwrite_existing);
       }
     }

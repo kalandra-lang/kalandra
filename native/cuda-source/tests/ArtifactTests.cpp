@@ -1,4 +1,5 @@
 #include "kalandra/CudaArtifact.h"
+#include "kalandra/CudaMatmul.h"
 #include <cstdio>
 #include <cstdlib>
 using namespace kalandra;
@@ -72,6 +73,43 @@ int main() {
   bad = native;
   bad.policy = 1;
   check(!decodeCudaArtifact(encodeCudaArtifact(bad)));
+  auto catalog = native;
+  catalog.tile = 0;
+  catalog.catalog = 1;
+  catalog.entry = cudaMatmulEntry;
+  encoded = encodeCudaArtifact(catalog);
+  parsed = decodeCudaArtifact(encoded);
+  check(parsed && *parsed == catalog);
+  for (std::size_t i = 0; i < encoded.size(); ++i) {
+    auto corrupt = encoded;
+    corrupt[i] ^= 1;
+    check(!decodeCudaArtifact(corrupt));
+  }
+  for (unsigned kind = 0; kind < 5; ++kind) {
+    auto corrupt = catalog;
+    if (kind == 0)
+      corrupt.catalog = 2;
+    if (kind == 1)
+      corrupt.tile = 64;
+    if (kind == 2)
+      corrupt.entry += "_large";
+    if (kind == 3)
+      corrupt.threads = 256;
+    if (kind == 4)
+      corrupt.buffers.back().extent = 5;
+    check(!decodeCudaArtifact(encodeCudaArtifact(corrupt)));
+  }
+  check(cudaMatmulCatalogShape(64, 128, 16));
+  check(!cudaMatmulCatalogShape(0, 128, 16));
+  check(!cudaMatmulCatalogShape(65, 128, 16));
+  check(!cudaMatmulCatalogShape(64, 128, 17));
+  check(!cudaMatmulCatalogShape(64, 128, UINT32_MAX - 15));
+  check(!cudaMatmulCatalogShape(UINT32_MAX, 128, 16));
+  check(!cudaMatmulCatalogShape(65536, 65536, 16));
+  check(!cudaMatmulWide(512, 1024, 768));
+  check(cudaMatmulWide(1024, 1024, 1024));
+  check(!cudaMatmulWide(1536, 1536, 1536));
+  check(cudaMatmulWide(2048, 2048, 2048));
   std::puts("PASS: private CUDA artifact integrity covers launch metadata, payload and truncation; "
             "invalid contracts rejected");
 }
