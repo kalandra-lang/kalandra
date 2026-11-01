@@ -9,6 +9,8 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
     return std::unexpected("invalid SPIR-V header");
   SpirvInterface result;
   std::map<std::uint32_t, std::uint32_t> bindings, sets, storage;
+  std::map<std::uint32_t, std::uint32_t> variableTypes, pointers, members, integers, constants;
+  std::map<std::uint32_t, std::pair<std::uint32_t, std::uint32_t>> arrays;
   std::set<std::uint32_t> used;
   std::uint32_t entry = 0, localEntry = 0;
   const auto id = [&](std::uint32_t value) { return value && value < words[3]; };
@@ -53,7 +55,7 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
       const auto *name = reinterpret_cast<const char *>(args.data() + 2);
       auto bytes = (args.size() - 2) * 4;
       const auto *end = static_cast<const char *>(std::memchr(name, 0, bytes));
-      if (!end || end == name || end - name > 255)
+      if (!end || end == name)
         return std::unexpected("invalid entry name");
       result.entry.assign(name, end);
       result.flattenedGrid = result.entry.ends_with("_vk_flat_v1");
@@ -66,6 +68,31 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
         return std::unexpected("unsupported execution mode");
       localEntry = args[0];
       result.localSize = args[2];
+      break;
+    case 21: // OpTypeInt
+      if (args.size() != 3 || !id(args[0]))
+        return std::unexpected("invalid integer type");
+      integers[args[0]] = args[1];
+      break;
+    case 28: // OpTypeArray
+      if (args.size() != 3 || !id(args[0]) || !id(args[1]) || !id(args[2]))
+        return std::unexpected("invalid array type");
+      arrays[args[0]] = {args[1], args[2]};
+      break;
+    case 30: // OpTypeStruct; only single-member blocks form the parameter ABI.
+      if (args.empty() || !id(args[0]))
+        return std::unexpected("invalid struct type");
+      if (args.size() == 2)
+        members[args[0]] = args[1];
+      break;
+    case 32: // OpTypePointer
+      if (args.size() != 3 || !id(args[0]) || !id(args[2]))
+        return std::unexpected("invalid pointer type");
+      pointers[args[0]] = args[2];
+      break;
+    case 43: // OpConstant: array lengths in the compiler ABI are uint32 words.
+      if (args.size() >= 3 && integers.contains(args[0]) && integers.at(args[0]) == 32)
+        constants[args[1]] = args[2];
       break;
     case 71: // OpDecorate
       if (args.size() < 2 || !id(args[0]))
@@ -83,6 +110,7 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
         return std::unexpected("invalid variable");
       if (!storage.emplace(args[1], args[2]).second)
         return std::unexpected("duplicate variable");
+      variableTypes[args[1]] = args[0];
       if (args[2] == 9)
         return std::unexpected("push constants are outside the compiler buffer ABI");
       break;
@@ -103,6 +131,21 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
   result.buffers = static_cast<std::uint32_t>(bindings.size());
   if (*used.rbegin() != result.buffers - 1)
     return std::unexpected("noncontiguous storage buffer bindings");
+  for (auto [variable, binding] : bindings) {
+    if (binding != result.buffers - 1)
+      continue;
+    const auto pointer = variableTypes.at(variable);
+    if (!pointers.contains(pointer) || !members.contains(pointers.at(pointer)))
+      return std::unexpected("invalid parameter buffer block");
+    const auto array = members.at(pointers.at(pointer));
+    if (!arrays.contains(array))
+      return std::unexpected("parameter buffer must have fixed size");
+    auto [element, length] = arrays.at(array);
+    if (!integers.contains(element) || integers.at(element) != 32 || !constants.contains(length) ||
+        !constants.at(length) || constants.at(length) > 262144)
+      return std::unexpected("invalid parameter word layout");
+    result.parameterWords = constants.at(length);
+  }
   return result;
 }
 } // namespace kalandra::runtime::vulkan

@@ -69,6 +69,12 @@ int run(int argc, char **argv) {
   auto right = take(runtime->upload(std::array{4.0f, 5.0f, 6.0f}), "right");
   std::array inputs{left, right};
   std::array parameters{3u, UINT32_MAX};
+  for (const auto &words :
+       {std::vector<std::uint32_t>{3}, std::vector<std::uint32_t>{3, UINT32_MAX, 0}}) {
+    auto invalid = runtime->execute(kernel, inputs, words, 12, 1);
+    check(!invalid && invalid.error() == v::Error::Invalid,
+          "short and extra parameter carriers rejected before dispatch");
+  }
   v::Buffer escaped;
   for (unsigned workers : {1u, 2u, 4u}) {
     auto async = v::AsyncRuntime::create(runtime);

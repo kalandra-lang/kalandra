@@ -1,18 +1,7 @@
 #pragma once
 #include "NumericShader.h"
+#include "kalandra/GpuProgram.h"
 namespace kalandra {
-enum class NumericProgramKind {
-  Map,
-  Reduce,
-  Matmul,
-  Branch,
-  Jump,
-  Alias,
-  EqualShape,
-  Extent,
-  MatrixShape,
-  ShapeFault
-};
 struct NumericProgramInstruction {
   NumericProgramKind kind;
   std::uint32_t kernel = UINT32_MAX;

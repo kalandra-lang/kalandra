@@ -38,8 +38,18 @@ int main() {
                                     3,
                                     2,
                                     12};
+  const auto typesAt = module.size() - 4;
+  const std::vector<std::uint32_t> parameterTypes{
+      (4u << 16) | 21, 4, 32, 0, // uint32
+      (4u << 16) | 43, 4, 5,  2, // constant length 2
+      (4u << 16) | 28, 6, 4,  5, // uint32[2]
+      (3u << 16) | 30, 7, 6,     // single-member block
+      (4u << 16) | 32, 3, 12, 7  // StorageBuffer pointer
+  };
+  module.insert(module.begin() + typesAt, parameterTypes.begin(), parameterTypes.end());
   auto result = reflectSpirv(module);
-  check(result && result->entry == "main" && result->localSize == 64 && result->buffers == 1);
+  check(result && result->entry == "main" && result->localSize == 64 && result->buffers == 1 &&
+        result->parameterWords == 2);
   for (std::size_t n = 0; n < module.size(); ++n)
     check(!reflectSpirv(std::span(module).first(n)));
   auto changed = module;
@@ -63,6 +73,12 @@ int main() {
   changed = module;
   changed.back() = 9;
   check(!reflectSpirv(changed)); // push constant
+  changed = module;
+  changed[typesAt + 7] = 0;
+  check(!reflectSpirv(changed)); // empty parameter block
+  changed = module;
+  changed[typesAt + 2] = 64;
+  check(!reflectSpirv(changed)); // parameter words must be uint32
   for (auto cap : {10u, 11u, 22u, 39u, 4433u, 4448u}) {
     changed = module;
     changed.insert(changed.begin() + 7, {(2u << 16) | 17, cap});

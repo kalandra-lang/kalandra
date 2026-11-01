@@ -566,6 +566,24 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
   }
 }
 DeviceInfo Runtime::device() const { return description(state_->physical); }
+bool Runtime::owns(const Buffer &buffer) const noexcept {
+  return buffer.storage_ && buffer.storage_->state == state_;
+}
+bool Runtime::owns(const Kernel &kernel) const noexcept {
+  return kernel.state_ && kernel.state_->state == state_;
+}
+std::uint32_t Kernel::inputCount() const noexcept {
+  return state_ ? state_->interface.buffers - 2 : 0;
+}
+std::uint32_t Kernel::localSize() const noexcept {
+  return state_ ? state_->interface.localSize : 0;
+}
+std::uint32_t Kernel::parameterWords() const noexcept {
+  return state_ ? state_->interface.parameterWords : 0;
+}
+std::string_view Kernel::entryName() const noexcept {
+  return state_ ? std::string_view(state_->interface.entry) : std::string_view{};
+}
 std::uint64_t Runtime::retainedBytes() const {
   std::lock_guard lock(state_->budgetMutex);
   return state_->bytes;
@@ -719,19 +737,29 @@ std::expected<std::vector<std::byte>, Error> Runtime::downloadBytes(const Buffer
   try {
     if (!buffer.storage_ || buffer.storage_->state != state_)
       return std::unexpected(Error::Invalid);
-    std::lock_guard lock(buffer.storage_->hostMutex);
     if (state_->failed)
       return std::unexpected(Error::Device);
-    auto visible = visibility(*buffer.storage_, false);
-    if (!visible)
-      return std::unexpected(visible.error());
     std::vector<std::byte> result(buffer.bytes());
-    if (!result.empty())
-      std::memcpy(result.data(), buffer.storage_->mapped, result.size());
+    auto copied = readBytes(buffer, result);
+    if (!copied)
+      return std::unexpected(copied.error());
     return result;
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
   }
+}
+std::expected<void, Error> Runtime::readBytes(const Buffer &buffer, std::span<std::byte> output) {
+  if (!buffer.storage_ || buffer.storage_->state != state_ || output.size() != buffer.bytes())
+    return std::unexpected(Error::Invalid);
+  std::lock_guard lock(buffer.storage_->hostMutex);
+  if (state_->failed)
+    return std::unexpected(Error::Device);
+  auto visible = visibility(*buffer.storage_, false);
+  if (!visible)
+    return std::unexpected(visible.error());
+  if (!output.empty())
+    std::memcpy(output.data(), buffer.storage_->mapped, output.size());
+  return {};
 }
 std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &path) {
   try {
@@ -780,7 +808,8 @@ std::expected<KernelResult, Error> Runtime::execute(const Kernel &kernel,
   try {
     std::lock_guard lock(state_->queueMutex);
     if (!kernel.state_ || kernel.state_->state != state_ ||
-        inputs.size() + 2 != kernel.state_->interface.buffers || parameters.empty() ||
+        inputs.size() + 2 != kernel.state_->interface.buffers ||
+        parameters.size() != kernel.state_->interface.parameterWords ||
         parameters.size_bytes() > 1024 * 1024 || !groups)
       return std::unexpected(Error::Invalid);
     if (state_->failed)

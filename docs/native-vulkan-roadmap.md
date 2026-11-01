@@ -158,3 +158,38 @@ Kalandra instrumentation and use the private test-only `--no-validation` flag;
 Vulkan validation stays enabled in the ordinary hardware qualification above.
 No suppressions or production/default build changes were introduced. NVIDIA
 TSan compatibility and validation-layer concurrency attribution remain open.
+
+### Invocation-local program executor
+
+The private executor now composes the shared forward-only map, balanced-reduction,
+matmul, branch/jump, alias and shape instructions on resident typed storage.
+All ten numeric types pass independent references in hardware and explicit
+software modes on both physical GPUs, with ranks 0/1/3/8, zero geometry and
+selected-path faults. Current source artifacts were regenerated before testing.
+Typed entry names, physical input projections and exact reflected parameter-word
+counts are admitted before execution; malformed schemas are rejected.
+
+One prepared program owns immutable code, while each invocation owns its scalar
+captures, value slots, use counts and reduction state. A 257-stage program uses
+one TaskCore record and one external capability, checking cancellation between
+control steps and completed dispatches. It never blocks a scheduler worker on a
+GPU fence. Cancellation/deadline acknowledgement, concurrent invocations, dropped
+caller aliases, repeated awaits, arithmetic-before-later-shape fault precedence,
+and metadata-budget rejection pass at 1/2/4 workers on NVIDIA and Intel. Scalar
+results use the existing ten native numeric task layouts; tensors remain distinct
+from rank-zero tensors and scalar values. Capture reservations retire after their
+owned metadata and inputs, before external completion acknowledgement.
+
+System Clang and standalone GCC qualification pass. Fully instrumented Intel
+TSan passes with the validation layer disabled privately; ordinary tests retain
+validation on both GPUs. ASan/UBSan assertions pass without access/UB errors,
+while LSan still exits unsuccessfully with the same 2,497-byte/seven-allocation
+loader-control finding; this is retained unsuppressed. The existing Metal source
+diagnostics, optimized matrix tests and installed-package/relocation test pass
+after extracting the shared instruction enum.
+
+This completes the private composed executor slice, not source-language parity.
+The source supervisor/CPU descriptor and transfer bridge, transform kernels,
+comprehensive conversion/feature/fallback admission, shared registry quotas,
+fault injection and distribution remain required before exposing a CLI target.
+No cancellation contract or supported production target changed in this slice.

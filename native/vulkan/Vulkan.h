@@ -6,6 +6,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace kalandra::runtime::vulkan {
@@ -38,6 +39,10 @@ struct KernelState;
 class Kernel final {
 public:
   explicit operator bool() const noexcept { return bool(state_); }
+  std::uint32_t inputCount() const noexcept;
+  std::uint32_t localSize() const noexcept;
+  std::uint32_t parameterWords() const noexcept;
+  std::string_view entryName() const noexcept;
 
 private:
   std::shared_ptr<KernelState> state_;
@@ -66,9 +71,12 @@ public:
   Runtime(const Runtime &) = delete;
   Runtime &operator=(const Runtime &) = delete;
   DeviceInfo device() const;
+  bool owns(const Buffer &) const noexcept;
+  bool owns(const Kernel &) const noexcept;
   std::expected<Buffer, Error> upload(std::span<const float>);
   std::expected<Buffer, Error> uploadBytes(std::span<const std::byte>);
   std::expected<std::vector<std::byte>, Error> downloadBytes(const Buffer &);
+  std::expected<void, Error> readBytes(const Buffer &, std::span<std::byte>);
   // Compiler-owned SPIR-V only: flat set-0 storage buffers, fixed 1D workgroups.
   std::expected<Kernel, Error> loadKernel(const std::filesystem::path &);
   std::expected<KernelResult, Error> execute(const Kernel &, std::span<const Buffer> inputs,

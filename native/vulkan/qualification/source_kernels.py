@@ -12,7 +12,7 @@ p=argparse.ArgumentParser()
 for option in ('compiler','lower','extract','llvm-root','validator','output'):
     p.add_argument('--'+option,type=Path,required=True)
 p.add_argument('--arithmetic',choices=('hardware','software'),default='software')
-p.add_argument('--operation', choices=('map', 'reduce', 'matmul'), default='map')
+p.add_argument('--operation', choices=('map', 'reduce', 'matmul', 'scalar'), default='map')
 a=p.parse_args()
 a.output.mkdir(parents=True,exist_ok=True)
 types=('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')
@@ -35,9 +35,15 @@ fn main()->Tensor[{name},3] ! TaskError:
 fn main()->int32:
   0
 ''')
-    else:
+    elif a.operation == 'matmul':
         source.write_text(f'''fn operation(a:Tensor[{name},?,?],b:Tensor[{name},?,?])->Tensor[{name},?,?]:
   matmul(a,b)
+fn main()->int32:
+  0
+''')
+    else:
+        source.write_text(f'''fn operation(v:{name})->{name}:
+  v*2+3
 fn main()->int32:
   0
 ''')
@@ -48,6 +54,11 @@ fn main()->int32:
     if a.operation == 'map':
         assert all(op['kind']=='Map' and len(op['inputs'])==1 and not op['scalarSources'] and not op['constants'] for op in program['code'])
         assert program['result']==len(program['code'])
+    elif a.operation == 'scalar':
+        assert len(program['code']) == 1
+        assert program['code'][0]['kind'] == 'Map'
+        assert program['code'][0]['inputs'] == [] and program['code'][0]['scalarSources'] == [0]
+        assert program['code'][0]['output'] == program['result'] == 0
     else:
         computes = [op for op in program['code'] if op['kind'] in ('Reduce', 'Matmul')]
         assert len(computes) == 1 and computes[0]['kind'] == a.operation.capitalize()

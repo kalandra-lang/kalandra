@@ -1,6 +1,6 @@
 #pragma once
 #include "../runtime/Tasks.h"
-#include "Vulkan.h"
+#include "Program.h"
 #include <optional>
 namespace kalandra::runtime::vulkan {
 struct AsyncLimits {
@@ -9,7 +9,7 @@ struct AsyncLimits {
 };
 struct AsyncStats {
   std::uint32_t pending = 0, queued = 0, running = 0, held = 0;
-  std::uint64_t captureBytes = 0, completed = 0;
+  std::uint64_t captureBytes = 0, completed = 0, stages = 0;
 };
 // Internal managed dispatch adapter. GPU waits run on the completion service,
 // never a TaskCore worker. Pending frames are pinned by ExternalCompletion.
@@ -23,7 +23,14 @@ public:
   TaskHandle execute(Task &, GroupHandle, Kernel, std::span<const Buffer>,
                      std::span<const std::uint32_t> parameters, std::uint64_t outputBytes,
                      std::uint32_t groups, std::optional<std::uint32_t> faultWord = {}) noexcept;
+  // Tensor programs publish tensorLayout(); scalar programs use the existing
+  // numericScalarLayout(type), matching the source/CPU task ABI.
+  TaskHandle executeProgram(TaskCore &, GroupHandle, const Program &, std::span<const TensorValue>,
+                            std::span<const std::uint64_t>) noexcept;
+  TaskHandle executeProgram(Task &, GroupHandle, const Program &, std::span<const TensorValue>,
+                            std::span<const std::uint64_t>) noexcept;
   static const ValueLayout &bufferLayout() noexcept;
+  static const ValueLayout &tensorLayout() noexcept;
   AsyncStats stats() const noexcept;
   // Private deterministic conformance controls. Held resources remain pinned
   // until acknowledgement. Release holds before destroying a core/facade.
