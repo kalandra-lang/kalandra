@@ -85,3 +85,10 @@ if(KALANDRA_BUILD_VULKAN_RUNTIME AND NOT KALANDRA_VULKAN_SANITIZERS AND NOT KALA
   target_compile_definitions(kalandra PRIVATE KALANDRA_HAS_VULKAN_SOURCE=1)
   add_dependencies(kalandra kalandra-vulkan-lower kalandra-vulkan-extract kalandra-vulkan-language)
 endif()
+
+if(KALANDRA_BUILD_CUDA_SOURCE)
+  add_executable(kalandra-cuda-supervisor EXCLUDE_FROM_ALL SupervisorMain.cpp)
+  target_compile_definitions(kalandra-cuda-supervisor PRIVATE KALANDRA_CUDA_SUPERVISOR=1)
+  target_link_libraries(kalandra-cuda-supervisor PRIVATE kalandra-gpu-supervisor)
+  target_compile_options(kalandra-cuda-supervisor PRIVATE -Wall -Wextra -Werror)
+endif()

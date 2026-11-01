@@ -4,6 +4,11 @@
 #include <fstream>
 #include <iostream>
 using namespace kalandra;
+#ifdef KALANDRA_CUDA_SUPERVISOR
+constexpr auto selectedBackend = GpuBackend::Cuda;
+#else
+constexpr auto selectedBackend = GpuBackend::Vulkan;
+#endif
 // Private source-supervisor qualification tool, not an installed CLI target.
 int main(int argc, char **argv) {
   if (argc != 4) {
@@ -28,7 +33,7 @@ int main(int argc, char **argv) {
   }
   try {
     auto output =
-        emitGpuSupervisor(std::move(loaded->module), *arithmetic, false, GpuBackend::Vulkan);
+        emitGpuSupervisor(std::move(loaded->module), *arithmetic, false, selectedBackend);
     if (!output) {
       std::cerr << renderDiagnostic(*source, output.error());
       return 1;

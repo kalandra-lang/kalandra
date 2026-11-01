@@ -84,7 +84,13 @@ class EditorProcessScope:
                 print('Reaping owned VS Code system WSL probe helper', flush=True)
                 if not self.kernel.TerminateProcess(handle, 0):
                     error = ctypes.get_last_error()
-                    if self.kernel.WaitForSingleObject(handle, 0) != 0:
+                    # Windows returns ACCESS_DENIED when another path already
+                    # initiated exit. Pending I/O can delay the signaled state;
+                    # wait on this same validated handle, never ignore a live
+                    # process or act on a recycled PID.
+                    # https://learn.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess
+                    wait = 5000 if error == 5 else 0
+                    if self.kernel.WaitForSingleObject(handle, wait) != 0:
                         raise ctypes.WinError(error)
                 if self.kernel.WaitForSingleObject(handle, 5000) != 0:
                     raise RuntimeError('Owned editor helper did not settle')

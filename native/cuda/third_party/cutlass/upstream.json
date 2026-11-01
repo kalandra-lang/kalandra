@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/NVIDIA/cutlass",
+  "revision": "2c85f497547eb441f0fe80bfb0fb2e6f9add1719",
+  "version": "4.8.1",
+  "license": "BSD-3-Clause (C++ include tree only)",
+  "archiveSHA256": "bc246a2e5eb99be6e9f8cf30ee17f83af7ede97caa39cb7e8a6c7f8ca54a1583",
+  "licenseSHA256": "ad1513ca983da737a6843364ad19e8424a56d860736c2da773b8c5be527e1475",
+  "excluded": "Python/CuTeDSL (separate NVIDIA EULA): never extracted, imported or distributed",
+  "arithmetic": "SIMT float32 inputs/accumulators; five K partitions; fixed balanced reduction; FMA on; FTZ off"
+}

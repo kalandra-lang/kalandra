@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/siboehm/SGEMM_CUDA",
+  "revision": "5a7dcc513d951ba764d51bc9d587b3163f3a894d",
+  "license": "MIT",
+  "files": {
+    "10_kernel_warptiling.cuh": "6fa8ee47cd61200de30745485b2727f526a64baf10b9f2066e8e37857c016cdb",
+    "LICENSE": "be5865dec13d1443896a1df590a720b36e7dc944c16e517c3cce0a358b432ed8"
+  }
+}

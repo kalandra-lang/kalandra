@@ -19,7 +19,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--gpu', action='store_true')
-parser.add_argument('--gpu-backend', choices=('metal', 'vulkan'), default='metal')
+parser.add_argument('--gpu-backend', choices=('metal', 'vulkan', 'cuda'), default='metal')
 parser.add_argument('--tools', type=Path, default=ROOT / 'build/native/native')
 parser.add_argument('--report', type=Path)
 args = parser.parse_args()
@@ -41,6 +41,18 @@ def command(argv, cwd, expected=None):
     if expected is not None:
         assert result.stdout.strip() == expected, (argv, expected, result.stdout)
     return result.stdout.strip()
+
+
+def expected_output(actual, plan):
+    if 'float32Ulps' not in plan:
+        return actual.strip() == plan['expected']
+    # This example sums approximate softmax rows. The documented contract does
+    # not promise cross-device bit identity; keep a narrow explicit float32
+    # bound for this example only, rather than weakening all output checks.
+    expected = int(plan['expected'], 16)
+    assert 0 < expected < 0x7f800000 and 0 < plan['float32Ulps'] <= 4
+    observed = actual.strip()
+    return len(observed) == 8 and abs(int(observed, 16) - expected) <= plan['float32Ulps']
 
 
 def blocks(page, language):
@@ -123,7 +135,8 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
             compile_flags = ['--target', args.gpu_backend] if plan['kind'] == 'gpu' else []
             command([TOOLS / 'kalandra', directory / 'main.k', *compile_flags, mode, '-o', output], directory)
             binary = output / 'program' if plan['kind'] == 'gpu' else output
-            outputs[mode] = command([binary], directory, plan['expected'])
+            outputs[mode] = command([binary], directory)
+            assert expected_output(outputs[mode], plan), (page, ordinal, mode, plan, outputs[mode])
         return {'page': page, 'block': index, 'kind': 'gpu' if plan['kind'] == 'gpu' else 'cpu', 'status': 'passed', 'expected': plan['expected'], 'outputs': outputs}
 
     items = [(page, n, i, source, PLAN[page][n]) for page in PAGES
@@ -146,7 +159,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
             # policy examples and later programs cannot silently escape checks.
             program = max((item for item in items if item[0] == page and item[2] < block_index),
                           key=lambda item: item[2])
-            backend = 'vulkan' if '--target vulkan' in source else 'metal'
+            backend = next((name for name in ('vulkan', 'cuda') if '--target '+name in source), 'metal')
             if args.gpu and args.gpu_backend == backend:
                 shell(page, shell_index, BASE / page / str(program[1]), program[4]['expected'])
             else:

@@ -246,6 +246,25 @@ jobs:
           python3 native/vulkan/qualification/installed.py --bundled-targets
           --archive release-assets/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz
           --root build/vulkan-release-qualification
+  qualify-cuda:
+    needs: bundle-targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-bundled-release-assets
+          path: release-assets
+      # This job does not claim hardware execution on a standard hosted runner.
+      - name: Qualify downloaded combined Linux CPU CUDA compiler
+        run: >-
+          python3 native/cuda-source/qualification/installed.py --bundled-targets
+          --archive release-assets/kalandra-native-cuda-standalone-linux-x86_64.tar.gz
+          --root build/cuda-release-qualification
   notarize:
     if: startsWith(github.ref, 'refs/tags/') || vars.KALANDRA_NOTARIZE == 'true'
     needs: [build, bundle-targets, qualify-standalone, signing-credentials]
@@ -285,7 +304,7 @@ jobs:
           if-no-files-found: error
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [build, bundle-targets, qualify-standalone, qualify-vulkan, notarize]
+    needs: [build, bundle-targets, qualify-standalone, qualify-vulkan, qualify-cuda, notarize]
     runs-on: ubuntu-latest
     permissions:
       contents: write

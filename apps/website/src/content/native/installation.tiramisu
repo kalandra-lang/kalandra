@@ -60,3 +60,12 @@ Run kalandra --version and confirm that it matches the release you downloaded. E
 link { url = "/docs/getting-started", "Create, check and run the native starter" }
 
 link { url = "/docs/tooling#set-up-vs-code", "Install the VS Code extension or configure another LSP editor" }
+
+
+h2 { "Experimental CUDA source builds" }
+
+CUDA is not included in v0.99.1. The Linux development target requires a build with KALANDRA_BUILD_CUDA_SOURCE=ON and KALANDRA_BUILD_CUDA_RUNTIME=ON, the pinned LLVM toolchain, CUDA development headers and NVRTC. The build uses LLVM and device-only NVRTC rather than NVCC's host compiler mode. A compatible installed CUDA compiler accepts --target cuda and needs system C++23 development headers, without requiring the CUDA toolkit on the end user's system. Generated applications require the NVIDIA driver and their complete PTX resource directory.
+
+The initial execution qualification covers Linux x86-64 and RTX 5090. This does not add CUDA to Windows, macOS or every ARM64 Linux installation. Use the released Metal distribution on supported Macs. Development artifacts are qualification inputs; published toolchains will be distributed through GitHub Releases.
+
+link { url = "/docs/gpu#experimental-linux-cuda-backend", "CUDA placement, numerical policies and current limits" }

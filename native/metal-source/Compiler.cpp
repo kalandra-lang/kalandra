@@ -1381,7 +1381,7 @@ class Compiler {
     const auto &fn = cpu.functions.at(function);
     auto found = numericPrograms.find(function);
     if (found == numericPrograms.end()) {
-      auto program = emitNumericProgram(cpu, function, arithmetic_, backend_ == GpuBackend::Vulkan);
+      auto program = emitNumericProgram(cpu, function, arithmetic_, backend_ != GpuBackend::Metal);
       if (!program)
         throw Rejected{program.error()};
       found = numericPrograms.emplace(function, std::move(*program)).first;
@@ -1492,7 +1492,7 @@ class Compiler {
       const auto &kernel = program.kernels[i];
       const auto name = "kernel" + std::to_string(i);
       const auto path = base + (i ? "-stage" + std::to_string(i) : "") +
-                        (backend_ == GpuBackend::Vulkan ? ".spv" : ".metallib");
+                        (backend_ == GpuBackend::Vulkan ? ".spv" : backend_ == GpuBackend::Cuda ? ".ptx" : ".metallib");
       auto instruction = std::find_if(program.code.begin(), program.code.end(),
                                       [i](const auto &op) { return op.kernel == i; });
       if (instruction == program.code.end())
@@ -1547,7 +1547,7 @@ class Compiler {
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
             "u,code," + std::to_string(program.result) + "u," + elementName(program.type.element) +
             "," + (result.scalarTask ? "true" : "false") +
-            (backend_ == GpuBackend::Vulkan ? ",*target" : "") + ");if(!prepared){" +
+            (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\nf." + out +
             "=r.executeNumericProgram(task," + activeGroup + ",f." + executable +
             ",std::array<m::Buffer," + std::to_string(tensors.size()) + ">{";
@@ -1562,7 +1562,7 @@ class Compiler {
                      SourceSpan span) {
     admitGpuTypes(function);
     const auto &fn = cpu.functions.at(function);
-    if (backend_ == GpuBackend::Vulkan || numericPrograms.contains(function))
+    if (backend_ != GpuBackend::Metal || numericPrograms.contains(function))
       return spawnNumericProgram(function, inputs, target, span);
     auto found = numericShaders.find(function);
     if (found == numericShaders.end()) {
@@ -1698,7 +1698,7 @@ class Compiler {
               SourceSpan span) {
     if (!target.gpu)
       return cpuCall(function, inputs, span, false, true);
-    if (backend_ == GpuBackend::Vulkan)
+    if (backend_ != GpuBackend::Metal)
       return spawnNumericProgram(function, inputs, target, span);
     bool mixed = false;
     bool conditional = false, primitive = false, transform = false;
@@ -3510,14 +3510,15 @@ public:
         for (std::size_t stage = 0; stage < found->second.kernels.size(); ++stage) {
           const auto &shader = found->second.kernels[stage];
           auto name = base + (stage ? "-stage" + std::to_string(stage) : "");
-          if (backend_ == GpuBackend::Vulkan && shader.element == NumericType::Float32 &&
+          if (backend_ != GpuBackend::Metal && shader.element == NumericType::Float32 &&
               std::any_of(found->second.code.begin(), found->second.code.end(), [&](const auto &op) {
                 return op.kernel == stage && op.kind == NumericProgramKind::Matmul;
               }))
-            outputs[name + ".vulkan-matmul"] = "kalandra-vulkan-matmul-v1\ntype=float32\n";
-          if (backend_ == GpuBackend::Vulkan && shader.transform) {
-            outputs[name + ".vulkan-transform"] =
-                "kalandra-vulkan-transform-v1\nkind=" +
+            outputs[name + (backend_ == GpuBackend::Cuda ? ".cuda-matmul" : ".vulkan-matmul")] =
+                backend_ == GpuBackend::Cuda ? "kalandra-cuda-matmul-v1\ntype=float32\n" : "kalandra-vulkan-matmul-v1\ntype=float32\n";
+          if (backend_ != GpuBackend::Metal && shader.transform) {
+            outputs[name + (backend_ == GpuBackend::Cuda ? ".cuda-transform" : ".vulkan-transform")] =
+                std::string(backend_ == GpuBackend::Cuda ? "kalandra-cuda-transform-v1\nkind=" : "kalandra-vulkan-transform-v1\nkind=") +
                 std::string(tensorTransformName(*shader.transform)) +
                 "\ntype=" + std::string(describeNumeric(shader.element)->name) + "\n";
             continue;
@@ -3610,7 +3611,7 @@ public:
       outputs["cpu.ll"] = lowered->llvm;
     }
     std::ostringstream host;
-    host << (backend_ == GpuBackend::Vulkan ? "#include \"Language.h\"\n"
+    host << (backend_ != GpuBackend::Metal ? "#include \"Language.h\"\n"
                                             : "#include \"Metal.h\"\n")
          << R"(#include <array>
 #include <bit>
@@ -3623,7 +3624,7 @@ public:
 #include <string>
 using namespace kalandra::runtime;
 )"
-         << (backend_ == GpuBackend::Vulkan ? "namespace m = kalandra::runtime::vulkan::language;\n"
+         << (backend_ != GpuBackend::Metal ? (backend_ == GpuBackend::Cuda ? "namespace m = kalandra::runtime::cuda::language;\n" : "namespace m = kalandra::runtime::vulkan::language;\n")
                                             : "namespace m = kalandra::runtime::metal;\n")
          << " " << declarations << helperDeclarations << cpuEntries;
     if (scalarResult)
@@ -3731,7 +3732,7 @@ void resume(Task &task) {
 }
 )";
     auto hostText = host.str();
-    if (backend_ == GpuBackend::Vulkan) {
+    if (backend_ != GpuBackend::Metal) {
       hostText = "#include \"ExecutablePath.h\"\n" + hostText;
       const std::string oldDirectory =
           "const auto directory=argc==2 ? std::string(argv[1]) : std::filesystem::absolute(argv[0]).parent_path().string();";
@@ -3754,14 +3755,19 @@ void resume(Task &task) {
       for (std::size_t at = 0; (at = hostText.find(destruction, at)) != std::string::npos;)
         hostText.replace(at, destruction.size(), "std::destroy_at(value)");
       for (std::size_t at = 0; (at = hostText.find("Metal unavailable", at)) != std::string::npos;)
-        hostText.replace(at, 17, "Vulkan unavailable");
+        hostText.replace(at, 17, backend_ == GpuBackend::Cuda ? "CUDA unavailable" : "Vulkan unavailable");
       for (std::size_t at = 0; (at = hostText.find("Metal task failed", at)) != std::string::npos;)
-        hostText.replace(at, 17, "Vulkan task failed");
+        hostText.replace(at, 17, backend_ == GpuBackend::Cuda ? "CUDA task failed" : "Vulkan task failed");
       const std::string metalCleanup =
           "s.bytes || s.metalBuffers || s.hostBackings || s.deviceBackings || s.inFlight || "
           "s.stagingBuffers || s.argumentBytes || s.argumentPacks";
       if (auto at = hostText.find(metalCleanup); at != std::string::npos)
         hostText.replace(at, metalCleanup.size(), "s.bytes || s.inFlight || s.argumentBytes");
+    }
+    if (backend_ == GpuBackend::Cuda) {
+      const std::string old = "kalandra::runtime::vulkan::executableDirectoryUtf8()";
+      if (auto at = hostText.find(old); at != std::string::npos)
+        hostText.replace(at, old.size(), "kalandra::runtime::cuda::executableDirectoryUtf8()");
     }
     outputs["host.cpp"] = std::move(hostText);
     std::string manifest = "kernel_count=" + std::to_string(entries.size()) + "\n";

@@ -54,6 +54,10 @@ install(PROGRAMS "${_validator}" DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/kaland
 install(FILES vulkan/Language.h vulkan/Async.h vulkan/Program.h vulkan/Vulkan.h
               vulkan/TensorBridge.h vulkan/ExecutablePath.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/vulkan" COMPONENT NativeVulkanCompiler)
+# These declarations are shared with CUDA, but remain owned package resources.
+install(FILES gpu-runtime/ProgramDecl.inc gpu-runtime/TensorBridgeDecl.inc
+              gpu-runtime/AsyncDecl.inc gpu-runtime/LanguageDecl.inc gpu-runtime/ExecutablePath.inc
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/gpu-runtime" COMPONENT NativeVulkanCompiler)
 install(FILES runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/runtime" COMPONENT NativeVulkanCompiler)
 install(FILES include/kalandra/NumericType.h include/kalandra/TensorTransform.h

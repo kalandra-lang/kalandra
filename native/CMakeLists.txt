@@ -478,6 +478,16 @@ if(BUILD_TESTING)
   endforeach()
 endif()
 
+option(KALANDRA_BUILD_CUDA_SOURCE "Build experimental CUDA PTX artifact tools" OFF)
+if(KALANDRA_BUILD_CUDA_SOURCE)
+  add_subdirectory(cuda-source)
+endif()
+
+option(KALANDRA_BUILD_CUDA_RUNTIME "Build experimental Linux CUDA runtime" OFF)
+if(KALANDRA_BUILD_CUDA_RUNTIME)
+  add_subdirectory(cuda)
+endif()
+
 option(KALANDRA_BUILD_VULKAN_RUNTIME "Build experimental Vulkan runtime and development compiler target" OFF)
 if(KALANDRA_BUILD_VULKAN_RUNTIME)
   add_subdirectory(vulkan)
@@ -488,7 +498,7 @@ if(KALANDRA_BUILD_METAL_RUNTIME)
   add_subdirectory(metal)
 endif()
 
-if((KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME) OR KALANDRA_BUILD_VULKAN_RUNTIME)
+if((KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME) OR KALANDRA_BUILD_VULKAN_RUNTIME OR KALANDRA_BUILD_CUDA_SOURCE)
   add_subdirectory(gpu-source)
 endif()
 if(KALANDRA_BUILD_METAL_PROOF AND KALANDRA_BUILD_METAL_RUNTIME)
@@ -1169,6 +1179,7 @@ include(cmake/EditorToolsInstall.cmake)
 include(cmake/CPUCompilerInstall.cmake)
 include(cmake/MetalCompilerInstall.cmake)
 include(cmake/VulkanCompilerInstall.cmake)
+include(cmake/CudaCompilerInstall.cmake)
 
 include(cmake/Scaffold.cmake)
 
@@ -1347,7 +1358,7 @@ endif()
 
 # All public CLI variants share the configured toolchain version.
 foreach(_tool IN ITEMS kalandra kalandra-installed kalandra-metal-installed kalandra-vulkan-installed
-    kalandra-check kalandra-check-sanitized kalandra-parse kalandra-mlir-check
+    kalandra-cuda-installed kalandra-check kalandra-check-sanitized kalandra-parse kalandra-mlir-check
     kalandra-lsp kalandra-lsp-sanitized kalandra-fmt kalandra-fmt-debug
     kalandra-fmt-optimized kalandra-fmt-sanitized kalandra-fmt-thread-sanitized)
   if(TARGET ${_tool})

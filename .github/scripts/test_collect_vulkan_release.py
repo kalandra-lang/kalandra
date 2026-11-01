@@ -169,7 +169,7 @@ class VulkanReleaseTests(unittest.TestCase):
         self.assertIn(collector.ARCHIVE, ARCHIVES)
         self.assertIn(collector.ARCHIVE, release)
         self.assertIn('tags: ["v*"]', vulkan)
-        self.assertIn('needs: [build, bundle-targets, qualify-standalone, qualify-vulkan, notarize]', release)
+        self.assertIn('needs: [build, bundle-targets, qualify-standalone, qualify-vulkan, qualify-cuda, notarize]', release)
         publish = release.split('  publish:\n', 1)[1]
         self.assertIn("if: startsWith(github.ref, 'refs/tags/')", publish)
 

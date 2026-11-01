@@ -1,6 +1,6 @@
 meta { title = "GPU computing", description = "Transfer tensors and place numerical functions on a GPU.", order = 2, group = "HOWTO guides" }
 
-Kalandra uses one source language for CPU functions and eligible GPU numerical functions. The released Apple Metal backend requires macOS 26 or newer with Apple silicon. Use the mixed CPU/Metal compiler distribution and its Apple toolchain prerequisites. The experimental Vulkan backend uses the same placement and transfer APIs on Linux; it is being qualified separately and is not included in v0.99.1.
+Kalandra uses one source language for CPU functions and eligible GPU numerical functions. The released Apple Metal backend requires macOS 26 or newer with Apple silicon. Use the mixed CPU/Metal compiler distribution and its Apple toolchain prerequisites. The experimental Vulkan and Linux CUDA backends use the same placement and transfer APIs. They are being qualified separately and are not included in v0.99.1.
 
 h2 { "Transfer, dispatch and observe" }
 
@@ -45,6 +45,22 @@ GPU compilation requires system C++23 development headers in addition to the com
 Vulkan currently defaults to fixed-tree matmul. Select --matmul-policy optimized explicitly to use the full-float32 tiled matrix kernel. Its private right-operand transpose consumes an extra GPU buffer and dispatch within the normal resource limits. Matrix optimization does not enable fast math for ordinary elementwise expressions.
 
 Native float64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel float64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Intel kernels without float64 division remain native. The current fallback companion replaces float64 arithmetic for the selected kernel as a whole while retaining native float32; it does not substitute individual instructions. Missing or malformed shader resources never trigger numerical fallback, and hardware-only mode never silently selects software.
+
+h2 { "Experimental Linux CUDA backend" }
+
+A Linux compiler built with CUDA support accepts the same program with a different target:
+
+codeblock { language = bash, """kalandra main.k --target cuda -O2 -o app
+./app/program
+""" }
+
+The initial hardware qualification target is Linux x86-64 with an NVIDIA RTX 5090. The compiler emits an application directory containing program, PTX modules, required companions and third-party notices. Deploy the complete directory. Execution requires a compatible NVIDIA driver with PTX 9.2 support. An installed standalone CUDA compiler requires system C++23 development headers but no CUDA toolkit; building the compiler itself needs CUDA development headers and NVRTC. Older drivers and other NVIDIA GPUs are not yet qualified. macOS continues to use Metal, and Windows CUDA is not included.
+
+CUDA supports the same ten numeric types and ranks zero through eight. Float32 and float64 arithmetic use hardware instructions by default. The explicit software and hardware-with-software-fallback policies retain their normal meaning; a malformed module or driver fault never triggers a numerical fallback.
+
+Matrix products default to fixed-tree. Explicit --matmul-policy optimized permits full-float32 fused multiply-add and a different accumulation order. Eligible shapes use an audited MIT warp-tiled kernel. Other shapes, including empty dimensions and contraction tails, use a fixed-tree GPU companion. There is no CPU, TF32, half-precision or cuBLAS substitution. Unlike the Vulkan tiled implementation, the CUDA tiled kernel consumes both source operands in row-major order.
+
+Submitted device work retains its inputs, outputs and temporary storage through actual completion. Cancellation takes effect at completed stage boundaries; it does not reset the GPU or interrupt another process. The public sanitizer CLI variants are not currently available for CUDA.
 
 h2 { "Keep intermediates resident" }
 
