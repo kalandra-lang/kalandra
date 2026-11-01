@@ -13,6 +13,7 @@ on:
       - 'native/runtime/**'
       - 'native/lib/**'
       - 'native/cmake/**'
+      - 'native/packaging/**'
       - 'native/toolchain-proof/toolchain.json'
       - '.github/scripts/provision_native_platform.py'
       - '.github/workflows/native-vulkan.yml'
@@ -30,12 +31,14 @@ on:
       - 'native/runtime/**'
       - 'native/lib/**'
       - 'native/cmake/**'
+      - 'native/packaging/**'
       - 'native/toolchain-proof/toolchain.json'
       - '.github/scripts/provision_native_platform.py'
       - '.github/workflows/native-vulkan.yml'
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   build-and-shader-audit:
     runs-on: ubuntu-24.04
@@ -100,6 +103,8 @@ jobs:
           python3 native/vulkan/qualification/public_sanitizers.py --compile-only
           --compiler build/vulkan-source/native/kalandra
           --output build/vulkan-artifacts/public-sanitizers
+      - name: Verify read-only ELF relocation admission
+        run: python3 native/packaging/BundleELFTests.py --cxx "$KALANDRA_LLVM_ROOT/bin/clang++"
       - name: Build production-pinned relocatable Vulkan package
         run: cmake --build build/vulkan-source --parallel 2 --target native-vulkan-standalone-package
       - name: Qualify installed compiler and missing-resource isolation
@@ -176,5 +181,73 @@ jobs:
         with:
           name: native-vulkan-source-qualification
           path: build/vulkan-artifacts
+          if-no-files-found: error
+          retention-days: 7
+
+  bundled-package:
+    # Cross-OS packages are produced for PR heads, not ordinary develop pushes.
+    if: github.event_name == 'pull_request'
+    needs: source-compiler
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-vulkan-package-linux-x86_64
+          path: gpu-assets
+      - name: Locate same-revision CPU runtime data
+        id: runtimes
+        uses: actions/github-script@v7
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        with:
+          script: |
+            for (let attempt = 0; attempt < 100; attempt++) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                ...context.repo, workflow_id: 'native-cross-os.yml',
+                head_sha: process.env.SOURCE_SHA, per_page: 20,
+              });
+              const run = runs.data.workflow_runs.find(run => run.head_sha === process.env.SOURCE_SHA &&
+                run.head_repository.full_name === context.repo.owner + '/' + context.repo.repo);
+              if (run) {
+                const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
+                  {...context.repo, run_id: run.id, per_page: 100});
+                if (artifacts.some(a => a.name === 'cpu-target-runtimes' && !a.expired)) {
+                  core.setOutput('run', String(run.id));
+                  return;
+                }
+                if (run.status === 'completed') throw new Error('CPU qualification ended without runtime data');
+              }
+              await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+            throw new Error('Timed out waiting for same-revision CPU runtime data');
+      - uses: actions/download-artifact@v4
+        with:
+          name: cpu-target-runtimes
+          path: runtime-assets
+          run-id: ${{ steps.runtimes.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Attach runtime data twice without changing GPU code or importing destination tools
+        run: |
+          python3 native/packaging/RuntimeBundles.py \
+            --host-package gpu-assets/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz \
+            --runtime-bundle runtime-assets/kalandra-cpu-target-runtimes.tar.gz --output bundled-assets
+          python3 native/packaging/RuntimeBundles.py \
+            --host-package gpu-assets/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz \
+            --runtime-bundle runtime-assets/kalandra-cpu-target-runtimes.tar.gz --output repeated-assets
+          cmp bundled-assets/*.tar.gz.sha256 repeated-assets/*.tar.gz.sha256
+      - name: Qualify relocated combined CPU Vulkan compiler
+        run: >-
+          python3 native/vulkan/qualification/installed.py --bundled-targets
+          --archive bundled-assets/kalandra-native-vulkan-standalone-linux-x86_64.tar.gz
+          --root build/vulkan-bundled-qualification
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-vulkan-bundled-package-linux-x86_64
+          path: bundled-assets/*.tar.gz*
           if-no-files-found: error
           retention-days: 7

@@ -29,6 +29,11 @@ add_custom_target(native-editor-tools-standalone-package
     "-DCONFIG=$<CONFIG>" "-DOUTPUT_DIR=${PROJECT_BINARY_DIR}/native-editor-tools-standalone"
     -DSTANDALONE=ON -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PackageEditorTools.cmake"
   DEPENDS ${KALANDRA_EDITOR_TOOLS} VERBATIM)
+if(BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSSCOMPILING)
+  add_test(NAME native-elf-relocation-admission COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/BundleELFTests.py" --cxx "${CMAKE_CXX_COMPILER}")
+  set_tests_properties(native-elf-relocation-admission PROPERTIES TIMEOUT 60 LABELS distribution)
+endif()
 if(BUILD_TESTING)
   add_test(NAME native-editor-tools-install COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/InstallTests.py"

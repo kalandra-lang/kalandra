@@ -1,7 +1,7 @@
 """Execute authored documentation in isolated directories. Invoked by verify-docs.ts.
 
 The fixture contains expected outcomes, never duplicate source. GPU execution is
-explicit because it requires a Metal-enabled compiler and physical Apple hardware.
+explicit because it requires a backend-enabled compiler and matching physical GPU.
 OS/toolchain setup recipes and the PowerShell variant are reported separately.
 """
 import argparse
@@ -19,6 +19,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--gpu', action='store_true')
+parser.add_argument('--gpu-backend', choices=('metal', 'vulkan'), default='metal')
 parser.add_argument('--tools', type=Path, default=ROOT / 'build/native/native')
 parser.add_argument('--report', type=Path)
 args = parser.parse_args()
@@ -114,12 +115,12 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
         if source.startswith('export '):
             return {'page': page, 'block': index, 'kind': 'companion-module', 'status': 'passed'}
         if plan['kind'] == 'gpu' and not args.gpu:
-            return {'page': page, 'block': index, 'kind': 'gpu', 'status': 'not-run', 'reason': 'Requires --gpu on Apple Metal hardware'}
+            return {'page': page, 'block': index, 'kind': 'gpu', 'status': 'not-run', 'reason': f'Requires --gpu with physical {args.gpu_backend} hardware'}
         modes = ['-O2'] if plan['kind'] == 'gpu' else ['-O0', '-O2']
         outputs = {}
         for mode in modes:
             output = directory / ('app' if plan['kind'] == 'gpu' else 'program')
-            compile_flags = ['--target', 'metal'] if plan['kind'] == 'gpu' else []
+            compile_flags = ['--target', args.gpu_backend] if plan['kind'] == 'gpu' else []
             command([TOOLS / 'kalandra', directory / 'main.k', *compile_flags, mode, '-o', output], directory)
             binary = output / 'program' if plan['kind'] == 'gpu' else output
             outputs[mode] = command([binary], directory, plan['expected'])
@@ -140,16 +141,17 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     parallel = next(x for x in reversed(items) if x[0] == 'parallelism')
     shell('parallelism', 0, BASE / 'parallelism' / str(parallel[1]), parallel[4]['expected'])
     for page in ['gpu', 'gpu-numerics']:
-        for shell_index, (block_index, _) in enumerate(blocks(page, 'bash')):
+        for shell_index, (block_index, source) in enumerate(blocks(page, 'bash')):
             # Run each invocation against the preceding authored program, so
             # policy examples and later programs cannot silently escape checks.
             program = max((item for item in items if item[0] == page and item[2] < block_index),
                           key=lambda item: item[2])
-            if args.gpu:
+            backend = 'vulkan' if '--target vulkan' in source else 'metal'
+            if args.gpu and args.gpu_backend == backend:
                 shell(page, shell_index, BASE / page / str(program[1]), program[4]['expected'])
             else:
                 RESULTS.append({'page': page, 'block': block_index, 'kind': 'shell',
-                                'status': 'not-run', 'reason': 'Requires --gpu'})
+                                'status': 'not-run', 'reason': f'Requires --gpu --gpu-backend {backend} on its physical GPU'})
                 COVERED.add((page, block_index))
 
     # The documented starter, its exact sibling module, and an edited rebuild.

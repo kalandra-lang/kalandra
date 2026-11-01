@@ -15,6 +15,7 @@ p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--archive', type=Path, required=True)
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--execute', action='store_true')
+p.add_argument('--bundled-targets', action='store_true')
 a = p.parse_args()
 a.archive = a.archive.resolve()
 a.root = a.root.resolve()
@@ -40,6 +41,12 @@ for line in (prefix/'SHA256SUMS').read_text().splitlines():
 assert {str(path.relative_to(prefix)) for path in prefix.rglob('*') if path.is_file()} == set(listed) | {'SHA256SUMS'}
 metadata = json.loads((prefix/'share/kalandra-native-vulkan/toolchain.json').read_text())
 assert metadata['format'] == 1 and metadata['llvmVersion'] == '23.1.3'
+if a.bundled_targets:
+    cpu = json.loads((prefix/'share/kalandra-native-tools/toolchain.json').read_text())
+    expected = {'linux-x86_64', 'linux-arm64', 'windows-x86_64', 'windows-arm64', 'macos-arm64'}
+    assert set(cpu['bundledCpuTargets']) == expected
+    assert {path.name for path in (prefix/'lib/kalandra/targets').iterdir()} == expected
+
 assert digest(prefix/'libexec/kalandra/spirv-val') == metadata['validatorBundledSHA256']
 assert digest(prefix/'share/licenses/kalandra-vulkan/SPIRV-Tools-COPYRIGHT') == metadata['validatorNoticeSHA256']
 repo = Path(__file__).resolve().parents[3]

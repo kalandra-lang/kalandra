@@ -41,10 +41,10 @@ The draft status is not lifted by a successful primitive or kernel-only probe.
 - [x] Actual source-derived pointwise kernels for all ten numeric types: normal exact arithmetic, integer overflow flags, packed tails/empty domains on both physical GPUs.
 - [x] First managed generic dispatch adapter using existing TaskCore completion capabilities: worker counts 1/2/4, held acknowledgement cancellation/deadlines, device-failure classification/precedence, bounded captures, cached results, facade/core teardown, and escaped result ownership. This does not yet constitute a full source task backend.
 - [x] Full development source compiler/supervisor and explicit CPU/GPU transfer/CPU descriptor bridge.
-- [ ] Complete shapes/ranks 0..8, maps/scalar lifting, all conversions, reductions, matmul policies, branch/shape/error control and resident graph composition.
-- [ ] Transpose, ReLU, softmaxRows and rmsNormRows with existing numerical/fault contracts.
-- [ ] Real hardware feature admission and explicit arithmetic fallback, comprehensive independent numerical oracles and same-source Metal parity fixtures.
-- [ ] Allocation/submission/completion fault injection, concurrent ownership/resource bounds and ASan/UBSan/TSan qualification with external loader findings resolved or precisely attributed.
+- [x] Complete shapes/ranks 0..8, maps/scalar lifting, all conversions, reductions, matmul policies, branch/shape/error control and resident graph composition.
+- [x] Transpose, ReLU, softmaxRows and rmsNormRows with existing numerical/fault contracts.
+- [x] Real hardware feature admission and explicit arithmetic fallback, comprehensive independent numerical oracles and same-source Metal parity fixtures.
+- [x] Allocation/submission/completion fault injection, concurrent ownership/resource bounds and ASan/UBSan/TSan qualification with external loader findings resolved or precisely attributed.
 - [ ] Relocatable CLI/distributions, editor/docs/install updates, reproducible hosted checks and complete user applications.
 
 ### Linux development compiler
@@ -758,3 +758,48 @@ The existing private ASan/UBSan configuration also passes both normalization/
 reflection tests and all four physical Intel native/fallback policy probes,
 with clean exits and no suppressions. NVIDIA sanitizer findings remain the
 separately attributed loader findings above; they are not relabelled clean.
+
+
+### Installed Linux archive and CPU runtime-data composition
+
+Production-pinned run 41285165375 (a797cdf6) passes all three jobs. Its archive
+passes repeat SHA-256 comparison, installed source builds and resource isolation.
+The downloaded archive also passes CPU execution and fifteen real GPU builds /
+ninety physical executions on RTX 5090 and Intel ARL, loader-negative diagnostics
+and all seven missing-owned-resource checks after Unicode/space relocation.
+This baseline archive predates the separately pushed float64 fix 73ae38d6; it is
+not evidence that the new numerical policy is in that older archive.
+
+The first physical archive audit stopped because its read-only RPATH check
+unnecessarily required patchelf. No system package was installed. Qualification
+now reads both ELF RPATH/RUNPATH entries with the existing readelf; actual archive
+creation still uses patchelf in hosted CI. Twelve real ELF fixtures verify safe
+relative paths, both dynamic-tag forms, outside-prefix escapes, malformed ORIGIN
+prefixes and empty search components. The physical archive acceptance above then
+passes. A distribution CTest and hosted step retain this regression.
+
+RuntimeBundles can attach an inventoried CPU-runtime-only archive to the GPU
+host, retaining its private linkers and checking versions, all five platforms,
+macOS 26 minimum and destination-tool/dynamic-library exclusion. Local composition
+with actual published v0.99.1 CPU runtime data adds 1,714 files; all 508 pre-existing
+host/GPU resource hashes remain unchanged. Repeating composition produces the
+same archive digest. A v0.99.0 runtime archive is rejected without publishing any
+result. This local composition check uses published runtime data, not a claim of
+same-head cross qualification. New PR CI obtains runtime data from the exact head,
+assembles twice, then reruns relocated combined-package checks before upload.
+
+The user documentation now distinguishes experimental Vulkan availability,
+required headers/loader, explicit optimized matmul and Intel float64 division
+fallback. All 51 authored examples / 87 rendered blocks are checked on Mac Metal
+and Linux Vulkan; all four GPU programs execute on each. The verifier selects a
+backend and reports the other backend's shell commands as not run; each command
+has actual matching-platform execution evidence. No Bun/tool installation was
+needed on the Linux machine.
+
+The locally composed combined archive also passes the full installed acceptance:
+five CPU target records/inventories, CPU execution, fifteen GPU builds/ninety
+physical executions, six output protections, both missing-loader diagnostics and
+seven owned-resource failures. Its host/resource byte-preservation and repeated
+archive digest checks pass. The new read-only ELF admission check passes through
+root CTest as well. Exact current-head combined-package CI remains mandatory;
+these local checks do not substitute older runtime data for that gate.

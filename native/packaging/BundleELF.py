@@ -90,6 +90,20 @@ def dependencies(path, sdk=None):
     return result
 
 
+def search_paths(path):
+    # Qualification only reads ELF metadata; patchelf is needed for packaging
+    # mutations, not for verifying a relocated installation on a user's host.
+    result = []
+    for line in run("readelf", "--dynamic", "--wide", path).splitlines():
+        if not re.search(r"\((?:RPATH|RUNPATH)\)", line):
+            continue
+        match = re.search(r"\[(.*)\]", line)
+        if not match:
+            raise RuntimeError(f"Cannot inspect ELF search path: {path}: {line}")
+        result.append(match[1])
+    return result
+
+
 def audit(prefix):
     machine = expected_machine(prefix)
     for path in prefix.rglob("*"):
@@ -99,10 +113,11 @@ def audit(prefix):
         for name, dependency in dependencies(path).items():
             if not PLATFORM.fullmatch(name) and not dependency.is_relative_to(prefix):
                 raise RuntimeError(f"ELF dependency escapes installed prefix: {path}: {dependency}")
-        rpath = run("patchelf", "--print-rpath", path).strip()
-        if any(not item.startswith("$ORIGIN") or not (path.parent / item.replace("$ORIGIN", ".")).resolve().is_relative_to(prefix)
-               for item in rpath.split(":") if item):
-            raise RuntimeError(f"Unsafe ELF search path: {path}: {rpath}")
+        for rpath in search_paths(path):
+            if any((item != "$ORIGIN" and not item.startswith("$ORIGIN/")) or
+                   not (path.parent / item.replace("$ORIGIN", ".")).resolve().is_relative_to(prefix)
+                   for item in rpath.split(":")):
+                raise RuntimeError(f"Unsafe ELF search path: {path}: {rpath}")
 
 
 def bundle(prefix, llvm, cross_linkers=False):

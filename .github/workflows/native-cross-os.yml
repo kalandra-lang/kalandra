@@ -135,6 +135,11 @@ jobs:
           python3 .github/scripts/compare_cross_bundles.py bundled-assets repeated-assets
       - uses: actions/upload-artifact@v4
         with:
+          name: cpu-target-runtimes
+          path: bundled-assets/kalandra-cpu-target-runtimes.tar.gz*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
           name: bundled-tools-linux-x86_64
           path: bundled-assets/kalandra-native-cpu-standalone-linux-x86_64.tar.gz*
           if-no-files-found: error

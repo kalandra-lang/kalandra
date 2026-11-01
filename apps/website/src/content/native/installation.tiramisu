@@ -47,6 +47,12 @@ The build-tree tools are under build/native/native. Metal configuration has addi
 
 link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.1/native/README.md", "Native source-build instructions" }
 
+h2 { "Experimental Vulkan source builds" }
+
+Vulkan support is under qualification and is not part of the v0.99.1 release assets. On Linux, a Vulkan-enabled source build additionally needs Vulkan development headers, glslc, spirv-val and spirv-dis. Configure the source checkout with KALANDRA_BUILD_VULKAN_RUNTIME=ON and the pinned LLVM toolchain. The normal compiler then accepts --target vulkan; there is no separate source language. Generated GPU applications need a compatible physical GPU driver and the system Vulkan loader. CPU-only packages do not gain Vulkan compilation by passing that flag.
+
+link { url = "/docs/gpu#experimental-vulkan-backend", "Vulkan placement, numerical policies and current limits" }
+
 h2 { "Verify installation" }
 
 Run kalandra --version and confirm that it matches the release you downloaded. Each compiler, checker, formatter, parser and language-server executable reports its native toolchain version.

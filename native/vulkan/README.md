@@ -1,8 +1,9 @@
 # Experimental Vulkan runtime bring-up
 
 This is an experimental opt-in backend, not a released Vulkan compiler package.
-The development compiler accepts `--target vulkan`; installed package integration
-and full Metal parity remain pending. See [implementation plan](../../docs/native-vulkan-roadmap.md) and #263.
+The development compiler and a production-pinned Linux archive candidate accept
+`--target vulkan`. The archive passes physical relocation checks; combined CPU
+target-runtime packages and the full platform matrix still require qualification. See [implementation plan](../../docs/native-vulkan-roadmap.md) and #263.
 
 With an already configured root build using `KALANDRA_BUILD_VULKAN_RUNTIME=ON`:
 
@@ -23,9 +24,10 @@ instrumented root profiles expose the proof tools rather than the public Vulkan
 command. Matmul defaults to `fixed-tree`; explicit `--matmul-policy optimized`
 routes float32 source products through the imported tiled kernel. Software
 arithmetic retains fixed-tree products. The build
-uses configured host C++/LLVM/SPIR-V tools and host development headers. This is
-not yet a standalone one-download GPU compiler package or a cross-target GPU
-workflow. No system dependencies are installed by the compiler.
+uses configured host C++/LLVM/SPIR-V tools and host development headers. The
+Linux archive candidate provides private compiler tools; GPU C++ compilation
+still needs system development headers. Cross-target GPU compilation remains
+unsupported. No system dependencies are installed by the compiler.
 
 The opt-in root build flag is `KALANDRA_BUILD_VULKAN_RUNTIME`. To qualify just the
 runtime with existing Vulkan development tools, without installing LLVM/MLIR:
@@ -401,3 +403,27 @@ Negative tests cover concurrent first use, missing/incomplete loaders and ELF
 imports without needing a GPU. This removes the SDK loader link dependency from
 applications; configured compiler tools/C++ development headers and installed
 GPU drivers are still required. Installed one-download packages remain pending.
+
+
+## Combined CPU target runtimes
+
+The CPU runtime-bundle tool can attach independently inventoried runtime-only
+packs to a GPU host package. The host executables, GPU archives, lowering tools
+and SPIR-V resources remain byte-identical; only CPU-target metadata, the new
+runtime-data subtree and the top-level inventory change. Destination compiler
+executables, shared libraries and system SDK libraries are excluded.
+
+```sh
+python3 native/packaging/RuntimeBundles.py \
+  --host-package kalandra-native-vulkan-standalone-linux-x86_64.tar.gz \
+  --runtime-bundle kalandra-cpu-target-runtimes.tar.gz --output bundled
+```
+
+Both input archives require their SHA-256 sidecars and complete inventories.
+The assembler requires matching release/LLVM versions, all five supported CPU
+targets, macOS 26 minimum and the host's private cross linkers. It rejects stale
+runtime packs rather than mixing versions. CPU destinations retain their usual
+external development-library requirements; this does not cross-compile GPU code.
+PR qualification waits for same-revision CPU runtime data, assembles twice and
+rechecks the combined installed compiler. That gate remains pending until its
+current-head workflow completes.
