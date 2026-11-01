@@ -157,6 +157,7 @@ struct State {
   mutable std::mutex queueMutex;
   std::shared_ptr<ByteBudget> budget;
   std::atomic<bool> failed{false};
+  std::atomic<FailurePoint> failure{FailurePoint::None};
   VkPhysicalDeviceFeatures features{};
   bool storage8 = false, storage16 = false, int8 = false;
   bool preserveFloat32 = false;
@@ -206,6 +207,11 @@ struct HostCharge {
   }
 };
 namespace {
+bool consumeFailure(State &state, FailurePoint point) noexcept {
+  if (state.failure.load(std::memory_order_relaxed) != point)
+    return false;
+  return state.failure.compare_exchange_strong(point, FailurePoint::None);
+}
 std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<State> &state,
                                                         std::uint64_t bytes) {
   auto s = std::make_shared<Storage>();
@@ -222,7 +228,9 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
   info.size = s->capacity;
   info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
   info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  auto result = vkCreateBuffer(state->device, &info, nullptr, &s->buffer);
+  auto result = consumeFailure(*state, FailurePoint::BufferCreate)
+                    ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+                    : vkCreateBuffer(state->device, &info, nullptr, &s->buffer);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
   VkMemoryRequirements required;
@@ -248,13 +256,19 @@ std::expected<std::shared_ptr<Storage>, Error> allocate(const std::shared_ptr<St
   VkMemoryAllocateInfo allocation{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
   allocation.allocationSize = required.size;
   allocation.memoryTypeIndex = memoryType;
-  result = vkAllocateMemory(state->device, &allocation, nullptr, &s->memory);
+  result = consumeFailure(*state, FailurePoint::MemoryAllocate)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkAllocateMemory(state->device, &allocation, nullptr, &s->memory);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
-  result = vkBindBufferMemory(state->device, s->buffer, s->memory, 0);
+  result = consumeFailure(*state, FailurePoint::MemoryBind)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkBindBufferMemory(state->device, s->buffer, s->memory, 0);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
-  result = vkMapMemory(state->device, s->memory, 0, VK_WHOLE_SIZE, 0, &s->mapped);
+  result = consumeFailure(*state, FailurePoint::MemoryMap)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkMapMemory(state->device, s->memory, 0, VK_WHOLE_SIZE, 0, &s->mapped);
   if (result != VK_SUCCESS)
     return std::unexpected(error(result));
   s->coherent =
@@ -292,7 +306,9 @@ std::expected<void, Error> makePipeline(State &state, Pipeline &p,
   layout.pSetLayouts = &p.descriptors;
   layout.pushConstantRangeCount = pushBytes ? 1 : 0;
   layout.pPushConstantRanges = &push;
-  status = vkCreatePipelineLayout(state.device, &layout, nullptr, &p.layout);
+  status = consumeFailure(state, FailurePoint::PipelineLayout)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkCreatePipelineLayout(state.device, &layout, nullptr, &p.layout);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkShaderModuleCreateInfo shader{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
@@ -310,7 +326,9 @@ std::expected<void, Error> makePipeline(State &state, Pipeline &p,
   compute.stage.pName = entryName;
   compute.flags = VK_PIPELINE_CREATE_DISPATCH_BASE_BIT;
   compute.stage.pSpecializationInfo = specialization;
-  status = vkCreateComputePipelines(state.device, VK_NULL_HANDLE, 1, &compute, nullptr, &p.handle);
+  status = consumeFailure(state, FailurePoint::PipelineCreate)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkCreateComputePipelines(state.device, VK_NULL_HANDLE, 1, &compute, nullptr, &p.handle);
   vkDestroyShaderModule(state.device, module, nullptr);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
@@ -389,7 +407,9 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
   set.descriptorPool = state.descriptors;
   set.descriptorSetCount = 1;
   set.pSetLayouts = &p.descriptors;
-  auto status = vkAllocateDescriptorSets(state.device, &set, &run.descriptors);
+  auto status = consumeFailure(state, FailurePoint::DescriptorAllocate)
+                    ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+                    : vkAllocateDescriptorSets(state.device, &set, &run.descriptors);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   std::vector<VkDescriptorBufferInfo> infos(buffers.size());
@@ -408,12 +428,16 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
   allocation.commandPool = state.commands;
   allocation.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   allocation.commandBufferCount = 1;
-  status = vkAllocateCommandBuffers(state.device, &allocation, &run.command);
+  status = consumeFailure(state, FailurePoint::CommandAllocate)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkAllocateCommandBuffers(state.device, &allocation, &run.command);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  status = vkBeginCommandBuffer(run.command, &begin);
+  status = consumeFailure(state, FailurePoint::CommandBegin)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkBeginCommandBuffer(run.command, &begin);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkMemoryBarrier before{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
@@ -434,19 +458,29 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
   after.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
   vkCmdPipelineBarrier(run.command, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                        VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &after, 0, nullptr, 0, nullptr);
-  status = vkEndCommandBuffer(run.command);
+  status = consumeFailure(state, FailurePoint::CommandEnd)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkEndCommandBuffer(run.command);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkFenceCreateInfo fence{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-  status = vkCreateFence(state.device, &fence, nullptr, &run.fence);
+  status = consumeFailure(state, FailurePoint::FenceCreate)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkCreateFence(state.device, &fence, nullptr, &run.fence);
   if (status != VK_SUCCESS)
     return std::unexpected(error(status));
   VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};
   submit.commandBufferCount = 1;
   submit.pCommandBuffers = &run.command;
-  status = vkQueueSubmit(state.queue, 1, &submit, run.fence);
+  status = consumeFailure(state, FailurePoint::QueueSubmit)
+               ? VK_ERROR_OUT_OF_DEVICE_MEMORY
+               : vkQueueSubmit(state.queue, 1, &submit, run.fence);
   if (status == VK_SUCCESS)
     status = vkWaitForFences(state.device, 1, &run.fence, VK_TRUE, UINT64_MAX);
+  // Do not simulate a failed wait while real commands still own these objects.
+  // Exercise the same error/poison path only after actual fence quiescence.
+  if (status == VK_SUCCESS && consumeFailure(state, FailurePoint::FenceWait))
+    status = VK_ERROR_DEVICE_LOST;
   if (status != VK_SUCCESS) {
     // A failed wait is not proof that resources can be reclaimed. Settle the
     // device before releasing local command/fence/descriptor/buffer owners.
@@ -694,6 +728,7 @@ bool Runtime::owns(const std::shared_ptr<const HostCharge> &charge) const noexce
   return charge && charge->budget == state_->budget;
 }
 std::uint64_t Runtime::validationErrors() const { return state_->instance->errors.load(); }
+void Runtime::injectFailure(FailurePoint point) noexcept { state_->failure = point; }
 std::expected<Buffer, Error> Runtime::upload(std::span<const float> data) {
   try {
     if (state_->failed)

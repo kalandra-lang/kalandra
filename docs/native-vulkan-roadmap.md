@@ -450,3 +450,37 @@ conversion fixture generator after the earlier local source run. The fixture
 was corrected explicitly; current-head hosted and physical source runs are
 required before counting this slice as fully qualified. The rejected CI run
 41274313326 remains evidence; its source build did not pass.
+
+The corrected generator subsequently passed all 242 programs / 1,452 physical
+executions, including conversions, invalid uniform/empty-domain cases and ReLU,
+on both GPUs at workers 1/2/4. These artifacts used the previously qualified
+compiler/runtime build; later runtime changes have their own checks below.
+
+### Safe allocation/submission/completion failure qualification
+
+One-shot private injection points cover buffer creation, memory allocation/bind/
+map, pipeline layout/creation, descriptor/command allocation, command begin/end,
+fence creation, queue submission and fence wait. Injection follows the existing
+error paths with partially constructed resources retained for ordinary cleanup.
+Submission is rejected before calling the driver; a synthetic failed wait is
+reported only after a real fence has completed. No device hang/reset is induced.
+Queue submission/wait failures retain the existing poisoned-context behavior;
+recoverable allocation/preparation failures retry and return exact results.
+
+All 13 raw points plus generic compiler-kernel pipeline rollback pass on both
+physical GPUs. Four failure classes × workers 1/2/4 × ordinary/cancel/deadline
+give 36 managed cases per device. Held acknowledgements retain input captures;
+cancellation wins pending faults, group deadlines remain distinct from cancelled
+child tasks, and task/adapter/byte ledgers retire completely. No task contract or
+fault-precedence change was needed. Eleven registered GCC tests pass.
+
+The initial repeated-context test exposed NVIDIA ICD unload/reload static-TLS
+exhaustion. Its validation failure is retained; the selected test keeps a separate
+empty context alive across independent logical contexts, as the language device
+registry already does. Validation messages are not filtered. Repeated complete
+loader teardown remains an external compatibility limitation, not a passed case.
+
+ASan/UBSan raw/managed assertions pass on both devices without access/UB reports;
+unsuppressed LSan still fails at 2,509 bytes/7 allocations on each device. Isolated
+Intel TSan passes the same suite with the already documented validation-layer
+isolation. These are not leak-clean or NVIDIA TSan claims.

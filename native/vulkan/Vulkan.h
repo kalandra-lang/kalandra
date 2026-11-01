@@ -48,6 +48,14 @@ struct State;
 struct Storage;
 struct KernelState;
 struct HostCharge;
+// Private one-shot failure points for deterministic ownership qualification.
+// Submit fails before entering the driver; wait fails only after a real fence
+// has settled. These controls never hang/reset a physical device.
+enum class FailurePoint : std::uint8_t {
+  None, BufferCreate, MemoryAllocate, MemoryBind, MemoryMap, PipelineLayout,
+  PipelineCreate, DescriptorAllocate, CommandAllocate, CommandBegin,
+  CommandEnd, FenceCreate, QueueSubmit, FenceWait
+};
 class Kernel final {
 public:
   explicit operator bool() const noexcept { return bool(state_); }
@@ -112,6 +120,7 @@ public:
                                                      std::uint32_t contraction);
   std::uint64_t retainedBytes() const;
   std::uint64_t validationErrors() const;
+  void injectFailure(FailurePoint) noexcept;
 
 private:
   explicit Runtime(std::shared_ptr<State> state) : state_(std::move(state)) {}
