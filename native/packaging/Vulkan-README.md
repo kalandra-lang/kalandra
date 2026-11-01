@@ -19,6 +19,13 @@ the CPU compiler. Native hardware arithmetic is the default. Use
 only for unsupported native capabilities. A missing or malformed primary module
 is an error, not a software-fallback trigger.
 
+Native float64 requests supported preservation controls. Intel float64 division
+currently reports Unsupported because the tested hardware division does not
+satisfy the edge-case numerical contract. Select explicit
+`--arithmetic hardware-with-software-fallback` for that operation on Intel;
+add/subtract/multiply still use hardware. NVIDIA RTX 5090 passes the native
+four-operation edge corpus. Hardware-only mode never selects software silently.
+
 Matrix products default to `--matmul-policy fixed-tree`. Explicit `optimized`
 selects the imported float32 tiled algorithm, permitting fused multiply-add and
 a different reduction order with full float32 operands/accumulators. Its private

@@ -53,6 +53,14 @@ int main() {
         result->parameterWords == 2);
   for (std::size_t n = 0; n < module.size(); ++n)
     check(!reflectSpirv(std::span(module).first(n)));
+  for (auto width : {32u, 64u}) {
+    auto division = module;
+    division.insert(division.end(), {(3u << 16) | 22, 80, width, (5u << 16) | 136, 80, 81, 82, 83});
+    const auto reflected = reflectSpirv(division);
+    check(reflected && reflected->float64Division == (width == 64));
+    division.pop_back();
+    check(!reflectSpirv(division));
+  }
   auto changed = module;
   changed[5] = 0;
   check(!reflectSpirv(changed));
@@ -106,5 +114,34 @@ int main() {
   invalidMode = changed;
   invalidMode[8] = 4467; // Explicit RTE is intentionally not admitted.
   check(!reflectSpirv(invalidMode));
+  auto missingPreserve = changed;
+  missingPreserve.erase(missingPreserve.begin() + 7, missingPreserve.begin() + 9);
+  check(!reflectSpirv(missingPreserve));
+  auto preserved64 = changed;
+  preserved64[modesAt + 3] = 64;
+  preserved64.insert(preserved64.begin() + 7, {(2u << 16) | 17, 10});
+  auto reflected64 = reflectSpirv(preserved64);
+  check(reflected64 && reflected64->preserveFloat64 && !reflected64->preserveFloat32);
+  preserved64.insert(preserved64.begin() + 7, {(2u << 16) | 17, 4464});
+  const auto denormAt = modesAt + 8;
+  preserved64.insert(preserved64.begin() + denormAt, {(4u << 16) | 16, 1, 4459, 64});
+  reflected64 = reflectSpirv(preserved64);
+  check(reflected64 && reflected64->preserveFloat64 && reflected64->denormFloat64);
+  auto badDenorm = preserved64;
+  badDenorm[denormAt + 3] = 32;
+  check(!reflectSpirv(badDenorm));
+  badDenorm = preserved64;
+  badDenorm.insert(badDenorm.begin() + denormAt, {(4u << 16) | 16, 1, 4459, 64});
+  check(!reflectSpirv(badDenorm));
+  auto native64 = module;
+  native64.insert(native64.begin() + 7, {(2u << 16) | 17, 10});
+  for (bool denormals : {false, true}) {
+    auto normalized = preserveNativeFloat64(native64, denormals);
+    check(bool(normalized));
+    auto properties = reflectSpirv(*normalized);
+    check(properties && properties->preserveFloat64 && properties->denormFloat64 == denormals);
+    check(preserveNativeFloat64(*normalized, denormals) == normalized);
+  }
+  check(!preserveNativeFloat64(module, true));
   std::puts("PASS: compiler SPIR-V ABI reflection and malformed-interface rejection");
 }

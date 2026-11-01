@@ -104,6 +104,21 @@ if(BUILD_TESTING)
   add_test(NAME native-vulkan-executable-path
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/executable_path.py"
       $<TARGET_FILE:kalandra-vulkan-executable-path-tests>)
+  add_executable(kalandra-vulkan-float-controls tests/FloatControlsTool.cpp)
+  target_link_libraries(kalandra-vulkan-float-controls PRIVATE kalandra-vulkan)
+  target_compile_options(kalandra-vulkan-float-controls PRIVATE -Wall -Wextra -Werror)
+  add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/controls-float64.spv"
+    COMMAND "${Vulkan_GLSLC_EXECUTABLE}" --target-env=vulkan1.1 -O
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/float64.comp" -o "${CMAKE_CURRENT_BINARY_DIR}/controls-float64.spv"
+    DEPENDS tests/float64.comp VERBATIM)
+  add_custom_target(kalandra-vulkan-float-control-fixture DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/controls-float64.spv")
+  add_dependencies(kalandra-vulkan-float-controls kalandra-vulkan-float-control-fixture)
+  add_test(NAME native-vulkan-float-controls COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/float_controls.py"
+    --tool $<TARGET_FILE:kalandra-vulkan-float-controls>
+    --shader "${CMAKE_CURRENT_BINARY_DIR}/controls-float64.spv"
+    --validator "${KALANDRA_SPIRV_VAL}" --disassembler "${KALANDRA_SPIRV_DIS}")
+  set_tests_properties(native-vulkan-float-controls PROPERTIES TIMEOUT 60)
   add_executable(kalandra-vulkan-resource-tests tests/ResourceTests.cpp)
   target_link_libraries(kalandra-vulkan-resource-tests PRIVATE kalandra-vulkan-resources)
   target_compile_options(kalandra-vulkan-resource-tests PRIVATE -Wall -Wextra -Werror)

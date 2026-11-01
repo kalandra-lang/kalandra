@@ -26,12 +26,25 @@ template <class T> T take(std::expected<T, v::Error> value, const char *message)
   return std::move(*value);
 }
 int run(int argc, char **argv) {
-  if (argc < 2 || argc > 5)
+  if (argc < 2 || argc > 8)
     return 2;
   const unsigned device = argc >= 3 ? unsigned(std::strtoul(argv[2], nullptr, 10)) : 0;
   const auto path = std::filesystem::path(argv[1]);
   const std::string_view operation = argc >= 4 ? argv[3] : "mul";
-  const bool validation = argc < 5 || std::string_view(argv[4]) != "--no-validation";
+  bool validation = true, flushInputs = false, flushOutputs = false, unsupported = false;
+  for (int i = 4; i < argc; ++i) {
+    const std::string_view flag(argv[i]);
+    if (flag == "--no-validation" && validation)
+      validation = false;
+    else if (flag == "--native-flush-inputs" && !flushInputs)
+      flushInputs = true;
+    else if (flag == "--native-flush-outputs" && !flushOutputs)
+      flushOutputs = true;
+    else if (flag == "--expect-native-unsupported" && !unsupported)
+      unsupported = true;
+    else
+      return 2;
+  }
   check(operation == "add" || operation == "sub" || operation == "mul" || operation == "div",
         "known independent binary oracle");
   for (bool native : {false, true})
@@ -46,11 +59,12 @@ int run(int argc, char **argv) {
           path.string(), selected, NumericType::Float64, {2, 0},
           std::array{NumericType::Float64, NumericType::Float64}, {}, std::array{0u, 1u},
           std::array<std::uint8_t, 2>{0, 0});
-      if (!native && !fallback)
+      const bool available = native && !unsupported;
+      if (!available && !fallback)
         check(!loaded && loaded.error() == v::Error::Unsupported,
               "hardware-only rejects disabled native feature");
       else
-        check(loaded && loaded->usedSoftwareFallback() == !native,
+        check(loaded && loaded->usedSoftwareFallback() == !available,
               "fallback is explicit; supported hardware is always preferred");
       auto missing = runtime->loadNumericGraphKernel(
           path.string() + ".missing", selected, NumericType::Float64, {2, 0},
@@ -122,8 +136,10 @@ int run(int argc, char **argv) {
       output.close();
       check(bool(output), "wrong entry fixture written");
       copy(path.string() + ".software.spv", "wrong-entry.spv.software.spv");
-      auto raw = take(v::Runtime::create({.validation = validation, .deviceIndex = device,
-                                         .enableFloat64 = false}), "wrong-entry raw control");
+      auto raw =
+          take(v::Runtime::create(
+                   {.validation = validation, .deviceIndex = device, .enableFloat64 = false}),
+               "wrong-entry raw control");
       auto physical = raw->loadKernel(scratch.root / "wrong-entry.spv");
       check(!physical && physical.error() == v::Error::Unsupported,
             "raw fixture has valid reflected ABI and unsupported capability");
@@ -161,12 +177,17 @@ int run(int argc, char **argv) {
         "wrong primary entry is invalid before unsupported capability can trigger fallback");
   const auto inspect = take(v::Runtime::create({.validation = validation, .deviceIndex = device}),
                             "contract inspection context");
-  const auto nativeKernel = take(inspect->loadKernel(path), "native contract module");
-  const v::KernelContract wrongWords{std::string(nativeKernel.entryName()), 2, 3};
+  auto nativeResult = inspect->loadKernel(path);
+  if (unsupported)
+    check(!nativeResult && nativeResult.error() == v::Error::Unsupported,
+          "explicitly expected native operation is rejected");
+  else
+    check(bool(nativeResult), "native contract module");
+  auto software = take(runtime->loadKernel(path.string() + ".software.spv"), "software module");
+  const v::KernelContract wrongWords{std::string(software.entryName()), 2, 3};
   malformed = runtime->loadKernel(path, &wrongWords);
   check(!malformed && malformed.error() == v::Error::Invalid,
         "wrong primary carrier count is invalid before capability fallback");
-  auto software = take(runtime->loadKernel(path.string() + ".software.spv"), "software module");
   check(software.inputCount() == 2 && software.parameterWords() == 2, "shared product ABI");
   std::fesetround(FE_TONEAREST);
   const std::array<std::uint64_t, 22> edges{0,
@@ -208,36 +229,62 @@ int run(int argc, char **argv) {
     left.push_back(std::bit_cast<double>(random()));
     right.push_back(std::bit_cast<double>(random()));
   }
-  {
-    const std::array buffers{take(runtime->uploadBytes(std::as_bytes(std::span(left))), "left"),
-                             take(runtime->uploadBytes(std::as_bytes(std::span(right))), "right")};
+  for (bool canonical : {true, false}) {
+    if (!canonical && unsupported)
+      continue;
+    auto &context = canonical ? *runtime : *inspect;
+    const auto &kernel = canonical ? software : *nativeResult;
+    const std::array buffers{take(context.uploadBytes(std::as_bytes(std::span(left))), "left"),
+                             take(context.uploadBytes(std::as_bytes(std::span(right))), "right")};
     const std::array parameters{std::uint32_t(left.size()), UINT32_MAX};
-    auto result =
-        take(runtime->execute(software, buffers, parameters, left.size() * 8,
-                              (left.size() + software.localSize() - 1) / software.localSize()),
-             "software execution");
+    auto result = take(context.execute(kernel, buffers, parameters, left.size() * 8,
+                                       (left.size() + kernel.localSize() - 1) / kernel.localSize()),
+                       "native/software execution");
     check(result.parameters.back() == UINT32_MAX, "floating arithmetic is not an integer fault");
-    const auto output = take(runtime->downloadBytes(result.output), "software output");
+    const auto output = take(context.downloadBytes(result.output), "software output");
     check(output.size() == left.size() * 8, "output size");
     for (std::size_t i = 0; i < left.size(); ++i) {
-      volatile double product = operation == "add"   ? left[i] + right[i]
-                                : operation == "sub" ? left[i] - right[i]
-                                : operation == "div" ? left[i] / right[i]
-                                                     : left[i] * right[i];
+      const auto flush = [](double value) {
+        const auto bits = std::bit_cast<std::uint64_t>(value);
+        return (bits & UINT64_C(0x7ff0000000000000)) == 0
+                   ? std::bit_cast<double>(bits & UINT64_C(0x8000000000000000))
+                   : value;
+      };
+      const double a = !canonical && flushInputs ? flush(left[i]) : left[i];
+      const double b = !canonical && flushInputs ? flush(right[i]) : right[i];
+      volatile double product = operation == "add"   ? a + b
+                                : operation == "sub" ? a - b
+                                : operation == "div" ? a / b
+                                                     : a * b;
+      if (!canonical && flushOutputs)
+        product = flush(product);
       double actual;
       std::memcpy(&actual, output.data() + 8 * i, 8);
-      if (std::isnan(product))
-        check(std::bit_cast<std::uint64_t>(actual) == UINT64_C(0x7ff8000000000000),
-              "software arithmetic canonical NaN contract");
-      else
-        check(std::bit_cast<std::uint64_t>(actual) == std::bit_cast<std::uint64_t>(double(product)),
-              "software IEEE arithmetic including gradual underflow/signed zero/overflow");
+      const bool correct = std::isnan(product) ? canonical ? std::bit_cast<std::uint64_t>(actual) ==
+                                                                 UINT64_C(0x7ff8000000000000)
+                                                           : std::isnan(actual)
+                                               : std::bit_cast<std::uint64_t>(actual) ==
+                                                     std::bit_cast<std::uint64_t>(double(product));
+      if (!correct)
+        std::fprintf(stderr,
+                     "%s %.*s case %zu: a=%016llx b=%016llx actual=%016llx expected=%016llx\n",
+                     canonical ? "software" : "native", int(operation.size()), operation.data(), i,
+                     (unsigned long long)std::bit_cast<std::uint64_t>(left[i]),
+                     (unsigned long long)std::bit_cast<std::uint64_t>(right[i]),
+                     (unsigned long long)std::bit_cast<std::uint64_t>(actual),
+                     (unsigned long long)std::bit_cast<std::uint64_t>(double(product)));
+      check(correct,
+            "independent native/software IEEE probe including underflow, signed zero and overflow");
     }
   }
-  check(!runtime->retainedBytes() && !runtime->validationErrors(), "fallback cleanup/validation");
-  std::printf("PASS: native-first explicit fallback, disabled VkDevice float64 feature, %zu IEEE "
-              "%.*s checks on %s\n",
-              left.size(), int(operation.size()), operation.data(), runtime->device().name.c_str());
+  check(!runtime->retainedBytes() && !runtime->validationErrors() && !inspect->retainedBytes() &&
+            !inspect->validationErrors(),
+        "fallback/native cleanup/validation");
+  std::printf("PASS: native-first explicit fallback, disabled VkDevice float64 feature, %zu native "
+              "policy and %zu software IEEE "
+              "%.*s checks on %s (native flush inputs=%u outputs=%u)\n",
+              unsupported ? 0 : left.size(), left.size(), int(operation.size()), operation.data(),
+              runtime->device().name.c_str(), unsigned(flushInputs), unsigned(flushOutputs));
   return 0;
 }
 } // namespace

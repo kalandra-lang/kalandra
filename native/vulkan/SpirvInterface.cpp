@@ -8,11 +8,12 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
   if (words.size() < 5 || words[0] != 0x07230203 || words[4] || !words[3] || words[3] > (1u << 24))
     return std::unexpected("invalid SPIR-V header");
   SpirvInterface result;
-  std::map<std::uint32_t, std::uint32_t> bindings, sets, storage;
+  std::map<std::uint32_t, std::uint32_t> bindings, sets, storage, floats;
   std::map<std::uint32_t, std::uint32_t> variableTypes, pointers, members, integers, constants;
   std::map<std::uint32_t, std::pair<std::uint32_t, std::uint32_t>> arrays;
   std::set<std::uint32_t> used;
   std::uint32_t entry = 0, localEntry = 0;
+  bool declaredDenorm = false, declaredPreserve = false;
   const auto id = [&](std::uint32_t value) { return value && value < words[3]; };
   for (std::size_t offset = 5; offset < words.size();) {
     auto count = words[offset] >> 16, op = words[offset] & 0xffff;
@@ -39,7 +40,15 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
       case 39:
         result.int8 = true;
         break;
+      case 4464: // DenormPreserve; only admitted for explicitly checked float64.
+        if (declaredDenorm)
+          return std::unexpected("duplicate denormal capability");
+        declaredDenorm = true;
+        break;
       case 4466: // SignedZeroInfNanPreserve; execution width checked below.
+        if (declaredPreserve)
+          return std::unexpected("duplicate preservation capability");
+        declaredPreserve = true;
         break;
       case 4433:
         result.storage16 = true;
@@ -65,11 +74,14 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
       entry = args[1];
       break;
     }
-    case 16: // Fixed grid and explicitly admitted float32 control modes only.
-      if (args.size() == 3 && args[1] == 4461) {
-        if (!id(args[0]) || args[0] != entry || args[2] != 32)
+    case 16: // Fixed grid and explicitly admitted preservation modes only; never RTE.
+      if (args.size() == 3 && (args[1] == 4461 || args[1] == 4459)) {
+        if (!id(args[0]) || args[0] != entry || (args[2] != 32 && args[2] != 64) ||
+            (args[1] == 4459 && args[2] != 64))
           return std::unexpected("unsupported floating-point execution mode");
-        auto &mode = result.preserveFloat32;
+        auto &mode = args[1] == 4459 ? result.denormFloat64
+                     : args[2] == 32 ? result.preserveFloat32
+                                     : result.preserveFloat64;
         if (mode)
           return std::unexpected("duplicate floating-point execution mode");
         mode = true;
@@ -85,6 +97,17 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
       if (args.size() != 3 || !id(args[0]))
         return std::unexpected("invalid integer type");
       integers[args[0]] = args[1];
+      break;
+    case 22: // OpTypeFloat
+      if (args.size() != 2 || !id(args[0]) || (args[1] != 32 && args[1] != 64))
+        return std::unexpected("invalid floating type");
+      floats[args[0]] = args[1];
+      break;
+    case 136: // OpFDiv; scalar f64 division has a separate device admission rule.
+      if (args.size() != 4 || !id(args[0]) || !id(args[1]) || !id(args[2]) || !id(args[3]) ||
+          !floats.contains(args[0]))
+        return std::unexpected("invalid scalar floating division");
+      result.float64Division |= floats.at(args[0]) == 64;
       break;
     case 28: // OpTypeArray
       if (args.size() != 3 || !id(args[0]) || !id(args[1]) || !id(args[2]))
@@ -131,6 +154,11 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
     }
     offset += count;
   }
+  if (declaredDenorm != result.denormFloat64 ||
+      declaredPreserve != (result.preserveFloat32 || result.preserveFloat64))
+    return std::unexpected("floating control capability/mode mismatch");
+  if ((result.preserveFloat64 || result.denormFloat64) && !result.float64)
+    return std::unexpected("float64 preservation without Float64 capability");
   if (!entry || localEntry != entry)
     return std::unexpected("missing fixed compute local size");
   if (bindings.empty() || bindings.size() > 128 || sets.size() != bindings.size())
@@ -158,6 +186,81 @@ std::expected<SpirvInterface, std::string> reflectSpirv(std::span<const std::uin
       return std::unexpected("invalid parameter word layout");
     result.parameterWords = constants.at(length);
   }
+  return result;
+}
+std::expected<std::vector<std::uint32_t>, std::string>
+preserveNativeFloat64(std::span<const std::uint32_t> words, bool denormals) {
+  auto interface = reflectSpirv(words);
+  if (!interface || !interface->float64)
+    return std::unexpected("native float64 controls require a reflected Float64 module");
+  const bool addSign = !interface->preserveFloat64;
+  const bool addDenorm = denormals && !interface->denormFloat64;
+  if (!addSign && !addDenorm)
+    return std::vector<std::uint32_t>(words.begin(), words.end());
+  std::size_t capabilitiesEnd = 5;
+  while (capabilitiesEnd < words.size() && (words[capabilitiesEnd] & 65535) == 17)
+    capabilitiesEnd += words[capabilitiesEnd] >> 16;
+  if (capabilitiesEnd == 5)
+    return std::unexpected("native float64 module has no capability section");
+  auto extensionsEnd = capabilitiesEnd;
+  bool extension = false, signCapability = false;
+  std::size_t modesEnd = 0;
+  std::uint32_t entry = 0;
+  constexpr char name[] = "SPV_KHR_float_controls";
+  for (std::size_t offset = 5; offset < words.size();) {
+    const auto count = words[offset] >> 16, opcode = words[offset] & 65535;
+    if (opcode == 17 && words[offset + 1] == 4466)
+      signCapability = true;
+    if (opcode == 10) {
+      if (count > 1 && (count - 1) * 4 >= sizeof(name) &&
+          !std::memcmp(words.data() + offset + 1, name, sizeof(name)))
+        extension = true;
+      if (offset == extensionsEnd)
+        extensionsEnd += count;
+    }
+    if (opcode == 15)
+      entry = words[offset + 2];
+    if (opcode == 16)
+      modesEnd = offset + count;
+    offset += count;
+  }
+  if (!entry || !modesEnd)
+    return std::unexpected("native float64 module has no execution section");
+  std::vector<std::uint32_t> result(words.begin(), words.begin() + 5);
+  result.reserve(words.size() + 20);
+  const auto insert = [&](std::size_t offset) {
+    if (offset == capabilitiesEnd) {
+      if (addSign && !signCapability)
+        result.insert(result.end(), {(2u << 16) | 17, 4466});
+      if (addDenorm)
+        result.insert(result.end(), {(2u << 16) | 17, 4464});
+    }
+    if (offset == extensionsEnd && !extension) {
+      constexpr std::uint32_t length = (sizeof(name) + 3) / 4;
+      result.push_back(((length + 1) << 16) | 10);
+      const auto begin = result.size();
+      result.resize(begin + length, 0);
+      std::memcpy(result.data() + begin, name, sizeof(name));
+    }
+    if (offset == modesEnd) {
+      if (addSign)
+        result.insert(result.end(), {(4u << 16) | 16, entry, 4461, 64});
+      if (addDenorm)
+        result.insert(result.end(), {(4u << 16) | 16, entry, 4459, 64});
+    }
+  };
+  for (std::size_t offset = 5; offset < words.size();) {
+    insert(offset);
+    const auto count = words[offset] >> 16;
+    result.insert(result.end(), words.begin() + offset, words.begin() + offset + count);
+    offset += count;
+  }
+  insert(words.size());
+  auto checked = reflectSpirv(result);
+  if (!checked || checked->entry != interface->entry || checked->buffers != interface->buffers ||
+      checked->parameterWords != interface->parameterWords || !checked->preserveFloat64 ||
+      (denormals && !checked->denormFloat64))
+    return std::unexpected("native float64 controls changed the reflected ABI");
   return result;
 }
 } // namespace kalandra::runtime::vulkan

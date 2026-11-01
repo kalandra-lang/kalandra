@@ -102,7 +102,15 @@ the development `--target vulkan` command drives those stages in C++. All ten nu
 types have source-derived map-chain conformance on both NVIDIA and Intel,
 including checked integer overflow, packed narrow tails and empty domains.
 The Vulkan lowering preserves native float64 where supported; explicit software
-mode uses the existing integer IEEE implementation. Explicit native-first software-fallback
+mode uses the existing integer IEEE implementation. At load time native float64
+requests signed-zero/infinity/NaN preservation and, when advertised, denormal
+preservation. These controls do not substitute software arithmetic or enable
+fast math. Intel native float64 division currently fails the independent edge
+corpus even with those controls, so it reports Unsupported (106). Use explicit
+`hardware-with-software-fallback` for that operation on Intel; other float64
+operations remain native. NVIDIA RTX 5090 passes the same native division corpus.
+This is a conservative Intel capability restriction, not a claim that every
+Intel driver has been tested. No fallback is selected in `hardware` mode. Explicit native-first software-fallback
 bundles are qualified below. Hardware float32 follows the existing hardware FTZ
 contract; software tests use a separate gradual-underflow oracle.
 
@@ -281,6 +289,28 @@ the failing leak check as clean.
 All ten native/fallback map, reduction and matrix bundles compile and validate;
 the reduction/matrix overflow, empty-domain and tail conformance checks also pass
 on both physical GPUs with native float64 disabled.
+
+### Native float64 edge qualification
+
+The same independent 1,508-pair CPU IEEE corpus now checks each native operation
+as well as its integer companion. With preservation controls, NVIDIA passes all
+6,032 native and 6,032 software cases. Intel passes 4,524 native add/sub/mul
+cases and all 6,032 software cases; native division is explicitly rejected.
+The native oracle permits NaN payload differences only, with exact signed-zero,
+finite, infinity and subnormal results. Historical FTZ and scaling experiments
+are retained separately and are not accepted by weakening that oracle.
+
+Use the generated fallback-source fixtures to repeat the division check with
+exactly one physical ICD selected externally:
+
+```sh
+build/native/vulkan/kalandra-vulkan-fallback-tests \
+  artifacts/fallback-source-suite/div-hardware-with-software-fallback/kernel0.spv 0 div
+```
+
+For the Intel capability restriction, add `--expect-native-unsupported`. That
+mode asserts hardware-only rejection and explicit fallback selection; it reports
+zero native division cases rather than claiming native IEEE conformance.
 
 ## Native conversions and bitwise ReLU
 

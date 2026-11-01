@@ -166,7 +166,7 @@ struct State {
   std::atomic<FailurePoint> failure{FailurePoint::None};
   VkPhysicalDeviceFeatures features{};
   bool storage8 = false, storage16 = false, int8 = false;
-  bool preserveFloat32 = false;
+  bool preserveFloat32 = false, preserveFloat64 = false, denormFloat64 = false;
   bool tiledMatmul = true;
   std::uint32_t maxDescriptors = 0, kernels = 0;
   ~State() {
@@ -622,6 +622,8 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
       properties.pNext = &controls;
       vulkanApi().vkGetPhysicalDeviceProperties2(state->physical, &properties);
       state->preserveFloat32 = controls.shaderSignedZeroInfNanPreserveFloat32;
+      state->preserveFloat64 = controls.shaderSignedZeroInfNanPreserveFloat64;
+      state->denormFloat64 = controls.shaderDenormPreserveFloat64;
     }
     VkPhysicalDeviceFeatures2 features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     features.pNext = &storage16;
@@ -966,10 +968,29 @@ std::expected<Kernel, Error> Runtime::createKernel(std::span<const std::uint32_t
         interface->localSize > state_->properties.limits.maxComputeWorkGroupInvocations ||
         (interface->int8 && !state_->int8) || (interface->int16 && !state_->features.shaderInt16) ||
         (interface->int64 && !state_->features.shaderInt64) ||
-        (interface->float64 && !state_->features.shaderFloat64) ||
+        (interface->float64 && (!state_->features.shaderFloat64 || !state_->preserveFloat64)) ||
         (interface->preserveFloat32 && !state_->preserveFloat32) ||
+        (interface->preserveFloat64 && !state_->preserveFloat64) ||
+        (interface->denormFloat64 && !state_->denormFloat64) ||
         (interface->storage8 && !state_->storage8) || (interface->storage16 && !state_->storage16))
       return std::unexpected(Error::Unsupported);
+    // Intel's native OpFDiv f64 fails signed-zero, tiny-divisor and rounding
+    // checks even with advertised float controls. Do not silently weaken the
+    // numerical contract: hardware-only rejects; explicit fallback may select
+    // the independently checked integer-arithmetic companion. Other f64
+    // operations continue to use hardware with preservation controls below.
+    if (interface->float64Division && state_->properties.vendorID == 0x8086)
+      return std::unexpected(Error::Unsupported);
+    std::vector<std::uint32_t> controlled;
+    if (interface->float64) {
+      auto native = preserveNativeFloat64(words, state_->denormFloat64);
+      if (!native)
+        return std::unexpected(Error::Invalid);
+      controlled = std::move(*native);
+      words = controlled;
+      interface->preserveFloat64 = true;
+      interface->denormFloat64 |= state_->denormFloat64;
+    }
     auto loaded = std::make_shared<KernelState>();
     loaded->state = state_;
     loaded->interface = *interface;

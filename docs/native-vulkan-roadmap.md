@@ -714,3 +714,47 @@ Clang directly without its relocated resource directory. The compiler itself
 already supplies that directory correctly. The helper now accepts the explicit
 owned resource directory as well. The failed helper run is retained; archive
 readiness still waits for all missing-resource and reproducibility checks.
+
+
+### Native float64 preservation and division admission
+
+The original native corpus exposed genuine device differences. RTX 5090 passes
+all 6,032 native arithmetic cases. Intel ARL initially flushes subnormal add/sub
+inputs/results, loses signed zero on division and miscomputes tiny divisors.
+Requesting advertised SignedZeroInfNanPreserve64 and DenormPreserve64 makes
+Intel add/sub/mul pass the same exact CPU oracle (4,524 cases). [Vulkan's denormal preservation guarantee](https://docs.vulkan.org/spec/latest/appendices/spirvenv.html)
+explicitly excludes OpFDiv; feature presence does not
+prove correctly rounded division. No RTE modes are used.
+
+A rejected prototype scaled native division operands with powers of two. It
+fixed some tiny-divisor classes but still returned 0x0010000000000000 instead of
+0x0010000000000001 for min-normal / (1 - 2^-53). Its source and failed output
+remain in the private qualification evidence; it is not production lowering.
+The independent oracle has not been relaxed to accept this one-ULP error.
+
+The runtime conservatively rejects native scalar float64 division on Intel
+before pipeline creation, after validating the logical artifact ABI. Hardware
+mode returns Unsupported; explicit hardware-with-software-fallback can select
+the existing checked integer GPU companion. This restriction applies to Intel
+vendors conservatively; the tested failing device is ARL, not every Intel GPU.
+It does not affect native float64 add/sub/mul, native NVIDIA division, float32,
+or CPU arithmetic. Numerical fallback is explicit and remains on the GPU.
+SPIR-V reflection identifies scalar division by its result type, with malformed
+instructions rejected. Native float64 controls are deterministic, bounded and
+idempotent; real SPIR-V normalization passes spirv-val without changing the ABI.
+
+Physical per-operation qualification passes 6,032 native + 6,032 software cases
+on NVIDIA; Intel passes 4,524 native and 6,032 software cases, plus explicit
+hardware-only division rejection and explicit fallback selection. Each operation
+also retains disabled-device-feature and artifact-error controls. All fourteen
+standalone CTests pass. All 100 conversion pairs pass again: 12,051,720 APFloat/APInt checks across
+both devices and three policies, with the same 136 explicitly allowed native
+NaN/float32-FTZ results per device and none for software/fallback. The 67 shared
+source graph cases pass under explicit native-first fallback on both GPUs at
+workers 1/2/4 (402 executions). Root compiler build and recursive CPU source
+regressions also pass. Current-head hosted qualification remains pending.
+
+The existing private ASan/UBSan configuration also passes both normalization/
+reflection tests and all four physical Intel native/fallback policy probes,
+with clean exits and no suppressions. NVIDIA sanitizer findings remain the
+separately attributed loader findings above; they are not relabelled clean.
