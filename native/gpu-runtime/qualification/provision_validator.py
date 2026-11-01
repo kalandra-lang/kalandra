@@ -30,9 +30,11 @@ run([checkout/'vcpkg.exe', 'install', '--triplet='+triplet, '--host-triplet='+tr
      '--x-manifest-root='+str(manifest), '--x-install-root='+str(root/'installed'), '--disable-metrics'])
 prefix = root/'installed'/triplet
 validator = prefix/'tools/spirv-tools/spirv-val.exe'
-notice = prefix/'share/spirv-tools/copyright'
-if not validator.is_file() or not notice.is_file():
-    raise RuntimeError('Native validator/notice missing')
+notices = [prefix/'share'/name/'copyright' for name in ('spirv-tools', 'spirv-headers')]
+if not validator.is_file() or not all(path.is_file() for path in notices):
+    raise RuntimeError('Native validator/dependency notices missing')
+notice = root/'validator-NOTICES.txt'
+notice.write_text('\n\n'.join(path.parent.name+'\n'+path.read_text(encoding='utf-8') for path in notices), encoding='utf-8')
 run([validator, '--version'])
 with Path(os.environ['GITHUB_ENV']).open('a') as env:
     env.write(f'KALANDRA_SPIRV_VAL={validator}\nKALANDRA_VULKAN_SPIRV_NOTICE={notice}\n')

@@ -93,6 +93,9 @@ jobs:
 
   compiler-package:
     name: Windows GPU compiler packages (${{ matrix.arch }})
+    concurrency:
+      group: windows-gpu-compiler-${{ github.ref }}-${{ matrix.arch }}
+      cancel-in-progress: false
     needs: device-resources
     strategy:
       fail-fast: false
@@ -139,6 +142,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/spirv-binary-cache
           key: native-spirv-tools-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json', 'native/gpu-runtime/qualification/provision_validator.py') }}
+          restore-keys: native-spirv-tools-${{ runner.arch }}-
       - name: Build the pinned native Windows SPIR-V validator
         env:
           VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/spirv-binary-cache
