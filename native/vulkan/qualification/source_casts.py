@@ -51,43 +51,43 @@ if not a.relu_only:
             values=[1,2,3] if source.startswith('u') or destination.startswith('u') else [-3,0,5]
             if source.startswith('float'):values=[1.25,2.5,3.75] if destination.startswith('u') else [-3.25,.5,5.75]
             text=f'''fn work(x:Tensor[{source},?,?,?])->Tensor[{destination},?,?,?]:
-      {destination}(x)
-    fn main()->Tensor[{destination},?,?,?] ! TaskError:
-      try parallel:
-        gpu=devices.gpu()
-        x:Tensor[{source},1,1,3]=tensor([[{values}]])
-        resident=try await transfer(x,gpu)
-        pending=spawn work(resident) on gpu
-        first=try await pending
-        cached=try await pending
-        try await transfer(cached,devices.cpu())
-    '''
+  {destination}(x)
+fn main()->Tensor[{destination},?,?,?] ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    x:Tensor[{source},1,1,3]=tensor([[{values}]])
+    resident=try await transfer(x,gpu)
+    pending=spawn work(resident) on gpu
+    first=try await pending
+    cached=try await pending
+    try await transfer(cached,devices.cpu())
+'''
             for mode in ('hardware','hardware-with-software-fallback'):
                 qualify(source+'-to-'+destination,text,mode,values,destination)
         print('PASS:',source,'complete source pairs',flush=True)
     for destination in ('int8','uint64','float32'):
         text=f'''fn work(x:Tensor[float64,?])->Tensor[{destination},?]:
-      {destination}(x)
-    fn main()->Tensor[{destination},?] ! TaskError:
-      try parallel:
-        gpu=devices.gpu()
-        x:Tensor[float64,1]=tensor([1e300])
-        resident=try await transfer(x,gpu)
-        result=try await spawn work(resident) on gpu
-        try await transfer(result,devices.cpu())
-    '''
+  {destination}(x)
+fn main()->Tensor[{destination},?] ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    x:Tensor[float64,1]=tensor([1e300])
+    resident=try await transfer(x,gpu)
+    result=try await spawn work(resident) on gpu
+    try await transfer(result,devices.cpu())
+'''
         for mode in ('hardware','software','hardware-with-software-fallback'):
             qualify('invalid-float64-to-'+destination,text,mode,[],destination,4)
     text='''fn work(x:Tensor[float64,?,?],scale:float64)->Tensor[int8,?,?]:
-      int8(x)+int8(scale)
-    fn main()->Tensor[int8,?,?] ! TaskError:
-      try parallel:
-        gpu=devices.gpu()
-        x:Tensor[float64,1,0]=tensor([[]])
-        resident=try await transfer(x,gpu)
-        result=try await spawn work(resident,1e300) on gpu
-        try await transfer(result,devices.cpu())
-    '''
+  int8(x)+int8(scale)
+fn main()->Tensor[int8,?,?] ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    x:Tensor[float64,1,0]=tensor([[]])
+    resident=try await transfer(x,gpu)
+    result=try await spawn work(resident,1e300) on gpu
+    try await transfer(result,devices.cpu())
+'''
     for mode in ('hardware','software','hardware-with-software-fallback'):
         qualify('invalid-uniform-before-empty',text,mode,[],'int8',4)
 for numeric in types:
