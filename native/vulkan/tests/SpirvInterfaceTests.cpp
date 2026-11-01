@@ -1,4 +1,5 @@
 #include "SpirvInterface.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
@@ -80,8 +81,11 @@ int main() {
   changed[typesAt + 2] = 64;
   check(!reflectSpirv(changed)); // parameter words must be uint32
   for (auto cap : {10u, 11u, 22u, 39u, 4433u, 4448u}) {
-    changed = module;
-    changed.insert(changed.begin() + 7, {(2u << 16) | 17, cap});
+    changed.resize(module.size() + 2);
+    std::copy_n(module.begin(), 7, changed.begin());
+    changed[7] = (2u << 16) | 17;
+    changed[8] = cap;
+    std::copy(module.begin() + 7, module.end(), changed.begin() + 9);
     check(bool(reflectSpirv(changed)));
   }
   std::puts("PASS: compiler SPIR-V ABI reflection and malformed-interface rejection");
