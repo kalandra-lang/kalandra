@@ -20,8 +20,9 @@ libraries and instrumented CPU exports; this does not instrument GPU instruction
 NVIDIA exit-time LeakSanitizer findings remain open. `--thread-sanitize` is still
 rejected; private Intel TSan qualification is a separate configuration. Private
 instrumented root profiles expose the proof tools rather than the public Vulkan
-command. At this checkpoint matmul uses `fixed-tree`; `optimized` is explicitly
-rejected until source routing is integrated. The build
+command. Matmul defaults to `fixed-tree`; explicit `--matmul-policy optimized`
+routes float32 source products through the imported tiled kernel. Software
+arithmetic retains fixed-tree products. The build
 uses configured host C++/LLVM/SPIR-V tools and host development headers. This is
 not yet a standalone one-download GPU compiler package or a cross-target GPU
 workflow. No system dependencies are installed by the compiler.
@@ -61,7 +62,7 @@ operand precision. Matrix tests compare every output against independent double
 references with a magnitude-based float32 error bound. This does not establish
 bitwise equivalence with Metal's historical fixed-tree policy, nor qualification
 of NaN/denormal/signed-zero behavior. Those policies must be handled explicitly
-before source-language integration.
+when selecting the optimized source policy.
 
 ## Ownership and bring-up limits
 
@@ -83,8 +84,8 @@ does not read build-tree shader files. Addition and tiled matrix pipelines are
 created on first nonempty use, with their own workgroup/shared-memory limits.
 Creating a context for a basic map does not require the matrix kernel's tile
 resources. The data-only resource object has no Vulkan-loader dependency.
-Device-local staging, optimized source matmul routing, user-facing diagnostics
-and installed compiler packaging remain unfinished. The explicit
+Device-local staging, user-facing diagnostics and installed compiler packaging
+remain unfinished. The explicit
 right-transposed matmul interface is a private layout contract, not new language
 syntax. Empty outputs and zero-contraction products perform no GPU dispatch.
 
@@ -315,3 +316,41 @@ assertions and isolated Intel TSan checks pass. LSan still fails unsuppressed:
 2,497 bytes/7 allocations for conversions and 2,509 bytes/7 allocations for ReLU.
 The latter differs from the single-loader control by 12 bytes; it is not reported
 as an exact match or a leak-clean result.
+
+## Explicit optimized source matrix products
+
+`--matmul-policy optimized` selects the existing MIT ggml float32 kernel for
+float32 source `matmul` operations. It retains ordinary float32 operands and
+accumulators, permits fused multiply-add and a different reduction order, and
+makes no bitwise fixed-tree promise. Other numeric types retain their existing
+products. `--arithmetic software` always uses fixed-tree products.
+
+The source adapter privately transposes the immutable right operand on the GPU
+before invoking the right-transposed primitive. This costs a second dispatch
+and one additional right-operand buffer, charged to the existing allocation
+quota. Empty and singleton dimensions skip the layout dispatch. No allocation
+limit is raised. A prepared matrix operation uses one managed task record and
+checks cancellation after layout completion before submitting multiplication.
+Cancellation retains submitted resources until the fence acknowledgement.
+
+Artifacts include a `.spv.fixed-tree.spv` companion. If the GPU cannot admit the
+tile/layout limits, it selects that native GPU algorithm; this does not constitute
+software arithmetic fallback. Missing/corrupt primaries and corrupt companions
+fail closed. Numerical fallback permission cannot disguise a missing algorithm
+companion. Built-in plans share immutable objects without context ownership
+cycles or one kernel-quota charge per alias.
+
+Physical tests cover 32 shape/algorithm combinations, ten admission-policy
+cases and twelve managed layout/success/cancellation/deadline/failure cases per
+GPU on RTX 5090 and Intel ARL. Shapes include empty dimensions, tile tails,
+singletons and K=4097. Outputs are checked independently in double precision
+with a magnitude-based float32 error bound; a one-product probe checks full
+operand precision. These are correctness results, not performance measurements.
+
+Isolated sanitizer checks distinguish loader findings from execution: Intel's
+matrix corpus and loader-only control exit cleanly; NVIDIA's corpus and
+loader-only control both fail unsuppressed LSan at 2,509 bytes/7 allocations.
+Public sanitized optimized-matmul programs retain exact results on both GPUs,
+with clean Intel exits and the existing NVIDIA two-initialization loader leak
+(5,082 bytes/14 allocations). Public TSan remains unavailable; the separate
+Intel TSan profile is private qualification only.

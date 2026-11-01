@@ -32,7 +32,9 @@ struct ProgramKernel {
   // Omission means identity; an explicitly empty projection binds no inputs.
   std::optional<std::vector<std::uint32_t>> reads{};
   std::optional<TensorTransformKind> transform{};
+  Kernel matmulTranspose{};
 };
+std::expected<KernelContract, Error> kernelContract(const ProgramKernel &, NumericProgramKind);
 struct ProgramInstruction {
   NumericProgramKind kind;
   std::optional<ProgramKernel> kernel;
@@ -90,6 +92,8 @@ private:
   std::vector<std::uint64_t> scalars_;
   std::size_t pc_ = 0;
   TensorValue output_, reduction_;
+  TensorValue matrixRight_;
+  bool matrixTransposing_ = false, matrixReady_ = false;
   bool pending_ = false, reducing_ = false, finished_ = false;
   std::size_t parameterWords_ = 0;
   std::optional<Error> error_;

@@ -25,7 +25,8 @@ struct Registry {
                                            .deviceIndex = index,
                                            .budget = bytes,
                                            .deviceUuid = devices[index].uuid,
-                                           .enableFloat64 = options.enableFloat64});
+                                           .enableFloat64 = options.enableFloat64,
+                                           .enableTiledMatmul = options.enableTiledMatmul});
       if (!made)
         return std::unexpected(made.error());
       Context context;
@@ -155,14 +156,21 @@ std::expected<Kernel, Error> Runtime::load(std::string_view path, Device device,
   try {
     auto &driver = *state_->contexts[device.index_].driver;
     const std::filesystem::path nativePath(std::u8string(path.begin(), path.end()));
-    auto loaded = driver.loadKernel(nativePath);
+    auto contract = kernelContract(schema, kind == NumericInstructionKind::Matmul ? NumericProgramKind::Matmul :
+                                           kind == NumericInstructionKind::Reduce ? NumericProgramKind::Reduce : NumericProgramKind::Map);
+    if (!contract)
+      return std::unexpected(contract.error());
+    const bool float32Matmul = kind == NumericInstructionKind::Matmul && schema.type == NumericType::Float32;
+    auto loaded = float32Matmul ? driver.loadMatmulKernel(nativePath) : driver.loadKernel(nativePath, &*contract);
     bool softwareFallback = false;
     // Only explicit policy and unsupported capability can select the bundled
     // GPU software variant. Never retry a malformed module or a device fault.
-    if (!loaded && loaded.error() == Error::Unsupported && state_->options.allowSoftwareFallback) {
+    // A float32 matrix primitive has no double arithmetic to emulate. Its
+    // hardware algorithm fallback is handled by loadMatmulKernel, separately.
+    if (!loaded && loaded.error() == Error::Unsupported && state_->options.allowSoftwareFallback && !float32Matmul) {
       auto alternatePath = nativePath;
       alternatePath += u8".software.spv";
-      auto alternate = driver.loadKernel(alternatePath);
+      auto alternate = driver.loadKernel(alternatePath, &*contract);
       if (!alternate)
         return std::unexpected(alternate.error() == Error::Unavailable ? Error::Unsupported
                                                                        : alternate.error());
@@ -172,6 +180,12 @@ std::expected<Kernel, Error> Runtime::load(std::string_view path, Device device,
     if (!loaded)
       return std::unexpected(loaded.error());
     schema.kernel = std::move(*loaded);
+    if (schema.kernel.tiledMatmul()) {
+      auto transpose = driver.loadBuiltinTransposeFloat32();
+      if (!transpose)
+        return std::unexpected(transpose.error());
+      schema.matmulTranspose = std::move(*transpose);
+    }
     Kernel result;
     result.schema_ = std::move(schema);
     result.softwareFallback_ = softwareFallback;

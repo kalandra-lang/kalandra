@@ -24,6 +24,7 @@ cases.append(('mixed-cpu', [repo/'native/metal-source/cpu-spawn.k'], 'hardware',
 for label, numeric, shape, expression, values, expected, fmt, fault in [
     ('transpose', 'int64', '2,2', 'transpose(x)', '[[1,2],[3,4]]', [1, 3, 2, 4], 'q', 0),
     ('softmax', 'float32', '1,2', 'softmaxRows(x)', '[[0,0]]', [.5, .5], 'f', 0),
+    ('separate-rounding', 'float32', '1', '(x*0.9998779296875)-1', '[1.0001220703125]', [0], 'f', 0),
     ('overflow', 'int8', '2', 'x+1', '[127,0]', [], 'b', 4)]:
     source = args.output/(label+'.k')
     rank = ','.join('?' for _ in shape.split(','))
@@ -43,14 +44,39 @@ project.mkdir(exist_ok=True)
 (project/'main.k').write_text(placed.read_text())
 (project/'kalandra.toml').write_text("format = 1\n[project]\nentry = 'main.k'\n")
 cases.append(('project', ['--project', project/'kalandra.toml'], 'hardware', '-O2', [5, 12, 21], 'f', 0))
+matrix_source = args.output/'matrix.k'
+matrix_source.write_text('''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
+  matmul(a,b)
+fn main()->Tensor[float32,?,?] ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    a:Tensor[float32,2,3]=tensor([[1,2,3],[4,5,6]])
+    b:Tensor[float32,3,2]=tensor([[1,0],[0,1],[1,1]])
+    left=try await transfer(a,gpu)
+    right=try await transfer(b,gpu)
+    result=try await spawn work(left,right) on gpu
+    try await transfer(result,devices.cpu())
+''')
+for policy in ('hardware', 'software', 'hardware-with-software-fallback'):
+    cases.append(('matrix-'+policy, [matrix_source], policy, '-O2', [4, 5, 10, 11], 'f', 0))
 records = []
 for name, source, policy, optimization, values, fmt, fault in cases:
     output = args.output/name
-    result = subprocess.run(list(map(str, [args.compiler, '--target', 'vulkan', *source,
+    matrix = name.startswith('matrix-')
+    optimized = matrix or name == 'separate-rounding'
+    matrix_flags = ['--matmul-policy', 'optimized'] if optimized else []
+    result = subprocess.run(list(map(str, [args.compiler, '--target', 'vulkan', *source, *matrix_flags,
         '--arithmetic', policy, optimization, '-o', output])), capture_output=True, text=True, timeout=180)
     (args.output/(name+'.log')).write_text(result.stdout+result.stderr)
     assert not result.returncode, (name, result.stderr[-4000:])
-    assert 'matmul_policy=fixed-tree' in (output/'manifest.txt').read_text()
+    effective = 'optimized' if optimized and policy != 'software' else 'fixed-tree'
+    assert 'matmul_policy='+effective in (output/'manifest.txt').read_text()
+    if matrix:
+        primary = output/'kernel0.spv'
+        backup = output/'kernel0.spv.fixed-tree.spv'
+        assert backup.exists() == (effective == 'optimized')
+        if backup.exists():
+            assert primary.read_bytes() != backup.read_bytes()
     assert 'arithmetic_policy='+policy in (output/'manifest.txt').read_text()
     assert (output/'THIRD_PARTY_NOTICES.txt').read_bytes() == (repo/'native/vulkan/third_party/ggml/LICENSE').read_bytes()
     if not args.compile_only:
@@ -74,7 +100,7 @@ for name, source, policy, optimization, values, fmt, fault in cases:
 for label, options, message in [
     ('conflicting-sanitizers', ['--sanitize', '--thread-sanitize'], 'usage:'),
     ('thread-sanitize', ['--thread-sanitize'], 'sanitizer packages'),
-    ('optimized', ['--matmul-policy', 'optimized'], 'optimized Vulkan matmul'),
+    ('invalid-policy', ['--matmul-policy', 'invalid'], 'usage:'),
     ('cross-cpu', ['--platform', 'linux-x86_64'], 'selects a CPU ABI')]:
     output = args.output/('reject-'+label)
     output.mkdir(exist_ok=True)

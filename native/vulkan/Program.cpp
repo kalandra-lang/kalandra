@@ -37,8 +37,22 @@ bool sameShape(const TensorValue &a, const TensorValue &b) {
 }
 bool computes(K kind) { return kind == K::Map || kind == K::Reduce || kind == K::Matmul; }
 bool produces(K kind) { return computes(kind) || kind == K::Alias; }
-std::expected<void, Error> validateKernel(const ProgramInstruction &op) {
+std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
   const auto &kernel = *op.kernel;
+  if (kernel.kernel.tiledMatmul()) {
+    if (op.kind != K::Matmul || kernel.type != NumericType::Float32 || kernel.transform || kernel.scalar ||
+        !kernel.scalarTypes.empty() || !kernel.scalarBuffers.empty() ||
+        (!kernel.tensorTypes.empty() && kernel.tensorTypes != std::vector<NumericType>{NumericType::Float32, NumericType::Float32}) ||
+        (kernel.reads && *kernel.reads != std::vector<std::uint32_t>{0, 1}) ||
+        kernel.kernel.inputCount() != 2 || kernel.kernel.parameterWords() != 4 ||
+        !kernel.matmulTranspose || kernel.matmulTranspose.inputCount() != 1 ||
+        kernel.matmulTranspose.parameterWords() != 6 ||
+        kernel.matmulTranspose.entryName() != vulkanTransformKernelName(TensorTransformKind::Transpose, NumericType::Float32))
+      return std::unexpected(Error::Invalid);
+    return {};
+  }
+  if (kernel.matmulTranspose)
+    return std::unexpected(Error::Invalid);
   if (kernel.transform) {
     const auto kind = *kernel.transform;
     const bool rms = kind == TensorTransformKind::RmsNormRows;
@@ -84,32 +98,17 @@ std::expected<void, Error> validateKernel(const ProgramInstruction &op) {
     if (op.kind != K::Map && kernel.reads->size() != op.inputs.size())
       return std::unexpected(Error::Invalid);
   }
-  std::uint64_t words = op.kind == K::Matmul ? 4 : 2;
-  if (op.kind == K::Map)
-    for (auto type : kernel.scalarTypes)
-      words += describeNumeric(type)->bits == 64 ? 2 : 1;
-  if (words != kernel.kernel.parameterWords())
+  auto contract = kernelContract(kernel, op.kind);
+  if (!contract)
+    return std::unexpected(contract.error());
+  if (kernel.kernel.parameterWords() != contract->parameterWords ||
+      kernel.kernel.entryName() != contract->entry)
     return std::unexpected(Error::Invalid);
-  try {
-    auto name = op.kind == K::Map
-                    ? numericKernelName(kernel.type, kernel.tensorTypes, kernel.scalarTypes)
-                    : "kalandra_numeric_v1_" +
-                          std::string(op.kind == K::Reduce ? "reduce_" : "matmul_") +
-                          std::string(describeNumeric(kernel.type)->name);
-    if (op.kind == K::Map && std::any_of(kernel.scalarBuffers.begin(), kernel.scalarBuffers.end(),
-                                         [](auto role) { return role != 0; })) {
-      name += "_d_";
-      for (auto role : kernel.scalarBuffers)
-        name += role ? 's' : 't';
-    }
-    name += "_vk_flat_v1";
-    if (kernel.kernel.entryName() != name)
-      return std::unexpected(Error::Invalid);
-    return {};
-  } catch (const std::bad_alloc &) {
-    return std::unexpected(Error::Allocation);
-  }
+  return {};
+} catch (const std::bad_alloc &) {
+  return std::unexpected(Error::Allocation);
 }
+
 bool validInstruction(const ProgramInstruction &op) {
   const auto n = op.inputs.size();
   if (op.kind != K::Map && !op.scalarSources.empty())
@@ -140,6 +139,40 @@ bool validInstruction(const ProgramInstruction &op) {
   return false;
 }
 } // namespace
+std::expected<KernelContract, Error> kernelContract(const ProgramKernel &kernel, NumericProgramKind kind) {
+  const auto numeric = [](auto type) { return describeNumeric(type).has_value(); };
+  if (!numeric(kernel.type) || !std::all_of(kernel.tensorTypes.begin(), kernel.tensorTypes.end(), numeric) ||
+      !std::all_of(kernel.scalarTypes.begin(), kernel.scalarTypes.end(), numeric))
+    return std::unexpected(Error::Invalid);
+  KernelContract result;
+  if (kernel.transform) {
+    const auto transform = *kernel.transform;
+    if (transform != TensorTransformKind::Transpose && transform != TensorTransformKind::SoftmaxRows &&
+        transform != TensorTransformKind::RmsNormRows)
+      return std::unexpected(Error::Invalid);
+    result.entry = vulkanTransformKernelName(transform, kernel.type);
+    result.inputs = transform == TensorTransformKind::Transpose ? 1 : transform == TensorTransformKind::SoftmaxRows ? 2 : 3;
+    result.parameterWords = 6;
+    return result;
+  }
+  if (!computes(kind))
+    return std::unexpected(Error::Invalid);
+  result.inputs = kind == K::Matmul ? 2 : kind == K::Reduce ? 1 :
+                  kernel.reads ? kernel.reads->size() : kernel.tensorTypes.size();
+  result.parameterWords = kind == K::Matmul ? 4 : 2;
+  if (kind == K::Map)
+    for (auto type : kernel.scalarTypes)
+      result.parameterWords += describeNumeric(type)->bits == 64 ? 2 : 1;
+  result.entry = kind == K::Map ? numericKernelName(kernel.type, kernel.tensorTypes, kernel.scalarTypes)
+      : "kalandra_numeric_v1_" + std::string(kind == K::Reduce ? "reduce_" : "matmul_") +
+        std::string(describeNumeric(kernel.type)->name);
+  if (kind == K::Map && std::any_of(kernel.scalarBuffers.begin(), kernel.scalarBuffers.end(), [](auto role) { return role != 0; })) {
+    result.entry += "_d_";
+    for (auto role : kernel.scalarBuffers) result.entry += role ? 's' : 't';
+  }
+  result.entry += "_vk_flat_v1";
+  return result;
+}
 std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t inputCount,
                                                std::span<const ProgramInstruction> code,
                                                std::uint32_t result, NumericType resultType,
@@ -170,7 +203,7 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
       return std::unexpected(Error::Budget);
     if (op.kernel) {
       const auto &kernel = *op.kernel;
-      if (!runtime.owns(kernel.kernel))
+      if (!runtime.owns(kernel.kernel) || (kernel.matmulTranspose && !runtime.owns(kernel.matmulTranspose)))
         return std::unexpected(Error::Residency);
       if (!describeNumeric(kernel.type) || !kernel.kernel.localSize())
         return std::unexpected(Error::Invalid);
@@ -246,7 +279,8 @@ Program::start(Runtime &runtime, std::span<const TensorValue> inputs,
   if (!bytes)
     return std::unexpected(bytes.error());
   for (const auto &op : definition_->code)
-    if (op.kernel && !runtime.owns(op.kernel->kernel))
+    if (op.kernel && (!runtime.owns(op.kernel->kernel) ||
+                     (op.kernel->matmulTranspose && !runtime.owns(op.kernel->matmulTranspose))))
       return std::unexpected(Error::Residency);
   for (const auto &input : inputs) {
     if (input.host || !runtime.owns(input.data))
@@ -503,7 +537,25 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
         if (!size)
           return fail(size.error());
         count = *size;
-        dispatch.inputs = {a.data, b.data};
+        if (schema.kernel.tiledMatmul() && count && a.dimensions[1] > 1 && b.dimensions[1] > 1 && !matrixReady_) {
+          auto rightCount = cells(b);
+          if (!rightCount)
+            return fail(rightCount.error());
+          output_.dimensions[0] = b.dimensions[1];
+          output_.dimensions[1] = b.dimensions[0];
+          dispatch.kernel = schema.matmulTranspose;
+          dispatch.inputs = {b.data};
+          dispatch.parameters = {*rightCount, std::uint32_t(b.dimensions[0]), std::uint32_t(b.dimensions[1]), 0, 0, UINT32_MAX};
+          const auto groups = ((b.dimensions[0] + 31) / 32) * ((b.dimensions[1] + 31) / 32);
+          if (groups > UINT32_MAX)
+            return fail(Error::Unsupported);
+          dispatch.groups = std::max(1u, std::uint32_t(groups));
+          dispatch.outputBytes = std::uint64_t(*rightCount) * 4;
+          parameterWords_ = 6;
+          pending_ = matrixTransposing_ = true;
+          return std::optional<ProgramDispatch>(std::move(dispatch));
+        }
+        dispatch.inputs = {a.data, matrixReady_ ? matrixRight_.data : b.data};
         dispatch.parameters = {std::uint32_t(a.dimensions[0]), std::uint32_t(a.dimensions[1]),
                                std::uint32_t(b.dimensions[1])};
       } else
@@ -545,6 +597,14 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
     return fail(Error::Invalid);
   output_.data = std::move(result.output);
   pending_ = false;
+  if (matrixTransposing_) {
+    matrixRight_ = std::move(output_);
+    matrixTransposing_ = false;
+    matrixReady_ = true;
+    return {};
+  }
+  matrixRight_ = {};
+  matrixReady_ = false;
   if (reducing_ && *size > 1) {
     reduction_ = std::move(output_);
     return {};

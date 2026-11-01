@@ -24,7 +24,7 @@ int kalandra::compileVulkanCommand(int argc, char **argv) {
     std::cerr << "usage: kalandra --target vulkan <source.k | --project "
                  "manifest.toml> -o directory "
                  "[--arithmetic hardware|software|hardware-with-software-fallback] "
-                 "[--matmul-policy fixed-tree] "
+                 "[--matmul-policy optimized|fixed-tree] "
                  "[--package name=path.k ...] [--build "
                  "[-O0|-O2|--sanitize]]\n";
     return 2;
@@ -98,10 +98,8 @@ int kalandra::compileVulkanCommand(int argc, char **argv) {
     std::cerr << "Vulkan sanitizer packages are not integrated yet\n";
     return 2;
   }
-  if (matmul != MatmulPolicy::FixedTree) {
-    std::cerr << "optimized Vulkan matmul routing is not integrated yet; use --matmul-policy fixed-tree\n";
-    return 2;
-  }
+  if (arithmetic == ArithmeticMode::Software)
+    matmul = MatmulPolicy::FixedTree;
   if (!projectPath.empty()) {
     auto loaded = loadNativeProject(projectPath);
     if (!loaded) {
@@ -166,6 +164,7 @@ int kalandra::compileVulkanCommand(int argc, char **argv) {
       paths.push_back(name);
       if (build && name.starts_with("kernel") && name.ends_with(".mlir")) {
         auto base = std::filesystem::path(name).stem().string();
+        paths.push_back(base + ".spv.fixed-tree.spv");
         for (const auto *suffix : {".lowered.mlir", ".converted.mlir", ".kernel.mlir", ".spv"}) {
           paths.push_back(base + suffix);
           if (arithmetic == ArithmeticMode::HardwareWithSoftwareFallback)
@@ -225,7 +224,7 @@ int kalandra::compileVulkanCommand(int argc, char **argv) {
         throw std::runtime_error(error.message());
     }
     if (build)
-      buildVulkanProgram(directory, outputs, variant, arithmetic);
+      buildVulkanProgram(directory, outputs, variant, arithmetic, matmul);
     return 0;
   } catch (const std::exception &e) {
     std::cerr << "Vulkan source compilation: " << e.what() << '\n';

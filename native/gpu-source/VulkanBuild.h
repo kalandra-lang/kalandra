@@ -4,4 +4,4 @@
 #include <map>
 #include <string>
 void buildVulkanProgram(const std::filesystem::path &, const std::map<std::string, std::string> &,
-                        const std::string &, kalandra::ArithmeticMode);
+                        const std::string &, kalandra::ArithmeticMode, kalandra::MatmulPolicy);

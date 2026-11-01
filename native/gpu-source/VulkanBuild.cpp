@@ -36,7 +36,8 @@ void transform(const std::filesystem::path &path, const std::string &contents) {
 } // namespace
 void buildVulkanProgram(const std::filesystem::path &directory,
                         const std::map<std::string, std::string> &outputs,
-                        const std::string &variant, kalandra::ArithmeticMode arithmetic) {
+                        const std::string &variant, kalandra::ArithmeticMode arithmetic,
+                        kalandra::MatmulPolicy matmul) {
   for (const auto &[name, contents] : outputs) {
     if (name.ends_with(".vulkan-transform")) {
       auto target = directory / name;
@@ -58,6 +59,22 @@ void buildVulkanProgram(const std::filesystem::path &directory,
       compile(target.string(), arithmetic == kalandra::ArithmeticMode::Software ? "software" : "hardware");
       if (arithmetic == kalandra::ArithmeticMode::HardwareWithSoftwareFallback)
         compile(target.string() + ".spv.software", "hardware-with-software-fallback");
+      const auto marker = outputs.find(target.filename().string() + ".vulkan-matmul");
+      if (matmul == kalandra::MatmulPolicy::Optimized && arithmetic != kalandra::ArithmeticMode::Software &&
+          marker != outputs.end()) {
+        if (marker->second != "kalandra-vulkan-matmul-v1\ntype=float32\n")
+          throw std::runtime_error("invalid Vulkan matmul descriptor");
+        std::filesystem::copy_file(target.string() + ".spv", target.string() + ".spv.fixed-tree.spv",
+                                   std::filesystem::copy_options::overwrite_existing);
+        auto words = kalandra::runtime::vulkan::builtinShader("mul_mm.spv");
+        std::ofstream output(target.string() + ".spv", std::ios::binary);
+        for (auto word : words)
+          for (unsigned byte = 0; byte < 4; ++byte)
+            output.put(static_cast<char>((word >> (byte * 8)) & 255));
+        output.close();
+        if (!output)
+          throw std::runtime_error("cannot write optimized Vulkan matmul module");
+      }
     }
   }
   const bool sanitized = variant == "sanitized";

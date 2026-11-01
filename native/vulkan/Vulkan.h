@@ -43,6 +43,9 @@ struct Options {
   // Private capability ceiling for deterministic unsupported-device tests.
   // False also omits shaderFloat64 from VkDeviceCreateInfo, not only admission.
   bool enableFloat64 = true;
+  // Private source-selection ceiling; the raw right-transposed primitive is
+  // unchanged. Used for capability-fallback qualification.
+  bool enableTiledMatmul = true;
 };
 struct State;
 struct Storage;
@@ -63,6 +66,7 @@ public:
   std::uint32_t localSize() const noexcept;
   std::uint32_t parameterWords() const noexcept;
   std::string_view entryName() const noexcept;
+  bool tiledMatmul() const noexcept;
 
 private:
   std::shared_ptr<KernelState> state_;
@@ -82,6 +86,10 @@ private:
 struct KernelResult {
   Buffer output;
   std::vector<std::uint32_t> parameters;
+};
+struct KernelContract {
+  std::string entry;
+  std::uint64_t inputs = 0, parameterWords = 0;
 };
 class Runtime final {
 public:
@@ -107,7 +115,12 @@ public:
   std::expected<std::vector<std::byte>, Error> downloadBytes(const Buffer &);
   std::expected<void, Error> readBytes(const Buffer &, std::span<std::byte>);
   // Compiler-owned SPIR-V only: flat set-0 storage buffers, fixed 1D workgroups.
-  std::expected<Kernel, Error> loadKernel(const std::filesystem::path &);
+  std::expected<Kernel, Error> loadKernel(const std::filesystem::path &, const KernelContract * = nullptr);
+  // Closed compiler artifact: embedded ggml module, or the ordinary fixed-tree
+  // ABI. The tiled logical ABI takes A[M,K], already-transposed B[N,K], and
+  // parameters [M,K,N,fault]. ProgramExecution performs the GPU layout stage.
+  std::expected<Kernel, Error> loadMatmulKernel(const std::filesystem::path &);
+  std::expected<Kernel, Error> loadBuiltinTransposeFloat32();
   std::expected<KernelResult, Error> execute(const Kernel &, std::span<const Buffer> inputs,
                                              std::span<const std::uint32_t> parameters,
                                              std::uint64_t outputBytes, std::uint32_t groups);
@@ -124,6 +137,7 @@ public:
 
 private:
   explicit Runtime(std::shared_ptr<State> state) : state_(std::move(state)) {}
+  std::expected<Kernel, Error> createKernel(std::span<const std::uint32_t>, const KernelContract * = nullptr);
   std::shared_ptr<State> state_;
 };
 } // namespace kalandra::runtime::vulkan

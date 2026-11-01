@@ -25,6 +25,7 @@ for shader in ('add', 'mul_mm'):
     assert capabilities == ['Shader'], (shader, capabilities)
     widths = re.findall(r'OpTypeFloat (\d+)', assembly)
     assert widths and set(widths) == {'32'}, (shader, widths)
+    assert 'RelaxedPrecision' not in assembly, (shader, 'operand precision must remain float32')
 for path in sorted((args.build/'transforms').glob('*.spv')):
     assembly=subprocess.check_output([args.spirv_dis,str(path)],text=True)
     kind,numeric=path.stem.split('-')

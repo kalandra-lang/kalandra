@@ -3510,6 +3510,11 @@ public:
         for (std::size_t stage = 0; stage < found->second.kernels.size(); ++stage) {
           const auto &shader = found->second.kernels[stage];
           auto name = base + (stage ? "-stage" + std::to_string(stage) : "");
+          if (backend_ == GpuBackend::Vulkan && shader.element == NumericType::Float32 &&
+              std::any_of(found->second.code.begin(), found->second.code.end(), [&](const auto &op) {
+                return op.kernel == stage && op.kind == NumericProgramKind::Matmul;
+              }))
+            outputs[name + ".vulkan-matmul"] = "kalandra-vulkan-matmul-v1\ntype=float32\n";
           if (backend_ == GpuBackend::Vulkan && shader.transform) {
             outputs[name + ".vulkan-transform"] =
                 "kalandra-vulkan-transform-v1\nkind=" +

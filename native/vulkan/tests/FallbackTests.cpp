@@ -97,6 +97,40 @@ int run(int argc, char **argv) {
             "private module fixture copied");
     };
     copy(path.string() + ".software.spv", "missing.spv.software.spv");
+    {
+      std::ifstream input(path, std::ios::binary | std::ios::ate);
+      const auto length = input.tellg();
+      check(length >= 20 && length % 4 == 0, "valid native fixture size");
+      std::vector<std::uint32_t> words(static_cast<std::size_t>(length) / 4);
+      input.seekg(0);
+      input.read(reinterpret_cast<char *>(words.data()), length);
+      bool changed = false;
+      for (std::size_t index = 5; index < words.size();) {
+        const auto count = words[index] >> 16;
+        check(count && count <= words.size() - index, "valid native instruction");
+        if ((words[index] & 65535) == 15) {
+          check(count >= 4, "entry point string");
+          words[index + 3] = (words[index + 3] & 0xffffff00u) | unsigned('x');
+          changed = true;
+          break;
+        }
+        index += count;
+      }
+      check(changed, "entry point renamed without changing physical ABI/capabilities");
+      std::ofstream output(scratch.root / "wrong-entry.spv", std::ios::binary);
+      output.write(reinterpret_cast<const char *>(words.data()), length);
+      output.close();
+      check(bool(output), "wrong entry fixture written");
+      copy(path.string() + ".software.spv", "wrong-entry.spv.software.spv");
+      auto raw = take(v::Runtime::create({.validation = validation, .deviceIndex = device,
+                                         .enableFloat64 = false}), "wrong-entry raw control");
+      auto physical = raw->loadKernel(scratch.root / "wrong-entry.spv");
+      check(!physical && physical.error() == v::Error::Unsupported,
+            "raw fixture has valid reflected ABI and unsupported capability");
+      auto logical = load("wrong-entry.spv");
+      check(!logical && logical.error() == v::Error::Invalid,
+            "wrong logical primary ABI is never masked by a valid fallback");
+    }
     auto loaded = load("missing.spv");
     check(!loaded && loaded.error() == v::Error::Unavailable,
           "missing primary never selects a valid backup");
@@ -121,6 +155,17 @@ int run(int argc, char **argv) {
   auto rejected = runtime->loadKernel(path);
   check(!rejected && rejected.error() == v::Error::Unsupported,
         "native capability rejected before pipeline creation");
+  const v::KernelContract wrongEntry{"wrong-entry", 2, 2};
+  auto malformed = runtime->loadKernel(path, &wrongEntry);
+  check(!malformed && malformed.error() == v::Error::Invalid,
+        "wrong primary entry is invalid before unsupported capability can trigger fallback");
+  const auto inspect = take(v::Runtime::create({.validation = validation, .deviceIndex = device}),
+                            "contract inspection context");
+  const auto nativeKernel = take(inspect->loadKernel(path), "native contract module");
+  const v::KernelContract wrongWords{std::string(nativeKernel.entryName()), 2, 3};
+  malformed = runtime->loadKernel(path, &wrongWords);
+  check(!malformed && malformed.error() == v::Error::Invalid,
+        "wrong primary carrier count is invalid before capability fallback");
   auto software = take(runtime->loadKernel(path.string() + ".software.spv"), "software module");
   check(software.inputCount() == 2 && software.parameterWords() == 2, "shared product ABI");
   std::fesetround(FE_TONEAREST);

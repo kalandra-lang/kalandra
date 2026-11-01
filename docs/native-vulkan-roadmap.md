@@ -18,7 +18,7 @@ The user owns system software installation: do not install packages, drivers, SD
 
 ## Current status
 
-Draft implementation. No released Vulkan backend or CLI support is claimed. Keep the PR draft until the complete source-to-device path and the acceptance criteria in #263 are qualified.
+Draft implementation. The opt-in development CLI is available; installed release packages remain unfinished. Keep the PR draft until the complete source-to-device path and the acceptance criteria in #263 are qualified.
 
 ## 2026-11-01: first runtime slice
 
@@ -40,7 +40,7 @@ The draft status is not lifted by a successful primitive or kernel-only probe.
 - [x] Shared typed GPU map/program IR emitter linked by Metal and Vulkan artifact tools; original Metal placed supervisor/kernel outputs remain byte-identical and diagnostics pass.
 - [x] Actual source-derived pointwise kernels for all ten numeric types: normal exact arithmetic, integer overflow flags, packed tails/empty domains on both physical GPUs.
 - [x] First managed generic dispatch adapter using existing TaskCore completion capabilities: worker counts 1/2/4, held acknowledgement cancellation/deadlines, device-failure classification/precedence, bounded captures, cached results, facade/core teardown, and escaped result ownership. This does not yet constitute a full source task backend.
-- [ ] Full source compiler/supervisor and explicit CPU/GPU transfer/CPU descriptor bridge.
+- [x] Full development source compiler/supervisor and explicit CPU/GPU transfer/CPU descriptor bridge.
 - [ ] Complete shapes/ranks 0..8, maps/scalar lifting, all conversions, reductions, matmul policies, branch/shape/error control and resident graph composition.
 - [ ] Transpose, ReLU, softmaxRows and rmsNormRows with existing numerical/fault contracts.
 - [ ] Real hardware feature admission and explicit arithmetic fallback, comprehensive independent numerical oracles and same-source Metal parity fixtures.
@@ -548,3 +548,67 @@ without turning the NVIDIA runs into clean sanitizer exits. Normal mode is
 rechecked separately: eleven builds/66 executions and six negative cases pass.
 Hosted qualification compiles instrumented applications and checks symbols/IR;
 it does not silently execute a substitute GPU.
+
+### Explicit source tiled matrix policy and primary ABI validation
+
+The development command now accepts explicit optimized matmul. Float32 stages
+carry a closed compiler descriptor; the builder retains the ordinary fixed-tree
+SPIR-V companion and selects the exact embedded, provenance-audited MIT ggml
+module. Default remains fixed-tree. Other types and software arithmetic retain
+their previous algorithms. No Steel/CuTe or reduced-precision variants are used.
+The primitive is unchanged; source execution adds a GPU right-operand transpose,
+then multiplication inside the same managed task. This adds a dispatch and a
+full right-operand allocation within the existing quota. It may exhaust the
+quota sooner than fixed-tree; no claim of a speedup or default policy change is
+made without end-to-end measurements. Unsupported tile limits select the native
+fixed-tree companion, independently of numerical software-fallback permission.
+
+Logical entry names, input counts and parameter words are now checked before
+feature admission. A valid but wrong logical primary can no longer report an
+unsupported feature and be hidden by a valid numerical alternative. A mutated
+entry-point control proves the difference, including physically disabled FP64.
+The shared contract helper is used by both loading and program validation.
+
+The physical matrix corpus passes 32 geometry/algorithm combinations, ten
+admission cases and twelve managed cases per device on NVIDIA RTX 5090 and Intel
+ARL. It covers tile tails, K=4097, empty/singleton shapes, independent double
+references, a full-float32 operand probe, unchanged inputs, concurrent built-in
+publication and 200 aliases under the 64-kernel quota. Managed cases exercise
+workers 1/2/4, cancellation/deadline after layout completion and lazy multiplication
+pipeline failure, with no leaked task capabilities/buffer ledger entries or
+validation errors. Sixty actual ten-type source matrix programs pass at workers
+1/2/4 on both GPUs (360 executions). The ABI regression also passes 98 source
+cast/ReLU cases on both GPUs (588 executions), plus all four 1,508-case IEEE FP64
+software corpora per device, retaining their independent oracles.
+
+An isolated Intel TSan matrix run passes. ASan/UBSan runs execute the matrix corpus
+successfully on both enumerated devices with no access/UB findings, but each
+exits unsuccessfully with unsuppressed LSan reports of 2,509 bytes/7 allocations
+in DBus/unloaded-module stacks. Unlike the prior isolated-ICD public source runs,
+these tests enumerate both drivers; this does not establish leak-clean Intel
+qualification. Full findings are retained, pending isolated-loader controls.
+
+Follow-up isolated-ICD controls resolve the matrix attribution more precisely:
+Intel's complete matrix corpus and independent loader control both exit cleanly.
+NVIDIA's matrix corpus and one-initialization loader-only control both exit with
+exactly 2,509 bytes/7 allocations. All 67 shared source graph cases pass again on
+both GPUs at workers 1/2/4 (402 executions). The public command checks 15 builds,
+90 physical executions and six output/error protections, including optimized
+hardware/native-first products and software fixed-tree retention. Three public
+ASan/UBSan applications (resident arithmetic, mixed CPU tasks and optimized
+matmul) produce exact results in 18 executions: nine Intel clean exits and nine
+NVIDIA failures at 5,082 bytes/14 allocations, matching the retained two-loader
+control. No invalid access/UB report or leak suppression is involved.
+
+The broad development build also exposed an unrelated stale private test forward
+declaration from cross-compilation: RecursiveSourceTests omitted the CpuTarget
+argument of lowerTaskNative. The declaration now matches production. This fixes
+a test link failure without changing production lowering; the rejected broad
+build log remains retained. macOS frontend and executable recursive-source
+regressions pass with the corrected declaration.
+The repaired complete Linux development build finishes, and Linux frontend/
+executable recursive-source regressions both pass. The latest isolated Intel
+TSan run includes the ten algorithm-admission cases and remains clean. All
+twelve registered standalone GCC tests pass. macOS shared compiler, Metal
+frontend diagnostics and artifact regressions pass. These targeted checks do
+not assert that the entire CPU test suite was executed.

@@ -155,12 +155,17 @@ struct State {
   VkDescriptorPool descriptors = VK_NULL_HANDLE;
   Pipeline addition, matrix;
   mutable std::mutex queueMutex;
+  std::mutex builtinMutex;
+  // Weak references avoid a context/kernel ownership cycle. Immutable built-in
+  // plans share one loaded object across arbitrarily many prepared programs.
+  std::weak_ptr<KernelState> tiledKernel, transposeKernel;
   std::shared_ptr<ByteBudget> budget;
   std::atomic<bool> failed{false};
   std::atomic<FailurePoint> failure{FailurePoint::None};
   VkPhysicalDeviceFeatures features{};
   bool storage8 = false, storage16 = false, int8 = false;
   bool preserveFloat32 = false;
+  bool tiledMatmul = true;
   std::uint32_t maxDescriptors = 0, kernels = 0;
   ~State() {
     if (!device)
@@ -496,6 +501,7 @@ struct KernelState {
   Pipeline pipeline;
   SpirvInterface interface;
   bool reserved = false;
+  bool tiledMatmul = false;
   ~KernelState() {
     if (pipeline.handle)
       vkDestroyPipeline(state->device, pipeline.handle, nullptr);
@@ -530,6 +536,7 @@ std::expected<std::vector<DeviceInfo>, Error> Runtime::enumerate(bool debug) {
 std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) {
   try {
     auto state = std::make_shared<State>();
+    state->tiledMatmul = options.enableTiledMatmul;
     auto context = instance(options.validation);
     if (!context)
       return std::unexpected(context.error());
@@ -669,17 +676,19 @@ bool Runtime::owns(const Kernel &kernel) const noexcept {
   return kernel.state_ && kernel.state_->state == state_;
 }
 std::uint32_t Kernel::inputCount() const noexcept {
-  return state_ ? state_->interface.buffers - 2 : 0;
+  return state_ ? state_->tiledMatmul ? 2 : state_->interface.buffers - 2 : 0;
 }
 std::uint32_t Kernel::localSize() const noexcept {
-  return state_ ? state_->interface.localSize : 0;
+  return state_ ? state_->tiledMatmul ? 128 : state_->interface.localSize : 0;
 }
 std::uint32_t Kernel::parameterWords() const noexcept {
-  return state_ ? state_->interface.parameterWords : 0;
+  return state_ ? state_->tiledMatmul ? 4 : state_->interface.parameterWords : 0;
 }
 std::string_view Kernel::entryName() const noexcept {
-  return state_ ? std::string_view(state_->interface.entry) : std::string_view{};
+  return state_ ? state_->tiledMatmul ? std::string_view("main")
+                                    : std::string_view(state_->interface.entry) : std::string_view{};
 }
+bool Kernel::tiledMatmul() const noexcept { return state_ && state_->tiledMatmul; }
 std::uint64_t Runtime::retainedBytes() const {
   std::lock_guard lock(state_->budget->mutex);
   return state_->budget->bytes;
@@ -924,15 +933,31 @@ std::expected<void, Error> Runtime::readBytes(const Buffer &buffer, std::span<st
     std::memcpy(output.data(), buffer.storage_->mapped, output.size());
   return {};
 }
-std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &path) {
+std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &path, const KernelContract *contract) {
   try {
     if (state_->failed)
       return std::unexpected(Error::Device);
     auto words = readSpirv(path);
     if (!words)
       return std::unexpected(words.error());
-    auto interface = reflectSpirv(*words);
+    return createKernel(*words, contract);
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
+std::expected<Kernel, Error> Runtime::createKernel(std::span<const std::uint32_t> words, const KernelContract *contract) {
+  try {
+    if (state_->failed)
+      return std::unexpected(Error::Device);
+    auto interface = reflectSpirv(words);
     if (!interface)
+      return std::unexpected(Error::Invalid);
+    // Validate the intended logical ABI before capability admission. Otherwise
+    // a wrong-but-valid module could masquerade as Unsupported and select an
+    // alternative instead of reporting a malformed primary artifact.
+    if (contract && (interface->entry != contract->entry || interface->buffers < 2 ||
+                     std::uint64_t(interface->buffers - 2) != contract->inputs ||
+                     interface->parameterWords != contract->parameterWords))
       return std::unexpected(Error::Invalid);
     if (interface->buffers < 2 || interface->buffers > state_->maxDescriptors ||
         interface->localSize > state_->properties.limits.maxComputeWorkGroupSize[0] ||
@@ -953,11 +978,76 @@ std::expected<Kernel, Error> Runtime::loadKernel(const std::filesystem::path &pa
       ++state_->kernels;
       loaded->reserved = true;
     }
-    auto made = makePipeline(*state_, loaded->pipeline, *words, interface->entry.c_str(),
+    auto made = makePipeline(*state_, loaded->pipeline, words, interface->entry.c_str(),
                              interface->buffers, 0);
     if (!made)
       return std::unexpected(made.error());
     Kernel result;
+    result.state_ = std::move(loaded);
+    return result;
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
+std::expected<Kernel, Error> Runtime::loadBuiltinTransposeFloat32() {
+  std::lock_guard lock(state_->builtinMutex);
+  if (state_->failed)
+    return std::unexpected(Error::Device);
+  if (auto cached = state_->transposeKernel.lock()) {
+    Kernel result;
+    result.state_ = std::move(cached);
+    return result;
+  }
+  auto result = createKernel(builtinShader("transforms/transpose-float32.spv"));
+  if (result)
+    state_->transposeKernel = result->state_;
+  return result;
+}
+std::expected<Kernel, Error> Runtime::loadMatmulKernel(const std::filesystem::path &path) {
+  try {
+    if (state_->failed)
+      return std::unexpected(Error::Device);
+    auto words = readSpirv(path);
+    if (!words)
+      return std::unexpected(words.error());
+    const auto trusted = builtinShader("mul_mm.spv");
+    const KernelContract fixedContract{"kalandra_numeric_v1_matmul_float32_vk_flat_v1", 2, 4};
+    if (!std::equal(words->begin(), words->end(), trusted.begin(), trusted.end()))
+      return createKernel(*words, &fixedContract);
+    const auto &limits = state_->properties.limits;
+    // Source execution also needs the 256-lane bitwise transpose. The raw
+    // right-transposed primitive itself retains its narrower 128-lane floor.
+    if (!state_->tiledMatmul || limits.maxComputeWorkGroupInvocations < 256 ||
+        limits.maxComputeWorkGroupSize[0] < 256 || limits.maxPushConstantsSize < 64 ||
+        limits.maxComputeSharedMemorySize < 2 * 64 * 17 * 8 || state_->maxDescriptors < 3) {
+      auto alternate = path;
+      alternate += ".fixed-tree.spv";
+      auto fallback = readSpirv(alternate);
+      if (!fallback)
+        return std::unexpected(fallback.error() == Error::Unavailable ? Error::Unsupported
+                                                                     : fallback.error());
+      return createKernel(*fallback, &fixedContract);
+    }
+    std::lock_guard lock(state_->builtinMutex);
+    if (state_->failed)
+      return std::unexpected(Error::Device);
+    if (auto cached = state_->tiledKernel.lock()) {
+      Kernel result;
+      result.state_ = std::move(cached);
+      return result;
+    }
+    auto loaded = std::make_shared<KernelState>();
+    loaded->state = state_;
+    loaded->tiledMatmul = true;
+    {
+      std::lock_guard budget(state_->budget->mutex);
+      if (state_->kernels >= 64)
+        return std::unexpected(Error::Budget);
+      ++state_->kernels;
+      loaded->reserved = true;
+    }
+    Kernel result;
+    state_->tiledKernel = loaded;
     result.state_ = std::move(loaded);
     return result;
   } catch (const std::bad_alloc &) {
@@ -970,6 +1060,17 @@ std::expected<KernelResult, Error> Runtime::execute(const Kernel &kernel,
                                                     std::uint64_t outputBytes,
                                                     std::uint32_t groups) {
   try {
+    if (kernel.tiledMatmul()) {
+      if (!owns(kernel) || inputs.size() != 2 || parameters.size() != 4 || !groups)
+        return std::unexpected(Error::Invalid);
+      const auto cells = std::uint64_t(parameters[0]) * parameters[2];
+      if (cells > UINT32_MAX || outputBytes != cells * 4)
+        return std::unexpected(Error::Invalid);
+      auto result = matmulRightTransposed(inputs[0], inputs[1], parameters[0], parameters[2], parameters[1]);
+      if (!result)
+        return std::unexpected(result.error());
+      return KernelResult{std::move(*result), std::vector<std::uint32_t>(parameters.begin(), parameters.end())};
+    }
     std::lock_guard lock(state_->queueMutex);
     if (!kernel.state_ || kernel.state_->state != state_ ||
         inputs.size() + 2 != kernel.state_->interface.buffers ||

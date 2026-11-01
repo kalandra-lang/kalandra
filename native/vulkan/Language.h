@@ -32,6 +32,7 @@ public:
   Kernel() = default;
   explicit operator bool() const noexcept { return bool(schema_.kernel); }
   bool usedSoftwareFallback() const noexcept { return softwareFallback_; }
+  bool usesTiledMatmul() const noexcept { return schema_.kernel.tiledMatmul(); }
 
 private:
   ProgramKernel schema_{};
@@ -64,6 +65,7 @@ struct Options {
   std::uint64_t maxArgumentBytes = 1024 * 1024;
   std::uint32_t maxInFlight = 64, defaultDevice = 0;
   bool allowSoftwareFallback = false, enableFloat64 = true;
+  bool enableTiledMatmul = true;
 };
 struct Stats {
   std::uint64_t bytes = 0, inFlight = 0, argumentBytes = 0;
