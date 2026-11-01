@@ -1,5 +1,6 @@
 #include "Language.h"
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <new>
@@ -39,6 +40,30 @@ int run(int argc, char **argv) {
     return 2;
   const bool validation = argc == 2 || std::string_view(argv[2]) != "--no-validation";
   auto runtime = take(m::Runtime::create({.validation = validation, .maxInFlight = 1}), "registry");
+  check(runtime->stats().initializedDevices == 1, "only default context eagerly created");
+  auto missing = runtime->device(runtime->deviceCount());
+  check(!missing && missing.error() == m::Error::Unavailable &&
+            runtime->stats().initializedDevices == 1,
+        "invalid selection does not create a context");
+  {
+    Hold hold(*runtime);
+    std::atomic<bool> valid{true};
+    std::array<std::thread, 8> selectors;
+    const auto last = runtime->deviceCount() - 1;
+    for (auto &selector : selectors)
+      selector = std::thread([&] {
+        auto selected = runtime->device(last);
+        if (!selected || !*selected || selected->name().empty())
+          valid = false;
+        const auto count = runtime->stats().initializedDevices;
+        if (count != (last ? 2u : 1u))
+          valid = false;
+      });
+    for (auto &selector : selectors)
+      selector.join();
+    check(valid && runtime->stats().initializedDevices == (last ? 2u : 1u),
+          "concurrent selection publishes exactly one additional context");
+  }
   auto core = TaskCore::create({.workers = 4});
   check(bool(core), "core");
   Invocation producer;

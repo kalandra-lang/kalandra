@@ -64,6 +64,7 @@ struct Options {
 };
 struct Stats {
   std::uint64_t bytes = 0, inFlight = 0, argumentBytes = 0;
+  std::uint32_t initializedDevices = 0;
 };
 // Shared source-supervisor adapter. Private until CLI/distribution qualification.
 class Runtime {

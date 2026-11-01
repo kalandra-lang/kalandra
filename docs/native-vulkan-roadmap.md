@@ -314,3 +314,25 @@ normal NVIDIA/Intel tests retain validation. ASan/UBSan assertions pass, but
 unsuppressed LeakSanitizer still fails at exit (2,497 bytes / 7 allocations,
 including DBus/unloaded-module stacks), matching the earlier single-loader
 control's counts, not proving every stack is attributed. No suppression added.
+
+### On-demand additional devices
+
+The source registry now initializes its default service for host imports and
+structured rejection, then opens other physical contexts only when selected.
+Enumeration retains all device identities without requiring unrelated contexts
+to initialize successfully. A mutex publishes a complete driver/completion-service
+pair once per index; contexts never move or get replaced after publication.
+Concurrent downloads and conformance hold controls synchronize with creation,
+and a newly opened service inherits an existing hold. All contexts continue to
+share byte, argument and pending-operation ledgers. Default-device failure still
+fails registry creation; this does not yet decouple host admission from that
+service.
+
+Eight concurrent selectors publish one additional context, invalid selection
+creates none, and the complete registry tests pass Clang/GCC and the isolated
+Intel TSan profile. Eight complete-source variants explicitly select each
+physical GPU, covering placed/mixed CPU-GPU work in hardware/software modes at
+workers 1/2/4 (24 executions). ASan/UBSan assertions pass; exit-time LSan remains
+unsuppressed (5,066 bytes / 14 allocations), with external-loader attribution
+limits unchanged. The preceding transform commit also passes all three hosted
+Vulkan jobs, including production-pinned compiler/artifact qualification.

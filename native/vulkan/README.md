@@ -204,3 +204,10 @@ both physical ICDs at worker counts 1/2/4; `--compile-only` lets hosted CI verif
 artifacts without substituting a software Vulkan implementation. Managed tests
 hold acknowledgement to check cancellation/deadline/fault precedence, scratch
 quota rollback and resource retirement.
+
+The source registry opens additional physical GPU contexts on selection rather
+than during enumeration. Concurrent selection publishes a single immutable
+context/service pair and preserves shared quotas. The default service is still
+created at startup for CPU imports and structured error tasks; failure of that
+selected default remains a startup error. Private stats expose the initialized
+context count for qualification.

@@ -1,5 +1,6 @@
 #include "Language.h"
 #include <algorithm>
+#include <mutex>
 #include <new>
 namespace kalandra::runtime::vulkan::language {
 struct Registry {
@@ -11,6 +12,37 @@ struct Registry {
   std::vector<DeviceInfo> devices;
   std::vector<Context> contexts;
   std::shared_ptr<ByteBudget> bytes, metadata, pending;
+  std::mutex contextMutex;
+  bool held = false;
+  std::expected<void, Error> ensure(std::uint32_t index) noexcept {
+    try {
+      std::lock_guard lock(contextMutex);
+      if (index >= contexts.size())
+        return std::unexpected(Error::Unavailable);
+      if (contexts[index].driver)
+        return {};
+      auto made = vulkan::Runtime::create({.validation = options.validation,
+                                           .deviceIndex = index,
+                                           .budget = bytes,
+                                           .deviceUuid = devices[index].uuid});
+      if (!made)
+        return std::unexpected(made.error());
+      Context context;
+      context.driver = std::move(*made);
+      context.async =
+          AsyncRuntime::create(context.driver, {.maxPending = options.maxInFlight,
+                                                .maxCaptureBytes = options.maxArgumentBytes,
+                                                .metadataBudget = metadata,
+                                                .pendingBudget = pending});
+      if (!context.async)
+        return std::unexpected(Error::Allocation);
+      context.async->holdCompletions(held);
+      contexts[index] = std::move(context);
+      return {};
+    } catch (const std::bad_alloc &) {
+      return std::unexpected(Error::Allocation);
+    }
+  }
 };
 struct Prepared {
   std::shared_ptr<const HostCharge> charge;
@@ -52,24 +84,12 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
     state->bytes = std::move(*bytes);
     state->metadata = std::move(*metadata);
     state->pending = std::move(*pending);
-    for (std::uint32_t i = 0; i < state->devices.size(); ++i) {
-      auto made = vulkan::Runtime::create({.validation = options.validation,
-                                           .deviceIndex = i,
-                                           .budget = state->bytes,
-                                           .deviceUuid = state->devices[i].uuid});
-      if (!made)
-        return std::unexpected(made.error());
-      Registry::Context context;
-      context.driver = std::move(*made);
-      context.async =
-          AsyncRuntime::create(context.driver, {.maxPending = options.maxInFlight,
-                                                .maxCaptureBytes = options.maxArgumentBytes,
-                                                .metadataBudget = state->metadata,
-                                                .pendingBudget = state->pending});
-      if (!context.async)
-        return std::unexpected(Error::Allocation);
-      state->contexts.push_back(std::move(context));
-    }
+    state->contexts.resize(state->devices.size());
+    // The default service owns host imports and structured rejection tasks.
+    // Additional physical devices are opened only when explicitly selected.
+    auto ready = state->ensure(options.defaultDevice);
+    if (!ready)
+      return std::unexpected(ready.error());
     return std::unique_ptr<Runtime>(new Runtime(std::move(state)));
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
@@ -83,6 +103,9 @@ std::expected<Device, Error> Runtime::device() const noexcept {
 std::expected<Device, Error> Runtime::device(std::uint32_t index) const noexcept {
   if (index >= state_->contexts.size())
     return std::unexpected(Error::Unavailable);
+  auto ready = state_->ensure(index);
+  if (!ready)
+    return std::unexpected(ready.error());
   Device result;
   result.owner_ = state_;
   result.index_ = index;
@@ -104,8 +127,9 @@ TaskHandle Runtime::transfer(Caller &caller, GroupHandle group, Buffer value, De
       return fallback.reject(caller, group, Error::Residency);
     return state_->contexts[device.index_].async->transfer(caller, group, value, true);
   }
+  std::lock_guard lock(state_->contextMutex);
   for (auto &context : state_->contexts)
-    if (context.driver->owns(value.data))
+    if (context.driver && context.driver->owns(value.data))
       return context.async->transfer(caller, group, value, false);
   return fallback.reject(caller, group, Error::Residency);
 }
@@ -316,12 +340,18 @@ TaskHandle Runtime::executeNumericProgram(Task &task, GroupHandle group,
   return execute(task, group, plan, inputs, captures);
 }
 Stats Runtime::stats() const noexcept {
+  std::lock_guard lock(state_->contextMutex);
+  const auto initialized = std::count_if(state_->contexts.begin(), state_->contexts.end(),
+                                         [](const auto &context) { return bool(context.driver); });
   return {vulkan::Runtime::reservedBytes(state_->bytes),
           vulkan::Runtime::reservedBytes(state_->pending),
-          vulkan::Runtime::reservedBytes(state_->metadata)};
+          vulkan::Runtime::reservedBytes(state_->metadata), std::uint32_t(initialized)};
 }
 void Runtime::holdCompletions(bool hold) noexcept {
+  std::lock_guard lock(state_->contextMutex);
+  state_->held = hold;
   for (auto &context : state_->contexts)
-    context.async->holdCompletions(hold);
+    if (context.async)
+      context.async->holdCompletions(hold);
 }
 } // namespace kalandra::runtime::vulkan::language
