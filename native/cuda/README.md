@@ -1,7 +1,7 @@
-# Linux CUDA development bring-up
+# Experimental Linux CUDA backend
 
 This opt-in implementation is under development on `codex/cuda-linux` (#264).
-The opt-in development compiler accepts `--target cuda`; installed/release delivery is still under qualification. macOS remains Metal-only.
+The opt-in compiler accepts `--target cuda`. Downloaded production-pinned Linux packages have been executed on the RTX 5090; future publication is gated by reproducible composition and relocated package qualification. CUDA is not in v0.99.1. macOS remains Metal-only.
 
 The device compiler lowers the existing typed GPU IR directly through NVVM to
 PTX. Hardware arithmetic retains native float32/float64 instructions. Software
@@ -126,8 +126,10 @@ handling. Raw machine-specific series belong in qualification artifacts, not
 large checked-in reports. No clock/driver settings were changed.
 
 The production-pinned `native-cuda-standalone-package` target stages an owned,
-relocatable compiler. Its exact hosted artifact, missing-resource behavior and
-physical execution still require qualification before release. The development
+relocatable compiler. The downloaded hosted artifact passed relocation, 153 GPU executions, eight
+missing-resource checks, independent numerical oracles and GPU memory checks.
+Release workflows separately require exact-tag provenance and qualification of
+the combined CPU-target/CUDA archive before publication. The development
 LLVM 23.1.4 profile continues to disable install rules; it cannot satisfy that gate.
 
 Whole-application latency is a different measurement. `benchmarks/program_latency.py`

@@ -1,12 +1,12 @@
 # Native NVIDIA/CUDA roadmap
 
-NVIDIA/CUDA support is a separate roadmap from the main native language release. It remains a project goal, with Linux x86-64 / NVIDIA RTX 5090 as the first hardware qualification target, as requested for this implementation. Apple Metal GPU execution stays in the main roadmap. CUDA implementation, platform integration and hardware qualification are excluded from the main completion estimate and release gates.
+NVIDIA/CUDA support is a separate roadmap from the main native language release. It remains a project goal, with Linux x86-64 / NVIDIA RTX 5090 as the first hardware qualification target, as requested for this implementation. Apple Metal GPU execution stays in the main roadmap. CUDA progress is tracked separately from the main completion estimate. Future releases that include a CUDA archive require exact-tag package provenance, reproducible composition and relocated qualification.
 
 ## Scope
 
 Run Kalandra GPU work on NVIDIA devices while preserving the accepted immutable values, explicit device selection/transfers, structured tasks, checked failures and numerical contracts. Reuse the typed IR, execution planning and ownership machinery where their contracts apply. Metal support is a foundation, not evidence of CUDA compatibility.
 
-Windows CPU compiler/runtime support is distinct from CUDA support. Windows CUDA remains a subsequent platform qualification; macOS stays Metal-only. Neither GPU target blocks the main native roadmap.
+Windows CPU compiler/runtime support is distinct from CUDA support. Windows CUDA remains a subsequent platform qualification; macOS stays Metal-only. Windows CUDA is outside this Linux milestone.
 
 ## Milestones
 
@@ -17,7 +17,7 @@ Windows CPU compiler/runtime support is distinct from CUDA support. Windows CUDA
 5. **Linux toolchain and hardware qualification.** Establish reproducible compiler/runtime builds and dependencies. Run differential numerical, shape, ownership, failure and concurrency checks on the RTX 5090. Measure performance separately from correctness.
 6. **Linux delivery and subsequent platform qualification.** Verify the Linux toolchain/runtime, supported driver/device combinations, packaging, diagnostics and complete application examples. Document the qualified capability matrix and remaining limits.
 
-Status: experimental implementation on `codex/cuda-linux`; the opt-in Linux development compiler accepts `--target cuda`. Direct NVVM/PTX lowering and the Driver API service run all ten numeric types, ranks 0–8, structured graphs, transfers, reductions, matrix products and tensor transforms on the RTX 5090. Private and public-command suites cover numerical conversions, explicit software companions, cancellation/deadline acknowledgement, checked faults and ownership. The MIT warp-tiled float32 route is selected only by explicit optimized matmul policy; shape/capability companions retain native fixed-tree GPU arithmetic. CUDA's row-major matrix-layout trait does not change the source API or cancellation contract. Installed delivery, release-pinned artifact qualification, broader hardware, and honest performance acceptance remain gates; development correctness is not a release/support claim. See `native/cuda/README.md` for reproducible contributor commands.
+Status: experimental implementation on `codex/cuda-linux`; the opt-in Linux compiler accepts `--target cuda`. Direct NVVM/PTX lowering and the Driver API service run all ten numeric types, ranks 0–8, structured graphs, transfers, reductions, matrix products and tensor transforms on the RTX 5090. Private and public-command suites cover numerical conversions, explicit software companions, cancellation/deadline acknowledgement, checked faults and ownership. The MIT warp-tiled float32 route is selected only by explicit optimized matmul policy; shape/capability companions retain native fixed-tree GPU arithmetic. CUDA's row-major matrix-layout trait does not change the source API or cancellation contract. The downloaded production-pinned LLVM 23.1.3 archive has passed physical application, relocation, missing-resource and independent numerical qualification. Two controlled resident kernel series support the tile64 choice; cuBLAS remains faster. Whole-process measurements failed their stability controls and support no end-to-end speedup claim. Broader GPUs, older drivers and Windows CUDA remain unqualified. CUDA is not included in v0.99.1. See `native/cuda/README.md` for reproducible contributor commands.
 
 ## Linux implementation sequence
 
