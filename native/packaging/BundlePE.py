@@ -97,7 +97,7 @@ def bundle(prefix, llvm, cross_linkers=False):
     machine = package_machine(prefix)
     triplet = "arm64-windows-static" if machine == MACHINES["windows-arm64"] else "x64-windows-static"
     private = prefix / "libexec/kalandra"
-    private.mkdir(parents=True)
+    private.mkdir(parents=True, exist_ok=True)
     resources = Path(run(llvm / "bin/clang++.exe", "-print-resource-dir").strip()).resolve()
     if not resources.is_relative_to(llvm):
         raise RuntimeError("Clang resources escape verified SDK")
