@@ -686,3 +686,15 @@ on both backends; adding them is not needed to match current Metal support.
 Current committed loader/matrix head 6fe71632 passes all three hosted Vulkan jobs,
 including production-pinned source compilation. Broader CPU/platform workflows
 are still queued/running and must be audited at the eventual current head.
+
+Post-product source control and higher-rank acceptance also pass: twenty matrix
+control programs across all ten types, plus 54 rank-3..8 programs, both physical
+GPUs at workers 1/2/4 (444 executions). These retain the shared Metal source
+fixtures and exact selected-output/shape-fault oracles; Metal defaults are unchanged.
+
+The first production package run (41282620845) compiled/staged the installed
+component, then failed because the ELF bundler assumed libexec/kalandra did not
+already exist. The GPU component legitimately creates that directory for its
+owned tools. The bundler now reuses it; the rejected log is retained. No archive
+or installed-distribution qualification is claimed from that failed run. The
+install-relative driver additionally respects explicit GNUInstallDirs tool paths.

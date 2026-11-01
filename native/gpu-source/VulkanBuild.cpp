@@ -28,7 +28,7 @@ std::filesystem::path resourceRoot() {
 std::string tool(const char *configured, const char *name) {
 #ifdef KALANDRA_INSTALLED_COMPILER
   (void)configured;
-  auto path = (resourceRoot() / "../../../libexec/kalandra" / name).lexically_normal();
+  auto path = (resourceRoot() / KALANDRA_VULKAN_TOOLS_RELATIVE / name).lexically_normal();
   if (!std::filesystem::is_regular_file(path))
     throw std::runtime_error("bundled Vulkan tool is missing: " + path.string());
   return path.string();

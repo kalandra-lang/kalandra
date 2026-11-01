@@ -123,7 +123,7 @@ def bundle(prefix, llvm, cross_linkers=False):
     shutil.copy2(Path(__file__).resolve().parents[1] / "third-party/LLVM-23.1.3-LICENSE.txt", licenses / "LLVM-LICENSE.txt")
     clang = (llvm / "bin/clang++").resolve()
     destination = prefix / "libexec/kalandra/clang++"
-    destination.parent.mkdir(parents=True)
+    destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(clang, destination)
     resources = Path(run(clang, "-print-resource-dir").strip()).resolve()
     if not resources.is_relative_to(llvm):

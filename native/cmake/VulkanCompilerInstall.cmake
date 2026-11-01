@@ -7,8 +7,10 @@ add_executable(kalandra-vulkan-installed tools/compile.cpp gpu-source/VulkanBuil
 set_target_properties(kalandra-vulkan-installed PROPERTIES OUTPUT_NAME kalandra
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/vulkan-install-bin")
 get_target_property(_cpu_definitions kalandra-installed COMPILE_DEFINITIONS)
+file(RELATIVE_PATH _vulkan_tools_relative
+  "${CMAKE_INSTALL_FULL_LIBDIR}/kalandra/native" "${CMAKE_INSTALL_FULL_LIBEXECDIR}/kalandra")
 target_compile_definitions(kalandra-vulkan-installed PRIVATE ${_cpu_definitions}
-  KALANDRA_HAS_VULKAN_SOURCE=1)
+  KALANDRA_HAS_VULKAN_SOURCE=1 KALANDRA_VULKAN_TOOLS_RELATIVE="${_vulkan_tools_relative}")
 target_include_directories(kalandra-vulkan-installed SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_include_directories(kalandra-vulkan-installed PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gpu-source/$<CONFIG>"
   "${CMAKE_CURRENT_SOURCE_DIR}/vulkan")
