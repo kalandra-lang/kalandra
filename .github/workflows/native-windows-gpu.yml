@@ -9,6 +9,34 @@ on:
 permissions:
   contents: read
 jobs:
+  device-resources:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Provision isolated device compiler inputs
+        run: |
+          python3 .github/scripts/provision_cuda_build.py
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libvulkan-dev glslc spirv-tools
+      - name: Build portable bytecode from the exact source revision
+        run: >-
+          cmake -S native/gpu-runtime/qualification/resources -B build/device-resources -G Ninja
+          -DCMAKE_BUILD_TYPE=Release -DKALANDRA_CUDA_HEADERS="$KALANDRA_CUDA_HEADERS"
+          -DKALANDRA_CUDA_NVRTC="$KALANDRA_CUDA_NVRTC"
+          -DKALANDRA_CUDA_CRT_HEADERS="$KALANDRA_CUDA_CRT_HEADERS"
+          -DKALANDRA_CUDA_CCCL_HEADERS="$KALANDRA_CUDA_CCCL_HEADERS"
+      - run: cmake --build build/device-resources --target portable-gpu-resources --parallel 2
+      - run: python3 native/gpu-runtime/qualification/portable_resources.py --export build/device-resources --directory build/portable-bytecode
+      - uses: actions/upload-artifact@v4
+        with:
+          name: same-source-device-bytecode
+          path: build/portable-bytecode
+          if-no-files-found: error
+          retention-days: 7
   runtime:
     name: Windows GPU runtime admission (${{ matrix.arch }})
     strategy:
@@ -59,3 +87,88 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       # Build/admission evidence only. No physical GPU or performance claim.
+
+  compiler-package:
+    name: Windows GPU compiler packages (${{ matrix.arch }})
+    needs: device-resources
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            msvc: x64
+          - runner: windows-11-arm
+            arch: arm64
+            msvc: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc }}
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kalandra-llvm/installation
+          key: native-llvm-mlir-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('native/toolchain-proof/toolchain.json') }}-v2
+      - run: python .github/scripts/provision_native_platform.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: same-source-device-bytecode
+          path: build/portable-bytecode
+      - name: Verify portable resources and provision native build declarations
+        run: |
+          python native/gpu-runtime/qualification/portable_resources.py --directory build/portable-bytecode
+          if ($LASTEXITCODE -ne 0) { throw 'Device source provenance failed' }
+          python native/vulkan/qualification/provision_headers.py --directory "$env:RUNNER_TEMP/compiler-vulkan-headers"
+          if ($LASTEXITCODE -ne 0) { throw 'Vulkan headers failed' }
+          python native/cuda-source/qualification/provision_headers.py --output "$env:RUNNER_TEMP/compiler-cuda-headers"
+          if ($LASTEXITCODE -ne 0) { throw 'CUDA headers failed' }
+          python native/gpu-runtime/qualification/provision_validator.py --directory "$env:RUNNER_TEMP/native-spirv-validator" --arch ${{ matrix.arch }}
+          if ($LASTEXITCODE -ne 0) { throw 'Native validator build failed' }
+      - name: Configure both native source backends
+        run: >-
+          cmake -S . -B build/windows-gpu -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=OFF -DCMAKE_INSTALL_LIBDIR=lib
+          -DKALANDRA_LLVM_ROOT="$env:KALANDRA_LLVM_ROOT"
+          -DKALANDRA_BUILD_CUDA_SOURCE=ON -DKALANDRA_BUILD_CUDA_RUNTIME=ON
+          -DKALANDRA_BUILD_VULKAN_RUNTIME=ON
+          -DKALANDRA_GPU_PREBUILT_RESOURCES="${{ github.workspace }}/build/portable-bytecode"
+          -DKALANDRA_CUDA_HEADERS="$env:RUNNER_TEMP/compiler-cuda-headers"
+          -DVulkan_INCLUDE_DIRS="$env:KALANDRA_VULKAN_HEADERS_ROOT/include"
+          -DKALANDRA_SPIRV_VAL="$env:KALANDRA_SPIRV_VAL"
+          -DKALANDRA_VULKAN_SPIRV_NOTICE="$env:KALANDRA_VULKAN_SPIRV_NOTICE"
+          -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
+      - name: Build both standalone compiler archives
+        run: cmake --build build/windows-gpu --parallel 2 --target kalandra native-cuda-standalone-package native-vulkan-standalone-package
+      - name: Qualify relocated Windows packages
+        run: |
+          foreach ($backend in @('cuda', 'vulkan')) {
+            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --archive "build/windows-gpu/native-$backend-standalone/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/installed-$backend" --arch ${{ matrix.arch }}
+            if ($LASTEXITCODE -ne 0) { throw "$backend installed package failed" }
+          }
+      - name: Verify frozen archive reproducibility
+        run: |
+          foreach ($backend in @('cuda', 'vulkan')) {
+            $archive = Get-Item "build/windows-gpu/native-$backend-standalone/*.tar.gz"
+            $before = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
+            cmake --build build/windows-gpu --parallel 2 --target "native-$backend-standalone-package"
+            if ($LASTEXITCODE -ne 0) { throw "$backend repeat package failed" }
+            if ((Get-FileHash $archive.FullName -Algorithm SHA256).Hash -ne $before) { throw "$backend archive is not reproducible" }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows-gpu-packages-${{ matrix.arch }}
+          path: |
+            build/windows-gpu/native-cuda-standalone/*.tar.gz*
+            build/windows-gpu/native-vulkan-standalone/*.tar.gz*
+            build/installed-*/qualification.json
+          if-no-files-found: error
+          retention-days: 7
