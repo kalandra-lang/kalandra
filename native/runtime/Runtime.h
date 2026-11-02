@@ -114,6 +114,7 @@ public:
   bool retainRecursiveGraph(const AllocationLease &root, const void *key, std::uint64_t bytes,
                             std::uint64_t alignment) noexcept;
   bool retainFrom(const Invocation &source, void *buffer) noexcept;
+  bool holdArrayReference(void *buffer) noexcept;
   void release(void *buffer) noexcept;
   // Requires exclusive source-context access, like retainFrom. Reject unknown,
   // faulted or settled contexts before acquiring a backing reference.
@@ -388,3 +389,10 @@ extern "C" bool kalandra_invocation_ready_v1(kalandra::runtime::Invocation *) no
 extern "C" const void *kalandra_recursive_environment_transfer_v1(
     kalandra::runtime::Invocation *, const kalandra::runtime::Invocation *, const void *environment,
     std::uint64_t bytes, std::uint64_t alignment, const void *code) noexcept;
+
+// Private host-buffer normalization for reference arrays; not a public FFI.
+extern "C" bool kalandra_array_hold_v1(kalandra::runtime::Invocation *, void *buffer) noexcept;
+extern "C" void kalandra_array_import_v1(kalandra::runtime::Invocation *, void *output,
+                                         const void *input, std::uint64_t element) noexcept;
+extern "C" void kalandra_array_validate_v1(kalandra::runtime::Invocation *, const void *input,
+                                           std::uint64_t element) noexcept;

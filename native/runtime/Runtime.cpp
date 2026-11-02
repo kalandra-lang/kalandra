@@ -131,6 +131,7 @@ struct Owner {
   Backing *backing;
   bool embedded;
   bool recursiveCharged = false;
+  bool arrayEscape = false; // Invocation-local ownership, never a shared backing flag.
 };
 struct alignas(std::max_align_t) Backing {
   std::atomic<std::uint64_t> references{1};
@@ -615,10 +616,16 @@ void Invocation::releaseRecords() noexcept {
   auto *owner = ledgerState.head_;
   while (owner) {
     auto *next = owner->next;
-    if (owner->backing->record)
+    if (owner->backing->record || owner->arrayEscape)
       remove(owner);
     owner = next;
   }
+}
+bool Invocation::holdArrayReference(void *buffer) noexcept {
+  if (!retainFrom(*this, buffer))
+    return false;
+  ledger().head_->arrayEscape = true;
+  return true;
 }
 bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
   auto &ledgerState = ledger();
@@ -781,8 +788,15 @@ bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *k
 void Invocation::release(void *buffer) noexcept {
   auto &ledgerState = ledger();
   auto *owner = ledgerState.head_;
-  while (owner && owner->backing + 1 != buffer)
+  Owner *escaped = nullptr;
+  while (owner && (owner->backing + 1 != buffer || owner->arrayEscape))
+  {
+    if (owner->backing + 1 == buffer)
+      escaped = owner;
     owner = owner->next;
+  }
+  if (!owner)
+    owner = escaped; // An explicit host release may retire an escaped result.
   if (!owner) {
     fault(3);
     return;
@@ -1482,4 +1496,94 @@ kalandra_recursive_environment_transfer_v1(kalandra::runtime::Invocation *destin
     return nullptr;
   }
   return destination->retainRecursiveEnvironment(*source, environment, bytes, alignment, code);
+}
+
+// Private host adapter. Source arrays already carry managed storage and preserve
+// identity. Trusted unmanaged test/embedding buffers are imported once into
+// managed storage before source code can capture or return their descriptors.
+extern "C" bool kalandra_array_hold_v1(kalandra::runtime::Invocation *context,
+                                        void *buffer) noexcept {
+  return context->holdArrayReference(buffer);
+}
+static void importArrayReference(kalandra::runtime::Invocation *context,
+                                 void *output, const void *input,
+                                 std::uint64_t element, bool allowForeign) noexcept {
+  using namespace kalandra;
+  struct Descriptor {
+    void *allocated, *aligned;
+    std::int64_t offset, count, stride;
+  };
+  Descriptor source{}, result{};
+  if (!output)
+    return context->fault(3);
+  if (input && !context->poll())
+    std::memcpy(&source, input, sizeof(source));
+  std::memcpy(output, &result, sizeof(result));
+  if (context->poll())
+    return;
+  if (!input || element > static_cast<unsigned>(NumericType::Float64))
+    return context->fault(3);
+  const auto width = describeNumeric(static_cast<NumericType>(element))->bytes();
+  if (source.count < 0)
+    return context->fault(allowForeign ? 1 : 3);
+  if (static_cast<std::uint64_t>(source.count) > INT64_MAX / width)
+    return context->fault(allowForeign ? 2 : 3);
+  if (!source.count)
+    return;
+  const auto address = [&](std::int64_t index, std::uintptr_t &result) {
+    std::int64_t delta, position;
+    if (__builtin_mul_overflow(index, source.stride, &delta) ||
+        __builtin_add_overflow(source.offset, delta, &position))
+      return false;
+    const auto magnitude = position < 0 ? std::uint64_t(-(position + 1)) + 1
+                                        : std::uint64_t(position);
+    if (magnitude > UINTPTR_MAX / width)
+      return false;
+    const auto bytes = magnitude * width;
+    const auto base = reinterpret_cast<std::uintptr_t>(source.aligned);
+    if (!base || base % width || (position < 0 ? bytes > base : bytes > UINTPTR_MAX - base))
+      return false;
+    result = position < 0 ? base - bytes : base + bytes;
+    return result <= UINTPTR_MAX - width;
+  };
+  std::uintptr_t first, last;
+  if (!address(0, first) || !address(source.count - 1, last))
+    return context->fault(3);
+  if (auto lease = context->lease(source.allocated)) {
+    const auto base = reinterpret_cast<std::uintptr_t>(source.allocated);
+    const auto low = std::min(first, last), high = std::max(first, last);
+    if (low < base || high - base > lease->bytes().size() ||
+        width > lease->bytes().size() - (high - base))
+      return context->fault(3);
+    std::memcpy(output, &source, sizeof(source));
+    return;
+  }
+  if (!allowForeign)
+    return context->fault(3);
+  auto *data = static_cast<std::byte *>(context->allocate(source.count * width));
+  if (!data)
+    return;
+  for (std::int64_t i = 0; i < source.count; ++i) {
+    if (i % 256 == 0 && context->poll())
+      return;
+    std::uintptr_t cell;
+    if (!address(i, cell))
+      return context->fault(3);
+    std::memcpy(data + i * width, reinterpret_cast<const void *>(cell), width);
+  }
+  if (context->poll())
+    return;
+  result = {data, data, 0, source.count, 1};
+  std::memcpy(output, &result, sizeof(result));
+}
+
+extern "C" void kalandra_array_import_v1(kalandra::runtime::Invocation *context,
+                                         void *output, const void *input,
+                                         std::uint64_t element) noexcept {
+  importArrayReference(context, output, input, element, true);
+}
+extern "C" void kalandra_array_validate_v1(kalandra::runtime::Invocation *context,
+                                           const void *input, std::uint64_t element) noexcept {
+  alignas(std::max_align_t) std::byte ignored[2 * sizeof(void *) + 3 * sizeof(std::int64_t)];
+  importArrayReference(context, ignored, input, element, false);
 }

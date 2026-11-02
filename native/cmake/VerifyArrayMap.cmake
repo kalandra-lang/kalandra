@@ -57,7 +57,7 @@ foreach(PAIR IN ITEMS "float64-float32" "float64-uint64" "int64-float64" "float3
   list(GET IDENTITIES ${SOURCE_INDEX} SOURCE_ID)
   list(GET IDENTITIES ${DESTINATION_INDEX} DESTINATION_ID)
   COMPILE("convert-${PAIR}" "fn convert(value:${SOURCE_TYPE})->${DESTINATION_TYPE}:\n  ${DESTINATION_TYPE}(value)\nfn mapped(input:[${SOURCE_TYPE}]):\n  map(input,convert)\nfn main()->int64:\n  0\n" --test-entry mapped)
-  RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} -DTENSOR_RANK=1 "-DSOURCE_TYPE=${SOURCE_ID}" "-DDESTINATION_TYPE=${DESTINATION_ID}" -isystem "${LLVM_ROOT}/include"
+  RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} -DKALANDRA_ARRAY_RESULT -DTENSOR_RANK=1 "-DSOURCE_TYPE=${SOURCE_ID}" "-DDESTINATION_TYPE=${DESTINATION_ID}" -isystem "${LLVM_ROOT}/include"
     "${SOURCE_DIR}/tests/TensorConversionRuntimeTests.cpp" "${OUTPUT_DIR}/convert-${PAIR}.ll" "${RUNTIME}" "-L${LLVM_ROOT}/lib" "-Wl,-rpath,${LLVM_ROOT}/lib" -lLLVM -o "${OUTPUT_DIR}/convert-${PAIR}-harness")
   RUN_OK("${OUTPUT_DIR}/convert-${PAIR}-harness")
 endforeach()

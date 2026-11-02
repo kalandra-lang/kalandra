@@ -16,7 +16,8 @@ struct Extent {
 enum class BuiltinValue { Numeric, TaskError, FaultKind, String, Device, Bool, Record, Function };
 struct FunctionSignature;
 struct ValueType {
-  // Ranked immutable storage; arrays use rank one with a separate source category.
+  // Ranked collection storage. Tensors have value semantics; rank-one arrays
+  // have a separate source category and preserve their backing identity.
   bool tensor = false;
   std::vector<Extent> shape;
   bool task = false, fallible = false;
@@ -181,7 +182,7 @@ struct FunctionCall {
   FunctionId function;
   std::vector<ValueId> arguments;
 };
-// Explicit immutable flat-array to CPU tensor construction.
+// Copy a flat source array into immutable CPU tensor storage.
 struct ArrayToTensor {
   ValueId input;
   std::optional<std::vector<ValueId>> dimensions =
@@ -193,7 +194,7 @@ struct TensorReshape {
 };
 struct TensorToArray {
   ValueId input;
-}; // Flatten logical row-major elements into an immutable numeric array.
+}; // Copy logical row-major tensor elements into a fresh numeric array.
 struct ArrayConcat {
   ValueId left, right;
 };

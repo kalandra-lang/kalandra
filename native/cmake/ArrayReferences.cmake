@@ -1,0 +1,28 @@
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    if(VARIANT STREQUAL "sanitized")
+      set(REFERENCE_RUNTIME kalandra-native-runtime-sanitized)
+      set(REFERENCE_FLAGS -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all)
+    elseif(VARIANT STREQUAL "thread-sanitized")
+      set(REFERENCE_RUNTIME kalandra-native-runtime-thread-sanitized)
+      set(REFERENCE_FLAGS -O1 -g -fsanitize=thread)
+    elseif(VARIANT STREQUAL "optimized")
+      set(REFERENCE_RUNTIME kalandra-native-runtime)
+      set(REFERENCE_FLAGS -O2)
+    else()
+      set(REFERENCE_RUNTIME kalandra-native-runtime)
+      set(REFERENCE_FLAGS -O0)
+    endif()
+    add_executable(kalandra-array-reference-storage-${VARIANT} tests/ArrayReferenceStorageTests.cpp)
+    target_compile_options(kalandra-array-reference-storage-${VARIANT} PRIVATE -Wall -Wextra -Werror ${REFERENCE_FLAGS})
+    target_link_options(kalandra-array-reference-storage-${VARIANT} PRIVATE ${REFERENCE_FLAGS})
+    target_link_libraries(kalandra-array-reference-storage-${VARIANT} PRIVATE ${REFERENCE_RUNTIME})
+    add_test(NAME native-array-reference-storage-${VARIANT} COMMAND kalandra-array-reference-storage-${VARIANT})
+    add_test(NAME native-array-references-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+        "-DRUNTIME=$<TARGET_FILE:${REFERENCE_RUNTIME}>" "-DVARIANT=${VARIANT}" "-DLLVM_ROOT=${KALANDRA_LLVM_ROOT}"
+        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/array-references-${VARIANT}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyArrayReferences.cmake")
+    set_tests_properties(native-array-references-${VARIANT} PROPERTIES TIMEOUT 900)
+  endforeach()
+endif()

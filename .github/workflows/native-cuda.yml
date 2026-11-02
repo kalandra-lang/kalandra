@@ -92,7 +92,7 @@ jobs:
     if: github.event_name == 'pull_request'
     needs: compiler-package
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -109,7 +109,9 @@ jobs:
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         with:
           script: |
-            for (let attempt = 0; attempt < 100; attempt++) {
+            // Producer workflows may queue and then build all five host runtimes.
+            // Keep this wait within the job budget, including package checks.
+            for (let attempt = 0; attempt < 300; attempt++) {
               const runs = await github.rest.actions.listWorkflowRuns({
                 ...context.repo, workflow_id: 'native-cross-os.yml',
                 head_sha: process.env.SOURCE_SHA, per_page: 20,

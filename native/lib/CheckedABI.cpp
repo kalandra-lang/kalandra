@@ -403,11 +403,20 @@ std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool fu
       } else if (target->getName() == "_mlir_memref_to_llvm_free") {
         callee = release;
         arguments.insert(arguments.begin(), invocation);
+      } else if (target->getName().starts_with("kalandra_array_hold_")) {
+        // Retain one invocation owner before an array descriptor escapes the
+        // memref ownership graph. The ordinary deallocation removes one owner;
+        // the escaped reference remains valid until invocation settlement.
+        callee = module.getOrInsertFunction("kalandra_array_hold_v1",
+            FunctionType::get(builder.getInt1Ty(), {pointer, pointer}, false));
+        arguments = {invocation, arguments.at(0)};
       } else if (target->getName() == "kalandra_fault") {
         callee = fault;
         arguments.insert(arguments.begin(), invocation);
         alwaysFail = true;
-      } else if (target->getName() == "kalandra_record_alloc" ||
+      } else if (target->getName() == "kalandra_array_import" ||
+                 target->getName() == "kalandra_array_validate" ||
+                 target->getName() == "kalandra_record_alloc" ||
                  target->getName() == "kalandra_recursive_make" ||
                  target->getName() == "kalandra_recursive_read" ||
                  target->getName() == "kalandra_recursive_transfer" ||
