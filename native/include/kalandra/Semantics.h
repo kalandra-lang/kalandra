@@ -38,6 +38,10 @@ struct ValueType {
 struct FunctionSignature {
   std::vector<ValueType> parameters;
   ValueType result;
+  std::vector<bool> mutableParameters = {};
+  [[nodiscard]] bool mutates(std::size_t index) const {
+    return index < mutableParameters.size() && mutableParameters[index];
+  }
 };
 // Whole-module may-call information, indexed by expression ID. Unknown sources
 // remain explicit even when compatible known targets are also present.
@@ -101,6 +105,9 @@ struct Symbol {
   std::optional<SourceSpan> definition = {};
   // Private invocation-local scalar cell; never a reference passed to a callee.
   bool reassignable = false;
+  // Access to caller-owned array backing, independent of rebinding this name.
+  // Lifted captures always keep the default read-only contract.
+  bool mutableAccess = false;
 };
 struct Int32Literal {
   std::int32_t value;

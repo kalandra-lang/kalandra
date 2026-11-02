@@ -17,7 +17,7 @@ fn main() -> int:
 
 A function type records parameter types, result type and any expected-error channel. A function-valued binding can be passed, returned or invoked with ordinary call syntax.
 
-h2 { "Capture an immutable value" }
+h2 { "Capture a value" }
 
 codeblock { language = kalandra, """fn makeAdder(offset: int) -> fn(int) -> int:
   fn(value: int): value + offset
@@ -27,7 +27,24 @@ fn main() -> int:
   addTen(32)
 """ }
 
-The returned closure retains its captured environment after makeAdder returns. Captures are immutable values, not references to mutable local variables. Anonymous bodies may also use an indented suite with local bindings. In the unreleased language branch, rebinding a captured scalar changes only the current call's private copy. It does not update the captured environment, a later call, or the caller's binding.
+The returned closure retains its captured environment after makeAdder returns. Scalar captures are value snapshots. Anonymous bodies may also use an indented suite with local bindings. In the unreleased language branch, rebinding a captured scalar changes only the current call's private copy. It does not update the captured environment, a later call, or the caller's binding. Array captures in that branch are read-only aliases to retained backing storage.
+
+h2 { "Array access contracts" }
+
+Unreleased language branch: ordinary array parameters and all array captures provide read access. A mut parameter requests permission to write caller-owned flat numeric or Bool array storage. This permission is separate from rebinding a local name. The contract also appears in function types and cannot be erased by assigning the function to another binding or aggregate field.
+
+codeblock { language = kalandra, """fn writableIdentity(mut values: [int]) -> [int]:
+  values
+
+fn main() -> int:
+  values = [1, 2, 3]
+  forward: fn(mut [int]) -> [int] = writableIdentity
+  length(forward(values))
+""" }
+
+A fresh local array or an independent copy can satisfy a mut contract. An ordinary parameter or captured array cannot acquire write permission merely through a local alias, a function return or an indirect call. Use copy when a function needs independent writable storage.
+
+Tasks receive parent-provided arrays read-only. A spawned call cannot request mut access to those arrays; it can create and edit its own private storage. While any unfinished task may read an array, mutating calls through every alias are rejected. Await every relevant reader before writing. Awaiting only one of several readers, awaiting in only one conditional branch, or awaiting inside a loop that may run zero times does not establish unconditional settlement. When two parameters might alias, the checker preserves the same protection.
 
 h2 { "Callbacks and execution" }
 

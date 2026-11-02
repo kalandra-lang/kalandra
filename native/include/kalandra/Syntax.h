@@ -121,6 +121,7 @@ struct FunctionTypeSyntax {
   TypeSyntax result;
   // Errors of this callable's invocation, not errors constructing a returned callable.
   std::vector<SourceSpan> errorTypes;
+  std::vector<bool> mutableParameters = {};
 };
 using ExprId = std::size_t;
 struct NameExpr {
@@ -176,6 +177,7 @@ struct Statement;
 struct LambdaParameter {
   SourceSpan name;
   std::optional<TypeSyntax> annotation;
+  bool mutableAccess = false;
 };
 struct LambdaExpr {
   std::vector<LambdaParameter> parameters;
@@ -243,6 +245,7 @@ struct Statement {
 struct Parameter {
   SourceSpan name;
   TypeSyntax type;
+  bool mutableAccess = false;
 };
 struct Function {
   SourceSpan span;

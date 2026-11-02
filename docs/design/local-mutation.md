@@ -89,9 +89,11 @@ Rebinding a name does not grant write access to read-only storage.
    returned arrays or reuse functional results; inserting writes into it would
    violate the intended aliases. Verify identity returns, fresh transforms,
    allocation ownership and every CPU/task ABI boundary before exposing mutation.
-4. Implement explicit mutating contracts and path-sensitive storage/read-access
-   analysis. Branches conservatively retain possible outstanding readers; loops
-   account for zero iterations and require iteration-owned tasks to settle.
+4. Explicit mutating contracts and the storage/read-access proof are implemented
+   in the working branch and undergoing qualification. Branches conservatively
+   retain possible outstanding readers; loops account for zero iterations and
+   require iteration-owned tasks to settle. Element writes remain gated on the
+   next stage.
 5. Add bounds-checked writes and sorting, with documented supported element
    types, copy depth, float ordering and cancellation behavior. In-place mutation
    need not be transactional, but must remain memory-safe on every exit.
@@ -155,7 +157,7 @@ remain available. No nested copy-depth policy is implied by this migration.
 
 ## Access analysis for the next stage
 
-The planned spelling is `fn edit(mut values:[int])->int`, with the corresponding
+The spelling is `fn edit(mut values:[int])->int`, with the corresponding
 function type `fn(mut [int])->int`. The marker describes access to the array's
 backing, not assignment to the parameter's local name. Ordinary parameters and
 all captures remain read-only access paths. A mutating contract must survive
@@ -181,12 +183,18 @@ remove that task's reader, while a cancellation request cannot. Structured group
 settlement removes its own readers only. Summaries and control-flow joins must be
 bounded, and uncertainty must yield a diagnostic rather than a weakened rule.
 
-These rules require negative tests through ordinary aliases, captures, returned
+These rules are tested through ordinary aliases, captures, returned
 arrays, aggregate fields, indirect calls, multiple readers, conditional awaits,
 zero-iteration loops and cancellation. Positive tests must include independent
 copies, private task allocations and writes after all relevant readers settle.
-This section specifies the access proof to implement; the representation migration
-above does not enable writes by itself.
+Direct-call summaries preserve returned parameter aliases and fresh backing.
+Proven indirect targets use the same summaries. Unknown indirect returned-array
+origins and aggregate field projections are conservative:
+the checker may require an explicit copy when it cannot prove writable storage.
+Different incoming parameters can alias; synchronous calls do not require blanket
+uniqueness, but a task reading one can protect another potentially aliased parameter.
+The bounded analysis reports uncertainty/exhaustion rather than granting access.
+The representation and access proof do not enable element writes by themselves.
 
 ## Compatibility
 

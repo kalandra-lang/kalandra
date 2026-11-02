@@ -72,6 +72,60 @@ void positive() {
 #endif
   }
 }
+void mutationContracts() {
+  const std::string declarations = "fn inspect(mut values:[int])->int:\n  length(values)\n"
+                                   "fn read(values:[int])->int:\n  length(values)\n";
+  for (const auto *body : {
+           "fn main()->int:\n  f:fn(mut [int])->int=inspect\n  f([42])\n",
+           "fn main()->int:\n  f:fn(mut [int])->int=fn(mut values):length(values)\n  f([42])\n",
+           "fn factory()->fn(mut [int])->int:\n  inspect\nfn main()->int:\n  factory()([42])\n",
+           "type Editor:\n  edit:fn(mut [int])->int\nfn main()->int:\n  "
+           "editor=Editor {edit:inspect}\n  editor.edit([42])\n",
+           "fn main()->int:\n  callbacks:[fn(mut [int])->int]=[inspect]\n  callbacks[0]([42])\n",
+           "fn capture(mut values:[int])->fn()->int:\n  fn():length(values)\n"
+           "fn main()->int:\n  capture([42])()\n",
+           "fn flags(mut values:[Bool])->int:\n  length(values)\n"
+           "fn main()->int:\n  flags([true])\n",
+       }) {
+    auto checked = analyze(declarations + body);
+    require(checked.ok(), "valid mutating array contract rejected");
+    require(!functionValueCapabilityError(*checked.module, NumericTarget::Cpu),
+            "valid mutating function metadata rejected");
+    for (const auto &function : checked.module->functions)
+      for (std::size_t i = function.parameters.size() - function.captureCount;
+           i < function.parameters.size(); ++i)
+        require(!checked.module->symbols[function.parameters[i]].mutableAccess,
+                "capture inherited caller write permission");
+  }
+  for (const auto *body : {
+           "fn main()->int:\n  f:fn([int])->int=inspect\n  0\n",
+           "fn main()->int:\n  f:fn(mut [int])->int=read\n  0\n",
+           "fn main()->int:\n  callbacks=[inspect,read]\n  0\n",
+           "fn main()->int:\n  f:fn(mut [int])->int=fn(values):length(values)\n  0\n",
+           "fn bad(mut value:int)->int:\n  value\nfn main()->int:\n  0\n",
+           "fn bad(mut value:[String])->int:\n  length(value)\nfn main()->int:\n  0\n",
+           "fn bad(mut value:Tensor[int,2])->int:\n  0\nfn main()->int:\n  0\n",
+           "fn main()->int:\n  f:fn(mut int)->int=read\n  0\n",
+           "fn main()->int:\n  f:fn(mut [String])->int=read\n  0\n",
+       })
+    require(!analyze(declarations + body).ok(),
+            "mut contract erased or unsupported storage admitted");
+
+  auto checked = analyze(declarations + "fn main()->int:\n  f=inspect\n  0\n");
+  require(checked.ok(), "mut signature forgery fixture rejected");
+  bool forged = false;
+  for (auto &expression : checked.module->expressions)
+    if (std::holds_alternative<FunctionReference>(expression.operation) &&
+        expression.type.callable && expression.type.callable->mutates(0)) {
+      auto signature = std::make_shared<FunctionSignature>(*expression.type.callable);
+      signature->mutableParameters.clear();
+      expression.type.callable = std::move(signature);
+      forged = true;
+      break;
+    }
+  require(forged && functionValueCapabilityError(*checked.module, NumericTarget::Cpu).has_value(),
+          "forged reference erased target mutation contract");
+}
 void negative() {
   for (const auto *body :
        {"fn main()->int:\n  f:fn(float)->float=double\n  0\n",
@@ -202,6 +256,7 @@ void collectionShapes() {
 int main() {
   try {
     positive();
+    mutationContracts();
     negative();
     forged();
     collectionShapes();

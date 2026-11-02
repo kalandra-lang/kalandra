@@ -31,7 +31,7 @@ bool spaced(const SourceFile &source, const Token &left, const Token &right,
       const auto word = source.slice(left.span);
       return word == "while" || word == "if" || word == "match" || word == "not" ||
              word == "fail" || word == "try" || word == "await" || word == "spawn" ||
-             word == "and" || word == "or" || word == "on";
+             word == "and" || word == "or" || word == "on" || word == "mut";
     }
     if (a == TokenKind::Number || a == TokenKind::String || closing(a))
       return false;

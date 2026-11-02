@@ -46,6 +46,15 @@ int main() {
                    "fn main():\n  0\n");
     require(result && result->parameters == std::vector<std::string>{"int64", "int64"},
             "function parameter signature");
+    result = query("fn inspect(mut values:[int])->int:\n  length(values)\n"
+                   "fn main():\n  inspect(|[1])\n");
+    require(result && result->label == "fn inspect(mut values: [int64]) -> int64" &&
+                result->parameters == std::vector<std::string>{"mut values: [int64]"},
+            "named signature lost mutating access contract");
+    result = query("fn inspect(mut values:[int])->int:\n  length(values)\n"
+                   "fn main():\n  f=inspect\n  f(|[1])\n");
+    require(result && result->label == "fn f(mut [int64]) -> int64",
+            "indirect signature lost mutating access contract");
     result = query("type Box:\n  callback:fn(int)->int\nfn double(n:int)->int:\n  n*2\n"
                    "fn main():\n  box=Box {callback:double}\n  box.callback(|2)\n");
     require(result && result->label == "fn callback(int64) -> int64", "function field signature");

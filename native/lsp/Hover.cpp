@@ -50,6 +50,8 @@ struct TypePrinter {
       for (std::size_t i = 0; i < value.callable->parameters.size(); ++i) {
         if (i)
           result += ", ";
+        if (value.callable->mutates(i))
+          result += "mut ";
         result += type(value.callable->parameters[i], depth + 1);
         if (!valid || result.size() > 16384) {
           valid = false;
@@ -104,7 +106,8 @@ struct TypePrinter {
       if (i)
         result += ", ";
       const auto &parameter = module.symbols[function.parameters[i]];
-      const auto label = parameter.name + ": " + type(parameter.type);
+      const auto label =
+          (parameter.mutableAccess ? "mut " : "") + parameter.name + ": " + type(parameter.type);
       result += label;
       if (parameters)
         parameters->push_back(label);
@@ -134,6 +137,8 @@ std::optional<SignatureInfo> callableSignature(const TypedModule &module, const 
     auto label = printer.type(parameter);
     if (!parameterNames.empty())
       label = parameterNames[result.parameters.size()] + ": " + label;
+    if (type.callable->mutates(result.parameters.size()))
+      label = "mut " + label;
     result.parameters.push_back(std::move(label));
     result.label += result.parameters.back();
     if (!printer.valid || result.label.size() > 16384)

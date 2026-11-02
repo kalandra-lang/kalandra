@@ -1,4 +1,5 @@
 #include "kalandra/Semantics.h"
+#include "ArrayAccess.h"
 #include "ErrorFamilies.h"
 #include "RecordLayout.h"
 #include "RecordStorage.h"
@@ -151,6 +152,9 @@ public:
       if (auto unsupported = numericCapabilityError(output_, NumericTarget::Cpu))
         error("S054", *unsupported,
               syntax_.functions.empty() ? SourceSpan{} : syntax_.functions[0].name);
+    if (!syntax_.editorOnly && diagnostics_.empty())
+      for (auto &diagnostic : arrayAccessDiagnostics(output_))
+        error(diagnostic.code, diagnostic.message, diagnostic.span);
     if (!diagnostics_.empty())
       return {syntax_.source, {}, std::move(diagnostics_)};
     recordImportOrigins();
@@ -362,7 +366,8 @@ private:
   }
   static bool reservedControl(const std::string &name) {
     return name == "true" || name == "false" || name == "while" || name == "if" || name == "else" ||
-           name == "and" || name == "or" || name == "not" || name == "type" || name == "with";
+           name == "and" || name == "or" || name == "not" || name == "type" || name == "with" ||
+           name == "mut";
   }
   void rememberSourceToken(ResolvedSourceToken token) {
     if (token.span.end > token.span.begin)
@@ -450,7 +455,8 @@ private:
         result->fallible = true;
         result->errorRecord = normalizedError(*family);
       }
-      auto callable = callableType(std::move(parameters), *result, syntax.span);
+      auto callable = callableType(std::move(parameters), *result, syntax.span,
+                                   syntax.function->mutableParameters);
       if (callable && syntax.array) {
         callable->tensor = callable->array = true;
         callable->shape = {dynamic()};
@@ -532,8 +538,17 @@ private:
       return {};
     return result;
   }
+  static bool mutableArrayType(const ValueType &value) {
+    return value.array && !value.task && !value.fallible && !value.device &&
+           (value.builtin == BuiltinValue::Numeric || value.builtin == BuiltinValue::Bool);
+  }
   std::optional<ValueType> callableType(std::vector<ValueType> parameters, ValueType result,
-                                        SourceSpan span) {
+                                        SourceSpan span, std::vector<bool> mutations = {}) {
+    for (std::size_t i = 0; i < mutations.size(); ++i)
+      if (mutations[i] && (i >= parameters.size() || !mutableArrayType(parameters[i]))) {
+        error("S076", "mut parameters require flat numeric or Bool array storage", span);
+        return {};
+      }
     const auto supported = [](const ValueType &value) {
       return !value.task && !value.fallible && !value.device &&
              value.builtin != BuiltinValue::Device;
@@ -554,7 +569,7 @@ private:
     ValueType value;
     value.builtin = BuiltinValue::Function;
     value.callable = std::make_shared<const FunctionSignature>(
-        FunctionSignature{std::move(parameters), std::move(result)});
+        FunctionSignature{std::move(parameters), std::move(result), std::move(mutations)});
     return value;
   }
   ValueType recordType(std::size_t id) const {
@@ -1000,9 +1015,15 @@ private:
           signatures_[id] = false;
           continue;
         }
+        if (parameter.mutableAccess && !mutableArrayType(*parameterType)) {
+          error("S076", "mut parameters require flat numeric or Bool array storage",
+                parameter.name);
+          signatures_[id] = false;
+        }
         target.parameters.push_back(output_.symbols.size());
         output_.symbols.push_back(
             {parameterName, std::move(*parameterType), parameter.name, id, true});
+        output_.symbols.back().mutableAccess = parameter.mutableAccess;
       }
       if (function.errorType &&
           !(function.errorTypes.size() <= 1 && name(*function.errorType) == "TaskError")) {
@@ -1909,7 +1930,12 @@ private:
                 parameter.name);
         return {};
       }
-      if (context && !sameFunctionValueType(*resolved, context->parameters[i])) {
+      if (parameter.mutableAccess && !mutableArrayType(*resolved)) {
+        error("S076", "mut parameters require flat numeric or Bool array storage", parameter.name);
+        return {};
+      }
+      if (context && (parameter.mutableAccess != context->mutates(i) ||
+                      !sameFunctionValueType(*resolved, context->parameters[i]))) {
         error("S060", "anonymous parameter differs from its expected function type",
               parameter.name);
         return {};
@@ -1959,6 +1985,7 @@ private:
       }
       auto symbol = output_.symbols.size();
       output_.symbols.push_back({label, parameters[i], lambda.parameters[i].name, id, true});
+      output_.symbols.back().mutableAccess = lambda.parameters[i].mutableAccess;
       output_.functions[id].parameters.push_back(symbol);
       nested.locals.emplace(label, symbol);
     }
@@ -1981,7 +2008,10 @@ private:
       error("S072", "anonymous function return channel does not cover every error family", span);
       return {};
     }
-    auto signature = callableType(parameters, declaredResult, span);
+    std::vector<bool> mutations;
+    for (const auto &parameter : lambda.parameters)
+      mutations.push_back(parameter.mutableAccess);
+    auto signature = callableType(parameters, declaredResult, span, std::move(mutations));
     if (!signature)
       return {};
     output_.functions[id].body = std::move(statements);
@@ -2029,10 +2059,14 @@ private:
         return {};
       const auto &target = output_.functions[id];
       std::vector<ValueType> parameters;
-      for (auto symbol : target.parameters)
+      std::vector<bool> mutations;
+      for (auto symbol : target.parameters) {
         parameters.push_back(output_.symbols[symbol].type);
-      auto signature = callableType(std::move(parameters),
-                                    target.declaredResult.value_or(target.resultType), span);
+        mutations.push_back(output_.symbols[symbol].mutableAccess);
+      }
+      auto signature =
+          callableType(std::move(parameters), target.declaredResult.value_or(target.resultType),
+                       span, std::move(mutations));
       if (!signature)
         return {};
       return add(frame, *signature, span, FunctionReference{id});
@@ -4671,6 +4705,7 @@ private:
         std::vector<std::string> names;
         for (const auto symbol : output_.functions[id].parameters) {
           signature.parameters.push_back(output_.symbols[symbol].type);
+          signature.mutableParameters.push_back(output_.symbols[symbol].mutableAccess);
           names.push_back(output_.symbols[symbol].name);
         }
         signature.result = output_.functions[id].resultType;

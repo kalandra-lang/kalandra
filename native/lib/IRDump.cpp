@@ -70,6 +70,8 @@ std::string describeType(const ValueType &type) {
     for (std::size_t i = 0; i < type.callable->parameters.size(); ++i) {
       if (i)
         signature += ", ";
+      if (type.callable->mutates(i))
+        signature += "mut ";
       signature += describeType(type.callable->parameters[i]);
     }
     auto result = type.callable->result;
@@ -930,6 +932,8 @@ std::string dumpTypedIR(const TypedModule &module) {
       if (i)
         out << ", ";
       const auto symbol = function.parameters[i];
+      if (module.symbols[symbol].mutableAccess)
+        out << "mut ";
       out << '$' << symbol << ' ' << module.symbols[symbol].name << ": "
           << describeType(module.symbols[symbol].type);
     }
