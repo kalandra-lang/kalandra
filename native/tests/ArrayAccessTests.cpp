@@ -18,6 +18,8 @@ int main() {
                                "fn identity(values:[int])->[int]:\n  values\n"
                                "fn box(values:[int])->Box:\n  Box {values:values}\n";
     for (const auto *source : {
+             "fn run(a:[int])->int:\n  a=sorted(a)\n  a[0]=9\n  a[0]\nfn main()->int:\n  run([1,2])\n",
+             "fn run(a:[int],flag:Bool)->int:\n  b=a\n  if flag:\n    b=copy(a)\n  else:\n    b=[2]\n  b[0]=3\n  b[0]\nfn main()->int:\n  run([1],true)\n",
              "fn main()->int:\n  a=[3,1,2]\n  b=sort(a)\n  b[0]\n",
              "fn run(a:[int])->[int]:\n  sorted(a)\nfn main()->int:\n  run([2,1])[0]\n",
              "fn main()->int ! TaskError:\n  a=[2,1]\n  try parallel:\n    t=spawn read(a)\n    "
@@ -60,6 +62,9 @@ int main() {
       }
     }
     for (const auto *source : {
+             "fn run(a:[int])->int:\n  b=[0]\n  i=0\n  while i<2:\n    b[0]=1\n    b=a\n    i=i+1\n  0\nfn main()->int:\n  0\n",
+             "fn run(a:[int],flag:Bool)->int:\n  b=[1]\n  if flag:\n    b=a\n  b[0]=3\n  b[0]\nfn main()->int:\n  0\n",
+             "fn run(a:[int])->int:\n  b=[1]\n  b=a\n  b[0]=9\n  0\nfn main()->int:\n  0\n",
              "fn run(a:[int])->[int]:\n  sort(a)\nfn main()->int:\n  0\n",
              "fn main()->int ! TaskError:\n  a=[2,1]\n  try parallel:\n    t=spawn read(a)\n    "
              "b=sort(a)\n    b[0]+try await t\n",

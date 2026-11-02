@@ -144,10 +144,32 @@ or payload read. This adapter is not a stable public foreign-function interface.
 The new private runtime helpers require matching development runtime bundles;
 this branch reports `0.99.3-dev`, separately from published `0.99.2`.
 
-Array binding reassignment remains gated on flow-sensitive ownership lowering.
-Element writes use the access analysis above. Reassigning array bindings must keep ownership visible through branch
-results and loop-carried state. Hiding descriptors in scalar cells and retaining
-on every read would accumulate owners instead of implementing proper liveness.
+Numeric array names now support replacement in synchronous, non-fallible CPU
+functions. Their lengths may change; their element identities remain fixed.
+Native branch/match results and while-loop arguments carry actual memrefs, rather
+than descriptors hidden in scalar cells. This lets ownership conversion reclaim
+discarded fresh buffers while keeping saved aliases alive. Every mutable-array
+read receives a fresh dynamic extent identity, preventing stale shape equality
+assumptions across replacements or backedges. The source access proof joins outer
+array origins through branches and solves a bounded loop fixed point, including
+the zero-iteration edge. A replacement can acquire fresh writable storage, but
+cannot launder a readonly parameter/capture into write permission.
+
+Proven closed function-value target sets can call their typed native entries for
+numeric-array results, preserving ownership information across functional calls.
+Arguments are evaluated once before dispatch; selected capture layouts are read
+and validated as for the existing callable ABI. Open/large target sets retain the
+existing generic callable ABI and its conservative escaped-result lifetime. This
+is an implementation choice, not a source call-count or recursion limit.
+
+Bool array name replacement and replacement across task/expected-error
+coordination remain gated. The older Bool carrier and generic continuation slots
+retain backing until invocation settlement. They need explicit lifetime work;
+merely copying descriptors into reusable slots would keep distinct discarded
+arrays alive. Existing cumulative invocation quota reservations remain unchanged,
+including after explicit frees. The numerical loop qualification measures actual
+live owners separately from those cumulative reservations. Mixed GPU source-array
+carriers remain a separate integration boundary.
 
 Flat numeric and Bool storage has no owned child references. String, record and
 function elements do: overwriting them after an alias crossed an invocation

@@ -8,16 +8,24 @@ namespace kalandra {
 // permission. A fresh functional result cannot expose its caller's input backing.
 // Unknown/cyclic flows remain borrowed. Capture, aggregate and indirect-call
 // descriptors are checked as roots as well as ordinary function results.
-inline std::vector<bool> managedNumericArrayInputFunctions(const TypedModule &module) {
-  // Reassignable array bindings will require flow-sensitive SSA origins. Do
-  // not infer freshness from their last written value when they are admitted.
-  for (const auto &symbol : module.symbols)
-    if (symbol.reassignable && symbol.type.array && symbol.type.builtin == BuiltinValue::Numeric)
-      return std::vector<bool>(module.functions.size(), true);
+// This threshold selects a native implementation, not a source call limit.
+inline bool typedNumericArrayInvocation(const TypedExpr &expression,
+                                        const FunctionInvocationFlow *flow, ValueId id) {
+  const auto &type = expression.type;
+  return flow && id < flow->targets.size() && id < flow->unknown.size() &&
+         !flow->unknown[id] && !flow->targets[id].empty() && flow->targets[id].size() <= 8 &&
+         type.array && type.tensor && type.shape.size() == 1 &&
+         type.builtin == BuiltinValue::Numeric && !type.task && !type.fallible && !type.device;
+}
+inline std::vector<bool> managedNumericArrayInputFunctions(
+    const TypedModule &module, const FunctionInvocationFlow *typedCalls = nullptr) {
+  // Mutable names remain unproven here: their final lexical initializer is
+  // not a flow-sensitive origin. Keep that uncertainty local, so unrelated
+  // rebinding cannot make a metadata-only host entry read/copy its payload.
   std::unordered_map<SymbolId, ValueId> bindings;
   const auto statements = [&](const auto &body) {
     for (const auto &statement : body)
-      if (statement.binding)
+      if (statement.binding && !module.symbols[*statement.binding].reassignable)
         bindings[*statement.binding] = statement.value;
   };
   for (const auto &function : module.functions)
@@ -137,10 +145,14 @@ inline std::vector<bool> managedNumericArrayInputFunctions(const TypedModule &mo
             if constexpr (std::is_same_v<T, FunctionReference>)
               for (auto value : operation.captures)
                 opaqueInput(value);
-            else if constexpr (std::is_same_v<T, FunctionInvoke>)
-              for (auto value : operation.arguments)
-                opaqueInput(value);
-            else if constexpr (std::is_same_v<T, RecordValue>)
+            else if constexpr (std::is_same_v<T, FunctionInvoke>) {
+              if (typedNumericArrayInvocation(module.expressions[id], typedCalls, id)) {
+                for (auto target : typedCalls->targets[id])
+                  calls(target);
+              } else
+                for (auto value : operation.arguments)
+                  opaqueInput(value);
+            } else if constexpr (std::is_same_v<T, RecordValue>)
               for (const auto &field : operation.fields)
                 opaqueInput(field.value);
             else if constexpr (std::is_same_v<T, FunctionCall>)

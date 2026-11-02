@@ -1087,17 +1087,31 @@ private:
       }
     }
   }
-  static bool localScalar(const ValueType &type) {
-    return !type.tensor && !type.array && !type.task && !type.fallible && !type.device &&
-           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+  static bool localBinding(const ValueType &type) {
+    return !type.task && !type.fallible && !type.device &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool) &&
+           ((!type.tensor && !type.array) ||
+            (type.tensor && type.array && type.shape.size() == 1 && type.builtin == BuiltinValue::Numeric));
+  }
+  ValueType bindingType(ValueType type) {
+    if (type.array)
+      type.shape = {dynamic()};
+    return type;
   }
   // Discover writes before checking any initializer/condition. A binding that
   // changes later must not supply a constant to checks on an earlier read.
   void prepareBindings(Frame &frame, const std::vector<Statement> &body) {
     auto written = std::make_shared<std::unordered_set<std::string>>();
     std::unordered_set<std::string> visible;
-    for (const auto &[label, symbol] : frame.locals)
-      visible.insert(label);
+    for (const Frame *scope = &frame; scope;) {
+      for (const auto &[label, symbol] : scope->locals)
+        visible.insert(label);
+      if (!scope->closure)
+        break;
+      for (const auto &[label, symbol] : scope->closure->captures)
+        visible.insert(label);
+      scope = scope->closure->parent;
+    }
     // Explicit scope events avoid recursive walks of long flat expression trees,
     // and avoid treating declarations in two sibling branches as reassignment.
     using Scope = std::shared_ptr<std::vector<std::string>>;
@@ -1193,8 +1207,10 @@ private:
     }
     frame.writtenNames = std::move(written);
     for (const auto &[label, symbol] : frame.locals)
-      if (frame.writtenNames->contains(label) && localScalar(output_.symbols[symbol].type))
+      if (frame.writtenNames->contains(label) && localBinding(output_.symbols[symbol].type)) {
         output_.symbols[symbol].reassignable = true;
+        output_.symbols[symbol].type = bindingType(output_.symbols[symbol].type);
+      }
   }
   bool mayReassign(const Frame &frame, const std::string &label) const {
     return frame.writtenNames && frame.writtenNames->contains(label);
@@ -1203,23 +1219,23 @@ private:
     const Frame *scope = &frame;
     while (scope) {
       if (auto found = scope->locals.find(label); found != scope->locals.end())
-        return localScalar(output_.symbols[found->second].type) ? std::optional(found->second)
+        return localBinding(output_.symbols[found->second].type) ? std::optional(found->second)
                                                                 : std::nullopt;
       if (!scope->closure)
         break;
       if (auto found = scope->closure->captures.find(label);
           found != scope->closure->captures.end())
-        return localScalar(output_.symbols[found->second].type) ? std::optional(found->second)
+        return localBinding(output_.symbols[found->second].type) ? std::optional(found->second)
                                                                 : std::nullopt;
       scope = scope->closure->parent;
     }
     return {};
   }
-  std::optional<ValueType> rebindContext(const Frame &frame, const Statement &statement) const {
+  std::optional<ValueType> rebindContext(const Frame &frame, const Statement &statement) {
     if (!statement.binding)
       return {};
     if (auto symbol = visibleScalar(frame, name(*statement.binding)))
-      return output_.symbols[*symbol].type;
+      return bindingType(output_.symbols[*symbol].type);
     return {};
   }
   std::optional<SymbolId> scalarRebinding(Frame &frame, const Statement &statement, ValueId value) {
@@ -1231,20 +1247,21 @@ private:
       // Captured scalars are value snapshots, never references to the caller's
       // binding. Rebinding initializes/updates this invocation's private copy.
       if (auto capture = lookupSymbol(frame, *statement.binding);
-          capture && localScalar(output_.symbols[*capture].type))
+          capture && localBinding(output_.symbols[*capture].type))
         found = frame.locals.emplace(label, *capture).first;
     }
     if (found == frame.locals.end())
       return {};
     auto &symbol = output_.symbols[found->second];
-    if (!localScalar(symbol.type))
+    if (!localBinding(symbol.type))
       return {};
-    if (!localScalar(node(value).type) || !sameFunctionValueType(symbol.type, node(value).type)) {
-      error("S075", "local reassignment must preserve the scalar type " + describeType(symbol.type),
+    if (!localBinding(node(value).type) || !sameFunctionValueType(bindingType(symbol.type), bindingType(node(value).type))) {
+      error("S075", "local reassignment must preserve the element or scalar type " + describeType(symbol.type),
             *statement.binding);
       return {};
     }
     symbol.reassignable = true;
+    symbol.type = bindingType(symbol.type);
     rememberSourceToken(
         {*statement.binding, symbol.definition.value_or(symbol.declaration), symbol.type, {}});
     return found->second;
@@ -1320,7 +1337,9 @@ private:
               {bindingName, node(*value).type, *statement.binding, id, false});
           frame.locals.emplace(bindingName, *symbol);
           output_.symbols[*symbol].reassignable =
-              mayReassign(frame, bindingName) && localScalar(node(*value).type);
+              mayReassign(frame, bindingName) && localBinding(node(*value).type);
+          if (output_.symbols[*symbol].reassignable)
+            output_.symbols[*symbol].type = bindingType(output_.symbols[*symbol].type);
           if (auto it = stringCounts_.find(*value); it != stringCounts_.end())
             stringBindings_[*symbol] = it->second;
           if (auto it = intConstants_.find(*value);
@@ -1715,7 +1734,10 @@ private:
     if (!origin)
       return {};
     const auto capture = output_.symbols[*origin];
-    const auto type = capture.type;
+    auto type = capture.type;
+    const bool privateCopy = mayReassign(frame, identifier) && localBinding(type);
+    if (privateCopy)
+      type = bindingType(type);
     if (type.task || type.fallible || type.device ||
         (type.builtin != BuiltinValue::Numeric && type.builtin != BuiltinValue::Bool &&
          type.builtin != BuiltinValue::Record && type.builtin != BuiltinValue::String &&
@@ -1729,6 +1751,7 @@ private:
     const auto symbol = output_.symbols.size();
     output_.symbols.push_back({identifier, type, span, frame.function, true,
                                capture.definition.value_or(capture.declaration)});
+    output_.symbols.back().reassignable = privateCopy;
     output_.functions[frame.function].parameters.push_back(symbol);
     frame.closure->captures.emplace(identifier, symbol);
     frame.closure->origins.push_back(*origin);
@@ -2041,6 +2064,13 @@ private:
       auto value = add(frame, output_.symbols[origin].type, span, SymbolRead{origin});
       if (!value)
         return {};
+      const auto &function = output_.functions[id];
+      const auto captureSymbol = function.parameters[function.parameters.size() - function.captureCount + captures.size()];
+      const auto &capture = output_.symbols[captureSymbol];
+      if (capture.reassignable && capture.type.array)
+        value = add(frame, capture.type, span, ShapeCheck{*value, {}});
+      if (!value)
+        return {};
       captures.push_back(*value);
     }
     return add(frame, *signature, span, FunctionReference{id, std::move(captures)});
@@ -2055,8 +2085,12 @@ private:
       boolean.builtin = BuiltinValue::Bool;
       return add(frame, boolean, span, BoolLiteral{identifier == "true"});
     }
-    if (auto found = lookupSymbol(frame, read.name))
-      return add(frame, output_.symbols[*found].type, span, SymbolRead{*found});
+    if (auto found = lookupSymbol(frame, read.name)) {
+      auto readType = output_.symbols[*found].type;
+      if (output_.symbols[*found].reassignable && readType.array)
+        readType = bindingType(readType); // No extent equality survives a replacement/backedge.
+      return add(frame, readType, span, SymbolRead{*found});
+    }
     if (auto found = functions_.find(functionKey(frame, identifier)); found != functions_.end()) {
       const auto id = found->second;
       if (!analyzeFunction(id))
@@ -2961,7 +2995,9 @@ private:
           output_.symbols.push_back(
               {binding, node(*value).type, *statement.binding, frame.function, false});
           output_.symbols[*symbol].reassignable =
-              mayReassign(frame, binding) && localScalar(node(*value).type);
+              mayReassign(frame, binding) && localBinding(node(*value).type);
+          if (output_.symbols[*symbol].reassignable)
+            output_.symbols[*symbol].type = bindingType(output_.symbols[*symbol].type);
           nested.locals[binding] = *symbol;
         }
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
@@ -3147,7 +3183,9 @@ private:
           output_.symbols.push_back(
               {binding, node(*value).type, *statement.binding, frame.function, false});
           output_.symbols[*symbol].reassignable =
-              mayReassign(frame, binding) && localScalar(node(*value).type);
+              mayReassign(frame, binding) && localBinding(node(*value).type);
+          if (output_.symbols[*symbol].reassignable)
+            output_.symbols[*symbol].type = bindingType(output_.symbols[*symbol].type);
           frame.locals[binding] = *symbol;
         }
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
@@ -4319,6 +4357,13 @@ private:
     std::vector<ValueId> captures;
     for (auto origin : nested.closure->origins) {
       auto value = add(frame, output_.symbols[origin].type, lambdaSpan, SymbolRead{origin});
+      if (!value)
+        return {};
+      const auto &function = output_.functions[id];
+      const auto captureSymbol = function.parameters[function.parameters.size() - function.captureCount + captures.size()];
+      const auto &capture = output_.symbols[captureSymbol];
+      if (capture.reassignable && capture.type.array)
+        value = add(frame, capture.type, lambdaSpan, ShapeCheck{*value, {}});
       if (!value)
         return {};
       captures.push_back(*value);

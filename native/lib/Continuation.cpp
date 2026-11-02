@@ -109,6 +109,9 @@ public:
       throw std::runtime_error("continuation entry function is out of range");
     if (hasPlacement(input) && !options.preserveCalls)
       throw std::runtime_error("placement-aware plans require preserved target calls");
+    for (const auto &symbol : input.symbols)
+      if (symbol.reassignable && symbol.type.array && resumable.at(symbol.owner))
+        throw std::runtime_error("array binding reassignment is not yet supported with task or expected-error coordination; move synchronous array work into a helper");
     localCells.resize(input.functions.size());
     for (SymbolId symbol = 0; symbol < input.symbols.size(); ++symbol)
       if (input.symbols[symbol].reassignable)

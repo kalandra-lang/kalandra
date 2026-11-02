@@ -222,6 +222,11 @@ private:
         result.insert(unknown);
     return result;
   }
+  void joinSymbols(Environment &to, const Environment &from) {
+    for (auto &[symbol, roots] : to.symbols)
+      if (auto found = from.symbols.find(symbol); found != from.symbols.end())
+        unite(roots, found->second);
+  }
   Roots body(const std::vector<TypedStatement> &statements, ValueId result, Environment &env) {
     for (const auto &statement : statements) {
       auto value = evaluate(statement.value, env);
@@ -341,18 +346,37 @@ private:
             auto yes = fork(env), no = fork(env);
             auto value = body(op.whenTrue, op.trueResult, yes);
             unite(value, body(op.whenFalse, op.falseResult, no));
+            for (auto &[symbol, roots] : env.symbols) {
+              roots = yes.symbols.at(symbol);
+              unite(roots, no.symbols.at(symbol));
+            }
             env.readers = std::move(yes.readers);
             joinReaders(env, no);
             return value;
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
-            input(op.condition);
-            auto iteration = fork(env);
-            for (const auto &statement : op.body) {
-              auto value = evaluate(statement.value, iteration);
-              if (statement.binding)
-                iteration.symbols[*statement.binding] = std::move(value);
+            // Monotonic origins/readers include the zero-iteration edge. A
+            // later replacement can expose a readonly origin on a backedge.
+            // Rebuild expression caches for each abstract iteration; names
+            // keep their current origin sets, old captured values keep theirs.
+            for (;;) {
+              spend();
+              spend(env.symbols.size() + env.readers.size());
+              const auto previousSymbols = env.symbols;
+              const auto previousReaders = env.readers;
+              auto iteration = fork(env);
+              iteration.values.clear();
+              iteration.inputs.clear();
+              unite(inputs, evaluate(op.condition, iteration));
+              for (const auto &statement : op.body) {
+                auto value = evaluate(statement.value, iteration);
+                if (statement.binding)
+                  iteration.symbols[*statement.binding] = std::move(value);
+              }
+              joinSymbols(env, iteration);
+              joinReaders(env, iteration);
+              if (env.symbols == previousSymbols && env.readers == previousReaders)
+                break;
             }
-            joinReaders(env, iteration); // The loop may execute zero times.
             return {};
           } else if constexpr (std::is_same_v<T, GuardOperation>) {
             input(op.condition);
@@ -363,15 +387,20 @@ private:
             auto value = input(op.operand);
             auto recovered = fork(env);
             unite(value, body(op.body, op.result, recovered));
+            joinSymbols(env, recovered);
             joinReaders(env, recovered);
             return value;
           } else if constexpr (std::is_same_v<T, MatchOperation>) {
             input(op.subject);
             Roots value;
             std::map<ValueId, Roots> readers;
+            auto incoming = fork(env);
+            for (auto &[symbol, roots] : env.symbols)
+              roots.clear();
             for (const auto &arm : op.cases) {
-              auto branch = fork(env);
+              auto branch = fork(incoming);
               unite(value, body(arm.body, arm.result, branch));
+              joinSymbols(env, branch);
               for (const auto &[reader, roots] : branch.readers)
                 unite(readers[reader], roots);
             }

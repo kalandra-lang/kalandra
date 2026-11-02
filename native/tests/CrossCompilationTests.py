@@ -74,6 +74,28 @@ def program_cases():
             '  alias=a\n  b=sorted(a)\n'
             f'  b[0]={numeric}(7)\n  c=order(a)\n'
             '  int(alias[0])*100+int(c[2])*10+int(b[0])\n'), output='137\n')
+        cases['array-rebind-' + numeric] = dict(source=(
+            'fn main()->int:\n'
+            f'  a=[{numeric}(3),{numeric}(1),{numeric}(2)]\n'
+            '  saved=a\n  a=sorted(a)\n  i=0\n  while i<8:\n'
+            f'    if i%2==0:\n      a=concat(a,[{numeric}(4)])\n'
+            '    else:\n      a=slice(a,0,3)\n    i=i+1\n'
+            '  int(saved[0])*100+int(a[0])*10+length(a)\n'), output='313\n')
+    cases['array-rebind-capture'] = dict(source=(
+        'fn main()->int:\n  original=[7,8]\n  offset=2\n'
+        '  f=fn(i:int)->[int]:concat(original,[i+offset])\n'
+        '  a=[0]\n  i=0\n  while i<1000:\n    a=f(i)\n    i=i+1\n'
+        '  original[0]+a[2]+length(a)\n'), output='1011\n')
+    cases['array-rebind-dispatch'] = dict(source=(
+        'fn first(i:int)->[int]:\n  [i+1]\nfn second(i:int)->[int]:\n  [i+2]\n'
+        'fn bump(mut a:[int])->int:\n  a[0]=a[0]+1\n  a[0]\n'
+        'fn run(flag:Bool)->int:\n  counter=[0]\n  f=if flag:first\n  else:second\n'
+        '  a=[0]\n  a=f(bump(counter))\n  counter[0]*100+a[0]\n'
+        'fn main()->int:\n  run(true)+run(false)\n'), output='205\n')
+    cases['array-rebind-worker'] = dict(source=(
+        'fn work(a:[int])->[int]:\n  a=sorted(a)\n  a[0]=9\n  a\n'
+        'fn main()->int ! TaskError:\n  a=[3,1,2]\n  b=try parallel:\n'
+        '    try await spawn work(a)\n  a[0]*100+b[0]\n'), output='309\n')
     cases['bool-array-sort'] = dict(source=(
         'fn main()->int:\n  a=[true,false,true,false]\n  b=sorted(a)\n  c=sort(a)\n'
         '  if not a[0] and not c[1] and b[2] and b[3]:42\n  else:0\n'), output='42\n')

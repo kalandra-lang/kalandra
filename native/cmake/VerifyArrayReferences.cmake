@@ -30,7 +30,7 @@ endforeach()
 # A borrowed private return and an unrelated escaping function must not make a
 # metadata-only entry import or dereference its host input. The harness uses no
 # payload and deliberately impossible offsets/strides, including empty arrays.
-COMPILE(borrowed-query "fn query(input:[int])->int:\n  length(identity(input))\nfn identity(input:[int])->[int]:\n  input\nfn capture(input:[int])->fn()->[int]:\n  fn()->[int]:input\nfn main()->int:\n  0\n" --test-entry query)
+COMPILE(borrowed-query "fn query(input:[int])->int:\n  f=identity\n  length(f(input))\nfn identity(input:[int])->[int]:\n  input\nfn capture(input:[int])->fn()->[int]:\n  fn()->[int]:input\nfn extra()->int:\n  a=[1]\n  a=[2,3]\n  length(a)\nfn main()->int:\n  extra()\n" --test-entry query)
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}
   -DNUMERIC_TYPE=3 -DINPUT_RANK=1 -DQUERY_LENGTH=1 -isystem "${LLVM_ROOT}/include"
   "${SOURCE_DIR}/tests/CollectionQueryRuntimeTests.cpp" "${OUTPUT_DIR}/borrowed-query.ll" "${RUNTIME}"

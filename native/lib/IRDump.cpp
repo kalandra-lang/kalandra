@@ -221,13 +221,17 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
   }
   for (const auto &symbol : module.symbols) {
     if (symbol.reassignable && target != NumericTarget::Cpu)
-      return "local scalar reassignment currently requires CPU execution";
+      return "local reassignment currently requires CPU execution";
     if (symbol.reassignable &&
-        (symbol.owner >= module.functions.size() || symbol.type.tensor || symbol.type.array ||
+        (symbol.owner >= module.functions.size() ||
+         (symbol.type.array
+              ? (!symbol.type.tensor || symbol.type.shape.size() != 1 ||
+                 symbol.type.builtin != BuiltinValue::Numeric)
+              : (symbol.type.tensor || !symbol.type.shape.empty())) ||
          symbol.type.task || symbol.type.fallible || symbol.type.device ||
          (symbol.type.builtin != BuiltinValue::Numeric &&
           symbol.type.builtin != BuiltinValue::Bool)))
-      return "reassignable cells require completed CPU numeric or Bool scalars";
+      return "reassignable bindings require completed CPU numeric or Bool scalars or flat numeric arrays";
     if (auto failure = error(symbol.type))
       return failure;
   }

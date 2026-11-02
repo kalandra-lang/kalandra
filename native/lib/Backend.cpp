@@ -56,6 +56,7 @@
 #include <map>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace kalandra {
 std::expected<BackendOutput, std::string>
@@ -286,7 +287,12 @@ public:
   }
   OwningOpRef<ModuleOp> run(const std::optional<std::string> &testEntry,
                             const std::vector<std::string> &exports) {
-    normalizeArrayInputs_ = managedNumericArrayInputFunctions(input_);
+    // Source main is closed, while private C/test/CPU interfaces may supply
+    // callable values absent from main's inferred incoming-call graph.
+    if (!openCallableInputs(testEntry, exports))
+      invocationFlow_ = functionInvocationFlow(input_);
+    normalizeArrayInputs_ = managedNumericArrayInputFunctions(
+        input_, invocationFlow_ ? &*invocationFlow_ : nullptr);
     recursiveClosures_ = hasRecursiveStorage(*planRecordStorage(input_));
     const TypedModule *ownership = &input_;
     if (recursiveClosures_) {
@@ -524,6 +530,35 @@ private:
     auto [line, column] = input_.source->location(span.begin);
     return FileLineColLoc::get(builder_.getContext(),
                                input_.source->origin(span.begin).first->path(), line, column);
+  }
+  bool openCallableInputs(const std::optional<std::string> &entry,
+                           const std::vector<std::string> &exports) const {
+    std::unordered_set<std::string> names(exports.begin(), exports.end());
+    if (entry)
+      names.insert(*entry);
+    names.erase("");
+    if (names.empty())
+      return false;
+    std::vector<ValueType> pending;
+    for (const auto &function : input_.functions)
+      if (names.contains(function.name))
+        for (auto parameter : function.parameters)
+          pending.push_back(input_.symbols[parameter].type);
+    std::unordered_set<std::size_t> records;
+    while (!pending.empty()) {
+      auto value = pending.back();
+      pending.pop_back();
+      if (value.builtin == BuiltinValue::Function)
+        return true;
+      for (auto record : {value.record, value.errorRecord})
+        if (record && records.insert(*record).second) {
+          if (*record >= input_.records.size())
+            return true;
+          for (const auto &field : input_.records[*record].fields)
+            pending.push_back(field.type);
+        }
+    }
+    return false;
   }
   Type type(const ValueType &value) {
     if (value.builtin == BuiltinValue::Function && !value.tensor) {
@@ -2406,6 +2441,24 @@ private:
     std::unordered_map<ValueId, Value> values;
     std::unordered_map<SymbolId, Value> symbols;
   };
+  SmallVector<SymbolId> arrayBindings(const Frame &frame) {
+    SmallVector<SymbolId> result;
+    for (const auto &[symbol, value] : frame.symbols)
+      if (input_.symbols[symbol].reassignable && input_.symbols[symbol].type.array)
+        result.push_back(symbol);
+    llvm::sort(result);
+    return result;
+  }
+  SmallVector<Value> arrayState(const Frame &frame, ArrayRef<SymbolId> bindings) {
+    SmallVector<Value> result;
+    for (auto symbol : bindings)
+      result.push_back(frame.symbols.at(symbol));
+    return result;
+  }
+  void arrayState(Frame &frame, ArrayRef<SymbolId> bindings, ValueRange values) {
+    for (std::size_t i = 0; i < bindings.size(); ++i)
+      frame.symbols[bindings[i]] = values[i];
+  }
   std::vector<std::vector<SymbolId>> mutableSymbols_;
   Block *scalarEntry_ = nullptr;
   std::unordered_map<SymbolId, Value> scalarCells_;
@@ -2420,10 +2473,40 @@ private:
     return cell;
   }
   void bindScalar(Frame &frame, SymbolId symbol, Value value, Location loc) {
-    if (input_.symbols[symbol].reassignable)
+    if (input_.symbols[symbol].reassignable && !input_.symbols[symbol].type.array)
       memref::StoreOp::create(builder_, loc, value, scalarCell(symbol, loc));
     else
       frame.symbols[symbol] = value;
+  }
+  Value invokeArrayTarget(Frame &frame, Location loc, FunctionId target, Value closure,
+                          ArrayRef<ValueId> values, const ValueType &output) {
+    const auto &source = input_.functions[target];
+    SmallVector<Value> arguments;
+    for (std::size_t i = 0; i < values.size(); ++i)
+      arguments.push_back(castTensor(loc, expression(frame, values[i]),
+                                      functions_[target].getArgumentTypes()[i]));
+    if (source.captureCount) {
+      Value address = LLVM::ExtractValueOp::create(builder_, loc, closure, ArrayRef<int64_t>{1});
+      if (recursiveClosures_) {
+        llvm::LLVMContext llvmContext;
+        LLVM::TypeToLLVMIRTranslator translator(llvmContext);
+        llvm::DataLayout layout(dataLayout_);
+        auto bytes = layout.getTypeAllocSize(translator.translateType(closureEnvironment(target))).getFixedValue();
+        address = func::CallOp::create(builder_, loc, "kalandra_recursive_environment_read",
+            TypeRange{LLVM::LLVMPointerType::get(builder_.getContext())},
+            ValueRange{address, integer(loc, bytes), callableCode(loc, callableEntry(target))}).getResult(0);
+      }
+      Value environment = LLVM::LoadOp::create(builder_, loc, closureEnvironment(target), address);
+      const auto explicitCount = source.parameters.size() - source.captureCount;
+      for (std::size_t i = 0; i < source.captureCount; ++i) {
+        Value capture = LLVM::ExtractValueOp::create(builder_, loc, environment,
+            ArrayRef<int64_t>{static_cast<int64_t>(i)});
+        arguments.push_back(callableUnpack(loc, capture,
+            input_.symbols[source.parameters[explicitCount + i]].type));
+      }
+    }
+    auto call = func::CallOp::create(builder_, loc, functions_[target], arguments);
+    return castTensor(loc, call.getResult(0), type(output));
   }
   // Fuse a pure floating map into the first level of its adjacent-pair sum.
   // Inputs stay immutable; only the half-sized private reduction scratch mutates.
@@ -2602,7 +2685,7 @@ private:
             return arith::ConstantIntOp::create(builder_, loc, operation.value,
                                                 describeNumeric(node.type.element)->bits);
           } else if constexpr (std::is_same_v<T, SymbolRead>) {
-            if (input_.symbols[operation.symbol].reassignable)
+            if (input_.symbols[operation.symbol].reassignable && !node.type.array)
               return memref::LoadOp::create(builder_, loc, scalarCell(operation.symbol, loc));
             return frame.symbols.at(operation.symbol);
           } else if constexpr (std::is_same_v<T, ScalarUnary>) {
@@ -3241,29 +3324,46 @@ private:
             }
             return tensor::FromElementsOp::create(builder_, loc, type(node.type), elements);
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
-            auto loop = scf::WhileOp::create(builder_, loc, TypeRange{}, ValueRange{});
+            auto bindings = arrayBindings(frame);
+            auto initial = arrayState(frame, bindings);
+            SmallVector<Type> types;
+            for (auto value : initial)
+              types.push_back(value.getType());
+            // Attach the loop before lowering its regions. Descriptor scratch
+            // slots inside indirect calls must find their enclosing function.
+            auto loop = scf::WhileOp::create(builder_, loc, types, initial);
             {
               OpBuilder::InsertionGuard restore(builder_);
               auto *before = new Block;
               loop.getBefore().push_back(before);
+              before->addArguments(types, SmallVector<Location>(types.size(), loc));
               builder_.setInsertionPointToStart(before);
               auto conditionFrame = frame;
+              arrayState(conditionFrame, bindings, before->getArguments());
               auto condition = expression(conditionFrame, operation.condition);
-              scf::ConditionOp::create(builder_, loc, condition, ValueRange{});
+              scf::ConditionOp::create(builder_, loc, condition,
+                                       arrayState(conditionFrame, bindings));
               auto *after = new Block;
               loop.getAfter().push_back(after);
+              after->addArguments(types, SmallVector<Location>(types.size(), loc));
               builder_.setInsertionPointToStart(after);
               auto bodyFrame = frame;
+              arrayState(bodyFrame, bindings, after->getArguments());
               for (const auto &statement : operation.body) {
                 auto value = expression(bodyFrame, statement.value);
                 if (statement.binding)
                   bindScalar(bodyFrame, *statement.binding, value, location(statement.span));
               }
-              scf::YieldOp::create(builder_, loc, ValueRange{});
+              scf::YieldOp::create(builder_, loc, arrayState(bodyFrame, bindings));
             }
+            arrayState(frame, bindings, loop.getResults());
             return arith::ConstantIntOp::create(builder_, loc, 0, 1);
           } else if constexpr (std::is_same_v<T, ConditionalOperation>) {
             auto condition = expression(frame, operation.condition);
+            auto bindings = arrayBindings(frame);
+            SmallVector<Type> results{type(node.type)};
+            for (auto value : arrayState(frame, bindings))
+              results.push_back(value.getType());
             auto evaluate = [&](const std::vector<TypedStatement> &statements, ValueId result) {
               auto branch = frame;
               for (const auto &statement : statements) {
@@ -3271,11 +3371,12 @@ private:
                 if (statement.binding)
                   bindScalar(branch, *statement.binding, value, location(statement.span));
               }
-              auto value = castTensor(loc, expression(branch, result), type(node.type));
-              scf::YieldOp::create(builder_, loc, ValueRange{value});
+              SmallVector<Value> values{castTensor(loc, expression(branch, result), type(node.type))};
+              auto state = arrayState(branch, bindings);
+              values.append(state.begin(), state.end());
+              scf::YieldOp::create(builder_, loc, values);
             };
-            auto choice =
-                scf::IfOp::create(builder_, loc, TypeRange{type(node.type)}, condition, true);
+            auto choice = scf::IfOp::create(builder_, loc, results, condition, true);
             {
               OpBuilder::InsertionGuard guard(builder_);
               builder_.setInsertionPointToStart(&choice.getThenRegion().front());
@@ -3283,6 +3384,7 @@ private:
               builder_.setInsertionPointToStart(&choice.getElseRegion().front());
               evaluate(operation.whenFalse, operation.falseResult);
             }
+            arrayState(frame, bindings, choice.getResults().drop_front());
             return choice.getResult(0);
           } else if constexpr (std::is_same_v<T, MatchOperation>) {
             auto subject = expression(frame, operation.subject);
@@ -3297,8 +3399,12 @@ private:
             for (std::size_t i = 0; i + 1 < operation.cases.size(); ++i)
               tags.push_back(*operation.cases[i].tag);
             auto selector = arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), tag);
+            auto bindings = arrayBindings(frame);
+            SmallVector<Type> results{type(node.type)};
+            for (auto value : arrayState(frame, bindings))
+              results.push_back(value.getType());
             auto choice =
-                scf::IndexSwitchOp::create(builder_, loc, TypeRange{type(node.type)}, selector,
+                scf::IndexSwitchOp::create(builder_, loc, results, selector,
                                            ArrayRef<std::int64_t>(tags), tags.size());
             OpBuilder::InsertionGuard insertion(builder_);
             const auto evaluate = [&](const MatchCase &arm, Region &region) {
@@ -3309,12 +3415,15 @@ private:
                 if (statement.binding)
                   bindScalar(branch, *statement.binding, value, location(statement.span));
               }
-              auto value = castTensor(loc, expression(branch, arm.result), type(node.type));
-              scf::YieldOp::create(builder_, loc, ValueRange{value});
+              SmallVector<Value> values{castTensor(loc, expression(branch, arm.result), type(node.type))};
+              auto state = arrayState(branch, bindings);
+              values.append(state.begin(), state.end());
+              scf::YieldOp::create(builder_, loc, values);
             };
             for (std::size_t i = 0; i < tags.size(); ++i)
               evaluate(operation.cases[i], choice.getCaseRegions()[i]);
             evaluate(operation.cases.back(), choice.getDefaultRegion());
+            arrayState(frame, bindings, choice.getResults().drop_front());
             return choice.getResult(0);
           } else if constexpr (std::is_same_v<T, FunctionReference>) {
             auto function = callableEntry(operation.function);
@@ -3361,6 +3470,35 @@ private:
             const auto &signature = *input_.expressions[operation.callee].type.callable;
             auto ptr = LLVM::LLVMPointerType::get(builder_.getContext());
             auto closure = expression(frame, operation.callee);
+            // A typed call preserves array ownership through bufferization;
+            // the opaque callable ABI conservatively retains escaped results.
+            if (typedNumericArrayInvocation(node, invocationFlow_ ? &*invocationFlow_ : nullptr, id)) {
+              // Evaluate arguments once, before selecting a target. Branches
+              // reuse these enclosing SSA values, including their source effects.
+              for (auto argument : operation.arguments)
+                expression(frame, argument);
+              const auto &targets = invocationFlow_->targets[id];
+              Value code = LLVM::ExtractValueOp::create(builder_, loc, closure, ArrayRef<int64_t>{0});
+              const auto dispatch = [&](auto &&self, std::size_t selected) -> Value {
+                const auto target = targets[selected];
+                if (selected + 1 == targets.size())
+                  return invokeArrayTarget(frame, loc, target, closure, operation.arguments, node.type);
+                Value matches = LLVM::ICmpOp::create(builder_, loc, LLVM::ICmpPredicate::eq,
+                                                     code, callableCode(loc, callableEntry(target)));
+                auto choice = scf::IfOp::create(builder_, loc, TypeRange{type(node.type)}, matches, true);
+                {
+                  OpBuilder::InsertionGuard restore(builder_);
+                  builder_.setInsertionPointToStart(&choice.getThenRegion().front());
+                  scf::YieldOp::create(builder_, loc, invokeArrayTarget(frame, loc, target, closure,
+                                                                       operation.arguments, node.type));
+                  builder_.setInsertionPointToStart(&choice.getElseRegion().front());
+                  scf::YieldOp::create(builder_, loc, self(self, selected + 1));
+                }
+                return choice.getResult(0);
+              };
+              return dispatch(dispatch, 0);
+            }
+
             Value pointer =
                 LLVM::ExtractValueOp::create(builder_, loc, closure, ArrayRef<int64_t>{0});
             Value environment =
@@ -3751,6 +3889,7 @@ private:
   std::unordered_map<FunctionId, func::FuncOp> callableEntries_;
   bool recursiveClosures_ = false;
   std::vector<bool> normalizeArrayInputs_;
+  std::optional<FunctionInvocationFlow> invocationFlow_;
   bool usesArrayReferences_ = false;
   std::optional<TypedModule> ownershipInput_;
   std::vector<std::optional<std::size_t>> environmentRecords_;
