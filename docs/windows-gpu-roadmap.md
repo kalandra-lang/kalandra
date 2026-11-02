@@ -48,7 +48,7 @@ explicit qualification boundaries in package metadata, documentation and CI.
 The wide indirect-argument capability fixture exposed a CPU compiler admission
 error after Windows tail-signature normalization. Sequential outgoing call
 packets were summed as if they were simultaneously live. Windows admission now
-charges the largest outgoing packet, rounded to full eight-byte argument slots
+charges the largest scalar outgoing packet, rounded to full eight-byte argument slots
 with shadow-space allowance. All SSA values, incoming arguments and fixed
 allocations remain conservatively charged. Dynamic allocations and genuinely
 oversized frames remain rejected. The 16 KiB frame budget, 128 KiB runtime stack

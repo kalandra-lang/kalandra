@@ -89,17 +89,29 @@ inline std::optional<std::string> nativeStackBudgetError(const llvm::Function &f
         // those areas are never simultaneously live. Charge the largest whole
         // packet (plus Win64 shadow space), while retaining the conservative
         // sum of all SSA values, incoming arguments and fixed allocas above.
-        std::uint64_t packet = windows ? 32 : 0;
+        bool scalarPacket = windows;
+        for (unsigned n = 0; n != call->arg_size() && scalarPacket; ++n) {
+          auto *type = call->getArgOperand(n)->getType();
+          scalarPacket = (type->isMetadataTy() || type->isPointerTy() || type->isFloatTy() ||
+                          type->isDoubleTy() ||
+                          (type->isIntegerTy() && type->getIntegerBitWidth() <= 64)) &&
+                         !call->paramHasAttr(n, llvm::Attribute::ByVal) &&
+                         !call->paramHasAttr(n, llvm::Attribute::InAlloca) &&
+                         !call->paramHasAttr(n, llvm::Attribute::Preallocated);
+        }
+        // Keep the original stricter sum for aggregate/vector or caller-owned
+        // argument objects outside the normalized scalar ABI proved here.
+        std::uint64_t packet = scalarPacket ? 32 : 0;
         bool packetValid = packet <= budget;
         for (const auto &argument : call->args())
           // Intrinsic metadata has no physical outgoing representation.
           if (!argument->getType()->isMetadataTy()) {
-            if (windows)
+            if (scalarPacket)
               packetValid = packetValid && accountTo(packet, argument->getType(), 1, true);
             else
               valid = valid && account(argument->getType());
           }
-        if (windows) {
+        if (scalarPacket) {
           valid = valid && packetValid;
           outgoing = std::max(outgoing, packet);
         }
