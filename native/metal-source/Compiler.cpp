@@ -101,6 +101,12 @@ class Compiler {
       if (!visited.insert(function).second)
         continue;
       const auto &fn = cpu.functions[function];
+      for (auto symbol : fn.parameters)
+        if (cpu.symbols[symbol].reassignable)
+          reject(fn.declaration, "local scalar reassignment currently requires CPU execution");
+      for (const auto &statement : fn.body)
+        if (statement.binding && cpu.symbols[*statement.binding].reassignable)
+          reject(fn.declaration, "local scalar reassignment currently requires CPU execution");
       const auto supported = [&](const ValueType &type) {
         if (type.builtin == BuiltinValue::Numeric &&
             !numericArithmeticAvailable(type.element, NumericTarget::AppleGpu))
@@ -112,6 +118,11 @@ class Compiler {
       for (auto value : fn.expressions) {
         const auto &expression = cpu.expressions[value];
         const auto &op = expression.operation;
+        if (std::holds_alternative<WhileOperation>(op))
+          reject(expression.span, "statement loops currently require CPU execution");
+        if (const auto *read = std::get_if<SymbolRead>(&op);
+            read && cpu.symbols[read->symbol].reassignable)
+          reject(expression.span, "local scalar reassignment currently requires CPU execution");
         if (auto *call = std::get_if<FunctionCall>(&op))
           pending.push_back(call->function);
         if (arithmetic_ != ArithmeticMode::Hardware)
@@ -2599,6 +2610,9 @@ class Compiler {
         break;
       }
       case Code::Jump:
+        if (op.jump <= i && std::holds_alternative<WhileOperation>(node(op.source).operation))
+          steps.push_back("if(auto status=task.context().poll()){task.fault(status);return;}\n"
+                          "if(task.cancelled())return;\n");
         steps.push_back(jump(op.jump));
         break;
       case Code::Field: {
@@ -2635,7 +2649,6 @@ class Compiler {
       case Code::MapStore:
       case Code::MapAdvance:
       case Code::MapSuccess:
-      case Code::ReleaseGroup:
       case Code::CallableTarget:
       case Code::CallableCaptures:
       case Code::CallableSyncGuard:
@@ -2645,6 +2658,9 @@ class Compiler {
       case Code::PropagateGroup:
       case Code::SynchronousCall:
         reject(span, "function values require the CPU backend");
+      case Code::ReleaseGroup:
+        steps.push_back(check("task.releaseGroup(" + plannedGroups.at(op.group) + ")"));
+        break;
       case Code::Label:
         break;
       case Code::Return: {

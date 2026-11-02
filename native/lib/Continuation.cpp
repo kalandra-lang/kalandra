@@ -85,6 +85,7 @@ class Builder : public ModulePlan {
   struct Environment {
     std::unordered_map<ValueId, Slot> values;
     std::unordered_map<SymbolId, Slot> symbols;
+    std::unordered_map<SymbolId, Slot> cells;
     std::unordered_map<Slot, std::size_t> targets;
     Boundary *boundary = nullptr;
     std::optional<std::size_t> group;
@@ -97,6 +98,7 @@ public:
   std::optional<FunctionInvocationFlow> invocationFlow;
   std::vector<FunctionId> pending;
   std::vector<bool> scheduled;
+  std::vector<std::vector<SymbolId>> localCells;
   explicit Builder(const TypedModule &input, Options options)
       : ModulePlan(input), options(options), resumable(resumableFunctions(input)),
         coordinating(coordinatingFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
@@ -104,6 +106,10 @@ public:
       throw std::runtime_error("continuation entry function is out of range");
     if (hasPlacement(input) && !options.preserveCalls)
       throw std::runtime_error("placement-aware plans require preserved target calls");
+    localCells.resize(input.functions.size());
+    for (SymbolId symbol = 0; symbol < input.symbols.size(); ++symbol)
+      if (input.symbols[symbol].reassignable)
+        localCells.at(input.symbols[symbol].owner).push_back(symbol);
     kernels.source = input.source;
     kernels.records = input.records;
     plans.resize(input.functions.size());
@@ -160,6 +166,14 @@ private:
     plan.slots.push_back(std::move(type));
     return plan.slots.size() - 1;
   }
+  void bindScalar(Plan &plan, Environment &env, SymbolId symbol, Slot value) {
+    if (input.symbols[symbol].reassignable) {
+      auto cell = env.cells.at(symbol);
+      plan.code.push_back({Code::Copy, cell, {value}});
+      env.symbols[symbol] = cell;
+    } else
+      env.symbols[symbol] = value;
+  }
   Slot function(Plan &plan, FunctionId id, const std::vector<Slot> &args,
                 std::set<FunctionId> &stack, std::optional<std::size_t> ambient = {}) {
     if (!options.preserveCalls && options.nativeSubgraphs && nativeFunction(id)) {
@@ -177,15 +191,17 @@ private:
     Environment env;
     env.group = ambient;
     const auto &fn = input.functions[id];
+    for (auto symbol : localCells[id])
+      env.cells[symbol] = slot(plan, input.symbols[symbol].type);
     for (std::size_t i = 0; i < args.size(); ++i)
-      env.symbols[fn.parameters[i]] = args[i];
+      bindScalar(plan, env, fn.parameters[i], args[i]);
     Boundary boundary{slot(plan, fn.resultType), {}, {}};
     env.boundary = &boundary;
     Slot value = boundary.output;
     for (const auto &statement : fn.body) {
       value = expression(plan, statement.value, env, stack);
       if (statement.binding)
-        env.symbols[*statement.binding] = value;
+        bindScalar(plan, env, *statement.binding, value);
     }
     plan.code.push_back({Code::Copy, boundary.output, {value}});
     const auto exit = plan.code.size();
@@ -302,6 +318,10 @@ private:
               statement = importStatement(statement);
             op.trueResult = importValue(op.trueResult);
             op.falseResult = importValue(op.falseResult);
+          } else if constexpr (std::is_same_v<T, WhileOperation>) {
+            op.condition = importValue(op.condition);
+            for (auto &statement : op.body)
+              statement = importStatement(statement);
           } else if constexpr (!(std::is_same_v<T, Float32Literal> ||
                                  std::is_same_v<T, Float64Literal> ||
                                  std::is_same_v<T, Int32Literal> ||
@@ -707,8 +727,17 @@ private:
     if (auto found = env.values.find(id); found != env.values.end())
       return found->second;
     const auto &node = input.expressions[id];
-    if (const auto *read = std::get_if<SymbolRead>(&node.operation))
-      return env.symbols.at(read->symbol);
+    if (const auto *read = std::get_if<SymbolRead>(&node.operation)) {
+      const auto value = env.symbols.at(read->symbol);
+      if (!input.symbols[read->symbol].reassignable)
+        return value;
+      // Snapshot each source read. Passing a value to a task/closure must not
+      // pass the mutable continuation slot and observe a later reassignment.
+      const auto snapshot = slot(plan, node.type);
+      plan.code.push_back({Code::Copy, snapshot, {value}});
+      env.values[id] = snapshot;
+      return snapshot;
+    }
     if (const auto *call = std::get_if<FunctionCall>(&node.operation)) {
       std::vector<Slot> args;
       for (auto arg : call->arguments)
@@ -789,10 +818,11 @@ private:
       for (const auto &statement : block->body) {
         value = expression(plan, statement.value, nested, stack);
         if (statement.binding)
-          nested.symbols[*statement.binding] = value;
+          bindScalar(plan, nested, *statement.binding, value);
       }
       const auto exit = plan.code.size();
       plan.code.push_back({Code::Join, output, {value}, 0, group, 0, id});
+      plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group, 0, id});
       for (auto jump : boundary.jumps)
         plan.code[jump].jump = exit;
     } else if (const auto *device = std::get_if<DeviceSelection>(&node.operation)) {
@@ -866,7 +896,7 @@ private:
       for (const auto &statement : handler->body) {
         result = expression(plan, statement.value, nested, stack);
         if (statement.binding)
-          nested.symbols[*statement.binding] = result;
+          bindScalar(plan, nested, *statement.binding, result);
       }
       plan.code.push_back({Code::Copy, output, {result}});
       const auto exit = plan.code.size();
@@ -874,6 +904,21 @@ private:
       plan.code[dispatch].target = exit;
       for (auto jump : boundary.jumps)
         plan.code[jump].jump = exit;
+    } else if (const auto *loop = std::get_if<WhileOperation>(&node.operation)) {
+      const auto header = plan.code.size();
+      plan.code.push_back({Code::Label, 0, {}});
+      auto iteration = env;
+      const auto condition = expression(plan, loop->condition, iteration, stack);
+      const auto dispatch = plan.code.size();
+      plan.code.push_back({Code::Branch, output, {condition}});
+      for (const auto &statement : loop->body) {
+        const auto value = expression(plan, statement.value, iteration, stack);
+        if (statement.binding)
+          bindScalar(plan, iteration, *statement.binding, value);
+      }
+      plan.code.push_back({Code::Jump, 0, {}, 0, 0, header, id});
+      plan.code[dispatch].jump = plan.code.size();
+      plan.code.push_back({Code::Label, 0, {}});
     } else if (const auto *guard = std::get_if<GuardOperation>(&node.operation)) {
       auto condition = expression(plan, guard->condition, env, stack);
       const auto dispatch = plan.code.size();
@@ -882,7 +927,7 @@ private:
       for (const auto &statement : guard->body) {
         auto value = expression(plan, statement.value, branch, stack);
         if (statement.binding)
-          branch.symbols[*statement.binding] = value;
+          bindScalar(plan, branch, *statement.binding, value);
       }
       plan.code[dispatch].jump = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
@@ -897,7 +942,7 @@ private:
         for (const auto &statement : index == 0 ? choice->whenTrue : choice->whenFalse) {
           auto value = expression(plan, statement.value, branch, stack);
           if (statement.binding)
-            branch.symbols[*statement.binding] = value;
+            bindScalar(plan, branch, *statement.binding, value);
         }
         auto result =
             expression(plan, index == 0 ? choice->trueResult : choice->falseResult, branch, stack);
@@ -926,7 +971,7 @@ private:
         for (const auto &statement : arm.body) {
           result = expression(plan, statement.value, branch, stack);
           if (statement.binding)
-            branch.symbols[*statement.binding] = result;
+            bindScalar(plan, branch, *statement.binding, result);
         }
         plan.code.push_back({Code::Copy, output, {result}});
         exits.push_back(plan.code.size());

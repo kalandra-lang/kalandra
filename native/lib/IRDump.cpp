@@ -217,12 +217,36 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       if (auto failure = error(*fn.declaredResult))
         return failure;
   }
-  for (const auto &symbol : module.symbols)
+  for (const auto &symbol : module.symbols) {
+    if (symbol.reassignable && target != NumericTarget::Cpu)
+      return "local scalar reassignment currently requires CPU execution";
+    if (symbol.reassignable &&
+        (symbol.owner >= module.functions.size() || symbol.type.tensor || symbol.type.array ||
+         symbol.type.task || symbol.type.fallible || symbol.type.device ||
+         (symbol.type.builtin != BuiltinValue::Numeric &&
+          symbol.type.builtin != BuiltinValue::Bool)))
+      return "reassignable cells require completed CPU numeric or Bool scalars";
     if (auto failure = error(symbol.type))
       return failure;
+  }
   for (const auto &expression : module.expressions) {
     if (auto failure = error(expression.type))
       return failure;
+    if (const auto *loop = std::get_if<WhileOperation>(&expression.operation)) {
+      if (target != NumericTarget::Cpu)
+        return "while statements currently require CPU execution";
+      if (loop->condition >= module.expressions.size() || loop->body.empty())
+        return "while requires a valid condition and nonempty body";
+      const auto &condition = module.expressions[loop->condition].type;
+      if (condition.builtin != BuiltinValue::Bool || condition.tensor || condition.task ||
+          condition.fallible || condition.device || expression.type.builtin != BuiltinValue::Bool ||
+          expression.type.tensor || expression.type.task || expression.type.fallible)
+        return "while requires a completed CPU Bool condition and a statement marker";
+      for (const auto &statement : loop->body)
+        if (statement.value >= module.expressions.size() ||
+            (statement.binding && *statement.binding >= module.symbols.size()))
+          return "while references an invalid statement";
+    }
     if (const auto *guard = std::get_if<GuardOperation>(&expression.operation)) {
       if (guard->condition >= module.expressions.size() ||
           guard->result >= module.expressions.size() ||
@@ -964,7 +988,16 @@ std::string dumpTypedIR(const TypedModule &module) {
               out << "field %" << operation.input << '[' << operation.field << ']';
             else if constexpr (std::is_same_v<T, ErrorNarrow>)
               out << "narrow error %" << operation.input;
-            else if constexpr (std::is_same_v<T, ConditionalOperation>)
+            else if constexpr (std::is_same_v<T, WhileOperation>) {
+              out << "while.statement ";
+              value(operation.condition);
+              out << " {";
+              for (const auto &statement : operation.body) {
+                out << " ";
+                value(statement.value);
+              }
+              out << " }";
+            } else if constexpr (std::is_same_v<T, ConditionalOperation>)
               out << "if %" << operation.condition << " then %" << operation.trueResult << " else %"
                   << operation.falseResult;
             else if constexpr (std::is_same_v<T, ScalarCompare>)

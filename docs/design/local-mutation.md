@@ -69,9 +69,21 @@ Rebinding a name does not grant write access to read-only storage.
    raw-bit tests check separate backing, strided inputs, independence after source
    changes, retained results and allocation-failure cleanup. Existing runtime
    quotas apply; no unchecked allocator is added.
-2. Introduce local rebinding and structured loop state without invalidating
-   constant propagation, capture snapshots or continuation state. Specify loop
-   results and termination/cancellation behavior before admitting loop syntax.
+2. Numeric/Bool rebinding, statement `if` and `while` are implemented in this
+   branch. Scalar types remain fixed. A loop has no source value and cannot be a
+   function's final result. Branch/iteration declarations stay local, while writes
+   to existing scalar bindings take effect in their enclosing invocation.
+   Functions and closures receive scalar values; captures are snapshots. Rebinding
+   a captured scalar affects only the current call, not the shared closure
+   environment. Native entry-block cells promote to registers/SSA in optimized
+   builds; suspended execution uses private continuation slots and explicit read
+   snapshots. No scalar cell escapes as a source reference. Every successful
+   backedge settles iteration-owned task obligations; zero-iteration paths retain
+   incoming obligations. Completed structured groups release scheduler records
+   before another iteration. Native checked loops and continuation backedges keep
+   cancellation/fault checks; ordinary CLI proofs may omit unnecessary checks as
+   before. `break`, `continue`, `for` and general Unit-returning APIs remain outside
+   this stage.
 3. Give mutable arrays a reference representation. Current numeric arrays use
    immutable MLIR tensors; simply inserting writes would violate optimization and
    aliasing assumptions. Verify identity returns, fresh transforms, allocation

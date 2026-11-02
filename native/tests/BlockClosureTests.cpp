@@ -17,7 +17,10 @@ int main() {
   try {
     for (
         const auto *source :
-        {"fn worker(value:int)->int:\n  value\nfn run(value:int)->int ! TaskError:\n  try "
+        {"fn main()->int:\n  f=fn(value:int):\n    value=value+1\n    value\n  f(41)\n",
+         "fn main()->int:\n  f=fn(value:int):\n    adjusted=value+1\n    adjusted=adjusted+1\n    adjusted\n  f(40)\n",
+         "fn main()->int:\n  f=fn(value:int):\n    if value>0:value\n    value\n  f(42)\n",
+         "fn worker(value:int)->int:\n  value\nfn run(value:int)->int ! TaskError:\n  try "
          "parallel:\n    try await spawn worker(value)\nfn main()->int:\n  f=fn(value:int):\n    "
          "result=run(value) catch fn(error):0\n    result\n  f(42)\n",
          "fn makeAdder(offset:int)->fn(int)->int:\n  fn(value):\n    adjusted=value+offset\n    "
@@ -125,11 +128,10 @@ int main() {
           " result=targets[0](item)\n    result\nfn main()->int ! TaskError:\n  try parallel:\n    "
           "f=try await spawn make(21)\n    f(21)\n"})
       require(analyze(accepted).ok(), "supported worker aggregate rejected");
+    // Scalar rebinding is now supported; the rejection catalog keeps actual
+    // scope, type, error-channel and incomplete-suite violations.
     for (const auto *source :
-         {"fn main()->int:\n  f=fn(value:int):\n    value=value+1\n    value\n  f(41)\n",
-          "fn main()->int:\n  f=fn(value:int):\n    adjusted=value+1\n    adjusted=adjusted+1\n    "
-          "adjusted\n  f(40)\n",
-          "fn main()->int:\n  f=fn(value:int):\n    hidden=value+1\n    hidden\n  hidden\n",
+         {"fn main()->int:\n  f=fn(value:int):\n    hidden=value+1\n    hidden\n  hidden\n",
           "fn main()->int:\n  f=fn(value):\n    adjusted=value+1\n    adjusted\n  f(41)\n",
           "fn main()->int:\n  f=fn(value:int):\n    adjusted:String=value\n    length(adjusted)\n  "
           "f(41)\n",
@@ -145,7 +147,6 @@ int main() {
           "outcome=checked()\n  f=fn(value:int):\n    result=outcome\n    result\n  0\n",
           "fn main()->int:\n  f=fn(value:int):\n    adjusted=value+1\n  42\n",
           "fn main()->int:\n  f=fn(value:int):\n  42\n",
-          "fn main()->int:\n  f=fn(value:int):\n    if value>0:value\n    value\n  f(42)\n",
           "fn main()->[int]:\n  map([1],fn(value):\n    adjusted=value+1\n    adjusted)\n"})
       require(!analyze(source).ok(), "invalid block closure accepted");
     auto tree = parse(
@@ -168,13 +169,11 @@ int main() {
       }
     require(found && tree.module.functions[0].body.size() == 2,
             "dedented call attached to closure body");
-    unsigned diagnosticCase = 0;
-    for (auto text :
-         {"fn main()->int:\n  f=fn(value:int):\n    adjusted=value+1\n  0\n",
-          "fn main()->int:\n  f=fn(value:int):\n    if value>0:value\n    value\n  0\n"}) {
+    for (auto text : {"fn main()->int:\n  f=fn(value:int):\n    adjusted=value+1\n  0\n",
+                      "fn main()->int:\n  f=fn(value:int):\n    if value>0:value\n  0\n"}) {
       auto invalid = parse(std::make_shared<SourceFile>("invalid.k", text));
       require(!invalid.ok(), "invalid block syntax accepted");
-      const auto expected = diagnosticCase++ == 0 ? "P007" : "P035";
+      const auto expected = "P007";
       require(std::ranges::any_of(invalid.diagnostics,
                                   [&](const auto &d) { return d.code == expected; }),
               "block parsing replaced a required diagnostic");

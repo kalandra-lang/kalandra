@@ -195,6 +195,12 @@ struct ParallelExpr {
 struct ConditionalExpr {
   ExprId condition;
   std::vector<Statement> whenTrue, whenFalse;
+  bool statementOnly = false;
+};
+// Statement-only control flow. The body does not supply a result value.
+struct WhileExpr {
+  ExprId condition;
+  std::vector<Statement> body;
 };
 struct LogicalExpr {
   bool conjunction;
@@ -225,7 +231,7 @@ struct Expr {
   SourceSpan span;
   std::variant<NameExpr, NumberExpr, StringExpr, UnaryExpr, BinaryExpr, ComparisonExpr, CallExpr,
                ArrayExpr, IndexExpr, TaskExpr, ParallelExpr, ConditionalExpr, LogicalExpr,
-               CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr>
+               CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr, WhileExpr>
       value;
 };
 struct Statement {

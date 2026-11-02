@@ -60,6 +60,14 @@ int main(int argc, char **argv) {
   try {
     const auto base = fs::absolute(argv[1]);
     fs::create_directories(base);
+    const std::string mutableLocal =
+        "fn main()->int:\n  value=0\n  while value<3:\n    value=value+1\n  value\n";
+    Fixture mutation(base, "mutable-local", {{"main.k", mutableLocal}});
+    auto renamed = mutation.success("main.k", mutableLocal.find("value=value"), "counter");
+    require(
+        renamed["main.k"] ==
+            "fn main()->int:\n  counter=0\n  while counter<3:\n    counter=counter+1\n  counter\n",
+        "rename includes mutable declaration, writes and reads");
     const std::string local = "fn main():\n  value=1\n  read=fn():value\n  read()+value\n";
     Fixture locals(base, "locals", {{"main.k", local}});
     auto prepared = locals.plan("main.k", local.find("value"), std::nullopt);

@@ -16,7 +16,7 @@ link { url = "/docs/records-enums", "Record and enum declarations" }
 
 h2 { "Functions and control flow" }
 
-Functions return their final expression. Parameters and results can be annotated; recursive functions need enough type information to check their calls. Function values and immutable captures support composition. Conditions and matching choose expressions lazily; a branch that is not selected does not run.
+Functions return their final expression. Parameters and results can be annotated; recursive functions need enough type information to check their calls. Function values and immutable captures support composition. The unreleased language branch adds local numeric/Bool reassignment, statement if and while; array writes remain unavailable. Conditions and matching choose expressions lazily; a branch that is not selected does not run.
 link { url = "/docs/functions", "Definitions, function values, closures and recursion" }
 link { url = "/docs/control-flow", "Conditions and pattern matching" }
 link { url = "/docs/errors", "Error declarations, try, fail and catch" }

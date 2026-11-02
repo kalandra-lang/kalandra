@@ -276,6 +276,10 @@ public:
           bool arrayTailLoops, const CpuTarget &target)
       : arithmetic_(arithmetic), dataLayout_(target.dataLayout), arrayTailLoops_(arrayTailLoops), input_(input), builder_(&context),
         module_(ModuleOp::create(builder_.getUnknownLoc())) {
+    mutableSymbols_.resize(input_.functions.size());
+    for (SymbolId id = 0; id < input_.symbols.size(); ++id)
+      if (input_.symbols[id].reassignable)
+        mutableSymbols_.at(input_.symbols[id].owner).push_back(id);
     (*module_)->setAttr("llvm.data_layout", builder_.getStringAttr(target.dataLayout));
     (*module_)->setAttr("llvm.target_triple", builder_.getStringAttr(target.triple));
   }
@@ -2135,6 +2139,25 @@ private:
     std::unordered_map<ValueId, Value> values;
     std::unordered_map<SymbolId, Value> symbols;
   };
+  std::vector<std::vector<SymbolId>> mutableSymbols_;
+  Block *scalarEntry_ = nullptr;
+  std::unordered_map<SymbolId, Value> scalarCells_;
+  Value scalarCell(SymbolId symbol, Location loc) {
+    if (auto found = scalarCells_.find(symbol); found != scalarCells_.end())
+      return found->second;
+    OpBuilder::InsertionGuard restore(builder_);
+    builder_.setInsertionPointToStart(scalarEntry_);
+    auto storage = MemRefType::get({}, type(input_.symbols[symbol].type));
+    Value cell = memref::AllocaOp::create(builder_, loc, storage);
+    scalarCells_[symbol] = cell;
+    return cell;
+  }
+  void bindScalar(Frame &frame, SymbolId symbol, Value value, Location loc) {
+    if (input_.symbols[symbol].reassignable)
+      memref::StoreOp::create(builder_, loc, value, scalarCell(symbol, loc));
+    else
+      frame.symbols[symbol] = value;
+  }
   // Fuse a pure floating map into the first level of its adjacent-pair sum.
   // Inputs stay immutable; only the half-sized private reduction scratch mutates.
   Value fusedMapReduction(Frame &frame, ValueId root, Location loc) {
@@ -2311,9 +2334,11 @@ private:
                                std::is_same_v<T, Int64Literal>) {
             return arith::ConstantIntOp::create(builder_, loc, operation.value,
                                                 describeNumeric(node.type.element)->bits);
-          } else if constexpr (std::is_same_v<T, SymbolRead>)
+          } else if constexpr (std::is_same_v<T, SymbolRead>) {
+            if (input_.symbols[operation.symbol].reassignable)
+              return memref::LoadOp::create(builder_, loc, scalarCell(operation.symbol, loc));
             return frame.symbols.at(operation.symbol);
-          else if constexpr (std::is_same_v<T, ScalarUnary>) {
+          } else if constexpr (std::is_same_v<T, ScalarUnary>) {
             auto operand = expression(frame, operation.operand);
             if (isInteger(node.type.element))
               return integerUnary(loc, operand, operation.operation, isUnsigned(node.type.element));
@@ -2917,6 +2942,28 @@ private:
             if (isOwnedArray(node.type))
               return recordArrayLiteral(loc, node.type, elements);
             return tensor::FromElementsOp::create(builder_, loc, type(node.type), elements);
+          } else if constexpr (std::is_same_v<T, WhileOperation>) {
+            auto loop = scf::WhileOp::create(builder_, loc, TypeRange{}, ValueRange{});
+            {
+              OpBuilder::InsertionGuard restore(builder_);
+              auto *before = new Block;
+              loop.getBefore().push_back(before);
+              builder_.setInsertionPointToStart(before);
+              auto conditionFrame = frame;
+              auto condition = expression(conditionFrame, operation.condition);
+              scf::ConditionOp::create(builder_, loc, condition, ValueRange{});
+              auto *after = new Block;
+              loop.getAfter().push_back(after);
+              builder_.setInsertionPointToStart(after);
+              auto bodyFrame = frame;
+              for (const auto &statement : operation.body) {
+                auto value = expression(bodyFrame, statement.value);
+                if (statement.binding)
+                  bindScalar(bodyFrame, *statement.binding, value, location(statement.span));
+              }
+              scf::YieldOp::create(builder_, loc, ValueRange{});
+            }
+            return arith::ConstantIntOp::create(builder_, loc, 0, 1);
           } else if constexpr (std::is_same_v<T, ConditionalOperation>) {
             auto condition = expression(frame, operation.condition);
             auto evaluate = [&](const std::vector<TypedStatement> &statements, ValueId result) {
@@ -2924,7 +2971,7 @@ private:
               for (const auto &statement : statements) {
                 auto value = expression(branch, statement.value);
                 if (statement.binding)
-                  branch.symbols[*statement.binding] = value;
+                  bindScalar(branch, *statement.binding, value, location(statement.span));
               }
               auto value = castTensor(loc, expression(branch, result), type(node.type));
               scf::YieldOp::create(builder_, loc, ValueRange{value});
@@ -2962,7 +3009,7 @@ private:
               for (const auto &statement : arm.body) {
                 auto value = expression(branch, statement.value);
                 if (statement.binding)
-                  branch.symbols[*statement.binding] = value;
+                  bindScalar(branch, *statement.binding, value, location(statement.span));
               }
               auto value = castTensor(loc, expression(branch, arm.result), type(node.type));
               scf::YieldOp::create(builder_, loc, ValueRange{value});
@@ -3092,6 +3139,8 @@ private:
     auto function = functions_[id];
     auto *entry = function.addEntryBlock();
     builder_.setInsertionPointToStart(entry);
+    scalarEntry_ = entry;
+    scalarCells_.clear();
     Frame frame;
     // Multiple matrix dispatches each contain a narrow kernel and a wide
     // helper. Keep conservative frame accounting local for longer graphs.
@@ -3110,7 +3159,7 @@ private:
         }) >= 16 || frame.outlineMatrix;
     for (std::size_t i = 0; i < input_.functions[id].parameters.size(); ++i) {
       const auto parameter = input_.functions[id].parameters[i];
-      frame.symbols.emplace(parameter, entry->getArgument(i));
+      bindScalar(frame, parameter, entry->getArgument(i), function.getLoc());
       validateStrings(function.getLoc(), entry->getArgument(i), input_.symbols[parameter].type);
     }
     const auto &source = input_.functions[id];
@@ -3133,14 +3182,16 @@ private:
         !choice->whenTrue.empty() && choice->whenTrue.back().value == choice->trueResult;
     const bool falseTail = falseCall && falseCall->function == id &&
         !choice->whenFalse.empty() && choice->whenFalse.back().value == choice->falseResult;
-    const bool arrayTail = arrayTailLoops_ && (trueTail != falseTail) &&
-        !source.resultType.tensor && plainNumeric(source.resultType) &&
-        std::ranges::all_of(source.parameters, [&](auto p) {
-          const auto &t = input_.symbols[p].type;
-          return plainNumeric(t) && (!t.tensor || t.shape.size() == 1);
-        }) && std::ranges::any_of(source.parameters, [&](auto p) {
-          return input_.symbols[p].type.tensor;
-        });
+    const bool arrayTail =
+        arrayTailLoops_ && scalarCells_.empty() && mutableSymbols_[id].empty() &&
+        (trueTail != falseTail) && !source.resultType.tensor && plainNumeric(source.resultType) &&
+        std::ranges::all_of(source.parameters,
+                            [&](auto p) {
+                              const auto &t = input_.symbols[p].type;
+                              return plainNumeric(t) && (!t.tensor || t.shape.size() == 1);
+                            }) &&
+        std::ranges::any_of(source.parameters,
+                            [&](auto p) { return input_.symbols[p].type.tensor; });
     if (arrayTail) {
       // Preserve source immutability in function-boundary bufferization. A
       // writable default otherwise forces callers to clone even a base case.
@@ -3168,7 +3219,8 @@ private:
         for (std::size_t n = 0; n + 1 < continuation.size(); ++n) {
           const auto &statement = continuation[n];
           auto value = expression(current, statement.value);
-          if (statement.binding) current.symbols[*statement.binding] = value;
+          if (statement.binding)
+            bindScalar(current, *statement.binding, value, location(statement.span));
         }
         SmallVector<Value> next;
         for (std::size_t n = 0; n < call.arguments.size(); ++n)
@@ -3193,7 +3245,8 @@ private:
               builder_.setInsertionPointToStart(&completed.getElseRegion().front());
               for (const auto &statement : terminal) {
                 auto value = expression(current, statement.value);
-                if (statement.binding) current.symbols[*statement.binding] = value;
+                if (statement.binding)
+                  bindScalar(current, *statement.binding, value, location(statement.span));
               }
               auto result = castTensor(loc, expression(current, terminalResult), resultType);
               scf::YieldOp::create(builder_, loc, result);
@@ -3267,7 +3320,8 @@ private:
           auto completed = iteration(loop.getResults());
           for (const auto &statement : terminal) {
             auto value = expression(completed, statement.value);
-            if (statement.binding) completed.symbols[*statement.binding] = value;
+            if (statement.binding)
+              bindScalar(completed, *statement.binding, value, location(statement.span));
           }
           scf::YieldOp::create(builder_, loc,
               castTensor(loc, expression(completed, terminalResult), resultType));
@@ -3291,7 +3345,8 @@ private:
           auto stopped = frame;
           for (const auto &statement : terminal) {
             auto value = expression(stopped, statement.value);
-            if (statement.binding) stopped.symbols[*statement.binding] = value;
+            if (statement.binding)
+              bindScalar(stopped, *statement.binding, value, location(statement.span));
           }
           scf::YieldOp::create(builder_, loc,
               castTensor(loc, expression(stopped, terminalResult), resultType));
@@ -3305,7 +3360,7 @@ private:
     for (const auto &statement : input_.functions[id].body) {
       result = expression(frame, statement.value);
       if (statement.binding)
-        frame.symbols.emplace(*statement.binding, result);
+        bindScalar(frame, *statement.binding, result, location(statement.span));
     }
     auto value = castTensor(function.getLoc(), result, function.getResultTypes()[0]);
     validateStrings(function.getLoc(), value, input_.functions[id].resultType);

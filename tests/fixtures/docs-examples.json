@@ -32,6 +32,10 @@
     {
       "kind": "cpu",
       "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "23"
     }
   ],
   "errors": [
@@ -194,6 +198,10 @@
     {
       "kind": "cpu",
       "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "20"
     }
   ],
   "task-functions": [

@@ -27,7 +27,7 @@ fn main() -> int:
   addTen(32)
 """ }
 
-The returned closure retains its captured environment after makeAdder returns. Captures are immutable values, not references to mutable local variables. Anonymous bodies may also use an indented suite with local bindings.
+The returned closure retains its captured environment after makeAdder returns. Captures are immutable values, not references to mutable local variables. Anonymous bodies may also use an indented suite with local bindings. In the unreleased language branch, rebinding a captured scalar changes only the current call's private copy. It does not update the captured environment, a later call, or the caller's binding.
 
 h2 { "Callbacks and execution" }
 

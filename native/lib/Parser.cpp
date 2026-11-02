@@ -456,7 +456,8 @@ private:
       return {};
     function.span = {start,
                      function.body.empty() ? end->span.begin : function.body.back().span.end};
-    if (function.body.empty() || function.body.back().binding) {
+    if (function.body.empty() || function.body.back().binding ||
+        statementOnly(function.body.back().expression)) {
       error("P007", "function body must end with a result expression", end->span);
       if (result_.module.editorOnly) {
         const SourceSpan hole{end->span.begin, end->span.begin};
@@ -466,9 +467,40 @@ private:
     }
     return function;
   }
+  bool statementOnly(ExprId id) {
+    const auto &value = node(id).value;
+    if (std::holds_alternative<WhileExpr>(value))
+      return true;
+    if (const auto *choice = std::get_if<ConditionalExpr>(&value))
+      return choice->statementOnly;
+    return false;
+  }
   std::optional<Statement> parseStatement() {
     Statement statement;
     statement.span.begin = current().span.begin;
+    if (word("while")) {
+      if (depth_ >= limits_.maxDepth) {
+        error("P009", "loop nesting limit exceeded", current().span);
+        return {};
+      }
+      const Depth guard(depth_);
+      advance();
+      auto condition = parseExpression();
+      if (!condition || !expect(TokenKind::Colon, "expected ':' after while condition"))
+        return {};
+      auto body = suite(true);
+      if (!body)
+        return {};
+      statement.span.end = body->back().span.end;
+      auto id = add({statement.span, WhileExpr{*condition, std::move(*body)}});
+      if (!id)
+        return {};
+      statement.expression = *id;
+      if (tokens_[position_ - 1].kind != TokenKind::Dedent &&
+          !expect(TokenKind::Newline, "expected a newline after while body"))
+        return {};
+      return statement;
+    }
     if (at(TokenKind::Identifier) && !word("parallel") &&
         (peek().kind == TokenKind::Equal || peek().kind == TokenKind::Colon)) {
       statement.binding = advance().span;
@@ -672,9 +704,19 @@ private:
       return {};
     return values;
   }
-  std::optional<std::vector<Statement>> suite() {
+  std::optional<std::vector<Statement>> suite(bool statementsOnly = false) {
     std::vector<Statement> body;
     if (!consume(TokenKind::Newline)) {
+      if (statementsOnly) {
+        auto statement = parseStatement();
+        if (!statement)
+          return {};
+        body.push_back(std::move(*statement));
+        // The surrounding if/while owns the inline suite's terminating newline.
+        if (position_ && tokens_[position_ - 1].kind == TokenKind::Newline)
+          --position_;
+        return body;
+      }
       auto value = parseExpression();
       if (!value)
         return {};
@@ -709,7 +751,8 @@ private:
     auto end = expect(TokenKind::Dedent, "expected end of body");
     if (!end)
       return {};
-    if (body.empty() || body.back().binding) {
+    if (body.empty() ||
+        (!statementsOnly && (body.back().binding || statementOnly(body.back().expression)))) {
       error("P007", "body must end with a result expression", end->span);
       if (!result_.module.editorOnly)
         return {};
@@ -781,7 +824,7 @@ private:
         auto condition = parseExpression();
         if (!condition || !expect(TokenKind::Colon, "expected ':' after if condition"))
           return {};
-        auto yes = suite();
+        auto yes = suite(true);
         if (!yes)
           return {};
         const auto endOfTrue = position_;
@@ -789,32 +832,25 @@ private:
         if (inlineTrue && !expect(TokenKind::Newline, "expected newline before else"))
           return {};
         if (!word("else")) {
-          if (!std::holds_alternative<FailExpr>(node(yes->back().expression).value)) {
-            error("P035", "if expressions require an else branch", current().span);
-            if (result_.module.editorOnly) {
-              const SourceSpan hole{current().span.begin, current().span.begin};
-              auto id = add({hole, NameExpr{hole}});
-              if (!id)
-                return {};
-              return add({{token.span.begin, hole.end},
-                          ConditionalExpr{*condition, std::move(*yes), {{hole, {}, {}, *id}}}});
-            }
-            return {};
-          }
+          const bool guard = !yes->back().binding &&
+                             std::holds_alternative<FailExpr>(node(yes->back().expression).value);
           // An inline guard leaves its terminating newline to its enclosing statement.
           if (inlineTrue)
             position_ = endOfTrue;
           return add({{token.span.begin, yes->back().span.end},
-                      ConditionalExpr{*condition, std::move(*yes), {}}});
+                      ConditionalExpr{*condition, std::move(*yes), {}, !guard}});
         }
         advance();
         if (!expect(TokenKind::Colon, "expected ':' after else"))
           return {};
-        auto no = suite();
+        auto no = suite(true);
         if (!no)
           return {};
+        const bool effects = yes->back().binding || no->back().binding ||
+                             statementOnly(yes->back().expression) ||
+                             statementOnly(no->back().expression);
         return add({{token.span.begin, no->back().span.end},
-                    ConditionalExpr{*condition, std::move(*yes), std::move(*no)}});
+                    ConditionalExpr{*condition, std::move(*yes), std::move(*no), effects}});
       }
       if (text == "not") {
         advance();

@@ -1088,6 +1088,7 @@ include(cmake/Arrays.cmake)
 
 include(cmake/ArrayMap.cmake)
 include(cmake/ArrayGenerate.cmake)
+include(cmake/LocalRebinding.cmake)
 
 include(cmake/ArrayTensor.cmake)
 

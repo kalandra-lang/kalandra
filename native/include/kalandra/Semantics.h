@@ -98,6 +98,8 @@ struct Symbol {
   bool parameter;
   // Source definition of a lifted capture/narrowed alias. Diagnostics retain declaration.
   std::optional<SourceSpan> definition = {};
+  // Private invocation-local scalar cell; never a reference passed to a callee.
+  bool reassignable = false;
 };
 struct Int32Literal {
   std::int32_t value;
@@ -275,6 +277,10 @@ struct ConditionalOperation {
   std::vector<TypedStatement> whenTrue, whenFalse;
   ValueId trueResult, falseResult;
 };
+struct WhileOperation {
+  ValueId condition;
+  std::vector<TypedStatement> body;
+}; // Statement-only; the internal Bool marker is never a source result.
 struct GuardOperation {
   ValueId condition;
   std::vector<TypedStatement> body;
@@ -346,12 +352,11 @@ struct TypedExpr {
                UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
                BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary,
                TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum,
-               TensorTransform,
-               ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat, ArraySlice,
-               ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection, Transfer,
-               TaskOperation, ParallelOperation, ConditionalOperation, CatchOperation,
-               MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue,
-               RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke>
+               TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat,
+               ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection,
+               Transfer, TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
+               CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
+               RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke>
       operation;
 };
 struct ShapeEquality {

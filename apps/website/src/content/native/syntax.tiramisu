@@ -1,4 +1,4 @@
-meta { title = "Syntax and values", description = "Read native source, immutable bindings and expression results.", order = 1, group = "Language reference" }
+meta { title = "Syntax and values", description = "Read native source, local bindings and expression results.", order = 1, group = "Language reference" }
 
 Native source files use the .k extension. Indentation defines suites; use spaces consistently. A colon introduces a function or control-flow body. The final expression supplies the result.
 
@@ -11,7 +11,7 @@ codeblock { language = kalandra, """fn main() -> int:
   area
 """ }
 
-Bindings are immutable. An annotation such as height: int declares the expected type; otherwise the checker infers a type. A bare whole-number literal normally infers int, while a decimal or exponent literal normally infers float. An expected type can give a literal a narrower numeric type.
+In the released language, bindings are immutable. The unreleased language branch permits numeric and Bool reassignment as described below. An annotation such as height: int declares the expected type; otherwise the checker infers a type. A bare whole-number literal normally infers int, while a decimal or exponent literal normally infers float. An expected type can give a literal a narrower numeric type.
 
 h2 { "Comments and multiline expressions" }
 
@@ -38,6 +38,20 @@ fn main() -> int:
 """ }
 
 The pipeline inserts its left value as the first argument. Here the final line is equivalent to add(40, 2). Use parentheses when a larger expression needs to be one argument.
+
+h2 { "Reassign a local scalar" }
+
+Unreleased language branch: reuse = to update a numeric or Bool binding while preserving its type. A scalar function parameter is a private value; rebinding it cannot change the caller's binding. Existing scalar names are reassigned across statement branches, while newly introduced names remain scoped to their body. Array, record and tensor rebinding are not included in this stage.
+
+codeblock { language = kalandra, """fn double(value: int) -> int:
+  value = value * 2
+  value
+
+fn main() -> int:
+  amount = 10
+  amount = double(amount)
+  amount
+""" }
 
 h2 { "Automatic lifetimes" }
 

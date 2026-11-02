@@ -97,7 +97,7 @@ int main() {
     for (const auto &[text, code] : std::vector<std::pair<std::string, std::string>>{
              {"fn main():\n  map([1],fn(v):\n  )\n", "P002"},
              {"fn main():\n  map([1],fn(v):\n    result=v+1\n  )\n", "P007"},
-             {"fn main():\n  map([1],fn(v):\n    if v>0:\n      v\n  )\n", "P035"},
+             {"fn main():\n  map([1],fn(v):\n    if v>0:\n      v\n  )\n", "P007"},
              {"fn main():\n  map([1],fn(v):\n    v)\n", "L016"},
              {"fn main():\n  map([1],fn(v):\n    v\n    )\n", "L016"},
              {"fn main():\n  map([1],fn(v):\n    x=v+1\n   x\n  )\n", "L008"},
@@ -107,10 +107,10 @@ int main() {
       const auto result = parse(source(text));
       require(!result.ok() && has(result.diagnostics, code), "suite diagnostic changed");
     }
-    for (const auto &text :
-         {"fn main()->int:\n  result=map([1],fn(v):\n    hidden=v+1\n    hidden\n  )\n  hidden\n",
-          "fn main()->int:\n  result=map([1],fn(v):\n    v=v+1\n    v\n  )\n  result[0]\n"})
-      require(!check(parse(source(text))).ok(), "callback scope or immutability escaped");
+    require(!check(parse(source("fn main()->int:\n  result=map([1],fn(v):\n    hidden=v+1\n    hidden\n  )\n  hidden\n"))).ok(),
+            "callback-local declaration escaped its scope");
+    require(check(parse(source("fn main()->int:\n  result=map([1],fn(v):\n    v=v+1\n    v\n  )\n  result[0]\n"))).ok(),
+            "private scalar callback parameter could not be reassigned");
     SyntaxLimits limits;
     limits.maxTokens = 16;
     auto tokens = lex(source(hero), limits);
@@ -147,7 +147,7 @@ int main() {
         ++prefixes;
       }
     std::cout << "Delimited closures: " << programs
-              << " source programs in LF/CRLF/EOF modes; 9 syntax and 2 semantic rejections; "
+              << " source programs in LF/CRLF/EOF modes; 9 syntax and scope/rebinding checks; "
               << prefixes << " truncation prefixes; spans, scopes and budgets passed\n";
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';

@@ -1994,7 +1994,15 @@ private:
         break;
       }
       case Code::Jump:
-        builder.CreateBr(blocks[instruction.jump]);
+        if (instruction.jump <= n && std::holds_alternative<WhileOperation>(
+                                         planner.input.expressions[instruction.source].operation)) {
+          // New statement loops need a checkpoint. Existing parallelMap
+          // backedges retain their own batched MapAdvance polling policy.
+          auto *status = call("kalandra_poll_v1", i64, {ctx});
+          builder.CreateCondBr(builder.CreateICmpEQ(status, c64(0)), blocks[instruction.jump],
+                               abort);
+        } else
+          builder.CreateBr(blocks[instruction.jump]);
         break;
       case Code::Field: {
         if (std::holds_alternative<ErrorNarrow>(

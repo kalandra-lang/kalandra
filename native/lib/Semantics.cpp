@@ -43,6 +43,7 @@ class Checker {
     std::shared_ptr<ClosureScope> closure = {};
     std::size_t enumBranchDepth = 0;
     std::shared_ptr<std::optional<std::size_t>> handlerErrorRecord = {};
+    std::shared_ptr<const std::unordered_set<std::string>> writtenNames = {};
   };
   struct TensorData {
     std::vector<std::uint64_t> shape;
@@ -260,7 +261,7 @@ private:
         insert(alias, ScopeNameKind::Function);
     }
     if (!callTarget)
-      for (const auto *keyword : {"true", "false", "if", "match", "fn", "not"})
+      for (const auto *keyword : {"true", "false", "if", "match", "fn", "not", "while"})
         insert(keyword, ScopeNameKind::Keyword);
     for (const auto &[label, kind] : names) {
       if (query->names.size() == 256) {
@@ -360,8 +361,8 @@ private:
            std::ranges::any_of(type.shape, [](const auto &d) { return !d.constant; });
   }
   static bool reservedControl(const std::string &name) {
-    return name == "true" || name == "false" || name == "if" || name == "else" || name == "and" ||
-           name == "or" || name == "not" || name == "type" || name == "with";
+    return name == "true" || name == "false" || name == "while" || name == "if" || name == "else" ||
+           name == "and" || name == "or" || name == "not" || name == "type" || name == "with";
   }
   void rememberSourceToken(ResolvedSourceToken token) {
     if (token.span.end > token.span.begin)
@@ -1065,6 +1066,164 @@ private:
       }
     }
   }
+  static bool localScalar(const ValueType &type) {
+    return !type.tensor && !type.array && !type.task && !type.fallible && !type.device &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+  }
+  // Discover writes before checking any initializer/condition. A binding that
+  // changes later must not supply a constant to checks on an earlier read.
+  void prepareBindings(Frame &frame, const std::vector<Statement> &body) {
+    auto written = std::make_shared<std::unordered_set<std::string>>();
+    std::unordered_set<std::string> visible;
+    for (const auto &[label, symbol] : frame.locals)
+      visible.insert(label);
+    // Explicit scope events avoid recursive walks of long flat expression trees,
+    // and avoid treating declarations in two sibling branches as reassignment.
+    using Scope = std::shared_ptr<std::vector<std::string>>;
+    enum class Kind { Body, Expression, Binding, Leave };
+    struct Work {
+      Kind kind;
+      const std::vector<Statement> *body = nullptr;
+      const Statement *statement = nullptr;
+      ExprId expression = 0;
+      Scope scope = {};
+    };
+    std::vector<Work> pending{{Kind::Body, &body}};
+    while (!pending.empty()) {
+      auto work = std::move(pending.back());
+      pending.pop_back();
+      if (work.kind == Kind::Leave) {
+        for (const auto &label : *work.scope)
+          visible.erase(label);
+        continue;
+      }
+      if (work.kind == Kind::Binding) {
+        const auto label = name(*work.statement->binding);
+        if (!visible.insert(label).second)
+          written->insert(label);
+        else
+          work.scope->push_back(label);
+        continue;
+      }
+      if (work.kind == Kind::Body) {
+        auto scope = std::make_shared<std::vector<std::string>>();
+        pending.push_back({Kind::Leave, {}, {}, 0, scope});
+        for (auto it = work.body->rbegin(); it != work.body->rend(); ++it) {
+          if (it->binding)
+            pending.push_back({Kind::Binding, {}, &*it, 0, scope});
+          pending.push_back({Kind::Expression, {}, {}, it->expression});
+        }
+        continue;
+      }
+      const auto expression = [&](ExprId id) { pending.push_back({Kind::Expression, {}, {}, id}); };
+      const auto statements = [&](const auto &items) { pending.push_back({Kind::Body, &items}); };
+      std::visit(
+          [&](const auto &op) {
+            using T = std::decay_t<decltype(op)>;
+            if constexpr (!std::is_same_v<T, LambdaExpr>) {
+              if constexpr (requires { op.body; })
+                statements(op.body);
+              if constexpr (std::is_same_v<T, ConditionalExpr>) {
+                statements(op.whenFalse);
+                statements(op.whenTrue);
+              }
+              if constexpr (std::is_same_v<T, MatchExpr>)
+                for (auto it = op.arms.rbegin(); it != op.arms.rend(); ++it)
+                  statements(it->body);
+              if constexpr (requires { op.condition; })
+                expression(op.condition);
+              if constexpr (requires { op.operand; })
+                expression(op.operand);
+              if constexpr (requires {
+                              op.left;
+                              op.right;
+                            }) {
+                expression(op.right);
+                expression(op.left);
+              }
+              if constexpr (requires { op.input; })
+                expression(op.input);
+              if constexpr (requires { op.subject; })
+                expression(op.subject);
+              if constexpr (requires { op.callee; })
+                expression(op.callee);
+              if constexpr (requires { op.arguments; })
+                for (auto it = op.arguments.rbegin(); it != op.arguments.rend(); ++it)
+                  expression(*it);
+              if constexpr (requires { op.elements; })
+                for (auto it = op.elements.rbegin(); it != op.elements.rend(); ++it)
+                  expression(*it);
+              if constexpr (requires { op.indices; })
+                for (auto it = op.indices.rbegin(); it != op.indices.rend(); ++it)
+                  expression(*it);
+              if constexpr (std::is_same_v<T, RecordExpr>) {
+                for (auto it = op.fields.rbegin(); it != op.fields.rend(); ++it)
+                  expression(it->value);
+                if (op.base)
+                  expression(*op.base);
+              }
+            }
+          },
+          syntax_.expressions[work.expression].value);
+    }
+    frame.writtenNames = std::move(written);
+    for (const auto &[label, symbol] : frame.locals)
+      if (frame.writtenNames->contains(label) && localScalar(output_.symbols[symbol].type))
+        output_.symbols[symbol].reassignable = true;
+  }
+  bool mayReassign(const Frame &frame, const std::string &label) const {
+    return frame.writtenNames && frame.writtenNames->contains(label);
+  }
+  std::optional<SymbolId> visibleScalar(const Frame &frame, const std::string &label) const {
+    const Frame *scope = &frame;
+    while (scope) {
+      if (auto found = scope->locals.find(label); found != scope->locals.end())
+        return localScalar(output_.symbols[found->second].type) ? std::optional(found->second)
+                                                                : std::nullopt;
+      if (!scope->closure)
+        break;
+      if (auto found = scope->closure->captures.find(label);
+          found != scope->closure->captures.end())
+        return localScalar(output_.symbols[found->second].type) ? std::optional(found->second)
+                                                                : std::nullopt;
+      scope = scope->closure->parent;
+    }
+    return {};
+  }
+  std::optional<ValueType> rebindContext(const Frame &frame, const Statement &statement) const {
+    if (!statement.binding)
+      return {};
+    if (auto symbol = visibleScalar(frame, name(*statement.binding)))
+      return output_.symbols[*symbol].type;
+    return {};
+  }
+  std::optional<SymbolId> scalarRebinding(Frame &frame, const Statement &statement, ValueId value) {
+    if (!statement.binding)
+      return {};
+    const auto label = name(*statement.binding);
+    auto found = frame.locals.find(label);
+    if (found == frame.locals.end() && frame.closure && visibleScalar(frame, label)) {
+      // Captured scalars are value snapshots, never references to the caller's
+      // binding. Rebinding initializes/updates this invocation's private copy.
+      if (auto capture = lookupSymbol(frame, *statement.binding);
+          capture && localScalar(output_.symbols[*capture].type))
+        found = frame.locals.emplace(label, *capture).first;
+    }
+    if (found == frame.locals.end())
+      return {};
+    auto &symbol = output_.symbols[found->second];
+    if (!localScalar(symbol.type))
+      return {};
+    if (!localScalar(node(value).type) || !sameFunctionValueType(symbol.type, node(value).type)) {
+      error("S075", "local reassignment must preserve the scalar type " + describeType(symbol.type),
+            *statement.binding);
+      return {};
+    }
+    symbol.reassignable = true;
+    rememberSourceToken(
+        {*statement.binding, symbol.definition.value_or(symbol.declaration), symbol.type, {}});
+    return found->second;
+  }
   bool analyzeFunction(FunctionId id) {
     if (states_[id] == State::Complete)
       return true;
@@ -1095,6 +1254,7 @@ private:
     const auto initialErrors = errorCount_;
     bool success = true;
     const auto &body = syntax_.functions[id].body;
+    prepareBindings(frame, body);
     for (std::size_t index = 0; index < body.size() && diagnostics_.size() < limits_.maxDiagnostics;
          ++index) {
       const auto &statement = body[index];
@@ -1105,7 +1265,9 @@ private:
           success = false;
           continue;
         }
-      } else if (index + 1 == body.size() && !statement.binding)
+      } else if (statement.binding)
+        expected = rebindContext(frame, statement);
+      else if (index + 1 == body.size())
         expected = output_.functions[id].declaredResult;
       auto value = statementValue(frame, statement, expected, index + 1 == body.size());
       std::optional<SymbolId> symbol;
@@ -1114,7 +1276,9 @@ private:
         if (reservedControl(bindingName))
           error("S056", "Control-flow keywords cannot be binding names", *statement.binding);
         // The initializer is checked before this name is introduced.
-        if (frame.locals.contains(bindingName)) {
+        if (value && (symbol = scalarRebinding(frame, statement, *value))) {
+          // Same invocation-local scalar, with a new value at this statement.
+        } else if (frame.locals.contains(bindingName)) {
           error("S008", "duplicate binding '" + bindingName + "'; bindings are immutable",
                 *statement.binding);
           success = false;
@@ -1123,11 +1287,15 @@ private:
           output_.symbols.push_back(
               {bindingName, node(*value).type, *statement.binding, id, false});
           frame.locals.emplace(bindingName, *symbol);
+          output_.symbols[*symbol].reassignable =
+              mayReassign(frame, bindingName) && localScalar(node(*value).type);
           if (auto it = stringCounts_.find(*value); it != stringCounts_.end())
             stringBindings_[*symbol] = it->second;
-          if (auto it = intConstants_.find(*value); it != intConstants_.end())
+          if (auto it = intConstants_.find(*value);
+              it != intConstants_.end() && !output_.symbols[*symbol].reassignable)
             intBindings_[*symbol] = it->second;
-          if (auto it = floatConstants_.find(*value); it != floatConstants_.end())
+          if (auto it = floatConstants_.find(*value);
+              it != floatConstants_.end() && !output_.symbols[*symbol].reassignable)
             floatBindings_.insert_or_assign(*symbol, it->second);
         }
       }
@@ -1297,7 +1465,8 @@ private:
       else if (const auto *n = std::get_if<UInt64Literal>(&op))
         constant = n->value;
       else if (const auto *read = std::get_if<SymbolRead>(&op)) {
-        if (auto it = intBindings_.find(read->symbol); it != intBindings_.end())
+        if (auto it = intBindings_.find(read->symbol);
+            it != intBindings_.end() && !output_.symbols[read->symbol].reassignable)
           constant = it->second;
       } else if (const auto *unary = std::get_if<ScalarUnary>(&op)) {
         if (auto it = intConstants_.find(unary->operand); it != intConstants_.end())
@@ -1790,6 +1959,7 @@ private:
     for (const auto &parameter : lambda.parameters)
       introduced.insert(name(parameter.name));
     std::vector<TypedStatement> statements;
+    prepareBindings(nested, lambda.body);
     auto result = suite(nested, lambda.body, resultContext, statements, introduced);
     if (!result)
       return {};
@@ -2654,6 +2824,8 @@ private:
       std::optional<ValueType> context;
       if (statement.annotation)
         context = type(*statement.annotation);
+      else if (statement.binding)
+        context = rebindContext(nested, statement);
       else if (index + 1 == block.body.size() && expected) {
         context = *expected;
         context->task = context->fallible = false;
@@ -2669,14 +2841,20 @@ private:
           error("S056", "Control-flow keywords cannot be binding names", *statement.binding);
           return {};
         }
-        if (!bindings.insert(binding).second) {
-          error("S008", "duplicate immutable binding", *statement.binding);
-          return {};
+        if ((symbol = scalarRebinding(nested, statement, *value))) {
+          bindings.insert(binding);
+        } else {
+          if (!bindings.insert(binding).second) {
+            error("S008", "duplicate immutable binding", *statement.binding);
+            return {};
+          }
+          symbol = output_.symbols.size();
+          output_.symbols.push_back(
+              {binding, node(*value).type, *statement.binding, frame.function, false});
+          output_.symbols[*symbol].reassignable =
+              mayReassign(frame, binding) && localScalar(node(*value).type);
+          nested.locals[binding] = *symbol;
         }
-        symbol = output_.symbols.size();
-        output_.symbols.push_back(
-            {binding, node(*value).type, *statement.binding, frame.function, false});
-        nested.locals[binding] = *symbol;
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
       }
@@ -2717,10 +2895,77 @@ private:
       }
     }
   }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const WhileExpr &loop,
+                               const std::optional<ValueType> &) {
+    auto condition = expression(frame, loop.condition);
+    if (!condition)
+      return {};
+    const auto test = node(*condition).type;
+    if (test.builtin != BuiltinValue::Bool || test.tensor || test.array || test.task ||
+        test.fallible || test.device) {
+      error("S057", "while conditions require a completed CPU Bool", node(*condition).span);
+      return {};
+    }
+    const auto before = *frame.tasks;
+    auto nested = frame;
+    nested.conditional = true;
+    nested.tasks = std::make_shared<TaskChecks>(before);
+    std::vector<TypedStatement> body;
+    auto result = suite(nested, loop.body, {}, body, {}, true);
+    if (!result)
+      return {};
+    ValueType marker;
+    marker.builtin = BuiltinValue::Bool;
+    auto completed = add(nested, marker, span, BoolLiteral{false});
+    if (!completed)
+      return {};
+    // Every successful backedge discharges obligations created this iteration.
+    // Incoming obligations are unchanged: the loop may execute zero times.
+    finishBranch(before, nested, *completed, span);
+    return add(frame, marker, span, WhileOperation{*condition, std::move(body)});
+  }
   std::optional<ValueId> statementValue(Frame &frame, const Statement &statement,
                                         const std::optional<ValueType> &expected, bool last) {
     const auto &ast = syntax_.expressions[statement.expression];
+    if (!last && !statement.binding && std::holds_alternative<FailExpr>(ast.value)) {
+      // A statement-body failure has no success value to infer. Its Bool marker
+      // is private; the existing boundary receives only the propagated error.
+      ValueType marker;
+      marker.builtin = BuiltinValue::Bool;
+      auto value = infer(frame, ast.span, std::get<FailExpr>(ast.value), marker);
+      if (value)
+        frame.tasks->handled.insert(node(*value).type.identity);
+      return value;
+    }
+    if (std::holds_alternative<WhileExpr>(ast.value)) {
+      if (statement.binding || last) {
+        error("S075", "while is a statement; supply a separate result expression", ast.span);
+        return {};
+      }
+    }
     const auto *guard = std::get_if<ConditionalExpr>(&ast.value);
+    if (guard && guard->statementOnly) {
+      if (last || statement.binding) {
+        error("S075", "statement if requires a separate result expression", ast.span);
+        return {};
+      }
+      auto test = expression(frame, guard->condition);
+      if (!test)
+        return {};
+      return conditional(frame, ast.span, *test, {},
+                         [&](Frame &branch, unsigned index, const std::optional<ValueType> &,
+                             std::vector<TypedStatement> &body) -> std::optional<ValueId> {
+                           const auto &source = index == 0 ? guard->whenTrue : guard->whenFalse;
+                           if (!source.empty() && !suite(branch, source, {}, body, {}, true))
+                             return {};
+                           ValueType marker;
+                           marker.builtin = BuiltinValue::Bool;
+                           auto value = add(branch, marker, ast.span, BoolLiteral{false});
+                           if (value)
+                             body.push_back({ast.span, {}, *value});
+                           return value;
+                         });
+    }
     if (!guard || !guard->whenFalse.empty())
       return expression(frame, statement.expression, expected);
     if (last || statement.binding || guard->whenTrue.empty() ||
@@ -2754,18 +2999,22 @@ private:
   std::optional<ValueId> suite(Frame &frame, const std::vector<Statement> &body,
                                std::optional<ValueType> context,
                                std::vector<TypedStatement> &statements,
-                               const std::unordered_set<std::string> &introduced = {}) {
+                               const std::unordered_set<std::string> &introduced = {},
+                               bool statementBody = false) {
     auto bindings = introduced;
     std::optional<ValueId> result;
     for (std::size_t index = 0; index < body.size(); ++index) {
       const auto &statement = body[index];
-      auto expected = index + 1 == body.size() ? context : std::optional<ValueType>{};
+      auto expected = statement.binding          ? rebindContext(frame, statement)
+                      : index + 1 == body.size() ? context
+                                                 : std::optional<ValueType>{};
       if (statement.annotation) {
         expected = type(*statement.annotation);
         if (!expected)
           return {};
       }
-      auto value = statementValue(frame, statement, expected, index + 1 == body.size());
+      auto value =
+          statementValue(frame, statement, expected, !statementBody && index + 1 == body.size());
       if (!value)
         return {};
       std::optional<SymbolId> symbol;
@@ -2775,14 +3024,20 @@ private:
           error("S056", "Control-flow keywords cannot be binding names", *statement.binding);
           return {};
         }
-        if (!bindings.insert(binding).second) {
-          error("S008", "duplicate immutable binding", *statement.binding);
-          return {};
+        if ((symbol = scalarRebinding(frame, statement, *value))) {
+          bindings.insert(binding);
+        } else {
+          if (!bindings.insert(binding).second) {
+            error("S008", "duplicate immutable binding", *statement.binding);
+            return {};
+          }
+          symbol = output_.symbols.size();
+          output_.symbols.push_back(
+              {binding, node(*value).type, *statement.binding, frame.function, false});
+          output_.symbols[*symbol].reassignable =
+              mayReassign(frame, binding) && localScalar(node(*value).type);
+          frame.locals[binding] = *symbol;
         }
-        symbol = output_.symbols.size();
-        output_.symbols.push_back(
-            {binding, node(*value).type, *statement.binding, frame.function, false});
-        frame.locals[binding] = *symbol;
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
       }
@@ -2962,6 +3217,10 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ConditionalExpr &choice,
                                const std::optional<ValueType> &expected) {
+    if (choice.statementOnly) {
+      error("S075", "statement if cannot supply an expression value", span);
+      return {};
+    }
     if (choice.whenFalse.empty()) {
       error("S073", "if expressions require an else branch", span);
       return {};
@@ -3655,7 +3914,8 @@ private:
     else if (auto *n = std::get_if<Float64Literal>(&op))
       constant.emplace(llvm::APFloat::IEEEdouble(), llvm::APInt(64, n->bits));
     else if (auto *read = std::get_if<SymbolRead>(&op)) {
-      if (auto found = floatBindings_.find(read->symbol); found != floatBindings_.end())
+      if (auto found = floatBindings_.find(read->symbol);
+          found != floatBindings_.end() && !output_.symbols[read->symbol].reassignable)
         constant = found->second;
     } else if (auto *unary = std::get_if<ScalarUnary>(&op)) {
       if (auto found = floatConstants_.find(unary->operand); found != floatConstants_.end()) {
@@ -3916,6 +4176,7 @@ private:
     nested.locals.emplace(name(lambda.parameters[0].name), parameter);
     nested.closure = std::make_shared<ClosureScope>(ClosureScope{&frame, {}, {}});
     std::vector<TypedStatement> statements;
+    prepareBindings(nested, lambda.body);
     auto result =
         suite(nested, lambda.body, resultContext, statements, {name(lambda.parameters[0].name)});
     if (!result)

@@ -1,4 +1,4 @@
-meta { title = "Conditions and matching", description = "Use Boolean decisions and exhaustive matching.", order = 4, group = "Language reference" }
+meta { title = "Conditions and matching", description = "Use Boolean decisions, local loops and exhaustive matching.", order = 4, group = "Language reference" }
 
 Bool has the values true and false. Comparisons return Bool. Use not, and and or for Boolean logic. and and or evaluate only the operands needed to determine the result.
 
@@ -28,6 +28,26 @@ codeblock { language = kalandra, """fn main() -> int:
 """ }
 
 Write separate comparisons joined with and. Ungrouped chained comparisons are rejected. Floating-point comparisons follow the numerical rules, including NaN behavior; Boolean arrays and numerical tensors remain distinct types.
+
+h2 { "Update local state in a loop" }
+
+Unreleased language branch: numeric and Bool locals can be reassigned without a mut declaration. A while statement reevaluates a completed Bool condition before each iteration. It may run zero times. Supply the function result separately after the loop; while does not produce an expression value.
+
+codeblock { language = kalandra, """fn main() -> int:
+  index = 0
+  total = 0
+  while index < 5:
+    if index < 3:
+      total = total + index
+    else:
+      total = total + 10
+    index = index + 1
+  total
+""" }
+
+This returns 23. A statement if may omit else; a value-producing if still needs both branches. Assignment to an existing scalar changes that binding; a new name introduced in a branch or iteration stays in that scope. Reassignment preserves the scalar type. break, continue, for loops and in-place array writes are not yet implemented.
+
+Task work created in an iteration must be observed before its successful backedge. An await in a loop body does not prove that an incoming task was observed after the loop, since the loop might never run. Existing execution cancellation and resource limits also apply to loops.
 
 h2 { "Match a declared variant" }
 
