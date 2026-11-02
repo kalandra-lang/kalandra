@@ -43,11 +43,17 @@ foreach(_target IN ITEMS kalandra-vulkan kalandra-vulkan-program kalandra-vulkan
 endforeach()
 install(TARGETS kalandra-vulkan-lower kalandra-vulkan-extract
   RUNTIME DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/kalandra" COMPONENT NativeVulkanCompiler)
+if(WIN32)
+  add_dependencies(kalandra-vulkan-installed kalandra-vulkan-opt kalandra-vulkan-translate)
+  install(TARGETS kalandra-vulkan-opt kalandra-vulkan-translate
+    RUNTIME DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/kalandra" COMPONENT NativeVulkanCompiler)
+else()
 foreach(_tool IN ITEMS mlir-opt mlir-translate)
   get_filename_component(_program "${KALANDRA_LLVM_ROOT}/bin/${_tool}${CMAKE_EXECUTABLE_SUFFIX}" REALPATH)
   install(PROGRAMS "${_program}" DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/kalandra"
     RENAME "${_tool}${CMAKE_EXECUTABLE_SUFFIX}" COMPONENT NativeVulkanCompiler)
 endforeach()
+endif()
 get_filename_component(_validator "${KALANDRA_SPIRV_VAL}" REALPATH)
 install(PROGRAMS "${_validator}" DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/kalandra"
   RENAME "spirv-val${CMAKE_EXECUTABLE_SUFFIX}" COMPONENT NativeVulkanCompiler)

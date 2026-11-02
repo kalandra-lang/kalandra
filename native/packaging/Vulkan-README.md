@@ -43,3 +43,10 @@ the existing Metal source contract.
 
 Pinned MIT ggml sources retain their notices under `share/licenses/kalandra-vulkan`.
 The configured SPIR-V validator's copyright notice and binary digest are retained.
+
+On Windows, run from the matching Visual Studio developer command prompt with
+C++ Build Tools and the Windows SDK available. The generated executable is
+`program\program.exe`; keep its SPIR-V files beside it. Native x86-64 and ARM64
+compiler/package CI does not establish physical Windows GPU correctness or
+performance. Those hardware tests are deferred; a compatible vendor Vulkan
+driver is required. macOS continues to use Metal.

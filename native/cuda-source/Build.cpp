@@ -60,9 +60,13 @@ void buildCudaProgram(const std::filesystem::path &directory,
        matmul != kalandra::MatmulPolicy::Optimized) ||
       (variant != "debug" && variant != "optimized"))
     throw std::runtime_error("unsupported CUDA build policy");
-  const auto lower = tool(KALANDRA_CUDA_LOWER, "kalandra-cuda-lower");
-  const auto clang = tool(KALANDRA_CUDA_CLANG, "clang++");
+  const auto lower = tool(KALANDRA_CUDA_LOWER, "kalandra-cuda-lower" KALANDRA_CUDA_EXE_SUFFIX);
+  const auto clang = tool(KALANDRA_CUDA_CLANG, "clang++" KALANDRA_CUDA_EXE_SUFFIX);
   std::vector<std::string> clangFlags;
+#ifdef _WIN32
+  // Match the compiler-owned runtime archives and their static MSVC CRT ABI.
+  clangFlags.emplace_back("-fms-runtime-lib=static");
+#endif
 #ifdef KALANDRA_INSTALLED_COMPILER
   const auto clangResources = resourceRoot().parent_path() / "toolchain/clang";
   if (!std::filesystem::is_directory(clangResources / "include") ||
@@ -119,12 +123,19 @@ void buildCudaProgram(const std::filesystem::path &directory,
   const auto optimization = variant == "optimized" ? "-O2" : "-O0";
   std::vector<std::string> link{clang};
   link.insert(link.end(), clangFlags.begin(), clangFlags.end());
+#ifdef _WIN32
+  link.emplace_back("--rtlib=compiler-rt");
+#endif
   if (outputs.contains("cpu.ll")) {
     compile({clang, optimization, "-ffp-contract=off", "-c", (directory / "cpu.ll").string(), "-o",
              (directory / "cpu.o").string()});
     link.push_back((directory / "cpu.o").string());
   }
-  compile({clang, "-std=c++23", optimization, "-ffp-contract=off", "-Wall", "-Wextra", "-Werror",
+  compile({clang, "-std=c++23", optimization,
+#ifdef _WIN32
+           "-DNOMINMAX", "-DWIN32_LEAN_AND_MEAN", "-D_CRT_SECURE_NO_WARNINGS",
+#endif
+           "-ffp-contract=off", "-Wall", "-Wextra", "-Werror",
            "-I" + resource(KALANDRA_CUDA_INCLUDE, "headers/cuda", true),
            "-I" + resource(KALANDRA_CUDA_PUBLIC_INCLUDE, "headers/include", true), "-c",
            (directory / "host.cpp").string(), "-o", (directory / "host.o").string()});
@@ -132,6 +143,11 @@ void buildCudaProgram(const std::filesystem::path &directory,
   for (const char *library :
        {KALANDRA_CUDA_LANGUAGE, KALANDRA_CUDA_PROGRAM, KALANDRA_CUDA_DRIVER, KALANDRA_CUDA_CORE})
     link.emplace_back(resource(library));
-  link.insert(link.end(), {"-ldl", "-pthread", "-o", (directory / "program").string()});
+  for (const auto *library : kalandraCudaHostLibraries)
+    if (library) link.emplace_back(library);
+#ifndef _WIN32
+  link.emplace_back("-pthread");
+#endif
+  link.insert(link.end(), {"-o", (directory / ("program" KALANDRA_CUDA_EXE_SUFFIX)).string()});
   run(std::move(link));
 }

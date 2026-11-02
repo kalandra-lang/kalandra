@@ -129,6 +129,9 @@ void buildVulkanProgram(const std::filesystem::path &directory,
       }
     }
   }
+#ifdef _WIN32
+  resourceFlags.emplace_back("-fms-runtime-lib=static");
+#endif
   const bool sanitized = variant == "sanitized";
   const auto optimization = sanitized ? "-O1" : variant == "optimized" ? "-O2" : "-O0";
   const std::vector<std::string> sanitizerFlags = sanitized
@@ -141,12 +144,19 @@ void buildVulkanProgram(const std::filesystem::path &directory,
   };
   std::vector<std::string> link{clang};
   link.insert(link.end(), resourceFlags.begin(), resourceFlags.end());
+#ifdef _WIN32
+  link.emplace_back("--rtlib=compiler-rt");
+#endif
   if (outputs.contains("cpu.ll")) {
     compile({clang, optimization, "-c", (directory / "cpu.ll").string(),
          "-o", (directory / "cpu.o").string()});
     link.push_back((directory / "cpu.o").string());
   }
-  compile({clang, "-std=c++23", optimization, "-Wall", "-Wextra", "-Werror",
+  compile({clang, "-std=c++23", optimization,
+#ifdef _WIN32
+           "-DNOMINMAX", "-DWIN32_LEAN_AND_MEAN", "-D_CRT_SECURE_NO_WARNINGS",
+#endif
+           "-Wall", "-Wextra", "-Werror",
        "-I" + resource(KALANDRA_VULKAN_INCLUDE, "headers/vulkan"),
        "-I" + resource(KALANDRA_VULKAN_PUBLIC_INCLUDE, "headers/include"),
        "-c", (directory / "host.cpp").string(), "-o", (directory / "host.o").string()});

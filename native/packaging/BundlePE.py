@@ -97,7 +97,7 @@ def bundle(prefix, llvm, cross_linkers=False):
     machine = package_machine(prefix)
     triplet = "arm64-windows-static" if machine == MACHINES["windows-arm64"] else "x64-windows-static"
     private = prefix / "libexec/kalandra"
-    private.mkdir(parents=True)
+    private.mkdir(parents=True, exist_ok=True)
     resources = Path(run(llvm / "bin/clang++.exe", "-print-resource-dir").strip()).resolve()
     if not resources.is_relative_to(llvm):
         raise RuntimeError("Clang resources escape verified SDK")
@@ -141,6 +141,22 @@ def bundle(prefix, llvm, cross_linkers=False):
                  "platformRequirements": ["Windows 11 ARM64" if machine == MACHINES["windows-arm64"] else "Windows 11 x86-64", "Visual Studio 2026 ARM64 C++ Build Tools and Windows SDK" if machine == MACHINES["windows-arm64"] else "Visual Studio C++ Build Tools and Windows SDK", "Git for Windows for package management"],
                  "unsupportedModes": ["ThreadSanitizer"] + (["ASan/UBSan"] if machine == MACHINES["windows-arm64"] else [])})
     path.write_text(json.dumps(info, indent=2) + "\n")
+    # GPU packages are built and admitted on hosted Windows machines. Physical
+    # Windows GPU execution remains a separate gate, never inferred from COFF.
+    for backend in ("cuda", "vulkan"):
+        path = prefix / f"share/kalandra-native-{backend}/toolchain.json"
+        if not path.is_file():
+            continue
+        info = json.loads(path.read_text())
+        info.update({"platform": "windows-arm64" if machine == MACHINES["windows-arm64"] else "windows-x86_64",
+                     "windowsGpuExecutionQualified": False,
+                     "windowsGpuPerformanceQualified": False})
+        if backend == "vulkan":
+            info["validatorBundledSHA256"] = digest(private / "spirv-val.exe")
+            notice = prefix / "share/licenses/kalandra-vulkan/SPIRV-Tools-COPYRIGHT"
+            if digest(notice) != info["validatorNoticeSHA256"]:
+                raise RuntimeError("Vulkan validator notice changed during staging")
+        path.write_text(json.dumps(info, indent=2) + "\n")
     print(f"PE closure audited: {len(visited)} objects, {len(metadata)} private DLL copies", flush=True)
 
 

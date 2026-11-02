@@ -18,6 +18,7 @@ mode.add_argument('--execute',action='store_true')
 mode.add_argument('--compile-only',action='store_true')
 a=p.parse_args();a.output=a.output.resolve();a.output.mkdir(parents=True,exist_ok=True)
 repo=Path(__file__).resolve().parents[3]
+program_name='program.exe' if os.name=='nt' else 'program'
 base=(repo/'native/metal-source/placed.k').read_text()
 cases=[]
 for numeric in ('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64'):
@@ -41,13 +42,14 @@ for policy in ('hardware','software','hardware-with-software-fallback'):
     if built.returncode:
       record={'case':name,'policy':policy,'stage':'build','status':built.returncode};records.append(record);failures.append(record)
     else:
+      assert (out/program_name).is_file() and list(out.glob('*.ptx')),out
       width=32 if numeric=='float32' else 64 if numeric=='float64' else int(numeric.removeprefix('u').removeprefix('int'))
       def bits(value):
         return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little') if numeric.startswith('float') else value
       payload=','.join(f'{bits(v):0{width//4}x}' for v in values)
       expected=('['+payload+']' if tensor else payload)+'\n'
       for workers in ((1,2,4) if a.execute else ()):
-        run=subprocess.run([out/'program'],capture_output=True,text=True,timeout=60,env=os.environ|{'KALANDRA_WORKERS':str(workers)})
+        run=subprocess.run([out/program_name],capture_output=True,text=True,timeout=60,env=os.environ|{'KALANDRA_WORKERS':str(workers)})
         record={'case':name,'policy':policy,'workers':workers,'status':run.returncode,'stdout':run.stdout,'stderr':run.stderr,'expected':expected}
         records.append(record)
         if run.returncode or run.stderr or run.stdout!=expected:failures.append(record)

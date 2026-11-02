@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.28)
+project(KalandraPortableGpuResources LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+add_executable(kalandra-cuda-wrap ../../../cuda-source/Wrap.cpp)
+target_include_directories(kalandra-cuda-wrap PRIVATE ../../../include)
+add_subdirectory(../../../cuda cuda)
+add_subdirectory(../../../vulkan vulkan)
+add_custom_target(portable-gpu-resources DEPENDS kalandra-cuda-transforms
+  kalandra-cuda-matmul-kernels kalandra-vulkan-shaders)

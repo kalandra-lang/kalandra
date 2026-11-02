@@ -483,7 +483,7 @@ if(KALANDRA_BUILD_CUDA_SOURCE)
   add_subdirectory(cuda-source)
 endif()
 
-option(KALANDRA_BUILD_CUDA_RUNTIME "Build experimental Linux CUDA runtime" OFF)
+option(KALANDRA_BUILD_CUDA_RUNTIME "Build CUDA runtime (Linux and Windows)" OFF)
 if(KALANDRA_BUILD_CUDA_RUNTIME)
   add_subdirectory(cuda)
 endif()

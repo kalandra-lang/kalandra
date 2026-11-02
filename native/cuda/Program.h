@@ -1,5 +1,5 @@
 #pragma once
-#include "Cuda.h"
+#include "CudaRuntime.h"
 #include "kalandra/GpuProgram.h"
 #include "kalandra/GpuTransform.h"
 #include "kalandra/NumericType.h"

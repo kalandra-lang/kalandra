@@ -24,7 +24,7 @@ install(TARGETS kalandra-cuda kalandra-cuda-program kalandra-cuda-language
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native" COMPONENT NativeCudaCompiler)
 install(TARGETS kalandra-cuda-lower RUNTIME DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/kalandra"
   COMPONENT NativeCudaCompiler)
-install(FILES cuda/Language.h cuda/Async.h cuda/Program.h cuda/Cuda.h cuda/TensorBridge.h cuda/ExecutablePath.h
+install(FILES cuda/Language.h cuda/Async.h cuda/Program.h cuda/CudaRuntime.h cuda/TensorBridge.h cuda/ExecutablePath.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/cuda" COMPONENT NativeCudaCompiler)
 install(FILES gpu-runtime/ProgramDecl.inc gpu-runtime/TensorBridgeDecl.inc
               gpu-runtime/AsyncDecl.inc gpu-runtime/LanguageDecl.inc gpu-runtime/ExecutablePath.inc
