@@ -103,6 +103,27 @@ static std::unique_ptr<llvm::Module> windowsTailFixture(llvm::LLVMContext &conte
 
 int main(int argc, char **argv) {
   using namespace llvm;
+  // Stack-passed AArch64 tailcc packets corrupt the unoptimized caller on
+  // Linux and Windows too. Keep register-only calls fast, and choose the same
+  // conservative ABI on every AArch64 OS (including mixed FP/GPR signatures).
+  for (const char *triple : {"aarch64-apple-darwin", "aarch64-unknown-linux-gnu",
+                             "aarch64-pc-windows-msvc"}) {
+    LLVMContext context;
+    auto *i64 = Type::getInt64Ty(context);
+    auto *f32 = Type::getFloatTy(context);
+    SmallVector<Type *, 16> parameters(8, i64);
+    parameters.append(8, f32);
+    auto convention = [&] {
+      return kalandra::nativeInternalCallingConvention(
+          FunctionType::get(i64, parameters, false), Triple(triple));
+    };
+    check(convention() == CallingConv::Tail);
+    parameters.push_back(i64);
+    check(convention() == CallingConv::C);
+    parameters.pop_back();
+    parameters.push_back(f32);
+    check(convention() == CallingConv::C);
+  }
   for (const char *triple : {"x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"}) {
     LLVMContext context;
     Module module("windows-stack-high-water", context);

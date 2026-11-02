@@ -11,7 +11,7 @@
 #include <unordered_map>
 
 namespace kalandra {
-// Darwin's pinned backend does not reliably preserve stack argument packets
+// The pinned AArch64 backend does not reliably preserve stack argument packets
 // under callee-pop conventions in unoptimized code. Keep those signatures on
 // caller-pop native calls; explicit aggregate outputs still permit matching-
 // signature musttail calls. Register-only calls use tailcc, including differing
@@ -24,7 +24,8 @@ inline llvm::CallingConv::ID nativeInternalCallingConvention(llvm::FunctionType 
       if (!parameter->isPointerTy() && !parameter->isFloatTy() && !parameter->isDoubleTy() &&
           !(parameter->isIntegerTy() && parameter->getIntegerBitWidth() <= 64))
         return llvm::CallingConv::C;
-  } else if (target.isOSDarwin() && target.isAArch64()) {
+  }
+  if (target.isAArch64()) {
     unsigned general = 0, floating = 0;
     for (auto *parameter : type->params()) {
       if (parameter->isFloatingPointTy() || parameter->isVectorTy()) ++floating;

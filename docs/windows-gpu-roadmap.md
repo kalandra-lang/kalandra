@@ -58,3 +58,11 @@ Regression coverage includes oversized packets/allocations/SSA pressure and
 both Windows triples, plus O0/O2 native execution of a forty-tensor-argument CPU
 program through the existing cross-platform matrix. Physical Windows GPU tests
 remain separately deferred.
+
+The expanded native matrix also exposed an actual O0 ARM64 call-ABI failure:
+forty aliased tensor arguments crashed on Linux and Windows ARM64, while the
+same O2 program returned 426. Stack-passed ARM64 signatures now use the existing
+macOS caller-pop safeguard on all three operating systems. Register-only calls
+retain `tailcc`, and matching large signatures remain eligible for `musttail`.
+Different large signatures can use ordinary calls and consume stack; this is
+an explicit ABI fallback, without removing cancellation or ownership checks.
