@@ -1,4 +1,4 @@
-# Kalandra native CUDA compiler (Linux, experimental)
+# Kalandra native CUDA compiler (Linux and Windows, experimental)
 
 Extract the complete archive and place its `bin` directory on PATH. Keep `lib`,
 `libexec` and `share` beside it. The standalone archive includes the compiler's
@@ -8,7 +8,7 @@ NVRTC, cuBLAS or driver libraries. A CUDA toolkit is needed to build this packag
 but not to compile or run programs from an installed package.
 
 Compile with `kalandra --target cuda -O2 program.k -o output`, then run
-`output/program`. Deploy the entire output directory, including PTX companions
+`output/program` (`output\program.exe` on Windows). Deploy the entire output directory, including PTX companions
 and third-party notices. Missing package resources fail closed.
 
 Arithmetic defaults to hardware. `--arithmetic software` explicitly selects
@@ -26,3 +26,10 @@ substitution occurs. The optimized policy does not use TF32 or reduced precision
 macOS continues to use native Metal. This package does not add a CUDA cross-GPU
 target, a sanitizer CLI profile, or claim qualification on GPUs other than those
 listed in the CUDA roadmap evidence.
+
+Windows builds require the matching Visual Studio C++ Build Tools and Windows
+SDK, available in a developer command prompt. Compiler packages are built for
+x86-64 and ARM64. Hosted Windows CI checks compiler/package behavior, native CPU
+execution and GPU source compilation. Physical Windows GPU execution and
+performance are not yet qualified. An ARM64 compiler build does not imply that
+NVIDIA supplies a compatible ARM64 CUDA driver. macOS uses Metal.

@@ -78,7 +78,7 @@ for name, source, policy, optimization, values, fmt, fault in cases:
         if backup.exists():
             assert primary.read_bytes() != backup.read_bytes()
     assert 'arithmetic_policy='+policy in (output/'manifest.txt').read_text()
-    assert (output/'THIRD_PARTY_NOTICES.txt').read_bytes() == (repo/'native/vulkan/third_party/ggml/LICENSE').read_bytes()
+    assert (output/'THIRD_PARTY_NOTICES.txt').read_text() == (repo/'native/vulkan/third_party/ggml/LICENSE').read_text()
     if not args.compile_only:
         width = struct.calcsize(fmt)
         expected = '['+','.join(f'{int.from_bytes(struct.pack("<"+fmt, value),"little"):0{width*2}x}' for value in values)+']\n'

@@ -6,6 +6,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
+#include <algorithm>
+#include <cstdint>
 #include <optional>
 #include <string>
 namespace kalandra {
@@ -29,19 +31,34 @@ inline std::optional<std::string> nativeStackBudgetError(const llvm::Function &f
                                                          const llvm::DataLayout &layout,
                                                          bool numericLeaf = false,
                                                          std::uint64_t reservedBytes = 0) {
+  const auto denied = [&] {
+    return "function exceeds the conservative native stack budget: " + function.getName().str();
+  };
+  if (reservedBytes > 16 * 1024) return denied();
   const std::uint64_t budget = 16 * 1024 - reservedBytes;
-  std::uint64_t total = 0;
-  const auto account = [&](llvm::Type *type, std::uint64_t count = 1) {
+  const bool windows = function.getParent() && function.getParent()->getTargetTriple().isOSWindows();
+  std::uint64_t total = 0, outgoing = 0;
+  const auto accountTo = [&](std::uint64_t &used, llvm::Type *type, std::uint64_t count = 1,
+                             bool argumentSlot = false) {
     if (type->isVoidTy())
       return true;
     if (!type->isSized())
       return false;
     const auto size = layout.getTypeAllocSize(type);
-    if (size.isScalable() ||
-        (size.getFixedValue() && count > (budget - total) / size.getFixedValue()))
-      return false;
-    total += size.getFixedValue() * count;
+    if (size.isScalable() || used > budget) return false;
+    auto bytes = size.getFixedValue();
+    if (argumentSlot) {
+      if (bytes > budget) return false;
+      // Conservatively charge every argument a full eight-byte ABI slot,
+      // including register arguments and poison padding added to tail packets.
+      bytes = std::max<std::uint64_t>(8, (bytes + 7) & ~std::uint64_t(7));
+    }
+    if (bytes && count > (budget - used) / bytes) return false;
+    used += bytes * count;
     return true;
+  };
+  const auto account = [&](llvm::Type *type, std::uint64_t count = 1) {
+    return accountTo(total, type, count);
   };
   bool valid = account(function.getReturnType());
   for (const auto &argument : function.args())
@@ -67,15 +84,41 @@ inline std::optional<std::string> nativeStackBudgetError(const llvm::Function &f
                target->getName() == "kalandra_poll_slow_v1" ||
                target->getName() == "kalandra_poll_v1");
         }
+        // A returned call restores its outgoing argument area. Windows tail
+        // normalization can pad many sequential calls to the same wide packet;
+        // those areas are never simultaneously live. Charge the largest whole
+        // packet (plus Win64 shadow space), while retaining the conservative
+        // sum of all SSA values, incoming arguments and fixed allocas above.
+        bool scalarPacket = windows;
+        for (unsigned n = 0; n != call->arg_size() && scalarPacket; ++n) {
+          auto *type = call->getArgOperand(n)->getType();
+          scalarPacket = (type->isMetadataTy() || type->isPointerTy() || type->isFloatTy() ||
+                          type->isDoubleTy() ||
+                          (type->isIntegerTy() && type->getIntegerBitWidth() <= 64)) &&
+                         !call->paramHasAttr(n, llvm::Attribute::ByVal) &&
+                         !call->paramHasAttr(n, llvm::Attribute::InAlloca) &&
+                         !call->paramHasAttr(n, llvm::Attribute::Preallocated);
+        }
+        // Keep the original stricter sum for aggregate/vector or caller-owned
+        // argument objects outside the normalized scalar ABI proved here.
+        std::uint64_t packet = scalarPacket ? 32 : 0;
+        bool packetValid = packet <= budget;
         for (const auto &argument : call->args())
-          // Intrinsic metadata describes a register or alias scope; it has no
-          // representation in the physical outgoing call frame.
-          if (!argument->getType()->isMetadataTy())
-            valid = valid && account(argument->getType());
+          // Intrinsic metadata has no physical outgoing representation.
+          if (!argument->getType()->isMetadataTy()) {
+            if (scalarPacket)
+              packetValid = packetValid && accountTo(packet, argument->getType(), 1, true);
+            else
+              valid = valid && account(argument->getType());
+          }
+        if (scalarPacket) {
+          valid = valid && packetValid;
+          outgoing = std::max(outgoing, packet);
+        }
       }
     }
-  if (!valid)
-    return "function exceeds the conservative native stack budget: " + function.getName().str();
+  if (!valid || outgoing > budget - total)
+    return denied();
   return {};
 }
 } // namespace kalandra

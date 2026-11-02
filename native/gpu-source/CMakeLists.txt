@@ -34,10 +34,32 @@ target_compile_options(kalandra-vulkan-conversion-kernels PRIVATE -Wall -Wextra 
 if(KALANDRA_BUILD_VULKAN_RUNTIME AND NOT KALANDRA_VULKAN_SANITIZERS AND NOT KALANDRA_VULKAN_THREAD_SANITIZER)
   # Development command uses configured host tools. Installed resources are a
   # separate qualification step; the CPU-only installed compiler stays intact.
+  set(_vulkan_opt "${KALANDRA_LLVM_ROOT}/bin/mlir-opt${CMAKE_EXECUTABLE_SUFFIX}")
+  set(_vulkan_translate "${KALANDRA_LLVM_ROOT}/bin/mlir-translate${CMAKE_EXECUTABLE_SUFFIX}")
+  if(WIN32)
+    foreach(_kind IN ITEMS opt translate)
+      if(_kind STREQUAL "opt")
+        set(_source OptimizerMain.cpp)
+      else()
+        set(_source TranslateMain.cpp)
+      endif()
+      add_executable(kalandra-vulkan-${_kind} "${_source}")
+      set_target_properties(kalandra-vulkan-${_kind} PROPERTIES OUTPUT_NAME mlir-${_kind})
+      target_include_directories(kalandra-vulkan-${_kind} SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
+      target_link_libraries(kalandra-vulkan-${_kind} PRIVATE MLIR LLVM)
+      target_compile_options(kalandra-vulkan-${_kind} PRIVATE -Wall -Wextra -Werror)
+      if(NOT LLVM_ENABLE_RTTI)
+        target_compile_options(kalandra-vulkan-${_kind} PRIVATE -fno-rtti)
+      endif()
+      add_dependencies(kalandra kalandra-vulkan-${_kind})
+    endforeach()
+    set(_vulkan_opt "$<TARGET_FILE:kalandra-vulkan-opt>")
+    set(_vulkan_translate "$<TARGET_FILE:kalandra-vulkan-translate>")
+  endif()
   set(_vulkan_build_config "#pragma once\n")
   foreach(_pair IN ITEMS
-      "CLANG|${CMAKE_CXX_COMPILER}" "OPT|${KALANDRA_LLVM_ROOT}/bin/mlir-opt${CMAKE_EXECUTABLE_SUFFIX}"
-      "TRANSLATE|${KALANDRA_LLVM_ROOT}/bin/mlir-translate${CMAKE_EXECUTABLE_SUFFIX}"
+      "CLANG|${CMAKE_CXX_COMPILER}" "OPT|${_vulkan_opt}"
+      "TRANSLATE|${_vulkan_translate}"
       "LOWER|$<TARGET_FILE:kalandra-vulkan-lower>" "EXTRACT|$<TARGET_FILE:kalandra-vulkan-extract>"
       "VALIDATE|${KALANDRA_SPIRV_VAL}" "INCLUDE|${CMAKE_CURRENT_SOURCE_DIR}/../vulkan"
       "PUBLIC_INCLUDE|${CMAKE_CURRENT_SOURCE_DIR}/../include"

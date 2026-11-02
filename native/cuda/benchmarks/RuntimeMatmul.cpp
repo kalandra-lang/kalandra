@@ -1,6 +1,6 @@
 // Reference-only invocation benchmark: resident inputs, real output/parameter/
 // workspace allocation, launch, completion, status readback and cleanup.
-#include "Cuda.h"
+#include "CudaRuntime.h"
 #include <array>
 #include <chrono>
 #include <fstream>

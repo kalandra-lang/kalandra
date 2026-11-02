@@ -1,4 +1,4 @@
-#include "Cuda.h"
+#include "CudaRuntime.h"
 #include <array>
 #include <iostream>
 #include <stdexcept>

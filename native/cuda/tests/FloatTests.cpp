@@ -1,4 +1,4 @@
-#include "Cuda.h"
+#include "CudaRuntime.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include <array>
