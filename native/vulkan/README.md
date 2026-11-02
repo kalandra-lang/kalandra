@@ -447,10 +447,14 @@ SPIR-V reflection, executable-relative UTF-8 paths and system-only Vulkan loader
 lookup, including a local DLL decoy that must never be loaded. The executables
 must have no Vulkan PE import.
 
-This matrix does not execute GPU instructions or qualify the installed Windows
-Vulkan compiler. A successful build must not be described as Windows device
-coverage. Both architecture jobs pass at 31d35168; physical Windows GPU execution
-and the installed Windows Vulkan compiler remain unqualified.
+The initial runtime-only matrix passed both architecture jobs at 31d35168.
+The shared `native-windows-gpu.yml` workflow now also builds complete CUDA and
+Vulkan compiler packages, compiles public GPU programs, executes CPU programs,
+audits relocated PE dependencies and missing resources, and checks reproducible
+standalone archives and five-target CPU runtime bundles. See
+[the Windows GPU qualification plan](../../docs/windows-gpu-roadmap.md).
+These are compiler/package checks: physical Windows GPU execution and performance
+remain unqualified. No successful build establishes Windows device coverage.
 
 
 ## Complete public source capability parity
