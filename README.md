@@ -2,7 +2,7 @@
 
 A native language for CPU and GPU computing. [kalandra.dev](https://kalandra.dev).
 
-Kalandra's native implementation uses C++23 and MLIR/LLVM. It combines immutable values, automatic memory management, structured parallel tasks and explicit GPU execution. CPU execution supports macOS on Apple silicon and Linux/Windows on x86-64 and ARM64; GPU execution uses Apple Metal.
+Kalandra's native implementation uses C++23 and MLIR/LLVM. It combines immutable values, automatic memory management, structured parallel tasks and explicit GPU execution. CPU execution supports macOS on Apple silicon and Linux/Windows on x86-64 and ARM64; GPU execution uses Apple Metal on macOS and CUDA/Vulkan on qualified Linux x86-64 hardware. Windows GPU support is experimental and hardware-unqualified.
 
 ```kalandra
 fn double(value: int) -> int:
@@ -15,11 +15,11 @@ fn main() -> int ! TaskError:
 
 Native source files use `.k`. The compiler is under development; the [native implementation guide](native/README.md), [language design](docs/design/core.md) and [roadmap](docs/roadmap.md) describe supported features and remaining work.
 
-The native toolchain version is **0.99.1**. Run `kalandra --version` to identify an installed compiler. [Release notes](docs/releases/0.99.1.md) cover ARM64 support and CPU cross-compilation across five platforms.
+The native toolchain version is **0.99.2**. Run `kalandra --version` to identify an installed compiler. [Release notes](docs/releases/0.99.2.md) cover Linux CUDA/Vulkan, experimental Windows GPU packages and CPU call fixes.
 
 ## Install
 
-Download the toolchain and `kalandra-native.vsix` from [GitHub Releases](https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.1). Choose the standalone Metal DMG for macOS 26+ on Apple silicon, or the standalone CPU archive matching your Linux or Windows x86-64/ARM64 build host. Linux requires Ubuntu 24.04 / glibc 2.39 or newer; modern Raspberry Pi boards require 64-bit Raspberry Pi OS Trixie. Windows requires C++ Build Tools and the Windows SDK, with ARM64 tools for Windows 11 ARM64. Verify the accompanying SHA-256 checksum and keep the complete toolchain directory together.
+Download the toolchain and `kalandra-native.vsix` from [GitHub Releases](https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.2). Choose the standalone Metal DMG for macOS 26+ on Apple silicon, or the standalone CPU archive matching your Linux or Windows x86-64/ARM64 build host. Linux requires Ubuntu 24.04 / glibc 2.39 or newer; modern Raspberry Pi boards require 64-bit Raspberry Pi OS Trixie. Windows requires C++ Build Tools and the Windows SDK, with ARM64 tools for Windows 11 ARM64. Linux x86-64 also offers CUDA and Vulkan compiler archives. Windows x86-64/ARM64 GPU archives are experimental: hardware execution remains unqualified. Verify the accompanying SHA-256 checksum and keep the complete toolchain directory together.
 
 Each standalone compiler package includes all five CPU target runtimes and host-native linkers. Select a destination with `--platform`; Linux and Windows destinations still require their system development libraries. See the [cross-compilation guide](https://kalandra.dev/docs/cross-compilation).
 
@@ -42,7 +42,7 @@ build/native/native/kalandra main.k -o program
 ./program
 ```
 
-The native toolchain does not require Bun or Node. Local CPU execution and Apple Metal GPU execution are implemented; [distributed execution](docs/native-distributed-roadmap.md) follows a separate roadmap.
+The native toolchain does not require Bun or Node. Local CPU execution and Metal/CUDA/Vulkan GPU backends are implemented; [distributed execution](docs/native-distributed-roadmap.md) follows a separate roadmap.
 
 ## Website and documentation
 

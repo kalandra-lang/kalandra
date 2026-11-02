@@ -1,10 +1,11 @@
 name: Native Windows GPU qualification
 on:
   pull_request:
-    paths: ['CMakeLists.txt', 'native/**', '.github/workflows/native-windows-gpu.yml', '.github/scripts/provision_native_platform.py']
+    paths: ['CMakeLists.txt', 'VERSION', 'native/**', '.github/workflows/native-windows-gpu.yml', '.github/scripts/provision_native_platform.py']
   push:
     branches: [develop, native]
-    paths: ['CMakeLists.txt', 'native/**', '.github/workflows/native-windows-gpu.yml', '.github/scripts/provision_native_platform.py']
+    tags: ["v*"]
+    paths: ['CMakeLists.txt', 'VERSION', 'native/**', '.github/workflows/native-windows-gpu.yml', '.github/scripts/provision_native_platform.py']
   workflow_dispatch:
 permissions:
   contents: read

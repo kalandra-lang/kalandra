@@ -17,16 +17,21 @@ ARCHIVE = 'kalandra-native-vulkan-standalone-linux-x86_64.tar.gz'
 ARTIFACT = 'native-vulkan-package-linux-x86_64'
 
 
-def qualified_artifact(repository, commit, rehearsal=False, backend='vulkan'):
+def qualified_artifact(repository, commit, rehearsal=False, backend='vulkan', platform='linux-x86_64'):
     if backend not in ('vulkan', 'cuda'):
         raise ValueError('Unknown GPU release backend')
-    label = 'CUDA' if backend == 'cuda' else 'Vulkan'
-    artifact_name = f'native-{backend}-package-linux-x86_64'
+    if platform not in ('linux-x86_64', 'windows-x86_64', 'windows-arm64'):
+        raise ValueError('Unknown GPU release platform')
+    windows = platform.startswith('windows-')
+    label = 'Windows GPU' if windows else ('CUDA' if backend == 'cuda' else 'Vulkan')
+    workflow = 'native-windows-gpu' if windows else f'native-{backend}'
+    artifact_name = (f'native-windows-gpu-packages-{platform.removeprefix("windows-")}' if windows
+                     else f'native-{backend}-package-linux-x86_64')
     if not rehearsal and not os.environ.get("RELEASE_TAG"):
         raise RuntimeError(f"{label} publication requires an exact release tag")
     deadline = time.monotonic() + 3600
     while True:
-        runs = api(f'repos/{repository}/actions/workflows/native-{backend}.yml/runs?head_sha={commit}&per_page=100')['workflow_runs']
+        runs = api(f'repos/{repository}/actions/workflows/{workflow}.yml/runs?head_sha={commit}&per_page=100')['workflow_runs']
         candidates = [run for run in runs if run['head_sha'] == commit and
                       (run.get('head_repository') or {}).get('full_name') == repository and
                       ((rehearsal and run['event'] in ('pull_request', 'push', 'workflow_dispatch')) or

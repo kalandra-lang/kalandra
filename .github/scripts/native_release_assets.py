@@ -7,6 +7,8 @@ from pathlib import Path
 ARCHIVES = tuple(f"kalandra-native-{kind}-macos-arm64.tar.gz" for kind in
                  ("cpu", "editor-tools", "metal", "cpu-standalone", "editor-tools-standalone", "metal-standalone")) + tuple(
     f"kalandra-native-cpu-standalone-{platform}-x86_64.tar.gz" for platform in ("linux", "windows")) + ("kalandra-native-cpu-standalone-linux-arm64.tar.gz", "kalandra-native-cpu-standalone-windows-arm64.tar.gz", "kalandra-native-vulkan-standalone-linux-x86_64.tar.gz", "kalandra-native-cuda-standalone-linux-x86_64.tar.gz")
+ARCHIVES += tuple(f"kalandra-native-{backend}-standalone-windows-{arch}.tar.gz"
+                  for backend in ("cuda", "vulkan") for arch in ("x86_64", "arm64"))
 IMAGES = tuple(f"kalandra-native-{kind}-standalone.dmg" for kind in ("cpu", "editor-tools", "metal"))
 
 

@@ -1,57 +1,48 @@
-meta { title = "Kalandra 0.99.1 — ARM64 and cross-compilation", description = "Linux and Windows ARM64, Raspberry Pi and five CPU destinations from one compiler download.", order = 5, group = "Start here" }
+meta { title = "Kalandra 0.99.2 — CUDA and Vulkan", description = "Linux CUDA and Vulkan, experimental Windows GPU packages, and native call correctness fixes.", order = 5, group = "Start here" }
 
-Kalandra 0.99.1 adds native Linux ARM64 and Windows ARM64 support, and CPU cross-compilation across all five supported platforms. This page covers the changes since 0.99.0. The macOS distribution continues to support mixed CPU/Metal development.
+Kalandra 0.99.2 adds Linux CUDA and Vulkan compiler distributions and experimental Windows CUDA/Vulkan distributions. It is a GPU-delivery checkpoint before the next language-design work. Existing programs keep the immutable language model; the mutation and loop proposals are not part of this release.
 
-h2 { "Linux ARM64 and Raspberry Pi" }
+h2 { "One source language, three GPU backends" }
 
-The compiler, language server and generated applications now run natively on Linux ARM64. Choose kalandra-native-cpu-standalone-linux-arm64.tar.gz for Ubuntu 24.04 or a compatible system with glibc 2.39 or newer.
+Use the same placement, transfer and task APIs with --target metal, --target vulkan or --target cuda. Choose a compiler package that includes the selected backend. CPU-only packages do not gain a GPU backend from a flag alone. The GPU numerical subset covers ten numeric types, ranks zero through eight, resident tensor operations and supported function/control flow.
 
-For Raspberry Pi 3, 4, 5 and Zero 2 W, use a 64-bit Raspberry Pi OS Trixie installation. Bookworm is too old for the packaged toolchain. This is ARMv8-A CPU support; 32-bit systems and VideoCore GPU execution are not included. Qualification covers native ARM64 runners and official Raspberry Pi OS userspace, rather than physical Pi boards and their firmware or kernel variants.
+Linux x86-64 Vulkan execution was qualified on NVIDIA RTX 5090 and Intel ARL. CUDA execution was qualified on RTX 5090. These are named hardware configurations, not a promise of compatibility with every GPU or driver. Linux ARM64 and Raspberry Pi remain CPU targets. macOS continues to use Metal on Apple silicon with macOS 26 or later.
 
-h2 { "Windows ARM64" }
+Hardware arithmetic is the default where supported; software arithmetic and hardware-with-software-fallback are explicit policies. Matrix products default to fixed-tree. Explicit optimized products permit full-float32 FMA and a different accumulation order, using reviewed permissively licensed kernels. No silent CPU, cuBLAS, TF32 or half-precision substitute is enabled.
 
-The compiler, editor tools, language server and generated applications run natively on Windows 11 ARM64. Choose kalandra-native-cpu-standalone-windows-arm64.tar.gz and install Visual Studio 2026 ARM64 C++ tools with the Windows SDK. Compile from an ARM64-targeting developer shell.
+link { url = "/docs/gpu", "GPU placement, compilation and numerical scope" }
+link { url = "/docs/gpu-numerics", "Numerical policies and device limits" }
 
-The pinned Windows ARM64 toolchain has no ASan, UBSan or TSan runtimes. Sanitizer options fail explicitly; normal and optimized builds retain arithmetic, bounds, ownership and task checks.
+h2 { "Windows GPU support is experimental" }
 
-h2 { "One download, five CPU destinations" }
+Windows x86-64 and ARM64 CUDA/Vulkan compiler packages pass build and installed-package checks: complete GPU source compilation, native CPU execution, relocation, secure driver lookup, PE dependency audits and reproducibility. Physical Windows GPU execution, numerical correctness, cancellation behavior and performance remain unqualified. An ARM64 compiler package does not establish NVIDIA ARM64 CUDA driver availability.
 
-Install the standalone compiler package for your build machine. CPU and mixed CPU/Metal packages include runtime data for Linux x86-64, Linux ARM64, Windows x86-64, Windows ARM64 and macOS ARM64, plus host-native linkers. You do not need a destination compiler executable for each platform.
+link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows GPU-passthrough VM testing" }
 
-Select the destination using --platform linux-x86_64, linux-arm64, windows-x86_64, windows-arm64 or macos-arm64. Reusable --toolchain profiles can configure your SDK paths. Only the selected runtime is linked into your program; the alternatives increase download and disk size without adding execution overhead or emulation.
+h2 { "Install 0.99.2" }
 
-macOS targets require macOS 26 or newer on Apple silicon. This path uses Kalandra-owned system import declarations, so Linux and Windows build hosts need no Apple SDK or separate LLVM installation. Your applications receive an ad hoc signature; Developer ID signing and notarization remain separate distribution steps.
+Download from the GitHub release Assets section and verify the SHA-256 sidecar. For Linux x86-64, choose kalandra-native-cuda-standalone-linux-x86_64.tar.gz or kalandra-native-vulkan-standalone-linux-x86_64.tar.gz. Experimental Windows GPU archives use the corresponding cuda or vulkan backend and windows-x86_64 or windows-arm64 suffix. The signed, notarized and stapled macOS Metal DMG remains kalandra-native-metal-standalone.dmg. CPU and editor packages remain available.
 
-Linux destinations still require GNU development libraries and startup objects. Windows destinations still require the Windows SDK and MSVC CRT link libraries. These system development libraries are not bundled. The cross-compilation guide includes complete commands, SDK configuration and reusable profiles.
+GPU compiler packages include all five CPU target runtime datasets and private host cross-linkers. Cross-platform builds cover CPU programs, not cross-target GPU applications. Linux requires system C++23 development headers. Windows requires matching Visual Studio C++ Build Tools and Windows SDK in a developer command prompt. Applications require a compatible GPU driver/system loader and their complete PTX or SPIR-V resource directory. Installed CUDA compilers need no CUDA toolkit, NVRTC or cuBLAS; CUDA applications need an NVIDIA driver supporting PTX 9.2.
 
-link { url = "/docs/cross-compilation", "Cross-compile your first program" }
+kalandra --version and the native language server report 0.99.2. Install kalandra-native.vsix from the same release; its independent extension version remains 0.1.0. Existing editor setup continues to work.
 
-h2 { "Correctness and ABI safety" }
-
-Destination-specific layouts, calling conventions, stack access, record and closure allocation, and task lowering now follow the selected CPU ABI. Runtime versions, checksums, object architectures and macOS deployment compatibility are checked before linking. Rejected configurations and failed links preserve existing output files.
-
-All 20 cross-compilation directions passed 63 programs each on native destination runners: 1,260 executions covering all ten numeric types, tensor operations, recursion, owned values, tasks, cancellation and fault behavior. Each executable and each combined host distribution was reproduced independently. These checks qualify correctness and portability; they are not new performance measurements.
-
-h2 { "Install and update" }
-
-Download your build host's package from the v0.99.1 GitHub release. On macOS, choose the standalone Metal DMG for mixed CPU/GPU development or the CPU-only DMG. Standalone DMGs are Developer ID signed, notarized and stapled. Linux and Windows archives are available for both x86-64 and ARM64.
-
-Verify the SHA-256 sidecar, keep the complete toolchain directory together and add its bin directory to PATH. kalandra --version reports 0.99.1. Existing native compilation defaults retain their system-toolchain requirements; explicit cross-platform builds use the bundled host linker and target runtime.
-
-Download kalandra-native.vsix from the same release. Install it using VS Code's Extensions: Install from VSIX command and select your installed kalandra-lsp in Kalandra Native: Server Path. The extension keeps its independent version, 0.1.0; the native language server reports 0.99.1. Other LSP editors can launch the same server over standard input/output. No Node.js or npm installation is required by the native tools or installed editor client.
-
+link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.2", "Download Kalandra 0.99.2" }
 link { url = "/docs/installation", "Installation and platform prerequisites" }
-link { url = "/docs/tooling", "Editor setup" }
-link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.1", "Download Kalandra 0.99.1" }
+link { url = "/docs/tooling", "Set up your code editor" }
 
-h2 { "Release scope" }
+h2 { "Native call correctness and safety" }
 
-There are no numerical or cancellation-contract changes in this release. Cross-compilation supports the CPU backend, not Metal kernel compilation or cross-target sanitizers. macOS x86-64, 32-bit targets, CUDA, Vulkan and FreeBSD distribution qualification are not included. Existing macOS Metal requirements remain Xcode 26.2 and the pinned Metal Toolchain component.
+Windows stack admission now charges peak outgoing scalar argument storage rather than summing sequential calls. Large ARM64 stack-passed signatures use a conservative caller-pop convention, fixing O0 crashes on Linux and Windows. Register-only fast calls remain enabled; matching large signatures remain eligible for guaranteed tail calls, while differing large signatures may consume stack. Existing stack bounds and cancellation checks are retained.
 
-h2 { "Changes since 0.99.0" }
+Qualification includes all twenty directed CPU platform pairs, O0/O2 wide-argument regressions, numerical references, ownership and cancellation tests, installed-package checks and reproducibility gates. Submitted GPU resources remain alive through confirmed completion. Cancellation does not reset the GPU or interrupt unrelated applications.
 
-link { url = "https://github.com/kalandra-lang/kalandra/pull/269", "Linux ARM64 and Raspberry Pi support" }
-link { url = "https://github.com/kalandra-lang/kalandra/pull/270", "Windows ARM64 support" }
-link { url = "https://github.com/kalandra-lang/kalandra/pull/271", "CPU cross-compilation and bundled target runtimes" }
-link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.0...v0.99.1", "Full release comparison" }
-link { url = "/docs/release-0-99-0", "Previous release: 0.99.0 — the native revival" }
+Windows GPU sanitizers, cross-target GPU builds, distributed compute and user-written low-level kernels are not included. Local mutation and loop design work follows in a separate branch and release.
+
+h2 { "Changes since 0.99.1" }
+
+link { url = "https://github.com/kalandra-lang/kalandra/pull/273", "Vulkan backend" }
+link { url = "https://github.com/kalandra-lang/kalandra/pull/274", "Linux CUDA backend" }
+link { url = "https://github.com/kalandra-lang/kalandra/pull/275", "Windows CUDA and Vulkan delivery" }
+link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.1...v0.99.2", "Full release comparison" }
+link { url = "/docs/release-0-99-1", "Previous release: 0.99.1 — ARM64 and cross-compilation" }
