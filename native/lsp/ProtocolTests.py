@@ -1466,7 +1466,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     start = builtin_completion.splitlines()[1].index('coSuffix')
     result = client.completion(signature_document, 1, start+2)["result"]
-    assert [item["label"] for item in result["items"]] == ["concat"], result
+    assert [item["label"] for item in result["items"]] == ["concat", "copy"], result
     item = result["items"][0]
     assert item["kind"] == 3 and item["textEdit"] == {"newText":"concat", "range":{
         "start":{"line":1,"character":start},"end":{"line":1,"character":start+8}}}, item
