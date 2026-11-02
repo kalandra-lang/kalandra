@@ -25,6 +25,16 @@
     "signature": "map(input: [T], callback: fn(T) -> U) -> [U]"
   },
   {
+    "name": "generate",
+    "page": "collection-functions",
+    "signature": "generate(count: int, callback: fn(int) -> T) -> [T]"
+  },
+  {
+    "name": "copy",
+    "page": "collection-functions",
+    "signature": "copy(input: [T]) -> [T]"
+  },
+  {
     "name": "tensor",
     "page": "collection-functions",
     "signature": "tensor(value: numeric scalar | numeric literal | [T]) -> Tensor[T, ...]\ntensor(values: [T], dimensions: fixed-length dimension list) -> Tensor[T, ...]"

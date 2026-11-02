@@ -22,6 +22,10 @@ static bool has(const lsp::CompletionInfo &info, const std::string &name) {
 }
 int main() {
   try {
+    auto generator = query("fn main():\n  gen|(4,fn(i):i)\n");
+    require(has(generator, "generate"), "generator builtin completion");
+    generator = query("fn main():\n  offset=3\n  generate(4,fn(index:int): off|)\n");
+    require(has(generator, "offset"), "generator callback capture completion");
     auto info = query("fn main():\n  earlier = 2\n  ear|ly\n  later = 3\n  later\n");
     require(has(info, "earlier") && info.names.size() == 1, "partial prefix and suffix");
     require(info.replacement.end - info.replacement.begin == 5, "whole identifier replacement");
@@ -516,7 +520,8 @@ int main() {
     require(query("fn entry():\n  missing\n  ma|([1,2])\n").names.empty(),
             "prior errors still suppress builtin suggestions");
     info = query("fn entry():\n  co|([1], [2])\n  missing\n");
-    require(info.names.size() == 1 && has(info, "concat"), "later errors do not erase names");
+    require(info.names.size() == 2 && has(info, "concat") && has(info, "copy"),
+            "later errors do not erase names");
     CheckOptions placement;
     placement.placement = true;
     info = query("fn main():\n  target=devices.g|Suffix(1)\n  0\n", placement);

@@ -149,8 +149,9 @@ std::optional<SignatureInfo> callableSignature(const TypedModule &module, const 
 bool hasBuiltinSignature(std::string_view name) {
   return name == "length" || name == "byteLength" || name == "shape" || name == "slice" ||
          name == "concat" || name == "relu" || name == "reduceSum" || name == "matmul" ||
-         name == "array" || name == "map" || name == "parallelMap" || name == "transfer" ||
-         name == "devices.cpu" || name == "devices.gpu" || resolveNumeric(name).has_value();
+         name == "copy" || name == "generate" || name == "array" || name == "map" ||
+         name == "parallelMap" || name == "transfer" || name == "devices.cpu" ||
+         name == "devices.gpu" || resolveNumeric(name).has_value();
 }
 std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceSpan call,
                                               std::string_view name, std::size_t active,
@@ -164,7 +165,9 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
     std::optional<ValueType> callback;
     std::optional<ValueType> selectorIndex;
     if (const auto *map = std::get_if<ArrayMap>(&expression.operation);
-        map && name == (map->parallel ? "parallelMap" : "map")) {
+        map && name == (map->generate   ? "generate"
+                        : map->parallel ? "parallelMap"
+                                        : "map")) {
       if (map->function >= module.functions.size())
         return {};
       const auto &function = module.functions[map->function];
@@ -179,7 +182,7 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
           FunctionSignature{{module.symbols[function.parameters.front()].type},
                             function.declaredResult.value_or(function.resultType)});
       arguments = {map->input};
-      labels = {"input", "callback"};
+      labels = {map->generate ? "count" : "input", "callback"};
     } else if (const auto *selector = std::get_if<DeviceSelection>(&expression.operation);
                selector && name == (selector->device ? "devices.gpu" : "devices.cpu")) {
       if (argumentCount > (selector->device ? 1u : 0u))
@@ -223,6 +226,10 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
                query &&
                name == (query->kind == StringQueryKind::Length ? "length" : "byteLength")) {
       arguments = {query->input};
+      labels = {"input"};
+    } else if (const auto *copy = std::get_if<ArraySlice>(&expression.operation);
+               copy && name == "copy") {
+      arguments = {copy->input};
       labels = {"input"};
     } else if (const auto *slice = std::get_if<ArraySlice>(&expression.operation);
                slice && name == "slice") {

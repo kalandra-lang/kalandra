@@ -2840,14 +2840,24 @@ private:
             for (auto capture : operation.captures)
               captures.push_back(expression(frame, capture));
             const auto &inputType = input_.expressions[operation.input].type;
-            const bool ownedInput = isOwnedArray(inputType);
+            const bool ownedInput = !operation.generate && isOwnedArray(inputType);
             const bool ownedOutput = isOwnedArray(node.type);
-            Value count =
-                ownedInput
-                    ? Value(arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(),
-                                                       recordArrayLength(loc, input, inputType)))
-                    : dimensions(loc, input)[0];
-            if (!ownedInput)
+            Value count;
+            if (operation.generate) {
+              guard(loc, compare(loc, arith::CmpIPredicate::sge, input, integer(loc, 0)), 5);
+              count = arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), input);
+              if (node.type.shape[0].constant)
+                guard(loc,
+                      compare(loc, arith::CmpIPredicate::eq, count,
+                              index(loc, *node.type.shape[0].constant)),
+                      1);
+            } else
+              count =
+                  ownedInput
+                      ? Value(arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(),
+                                                         recordArrayLength(loc, input, inputType)))
+                      : dimensions(loc, input)[0];
+            if (!operation.generate && !ownedInput)
               checkedCount(loc, {count}, describeNumeric(inputType.element)->bytes());
             Value empty;
             if (ownedOutput) {
@@ -2868,7 +2878,9 @@ private:
                   Value element;
                   auto position =
                       arith::IndexCastOp::create(builder_, loc, builder_.getI64Type(), i);
-                  if (ownedInput) {
+                  if (operation.generate) {
+                    element = position;
+                  } else if (ownedInput) {
                     auto storage =
                         LLVM::ExtractValueOp::create(builder_, loc, input, ArrayRef<int64_t>{1});
                     auto cell = arrayCellType(inputType);

@@ -8,6 +8,8 @@ link { url = "/docs/collection-functions#bytelength", "byteLength — count UTF-
 
 link { url = "/docs/collection-functions#concat", "concat — join arrays" }
 
+link { url = "/docs/collection-functions#copy", "copy — create independent array storage (unreleased)" }
+
 link { url = "/docs/task-functions#devicescpu", "devices.cpu — select the host device" }
 
 link { url = "/docs/task-functions#devicesgpu", "devices.gpu — select a GPU" }
@@ -17,6 +19,8 @@ link { url = "/docs/numeric-functions#float", "float — convert a scalar or ten
 link { url = "/docs/numeric-functions#float32", "float32 — convert a scalar or tensor to float32" }
 
 link { url = "/docs/numeric-functions#float64", "float64 — convert a scalar or tensor to float64" }
+
+link { url = "/docs/collection-functions#generate", "generate — construct an array by index (unreleased)" }
 
 link { url = "/docs/numeric-functions#int", "int — convert a scalar or tensor to int" }
 

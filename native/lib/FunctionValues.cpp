@@ -151,7 +151,8 @@ public:
         const auto &fn = module_.functions[map->function];
         if (fn.parameters.size() != map->captures.size() + 1)
           return false;
-        source(fn.parameters[0], map->input);
+        if (!map->generate)
+          source(fn.parameters[0], map->input);
         for (std::size_t i = 0; i < map->captures.size(); ++i)
           source(fn.parameters[i + 1], map->captures[i]);
         edge(fn.result, id);

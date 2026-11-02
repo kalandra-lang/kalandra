@@ -249,8 +249,8 @@ private:
       // Insert last so lexical and module bindings retain their normal priority.
       for (const auto *label :
            {"array", "tensor", "reshape", "map", "parallelMap", "matmul", "reduceSum", "relu",
-            "transpose", "softmaxRows", "rmsNormRows",
-            "length", "byteLength", "shape", "slice", "concat"})
+            "transpose", "softmaxRows", "rmsNormRows", "length", "byteLength", "shape", "slice",
+            "concat", "generate", "copy"})
         insert(label, ScopeNameKind::Function);
       if (allowTransfer && options_.placement && !frame.groups.empty())
         insert("transfer", ScopeNameKind::Function);
@@ -2305,6 +2305,38 @@ private:
     }
     return add(frame, type, span, StringSlice{*input, bounds[0], bounds[1]});
   }
+  std::optional<ValueId> arrayCopy(Frame &frame, SourceSpan span,
+                                   const std::vector<ExprId> &arguments,
+                                   const std::optional<ValueType> &expected) {
+    if (arguments.size() != 1) {
+      error("S027", "copy expects exactly one array", span);
+      return {};
+    }
+    auto input =
+        expression(frame, arguments[0], expected && expected->array ? expected : std::nullopt);
+    if (!input)
+      return {};
+    const auto output = node(*input).type;
+    if (!output.array || !output.tensor || output.shape.size() != 1 || output.task ||
+        output.fallible || output.device || options_.placement ||
+        (output.builtin != BuiltinValue::Numeric && output.builtin != BuiltinValue::Bool &&
+         output.builtin != BuiltinValue::String)) {
+      error("S061",
+            "copy requires a completed CPU numeric, Bool or String array without placement; "
+            "copying nested mutable storage is not yet defined",
+            span);
+      return {};
+    }
+    ValueType integer;
+    integer.element = NumericType::Int64;
+    auto start = add(frame, integer, span, Int64Literal{0});
+    auto end = add(frame, integer, span, CollectionQuery{CollectionQueryKind::Length, *input});
+    if (!start || !end)
+      return {};
+    // Reuse the checked, allocating slice operation. Its input is evaluated once;
+    // the output retains length facts but has separate element storage.
+    return add(frame, output, span, ArraySlice{*input, *start, *end});
+  }
   std::optional<ValueId> collectionQuery(Frame &frame, SourceSpan span, const std::string &callee,
                                          const std::vector<ExprId> &arguments) {
     if (arguments.size() != 1) {
@@ -3728,6 +3760,46 @@ private:
       floatConstants_.insert_or_assign(*id, *floating);
     return id;
   }
+  std::optional<ValueId> mapInput(Frame &frame, ExprId syntax,
+                                  const std::optional<ValueType> &context, bool generate) {
+    if (!generate)
+      return expression(frame, syntax, context);
+    if (context && (!context->array || context->builtin != BuiltinValue::Numeric ||
+                    context->element != NumericType::Int64)) {
+      error("S059", "generate callback requires one int index parameter",
+            syntax_.expressions[syntax].span);
+      return {};
+    }
+    ValueType scalar;
+    scalar.element = NumericType::Int64;
+    auto value = expression(frame, syntax, scalar);
+    if (!value)
+      return {};
+    const auto &actual = node(*value).type;
+    if (actual.builtin != BuiltinValue::Numeric || actual.element != NumericType::Int64 ||
+        actual.tensor || actual.array || actual.task || actual.fallible || actual.device) {
+      error("S059", "generate count must be a completed int scalar",
+            syntax_.expressions[syntax].span);
+      return {};
+    }
+    if (auto constant = intConstants_.find(*value);
+        constant != intConstants_.end() && constant->second < 0) {
+      error("S059", "generate count must be nonnegative", syntax_.expressions[syntax].span);
+      return {};
+    }
+    return value;
+  }
+  ValueType mapInputType(ValueId value, bool generate) {
+    auto result = node(value).type;
+    if (generate) {
+      result.tensor = result.array = true;
+      auto constant = intConstants_.find(value);
+      result.shape = {constant == intConstants_.end()
+                          ? dynamic()
+                          : Extent{static_cast<std::uint64_t>(constant->second)}};
+    }
+    return result;
+  }
   std::optional<ValueId> finishMap(Frame &frame, SourceSpan span, ValueType output, ArrayMap map,
                                    bool parallel) {
     if (parallel) {
@@ -3744,7 +3816,7 @@ private:
   }
   std::optional<ValueId> anonymousMap(Frame &frame, SourceSpan span, ExprId inputSyntax,
                                       SourceSpan lambdaSpan, const LambdaExpr &lambda,
-                                      bool parallel = false) {
+                                      bool parallel = false, bool generate = false) {
     if (!parallel && !lambda.errorTypes.empty()) {
       error("S060",
             "map callbacks must return completed elements; handle errors inside an infallible "
@@ -3779,10 +3851,10 @@ private:
       inputContext->record = annotation->record;
       inputContext->callable = annotation->callable;
     }
-    auto input = expression(frame, inputSyntax, inputContext);
+    auto input = mapInput(frame, inputSyntax, inputContext, generate);
     if (!input)
       return {};
-    const auto inputType = node(*input).type;
+    const auto inputType = mapInputType(*input, generate);
     if (!inputType.array ||
         (inputType.builtin != BuiltinValue::Numeric && inputType.builtin != BuiltinValue::Record &&
          inputType.builtin != BuiltinValue::Bool && inputType.builtin != BuiltinValue::String &&
@@ -3886,17 +3958,22 @@ private:
     output.callable = resultType.callable;
     if (!validSize(output, span))
       return {};
-    return finishMap(frame, span, output, ArrayMap{*input, id, std::move(captures)}, parallel);
+    return finishMap(frame, span, output,
+                     ArrayMap{*input, id, std::move(captures), false, generate}, parallel);
   }
   std::optional<ValueId> arrayMap(Frame &frame, SourceSpan span,
-                                  const std::vector<ExprId> &arguments, bool parallel = false) {
+                                  const std::vector<ExprId> &arguments, bool parallel = false,
+                                  bool generate = false) {
     if (arguments.size() != 2) {
-      error("S027", "map expects an array and a one-argument function", span);
+      error("S027",
+            generate ? "generate expects a count and a one-argument function"
+                     : "map expects an array and a one-argument function",
+            span);
       return {};
     }
     if (const auto *lambda = std::get_if<LambdaExpr>(&syntax_.expressions[arguments[1]].value))
       return anonymousMap(frame, span, arguments[0], syntax_.expressions[arguments[1]].span,
-                          *lambda, parallel);
+                          *lambda, parallel, generate);
     const auto *callback = std::get_if<NameExpr>(&syntax_.expressions[arguments[1]].value);
     if (callback)
       completeScope(frame, callback->name);
@@ -3922,7 +3999,7 @@ private:
       auto inputType = targetType.callable->parameters[0];
       inputType.tensor = inputType.array = true;
       inputType.shape = {dynamic()};
-      auto input = expression(frame, arguments[0], inputType);
+      auto input = mapInput(frame, arguments[0], inputType, generate);
       if (!input)
         return {};
       const auto id = output_.functions.size();
@@ -3950,7 +4027,7 @@ private:
       output_.functions[id].resultType = resultType;
       output_.functions[id].result = *result;
       output_.functions[id].body = {{span, {}, *result}};
-      auto output = node(*input).type;
+      auto output = mapInputType(*input, generate);
       output.builtin = resultType.builtin;
       output.element = resultType.element;
       output.record = resultType.record;
@@ -3958,7 +4035,8 @@ private:
       output.callable = resultType.callable;
       if (!validSize(output, span))
         return {};
-      return finishMap(frame, span, output, ArrayMap{*input, id, {*target}}, parallel);
+      return finishMap(frame, span, output, ArrayMap{*input, id, {*target}, false, generate},
+                       parallel);
     }
     auto found = functions_.find(functionKey(frame, name(callback->name)));
     if (found == functions_.end() || !analyzeFunction(found->second)) {
@@ -3990,17 +4068,17 @@ private:
     context.builtin = output_.symbols[fn.parameters[0]].type.builtin;
     context.record = output_.symbols[fn.parameters[0]].type.record;
     context.callable = output_.symbols[fn.parameters[0]].type.callable;
-    auto input = expression(frame, arguments[0], context);
+    auto input = mapInput(frame, arguments[0], context, generate);
     if (!input)
       return {};
-    auto output = node(*input).type;
+    auto output = mapInputType(*input, generate);
     output.element = result.element;
     output.builtin = result.builtin;
     output.record = result.record;
     output.callable = result.callable;
     if (!validSize(output, span))
       return {};
-    return finishMap(frame, span, output, ArrayMap{*input, id}, parallel);
+    return finishMap(frame, span, output, ArrayMap{*input, id, {}, false, generate}, parallel);
   }
   std::optional<ValueId> builtin(Frame &frame, SourceSpan span, const std::string &callee,
                                  const std::vector<ExprId> &arguments,
@@ -4296,6 +4374,10 @@ private:
         return collectionSlice(frame, span, arguments, expected);
       if (callee == "length" || callee == "shape" || callee == "byteLength")
         return collectionQuery(frame, span, callee, arguments);
+      if (callee == "copy")
+        return arrayCopy(frame, span, arguments, expected);
+      if (callee == "generate")
+        return arrayMap(frame, span, arguments, false, true);
       if (callee == "map" || callee == "parallelMap")
         return arrayMap(frame, span, arguments, callee == "parallelMap");
       if (callee == "tensor" || callee == "matmul" || callee == "reduceSum" || callee == "relu" ||

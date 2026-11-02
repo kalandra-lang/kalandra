@@ -32,6 +32,18 @@ code { "map(input: [T], callback: fn(T) -> U) -> [U]" }
 
 Call a one-argument function once per element, sequentially and in input order. The callback may be a named function, a function value or a supported closure. Its input and output must be supported array element kinds. The callback cannot return a task or an expected-error result; use parallelMap for supported fallible callbacks. An empty input calls no callbacks. Allocation and execution faults remain checked. CPU only.
 
+h2 { "copy" }
+
+code { "copy(input: [T]) -> [T]" }
+
+Unreleased language branch. Return an independent array with the same length, element order and exact numeric bits. Supported elements are the ten numeric types, Bool and String. The array storage is fresh; String elements remain immutable values and may share their own text backing. Records, function values and nested arrays are not accepted: copy depth for reachable mutable data has not been defined. Empty arrays need an element type from context. Allocation and execution faults remain checked. Like slice, this currently requires ordinary CPU execution without GPU placement; worker tasks are supported.
+
+h2 { "generate" }
+
+code { "generate(count: int, callback: fn(int) -> T) -> [T]" }
+
+Unreleased language branch. Construct a fresh array in ascending index order, without an intermediate index array. Call the callback once for each index from zero through count, excluding count. The callback may be a named function, function value or closure and must return a completed supported array element, as for sequential map. A zero count invokes no callbacks. A negative constant count is rejected; a negative runtime count produces a checked bounds fault. Byte-size overflow, allocation failures and callback execution faults remain checked. The count must be int (int64); use an explicit conversion for other integer widths. CPU execution, including worker tasks, is supported; this is not a GPU kernel operation.
+
 h2 { "tensor" }
 
 code { "tensor(value: numeric scalar | numeric literal | [T]) -> Tensor[T, ...]" }

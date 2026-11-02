@@ -61,8 +61,14 @@ Rebinding a name does not grant write access to read-only storage.
 
 ## Implementation sequence and gates
 
-1. Restore functional construction APIs independently of mutation. Test runtime
-   sizes, empty arrays, type inference, captures, failures, quotas and cancellation.
+1. Restore functional construction APIs independently of mutation. `generate` is
+   implemented in this branch: runtime/constant sizes, empty arrays, ten numeric
+   types, owned elements, callbacks/captures, worker import, allocation failure and
+   cancellation are covered. Editor completion, hover and signature help use its
+   checked types. `copy` is also implemented for numeric, Bool and String arrays;
+   raw-bit tests check separate backing, strided inputs, independence after source
+   changes, retained results and allocation-failure cleanup. Existing runtime
+   quotas apply; no unchecked allocator is added.
 2. Introduce local rebinding and structured loop state without invalidating
    constant propagation, capture snapshots or continuation state. Specify loop
    results and termination/cancellation behavior before admitting loop syntax.
@@ -73,7 +79,7 @@ Rebinding a name does not grant write access to read-only storage.
 4. Implement explicit mutating contracts and path-sensitive storage/read-access
    analysis. Branches conservatively retain possible outstanding readers; loops
    account for zero iterations and require iteration-owned tasks to settle.
-5. Add bounds-checked writes, copy and sorting, with documented supported element
+5. Add bounds-checked writes and sorting, with documented supported element
    types, copy depth, float ordering and cancellation behavior. In-place mutation
    need not be transactional, but must remain memory-safe on every exit.
 6. Update user documentation, formatter, editor, examples and migration notes;

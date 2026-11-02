@@ -118,6 +118,9 @@ int main() {
     expect(
         "type Box:\n  map:fn(int)->int\nfn main():\n  box=Box {map:fn(v:int):v+1}\n  box.map(2)\n",
         "box.map", "map: fn(int64) -> int64", 4);
+    expect("fn main()->[int]:\n  copy([1,2])\n", "copy", "fn copy(input: [int64]) -> [int64]");
+    expect("fn main()->[int]:\n  offset=2\n  generate(3,fn(i):i+offset)\n", "generate",
+           "fn generate(count: int64, callback: fn(int64) -> int64) -> [int64]");
     require(!query("fn main():\n  length(42)\n", "length"), "invalid builtin leaked hover");
     require(!query("fn main():\n  length([1],)\n  missing\n", "length"),
             "later graph errors invalidate builtin hovers");

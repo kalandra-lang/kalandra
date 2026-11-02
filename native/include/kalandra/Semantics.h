@@ -215,6 +215,9 @@ struct ArrayMap {
   FunctionId function; // One explicit element parameter, followed by lifted captures.
   std::vector<ValueId> captures = {};
   bool parallel = false;
+  // A sequential generator receives a scalar int count instead of an array.
+  // Its callback receives each index; no intermediate index array is allocated.
+  bool generate = false;
 };
 enum class ReductionOrder { BalancedAdjacent };
 struct Matmul {

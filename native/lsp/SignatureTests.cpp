@@ -67,6 +67,15 @@ int main() {
     require(!query(add + "fn main():\n  add(1,2)|\n"), "outside call has no signature");
     require(!query(add + "fn main():\n  ad|d(1,2)\n"), "callee text has no active argument");
     require(!query(add + "fn main():\n  missing\n  add(|1,2)\n"), "invalid graph fails closed");
+    result = query("fn main()->[int]:\n  copy(|[1,2])\n");
+    require(result && result->label == "fn copy(input: [int64]) -> [int64]",
+            "checked independent-copy signature");
+    result = query("fn main():\n  generate(|4,fn(i): i*2)\n");
+    require(result &&
+                result->label ==
+                    "fn generate(count: int64, callback: fn(int64) -> int64) -> [int64]" &&
+                result->activeParameter == 0,
+            "generator signature describes count and public callback without captures");
     result = query("fn main():\n  length(|[1,2])\n");
     require(result && result->label == "fn length(input: [int64]) -> int64" &&
                 result->activeParameter == 0,

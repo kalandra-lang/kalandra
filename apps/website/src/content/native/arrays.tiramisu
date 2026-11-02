@@ -22,6 +22,21 @@ fn main() -> [int]:
 
 map evaluates its callback sequentially and preserves input order. A supported callback can capture immutable values or return another supported element type. For CPU task scheduling, choose parallelMap explicitly.
 
+h2 { "Construct by index" }
+
+Unreleased language branch: generate constructs a fresh array by calling a function with each index. It does not require an intermediate array of indices.
+
+codeblock { language = kalandra, """fn main() -> [int]:
+  offset = 10
+  generate(4, fn(index): index * 2 + offset)
+""" }
+
+The result is [10, 12, 14, 16]. Indices run from zero up to count, excluding count, in ascending order. A zero count calls no callbacks. The count is a nonnegative int; invalid runtime counts and excessive allocation sizes produce checked faults. Callbacks follow the same completed-element and capture rules as sequential map.
+
+h2 { "Copy array storage" }
+
+Unreleased language branch: copy(values) returns an independent array of numeric, Bool or String elements. It preserves length, order and exact numeric bits. String text remains immutable and may share its own backing. Copying records, function values or nested mutable data is not supported until their copy-depth rules are defined.
+
 h2 { "Slice and concatenate" }
 
 codeblock { language = kalandra, """fn main() -> [int]:
