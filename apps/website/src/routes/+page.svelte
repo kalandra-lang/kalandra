@@ -66,7 +66,7 @@
   <title>Kalandra — Native CPU and GPU programming</title>
   <meta
     name="description"
-    content="Kalandra is a native programming language for CPU and GPU computing. Compose typed functions, work with tensors, and place numerical tasks on Apple Metal."
+    content="Kalandra is a native programming language for CPU and GPU computing. Compose typed functions, work with tensors, and place numerical tasks on Metal, CUDA and Vulkan."
   />
   <link rel="canonical" href="https://kalandra.dev/" />
   <meta property="og:type" content="website" /><meta
@@ -211,7 +211,9 @@
       <div class="computing-heading">
         <h2 id="computing-title">From tensors to parallel tasks.</h2>
         <a class="platform-summary" href="#platforms"
-          ><span>macOS / CPU + Metal</span><span>Linux, Windows / CPU</span></a
+          ><span>macOS / CPU + Metal</span><span
+            >Linux / CPU + CUDA + Vulkan</span
+          ><span>Windows / CPU + experimental GPU</span></a
         >
       </div>
       <p class="computing-intro">
@@ -289,8 +291,9 @@
         >
       </div>
       <p class="scope-note">
-        Apple Metal is the current GPU backend. Model loading, a full LLM
-        inference runtime and CUDA remain outside the current scope.
+        Metal, CUDA and Vulkan share the same numerical task APIs. Windows GPU
+        support is experimental. Model loading and a full LLM inference runtime
+        remain outside the current scope.
       </p>
     </section>
 
@@ -301,8 +304,9 @@
     >
       <h2 id="platform-title">Native across platforms.</h2>
       <p class="section-intro">
-        The same language and tools for CPU programs. Apple Metal on supported
-        Macs.
+        The same language and tools for CPU programs. Metal on supported Macs,
+        CUDA and Vulkan on qualified Linux GPUs, and experimental Windows GPU
+        packages.
       </p>
       <!-- The platform table keeps horizontal overflow inside a keyboard-focusable region. -->
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -325,13 +329,12 @@
                 >macOS 26+, Apple silicon</td
               ></tr
             ><tr
-              ><th scope="row">Linux</th><td>CPU</td><td
-                >x86-64 and ARM64, Ubuntu 24.04 / glibc 2.39</td
-              ></tr
+              ><th scope="row">Linux</th><td>CPU + CUDA/Vulkan GPU (x86-64)</td
+              ><td>x86-64 and ARM64, Ubuntu 24.04 / glibc 2.39</td></tr
             ><tr
-              ><th scope="row">Windows</th><td>CPU</td><td
-                >x86-64 and ARM64, Windows 11 with C++ build tools</td
-              ></tr
+              ><th scope="row">Windows</th><td
+                >CPU + experimental CUDA/Vulkan</td
+              ><td>x86-64 and ARM64, Windows 11 with C++ build tools</td></tr
             ></tbody
           >
         </table>
@@ -379,7 +382,7 @@ kalandra --project my-app/kalandra.toml \
         ><a class="inline-link" href={`${repo}/blob/native/docs/roadmap.md`}
           >Development roadmap {@render arrow()}</a
         ><a class="inline-link" href="/docs/release-notes"
-          >0.99.1 release notes {@render arrow()}</a
+          >0.99.2 release notes {@render arrow()}</a
         >
       </div>
     </section>

@@ -76,7 +76,7 @@ class CudaReleaseTests(unittest.TestCase):
         self.assertIn('tags: ["v*"]',workflow)
         self.assertIn('  qualify-cuda:',release)
         self.assertIn(ARCHIVE,release)
-        self.assertIn('qualify-vulkan, qualify-cuda, notarize]',release)
+        self.assertIn('qualify-vulkan, qualify-cuda, qualify-windows-gpu, notarize]',release)
         self.assertIn("if: startsWith(github.ref, 'refs/tags/')",release.split('  publish:\n',1)[1])
 
 if __name__=='__main__':unittest.main()
