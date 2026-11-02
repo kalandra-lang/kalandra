@@ -47,6 +47,7 @@ int main() {
     completion(prefix + "  [va|,\n");
     completion(prefix + "  if true and va|\n");
     completion(prefix + "  if true:\n    va|\n");
+    completion(prefix + "  while value<3:\n    value=va|\n");
     completion(prefix + "  consume([va|\n");
     completion(prefix + "  value + va|]\n");
     completion(prefix + "  not va|\n");
@@ -67,6 +68,7 @@ int main() {
     signature(prefix + "  add(1,2+va|Suffix\n");
     signature(prefix + "  add(1,values[va|\n");
     signature(prefix + "  add(1,2+|\n");
+    signature(prefix + "  while value<3:\n    add(1,va|\n");
     signature("fn apply(left:int,action:fn(int)->int)->int:\n  action(left)\n" + prefix +
               "  apply(1,fn(item:int): va|\n");
     signature("fn choose(left:int,right:Bool)->int:\n  left\n" + prefix +

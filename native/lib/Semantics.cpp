@@ -1270,6 +1270,13 @@ private:
       else if (index + 1 == body.size())
         expected = output_.functions[id].declaredResult;
       auto value = statementValue(frame, statement, expected, index + 1 == body.size());
+      // An editor signature query deliberately stops at its checked argument
+      // projection. Recovery may append a result hole after a statement loop;
+      // that later hole must not invalidate an already validated signature.
+      if (syntax_.editorOnly && options_.signature && options_.signature->snapshot) {
+        success = false;
+        break;
+      }
       std::optional<SymbolId> symbol;
       if (statement.binding) {
         const auto bindingName = name(*statement.binding);

@@ -513,7 +513,7 @@ private:
       if (!expect(TokenKind::Equal, "expected '=' before binding initializer"))
         return {};
     }
-    auto expression = parseExpression();
+    auto expression = parseExpression(0, !statement.binding);
     if (!expression)
       return {};
     statement.expression = *expression;
@@ -538,13 +538,13 @@ private:
     result_.module.expressions.push_back(std::move(expression));
     return id;
   }
-  std::optional<ExprId> parseExpression(int minimum = 0) {
+  std::optional<ExprId> parseExpression(int minimum = 0, bool statementIf = false) {
     if (depth_ >= limits_.maxDepth) {
       error("P009", "expression nesting limit exceeded", current().span);
       return {};
     }
     const Depth guard(depth_);
-    auto left = prefix();
+    auto left = prefix(statementIf);
     if (!left)
       return {};
     bool compared = false;
@@ -764,7 +764,7 @@ private:
     }
     return body;
   }
-  std::optional<ExprId> prefix() {
+  std::optional<ExprId> prefix(bool statementIf = false) {
     const auto token = current();
     if (consume(TokenKind::Number))
       return add({token.span, NumberExpr{token.span}});
@@ -834,6 +834,17 @@ private:
         if (!word("else")) {
           const bool guard = !yes->back().binding &&
                              std::holds_alternative<FailExpr>(node(yes->back().expression).value);
+          if (!guard && !statementIf) {
+            error("P035", "if expressions require an else branch", current().span);
+            if (!result_.module.editorOnly)
+              return {};
+            const SourceSpan hole{current().span.begin, current().span.begin};
+            auto id = add({hole, NameExpr{hole}});
+            if (!id)
+              return {};
+            return add({{token.span.begin, hole.end},
+                        ConditionalExpr{*condition, std::move(*yes), {{hole, {}, {}, *id}}}});
+          }
           // An inline guard leaves its terminating newline to its enclosing statement.
           if (inlineTrue)
             position_ = endOfTrue;
@@ -849,6 +860,10 @@ private:
         const bool effects = yes->back().binding || no->back().binding ||
                              statementOnly(yes->back().expression) ||
                              statementOnly(no->back().expression);
+        if (effects && !statementIf) {
+          error("P035", "statement if has no expression result", token.span);
+          return {};
+        }
         return add({{token.span.begin, no->back().span.end},
                     ConditionalExpr{*condition, std::move(*yes), std::move(*no), effects}});
       }
