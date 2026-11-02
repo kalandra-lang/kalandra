@@ -7,6 +7,14 @@ const root = new URL("../", import.meta.url);
 const content = new URL("apps/website/src/content/native/", root);
 const read = (path: string) => readFile(new URL(path, root), "utf8");
 
+test("every authored documentation page has an execution-plan entry", async () => {
+  const pages = (await readdir(content))
+    .filter((file) => file.endsWith(".tiramisu"))
+    .map((file) => file.slice(0, -9));
+  const plan = JSON.parse(await read("tests/fixtures/docs-examples.json"));
+  expect(pages.sort()).toEqual(Object.keys(plan).sort());
+});
+
 test("every compiler-provided callable has a signature and public reference entry", async () => {
   const semantics = await read("native/lib/Semantics.cpp");
   const start = semantics.indexOf("  invoke(Frame &frame,");

@@ -10,6 +10,7 @@ sys.path.insert(0,str(ROOT/'native/packaging'))
 from RuntimeBundles import assemble
 from collect_native_platforms import collect
 from collect_vulkan_release import collect as collect_gpu
+from collect_windows_gpu_release import collect as collect_windows_gpu
 
 collect(rehearsal=not os.environ['GITHUB_REF'].startswith('refs/tags/'))
 assets=Path('release-assets')
@@ -25,3 +26,7 @@ with tempfile.TemporaryDirectory(prefix='bundled release ') as temporary:
 
     collect_gpu(output/'kalandra-cpu-target-runtimes.tar.gz', assets, backend='cuda',
                 rehearsal=not os.environ['GITHUB_REF'].startswith('refs/tags/'))
+
+    for architecture in ('x86_64', 'arm64'):
+        collect_windows_gpu(output/'kalandra-cpu-target-runtimes.tar.gz', assets, architecture,
+                            rehearsal=not os.environ['GITHUB_REF'].startswith('refs/tags/'))

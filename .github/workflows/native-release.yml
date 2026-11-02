@@ -265,6 +265,41 @@ jobs:
           python3 native/cuda-source/qualification/installed.py --bundled-targets
           --archive release-assets/kalandra-native-cuda-standalone-linux-x86_64.tar.gz
           --root build/cuda-release-qualification
+  qualify-windows-gpu:
+    needs: bundle-targets
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            msvc: x64
+          - runner: windows-11-arm
+            arch: arm64
+            msvc: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-bundled-release-assets
+          path: release-assets
+      - name: Qualify final experimental Windows CUDA and Vulkan archives
+        run: |
+          foreach ($backend in @('cuda', 'vulkan')) {
+            python native/gpu-runtime/qualification/windows_installed.py --backend $backend --bundled-targets --archive "release-assets/kalandra-native-$backend-standalone-windows-${{ matrix.arch }}.tar.gz" --root "build/release-$backend" --arch ${{ matrix.arch }}
+            if ($LASTEXITCODE -ne 0) { throw "$backend released Windows package qualification failed" }
+          }
   notarize:
     if: startsWith(github.ref, 'refs/tags/') || vars.KALANDRA_NOTARIZE == 'true'
     needs: [build, bundle-targets, qualify-standalone, signing-credentials]
@@ -304,7 +339,7 @@ jobs:
           if-no-files-found: error
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [build, bundle-targets, qualify-standalone, qualify-vulkan, qualify-cuda, notarize]
+    needs: [build, bundle-targets, qualify-standalone, qualify-vulkan, qualify-cuda, qualify-windows-gpu, notarize]
     runs-on: ubuntu-latest
     permissions:
       contents: write
