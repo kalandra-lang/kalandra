@@ -103,6 +103,46 @@ static std::unique_ptr<llvm::Module> windowsTailFixture(llvm::LLVMContext &conte
 
 int main(int argc, char **argv) {
   using namespace llvm;
+  for (const char *triple : {"x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"}) {
+    LLVMContext context;
+    Module module("windows-stack-high-water", context);
+    module.setTargetTriple(Triple(triple));
+    module.setDataLayout("e-p:64:64-i64:64-i128:128-n8:16:32:64-S128");
+    auto *i64 = Type::getInt64Ty(context);
+    auto *voidType = Type::getVoidTy(context);
+    SmallVector<Type *, 256> types(200, i64);
+    auto callee = module.getOrInsertFunction("wide", FunctionType::get(voidType, types, false));
+    auto *fn = Function::Create(FunctionType::get(voidType, {i64}, false),
+                                GlobalValue::ExternalLinkage, "serial", module);
+    IRBuilder<> b(BasicBlock::Create(context, "entry", fn));
+    SmallVector<Value *, 256> args(200, b.getInt64(1));
+    for (unsigned n = 0; n < 100; ++n) b.CreateCall(callee, args);
+    auto *ret = b.CreateRetVoid();
+    check(!kalandra::nativeStackBudgetError(*fn, module.getDataLayout()));
+    // A single oversized packet, true fixed storage, and accumulated SSA
+    // pressure still fail. This does not enlarge the 16 KiB frame allowance.
+    b.SetInsertPoint(ret);
+    auto *large = b.CreateAlloca(b.getInt8Ty(), b.getInt64(17000));
+    check(kalandra::nativeStackBudgetError(*fn, module.getDataLayout()).has_value());
+    large->eraseFromParent();
+    auto *dynamic = b.CreateAlloca(b.getInt8Ty(), fn->getArg(0));
+    check(kalandra::nativeStackBudgetError(*fn, module.getDataLayout()).has_value());
+    dynamic->eraseFromParent();
+    Value *value = fn->getArg(0);
+    for (unsigned n = 0; n < 2200; ++n) value = b.CreateAdd(value, fn->getArg(0));
+    check(kalandra::nativeStackBudgetError(*fn, module.getDataLayout()).has_value());
+    auto *oversized = Function::Create(FunctionType::get(voidType, {}, false),
+                                 GlobalValue::ExternalLinkage, "oversized", module);
+    IRBuilder<> big(BasicBlock::Create(context, "entry", oversized));
+    SmallVector<Type *, 256> floatTypes(2050, big.getFloatTy());
+    auto floats = module.getOrInsertFunction("many.floats", FunctionType::get(voidType, floatTypes, false));
+    SmallVector<Value *, 256> floatArgs(2050, ConstantFP::get(big.getFloatTy(), 1));
+    big.CreateCall(floats, floatArgs);
+    big.CreateRetVoid();
+    check(kalandra::nativeStackBudgetError(*oversized, module.getDataLayout()).has_value());
+    check(kalandra::nativeStackBudgetError(*oversized, module.getDataLayout(), false, 17000).has_value());
+    check(!verifyModule(module, &errs()));
+  }
   for (bool reverse : {false, true}) {
     LLVMContext context;
     Module module("internal-calls", context);

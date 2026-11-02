@@ -42,3 +42,19 @@ header/object compilation, a software Vulkan device or a CPU substitute.
 
 Tracking: #263 (Vulkan), #264 (CUDA). Keep both capabilities in this PR and retain
 explicit qualification boundaries in package metadata, documentation and CI.
+
+## Windows stack admission
+
+The wide indirect-argument capability fixture exposed a CPU compiler admission
+error after Windows tail-signature normalization. Sequential outgoing call
+packets were summed as if they were simultaneously live. Windows admission now
+charges the largest outgoing packet, rounded to full eight-byte argument slots
+with shadow-space allowance. All SSA values, incoming arguments and fixed
+allocations remain conservatively charged. Dynamic allocations and genuinely
+oversized frames remain rejected. The 16 KiB frame budget, 128 KiB runtime stack
+reserve, cancellation checkpoints and unwind protocol are unchanged.
+
+Regression coverage includes oversized packets/allocations/SSA pressure and
+both Windows triples, plus O0/O2 native execution of a forty-tensor-argument CPU
+program through the existing cross-platform matrix. Physical Windows GPU tests
+remain separately deferred.

@@ -61,6 +61,19 @@ def program_cases():
             f'  values: Tensor[{numeric}, 2, 2] = tensor([[1, 2], [3, 4]])\n'
             '  reduceSum(transpose(matmul(values, values)))\n'), output='54\n')
     cases['bool'] = dict(source='fn main()->Bool:\n  true\n', output='true\n')
+    # Exercise wide normalized Windows tail packets with aliased tensor inputs.
+    # Calls are sequential; their outgoing argument areas cannot accumulate.
+    parameters = ['ignored:Tensor[float32,?]', 'a0:Tensor[float32,?,?]', 'scale:float32']
+    parameters += [f'a{i}:Tensor[float32,?,?]' for i in range(1, 40)]
+    parameters += ['bias:float32']
+    wide = 'fn wide('+','.join(parameters)+')->Tensor[float32,?,?]:\n'
+    wide += '  ('+'+'.join(f'a{i}' for i in range(40))+')*scale+bias\n'
+    wide += 'fn main()->float32:\n'
+    wide += '  m:Tensor[float32,2,3]=tensor([[1,2,3],[4,5,6]])\n'
+    wide += '  v:Tensor[float32,3]=tensor([1,2,3])\n'
+    wide += '  reduceSum(wide(v,m,0.5,'+','.join(['m']*39)+',1))\n'
+    cases['wide-tensor-arguments'] = dict(source=wide, output='426\n')
+
     for name, fixture, expected in (
         ('recursive-array', 'recursive-callables/array-result.k', '42\n'),
         ('owned-error', 'recursive-callables/owned-error.k', '42\n'),
