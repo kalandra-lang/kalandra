@@ -40,7 +40,7 @@ CPU/Metal, Linux x86-64/ARM64 CPU, Linux x86-64 CUDA/Vulkan, and Windows x86-64/
 Experimental Linux Vulkan builds use `KALANDRA_BUILD_VULKAN_RUNTIME=ON` and
 `--target vulkan`, with Vulkan headers, glslc and SPIR-V tools available at build
 time. The same numerical placement/transfer APIs are shared with Metal. Vulkan
-and CUDA packages are distributed starting with v0.99.3; physical-device
+and CUDA packages are distributed starting with v0.99.2; physical-device
 qualification and Vulkan source builds are documented in the [Vulkan source guide](vulkan/README.md).
 
 Starting with 0.99.1, standalone compiler packages contain all five CPU runtimes

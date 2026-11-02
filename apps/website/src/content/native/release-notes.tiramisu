@@ -1,6 +1,6 @@
-meta { title = "Kalandra 0.99.3 — CUDA and Vulkan", description = "Linux CUDA and Vulkan, experimental Windows GPU packages, and native call correctness fixes.", order = 5, group = "Start here" }
+meta { title = "Kalandra 0.99.2 — CUDA and Vulkan", description = "Linux CUDA and Vulkan, experimental Windows GPU packages, and native call correctness fixes.", order = 5, group = "Start here" }
 
-Kalandra 0.99.3 adds Linux CUDA and Vulkan compiler distributions and experimental Windows CUDA/Vulkan distributions. It is a GPU-delivery checkpoint before the next language-design work. Existing programs keep the immutable language model; the mutation and loop proposals are not part of this release.
+Kalandra 0.99.2 adds Linux CUDA and Vulkan compiler distributions and experimental Windows CUDA/Vulkan distributions. It is a GPU-delivery checkpoint before the next language-design work. Existing programs keep the immutable language model; the mutation and loop proposals are not part of this release.
 
 h2 { "One source language, three GPU backends" }
 
@@ -19,15 +19,15 @@ Windows x86-64 and ARM64 CUDA/Vulkan compiler packages pass build and installed-
 
 link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows GPU-passthrough VM testing" }
 
-h2 { "Install 0.99.3" }
+h2 { "Install 0.99.2" }
 
 Download from the GitHub release Assets section and verify the SHA-256 sidecar. For Linux x86-64, choose kalandra-native-cuda-standalone-linux-x86_64.tar.gz or kalandra-native-vulkan-standalone-linux-x86_64.tar.gz. Experimental Windows GPU archives use the corresponding cuda or vulkan backend and windows-x86_64 or windows-arm64 suffix. The signed, notarized and stapled macOS Metal DMG remains kalandra-native-metal-standalone.dmg. CPU and editor packages remain available.
 
 GPU compiler packages include all five CPU target runtime datasets and private host cross-linkers. Cross-platform builds cover CPU programs, not cross-target GPU applications. Linux requires system C++23 development headers. Windows requires matching Visual Studio C++ Build Tools and Windows SDK in a developer command prompt. Applications require a compatible GPU driver/system loader and their complete PTX or SPIR-V resource directory. Installed CUDA compilers need no CUDA toolkit, NVRTC or cuBLAS; CUDA applications need an NVIDIA driver supporting PTX 9.2.
 
-kalandra --version and the native language server report 0.99.3. Install kalandra-native.vsix from the same release; its independent extension version remains 0.1.0. Existing editor setup continues to work.
+kalandra --version and the native language server report 0.99.2. Install kalandra-native.vsix from the same release; its independent extension version remains 0.1.0. Existing editor setup continues to work.
 
-link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.3", "Download Kalandra 0.99.3" }
+link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.2", "Download Kalandra 0.99.2" }
 link { url = "/docs/installation", "Installation and platform prerequisites" }
 link { url = "/docs/tooling", "Set up your code editor" }
 
@@ -44,5 +44,5 @@ h2 { "Changes since 0.99.1" }
 link { url = "https://github.com/kalandra-lang/kalandra/pull/273", "Vulkan backend" }
 link { url = "https://github.com/kalandra-lang/kalandra/pull/274", "Linux CUDA backend" }
 link { url = "https://github.com/kalandra-lang/kalandra/pull/275", "Windows CUDA and Vulkan delivery" }
-link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.1...v0.99.3", "Full release comparison" }
+link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.1...v0.99.2", "Full release comparison" }
 link { url = "/docs/release-0-99-1", "Previous release: 0.99.1 — ARM64 and cross-compilation" }
