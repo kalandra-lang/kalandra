@@ -13,7 +13,7 @@ static CheckResult analyze(const std::string &source) {
 int main() {
   try {
     const std::string prefix = "type Box:\n  values:[int]\n"
-                               "fn edit(mut values:[int])->int:\n  length(values)\n"
+                               "fn edit(mut values:[int])->int:\n  values[0]=9\n  length(values)\n"
                                "fn read(values:[int])->int:\n  length(values)\n"
                                "fn identity(values:[int])->[int]:\n  values\n"
                                "fn box(values:[int])->Box:\n  Box {values:values}\n";

@@ -1,4 +1,4 @@
-meta { title = "Arrays and mapping", description = "Create immutable arrays and transform their elements.", order = 6, group = "Language reference" }
+meta { title = "Arrays and mapping", description = "Create arrays, transform their elements and control local write access.", order = 6, group = "Language reference" }
 
 An array type is written [T]. Array lengths may vary at runtime; its elements keep one type. Arrays and tensors are different values, with explicit conversions between supported numeric forms.
 
@@ -44,11 +44,51 @@ codeblock { language = kalandra, """fn main() -> [int]:
   concat(slice(values, 0, 2), [9])
 """ }
 
-slice uses a checked half-open range. concat requires matching element types. These operations produce immutable values; do not assume a zero-copy view.
+slice uses a checked half-open range. concat requires matching element types. Both allocate fresh outer array storage and preserve element order.
 
 h2 { "Enter a numerical pipeline" }
 
 Use tensor(array) for a rank-one numeric tensor, or tensor(array, dimensions) for a checked row-major shape. array(tensor) converts supported numeric tensor contents back into a flat array. Neither conversion changes the numeric element type.
+
+In the unreleased language branch, both conversions copy numerical storage. Editing a source array cannot change an immutable tensor snapshot, and editing an array produced from a tensor cannot change that tensor.
+
+h2 { "Edit local elements" }
+
+Unreleased language branch: a fresh numeric or Bool array supports checked element assignment. A plain binding aliases the same backing; copy creates independent outer storage. A helper that writes caller-owned storage declares a mut parameter.
+
+codeblock { language = kalandra, """fn update(mut values: [int]) -> int:
+  values[1] = 9
+  values[1]
+
+fn main() -> int:
+  values = [1, 2, 3]
+  alias = values
+  snapshot = copy(values)
+  updated = update(values)
+  updated * 100 + alias[1] * 10 + snapshot[1]
+""" }
+
+This returns 992: values and alias both see the edit, while snapshot still contains 2 at index 1. Element assignment is a statement. Supply a separate result expression at the end of a function, and preserve the array's element type.
+
+The destination and index are evaluated and bounds-checked before the right-hand side. A failing right-hand side does not perform that assignment. Writes completed before a later fault or cancellation remain visible; in-place updates do not roll back.
+
+h2 { "Wait for shared readers" }
+
+Ordinary parameters and captured arrays are read-only. Parent-provided task inputs stay read-only until their readers settle, including reads through aliases and aggregate fields. Await every relevant reader before writing, or edit an independent copy instead.
+
+codeblock { language = kalandra, """fn read(values: [int]) -> int:
+  values[0] + values[1]
+
+fn main() -> int ! TaskError:
+  values = [1, 2]
+  try parallel:
+    pending = spawn read(values)
+    observed = try await pending
+    values[0] = observed + 1
+    values[0]
+""" }
+
+Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Source-array operations currently require native CPU programs; the mixed GPU supervisor does not yet support array-valued locals. Use tensors for GPU programs.
 
 link { url = "/docs/tensors", "Shapes and tensor arithmetic" }
 

@@ -1091,6 +1091,7 @@ include(cmake/ArrayGenerate.cmake)
 include(cmake/LocalRebinding.cmake)
 include(cmake/ArrayReferences.cmake)
 include(cmake/ArrayAccess.cmake)
+include(cmake/ArrayMutation.cmake)
 
 include(cmake/ArrayTensor.cmake)
 

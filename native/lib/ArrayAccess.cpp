@@ -32,7 +32,10 @@ public:
   std::vector<Diagnostic> run() {
     // Until stores are admitted, only mut contracts introduce a write effect.
     const bool direct =
-        std::ranges::any_of(module.symbols, [](const auto &s) { return s.mutableAccess; });
+        std::ranges::any_of(module.symbols, [](const auto &s) { return s.mutableAccess; }) ||
+        std::ranges::any_of(module.expressions, [](const auto &v) {
+          return std::holds_alternative<ArrayStore>(v.operation);
+        });
     const bool indirect = std::ranges::any_of(module.expressions, [&](const auto &value) {
       const auto *call = std::get_if<FunctionInvoke>(&value.operation);
       if (!call || call->callee >= module.expressions.size())
@@ -278,6 +281,12 @@ private:
               if (module.symbols[function.parameters.at(i)].mutableAccess)
                 write(op.arguments[i], args[i], env, spawned);
             return storage(node.type) ? returned(op.function, id, args) : Roots{};
+          } else if constexpr (std::is_same_v<T, ArrayStore>) {
+            auto destination = input(op.input);
+            input(op.index); // Checked before the RHS, including its faults.
+            input(op.value);
+            write(op.input, destination, env, false);
+            return {};
           } else if constexpr (std::is_same_v<T, FunctionInvoke>) {
             auto captures = input(op.callee);
             const auto &type = module.expressions[op.callee].type;

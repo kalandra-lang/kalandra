@@ -37,6 +37,11 @@ int main() {
     require(!query(code, "fn double"), "keyword produced misleading hover");
     require(!query(code, "  result"), "whitespace produced misleading hover");
     require(!query(code, "*2"), "operator produced misleading hover");
+    const std::string store = "fn put(mut values:[int],index:int)->int:\n  values[index]=9\n  "
+                              "values[index]\nfn main()->int:\n  put([1],0)\n";
+    expect(store, "values[index]=", "values: [int64]");
+    expect(store, "index]=", "index: int64");
+    require(!query(store, "=9"), "element assignment leaked its private statement marker");
     require(!query("fn main():\n  missing\n", "main"), "failed graph leaked partial types");
     const std::string closure =
         "fn main():\n  offset=1\n  transform=fn(x:int):x+offset\n  transform(2)\n";

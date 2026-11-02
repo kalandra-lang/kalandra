@@ -476,7 +476,7 @@ private:
   }
   bool statementOnly(ExprId id) {
     const auto &value = node(id).value;
-    if (std::holds_alternative<WhileExpr>(value))
+    if (std::holds_alternative<WhileExpr>(value) || std::holds_alternative<ArraySetExpr>(value))
       return true;
     if (const auto *choice = std::get_if<ConditionalExpr>(&value))
       return choice->statementOnly;
@@ -523,6 +523,24 @@ private:
     auto expression = parseExpression(0, !statement.binding);
     if (!expression)
       return {};
+    if (consume(TokenKind::Equal)) {
+      const auto target = node(*expression);
+      const auto *index = std::get_if<IndexExpr>(&target.value);
+      if (statement.binding || !index || index->indices.size() != 1) {
+        error("P040", "element assignment requires a single array index on its left", target.span);
+        return {};
+      }
+      // Copy the destination before parsing the RHS, which may grow the node
+      // vector and invalidate references into its storage.
+      const auto input = index->input, position = index->indices[0];
+      auto value = parseExpression();
+      if (!value)
+        return {};
+      expression = add({{target.span.begin, node(*value).span.end},
+                        ArraySetExpr{input, position, *value, target.span}});
+      if (!expression)
+        return {};
+    }
     statement.expression = *expression;
     statement.span.end = node(*expression).span.end;
     if (tokens_[position_ - 1].kind != TokenKind::Dedent &&

@@ -60,6 +60,30 @@ def program_cases():
             f'fn main()->{numeric}:\n'
             f'  values: Tensor[{numeric}, 2, 2] = tensor([[1, 2], [3, 4]])\n'
             '  reduceSum(transpose(matmul(values, values)))\n'), output='54\n')
+        cases['array-write-' + numeric] = dict(source=(
+            f'fn put(mut values:[{numeric}])->{numeric}:\n'
+            f'  values[1]={numeric}(9)\n  values[1]\n'
+            'fn main()->int:\n'
+            f'  a=[{numeric}(1),{numeric}(2),{numeric}(3)]\n'
+            '  alias=a\n  snapshot=copy(a)\n  result=put(a)\n'
+            '  int(result)*100+int(alias[1])*10+int(snapshot[1])\n'), output='992\n')
+    cases['local-loop-snapshot'] = dict(source=(
+        'fn main()->int:\n  i=0\n  total=0\n  snapshot=fn()->int:i\n'
+        '  while i<1000:\n    total=total+i\n    i=i+1\n  total+snapshot()\n'), output='499500\n')
+    cases['mutating-function-value'] = dict(source=(
+        'fn put(mut a:[int])->[int]:\n  a[0]=40\n  a\n'
+        'fn main()->int:\n  a=[1,2]\n  alias=a\n'
+        '  f:fn(mut [int])->[int]=put\n  result=f(a)\n  result[0]+alias[1]\n'), output='42\n')
+    cases['array-write-await'] = dict(source=(
+        'fn read(a:[int])->int:\n  a[0]+10\n'
+        'fn main()->int ! TaskError:\n  a=[1,2,3]\n  alias=a\n  try parallel:\n'
+        '    pending=spawn read(a)\n    a[1]=try await pending\n    i=0\n'
+        '    while i<3:\n      a[i]=a[i]+1\n      i=i+1\n'
+        '    alias[0]*100+alias[1]*10+alias[2]\n'), output='324\n')
+    cases['bool-array-write-task'] = dict(source=(
+        'fn work()->[Bool]:\n  a=[true,false]\n  a[0]=false\n  a\n'
+        'fn main()->int ! TaskError:\n  a=try parallel:\n    try await spawn work()\n'
+        '  a[1]=true\n  if not a[0] and a[1]:42\n  else:0\n'), output='42\n')
     cases['bool'] = dict(source='fn main()->Bool:\n  true\n', output='true\n')
     # Exercise wide normalized Windows tail packets with aliased tensor inputs.
     # Calls are sequential; their outgoing argument areas cannot accumulate.

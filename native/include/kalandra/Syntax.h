@@ -155,6 +155,10 @@ struct IndexExpr {
   ExprId input;
   std::vector<ExprId> indices;
 };
+struct ArraySetExpr {
+  ExprId input, index, value;
+  SourceSpan target;
+}; // Statement-only element assignment; destination precedes the RHS.
 struct FieldInitializer {
   SourceSpan name;
   ExprId value;
@@ -233,7 +237,8 @@ struct Expr {
   SourceSpan span;
   std::variant<NameExpr, NumberExpr, StringExpr, UnaryExpr, BinaryExpr, ComparisonExpr, CallExpr,
                ArrayExpr, IndexExpr, TaskExpr, ParallelExpr, ConditionalExpr, LogicalExpr,
-               CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr, WhileExpr>
+               CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr, WhileExpr,
+               ArraySetExpr>
       value;
 };
 struct Statement {

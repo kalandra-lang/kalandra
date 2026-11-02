@@ -1,7 +1,7 @@
 #pragma once
 #include "kalandra/NumericType.h"
-#include "kalandra/TensorTransform.h"
 #include "kalandra/Syntax.h"
+#include "kalandra/TensorTransform.h"
 
 namespace kalandra {
 using ValueId = std::size_t;
@@ -211,6 +211,12 @@ struct ArraySlice {
 struct ArrayIndex {
   ValueId input, index;
 };
+struct ArrayBoundsCheck {
+  ValueId input, index;
+}; // Normalize/validate the index before an element assignment's RHS runs.
+struct ArrayStore {
+  ValueId input, index, value;
+}; // Statement-only; index is the result of ArrayBoundsCheck, never unchecked.
 struct TensorIndex {
   ValueId input;
   std::vector<ValueId> indices;
@@ -364,7 +370,8 @@ struct TypedExpr {
                ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection,
                Transfer, TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
                CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
-               RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke>
+               RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke,
+               ArrayBoundsCheck, ArrayStore>
       operation;
 };
 struct ShapeEquality {

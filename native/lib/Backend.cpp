@@ -881,6 +881,25 @@ private:
       cell = arith::ExtUIOp::create(builder_, loc, builder_.getI8Type(), cell);
     LLVM::StoreOp::create(builder_, loc, cell, address);
   }
+  Value arrayWritePosition(Location loc, Value input, Value position, const ValueType &array,
+                           NumericType indexType) {
+    if (describeNumeric(indexType)->bits < 64) {
+      if (isUnsigned(indexType))
+        position = arith::ExtUIOp::create(builder_, loc, builder_.getI64Type(), position);
+      else
+        position = arith::ExtSIOp::create(builder_, loc, builder_.getI64Type(), position);
+    }
+    Value limit;
+    if (isBoolArray(array))
+      limit = recordArrayLength(loc, input, array);
+    else {
+      auto shape = dimensions(loc, input);
+      checkedCount(loc, shape, describeNumeric(array.element)->bytes());
+      limit = arith::IndexCastOp::create(builder_, loc, builder_.getI64Type(), shape[0]);
+    }
+    guard(loc, compare(loc, arith::CmpIPredicate::ult, position, limit), 5);
+    return position;
+  }
   std::pair<std::uint64_t, std::uint64_t> recordCellLayout(const ValueType &array) {
     if (isBoolArray(array))
       return {1, 1};
@@ -2615,6 +2634,33 @@ private:
                                          operation.operation, node.type.element);
             return elementwise(loc, a, b, cast<RankedTensorType>(type(node.type)),
                                operation.operation, node.type.element);
+          } else if constexpr (std::is_same_v<T, ArrayBoundsCheck>) {
+            auto input = expression(frame, operation.input);
+            auto position = expression(frame, operation.index);
+            return arrayWritePosition(loc, input, position,
+                                      input_.expressions[operation.input].type,
+                                      input_.expressions[operation.index].type.element);
+          } else if constexpr (std::is_same_v<T, ArrayStore>) {
+            auto input = expression(frame, operation.input);
+            auto position = expression(frame, operation.index);
+            auto value = expression(frame, operation.value);
+            const auto &array = input_.expressions[operation.input].type;
+            // A continuation may pass a normalized index through a private
+            // kernel ABI. Recheck at the sink as well as the pre-RHS check.
+            position = arrayWritePosition(loc, input, position, array, NumericType::Int64);
+            if (isBoolArray(array)) {
+              auto storage =
+                  LLVM::ExtractValueOp::create(builder_, loc, input, ArrayRef<int64_t>{1});
+              auto ptr = LLVM::LLVMPointerType::get(builder_.getContext());
+              auto address = LLVM::GEPOp::create(builder_, loc, ptr, arrayCellType(array), storage,
+                                                 ValueRange{position});
+              arrayCellStore(loc, value, address, array);
+            } else {
+              auto indexValue =
+                  arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(), position);
+              memref::StoreOp::create(builder_, loc, value, input, ValueRange{indexValue});
+            }
+            return arith::ConstantIntOp::create(builder_, loc, 0, 1);
           } else if constexpr (std::is_same_v<T, ArrayIndex> || std::is_same_v<T, TensorIndex>) {
             if constexpr (std::is_same_v<T, ArrayIndex>) {
               const auto &array = input_.expressions[operation.input].type;
@@ -3301,10 +3347,11 @@ private:
         std::ranges::any_of(source.parameters,
                             [&](auto p) { return input_.symbols[p].type.tensor; });
     if (arrayTail) {
-      // Preserve source immutability in function-boundary bufferization. A
-      // writable default otherwise forces callers to clone even a base case.
+      // Preserve tensor value semantics at function boundaries. Arrays retain
+      // their own identity and may carry explicit mutating parameter access.
       for (std::size_t n = 0; n < source.parameters.size(); ++n)
-        if (input_.symbols[source.parameters[n]].type.tensor)
+        if (input_.symbols[source.parameters[n]].type.tensor &&
+            !input_.symbols[source.parameters[n]].type.array)
           function.setArgAttr(n, "bufferization.writable", builder_.getBoolAttr(false));
       const auto loc = function.getLoc();
       const auto &terminal = trueTail ? choice->whenFalse : choice->whenTrue;

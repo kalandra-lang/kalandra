@@ -647,6 +647,35 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
                           : numericScalarArithmeticAvailable(source.element, target)))
         return "numeric conversions require implemented CPU values with unchanged shape";
     }
+    if (std::holds_alternative<ArrayBoundsCheck>(expression.operation) ||
+        std::holds_alternative<ArrayStore>(expression.operation)) {
+      const auto *store = std::get_if<ArrayStore>(&expression.operation);
+      const auto *bounds = std::get_if<ArrayBoundsCheck>(&expression.operation);
+      const auto input = store ? store->input : bounds->input;
+      const auto index = store ? store->index : bounds->index;
+      if (input >= module.expressions.size() || index >= module.expressions.size() ||
+          (store && store->value >= module.expressions.size()))
+        return "array assignment references invalid operands";
+      const auto &a = module.expressions[input].type;
+      const auto &i = module.expressions[index].type;
+      const auto scalar = [](const ValueType &t) {
+        return !t.tensor && !t.array && !t.task && !t.fallible && !t.device && t.shape.empty();
+      };
+      if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 || a.task ||
+          a.fallible || a.device ||
+          (a.builtin != BuiltinValue::Numeric && a.builtin != BuiltinValue::Bool) || !scalar(i) ||
+          i.builtin != BuiltinValue::Numeric || !isInteger(i.element))
+        return "array assignment requires flat CPU numeric or Bool storage and an integer index";
+      if (store) {
+        const auto &value = module.expressions[store->value].type;
+        if (i.element != NumericType::Int64 ||
+            !sameFunctionValueType(value, recordArrayElement(a)) ||
+            expression.type.builtin != BuiltinValue::Bool || !scalar(expression.type))
+          return "array assignment changes its element identity or statement marker";
+      } else if (expression.type.builtin != BuiltinValue::Numeric ||
+                 expression.type.element != NumericType::Int64 || !scalar(expression.type))
+        return "array assignment bounds must produce a normalized int64 index";
+    }
     if (const auto *read = std::get_if<ArrayIndex>(&expression.operation)) {
       if (read->input >= module.expressions.size() || read->index >= module.expressions.size())
         return "array index references invalid operands";
@@ -1080,6 +1109,18 @@ std::string dumpTypedIR(const TypedModule &module) {
             } else if constexpr (std::is_same_v<T, TensorLiteral>) {
               out << (node.type.array ? "array.literal ordered " : "tensor.literal row_major ");
               arguments(operation.elements);
+            } else if constexpr (std::is_same_v<T, ArrayBoundsCheck>) {
+              out << "array.write_bounds checked ";
+              value(operation.input);
+              out << ", ";
+              value(operation.index);
+            } else if constexpr (std::is_same_v<T, ArrayStore>) {
+              out << "array.store checked ";
+              value(operation.input);
+              out << ", ";
+              value(operation.index);
+              out << " = ";
+              value(operation.value);
             } else if constexpr (std::is_same_v<T, ArrayIndex>) {
               out << "array.index checked ";
               value(operation.input);

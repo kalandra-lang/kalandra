@@ -45,6 +45,21 @@ int main() {
           "  while false: 0\n  x+x\n" + host);
       require(!loop && loop.error().message.find("CPU execution") != std::string::npos,
               "GPU kernel admitted statement loops");
+      auto arrayWrite = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
+                             "  local=[1,2]\n  local[0]=3\n  x+x\n" +
+                             host);
+      require(!arrayWrite && arrayWrite.error().message.find("CPU execution") != std::string::npos,
+              "GPU kernel admitted array element assignment");
+      auto hostArray = emit(kernel + std::string("fn main()->Tensor[float32,3] ! TaskError:\n"
+                                                 "  local=[1,2]\n  local[0]=3\n"
+                                                 "  try parallel:\n    gpu=devices.gpu()\n"
+                                                 "    x:Tensor[float32,3]=tensor([1,2,3])\n"
+                                                 "    input=try await transfer(x,gpu)\n"
+                                                 "    result=try await spawn twice(input) on gpu\n"
+                                                 "    try await transfer(result,devices.cpu())\n"));
+      require(!hostArray && hostArray.error().message.find("array") != std::string::npos,
+              "mixed array carrier gate changed: " +
+                  (hostArray ? std::string("admitted") : hostArray.error().message));
     }
     std::cout << "Metal/Vulkan/CUDA: host loops, group release and kernel rejection gates passed\n";
   } catch (const std::exception &error) {

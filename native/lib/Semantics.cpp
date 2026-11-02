@@ -1164,6 +1164,10 @@ private:
               }
               if constexpr (requires { op.input; })
                 expression(op.input);
+              if constexpr (std::is_same_v<T, ArraySetExpr>) {
+                expression(op.value);
+                expression(op.index);
+              }
               if constexpr (requires { op.subject; })
                 expression(op.subject);
               if constexpr (requires { op.callee; })
@@ -2590,6 +2594,48 @@ private:
         frame, result, span,
         CollectionQuery{length ? CollectionQueryKind::Length : CollectionQueryKind::Shape, *input});
   }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ArraySetExpr &store,
+                               const std::optional<ValueType> &) {
+    auto input = expression(frame, store.input);
+    if (!input)
+      return {};
+    const auto array = node(*input).type;
+    if (!mutableArrayType(array)) {
+      error("S078", "element assignment requires a completed CPU numeric or Bool array",
+            store.target);
+      return {};
+    }
+    auto position = expression(frame, store.index);
+    if (!position)
+      return {};
+    const auto indexType = node(*position).type;
+    if (indexType.tensor || indexType.task || indexType.fallible || indexType.device ||
+        indexType.builtin != BuiltinValue::Numeric || !isInteger(indexType.element)) {
+      error("S061", "element assignment requires a completed CPU integer index", store.target);
+      return {};
+    }
+    if (auto known = intConstants_.find(*position); known != intConstants_.end()) {
+      if (known->second < 0 || known->second > INT64_MAX ||
+          (array.shape[0].constant && known->second >= *array.shape[0].constant)) {
+        error("S062", "index is outside its valid zero-based dimension range", store.target);
+        return {};
+      }
+    } else if (array.shape[0].constant && *array.shape[0].constant == 0) {
+      error("S062", "cannot index an empty dimension", store.target);
+      return {};
+    }
+    ValueType checkedIndex;
+    checkedIndex.element = NumericType::Int64;
+    auto checked = add(frame, checkedIndex, store.target, ArrayBoundsCheck{*input, *position});
+    if (!checked)
+      return {};
+    auto value = expression(frame, store.value, recordArrayElement(array));
+    if (!value)
+      return {};
+    ValueType marker;
+    marker.builtin = BuiltinValue::Bool;
+    return add(frame, marker, span, ArrayStore{*input, *checked, *value});
+  }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const IndexExpr &read,
                                const std::optional<ValueType> &expected) {
     std::optional<ValueType> context;
@@ -2978,9 +3024,12 @@ private:
         frame.tasks->handled.insert(node(*value).type.identity);
       return value;
     }
-    if (std::holds_alternative<WhileExpr>(ast.value)) {
+    if (std::holds_alternative<WhileExpr>(ast.value) ||
+        std::holds_alternative<ArraySetExpr>(ast.value)) {
       if (statement.binding || last) {
-        error("S075", "while is a statement; supply a separate result expression", ast.span);
+        error("S075",
+              "loop or element assignment is a statement; supply a separate result expression",
+              ast.span);
         return {};
       }
     }

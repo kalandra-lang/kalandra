@@ -120,6 +120,8 @@ class Compiler {
         const auto &op = expression.operation;
         if (std::holds_alternative<WhileOperation>(op))
           reject(expression.span, "statement loops currently require CPU execution");
+        if (std::holds_alternative<ArrayStore>(op))
+          reject(expression.span, "array element assignment currently requires CPU execution");
         if (const auto *read = std::get_if<SymbolRead>(&op);
             read && cpu.symbols[read->symbol].reassignable)
           reject(expression.span, "local scalar reassignment currently requires CPU execution");

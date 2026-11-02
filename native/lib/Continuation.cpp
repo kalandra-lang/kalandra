@@ -53,7 +53,10 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return {op.input};
         else if constexpr (std::is_same_v<T, StringSlice> || std::is_same_v<T, ArraySlice>)
           return {op.input, op.start, op.end};
-        else if constexpr (std::is_same_v<T, ArrayIndex> || std::is_same_v<T, StringIndex>)
+        else if constexpr (std::is_same_v<T, ArrayStore>)
+          return {op.input, op.index, op.value};
+        else if constexpr (std::is_same_v<T, ArrayIndex> || std::is_same_v<T, ArrayBoundsCheck> ||
+                           std::is_same_v<T, StringIndex>)
           return {op.input, op.index};
         else if constexpr (std::is_same_v<T, TensorIndex>) {
           auto result = op.indices;
@@ -288,7 +291,13 @@ private:
             op.input = importValue(op.input);
             op.start = importValue(op.start);
             op.end = importValue(op.end);
-          } else if constexpr (std::is_same_v<T, ArrayIndex> || std::is_same_v<T, StringIndex>) {
+          } else if constexpr (std::is_same_v<T, ArrayStore>) {
+            op.input = importValue(op.input);
+            op.index = importValue(op.index);
+            op.value = importValue(op.value);
+          } else if constexpr (std::is_same_v<T, ArrayIndex> ||
+                               std::is_same_v<T, ArrayBoundsCheck> ||
+                               std::is_same_v<T, StringIndex>) {
             op.input = importValue(op.input);
             op.index = importValue(op.index);
           } else if constexpr (std::is_same_v<T, TensorIndex>) {
@@ -487,7 +496,14 @@ private:
       query->input = reads[0];
     else if (auto *construction = std::get_if<TensorToArray>(&op))
       construction->input = reads[0];
-    else if (auto *read = std::get_if<ArrayIndex>(&op)) {
+    else if (auto *store = std::get_if<ArrayStore>(&op)) {
+      store->input = reads[0];
+      store->index = reads[1];
+      store->value = reads[2];
+    } else if (auto *read = std::get_if<ArrayBoundsCheck>(&op)) {
+      read->input = reads[0];
+      read->index = reads[1];
+    } else if (auto *read = std::get_if<ArrayIndex>(&op)) {
       read->input = reads[0];
       read->index = reads[1];
     } else if (auto *read = std::get_if<TensorIndex>(&op)) {

@@ -84,17 +84,18 @@ Rebinding a name does not grant write access to read-only storage.
    cancellation/fault checks; ordinary CLI proofs may omit unnecessary checks as
    before. `break`, `continue`, `for` and general Unit-returning APIs remain outside
    this stage.
-3. Numeric arrays now use a reference representation in this branch, undergoing
-   qualification. The earlier immutable MLIR tensor representation could clone
+3. Numeric arrays now use a qualified reference representation in this branch.
+   The earlier immutable MLIR tensor representation could clone
    returned arrays or reuse functional results; inserting writes into it would
    violate the intended aliases. Verify identity returns, fresh transforms,
    allocation ownership and every CPU/task ABI boundary before exposing mutation.
 4. Explicit mutating contracts and the storage/read-access proof are implemented
-   in the working branch and undergoing qualification. Branches conservatively
+   and locally qualified. Branches conservatively
    retain possible outstanding readers; loops account for zero iterations and
    require iteration-owned tasks to settle. Element writes remain gated on the
-   next stage.
-5. Add bounds-checked writes and sorting, with documented supported element
+   following stage.
+5. Bounds-checked numeric/Bool element writes are implemented and locally
+   qualified; sorting remains to implement. Document supported element
    types, copy depth, float ordering and cancellation behavior. In-place mutation
    need not be transactional, but must remain memory-safe on every exit.
 6. Update user documentation, formatter, editor, examples and migration notes;
@@ -143,8 +144,8 @@ or payload read. This adapter is not a stable public foreign-function interface.
 The new private runtime helpers require matching development runtime bundles;
 this branch reports `0.99.3-dev`, separately from published `0.99.2`.
 
-Array binding reassignment and element mutation remain gated on the next access
-analysis. Reassigning array bindings must keep ownership visible through branch
+Array binding reassignment remains gated on flow-sensitive ownership lowering.
+Element writes use the access analysis above. Reassigning array bindings must keep ownership visible through branch
 results and loop-carried state. Hiding descriptors in scalar cells and retaining
 on every read would accumulate owners instead of implementing proper liveness.
 
@@ -154,6 +155,22 @@ boundary requires the backing to retain newly installed children. Context-local
 dependency lists alone are insufficient. Such writes must remain rejected until
 their dependency updates are implemented and qualified; immutable transforms
 remain available. No nested copy-depth policy is implied by this migration.
+
+Element assignment evaluates its destination once, evaluates and checks its index,
+then evaluates the RHS and performs the write. A distinct checked-index operation
+preserves that order when an await splits execution into continuation steps. The
+store sink also validates its index because private continuation kernels receive
+normalized scalar arguments. Failed RHS evaluation performs no store; earlier
+completed writes are not rolled back on fault or cancellation. Assignments remain
+statement-only, using a separate final function result as loops do.
+
+Native CPU programs support these arrays. The existing mixed GPU supervisor still
+rejects array-valued continuation carriers, including otherwise immutable arrays;
+element writes do not silently change that boundary. GPU kernel closures explicitly
+reject the new store operation. Host scalar-loop support on Metal/Vulkan/CUDA remains
+qualified by code-generation tests. Sharing the native CPU value/ownership lowering
+with the mixed supervisor remains an architectural integration task, rather than
+introducing a second array mutation implementation in its generated C++.
 
 ## Access analysis for the next stage
 
