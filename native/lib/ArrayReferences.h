@@ -75,6 +75,10 @@ inline std::vector<bool> managedNumericArrayInputFunctions(const TypedModule &mo
                 known = true;
                 dependencies.push_back(module.functions[operation.function].result);
               }
+            } else if constexpr (std::is_same_v<T, ArraySort>) {
+              known = true;
+              if (!operation.copying)
+                dependencies.push_back(operation.input);
             } else if constexpr (std::is_same_v<T, ShapeCheck>) {
               known = true;
               dependencies.push_back(operation.input);

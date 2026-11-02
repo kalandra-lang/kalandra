@@ -18,6 +18,12 @@ int main() {
                                "fn identity(values:[int])->[int]:\n  values\n"
                                "fn box(values:[int])->Box:\n  Box {values:values}\n";
     for (const auto *source : {
+             "fn main()->int:\n  a=[3,1,2]\n  b=sort(a)\n  b[0]\n",
+             "fn run(a:[int])->[int]:\n  sorted(a)\nfn main()->int:\n  run([2,1])[0]\n",
+             "fn main()->int ! TaskError:\n  a=[2,1]\n  try parallel:\n    t=spawn read(a)\n    "
+             "b=sorted(a)\n    b[0]+try await t\n",
+             "fn main()->int ! TaskError:\n  a=[2,1]\n  b=try parallel:\n    try await spawn "
+             "sorted(a)\n  b[0]\n",
              "fn main()->int:\n  a=[1,2]\n  b=a\n  edit(b)\n",
              "fn main()->int:\n  a=[1,2]\n  edit(identity(a))\n",
              "fn main()->int:\n  a=[1,2]\n  f=fn()->[int]:a\n  edit(f())\n",
@@ -54,6 +60,11 @@ int main() {
       }
     }
     for (const auto *source : {
+             "fn run(a:[int])->[int]:\n  sort(a)\nfn main()->int:\n  0\n",
+             "fn main()->int ! TaskError:\n  a=[2,1]\n  try parallel:\n    t=spawn read(a)\n    "
+             "b=sort(a)\n    b[0]+try await t\n",
+             "fn main()->int ! TaskError:\n  a=[2,1]\n  b=try parallel:\n    try await spawn "
+             "sort(a)\n  b[0]\n",
              "fn forward(a:[int])->int:\n  edit(a)\nfn main()->int:\n  forward([1])\n",
              "fn forward(a:[int])->int:\n  b=a\n  edit(b)\nfn main()->int:\n  0\n",
              "fn forward(a:[int])->int:\n  f=fn()->[int]:a\n  edit(f())\nfn main()->int:\n  0\n",
@@ -93,6 +104,25 @@ int main() {
                                                   [](const auto &d) { return d.code == "S077"; }),
               "unsafe sharing accepted or failed before the access proof:\n" + std::string(source));
     }
+    for (const auto *source : {
+             "fn main()->int:\n  length(sort([\"b\",\"a\"]))\n",
+             "fn main()->int:\n  length(sorted([\"b\",\"a\"]))\n",
+             "fn main()->int:\n  sort(tensor([2,1]))\n  0\n",
+             "fn main()->int:\n  sorted(1)\n",
+             "fn main()->int:\n  sort([1],[2])\n",
+         })
+      require(!analyze(source).ok(), "sort admitted unsupported storage or arity");
+    auto validSort = analyze("fn main()->[int]:\n  sort([2,1])\n");
+    require(validSort.ok(), "valid sorting fixture failed");
+    require(numericCapabilityError(*validSort.module, NumericTarget::AppleGpu).has_value(),
+            "numeric capability verifier admitted GPU sorting");
+    for (auto &expression : validSort.module->expressions)
+      if (auto *sort = std::get_if<ArraySort>(&expression.operation)) {
+        sort->input = validSort.module->expressions.size();
+        require(numericCapabilityError(*validSort.module, NumericTarget::Cpu).has_value(),
+                "numeric capability verifier admitted forged sorting operand");
+        break;
+      }
     // No direct mut declaration exists: the indirect contract must still run
     // the access proof for a read-only array argument.
     auto indirect =

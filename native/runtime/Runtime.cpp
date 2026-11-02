@@ -622,6 +622,17 @@ void Invocation::releaseRecords() noexcept {
   }
 }
 bool Invocation::holdArrayReference(void *buffer) noexcept {
+  if (poll() || !usable())
+    return false;
+  // Repeated publication of the same alias needs one escape owner, not
+  // one owner per read. Inspect the first matching owner only: ordinary
+  // transport retains still have independent release obligations. This is
+  // invocation-local metadata and never changes shared backing state.
+  auto *existing = ledger().head_;
+  while (existing && existing->backing + 1 != buffer)
+    existing = existing->next;
+  if (existing && existing->arrayEscape)
+    return true;
   if (!retainFrom(*this, buffer))
     return false;
   ledger().head_->arrayEscape = true;

@@ -211,6 +211,10 @@ struct ArraySlice {
 struct ArrayIndex {
   ValueId input, index;
 };
+struct ArraySort {
+  ValueId input;
+  bool copying = false;
+};
 struct ArrayBoundsCheck {
   ValueId input, index;
 }; // Normalize/validate the index before an element assignment's RHS runs.
@@ -371,7 +375,7 @@ struct TypedExpr {
                Transfer, TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
                CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
                RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke,
-               ArrayBoundsCheck, ArrayStore>
+               ArrayBoundsCheck, ArrayStore, ArraySort>
       operation;
 };
 struct ShapeEquality {

@@ -647,6 +647,16 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
                           : numericScalarArithmeticAvailable(source.element, target)))
         return "numeric conversions require implemented CPU values with unchanged shape";
     }
+    if (const auto *sort = std::get_if<ArraySort>(&expression.operation)) {
+      if (sort->input >= module.expressions.size())
+        return "array sorting references an invalid operand";
+      const auto &a = module.expressions[sort->input].type;
+      if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 ||
+          a.task || a.fallible || a.device ||
+          (a.builtin != BuiltinValue::Numeric && a.builtin != BuiltinValue::Bool) ||
+          !sameFunctionValueType(a, expression.type))
+        return "array sorting requires unchanged completed CPU numeric or Bool array identity";
+    }
     if (std::holds_alternative<ArrayBoundsCheck>(expression.operation) ||
         std::holds_alternative<ArrayStore>(expression.operation)) {
       const auto *store = std::get_if<ArrayStore>(&expression.operation);
@@ -1114,6 +1124,9 @@ std::string dumpTypedIR(const TypedModule &module) {
               value(operation.input);
               out << ", ";
               value(operation.index);
+            } else if constexpr (std::is_same_v<T, ArraySort>) {
+              out << (operation.copying ? "array.sorted fresh " : "array.sort in_place ");
+              value(operation.input);
             } else if constexpr (std::is_same_v<T, ArrayStore>) {
               out << "array.store checked ";
               value(operation.input);

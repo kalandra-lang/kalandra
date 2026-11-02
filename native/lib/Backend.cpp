@@ -2259,6 +2259,147 @@ private:
     }
     return func::CallOp::create(builder_, loc, helper, operands).getResult(0);
   }
+  // Heapsort uses constant auxiliary storage. All comparisons are integer
+  // operations, including floating total-order keys; NaN payloads and the
+  // caller's floating-point environment are untouched.
+  Value sortArray(Location loc, Value input, const ValueType &array, bool copying) {
+    const bool boolean = isBoolArray(array);
+    Value count = boolean ? Value(arith::IndexCastOp::create(builder_, loc, builder_.getIndexType(),
+                                                             recordArrayLength(loc, input, array)))
+                          : checkedCount(loc, dimensions(loc, input),
+                                         describeNumeric(array.element)->bytes());
+    const auto address = [&](Value storage, Value position) -> Value {
+      auto data = LLVM::ExtractValueOp::create(builder_, loc, storage, ArrayRef<int64_t>{1});
+      position = arith::IndexCastOp::create(builder_, loc, builder_.getI64Type(), position);
+      return LLVM::GEPOp::create(builder_, loc, LLVM::LLVMPointerType::get(builder_.getContext()),
+                                 arrayCellType(array), data, ValueRange{position});
+    };
+    const auto load = [&](Value storage, Value position) -> Value {
+      return boolean ? arrayCellRead(loc, address(storage, position), array)
+                     : collectionRead(loc, storage, ValueRange{position});
+    };
+    const auto store = [&](Value storage, Value position, Value value) {
+      if (boolean)
+        arrayCellStore(loc, value, address(storage, position), array);
+      else
+        memref::StoreOp::create(builder_, loc, value, storage, ValueRange{position});
+    };
+    Value output = input;
+    if (copying) {
+      if (boolean)
+        output = recordArrayStorage(loc, array, count);
+      else {
+        auto shape = cast<ShapedType>(type(array));
+        SmallVector<Value> dynamic;
+        if (shape.isDynamicDim(0))
+          dynamic.push_back(count);
+        output = collectionEmpty(loc, shape, dynamic);
+      }
+      scf::ForOp::create(builder_, loc, index(loc, 0), count, index(loc, 1), ValueRange{},
+                         [&](OpBuilder &, Location, Value i, ValueRange) {
+                           store(output, i, load(input, i));
+                           scf::YieldOp::create(builder_, loc);
+                         });
+    }
+    func::FuncOp helper;
+    {
+      OpBuilder::InsertionGuard restore(builder_);
+      builder_.setInsertionPointToEnd(module_->getBody());
+      helper = func::FuncOp::create(
+          builder_, loc, "kalandra_fn_sort_" + std::to_string(nextElementwiseHelper_++),
+          builder_.getFunctionType({output.getType(), builder_.getIndexType()}, {}));
+      helper.setPrivate();
+      builder_.setInsertionPointToStart(helper.addEntryBlock());
+      auto values = helper.getArgument(0), n = helper.getArgument(1);
+      auto zero = index(loc, 0), one = index(loc, 1), two = index(loc, 2);
+      const auto less = [&](Value a, Value b) -> Value {
+        if (!boolean && !isInteger(array.element)) {
+          const auto bits = describeNumeric(array.element)->bits;
+          auto integerType = builder_.getIntegerType(bits);
+          const auto key = [&](Value value) -> Value {
+            Value raw = arith::BitcastOp::create(builder_, loc, integerType, value);
+            auto sign = arith::ConstantOp::create(
+                builder_, loc, builder_.getIntegerAttr(integerType, APInt::getSignMask(bits)));
+            auto all = arith::ConstantOp::create(
+                builder_, loc, builder_.getIntegerAttr(integerType, APInt::getAllOnes(bits)));
+            auto z = arith::ConstantIntOp::create(builder_, loc, 0, bits);
+            auto negative = compare(loc, arith::CmpIPredicate::slt, raw, z);
+            auto mask = arith::SelectOp::create(builder_, loc, negative, all, sign);
+            return arith::XOrIOp::create(builder_, loc, raw, mask);
+          };
+          a = key(a);
+          b = key(b);
+        }
+        return compare(loc,
+                       boolean || isUnsigned(array.element) || !isInteger(array.element)
+                           ? arith::CmpIPredicate::ult
+                           : arith::CmpIPredicate::slt,
+                       a, b);
+      };
+      const auto swap = [&](Value a, Value b) {
+        auto av = load(values, a), bv = load(values, b);
+        store(values, a, bv);
+        store(values, b, av);
+      };
+      const auto sift = [&](Value start, Value end) {
+        auto active = arith::ConstantIntOp::create(builder_, loc, 1, 1);
+        scf::WhileOp::create(
+            builder_, loc, TypeRange{builder_.getIndexType(), builder_.getI1Type()},
+            ValueRange{start, active},
+            [&](OpBuilder &, Location, ValueRange args) {
+              auto half = arith::DivUIOp::create(builder_, loc, end, two);
+              auto parent = compare(loc, arith::CmpIPredicate::ult, args[0], half);
+              auto proceed = arith::AndIOp::create(builder_, loc, args[1], parent);
+              scf::ConditionOp::create(builder_, loc, proceed, args);
+            },
+            [&](OpBuilder &, Location, ValueRange args) {
+              Value child = arith::AddIOp::create(
+                  builder_, loc, arith::MulIOp::create(builder_, loc, args[0], two), one);
+              auto right = arith::AddIOp::create(builder_, loc, child, one);
+              auto choice = scf::IfOp::create(
+                  builder_, loc, compare(loc, arith::CmpIPredicate::ult, right, end),
+                  [&](OpBuilder &, Location) {
+                    auto useRight = less(load(values, child), load(values, right));
+                    Value selected = arith::SelectOp::create(builder_, loc, useRight, right, child);
+                    scf::YieldOp::create(builder_, loc, selected);
+                  },
+                  [&](OpBuilder &, Location) { scf::YieldOp::create(builder_, loc, child); });
+              Value selected = choice.getResult(0);
+              auto change = less(load(values, args[0]), load(values, selected));
+              scf::IfOp::create(builder_, loc, change, [&](OpBuilder &, Location) {
+                swap(args[0], selected);
+                scf::YieldOp::create(builder_, loc);
+              });
+              scf::YieldOp::create(builder_, loc, ValueRange{selected, change});
+            });
+      };
+      scf::IfOp::create(
+          builder_, loc, compare(loc, arith::CmpIPredicate::ugt, n, one),
+          [&](OpBuilder &, Location) {
+            auto half = arith::DivUIOp::create(builder_, loc, n, two);
+            scf::ForOp::create(builder_, loc, zero, half, one, ValueRange{},
+                               [&](OpBuilder &, Location, Value i, ValueRange) {
+                                 auto root = arith::SubIOp::create(
+                                     builder_, loc, arith::SubIOp::create(builder_, loc, half, one),
+                                     i);
+                                 sift(root, n);
+                                 scf::YieldOp::create(builder_, loc);
+                               });
+            auto last = arith::SubIOp::create(builder_, loc, n, one);
+            scf::ForOp::create(builder_, loc, zero, last, one, ValueRange{},
+                               [&](OpBuilder &, Location, Value i, ValueRange) {
+                                 auto end = arith::SubIOp::create(builder_, loc, last, i);
+                                 swap(zero, end);
+                                 sift(zero, end);
+                                 scf::YieldOp::create(builder_, loc);
+                               });
+            scf::YieldOp::create(builder_, loc);
+          });
+      func::ReturnOp::create(builder_, loc);
+    }
+    func::CallOp::create(builder_, loc, helper, ValueRange{output, count});
+    return output;
+  }
   struct Frame {
     bool outlineElementwise = false;
     bool outlineMatrix = false;
@@ -2640,6 +2781,8 @@ private:
             return arrayWritePosition(loc, input, position,
                                       input_.expressions[operation.input].type,
                                       input_.expressions[operation.index].type.element);
+          } else if constexpr (std::is_same_v<T, ArraySort>) {
+            return sortArray(loc, expression(frame, operation.input), node.type, operation.copying);
           } else if constexpr (std::is_same_v<T, ArrayStore>) {
             auto input = expression(frame, operation.input);
             auto position = expression(frame, operation.index);

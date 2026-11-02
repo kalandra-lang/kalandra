@@ -66,6 +66,35 @@ int main() {
     }
     {
       Invocation context;
+      auto *storage = context.allocate(16);
+      require(storage && context.holdArrayReference(storage), "first escape owner failed");
+      const auto allocations = context.allocations();
+      context.failAllocationAt(allocations + 1);
+      for (unsigned i = 0; i < 10000; ++i)
+        require(context.holdArrayReference(storage), "repeated alias publication allocated");
+      require(context.live() == 2 && context.allocations() == allocations,
+              "repeated alias publication accumulated owners");
+      context.release(storage);
+      require(bool(context.lease(storage)), "ordinary release retired reused escape owner");
+      context.releaseRecords();
+      require(!context.live() && context.allocations() == context.releases(),
+              "reused escape owner leaked");
+    }
+    {
+      Invocation context;
+      auto *storage = context.allocate(16);
+      require(storage && context.holdArrayReference(storage), "escape owner failed");
+      std::atomic<bool> stopped{true};
+      context.bindCancellation(&stopped);
+      require(!context.holdArrayReference(storage) && context.poll() == -1,
+              "reused escape owner bypassed cancellation");
+      context.fault(4, 17, 3);
+      require(!context.holdArrayReference(storage) && context.status() == 4 && context.line() == 17,
+              "reused escape owner changed fault precedence");
+      context.settle();
+    }
+    {
+      Invocation context;
       kalandra_array_validate_v1(&context, &foreign, 3);
       require(context.status() == 3 && context.allocations() == 0,
               "opaque reference validation imported unowned memory");

@@ -35,6 +35,16 @@
     "signature": "copy(input: [T]) -> [T]"
   },
   {
+    "name": "sort",
+    "page": "collection-functions",
+    "signature": "sort(mut input: [T]) -> [T]"
+  },
+  {
+    "name": "sorted",
+    "page": "collection-functions",
+    "signature": "sorted(input: [T]) -> [T]"
+  },
+  {
     "name": "tensor",
     "page": "collection-functions",
     "signature": "tensor(value: numeric scalar | numeric literal | [T]) -> Tensor[T, ...]\ntensor(values: [T], dimensions: fixed-length dimension list) -> Tensor[T, ...]"

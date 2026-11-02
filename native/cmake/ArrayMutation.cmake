@@ -13,5 +13,11 @@ if(BUILD_TESTING)
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/array-mutation-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyArrayMutation.cmake")
     set_tests_properties(native-array-mutation-${VARIANT} PROPERTIES TIMEOUT 900)
+    add_test(NAME native-array-sort-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+        "-DRUNTIME=$<TARGET_FILE:${MUTATION_RUNTIME}>" "-DVARIANT=${VARIANT}"
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/array-sort-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyArraySort.cmake")
+    set_tests_properties(native-array-sort-${VARIANT} PROPERTIES TIMEOUT 900)
   endforeach()
 endif()

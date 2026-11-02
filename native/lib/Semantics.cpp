@@ -255,7 +255,7 @@ private:
       for (const auto *label :
            {"array", "tensor", "reshape", "map", "parallelMap", "matmul", "reduceSum", "relu",
             "transpose", "softmaxRows", "rmsNormRows", "length", "byteLength", "shape", "slice",
-            "concat", "generate", "copy"})
+            "concat", "generate", "copy",       "sort",      "sorted"})
         insert(label, ScopeNameKind::Function);
       if (allowTransfer && options_.placement && !frame.groups.empty())
         insert("transfer", ScopeNameKind::Function);
@@ -2520,6 +2520,27 @@ private:
     }
     return add(frame, type, span, StringSlice{*input, bounds[0], bounds[1]});
   }
+  std::optional<ValueId> arraySort(Frame &frame, SourceSpan span, const std::string &callee,
+                                   const std::vector<ExprId> &arguments,
+                                   const std::optional<ValueType> &expected) {
+    if (arguments.size() != 1) {
+      error("S027", callee + " expects exactly one array", span);
+      return {};
+    }
+    auto input =
+        expression(frame, arguments[0], expected && expected->array ? expected : std::nullopt);
+    if (!input)
+      return {};
+    const auto output = node(*input).type;
+    if (!output.array || !output.tensor || output.shape.size() != 1 || output.task ||
+        output.fallible || output.device || options_.placement ||
+        (output.builtin != BuiltinValue::Numeric && output.builtin != BuiltinValue::Bool)) {
+      error("S078", callee + " requires a completed CPU numeric or Bool array without placement",
+            span);
+      return {};
+    }
+    return add(frame, output, span, ArraySort{*input, callee == "sorted"});
+  }
   std::optional<ValueId> arrayCopy(Frame &frame, SourceSpan span,
                                    const std::vector<ExprId> &arguments,
                                    const std::optional<ValueType> &expected) {
@@ -2845,6 +2866,7 @@ private:
           !std::holds_alternative<TensorReshape>(node(*value).operation) &&
           !std::holds_alternative<TensorToArray>(node(*value).operation) &&
           !std::holds_alternative<ArraySlice>(node(*value).operation) &&
+          !std::holds_alternative<ArraySort>(node(*value).operation) &&
           !std::holds_alternative<ArrayConcat>(node(*value).operation) &&
           !std::holds_alternative<CollectionQuery>(node(*value).operation)) {
         error("S037", "this invocation is not a supported task entry", span);
@@ -4725,6 +4747,8 @@ private:
         return collectionSlice(frame, span, arguments, expected);
       if (callee == "length" || callee == "shape" || callee == "byteLength")
         return collectionQuery(frame, span, callee, arguments);
+      if (callee == "sort" || callee == "sorted")
+        return arraySort(frame, span, callee, arguments, expected);
       if (callee == "copy")
         return arrayCopy(frame, span, arguments, expected);
       if (callee == "generate")

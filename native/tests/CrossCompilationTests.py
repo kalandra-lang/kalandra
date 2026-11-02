@@ -67,6 +67,20 @@ def program_cases():
             f'  a=[{numeric}(1),{numeric}(2),{numeric}(3)]\n'
             '  alias=a\n  snapshot=copy(a)\n  result=put(a)\n'
             '  int(result)*100+int(alias[1])*10+int(snapshot[1])\n'), output='992\n')
+        cases['array-sort-' + numeric] = dict(source=(
+            f'fn order(mut a:[{numeric}])->[{numeric}]:\n  sort(a)\n'
+            'fn main()->int:\n'
+            f'  a=[{numeric}(3),{numeric}(1),{numeric}(2)]\n'
+            '  alias=a\n  b=sorted(a)\n'
+            f'  b[0]={numeric}(7)\n  c=order(a)\n'
+            '  int(alias[0])*100+int(c[2])*10+int(b[0])\n'), output='137\n')
+    cases['bool-array-sort'] = dict(source=(
+        'fn main()->int:\n  a=[true,false,true,false]\n  b=sorted(a)\n  c=sort(a)\n'
+        '  if not a[0] and not c[1] and b[2] and b[3]:42\n  else:0\n'), output='42\n')
+    cases['array-sort-task'] = dict(source=(
+        'fn main()->int ! TaskError:\n  a=[3,1,2]\n  b=try parallel:\n'
+        '    try await spawn sorted(a)\n  c=sort(b)\n'
+        '  a[0]*100+b[0]*10+c[2]\n'), output='313\n')
     cases['local-loop-snapshot'] = dict(source=(
         'fn main()->int:\n  i=0\n  total=0\n  snapshot=fn()->int:i\n'
         '  while i<1000:\n    total=total+i\n    i=i+1\n  total+snapshot()\n'), output='499500\n')

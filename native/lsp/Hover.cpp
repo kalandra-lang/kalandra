@@ -154,7 +154,7 @@ std::optional<SignatureInfo> callableSignature(const TypedModule &module, const 
 bool hasBuiltinSignature(std::string_view name) {
   return name == "length" || name == "byteLength" || name == "shape" || name == "slice" ||
          name == "concat" || name == "relu" || name == "reduceSum" || name == "matmul" ||
-         name == "copy" || name == "generate" || name == "array" || name == "map" ||
+         name == "copy" || name == "sort" || name == "sorted" || name == "generate" || name == "array" || name == "map" ||
          name == "parallelMap" || name == "transfer" || name == "devices.cpu" ||
          name == "devices.gpu" || resolveNumeric(name).has_value();
 }
@@ -232,6 +232,10 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
                name == (query->kind == StringQueryKind::Length ? "length" : "byteLength")) {
       arguments = {query->input};
       labels = {"input"};
+    } else if (const auto *sort = std::get_if<ArraySort>(&expression.operation);
+               sort && name == (sort->copying ? "sorted" : "sort")) {
+      arguments = {sort->input};
+      labels = {"input"};
     } else if (const auto *copy = std::get_if<ArraySlice>(&expression.operation);
                copy && name == "copy") {
       arguments = {copy->input};
@@ -251,6 +255,8 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
     } else
       continue;
     FunctionSignature signature{{}, expression.type};
+    if (name == "sort")
+      signature.mutableParameters = {true};
     for (const auto id : arguments) {
       if (id >= module.expressions.size())
         return {};

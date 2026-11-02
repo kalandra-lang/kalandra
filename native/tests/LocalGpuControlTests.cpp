@@ -50,6 +50,10 @@ int main() {
                              host);
       require(!arrayWrite && arrayWrite.error().message.find("CPU execution") != std::string::npos,
               "GPU kernel admitted array element assignment");
+      auto arraySort = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
+                            "  local=sorted([2,1])\n  x+x\n" + host);
+      require(!arraySort && arraySort.error().message.find("CPU") != std::string::npos,
+              "GPU kernel admitted CPU array sorting");
       auto hostArray = emit(kernel + std::string("fn main()->Tensor[float32,3] ! TaskError:\n"
                                                  "  local=[1,2]\n  local[0]=3\n"
                                                  "  try parallel:\n    gpu=devices.gpu()\n"

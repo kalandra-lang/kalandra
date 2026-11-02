@@ -49,7 +49,7 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return {op.left, op.right};
         else if constexpr (std::is_same_v<T, ReduceSum> || std::is_same_v<T, CollectionQuery> ||
                            std::is_same_v<T, StringQuery> || std::is_same_v<T, NumericConvert> ||
-                           std::is_same_v<T, TensorToArray> || std::is_same_v<T, ShapeCheck>)
+                           std::is_same_v<T, TensorToArray> || std::is_same_v<T, ArraySort> || std::is_same_v<T, ShapeCheck>)
           return {op.input};
         else if constexpr (std::is_same_v<T, StringSlice> || std::is_same_v<T, ArraySlice>)
           return {op.input, op.start, op.end};
@@ -291,6 +291,8 @@ private:
             op.input = importValue(op.input);
             op.start = importValue(op.start);
             op.end = importValue(op.end);
+          } else if constexpr (std::is_same_v<T, ArraySort>) {
+            op.input = importValue(op.input);
           } else if constexpr (std::is_same_v<T, ArrayStore>) {
             op.input = importValue(op.input);
             op.index = importValue(op.index);
@@ -496,6 +498,8 @@ private:
       query->input = reads[0];
     else if (auto *construction = std::get_if<TensorToArray>(&op))
       construction->input = reads[0];
+    else if (auto *sort = std::get_if<ArraySort>(&op))
+      sort->input = reads[0];
     else if (auto *store = std::get_if<ArrayStore>(&op)) {
       store->input = reads[0];
       store->index = reads[1];

@@ -95,3 +95,8 @@ link { url = "/docs/tensors", "Shapes and tensor arithmetic" }
 link { url = "/docs/parallelism", "Parallel array mapping" }
 
 link { url = "/docs/collection-functions", "Collection function reference" }
+
+
+Unreleased language branch: sort(values) orders a numeric or Bool array in place and returns that same array; sorted(values) returns an independent sorted array. Both use the same deterministic ordering, including a defined order for NaNs and signed zeros. See the collection-functions reference for ordering, task-reader restrictions and cancellation behavior.
+
+link { url = "/docs/collection-functions#sort", "Sorting reference" }

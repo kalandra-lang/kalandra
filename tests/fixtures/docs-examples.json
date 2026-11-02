@@ -28,6 +28,10 @@
   "collection-functions": [
     {
       "kind": "cpu",
+      "expected": "[1, 3, 9]"
+    },
+    {
+      "kind": "cpu",
       "expected": "[4, 8, 3, 3, 8]"
     }
   ],

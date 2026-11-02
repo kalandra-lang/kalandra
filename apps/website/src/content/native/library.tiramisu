@@ -9,6 +9,8 @@ link { url = "/docs/collection-functions#bytelength", "byteLength — count UTF-
 link { url = "/docs/collection-functions#concat", "concat — join arrays" }
 
 link { url = "/docs/collection-functions#copy", "copy — create independent array storage (unreleased)" }
+link { url = "/docs/collection-functions#sort", "sort — order an array in place (unreleased)" }
+link { url = "/docs/collection-functions#sorted", "sorted — create an independent sorted array (unreleased)" }
 
 link { url = "/docs/task-functions#devicescpu", "devices.cpu — select the host device" }
 

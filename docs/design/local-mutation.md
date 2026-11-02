@@ -213,6 +213,35 @@ uniqueness, but a task reading one can protect another potentially aliased param
 The bounded analysis reports uncertainty/exhaustion rather than granting access.
 The representation and access proof do not enable element writes by themselves.
 
+## Sorting and repeated alias publication
+
+`sort(array)` sorts flat numeric or Bool storage in place and returns the same
+array reference. `sorted(array)` sorts a fresh copy, preserving its input.
+Ordinary parameters/captures remain read-only, live task readers block in-place
+sorting, and `spawn sort(array)` is rejected. `spawn sorted(array)` is read-only
+with respect to its input and creates task-private writable result storage.
+
+The initial implementation is an unstable heapsort, O(n log n) with constant
+auxiliary storage. It uses ordinary numeric integer ordering and false-before-true
+Bool ordering. Floating values use an explicit total-order bit key: complement
+negative encodings, flip the sign bit of nonnegative encodings, then compare
+unsigned keys. This preserves every input bit (including NaN payloads/signaling
+bits), separates -0 from +0, and does no floating comparisons or arithmetic.
+Negative NaNs precede negative infinity; positive NaNs follow positive infinity.
+This is a language ordering policy, not an arithmetic relaxation or vendor-library
+substitution. Native checked loop checkpoints remain active. Cancellation leaves
+a partial ordering, while each completed swap preserves the element permutation.
+A failed or canceled `sorted` never writes its source.
+
+Publishing the same numeric backing repeatedly through opaque callable/record
+boundaries reuses an existing invocation-local escape owner when the first
+matching owner is already marked escaped. Ordinary transport retains retain their
+separate release obligations. Reuse still checks cancellation and prior faults;
+it never places mutable state on shared backing metadata. This bounds repeated
+same-backing publication, including source loops, without hiding ordinary leaks.
+It does not solve distinct fresh allocations accumulating in coordinating loops;
+array binding replacement still requires SSA/liveness work before admission.
+
 ## Compatibility
 
 Existing functional programs keep their observable results. Repeated local `=`
