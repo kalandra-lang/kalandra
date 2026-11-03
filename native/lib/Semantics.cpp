@@ -25,6 +25,14 @@ class Checker {
     std::unordered_map<std::size_t, std::vector<ValueId>> children;
     std::unordered_set<std::size_t> observed, pending, handled;
   };
+  struct LoopScope {
+    std::size_t identity;
+    TaskChecks before;
+    bool expression;
+    std::optional<ValueType> context;
+    std::vector<ValueId> results;
+    bool transfers = false;
+  };
   struct Frame;
   struct ClosureScope {
     Frame *parent;
@@ -45,6 +53,8 @@ class Checker {
     std::size_t enumBranchDepth = 0;
     std::shared_ptr<std::optional<std::size_t>> handlerErrorRecord = {};
     std::shared_ptr<const std::unordered_set<std::string>> writtenNames = {};
+    std::shared_ptr<LoopScope> loop = {};
+    bool stopped = false;
   };
   struct TensorData {
     std::vector<std::uint64_t> shape;
@@ -265,8 +275,12 @@ private:
         insert(alias, ScopeNameKind::Function);
     }
     if (!callTarget)
-      for (const auto *keyword : {"true", "false", "if", "match", "fn", "not", "while"})
+      for (const auto *keyword : {"true", "false", "if", "match", "fn", "not", "while", "for"})
         insert(keyword, ScopeNameKind::Keyword);
+    if (!callTarget && frame.loop) {
+      insert("break", ScopeNameKind::Keyword);
+      insert("continue", ScopeNameKind::Keyword);
+    }
     for (const auto &[label, kind] : names) {
       if (query->names.size() == 256) {
         query->truncated = true;
@@ -367,7 +381,7 @@ private:
   static bool reservedControl(const std::string &name) {
     return name == "true" || name == "false" || name == "while" || name == "if" || name == "else" ||
            name == "and" || name == "or" || name == "not" || name == "type" || name == "with" ||
-           name == "mut";
+           name == "mut" || name == "for" || name == "in" || name == "break" || name == "continue";
   }
   void rememberSourceToken(ResolvedSourceToken token) {
     if (token.span.end > token.span.begin)
@@ -1158,6 +1172,13 @@ private:
             if constexpr (!std::is_same_v<T, LambdaExpr>) {
               if constexpr (requires { op.body; })
                 statements(op.body);
+              if constexpr (std::is_same_v<T, WhileExpr> || std::is_same_v<T, ForExpr>)
+                statements(op.whenDone);
+              if constexpr (std::is_same_v<T, ForExpr>)
+                expression(op.input);
+              if constexpr (std::is_same_v<T, LoopTransferExpr>)
+                if (op.value)
+                  expression(*op.value);
               if constexpr (std::is_same_v<T, ConditionalExpr>) {
                 statements(op.whenFalse);
                 statements(op.whenTrue);
@@ -2960,6 +2981,10 @@ private:
     std::optional<ValueId> result;
     for (std::size_t index = 0; index < block.body.size(); ++index) {
       const auto &statement = block.body[index];
+      if (nested.stopped) {
+        error("S076", "unreachable statement after loop transfer", statement.span);
+        return {};
+      }
       std::optional<ValueType> context;
       if (statement.annotation)
         context = type(*statement.annotation);
@@ -3016,6 +3041,7 @@ private:
     resultType.fallible = true;
     resultType.errorRecord = errors->errorRecord;
     resultType.identity = 0;
+    frame.stopped = nested.stopped;
     return add(frame, resultType, span, ParallelOperation{std::move(statements), *result, group});
   }
   // Branch-local obligations must be discharged on the path which creates
@@ -3036,34 +3062,260 @@ private:
       }
     }
   }
-  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const WhileExpr &loop,
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const LoopTransferExpr &jump,
                                const std::optional<ValueType> &) {
+    if (!frame.loop) {
+      error("S076", "break and continue require an enclosing loop in this function", span);
+      return {};
+    }
+    auto &loop = *frame.loop;
+    loop.transfers = true;
+    std::optional<ValueId> value;
+    if (!jump.continuing) {
+      if (bool(jump.value) != loop.expression) {
+        error("S076",
+              loop.expression ? "an expression loop requires break value"
+                              : "a statement loop uses break without a value",
+              span);
+        return {};
+      }
+      if (jump.value) {
+        value = expression(frame, *jump.value, loop.context);
+        if (!value)
+          return {};
+        const auto &type = node(*value).type;
+        if (type.task || type.builtin == BuiltinValue::Device) {
+          error("S076", "break requires a completed value", span);
+          return {};
+        }
+        if (type.fallible)
+          frame.tasks->handled.insert(type.identity);
+        loop.results.push_back(*value);
+      }
+    }
+    ValueType marker;
+    marker.builtin = BuiltinValue::Bool;
+    auto completed = add(frame, marker, span, BoolLiteral{false});
+    if (!completed)
+      return {};
+    finishBranch(loop.before, frame, *completed, span);
+    frame.stopped = true;
+    return add(frame, marker, span, LoopTransferOperation{loop.identity, jump.continuing, value});
+  }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const WhileExpr &loop,
+                               const std::optional<ValueType> &expected) {
     auto condition = expression(frame, loop.condition);
     if (!condition)
       return {};
-    const auto test = node(*condition).type;
+    return checkLoop(frame, span, loop, expected, *condition, frame);
+  }
+  std::optional<ValueId> checkLoop(Frame &frame, SourceSpan span, const WhileExpr &loop,
+                                   const std::optional<ValueType> &expected, ValueId condition,
+                                   Frame nested, std::vector<TypedStatement> initial = {},
+                                   std::vector<TypedStatement> iteration = {}) {
+    const auto test = node(condition).type;
     if (test.builtin != BuiltinValue::Bool || test.tensor || test.array || test.task ||
         test.fallible || test.device) {
-      error("S057", "while conditions require a completed CPU Bool", node(*condition).span);
+      error("S057", "while conditions require a completed CPU Bool", node(condition).span);
       return {};
     }
     const auto before = *frame.tasks;
-    auto nested = frame;
+    auto scope = std::make_shared<LoopScope>(
+        LoopScope{nextLoop_++, before, !loop.statementOnly, expected, {}});
+    auto context = expected;
+    if (context)
+      context->fallible = true;
+    auto normal = frame;
+    normal.conditional = true;
+    normal.tasks = std::make_shared<TaskChecks>(before);
+    std::vector<TypedStatement> whenDone;
+    std::optional<ValueId> normalResult;
+    if (!loop.whenDone.empty()) {
+      normalResult = suite(normal, loop.whenDone, context, whenDone, {}, loop.statementOnly);
+      if (!normalResult)
+        return {};
+      finishBranch(before, normal, *normalResult, span);
+      if (!loop.statementOnly && !expected) {
+        scope->context = node(*normalResult).type;
+        for (auto &axis : scope->context->shape)
+          axis = dynamic();
+      }
+    }
     nested.conditional = true;
     nested.tasks = std::make_shared<TaskChecks>(before);
+    nested.loop = scope;
     std::vector<TypedStatement> body;
-    auto result = suite(nested, loop.body, {}, body, {}, true);
-    if (!result)
+    if (!suite(nested, loop.body, {}, body, {}, true))
       return {};
-    ValueType marker;
-    marker.builtin = BuiltinValue::Bool;
-    auto completed = add(nested, marker, span, BoolLiteral{false});
+    ValueType resultType;
+    resultType.builtin = BuiltinValue::Bool;
+    auto completed = add(nested, resultType, span, BoolLiteral{false});
     if (!completed)
       return {};
-    // Every successful backedge discharges obligations created this iteration.
-    // Incoming obligations are unchanged: the loop may execute zero times.
     finishBranch(before, nested, *completed, span);
-    return add(frame, marker, span, WhileOperation{*condition, std::move(body)});
+    if (!loop.statementOnly) {
+      if (!normalResult) {
+        error("S076", "loop expressions require a normal-completion result", span);
+        return {};
+      }
+      resultType = node(*normalResult).type;
+      scope->results.push_back(*normalResult);
+      for (auto value : scope->results) {
+        const auto actual = node(value).type;
+        if (actual.task || actual.builtin == BuiltinValue::Device ||
+            actual.builtin != resultType.builtin || actual.record != resultType.record ||
+            (actual.builtin == BuiltinValue::Numeric && actual.element != resultType.element) ||
+            (actual.builtin == BuiltinValue::Function &&
+             !sameFunctionValueType(recordArrayElement(actual), recordArrayElement(resultType))) ||
+            actual.tensor != resultType.tensor || actual.array != resultType.array ||
+            actual.shape.size() != resultType.shape.size() || actual.device != resultType.device) {
+          error("S076", "break and else results require a common completed type and residency",
+                node(value).span);
+          return {};
+        }
+        if (!joinErrors(resultType, actual, span))
+          return {};
+        for (std::size_t axis = 0; axis < actual.shape.size(); ++axis)
+          if (!same(resultType.shape[axis], actual.shape[axis]))
+            resultType.shape[axis] = dynamic();
+      }
+      resultType.identity = 0;
+    }
+    return add(frame, resultType, span,
+               WhileOperation{condition, std::move(body), std::move(whenDone),
+                              loop.statementOnly ? std::optional<ValueId>{} : normalResult,
+                              scope->identity, scope->transfers, std::move(initial),
+                              std::move(iteration), scope->results});
+  }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ForExpr &loop,
+                               const std::optional<ValueType> &expected) {
+    if (reservedControl(name(loop.binding))) {
+      error("S076", "invalid for iteration binding", loop.binding);
+      return {};
+    }
+    Frame nested = frame;
+    std::vector<TypedStatement> initial, iteration;
+    ValueType integer;
+    integer.element = NumericType::Int64;
+    ValueType boolean;
+    boolean.builtin = BuiltinValue::Bool;
+    const auto literal = [&](std::int64_t value) {
+      return add(frame, integer, span, Int64Literal{value});
+    };
+    const auto bind = [&](ValueId value, bool mutableCell, std::vector<TypedStatement> &into,
+                          std::optional<SourceSpan> label = {}) {
+      const auto symbol = output_.symbols.size();
+      output_.symbols.push_back({label ? name(*label) : "__for_" + std::to_string(symbol),
+                                 bindingType(node(value).type), label.value_or(span),
+                                 frame.function, false});
+      output_.symbols.back().reassignable = mutableCell;
+      into.push_back({span, symbol, value});
+      if (label) {
+        nested.locals[name(*label)] = symbol;
+        rememberSourceToken({*label, *label, output_.symbols[symbol].type, {}});
+      }
+      return symbol;
+    };
+    const auto read = [&](SymbolId symbol) {
+      return add(frame, output_.symbols[symbol].type, span, SymbolRead{symbol});
+    };
+    ValueId condition;
+    const auto *call = std::get_if<CallExpr>(&syntax_.expressions[loop.input].value);
+    const auto *callee =
+        call ? std::get_if<NameExpr>(&syntax_.expressions[call->callee].value) : nullptr;
+    if (callee && name(callee->name) == "range") {
+      if (call->arguments.empty() || call->arguments.size() > 3) {
+        error("S076", "range expects stop, start/stop, or start/stop/step",
+              syntax_.expressions[loop.input].span);
+        return {};
+      }
+      std::vector<ValueId> arguments;
+      for (auto argument : call->arguments) {
+        auto value = expression(frame, argument, integer);
+        if (!value)
+          return {};
+        if (!sameFunctionValueType(node(*value).type, integer)) {
+          error("S076", "range arguments require completed int scalars", node(*value).span);
+          return {};
+        }
+        auto symbol = bind(*value, false, initial);
+        auto pinned = read(symbol);
+        if (!pinned)
+          return {};
+        arguments.push_back(*pinned);
+      }
+      auto zero = literal(0), one = literal(1);
+      if (!zero || !one)
+        return {};
+      const auto start = arguments.size() == 1 ? *zero : arguments[0];
+      const auto stop = arguments.size() == 1 ? arguments[0] : arguments[1];
+      const auto step = arguments.size() == 3 ? arguments[2] : *one;
+      auto checked =
+          add(frame, integer, span,
+              IntegerRangeOperation{IntegerRangeOperation::Kind::Validate, start, stop, step});
+      if (!checked)
+        return {};
+      const auto current = bind(*checked, true, initial);
+      auto position = read(current);
+      if (!position)
+        return {};
+      auto test =
+          add(frame, boolean, span,
+              IntegerRangeOperation{IntegerRangeOperation::Kind::Test, *position, stop, step});
+      if (!test)
+        return {};
+      condition = *test;
+      // Capture the iteration value before advancement. Continue therefore
+      // reaches the next value, while body writes cannot alter the range.
+      auto item = read(current);
+      if (!item)
+        return {};
+      bind(*item, true, iteration, loop.binding);
+      auto advance =
+          add(frame, integer, span,
+              IntegerRangeOperation{IntegerRangeOperation::Kind::Advance, *item, stop, step});
+      if (!advance)
+        return {};
+      iteration.push_back({span, current, *advance});
+    } else {
+      auto input = expression(frame, loop.input);
+      if (!input)
+        return {};
+      const auto type = node(*input).type;
+      if (!type.array || type.task || type.fallible || type.device) {
+        error("S076", "for expects a completed CPU array or range(...) iterable",
+              node(*input).span);
+        return {};
+      }
+      const auto source = bind(*input, false, initial);
+      auto values = read(source), zero = literal(0), one = literal(1);
+      if (!values || !zero || !one)
+        return {};
+      auto count = add(frame, integer, span, CollectionQuery{CollectionQueryKind::Length, *values});
+      if (!count)
+        return {};
+      const auto countSymbol = bind(*count, false, initial);
+      const auto counter = bind(*zero, true, initial);
+      auto position = read(counter), length = read(countSymbol);
+      if (!position || !length)
+        return {};
+      auto test =
+          add(frame, boolean, span, ScalarCompare{ComparisonKind::Less, *position, *length});
+      if (!test)
+        return {};
+      condition = *test;
+      auto item = add(frame, recordArrayElement(type), span, ArrayIndex{*values, *position});
+      if (!item)
+        return {};
+      bind(*item, localBinding(node(*item).type), iteration, loop.binding);
+      auto advance = add(frame, integer, span, ScalarBinary{TokenKind::Plus, *position, *one});
+      if (!advance)
+        return {};
+      iteration.push_back({span, counter, *advance});
+    }
+    return checkLoop(frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly},
+                     expected, condition, std::move(nested), std::move(initial),
+                     std::move(iteration));
   }
   std::optional<ValueId> statementValue(Frame &frame, const Statement &statement,
                                         const std::optional<ValueType> &expected, bool last) {
@@ -3078,9 +3330,12 @@ private:
         frame.tasks->handled.insert(node(*value).type.identity);
       return value;
     }
-    if (std::holds_alternative<WhileExpr>(ast.value) ||
+    const auto *sourceLoop = std::get_if<WhileExpr>(&ast.value);
+    const auto *sourceFor = std::get_if<ForExpr>(&ast.value);
+    if ((sourceLoop && sourceLoop->statementOnly) || (sourceFor && sourceFor->statementOnly) ||
+        std::holds_alternative<LoopTransferExpr>(ast.value) ||
         std::holds_alternative<ArraySetExpr>(ast.value)) {
-      if (statement.binding || last) {
+      if (statement.binding || (last && !std::holds_alternative<LoopTransferExpr>(ast.value))) {
         error("S075",
               "loop or element assignment is a statement; supply a separate result expression",
               ast.span);
@@ -3089,14 +3344,14 @@ private:
     }
     const auto *guard = std::get_if<ConditionalExpr>(&ast.value);
     if (guard && guard->statementOnly) {
-      if (last || statement.binding) {
+      if (statement.binding || (last && !frame.loop)) {
         error("S075", "statement if requires a separate result expression", ast.span);
         return {};
       }
       auto test = expression(frame, guard->condition);
       if (!test)
         return {};
-      return conditional(frame, ast.span, *test, {},
+      auto value = conditional(frame, ast.span, *test, {},
                          [&](Frame &branch, unsigned index, const std::optional<ValueType> &,
                              std::vector<TypedStatement> &body) -> std::optional<ValueId> {
                            const auto &source = index == 0 ? guard->whenTrue : guard->whenFalse;
@@ -3109,6 +3364,11 @@ private:
                              body.push_back({ast.span, {}, *value});
                            return value;
                          });
+      if (last && !frame.stopped) {
+        error("S075", "statement if requires a result on its continuing path", ast.span);
+        return {};
+      }
+      return value;
     }
     if (!guard || !guard->whenFalse.empty())
       return expression(frame, statement.expression, expected);
@@ -3149,6 +3409,10 @@ private:
     std::optional<ValueId> result;
     for (std::size_t index = 0; index < body.size(); ++index) {
       const auto &statement = body[index];
+      if (frame.stopped) {
+        error("S076", "unreachable statement after loop transfer", statement.span);
+        return {};
+      }
       auto expected = statement.binding          ? rebindContext(frame, statement)
                       : index + 1 == body.size() ? context
                                                  : std::optional<ValueType>{};
@@ -3303,6 +3567,7 @@ private:
     }
     const auto before = *frame.tasks;
     std::vector<std::shared_ptr<TaskChecks>> paths;
+    bool allStopped = true;
     std::vector<std::vector<TypedStatement>> bodies(2);
     std::vector<ValueId> results;
     std::optional<ValueType> resultType;
@@ -3343,6 +3608,7 @@ private:
       } else
         resultType = actual;
       finishBranch(before, branch, *value, span);
+      allStopped = allStopped && branch.stopped;
       paths.push_back(branch.tasks);
       results.push_back(*value);
     }
@@ -3356,6 +3622,7 @@ private:
               return path->observed.contains(node(child).type.identity);
             }))
           frame.tasks->observed.insert(node(child).type.identity);
+    frame.stopped = allStopped;
     resultType->identity = 0;
     return add(frame, *resultType, span,
                ConditionalOperation{condition, std::move(bodies[0]), std::move(bodies[1]),
@@ -4921,6 +5188,7 @@ private:
       return {};
     return add(frame, std::move(resultType), span, FunctionCall{id, std::move(operands)});
   }
+  std::size_t nextLoop_ = 1;
   Module syntax_;
   SemanticLimits limits_;
   CheckOptions options_;

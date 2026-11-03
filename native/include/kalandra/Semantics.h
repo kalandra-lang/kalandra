@@ -298,7 +298,24 @@ struct ConditionalOperation {
 struct WhileOperation {
   ValueId condition;
   std::vector<TypedStatement> body;
-}; // Statement-only; the internal Bool marker is never a source result.
+  std::vector<TypedStatement> whenDone = {};
+  std::optional<ValueId> normalResult = {};
+  std::size_t identity = 0;
+  bool transfers = false;
+  std::vector<TypedStatement> initial = {}, iteration = {};
+  std::vector<ValueId> exitValues = {};
+};
+struct LoopTransferOperation {
+  std::size_t loop;
+  bool continuing;
+  std::optional<ValueId> value;
+};
+// A range never allocates an array. Advancement clamps an overflowing final
+// step to stop, so even ranges at the signed integer endpoints terminate.
+struct IntegerRangeOperation {
+  enum class Kind { Validate, Test, Advance } kind;
+  ValueId current, stop, step;
+};
 struct GuardOperation {
   ValueId condition;
   std::vector<TypedStatement> body;
@@ -373,6 +390,7 @@ struct TypedExpr {
                TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat,
                ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection,
                Transfer, TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
+               LoopTransferOperation, IntegerRangeOperation,
                CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
                RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke,
                ArrayBoundsCheck, ArrayStore, ArraySort>

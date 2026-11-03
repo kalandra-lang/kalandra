@@ -42,6 +42,14 @@ list {
   link { url = "/docs/errors", "Expected errors and task failures" }
 }
 
+h2 { "Expression" }
+
+A construct that produces a value. Functions return their final expression. if, while and for have expression forms: an if expression chooses a branch result, and a loop expression chooses a break value or its normal-completion else result.
+
+list {
+  link { url = "/docs/control-flow#get-a-value-from-a-loop", "Loop expressions" }
+}
+
 h2 { "Host and device" }
 
 The host is the CPU side of the running program. A GPU is a device that can run supported numerical functions. In cross-compilation instructions, the build host is the computer running the compiler, while the destination is the computer that will run the resulting application.
@@ -85,6 +93,10 @@ A directory tree containing a destination platform's system development librarie
 list {
   link { url = "/docs/cross-compilation", "Cross-compilation and toolchain profiles" }
 }
+
+h2 { "Statement" }
+
+A construct executed for its effects rather than a result, such as an assignment or a statement loop. break exits the nearest loop; continue advances it. A statement loop has no implicit last-iteration value.
 
 h2 { "Task and settlement" }
 

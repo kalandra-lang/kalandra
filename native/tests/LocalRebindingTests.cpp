@@ -13,7 +13,10 @@ static CheckResult analyze(const std::string &source) {
 int main() {
   try {
     for (auto source :
-         {"fn main()->int:\n  a=10\n  a=a*2\n  a\n", "fn main()->Bool:\n  a=true\n  a=false\n  a\n",
+         {"fn main()->int:\n  i=0\n  result=while i<4:\n    i=i+1\n    if i==2:\n      continue\n    break i\n  else:\n    0\n  result\n",
+          "fn main()->int:\n  total=0\n  for value in range(5,0,-1):\n    if value==3:\n      break\n    total=total+value\n  total\n",
+          "fn main()->String:\n  for text in [\"a\",\"b\"]:\n    break text\n  else:\n    \"empty\"\n",
+          "fn main()->int:\n  a=10\n  a=a*2\n  a\n", "fn main()->Bool:\n  a=true\n  a=false\n  a\n",
           "fn main()->[int]:\n  a=[1]\n  a=[2]\n  a\n",
           "fn main()->[Bool]:\n  a=[true]\n  a=[false,true]\n  a\n",
           "fn step(a:int)->int:\n  a=a+1\n  a\nfn main()->int:\n  step(2)\n",
@@ -35,14 +38,18 @@ int main() {
       for (const auto &d : result.diagnostics)
         errors += d.message + "\n";
       require(result.ok(), std::string(source) + errors);
-      require(bool(continuation::plan(*result.module)), "mutable continuation planning failed");
+      require(bool(continuation::plan(*result.module, {.valueScopes = true})), "mutable continuation planning failed");
 #ifndef KALANDRA_REBIND_FRONTEND_ONLY
       auto lowered = lowerNative(*result.module);
       require(bool(lowered), "mutable native lowering failed: " + (lowered ? "" : lowered.error()));
 #endif
     }
     for (auto source :
-         {"fn main()->int:\n  a=1\n  a=false\n  a\n", "fn main()->int:\n  a=1\n  a:float=2\n  a\n",
+         {"fn main()->int:\n  break\n  0\n",
+          "fn main()->int:\n  continue\n  0\n",
+          "fn main()->int:\n  for i in range(3):\n    continue i\n  0\n",
+          "fn main()->int:\n  while true:\n    break true\n  else:\n    0\n",
+          "fn main()->int:\n  a=1\n  a=false\n  a\n", "fn main()->int:\n  a=1\n  a:float=2\n  a\n",
           "fn main()->[String]:\n  a=[\"one\"]\n  a=[\"two\"]\n  a\n",
           "fn main()->[int]:\n  a=[1]\n  a=[true]\n  a\n",
           "fn main()->int:\n  a=0\n  while 1:\n    a=a+1\n  a\n",

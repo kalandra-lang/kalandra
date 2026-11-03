@@ -17,10 +17,17 @@ struct Summary {
   bool fresh = false, uncertain = false;
   bool operator==(const Summary &) const = default;
 };
+struct LoopFlow;
 struct Environment {
   std::unordered_map<ValueId, Roots> values, inputs;
   std::unordered_map<SymbolId, Roots> symbols;
   std::map<ValueId, Roots> readers;
+  bool stopped = false;
+  std::map<std::size_t, LoopFlow *> loops;
+};
+struct LoopFlow {
+  std::vector<Environment> breaks, continues;
+  Roots result;
 };
 class AccessProof {
 public:
@@ -211,6 +218,12 @@ private:
             }
             if constexpr (requires { op.body; })
               body(op.body);
+            if constexpr (std::is_same_v<T, WhileOperation>) {
+              body(op.iteration);
+            }
+            if constexpr (std::is_same_v<T, LoopTransferOperation>)
+              if (op.value)
+                add(*op.value);
             if constexpr (requires { op.result; })
               add(op.result);
             if constexpr (std::is_same_v<T, ConditionalOperation>) {
@@ -366,11 +379,13 @@ private:
   }
   Roots body(const std::vector<TypedStatement> &statements, ValueId result, Environment &env) {
     for (const auto &statement : statements) {
+      if (env.stopped)
+        return {};
       auto value = evaluate(statement.value, env);
       if (statement.binding)
         env.symbols[*statement.binding] = std::move(value);
     }
-    return evaluate(result, env);
+    return env.stopped ? Roots{} : evaluate(result, env);
   }
   void joinReaders(Environment &into, const Environment &other) {
     for (const auto &[reader, roots] : other.readers)
@@ -484,42 +499,96 @@ private:
             auto value = body(op.whenTrue, op.trueResult, yes);
             unite(value, body(op.whenFalse, op.falseResult, no));
             for (auto &[symbol, roots] : env.symbols) {
-              roots = yes.symbols.at(symbol);
-              unite(roots, no.symbols.at(symbol));
+              if (yes.stopped && !no.stopped)
+                roots = no.symbols.at(symbol);
+              else if (no.stopped && !yes.stopped)
+                roots = yes.symbols.at(symbol);
+              else {
+                roots = yes.symbols.at(symbol);
+                unite(roots, no.symbols.at(symbol));
+              }
             }
-            env.readers = std::move(yes.readers);
-            joinReaders(env, no);
+            if (yes.stopped && !no.stopped)
+              env.readers = no.readers;
+            else if (no.stopped && !yes.stopped)
+              env.readers = yes.readers;
+            else {
+              env.readers = yes.readers;
+              joinReaders(env, no);
+            }
+            env.stopped = yes.stopped && no.stopped;
             return value;
+          } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
+            auto found = env.loops.find(op.loop);
+            if (found == env.loops.end())
+              throw Exhausted{};
+            auto &loop = *found->second;
+            if (op.value)
+              unite(loop.result, input(*op.value));
+            (op.continuing ? loop.continues : loop.breaks).push_back(fork(env));
+            env.stopped = true;
+            return {};
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
-            // Monotonic origins/readers include the zero-iteration edge. A
-            // later replacement can expose a readonly origin on a backedge.
-            // Rebuild expression caches for each abstract iteration; names
-            // keep their current origin sets, old captured values keep theirs.
+            const auto statements = [&](const auto &items, Environment &path) {
+              for (const auto &statement : items) {
+                if (path.stopped)
+                  break;
+                auto roots = evaluate(statement.value, path);
+                if (statement.binding)
+                  path.symbols[*statement.binding] = std::move(roots);
+              }
+            };
+            statements(op.initial, env);
             const auto &sites = allocationSites(id);
+            auto head = fork(env);
+            LoopFlow paths;
             for (;;) {
               spend();
-              spend(env.symbols.size() + env.readers.size());
-              const auto previousSymbols = env.symbols;
-              const auto previousReaders = env.readers;
-              auto iteration = fork(env);
+              spend(head.symbols.size() + head.readers.size());
+              const auto previousSymbols = head.symbols;
+              const auto previousReaders = head.readers;
+              auto iteration = fork(head);
               iteration.values.clear();
               iteration.inputs.clear();
-              // Saved aliases/readers follow the old instance together. A
-              // fresh allocation in this iteration receives its current root.
-              // Previous instances collapse to one conservative old root.
+              iteration.loops[op.identity] = &paths;
               ageLoopStorage(iteration, sites);
               unite(inputs, evaluate(op.condition, iteration));
-              for (const auto &statement : op.body) {
-                auto value = evaluate(statement.value, iteration);
-                if (statement.binding)
-                  iteration.symbols[*statement.binding] = std::move(value);
+              statements(op.iteration, iteration);
+              statements(op.body, iteration);
+              if (!iteration.stopped) {
+                joinSymbols(head, iteration);
+                joinReaders(head, iteration);
               }
-              joinSymbols(env, iteration);
-              joinReaders(env, iteration);
-              if (env.symbols == previousSymbols && env.readers == previousReaders)
+              for (const auto &path : paths.continues) {
+                joinSymbols(head, path);
+                joinReaders(head, path);
+              }
+              paths.continues.clear();
+              if (head.symbols == previousSymbols && head.readers == previousReaders)
                 break;
             }
-            return {};
+            auto normal = fork(head);
+            normal.values.clear();
+            normal.inputs.clear();
+            statements(op.whenDone, normal);
+            Roots value = paths.result;
+            if (op.normalResult && !normal.stopped)
+              unite(value, evaluate(*op.normalResult, normal));
+            if (!normal.stopped) {
+              for (auto &[symbol, roots] : env.symbols)
+                roots = normal.symbols.at(symbol);
+              env.readers = normal.readers;
+            } else {
+              for (auto &[symbol, roots] : env.symbols)
+                roots.clear();
+              env.readers.clear();
+            }
+            for (const auto &path : paths.breaks) {
+              joinSymbols(env, path);
+              joinReaders(env, path);
+            }
+            env.stopped = normal.stopped && paths.breaks.empty();
+            return value;
           } else if constexpr (std::is_same_v<T, GuardOperation>) {
             input(op.condition);
             auto stopped = fork(env);

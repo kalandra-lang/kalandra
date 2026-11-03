@@ -2872,6 +2872,10 @@ class Compiler {
                         commitArray(output));
         break;
       }
+      case Code::PropagateGroup:
+        steps.push_back("{auto failure=task.failure(" + plannedGroups.at(op.group) +
+                        ");if(failure.kind!=TaskFailure::None){task.fail(failure);return;}}\n");
+        break;
       case Code::MapInit:
       case Code::MapPrepare:
       case Code::MapJoin:
@@ -2887,7 +2891,6 @@ class Compiler {
       case Code::InvalidCallable:
       case Code::FunctionReference:
       case Code::FunctionInvoke:
-      case Code::PropagateGroup:
       case Code::SynchronousCall:
         reject(span, "function values require the CPU backend");
       case Code::ReleaseGroup:
@@ -3628,6 +3631,11 @@ public:
       expression.type.shape = std::move(shape);
     }
     resumable = continuation::resumableFunctions(placement);
+    const auto loopControl = continuation::loopControlFunctions(placement);
+    const auto coordinating = continuation::coordinatingFunctions(placement);
+    for (FunctionId id = 0; id < placement.functions.size(); ++id)
+      if (loopControl[id] && !coordinating[id] && !placement.functions[id].resultType.fallible)
+        resumable[id] = false;
     Module hostModule = syntax;
     hostModule.functions.clear();
     std::optional<std::size_t> main;

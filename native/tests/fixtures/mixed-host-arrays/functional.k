@@ -2,9 +2,20 @@ fn twice(values:Tensor[int,?])->Tensor[int,?]:
   values+values
 fn main()->int ! TaskError:
   try parallel:
-    source=generate(8,fn(i):8-i)
+    source=generate(8,fn(i):
+      for candidate in range(8):
+        if candidate==i:
+          break 8-candidate
+      else:
+        0
+    )
     saved=source
-    source=map(source,fn(value):value+1)
+    source=map(source,fn(value):
+      while true:
+        break value+1
+      else:
+        0
+    )
     source=slice(source,1,5)
     source=concat(source,[])
     sort(source)

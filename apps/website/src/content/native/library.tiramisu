@@ -1,6 +1,6 @@
 meta { title = "Built-in functions", description = "Alphabetical index of every public built-in call and numeric conversion.", order = 0, group = "Library reference" }
 
-Built-ins are functions available without an import. Use the alphabetical index to look up a name, or choose a reference by topic. Record and enum constructors, operators and task keywords are described in the language reference.
+Built-ins are functions available without an import. Use the alphabetical index to look up a name, or choose a reference by topic. Record and enum constructors, operators and control-flow keywords are described in the language reference. range(...) is allocation-free for-loop syntax rather than a first-class callable or array constructor.
 
 list {
   link { url = "/docs/collection-functions", "Collections — arrays, Strings and tensor construction" },
@@ -31,6 +31,7 @@ list {
   link { url = "/docs/collection-functions#map", "map — transform an array sequentially" },
   link { url = "/docs/tensor-functions#matmul", "matmul — multiply two matrices" },
   link { url = "/docs/task-functions#parallelmap", "parallelMap — transform an array with CPU workers" },
+  link { url = "/docs/control-flow#iterate-over-an-integer-range", "range (for syntax) — iterate over integers without an array" },
   link { url = "/docs/tensor-functions#reducesum", "reduceSum — sum tensor elements" },
   link { url = "/docs/tensor-functions#relu", "relu — apply rectified linear activation" },
   link { url = "/docs/collection-functions#reshape", "reshape — change a tensor shape" },

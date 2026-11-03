@@ -99,6 +99,10 @@ jobs:
           cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j2
           ctest --test-dir build/linux --output-on-failure -j2 \
             -R '^native-(ordinary-(entry|source|pair-source|arrays|reductions|buffer-types|buffer-faults|direct-faults|scalar-exact|integer-cases)|windows-ordinary-codegen)$'
+      - name: Qualify loop exits, cancellation and bounded structured groups
+        run: >-
+          ctest --test-dir build/linux --output-on-failure -j1
+          -R '^native-loop-control-(debug|optimized|sanitized|thread-sanitized)$'
       - name: Qualify CPU tensor transforms
         run: >-
           python3 native/tests/TensorTransformTests.py

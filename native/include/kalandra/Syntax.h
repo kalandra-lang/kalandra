@@ -203,10 +203,23 @@ struct ConditionalExpr {
   std::vector<Statement> whenTrue, whenFalse;
   bool statementOnly = false;
 };
-// Statement-only control flow. The body does not supply a result value.
+// A loop body performs statements. An expression loop has a normal-completion
+// suite and obtains its value there or from a lexically targeted break.
 struct WhileExpr {
   ExprId condition;
   std::vector<Statement> body;
+  std::vector<Statement> whenDone;
+  bool statementOnly = true;
+};
+struct LoopTransferExpr {
+  bool continuing;
+  std::optional<ExprId> value;
+};
+struct ForExpr {
+  SourceSpan binding;
+  ExprId input;
+  std::vector<Statement> body, whenDone;
+  bool statementOnly = true;
 };
 struct LogicalExpr {
   bool conjunction;
@@ -238,7 +251,7 @@ struct Expr {
   std::variant<NameExpr, NumberExpr, StringExpr, UnaryExpr, BinaryExpr, ComparisonExpr, CallExpr,
                ArrayExpr, IndexExpr, TaskExpr, ParallelExpr, ConditionalExpr, LogicalExpr,
                CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr, WhileExpr,
-               ArraySetExpr>
+               ArraySetExpr, LoopTransferExpr, ForExpr>
       value;
 };
 struct Statement {

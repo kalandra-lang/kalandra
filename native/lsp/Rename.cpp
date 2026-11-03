@@ -237,7 +237,7 @@ static bool grammarWord(std::string_view name) {
   constexpr std::string_view words[]{
       "fn",       "export", "from", "import", "as",    "type", "enum", "error", "with",
       "while",    "if",     "else", "match",  "catch", "fail", "try",  "await", "spawn",
-      "parallel", "on",     "true", "false",  "and",   "or",   "not",  "mut"};
+      "parallel", "on",     "true", "false",  "and",   "or",   "not",  "mut",    "for",  "in",     "break", "continue"};
   return std::ranges::find(words, name) != std::end(words);
 }
 bool validRenameName(std::string_view name) {
@@ -249,7 +249,8 @@ bool validRenameName(std::string_view name) {
       "await", "spawn",       "parallel",  "on",     "true",   "false",     "and",        "or",
       "not",   "main",        "Tensor",    "Bool",   "String", "TaskError", "FaultKind",  "devices",
       "map",   "parallelMap", "reduceSum", "relu",   "matmul", "length",    "byteLength", "shape",
-      "array", "tensor",      "int",       "uint",   "float",  "mut"};
+      "array", "tensor",      "int",       "uint",   "float",  "mut",       "for",        "in",
+      "break", "continue"};
   if (std::ranges::find(reserved, name) != std::end(reserved))
     return false;
   return std::ranges::none_of(numericTypes, [&](const auto &type) { return type.name == name; });

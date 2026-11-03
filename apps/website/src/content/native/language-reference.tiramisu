@@ -41,11 +41,11 @@ list {
 
 h2 { "Functions and control flow" }
 
-Functions return their final expression. A function value can be passed to another function or retain values from its defining scope as a closure. Conditions choose which branch runs, while repeats a body, and match selects a declared enum or error alternative. Function signatures record parameter access and any expected-error channel.
+Functions return their final expression. A function value can be passed to another function or retain values from its defining scope as a closure. if chooses a branch, while repeats a body, for visits array elements or integer ranges, and match selects a declared enum or error alternative. Conditions and loops support both statement and expression forms; break and continue control the nearest loop. Function signatures record parameter access and any expected-error channel.
 
 list {
   link { url = "/docs/functions", "Definitions, function values, closures and recursion" },
-  link { url = "/docs/control-flow", "Conditions and pattern matching" },
+  link { url = "/docs/control-flow", "Conditions, loops, exits and pattern matching" },
   link { url = "/docs/errors", "Error declarations, try, fail and catch" },
   link { url = "/docs/modules", "Imports, exports and re-exports" }
 }

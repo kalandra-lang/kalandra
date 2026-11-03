@@ -62,14 +62,15 @@ class Emitter {
   Function *destroy;
   std::vector<Function *> synchronousEntries;
   std::vector<ValueType> functionSignatures;
-  std::vector<bool> coordinating;
+  std::vector<bool> coordinating, loopControl;
   bool recursiveClosures = false;
   std::map<std::size_t, Function *> environmentBoxes;
 
 public:
   Emitter(ModulePlan &planner, llvm::Module &module)
       : planner(planner), module(module), context(module.getContext()), builder(context),
-        coordinating(coordinatingFunctions(planner.input)) {
+        coordinating(coordinatingFunctions(planner.input)),
+        loopControl(loopControlFunctions(planner.input)) {
     if (module.getDataLayoutStr().empty())
       module.setDataLayout(nativeCpuDataLayout);
     pointer = builder.getPtrTy();
@@ -162,17 +163,45 @@ public:
                                                  "task.entry." + std::to_string(id)));
     }
   }
-  void emitEntries() {
+  void emitEntries(const std::vector<std::string> &exports = {}) {
     synchronousEntries.resize(planner.plans.size());
+    std::set<FunctionId> synchronousTargets;
     for (const auto &plan : planner.plans)
       for (const auto &instruction : plan->code)
-        if ((instruction.code == Code::FunctionReference ||
-             instruction.code == Code::SynchronousCall) &&
-            !synchronousEntries[instruction.target]) {
-          const auto id = instruction.target;
-          if (instruction.code == Code::FunctionReference && coordinating.at(id))
-            continue;
-          const auto &source = planner.input.functions.at(id);
+        if (instruction.code == Code::SynchronousCall ||
+            (instruction.code == Code::FunctionReference && !coordinating.at(instruction.target)))
+          synchronousTargets.insert(instruction.target);
+    // Lexical loop exits use native CFGs, but do not create a scheduling effect.
+    // Give those ordinary functions direct synchronous entries as well.
+    for (FunctionId id = 0; id < planner.input.functions.size(); ++id)
+      if (!coordinating.at(id) && !planner.input.functions[id].resultType.fallible &&
+          loopControl[id])
+        synchronousTargets.insert(id);
+    for (const auto &name : exports) {
+      if (name.empty())
+        continue;
+      const auto found = std::ranges::find_if(planner.input.functions,
+                                              [&](const auto &fn) { return fn.name == name; });
+      if (found == planner.input.functions.end())
+        throw std::runtime_error("CPU bridge names an unknown function");
+      const auto id = static_cast<FunctionId>(found - planner.input.functions.begin());
+      const auto supported = [](const ValueType &type) {
+        return !type.task && !type.fallible && !type.device &&
+               (type.builtin == BuiltinValue::Numeric ||
+                (type.builtin == BuiltinValue::Bool && (!type.tensor || isBoolArray(type))));
+      };
+      if (coordinating[id] || found->captureCount || !supported(found->resultType) ||
+          std::ranges::any_of(found->parameters, [&](auto symbol) {
+            return !supported(planner.input.symbols[symbol].type);
+          }))
+        throw std::runtime_error(
+            "CPU bridge exports require completed synchronous numerical values");
+      const auto &code = planner.plans[id]->code;
+      if (code.size() != 2 || code.front().code != Code::Kernel)
+        synchronousTargets.insert(id);
+    }
+    for (auto id : synchronousTargets) {
+      const auto &source = planner.input.functions.at(id);
           if (planner.plans[id]->groups ||
               std::ranges::any_of(planner.plans[id]->code, [](const auto &op) {
                 return op.code == Code::Open || op.code == Code::Spawn || op.code == Code::Await ||
@@ -235,7 +264,8 @@ public:
       }
     // All synchronous entry declarations exist before emitting bodies, so
     // self/mutual references and recursive direct calls need no expansion.
-    for (std::size_t id = 0; id < planner.plans.size(); ++id)
+    if (exports.empty())
+      for (std::size_t id = 0; id < planner.plans.size(); ++id)
       emitPlan(id);
     for (std::size_t id = 0; id < synchronousEntries.size(); ++id)
       if (synchronousEntries[id]) {
@@ -243,11 +273,100 @@ public:
         if (auto error = nativeStackBudgetError(*synchronousEntries[id], module.getDataLayout()))
           throw std::runtime_error(*error);
       }
+    if (!exports.empty())
+      for (auto *entry : entries) {
+        if (!entry->use_empty())
+          throw std::runtime_error("CPU bridge unexpectedly references task coordination");
+        entry->eraseFromParent();
+      }
     finishRecordRetainers();
   }
   std::vector<llvm::GlobalVariable *> taskEntries() const { return entries; }
-  void run(const std::optional<std::string> &testEntry) {
-    emitEntries();
+  void run(const std::optional<std::string> &testEntry,
+           const std::vector<std::string> &exports = {}) {
+    emitEntries(exports);
+    for (std::size_t index = 0; index < exports.size(); ++index) {
+      if (exports[index].empty())
+        continue;
+      const auto found = std::ranges::find_if(
+          planner.input.functions, [&](const auto &fn) { return fn.name == exports[index]; });
+      const auto id = static_cast<FunctionId>(found - planner.input.functions.begin());
+      const auto &code = planner.plans[id]->code;
+      if (code.size() == 2 && code.front().code == Code::Kernel) {
+        auto *target =
+            module.getFunction("_mlir_ciface_kalandra_fn_" + std::to_string(code.front().target));
+        if (!target)
+          throw std::runtime_error("ordinary CPU bridge entry is missing");
+        auto *bridge =
+            Function::Create(target->getFunctionType(), llvm::GlobalValue::ExternalLinkage,
+                             "_mlir_ciface_kalandra_cpu_" + std::to_string(index), module);
+        for (auto attribute : {llvm::Attribute::ZExt, llvm::Attribute::SExt}) {
+          if (target->hasRetAttribute(attribute))
+            bridge->addRetAttr(attribute);
+          for (unsigned n = 0; n < bridge->arg_size(); ++n)
+            if (target->hasParamAttribute(n, attribute))
+              bridge->addParamAttr(n, attribute);
+        }
+        builder.SetInsertPoint(Block::Create(context, "entry", bridge));
+        std::vector<Value *> args;
+        for (auto &argument : bridge->args())
+          args.push_back(&argument);
+        auto *value = builder.CreateCall(target, args);
+        value->setAttributes(target->getAttributes());
+        if (bridge->getReturnType()->isVoidTy())
+          builder.CreateRetVoid();
+        else
+          builder.CreateRet(value);
+        continue;
+      }
+      std::vector<Type *> parameters;
+      if (found->resultType.tensor)
+        parameters.push_back(pointer);
+      for (auto symbol : found->parameters) {
+        const auto &type = planner.input.symbols[symbol].type;
+        parameters.push_back(type.tensor ? pointer : scalarType(type));
+      }
+      parameters.push_back(pointer);
+      auto *bridge =
+          Function::Create(llvm::FunctionType::get(
+                               found->resultType.tensor ? voidType : scalarType(found->resultType),
+                               parameters, false),
+                           llvm::GlobalValue::ExternalLinkage,
+                           "_mlir_ciface_kalandra_cpu_" + std::to_string(index), module);
+      builder.SetInsertPoint(Block::Create(context, "entry", bridge));
+      std::vector<Value *> args{llvm::ConstantPointerNull::get(builder.getPtrTy())};
+      const auto offset = found->resultType.tensor ? 1u : 0u;
+      if (found->resultType.tensor)
+        builder.CreateStore(llvm::Constant::getNullValue(scalarType(found->resultType)),
+                            bridge->getArg(0));
+      for (unsigned n = 0; n < found->parameters.size(); ++n) {
+        const auto &type = planner.input.symbols[found->parameters[n]].type;
+        args.push_back(type.tensor ? static_cast<Value *>(builder.CreateLoad(
+                                         scalarType(type), bridge->getArg(n + offset)))
+                                   : static_cast<Value *>(bridge->getArg(n + offset)));
+        if (!type.tensor && (type.builtin == BuiltinValue::Bool || isNarrowInteger(type.element)))
+          bridge->addParamAttr(n + offset,
+                               type.builtin == BuiltinValue::Bool || isUnsigned(type.element)
+                                   ? llvm::Attribute::ZExt
+                                   : llvm::Attribute::SExt);
+      }
+      args.push_back(bridge->getArg(bridge->arg_size() - 1));
+      auto *value = builder.CreateCall(synchronousEntries[id], args);
+      if (found->resultType.tensor) {
+        builder.CreateStore(value, bridge->getArg(0));
+        builder.CreateRetVoid();
+      } else {
+        if (found->resultType.builtin == BuiltinValue::Bool ||
+            isNarrowInteger(found->resultType.element))
+          bridge->addRetAttr(found->resultType.builtin == BuiltinValue::Bool ||
+                                     isUnsigned(found->resultType.element)
+                                 ? llvm::Attribute::ZExt
+                                 : llvm::Attribute::SExt);
+        builder.CreateRet(value);
+      }
+    }
+    if (!exports.empty())
+      return;
     if (testEntry) {
       const auto found = std::ranges::find_if(planner.input.functions,
                                               [&](const auto &f) { return f.name == *testEntry; });
@@ -346,6 +465,20 @@ public:
     else if (main->resultType.tensor)
       builder.CreateMemSet(entry->getArg(0), builder.getInt8(0), size(descriptor(main->resultType)),
                            llvm::MaybeAlign(alignment(descriptor(main->resultType))));
+    if (synchronousEntries[id] && !coordinating.at(id) && !main->resultType.fallible) {
+      Value *value = builder.CreateCall(synchronousEntries[id],
+                                        {llvm::ConstantPointerNull::get(builder.getPtrTy()), ctx});
+      if (indirectResult) {
+        builder.CreateStore(value, entry->getArg(0));
+        builder.CreateRetVoid();
+      } else {
+        if (isNarrowInteger(main->resultType.element))
+          value = isUnsigned(main->resultType.element) ? builder.CreateZExt(value, i64)
+                                                       : builder.CreateSExt(value, i64);
+        builder.CreateRet(value);
+      }
+      return;
+    }
     auto *packet = builder.CreateAlloca(packetType);
     auto *result = builder.CreateAlloca(valueType(main->resultType));
     auto *failure = builder.CreateAlloca(failureType);
@@ -1481,6 +1614,12 @@ private:
     Value *ctx = synchronous ? resume->getArg(resume->arg_size() - 1)
                              : call("kalandra_task_context_v1", pointer, {task});
     Value *frame;
+    const bool stackFrame =
+        synchronous && !resultType.fallible && !arenaFields[id] && size(frameType) <= 2048 &&
+        loopControl.at(id) && std::ranges::all_of(plan.slots, [](const ValueType &type) {
+          return !type.tensor && !type.record && !type.errorRecord && !type.task &&
+                 (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+        });
     auto returnZero = [&](bool admitted = true) {
       if (synchronous && admitted)
         call("kalandra_call_leave_v1", voidType, {ctx});
@@ -1508,7 +1647,8 @@ private:
         returnZero();
         builder.SetInsertPoint(active);
       }
-      frame = call("kalandra_alloc_v1", pointer, {ctx, c64(size(frameType))});
+      frame = stackFrame ? static_cast<Value *>(builder.CreateAlloca(frameType))
+                         : call("kalandra_alloc_v1", pointer, {ctx, c64(size(frameType))});
     } else
       frame = call("kalandra_task_frame_v1", pointer, {task});
     auto *packet = builder.CreateAlloca(packetType);
@@ -1621,7 +1761,8 @@ private:
       builder.SetInsertPoint(release);
       if (arenaFields[id])
         builder.CreateCall(frameDestroyers[id], {frame});
-      call("kalandra_free_v1", voidType, {ctx, frame});
+      if (!stackFrame)
+        call("kalandra_free_v1", voidType, {ctx, frame});
       builder.CreateBr(done);
       builder.SetInsertPoint(done);
       returnZero();
@@ -2473,7 +2614,8 @@ private:
                          slot(instruction.args[0]));
             if (arenaFields[id])
               builder.CreateCall(frameDestroyers[id], {frame});
-            call("kalandra_free_v1", voidType, {ctx, frame});
+            if (!stackFrame)
+              call("kalandra_free_v1", voidType, {ctx, frame});
             call("kalandra_call_leave_v1", voidType, {ctx});
             builder.CreateRetVoid();
           } else {
@@ -2483,7 +2625,8 @@ private:
                           : payload(instruction.args[0]));
             if (arenaFields[id])
               builder.CreateCall(frameDestroyers[id], {frame});
-            call("kalandra_free_v1", voidType, {ctx, frame});
+            if (!stackFrame)
+              call("kalandra_free_v1", voidType, {ctx, frame});
             call("kalandra_call_leave_v1", voidType, {ctx});
             builder.CreateRet(value);
           }
@@ -2540,10 +2683,10 @@ std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &pl
   emitter.emitEntries();
   return emitter.taskEntries();
 }
-std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &input,
-                                                          std::optional<std::string> testEntry,
-                                                          ArithmeticMode arithmetic,
-                                                          const CpuTarget &target) {
+static std::expected<BackendOutput, std::string>
+lowerTaskNativeImpl(const TypedModule &input, std::optional<std::string> testEntry,
+                    ArithmeticMode arithmetic, const CpuTarget &target,
+                    const std::vector<std::string> &exports) {
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   if (hasPlacement(input))
@@ -2577,7 +2720,12 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
     for (auto &fn : *module)
       if (!fn.isDeclaration())
         kernelFunctions.insert(&fn);
-    Emitter(*planner, *module).run(testEntry);
+    Emitter(*planner, *module).run(testEntry, exports);
+    if (!exports.empty()) {
+      for (auto &fn : *module)
+        if (!fn.isDeclaration() && !fn.getName().starts_with("_mlir_ciface_kalandra_cpu_"))
+          fn.setLinkage(llvm::GlobalValue::InternalLinkage);
+    }
     for (auto &fn : *module)
       if (!fn.isDeclaration() && !kernelFunctions.contains(&fn))
         fn.addFnAttr("kalandra.task.frame");
@@ -2597,5 +2745,16 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
   } catch (const std::exception &error) {
     return std::unexpected(error.what());
   }
+}
+std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &input,
+                                                          std::optional<std::string> testEntry,
+                                                          ArithmeticMode arithmetic,
+                                                          const CpuTarget &target) {
+  return lowerTaskNativeImpl(input, std::move(testEntry), arithmetic, target, {});
+}
+std::expected<BackendOutput, std::string>
+lowerTaskNativeExports(const TypedModule &input, const std::vector<std::string> &exports,
+                       ArithmeticMode arithmetic, const CpuTarget &target) {
+  return lowerTaskNativeImpl(input, {}, arithmetic, target, exports);
 }
 } // namespace kalandra

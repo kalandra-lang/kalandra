@@ -267,6 +267,8 @@ CompletionInfo completeNames(const std::string &path, const std::string &text, s
             }
             if constexpr (requires { value.body; })
               statements(value.body);
+            if constexpr (std::is_same_v<T, WhileExpr> || std::is_same_v<T, ForExpr>)
+              statements(value.whenDone);
             if constexpr (std::is_same_v<T, ConditionalExpr>) {
               statements(value.whenTrue);
               statements(value.whenFalse);

@@ -49,13 +49,17 @@ def compile_command(path, destination, qualified=True):
 cases = {name: ((fixtures / (name + '.k')).read_text(), expected)
          for name, expected in [('snapshot', 1013), ('boolean', 3012),
                                 ('tasks', 2538), ('functional', 239),
-                                ('recovery', 27), ('empty', 210)]}
+                                ('recovery', 27), ('empty', 210), ('loops', 20160)]}
 for numeric in ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32',
                 'uint64', 'float32', 'float64'):
     cases['element-' + numeric] = (f'''fn twice(values:Tensor[{numeric},?])->Tensor[{numeric},?]:
   values+values
 fn update(mut values:[{numeric}])->[{numeric}]:
-  values[0]={numeric}(7)
+  for index in range(length(values)):
+    if index==0:
+      values[index]={numeric}(7)
+    else:
+      continue
   values
 fn main()->int ! TaskError:
   try parallel:

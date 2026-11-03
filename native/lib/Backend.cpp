@@ -1,37 +1,37 @@
-#include "ArrayReferences.h"
 #include "kalandra/Backend.h"
+#include "../runtime/Runtime.h"
+#include "ArrayReferences.h"
+#include "BoundedEntry.h"
 #include "CollectionMetadata.h"
+#include "IntegerRanges.h"
+#include "LeafEntry.h"
+#include "LocalStorage.h"
+#include "NativeCallFoundation.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
-#include "NativeCallFoundation.h"
-#include "LocalStorage.h"
-#include "IntegerRanges.h"
-#include "BoundedEntry.h"
-#include "UnboundEntry.h"
-#include "LeafEntry.h"
-#include "OrdinaryEntry.h"
 #include "OrdinaryBaseCase.h"
+#include "OrdinaryBufferDirect.h"
+#include "OrdinaryDirect.h"
+#include "OrdinaryEntry.h"
+#include "OrdinaryInputs.h"
+#include "OrdinaryIntegerCases.h"
 #include "OrdinaryLoops.h"
 #include "OrdinaryPair.h"
-#include "OrdinaryDirect.h"
-#include "OrdinaryBufferDirect.h"
-#include "OrdinaryScalarRanges.h"
-#include "OrdinaryIntegerCases.h"
 #include "OrdinaryReductions.h"
-#include "OrdinaryInputs.h"
-#include "../runtime/Runtime.h"
+#include "OrdinaryScalarRanges.h"
 #include "RecordLLVMTypes.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
 #include "RecursiveRecordOps.h"
+#include "UnboundEntry.h"
 #include "kalandra/NumericConversion.h"
 #include "kalandra/StrictFloat.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
@@ -61,6 +61,9 @@
 namespace kalandra {
 std::expected<BackendOutput, std::string>
 lowerTaskNative(const TypedModule &, std::optional<std::string>, ArithmeticMode, const CpuTarget &);
+std::expected<BackendOutput, std::string> lowerTaskNativeExports(const TypedModule &,
+                                                                 const std::vector<std::string> &,
+                                                                 ArithmeticMode, const CpuTarget &);
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &module, bool functionValues);
 std::optional<std::string> optimizeNativeCalls(std::unique_ptr<llvm::Module> &module) {
   // Fault exits are already explicit: optimizing unchecked fault helpers could
@@ -1499,7 +1502,8 @@ private:
     const auto bytes = cell.getIntOrFloatBitWidth() / 8;
     auto cells = checkedCount(loc, shape, bytes);
     if (kind != TensorTransformKind::Transpose && arithmetic_ == ArithmeticMode::Software)
-      throw LoweringFailure{"row math requires hardware arithmetic; no software transcendental fallback is implemented"};
+      throw LoweringFailure{"row math requires hardware arithmetic; no software transcendental "
+                            "fallback is implemented"};
     const auto constant = [&](double value) -> Value {
       return arith::ConstantOp::create(builder_, loc, cell, builder_.getFloatAttr(cell, value));
     };
@@ -2805,6 +2809,27 @@ private:
               return member;
             }
             return node.type.tensor ? recordUnpack(loc, member, node.type) : member;
+          } else if constexpr (std::is_same_v<T, IntegerRangeOperation>) {
+            Value current = expression(frame, operation.current);
+            Value stop = expression(frame, operation.stop);
+            Value step = expression(frame, operation.step);
+            auto zero = integer(loc, 0);
+            if (operation.kind == IntegerRangeOperation::Kind::Validate) {
+              guard(loc, compare(loc, arith::CmpIPredicate::ne, step, zero), 4);
+              return current;
+            }
+            Value positive = compare(loc, arith::CmpIPredicate::sgt, step, zero);
+            if (operation.kind == IntegerRangeOperation::Kind::Test) {
+              auto ascending = compare(loc, arith::CmpIPredicate::slt, current, stop);
+              auto descending = compare(loc, arith::CmpIPredicate::sgt, current, stop);
+              return arith::SelectOp::create(builder_, loc, positive, ascending, descending);
+            }
+            Value next = arith::AddIOp::create(builder_, loc, current, step);
+            auto upOverflow = compare(loc, arith::CmpIPredicate::slt, next, current);
+            auto downOverflow = compare(loc, arith::CmpIPredicate::sgt, next, current);
+            auto overflow =
+                arith::SelectOp::create(builder_, loc, positive, upOverflow, downOverflow);
+            return arith::SelectOp::create(builder_, loc, overflow, stop, next);
           } else if constexpr (std::is_same_v<T, ScalarCompare>) {
             auto left = expression(frame, operation.left),
                  right = expression(frame, operation.right);
@@ -3318,6 +3343,11 @@ private:
             }
             return tensor::FromElementsOp::create(builder_, loc, type(node.type), elements);
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
+            for (const auto &statement : operation.initial) {
+              auto value = expression(frame, statement.value);
+              if (statement.binding)
+                bindScalar(frame, *statement.binding, value, location(statement.span));
+            }
             auto bindings = arrayBindings(frame);
             auto initial = arrayState(frame, bindings);
             SmallVector<Type> types;
@@ -3343,6 +3373,11 @@ private:
               builder_.setInsertionPointToStart(after);
               auto bodyFrame = frame;
               arrayState(bodyFrame, bindings, after->getArguments());
+              for (const auto &statement : operation.iteration) {
+                auto value = expression(bodyFrame, statement.value);
+                if (statement.binding)
+                  bindScalar(bodyFrame, *statement.binding, value, location(statement.span));
+              }
               for (const auto &statement : operation.body) {
                 auto value = expression(bodyFrame, statement.value);
                 if (statement.binding)
@@ -3538,7 +3573,8 @@ private:
                                std::is_same_v<T, CatchOperation> ||
                                std::is_same_v<T, ErrorFieldRead> ||
                                std::is_same_v<T, FailOperation> ||
-                               std::is_same_v<T, GuardOperation>) {
+                               std::is_same_v<T, GuardOperation> ||
+                               std::is_same_v<T, LoopTransferOperation>) {
             throw LoweringFailure{"task operation requires continuation lowering"};
           } else if constexpr (std::is_same_v<T, ShapeCheck>) {
             auto input = expression(frame, operation.input);
@@ -3919,10 +3955,14 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
         return std::holds_alternative<TaskOperation>(e.operation) ||
                std::holds_alternative<ParallelOperation>(e.operation) ||
                std::holds_alternative<CatchOperation>(e.operation) ||
+               std::holds_alternative<LoopTransferOperation>(e.operation) ||
+               (std::holds_alternative<WhileOperation>(e.operation) &&
+                (!std::get<WhileOperation>(e.operation).whenDone.empty() ||
+                 std::get<WhileOperation>(e.operation).transfers)) ||
                (!recursive && std::holds_alternative<MatchOperation>(e.operation));
       })) {
     if (!exports.empty())
-      return std::unexpected("CPU bridge exports require ordinary synchronous functions");
+      return lowerTaskNativeExports(input, exports, arithmetic, target);
     return lowerTaskNative(input, testEntry, arithmetic, target);
   }
   DialectRegistry registry;

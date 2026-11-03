@@ -22,6 +22,15 @@ static bool has(const lsp::CompletionInfo &info, const std::string &name) {
 }
 int main() {
   try {
+    auto loopNames = query("fn main()->int:\n  for item in range(3):\n    it|\n  0\n");
+    require(has(loopNames, "item"), "for binding is missing from its body scope");
+    auto loopExit = query("fn main()->int:\n  while true:\n    br|\n  0\n");
+    require(has(loopExit, "break"), "loop exit keyword completion");
+    auto loopContinue = query("fn main()->int:\n  for item in [1]:\n    cont|\n  0\n");
+    require(has(loopContinue, "continue"), "loop continue keyword completion");
+    auto outerNames = query("fn main()->int:\n  for item in [1]:\n    item+1\n  it|\n");
+    require(!has(outerNames, "item"), "for binding escaped its body scope");
+
     auto generator = query("fn main():\n  gen|(4,fn(i):i)\n");
     require(has(generator, "generate"), "generator builtin completion");
     generator = query("fn main():\n  offset=3\n  generate(4,fn(index:int): off|)\n");

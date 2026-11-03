@@ -35,6 +35,8 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return values;
         } else if constexpr (std::is_same_v<T, RecordFieldRead> || std::is_same_v<T, ErrorNarrow>)
           return {op.input};
+        else if constexpr (std::is_same_v<T, IntegerRangeOperation>)
+          return {op.current, op.stop, op.step};
         else if constexpr (std::is_same_v<T, TensorLiteral>)
           return op.elements;
         else if constexpr (std::is_same_v<T, TensorTransform>) {
@@ -87,6 +89,14 @@ class Builder : public ModulePlan {
     std::optional<std::size_t> group;
     std::vector<std::size_t> jumps;
   };
+  struct LoopBoundary {
+    Slot output;
+    Slot condition;
+    std::size_t header;
+    std::size_t groupDepth;
+    ValueId source;
+    std::vector<std::size_t> exits;
+  };
   struct Environment {
     std::unordered_map<ValueId, Slot> values;
     std::unordered_map<SymbolId, Slot> symbols;
@@ -94,19 +104,25 @@ class Builder : public ModulePlan {
     std::unordered_map<Slot, std::size_t> targets;
     Boundary *boundary = nullptr;
     std::optional<std::size_t> group;
+    std::vector<std::size_t> groups;
+    std::unordered_map<std::size_t, LoopBoundary *> loops;
   };
 
 public:
   std::size_t totalSlots = 0;
   Options options;
-  std::vector<bool> resumable, coordinating;
+  std::vector<bool> resumable, coordinating, loopControl;
   std::optional<FunctionInvocationFlow> invocationFlow;
   std::vector<FunctionId> pending;
   std::vector<bool> scheduled;
   std::vector<std::vector<SymbolId>> localCells;
   explicit Builder(const TypedModule &input, Options options)
       : ModulePlan(input), options(options), resumable(resumableFunctions(input)),
-        coordinating(coordinatingFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
+        coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
+    if (options.preserveCalls)
+      for (FunctionId id = 0; id < input.functions.size(); ++id)
+        if (loopControl[id] && !coordinating[id] && !input.functions[id].resultType.fallible)
+          resumable[id] = false;
     if (options.entry && *options.entry >= input.functions.size())
       throw std::runtime_error("continuation entry function is out of range");
     if (hasPlacement(input) && !options.preserveCalls)
@@ -142,6 +158,14 @@ public:
       std::set<FunctionId> stack;
       plan.result = function(plan, id, parameters, stack);
       plan.code.push_back({Code::Return, 0, {plan.result}});
+      if (options.valueScopes &&
+          std::ranges::any_of(input.functions[id].expressions, [&](ValueId value) {
+            return std::holds_alternative<WhileOperation>(input.expressions[value].operation);
+          }))
+        plan.valueScopes |= std::ranges::any_of(plan.slots, [](const ValueType &type) {
+          return type.tensor || type.record || type.errorRecord ||
+                 type.builtin == BuiltinValue::String || type.builtin == BuiltinValue::Function;
+        });
     }
     if (options.preserveCalls) {
       std::vector<unsigned> state(plans.size());
@@ -342,8 +366,16 @@ private:
             op.falseResult = importValue(op.falseResult);
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
             op.condition = importValue(op.condition);
-            for (auto &statement : op.body)
-              statement = importStatement(statement);
+            for (auto *body : {&op.initial, &op.iteration, &op.body, &op.whenDone})
+              for (auto &statement : *body) statement = importStatement(statement);
+            if (op.normalResult) op.normalResult = importValue(*op.normalResult);
+            for (auto &value : op.exitValues) value = importValue(value);
+          } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
+            if (op.value) op.value = importValue(*op.value);
+          } else if constexpr (std::is_same_v<T, IntegerRangeOperation>) {
+            op.current = importValue(op.current);
+            op.stop = importValue(op.stop);
+            op.step = importValue(op.step);
           } else if constexpr (!(std::is_same_v<T, Float32Literal> ||
                                  std::is_same_v<T, Float64Literal> ||
                                  std::is_same_v<T, Int32Literal> ||
@@ -466,7 +498,11 @@ private:
       field->input = reads[0];
     else if (auto *narrow = std::get_if<ErrorNarrow>(&op))
       narrow->input = reads[0];
-    else if (auto *literal = std::get_if<TensorLiteral>(&op))
+    else if (auto *range = std::get_if<IntegerRangeOperation>(&op)) {
+      range->current = reads[0];
+      range->stop = reads[1];
+      range->step = reads[2];
+    } else if (auto *literal = std::get_if<TensorLiteral>(&op))
       literal->elements = reads;
     else if (auto *multiply = std::get_if<Matmul>(&op)) {
       multiply->left = reads[0];
@@ -793,8 +829,8 @@ private:
         env.values[id] = value;
         return value;
       }
-      if (!options.preserveCalls && stack.contains(call->function) &&
-          !coordinating.at(call->function)) {
+      if (!options.preserveCalls && !coordinating.at(call->function) &&
+          (stack.contains(call->function) || loopControl.at(call->function))) {
         if (input.functions.at(call->function).captureCount)
           throw std::runtime_error("direct recursive calls require a named function entry");
         auto value = slot(plan, node.type);
@@ -848,6 +884,7 @@ private:
       auto nested = env;
       nested.boundary = &boundary;
       nested.group = group;
+      nested.groups.push_back(group);
       plan.code.push_back({Code::Open, 0, {}, env.group.value_or(SIZE_MAX), group, 0, id});
       Slot value = output;
       for (const auto &statement : block->body) {
@@ -939,13 +976,51 @@ private:
       plan.code[dispatch].target = exit;
       for (auto jump : boundary.jumps)
         plan.code[jump].jump = exit;
+    } else if (const auto *jump = std::get_if<LoopTransferOperation>(&node.operation)) {
+      auto found = env.loops.find(jump->loop);
+      if (found == env.loops.end())
+        throw std::runtime_error("loop transfer has no lexical target in this function");
+      auto &loop = *found->second;
+      if (jump->value) {
+        auto result = expression(plan, *jump->value, env, stack);
+        plan.code.push_back({Code::Copy, loop.output, {result}});
+      }
+      // A successful early exit closes every structured group it leaves. The
+      // checker has already required the iteration's children to be observed.
+      for (std::size_t depth = env.groups.size(); depth > loop.groupDepth; --depth) {
+        const auto group = env.groups[depth - 1];
+        ValueType type;
+        type.builtin = BuiltinValue::Bool;
+        type.fallible = true;
+        const auto joined = slot(plan, type);
+        plan.code.push_back({Code::Join, joined, {loop.condition}, 0, group, 0, id});
+        plan.code.push_back({Code::PropagateGroup, 0, {}, 0, group, 0, id});
+        plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group, 0, id});
+      }
+      const auto branch = plan.code.size();
+      plan.code.push_back(
+          {Code::Jump, 0, {}, 0, 0, jump->continuing ? loop.header : 0, loop.source});
+      if (!jump->continuing)
+        loop.exits.push_back(branch);
     } else if (const auto *loop = std::get_if<WhileOperation>(&node.operation)) {
+      for (const auto &statement : loop->initial) {
+        const auto value = expression(plan, statement.value, env, stack);
+        if (statement.binding)
+          bindScalar(plan, env, *statement.binding, value);
+      }
       const auto header = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
       auto iteration = env;
       const auto condition = expression(plan, loop->condition, iteration, stack);
+      LoopBoundary boundary{output, condition, header, env.groups.size(), id, {}};
+      iteration.loops[loop->identity] = &boundary;
       const auto dispatch = plan.code.size();
       plan.code.push_back({Code::Branch, output, {condition}});
+      for (const auto &statement : loop->iteration) {
+        const auto value = expression(plan, statement.value, iteration, stack);
+        if (statement.binding)
+          bindScalar(plan, iteration, *statement.binding, value);
+      }
       for (const auto &statement : loop->body) {
         const auto value = expression(plan, statement.value, iteration, stack);
         if (statement.binding)
@@ -954,6 +1029,20 @@ private:
       plan.code.push_back({Code::Jump, 0, {}, 0, 0, header, id});
       plan.code[dispatch].jump = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
+      auto normal = env;
+      for (const auto &statement : loop->whenDone) {
+        const auto value = expression(plan, statement.value, normal, stack);
+        if (statement.binding)
+          bindScalar(plan, normal, *statement.binding, value);
+      }
+      if (loop->normalResult) {
+        const auto result = expression(plan, *loop->normalResult, normal, stack);
+        plan.code.push_back({Code::Copy, output, {result}});
+      }
+      const auto exit = plan.code.size();
+      plan.code.push_back({Code::Label, 0, {}});
+      for (auto branch : boundary.exits)
+        plan.code[branch].jump = exit;
     } else if (const auto *guard = std::get_if<GuardOperation>(&node.operation)) {
       auto condition = expression(plan, guard->condition, env, stack);
       const auto dispatch = plan.code.size();
@@ -1076,7 +1165,7 @@ private:
           args.push_back(expression(plan, arg, env, stack));
       plan.code.push_back(
           {Code::Kernel, output, args,
-           !options.preserveCalls ||
+           !options.preserveCalls || std::holds_alternative<IntegerRangeOperation>(node.operation) ||
                    (options.valueScopes &&
                     (node.type.array ||
                      std::ranges::any_of(
@@ -1112,6 +1201,42 @@ void indirectEffects(const TypedModule &input, std::vector<std::vector<FunctionI
       }
 }
 } // namespace
+std::vector<bool> loopControlFunctions(const TypedModule &input) {
+  std::vector<bool> result(input.functions.size());
+  std::vector<std::vector<FunctionId>> callers(input.functions.size());
+  const auto flow =
+      std::ranges::any_of(
+          input.expressions,
+          [](const auto &value) { return std::holds_alternative<FunctionInvoke>(value.operation); })
+          ? functionInvocationFlow(input)
+          : std::optional<FunctionInvocationFlow>{};
+  std::vector<FunctionId> pending;
+  for (FunctionId id = 0; id < input.functions.size(); ++id) {
+    for (auto value : input.functions[id].expressions) {
+      const auto &operation = input.expressions.at(value).operation;
+      if (const auto *loop = std::get_if<WhileOperation>(&operation))
+        result[id] = result[id] || loop->transfers || !loop->whenDone.empty();
+      if (const auto *call = std::get_if<FunctionCall>(&operation))
+        callers.at(call->function).push_back(id);
+      if (const auto *reference = std::get_if<FunctionReference>(&operation))
+        callers.at(reference->function).push_back(id);
+      if (const auto *map = std::get_if<ArrayMap>(&operation))
+        callers.at(map->function).push_back(id);
+      if (flow && std::holds_alternative<FunctionInvoke>(operation))
+        for (auto target : flow->targets.at(value))
+          callers.at(target).push_back(id);
+    }
+    if (result[id])
+      pending.push_back(id);
+  }
+  for (std::size_t cursor = 0; cursor < pending.size(); ++cursor)
+    for (auto caller : callers[pending[cursor]])
+      if (!result[caller]) {
+        result[caller] = true;
+        pending.push_back(caller);
+      }
+  return result;
+}
 std::vector<bool> resumableFunctions(const TypedModule &input) {
   // Indirect synchronous entries already encapsulate their expected-error
   // control flow. Only actual coordination crosses that calling boundary.
@@ -1131,6 +1256,10 @@ std::vector<bool> resumableFunctions(const TypedModule &input) {
       if (input.expressions[value].type.fallible || std::holds_alternative<TaskOperation>(op) ||
           std::holds_alternative<ParallelOperation>(op) ||
           std::holds_alternative<CatchOperation>(op) ||
+          std::holds_alternative<LoopTransferOperation>(op) ||
+          (std::holds_alternative<WhileOperation>(op) &&
+           (!std::get<WhileOperation>(op).whenDone.empty() ||
+            std::get<WhileOperation>(op).transfers)) ||
           std::holds_alternative<MatchOperation>(op) ||
           std::holds_alternative<GuardOperation>(op) || std::holds_alternative<FailOperation>(op) ||
           std::holds_alternative<ErrorFieldRead>(op) ||

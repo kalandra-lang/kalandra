@@ -23,6 +23,7 @@ TRIPLES = {
 SYSTEM = {'Linux': 'linux', 'Windows': 'windows', 'Darwin': 'macos'}
 sys.path.insert(0, str(ROOT / 'native/packaging'))
 from WindowsPlatform import pe_machine, MACHINES, coff_archive_machines
+from LoopCases import CASES as LOOP_CASES
 
 
 def digest(path):
@@ -50,6 +51,8 @@ def program_cases():
     cases = {name: dict(source=text, output=expected) for name, text, expected in
              [(name, text, {'calls': '1144\n', 'captures': '3000\n', 'tasks': '[2, 4, 6]\n',
                             'records': '7\n', 'floating': None}[name]) for name, text in SOURCES.items()]}
+    cases.update({'loop-' + name: dict(source=text, output=expected + '\n')
+                  for name, (text, expected) in LOOP_CASES.items()})
     numeric_values = {'int8': '-42', 'uint8': '255', 'int16': '-30000', 'uint16': '65535',
                       'int32': '-2000000000', 'uint32': '4294967295',
                       'int64': '-9223372036854775807', 'uint64': '18446744073709551615',

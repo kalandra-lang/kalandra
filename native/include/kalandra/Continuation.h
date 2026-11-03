@@ -87,6 +87,9 @@ struct ModulePlan {
 [[nodiscard]] std::vector<bool> resumableFunctions(const TypedModule &input);
 // Suspension/device effects, excluding synchronous expected-error control flow.
 [[nodiscard]] std::vector<bool> coordinatingFunctions(const TypedModule &input);
+// Direct/transitive lexical loop control needs native CFG entries, not task
+// scheduling or recursive source-body expansion.
+[[nodiscard]] std::vector<bool> loopControlFunctions(const TypedModule &input);
 [[nodiscard]] std::expected<ModulePlan, std::string> plan(const TypedModule &input,
                                                           Options options = {});
 [[nodiscard]] std::string dump(const ModulePlan &module);

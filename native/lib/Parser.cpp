@@ -476,8 +476,13 @@ private:
   }
   bool statementOnly(ExprId id) {
     const auto &value = node(id).value;
-    if (std::holds_alternative<WhileExpr>(value) || std::holds_alternative<ArraySetExpr>(value))
+    if (std::holds_alternative<ArraySetExpr>(value) ||
+        std::holds_alternative<LoopTransferExpr>(value))
       return true;
+    if (const auto *loop = std::get_if<WhileExpr>(&value))
+      return loop->statementOnly;
+    if (const auto *loop = std::get_if<ForExpr>(&value))
+      return loop->statementOnly;
     if (const auto *choice = std::get_if<ConditionalExpr>(&value))
       return choice->statementOnly;
     return false;
@@ -485,26 +490,26 @@ private:
   std::optional<Statement> parseStatement() {
     Statement statement;
     statement.span.begin = current().span.begin;
-    if (word("while")) {
-      if (depth_ >= limits_.maxDepth) {
-        error("P009", "loop nesting limit exceeded", current().span);
-        return {};
-      }
-      const Depth guard(depth_);
+    if (word("break") || word("continue")) {
+      const bool continuing = word("continue");
       advance();
-      auto condition = parseExpression();
-      if (!condition || !expect(TokenKind::Colon, "expected ':' after while condition"))
-        return {};
-      auto body = suite(true);
-      if (!body)
-        return {};
-      statement.span.end = body->back().span.end;
-      auto id = add({statement.span, WhileExpr{*condition, std::move(*body)}});
+      std::optional<ExprId> value;
+      if (!at(TokenKind::Newline) && !at(TokenKind::Dedent) && !at(TokenKind::End)) {
+        if (continuing) {
+          error("P041", "continue does not take a value", current().span);
+          return {};
+        }
+        value = parseExpression();
+        if (!value)
+          return {};
+      }
+      statement.span.end = value ? node(*value).span.end : tokens_[position_ - 1].span.end;
+      auto id = add({statement.span, LoopTransferExpr{continuing, value}});
       if (!id)
         return {};
       statement.expression = *id;
       if (tokens_[position_ - 1].kind != TokenKind::Dedent &&
-          !expect(TokenKind::Newline, "expected a newline after while body"))
+          !expect(TokenKind::Newline, "expected a newline after loop transfer"))
         return {};
       return statement;
     }
@@ -847,6 +852,54 @@ private:
         lambda.body = std::move(*body);
         return add({{token.span.begin, end}, std::move(lambda)});
       }
+      if (text == "while" || text == "for") {
+        advance();
+        std::optional<SourceSpan> binding;
+        if (text == "for") {
+          auto variable = expect(TokenKind::Identifier, "expected an iteration binding after for");
+          if (!variable)
+            return {};
+          binding = variable->span;
+          if (!word("in")) {
+            error("P041", "expected in after iteration binding", current().span);
+            return {};
+          }
+          advance();
+        }
+        auto condition = parseExpression();
+        if (!condition || !expect(TokenKind::Colon, "expected ':' after while condition"))
+          return {};
+        auto body = suite(true);
+        if (!body)
+          return {};
+        const auto endOfBody = position_;
+        const bool inlineBody = tokens_[position_ - 1].kind != TokenKind::Dedent;
+        if (inlineBody && !expect(TokenKind::Newline, "expected newline after loop body"))
+          return {};
+        std::vector<Statement> normal;
+        if (word("else")) {
+          advance();
+          if (!expect(TokenKind::Colon, "expected ':' after loop else"))
+            return {};
+          auto suiteDone = suite(true);
+          if (!suiteDone)
+            return {};
+          normal = std::move(*suiteDone);
+        } else if (inlineBody)
+          position_ = endOfBody;
+        const bool effects =
+            normal.empty() || normal.back().binding || statementOnly(normal.back().expression);
+        if (effects && !statementIf) {
+          error("P041", "loop expressions require an else branch with a result", token.span);
+          return {};
+        }
+        const auto end = normal.empty() ? body->back().span.end : normal.back().span.end;
+        if (binding)
+          return add({{token.span.begin, end},
+                      ForExpr{*binding, *condition, std::move(*body), std::move(normal), effects}});
+        return add({{token.span.begin, end},
+                    WhileExpr{*condition, std::move(*body), std::move(normal), effects}});
+      }
       if (text == "if") {
         advance();
         auto condition = parseExpression();
@@ -903,7 +956,8 @@ private:
         return add(
             {{token.span.begin, node(*operand).span.end}, UnaryExpr{TokenKind::Bang, *operand}});
       }
-      if (text == "else" || text == "and" || text == "or") {
+      if (text == "else" || text == "and" || text == "or" || text == "break" ||
+          text == "continue" || text == "for" || text == "in") {
         error("P035", "unexpected control-flow keyword", token.span);
         return {};
       }

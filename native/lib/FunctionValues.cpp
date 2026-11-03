@@ -197,6 +197,9 @@ public:
         source(caught->parameter, caught->operand);
         edge(caught->operand, id);
         edge(caught->result, id);
+      } else if (const auto *loop = std::get_if<WhileOperation>(&value.operation)) {
+        for (auto value : loop->exitValues)
+          edge(value, id);
       } else if (const auto *choice = std::get_if<ConditionalOperation>(&value.operation)) {
         edge(choice->trueResult, id);
         edge(choice->falseResult, id);
@@ -332,7 +335,12 @@ std::unordered_map<SymbolId, ValueId> valueBindings(const TypedModule &module) {
   for (const auto &expression : module.expressions)
     std::visit(
         [&](const auto &op) {
-          if constexpr (requires { op.body; })
+          if constexpr (std::is_same_v<std::decay_t<decltype(op)>, WhileOperation>) {
+            statements(op.initial);
+            statements(op.iteration);
+            statements(op.body);
+            statements(op.whenDone);
+          } else if constexpr (requires { op.body; })
             statements(op.body);
           else if constexpr (std::is_same_v<std::decay_t<decltype(op)>, ConditionalOperation>) {
             statements(op.whenTrue);
@@ -478,6 +486,14 @@ bool workerValueProvenance(const TypedModule &module, ValueId root) {
             return false;
           pending.insert(pending.end(), sources->second.begin(), sources->second.end());
         }
+      }
+    } else if (const auto *loop = std::get_if<WhileOperation>(&value.operation)) {
+      if (loop->exitValues.empty())
+        return false;
+      for (auto result : loop->exitValues) {
+        if (result >= id)
+          return false;
+        pending.push_back(result);
       }
     } else if (const auto *choice = std::get_if<ConditionalOperation>(&value.operation)) {
       if (choice->trueResult >= id || choice->falseResult >= id)
@@ -767,6 +783,13 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
             !sameStorageType(expression.type,
                              module.records[*input.record].fields[read->field].type))
           return "function field read changes its declared signature";
+      } else if (const auto *loop = std::get_if<WhileOperation>(&expression.operation)) {
+        if (!loop->normalResult || loop->exitValues.empty())
+          return "loop has no function result";
+        for (auto result : loop->exitValues)
+          if (result >= id || !sameStorageType(completed(expression.type),
+                                               completed(module.expressions[result].type)))
+            return "loop changes a function-value signature";
       } else if (const auto *choice = std::get_if<ConditionalOperation>(&expression.operation)) {
         if (choice->trueResult >= id || choice->falseResult >= id ||
             !sameStorageType(completed(expression.type),

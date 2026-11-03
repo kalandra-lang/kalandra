@@ -85,6 +85,12 @@ list {
   link { url = "/docs/control-flow", "Conditions, loops, scope and matching" }
 }
 
+Use for value in values to visit array elements, or for index in range(start, stop, step) to count without constructing an array. break exits the nearest loop, and continue advances to its next iteration. Both loop kinds also have an expression form with break value and an else result for normal completion.
+
+list {
+  link { url = "/docs/control-flow", "Loops, ranges, early exits and loop results" }
+}
+
 h2 { "Build and transform an array" }
 
 An array contains elements of one type. [int] is an array of integers. generate creates elements from their indexes; map transforms them in order without changing the input array.

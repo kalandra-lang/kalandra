@@ -60,6 +60,22 @@
     {
       "kind": "cpu",
       "expected": "23"
+    },
+    {
+      "kind": "cpu",
+      "expected": "8"
+    },
+    {
+      "kind": "cpu",
+      "expected": "8"
+    },
+    {
+      "kind": "cpu",
+      "expected": "7"
+    },
+    {
+      "kind": "cpu",
+      "expected": "44"
     }
   ],
   "errors": [

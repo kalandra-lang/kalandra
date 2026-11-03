@@ -5,7 +5,16 @@
 #include <stdexcept>
 #include <thread>
 using kalandra::runtime::Invocation;
+#ifdef KALANDRA_LOOP_CALLABLE_PROBE
+extern "C" std::int64_t (*const kalandra_callable_test_entry)(std::int64_t, std::int64_t,
+                                                              Invocation *);
+static std::int64_t _mlir_ciface_kalandra_test_entry(std::int64_t count, std::int64_t faultAt,
+                                                     Invocation *context) {
+  return kalandra_callable_test_entry(count, faultAt, context);
+}
+#else
 extern "C" std::int64_t _mlir_ciface_kalandra_test_entry(std::int64_t, std::int64_t, Invocation *);
+#endif
 static void require(bool ok, const char *text) {
   if (!ok)
     throw std::runtime_error(text);

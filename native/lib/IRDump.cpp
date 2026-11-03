@@ -232,13 +232,45 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
          symbol.type.task || symbol.type.fallible || symbol.type.device ||
          (symbol.type.builtin != BuiltinValue::Numeric &&
           symbol.type.builtin != BuiltinValue::Bool)))
-      return "reassignable bindings require completed CPU numeric or Bool scalars or flat numeric/Bool arrays";
+      return "reassignable bindings require completed CPU numeric or Bool scalars or flat "
+             "numeric/Bool arrays";
     if (auto failure = error(symbol.type))
       return failure;
   }
   for (const auto &expression : module.expressions) {
     if (auto failure = error(expression.type))
       return failure;
+    if (const auto *range = std::get_if<IntegerRangeOperation>(&expression.operation)) {
+      if (target != NumericTarget::Cpu)
+        return "integer ranges require CPU execution";
+      if (range->kind != IntegerRangeOperation::Kind::Validate &&
+          range->kind != IntegerRangeOperation::Kind::Test &&
+          range->kind != IntegerRangeOperation::Kind::Advance)
+        return "invalid range operation";
+      const auto index = static_cast<ValueId>(&expression - module.expressions.data());
+      for (auto value : {range->current, range->stop, range->step}) {
+        if (value >= index)
+          return "range references an invalid or cyclic operand";
+        const auto &t = module.expressions[value].type;
+        if (t.builtin != BuiltinValue::Numeric || t.element != NumericType::Int64 || t.tensor ||
+            t.array || t.task || t.fallible || t.device)
+          return "range requires completed CPU int operands";
+      }
+      if (expression.type.tensor || expression.type.task || expression.type.fallible ||
+          expression.type.device || expression.type.array ||
+          (range->kind == IntegerRangeOperation::Kind::Test
+               ? expression.type.builtin != BuiltinValue::Bool
+               : expression.type.builtin != BuiltinValue::Numeric ||
+                     expression.type.element != NumericType::Int64))
+        return "invalid range result type";
+    }
+    if (const auto *jump = std::get_if<LoopTransferOperation>(&expression.operation)) {
+      if (target != NumericTarget::Cpu || !jump->loop || (jump->continuing && jump->value) ||
+          (jump->value && *jump->value >= module.expressions.size()) ||
+          expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
+          expression.type.task || expression.type.fallible)
+        return "invalid loop transfer";
+    }
     if (const auto *loop = std::get_if<WhileOperation>(&expression.operation)) {
       if (target != NumericTarget::Cpu)
         return "while statements currently require CPU execution";
@@ -246,13 +278,20 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
         return "while requires a valid condition and nonempty body";
       const auto &condition = module.expressions[loop->condition].type;
       if (condition.builtin != BuiltinValue::Bool || condition.tensor || condition.task ||
-          condition.fallible || condition.device || expression.type.builtin != BuiltinValue::Bool ||
-          expression.type.tensor || expression.type.task || expression.type.fallible)
-        return "while requires a completed CPU Bool condition and a statement marker";
-      for (const auto &statement : loop->body)
-        if (statement.value >= module.expressions.size() ||
-            (statement.binding && *statement.binding >= module.symbols.size()))
-          return "while references an invalid statement";
+          condition.fallible || condition.device ||
+          (!loop->normalResult &&
+           (expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
+            expression.type.task || expression.type.fallible)))
+        return "while requires a completed CPU Bool condition and a valid result";
+      for (const auto *body : {&loop->initial, &loop->iteration, &loop->body, &loop->whenDone})
+        for (const auto &statement : *body)
+          if (statement.value >= module.expressions.size() ||
+              (statement.binding && *statement.binding >= module.symbols.size()))
+            return "while references an invalid statement";
+      if (loop->normalResult &&
+          (*loop->normalResult >= module.expressions.size() || loop->whenDone.empty() ||
+           loop->whenDone.back().value != *loop->normalResult))
+        return "invalid loop normal result";
     }
     if (const auto *guard = std::get_if<GuardOperation>(&expression.operation)) {
       if (guard->condition >= module.expressions.size() ||
@@ -1037,7 +1076,7 @@ std::string dumpTypedIR(const TypedModule &module) {
             else if constexpr (std::is_same_v<T, ErrorNarrow>)
               out << "narrow error %" << operation.input;
             else if constexpr (std::is_same_v<T, WhileOperation>) {
-              out << "while.statement ";
+              out << (operation.normalResult ? "while.expression " : "while.statement ");
               value(operation.condition);
               out << " {";
               for (const auto &statement : operation.body) {
@@ -1045,6 +1084,10 @@ std::string dumpTypedIR(const TypedModule &module) {
                 value(statement.value);
               }
               out << " }";
+            } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
+              out << (operation.continuing ? "continue " : "break ") << operation.loop;
+              if (operation.value)
+                out << " %" << *operation.value;
             } else if constexpr (std::is_same_v<T, ConditionalOperation>)
               out << "if %" << operation.condition << " then %" << operation.trueResult << " else %"
                   << operation.falseResult;

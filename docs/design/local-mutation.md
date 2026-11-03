@@ -69,21 +69,25 @@ Rebinding a name does not grant write access to read-only storage.
    raw-bit tests check separate backing, strided inputs, independence after source
    changes, retained results and allocation-failure cleanup. Existing runtime
    quotas apply; no unchecked allocator is added.
-2. Numeric/Bool rebinding, statement `if` and `while` are implemented. Scalar
-   types remain fixed. A loop has no source value and cannot be a function's
-   final result. Branch/iteration declarations stay local, while writes to existing
-   scalar bindings take effect in their enclosing invocation.
-   Functions and closures receive scalar values; captures are snapshots. Rebinding
-   a captured scalar affects only the current call, not the shared closure
-   environment. Native entry-block cells promote to registers/SSA in optimized
-   builds; suspended execution uses private continuation slots and explicit read
-   snapshots. No scalar cell escapes as a source reference. Every successful
-   backedge settles iteration-owned task obligations; zero-iteration paths retain
-   incoming obligations. Completed structured groups release scheduler records
-   before another iteration. Native checked loops and continuation backedges keep
-   cancellation/fault checks; ordinary CLI proofs may omit unnecessary checks as
-   before. `break`, `continue`, `for` and general Unit-returning APIs remain outside
-   this stage.
+2. Numeric/Bool rebinding and statement/expression `if`, `while` and `for` are
+   implemented. Scalar types remain fixed. Statement loops use bare `break`;
+   expression loops require a normal-completion `else` result and use
+   `break value`. `continue` advances the nearest lexical loop. Every result
+   path has a compatible completed type; no last-iteration result is inferred.
+   Array iteration pins one input backing; integer `range(stop)`,
+   `range(start, stop)` and `range(start, stop, step)` evaluate arguments once,
+   allocate no array, exclude the stop, reject zero steps with an arithmetic
+   fault, and terminate safely when the final step would overflow.
+   Branch and iteration declarations remain local. A for binding shadows an
+   outer name without changing it. Closures capture scalar snapshots and cannot
+   jump into the caller's loop. Every successful backedge, `break` and
+   `continue` must discharge iteration-owned task obligations. Incoming
+   obligations survive zero iterations and early exits. Exited completed
+   structured groups close and release their records before transferring
+   control. Cancellation requests never count as settlement.
+   Loops retain cancellation/fault checks; ordinary CLI proofs may omit checks
+   when the existing execution contract allows it. General Unit-returning APIs
+   are outside this change.
 3. Numeric and Bool arrays use an identity-preserving native representation.
    The earlier immutable MLIR tensor representation could clone
    returned arrays or reuse functional results; inserting writes into it would
@@ -418,3 +422,35 @@ cancellation contract. Hardware kernels, arithmetic ordering and admission quota
 are unchanged. Placed first-class function values, `parallelMap` and owned
 String/record/function array carriers remain explicit boundaries of the existing
 mixed supervisor subset.
+
+## Native lowering for lexical loop exits
+
+Ordinary while and for statements without early exits use structured native
+lowering. Loop expressions and lexical exits use the existing checked native CFG
+planner. This generates LLVM code; it does not interpret loop bodies. A break
+copies a completed value into the loop's result slot; normal completion evaluates
+the else suite lazily. There is no uninitialized placeholder source result and
+no eager evaluation of else.
+
+These control-flow effects do not imply task coordination. Synchronous loop
+functions and their synchronous callers use typed native entries, including
+recursive calls, instead of recursively expanding source bodies. Small scalar
+control frames use bounded native stack storage and are checked against the
+existing conservative physical stack budget. Larger or owned frames use existing
+invocation-managed storage. Non-coordinating loop entry avoids scheduler startup.
+There is no new source call-depth limit or cancellation-contract opt-out.
+
+Owned loop slots participate in invocation-local value scopes so overwriting
+iteration temporaries retires old roots. The array proof carries distinct normal,
+break and continue paths: unreachable awaits cannot release a reader, loop result
+aliases preserve their origins, and readonly storage cannot become writable via a
+break. Fault injection, running cancellation and bounded live-owner/group tests
+qualify those edges in all four runtime modes.
+
+Pure loop helpers in mixed GPU programs use private typed CPU exports, including
+recursive helpers and Boolean results. These exports reuse the synchronous native
+entries and the existing descriptor ABI; they do not start a task scheduler.
+Ordinary native subgraphs keep their existing direct entry. Export-only modules
+omit task resume entries and internalize private definitions, so linking a GPU
+supervisor does not introduce unused TaskABI dependencies or duplicate symbols.
+GPU kernels keep their existing numerical and placement rules.
