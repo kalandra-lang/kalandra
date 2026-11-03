@@ -58,6 +58,7 @@ struct Plan {
   std::vector<Instruction> code;
   std::size_t groups = 0;
   Slot result = 0;
+  bool valueScopes = false;
 };
 struct Options {
   // Preserve ordinary numeric calls; expand resumable helper bodies into the caller.
@@ -67,6 +68,9 @@ struct Options {
   // Internal optimization admission: retain checked continuation kernels if a
   // synchronous subgraph exceeds the native backend's physical-frame limits.
   bool nativeSubgraphs = true;
+  // CPU-only ownership scopes for mutable owned values in continuation frames.
+  // Placed supervisors retain their explicit admission gate until integrated.
+  bool valueScopes = false;
 };
 struct ModulePlan {
   // The source typed module must outlive its plan and target emission.

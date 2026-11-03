@@ -39,7 +39,7 @@ Unreleased language branch: copy(values) returns an independent array of numeric
 
 h2 { "Replace a numeric array binding" }
 
-Unreleased language branch: a numeric array name can be reassigned in a synchronous, non-fallible CPU function. The new array may have a different length, but its numeric element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
+Unreleased language branch: a numeric array name can be reassigned in CPU functions, including functions with task suspension or expected-error handling. The new array may have a different length, but its numeric element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
 
 codeblock { language = kalandra, """fn main() -> [int]:
   values = [3, 1, 2]
@@ -50,7 +50,22 @@ codeblock { language = kalandra, """fn main() -> [int]:
 """ }
 The result is [3, 4, 1]. Branches and while loops carry the current array reference. Ordinary numeric-array parameters and captures may replace their own private name; that does not grant permission to modify their original read-only storage. A replacement with fresh storage provides writable data, while assigning another read-only array preserves its read-only access path.
 
-Bool, String, record and function-array name reassignment is not included yet. Functions with task suspension or expected-error coordination currently need to move this synchronous array work into a helper. Source arrays also remain unsupported in mixed GPU supervisors. Element assignment and sort on existing numeric or Bool storage follow the separate rules below.
+Bool, String, record and function-array name reassignment is not included yet. Functions that combine replacement with parallelMap currently support numeric output arrays only; Bool and owned-element outputs remain gated. Source arrays also remain unsupported in mixed GPU supervisors. Element assignment and sort on existing numeric or Bool storage follow the separate rules below.
+
+A task continues reading the storage it received even when the parent replaces its local name. Fresh replacement storage can be modified independently. An alias of the old array remains protected until its task readers settle.
+
+codeblock { language = kalandra, """fn readFirst(values: [int]) -> int:
+  values[0]
+fn main() -> int ! TaskError:
+  values = [3, 1, 2]
+  oldFirst = try parallel:
+    reader = spawn readFirst(values)
+    values = sorted(values)
+    values[0] = 9
+    try await reader
+  oldFirst * 100 + values[0]
+""" }
+The result is 309: the reader sees the original array, while the parent edits the fresh sorted array. The current access proof can conservatively reject this pattern when the same allocation site repeats inside a loop. Await the old readers before editing the replacement if it cannot prove that the instances are independent.
 
 h2 { "Slice and concatenate" }
 

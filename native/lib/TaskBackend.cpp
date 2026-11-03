@@ -1,8 +1,8 @@
 #include "CollectionMetadata.h"
 #include "ErrorFamilies.h"
+#include "NativeCallFoundation.h"
 #include "NativeLayout.h"
 #include "NativeStack.h"
-#include "NativeCallFoundation.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
 #include "TaskCallableOps.h"
@@ -20,6 +20,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/SourceMgr.h"
+#include <algorithm>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -43,11 +44,18 @@ class Emitter {
   std::map<std::string, llvm::StructType *> values;
   std::optional<TaskValueTypes> taskTypes;
   std::map<std::string, llvm::GlobalVariable *> layouts;
+  std::map<std::string, llvm::GlobalVariable *> frameLayouts;
   std::map<std::string, Function *> copyCallbacks;
   std::map<std::size_t, Function *> recordRetainers;
   std::vector<std::size_t> pendingRecordRetainers;
   std::vector<llvm::StructType *> frames, packets;
   std::vector<std::map<std::size_t, std::size_t>> observationFields, recursiveResultFields;
+  std::vector<std::optional<std::size_t>> arenaFields;
+  std::vector<std::optional<std::size_t>> scopeWriteFields, scopeReturnFields;
+  std::vector<std::size_t> scopeWriteCapacity;
+  std::vector<std::map<Slot, std::size_t>> scopeSlots;
+  std::vector<llvm::GlobalVariable *> scopeTables;
+  std::vector<Function *> frameDestroyers;
   std::vector<llvm::GlobalVariable *> entries;
   Function *destroy;
   std::vector<Function *> synchronousEntries;
@@ -60,7 +68,8 @@ public:
   Emitter(ModulePlan &planner, llvm::Module &module)
       : planner(planner), module(module), context(module.getContext()), builder(context),
         coordinating(coordinatingFunctions(planner.input)) {
-    if (module.getDataLayoutStr().empty()) module.setDataLayout(nativeCpuDataLayout);
+    if (module.getDataLayoutStr().empty())
+      module.setDataLayout(nativeCpuDataLayout);
     pointer = builder.getPtrTy();
     i32 = builder.getInt32Ty();
     i64 = builder.getInt64Ty();
@@ -111,6 +120,36 @@ public:
         }
       for (auto slot : plan.parameters)
         parameters.push_back(valueType(plan.slots[slot]));
+      arenaFields.emplace_back();
+      scopeWriteFields.emplace_back();
+      scopeReturnFields.emplace_back();
+      scopeWriteCapacity.push_back(1);
+      scopeSlots.emplace_back();
+      if (plan.valueScopes) {
+        for (const auto &op : plan.code)
+          if (op.code == Code::MapInit && plan.slots.at(op.output).builtin != BuiltinValue::Numeric)
+            throw std::runtime_error("Boolean/owned-element continuation maps with array "
+                                     "reassignment are not yet supported");
+        arenaFields.back() = fields.size();
+        fields.push_back(pointer);
+        for (Slot slot = 0; slot < plan.slots.size(); ++slot) {
+          const auto &type = plan.slots[slot];
+          if (!type.task && (type.tensor || type.builtin == BuiltinValue::String ||
+                             type.builtin == BuiltinValue::Function ||
+                             type.builtin == BuiltinValue::Record || type.errorRecord))
+            scopeSlots.back().emplace(slot, scopeSlots.back().size());
+        }
+        for (const auto &op : plan.code)
+          if (op.code == Code::CallableCaptures)
+            scopeWriteCapacity.back() = std::max(scopeWriteCapacity.back(), op.args.size());
+        scopeWriteFields.back() = fields.size();
+        fields.push_back(llvm::ArrayType::get(llvm::StructType::get(context, {i64, pointer}),
+                                              scopeWriteCapacity.back()));
+        if (scopeSlots.back().contains(plan.result)) {
+          scopeReturnFields.back() = fields.size();
+          fields.push_back(valueType(plan.slots[plan.result]));
+        }
+      }
       frames.push_back(
           llvm::StructType::create(context, fields, "task.frame." + std::to_string(id)));
       packets.push_back(llvm::StructType::get(context, parameters));
@@ -169,6 +208,25 @@ public:
       const std::vector<std::size_t> ids(targets.begin(), targets.end());
       environmentBoxes = emitTaskEnvironmentBoxes(planner.input, ids, module);
     }
+    scopeTables.resize(planner.plans.size());
+    frameDestroyers.resize(planner.plans.size(), destroy);
+    for (std::size_t id = 0; id < planner.plans.size(); ++id)
+      if (arenaFields[id]) {
+        std::vector<llvm::Constant *> elements;
+        for (const auto &[slot, index] : scopeSlots[id])
+          elements.push_back(frameLayout(planner.plans[id]->slots[slot]));
+        auto *tableType = llvm::ArrayType::get(pointer, elements.size());
+        scopeTables[id] =
+            new llvm::GlobalVariable(module, tableType, true, llvm::GlobalValue::InternalLinkage,
+                                     llvm::ConstantArray::get(tableType, elements),
+                                     "task.scope.layouts." + std::to_string(id));
+        auto *cleanup = function("task.frame.destroy." + std::to_string(id), voidType, {pointer});
+        frameDestroyers[id] = cleanup;
+        builder.SetInsertPoint(Block::Create(context, "entry", cleanup));
+        auto *address = builder.CreateStructGEP(frames[id], cleanup->getArg(0), *arenaFields[id]);
+        call("kalandra_value_scopes_destroy_v1", voidType, {builder.CreateLoad(pointer, address)});
+        builder.CreateRetVoid();
+      }
     // All synchronous entry declarations exist before emitting bodies, so
     // self/mutual references and recursive direct calls need no expansion.
     for (std::size_t id = 0; id < planner.plans.size(); ++id)
@@ -373,6 +431,11 @@ public:
 
   llvm::GlobalVariable *emitValueLayout(const ValueType &type) {
     auto *result = layout(type);
+    finishRecordRetainers();
+    return result;
+  }
+  llvm::GlobalVariable *emitFrameValueLayout(const ValueType &type) {
+    auto *result = frameLayout(type);
     finishRecordRetainers();
     return result;
   }
@@ -1098,6 +1161,63 @@ private:
     if (auto error = nativeStackBudgetError(*fn, module.getDataLayout()))
       throw std::runtime_error(*error);
   }
+  llvm::GlobalVariable *frameLayout(const ValueType &type) {
+    const auto name = key(type);
+    if (auto found = frameLayouts.find(name); found != frameLayouts.end())
+      return found->second;
+    llvm::IRBuilderBase::InsertPointGuard guard(builder);
+    auto *wrapper = valueType(type);
+    auto *fn = function("frame.value.copy." + name, boolean, {pointer, pointer, pointer, pointer});
+    auto *result =
+        new llvm::GlobalVariable(module, layoutType, true, llvm::GlobalValue::InternalLinkage,
+                                 nullptr, "frame.value.layout." + name);
+    frameLayouts[name] = result;
+    Function *successCopy;
+    // Keep the strict transport cache separate. In particular, requesting a
+    // fallible frame slot must not make a plain function packet accept errors.
+    if (!type.task &&
+        (type.builtin == BuiltinValue::Function || containsFunctionStorage(planner.input, type))) {
+      auto strict = type;
+      strict.fallible = false;
+      successCopy =
+          function("frame.value.success." + name, boolean, {pointer, pointer, pointer, pointer});
+      if (type.builtin == BuiltinValue::Function && !type.tensor)
+        emitFunctionCopy(strict, successCopy);
+      else
+        emitAggregateCopy(strict, successCopy);
+    } else {
+      auto *base = layout(type);
+      successCopy = llvm::cast<Function>(base->getInitializer()->getOperand(3));
+    }
+    builder.SetInsertPoint(Block::Create(context, "entry", fn));
+    auto *active = Block::Create(context, "active", fn);
+    auto *failure = Block::Create(context, "failure", fn);
+    auto *success = Block::Create(context, "success", fn);
+    auto *copyFailure = Block::Create(context, "copy.failure", fn);
+    auto *rejected = Block::Create(context, "rejected", fn);
+    builder.CreateCondBr(call("kalandra_invocation_ready_v1", boolean, {fn->getArg(0)}), active,
+                         rejected);
+    builder.SetInsertPoint(active);
+    auto *kind = builder.CreateLoad(i32, builder.CreateStructGEP(failureType, fn->getArg(3), 0));
+    builder.CreateCondBr(builder.CreateICmpEQ(kind, c32(0)), success, failure);
+    builder.SetInsertPoint(failure);
+    builder.CreateCondBr(builder.CreateICmpULE(kind, c32(4)), copyFailure, rejected);
+    builder.SetInsertPoint(copyFailure);
+    builder.CreateMemSet(fn->getArg(1), builder.getInt8(0), size(wrapper),
+                         llvm::MaybeAlign(alignment(wrapper)));
+    builder.CreateMemCpy(fn->getArg(1), llvm::MaybeAlign(alignment(wrapper)), fn->getArg(3),
+                         llvm::MaybeAlign(alignment(wrapper)), size(failureType));
+    builder.CreateRet(builder.getTrue());
+    builder.SetInsertPoint(success);
+    builder.CreateRet(builder.CreateCall(
+        successCopy, {fn->getArg(0), fn->getArg(1), fn->getArg(2), fn->getArg(3)}));
+    builder.SetInsertPoint(rejected);
+    builder.CreateRet(builder.getFalse());
+    result->setInitializer(llvm::ConstantStruct::get(
+        layoutType, {c64(0xd000000000ULL + frameLayouts.size()), c64(size(wrapper)),
+                     c64(alignment(wrapper)), fn, destroy}));
+    return result;
+  }
   llvm::GlobalVariable *layout(const ValueType &type) {
     const auto name = key(type);
     if (auto found = layouts.find(name); found != layouts.end())
@@ -1300,8 +1420,19 @@ private:
         builder.CreateCondBr(ok, next, failed);
         builder.SetInsertPoint(next);
       }
+      if (arenaFields[id]) {
+        auto *arena = call("kalandra_value_scopes_create_v1", pointer,
+                           {construct->getArg(0), scopeTables[id], c64(scopeSlots[id].size())});
+        builder.CreateStore(
+            arena, builder.CreateStructGEP(frameType, construct->getArg(1), *arenaFields[id]));
+        auto *ready = Block::Create(context, "scopes.ready", construct);
+        builder.CreateCondBr(builder.CreateIsNotNull(arena), ready, failed);
+        builder.SetInsertPoint(ready);
+      }
       builder.CreateRet(builder.getTrue());
       builder.SetInsertPoint(failed);
+      if (arenaFields[id])
+        builder.CreateCall(frameDestroyers[id], {construct->getArg(1)});
       builder.CreateRet(builder.getFalse());
     }
     const auto resultType = plan.slots[plan.result];
@@ -1369,6 +1500,15 @@ private:
     auto *pc = builder.CreateStructGEP(frameType, frame, 0);
     if (synchronous) {
       auto *initialized = Block::Create(context, "call.initialize", resume);
+      if (arenaFields[id]) {
+        auto *memory = Block::Create(context, "call.memory", resume);
+        builder.CreateCondBr(builder.CreateIsNotNull(frame), memory, abort);
+        builder.SetInsertPoint(memory);
+        // A token can stop a successful allocation before the following poll.
+        // Zero only the cleanup pointer before an abort can inspect the frame.
+        builder.CreateStore(llvm::ConstantPointerNull::get(builder.getPtrTy()),
+                            builder.CreateStructGEP(frameType, frame, *arenaFields[id]));
+      }
       auto *status = call("kalandra_poll_v1", i64, {ctx});
       builder.CreateCondBr(builder.CreateICmpEQ(status, c64(0)), initialized, abort);
       builder.SetInsertPoint(initialized);
@@ -1405,6 +1545,14 @@ private:
         builder.CreateStore(value,
                             builder.CreateStructGEP(valueType(plan.slots[parameter]), slot, 1));
       }
+      if (arenaFields[id]) {
+        auto *arena = call("kalandra_value_scopes_create_v1", pointer,
+                           {ctx, scopeTables[id], c64(scopeSlots[id].size())});
+        builder.CreateStore(arena, builder.CreateStructGEP(frameType, frame, *arenaFields[id]));
+        auto *ready = Block::Create(context, "scopes.ready", resume);
+        builder.CreateCondBr(builder.CreateIsNotNull(arena), ready, abort);
+        builder.SetInsertPoint(ready);
+      }
       builder.CreateBr(blocks.front());
     } else {
       auto *dispatch = builder.CreateSwitch(builder.CreateLoad(i32, pc), abort, blocks.size());
@@ -1412,6 +1560,10 @@ private:
         dispatch->addCase(c32(n), blocks[n]);
     }
     builder.SetInsertPoint(leave);
+    if (arenaFields[id]) {
+      auto *address = builder.CreateStructGEP(frameType, frame, *arenaFields[id]);
+      call("kalandra_value_scopes_end_v1", voidType, {builder.CreateLoad(pointer, address)});
+    }
     returnZero();
     builder.SetInsertPoint(abort);
     if (synchronous) {
@@ -1431,11 +1583,17 @@ private:
           builder.CreateICmpNE(frame, llvm::ConstantPointerNull::get(builder.getPtrTy())), release,
           done);
       builder.SetInsertPoint(release);
+      if (arenaFields[id])
+        builder.CreateCall(frameDestroyers[id], {frame});
       call("kalandra_free_v1", voidType, {ctx, frame});
       builder.CreateBr(done);
       builder.SetInsertPoint(done);
       returnZero();
     } else {
+      if (arenaFields[id]) {
+        auto *address = builder.CreateStructGEP(frameType, frame, *arenaFields[id]);
+        call("kalandra_value_scopes_end_v1", voidType, {builder.CreateLoad(pointer, address)});
+      }
       auto *status = call("kalandra_status_v1", i64, {ctx});
       auto *cancelled = call("kalandra_task_cancelled_v1", boolean, {task});
       auto *cancelExit = Block::Create(context, "cancelled", resume);
@@ -1456,10 +1614,81 @@ private:
     const auto group = [&](std::size_t n) {
       return builder.CreateStructGEP(frameType, frame, plan.slots.size() + 1 + n);
     };
+    const auto arena = [&]() {
+      return builder.CreateLoad(pointer,
+                                builder.CreateStructGEP(frameType, frame, *arenaFields[id]));
+    };
+    const auto edge = [&](Block *target, std::vector<Slot> writes) -> Block * {
+      if (!arenaFields[id])
+        return target;
+      std::erase_if(writes, [&](auto value) { return !scopeSlots[id].contains(value); });
+      std::ranges::sort(writes);
+      writes.erase(std::unique(writes.begin(), writes.end()), writes.end());
+      llvm::IRBuilderBase::InsertPointGuard restore(builder);
+      auto *finished = Block::Create(context, "values.finish", resume);
+      builder.SetInsertPoint(finished);
+      if (writes.empty()) {
+        call("kalandra_value_scopes_end_v1", voidType, {arena()});
+        builder.CreateBr(target);
+      } else {
+        Value *ok;
+        if (writes.size() == 1) {
+          ok = call("kalandra_value_scopes_commit_v1", boolean,
+                    {arena(), c64(scopeSlots[id].at(writes[0])), slot(writes[0])});
+        } else {
+          if (writes.size() > scopeWriteCapacity[id])
+            throw std::runtime_error(
+                "continuation ownership write table exceeds its frame capacity");
+          auto *cellType = llvm::StructType::get(context, {i64, pointer});
+          auto *tableType = llvm::ArrayType::get(cellType, scopeWriteCapacity[id]);
+          auto *table = builder.CreateStructGEP(frameType, frame, *scopeWriteFields[id]);
+          for (std::size_t i = 0; i < writes.size(); ++i) {
+            auto *cell = builder.CreateInBoundsGEP(tableType, table, {c64(0), c64(i)});
+            builder.CreateStore(c64(scopeSlots[id].at(writes[i])),
+                                builder.CreateStructGEP(cellType, cell, 0));
+            builder.CreateStore(slot(writes[i]), builder.CreateStructGEP(cellType, cell, 1));
+          }
+          ok =
+              call("kalandra_value_scopes_batch_v1", boolean, {arena(), table, c64(writes.size())});
+        }
+        builder.CreateCondBr(ok, target, abort);
+      }
+      return finished;
+    };
     for (std::size_t n = 0; n < plan.code.size(); ++n) {
       const auto &instruction = plan.code[n];
       builder.SetInsertPoint(blocks[n]);
-      auto *next = n + 1 < blocks.size() ? blocks[n + 1] : abort;
+      if (arenaFields[id]) {
+        auto *active = Block::Create(context, "values.active", resume);
+        builder.CreateCondBr(call("kalandra_value_scopes_begin_v1", boolean, {arena()}), active,
+                             abort);
+        builder.SetInsertPoint(active);
+      }
+      std::vector<Slot> written;
+      switch (instruction.code) {
+      case Code::Literal:
+      case Code::Kernel:
+      case Code::Copy:
+      case Code::FunctionReference:
+      case Code::CallableSyncGuard:
+      case Code::SynchronousCall:
+      case Code::FunctionInvoke:
+      case Code::MapInit:
+      case Code::MapLoad:
+      case Code::Await:
+      case Code::Field:
+      case Code::Join:
+      case Code::Try:
+        written.push_back(instruction.output);
+        break;
+      case Code::CallableCaptures:
+        written.push_back(instruction.output);
+        written.insert(written.end(), instruction.args.begin() + 1, instruction.args.end());
+        break;
+      default:
+        break;
+      }
+      auto *next = edge(n + 1 < blocks.size() ? blocks[n + 1] : abort, std::move(written));
       auto check = [&] {
         auto *status = call("kalandra_poll_v1", i64, {ctx});
         builder.CreateCondBr(builder.CreateICmpEQ(status, c64(0)), next, abort);
@@ -1725,6 +1954,7 @@ private:
       }
       case Code::MapInit: {
         const auto input = instruction.args[0];
+        builder.CreateStore(c64(0), payload(instruction.args[1]));
         const auto inputElement = recordArrayElement(plan.slots[input]);
         const auto outputElement = recordArrayElement(type);
         const auto inputBytes = size(scalarType(inputElement));
@@ -1877,7 +2107,7 @@ private:
         auto exit = groupExits.at(instruction.group);
         if (exit == SIZE_MAX)
           throw std::runtime_error("spawn has no owning group exit");
-        builder.CreateCondBr(hasFailure(spawnFailure), blocks[exit], abort);
+        builder.CreateCondBr(hasFailure(spawnFailure), edge(blocks[exit], {}), abort);
         break;
       }
       case Code::Await: {
@@ -1925,7 +2155,7 @@ private:
           auto *accepted =
               call("kalandra_task_stop_group_v1", boolean, {task, group(instruction.group)});
           auto *store = Block::Create(context, "group.primary", resume);
-          builder.CreateCondBr(accepted, store, blocks[instruction.jump]);
+          builder.CreateCondBr(accepted, store, edge(blocks[instruction.jump], {}));
           builder.SetInsertPoint(store);
           if (explicitFail && source.builtin == BuiltinValue::Record)
             copyErrorValue(*target.errorRecord, application(target, slot(instruction.target)),
@@ -1951,7 +2181,10 @@ private:
                  failureType);
         } else
           copyErrors(target, slot(instruction.target), source, slot(input));
-        builder.CreateBr(blocks[instruction.jump]);
+        builder.CreateBr(
+            edge(blocks[instruction.jump], instruction.group == SIZE_MAX || target.errorRecord
+                                               ? std::vector<Slot>{instruction.target}
+                                               : std::vector<Slot>{}));
         builder.SetInsertPoint(success);
         if (!explicitFail)
           copyResult(type, slot(instruction.output), source, slot(input));
@@ -1970,18 +2203,18 @@ private:
                            plan.slots[input], slot(input));
         else
           copy(payload(instruction.args[1]), header, failureType);
-        builder.CreateBr(blocks[instruction.jump]);
+        builder.CreateBr(edge(blocks[instruction.jump], {instruction.args[1]}));
         builder.SetInsertPoint(success);
         builder.CreateStore(llvm::Constant::getNullValue(valueType(type)),
                             slot(instruction.output));
         copy(builder.CreateStructGEP(valueType(type), slot(instruction.output), 1), payload(input),
              valueType(type)->getElementType(1));
-        builder.CreateBr(blocks[instruction.target]);
+        builder.CreateBr(edge(blocks[instruction.target], {instruction.output}));
         break;
       }
       case Code::Branch:
         builder.CreateCondBr(builder.CreateLoad(boolean, payload(instruction.args[0])), next,
-                             blocks[instruction.jump]);
+                             edge(blocks[instruction.jump], {}));
         break;
       case Code::Case: {
         auto subject = instruction.args[0];
@@ -1990,7 +2223,8 @@ private:
                                : payload(subject);
         auto *tag = builder.CreateLoad(i32, tagAddress);
         builder.CreateCondBr(builder.CreateICmpEQ(tag, c32(instruction.target)), next,
-                             instruction.jump == SIZE_MAX ? abort : blocks[instruction.jump]);
+                             instruction.jump == SIZE_MAX ? abort
+                                                          : edge(blocks[instruction.jump], {}));
         break;
       }
       case Code::Jump:
@@ -1999,10 +2233,10 @@ private:
           // New statement loops need a checkpoint. Existing parallelMap
           // backedges retain their own batched MapAdvance polling policy.
           auto *status = call("kalandra_poll_v1", i64, {ctx});
-          builder.CreateCondBr(builder.CreateICmpEQ(status, c64(0)), blocks[instruction.jump],
-                               abort);
+          builder.CreateCondBr(builder.CreateICmpEQ(status, c64(0)),
+                               edge(blocks[instruction.jump], {}), abort);
         } else
-          builder.CreateBr(blocks[instruction.jump]);
+          builder.CreateBr(edge(blocks[instruction.jump], {}));
         break;
       case Code::Field: {
         if (std::holds_alternative<ErrorNarrow>(
@@ -2101,20 +2335,45 @@ private:
         throw std::runtime_error("CPU emitter received an unsupported placed operation");
       case Code::Return:
         if (synchronous) {
+          Value *published = nullptr;
+          if (arenaFields[id] && scopeSlots[id].contains(instruction.args[0])) {
+            if (key(resultType) != key(plan.slots[instruction.args[0]]))
+              throw std::runtime_error(
+                  "scoped synchronous return requires its declared frame layout");
+            published = resultType.fallible
+                            ? resume->getArg(1)
+                            : builder.CreateStructGEP(frameType, frame, *scopeReturnFields[id]);
+            auto *ready = Block::Create(context, "return.published", resume);
+            auto *ok = call("kalandra_value_scopes_publish_v1", boolean,
+                            {arena(), c64(scopeSlots[id].at(instruction.args[0])), published,
+                             slot(instruction.args[0])});
+            builder.CreateCondBr(ok, ready, abort);
+            builder.SetInsertPoint(ready);
+          }
           if (resultType.fallible) {
-            copyResult(resultType, resume->getArg(1), plan.slots[instruction.args[0]],
-                       slot(instruction.args[0]));
+            if (!published)
+              copyResult(resultType, resume->getArg(1), plan.slots[instruction.args[0]],
+                         slot(instruction.args[0]));
+            if (arenaFields[id])
+              builder.CreateCall(frameDestroyers[id], {frame});
             call("kalandra_free_v1", voidType, {ctx, frame});
             call("kalandra_call_leave_v1", voidType, {ctx});
             builder.CreateRetVoid();
           } else {
-            auto *value = builder.CreateLoad(scalarType(resultType), payload(instruction.args[0]));
+            auto *value = builder.CreateLoad(
+                scalarType(resultType),
+                published ? builder.CreateStructGEP(valueType(resultType), published, 1)
+                          : payload(instruction.args[0]));
+            if (arenaFields[id])
+              builder.CreateCall(frameDestroyers[id], {frame});
             call("kalandra_free_v1", voidType, {ctx, frame});
             call("kalandra_call_leave_v1", voidType, {ctx});
             builder.CreateRet(value);
           }
         } else {
           call("kalandra_task_complete_v1", voidType, {task, slot(instruction.args[0])});
+          if (arenaFields[id])
+            call("kalandra_value_scopes_end_v1", voidType, {arena()});
           builder.CreateRetVoid();
         }
         break;
@@ -2124,8 +2383,8 @@ private:
       auto *resultLayout = layout(plan.slots[plan.result]);
       entries[id]->setInitializer(llvm::ConstantStruct::get(
           entryType, {c32(1), c64(id + 100), c64(size(packets[id])), c64(alignment(packets[id])),
-                      c64(size(frameType)), c64(alignment(frameType)), construct, destroy, resume,
-                      resultLayout}));
+                      c64(size(frameType)), c64(alignment(frameType)), construct,
+                      frameDestroyers[id], resume, resultLayout}));
     }
   }
 };
@@ -2146,6 +2405,14 @@ llvm::GlobalVariable *emitTaskKernelValueLayout(const TypedModule &input,
   planner.kernels = kernels;
   return Emitter(planner, module).emitValueLayout(type);
 }
+llvm::GlobalVariable *emitTaskFrameValueLayout(const TypedModule &input, const TypedModule &kernels,
+                                               llvm::Module &module, const ValueType &type) {
+  if (!input.functions.empty() || !input.expressions.empty())
+    throw std::invalid_argument("component frame layout requires a schema-only source module");
+  continuation::ModulePlan planner(input);
+  planner.kernels = kernels;
+  return Emitter(planner, module).emitFrameValueLayout(type);
+}
 std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &planner,
                                                     llvm::Module &module) {
   if (planner.plans.empty() || planner.plans.size() != planner.input.functions.size() ||
@@ -2158,13 +2425,14 @@ std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &pl
 }
 std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &input,
                                                           std::optional<std::string> testEntry,
-                                                          ArithmeticMode arithmetic, const CpuTarget &target) {
+                                                          ArithmeticMode arithmetic,
+                                                          const CpuTarget &target) {
   if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
     return std::unexpected(*error);
   if (hasPlacement(input))
     return std::unexpected("placement-aware IR requires a placement-capable execution backend");
   try {
-    auto planned = continuation::plan(input);
+    auto planned = continuation::plan(input, {.valueScopes = true});
     if (!planned)
       return std::unexpected(planned.error());
     std::optional<continuation::ModulePlan> fallback;
@@ -2174,8 +2442,9 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
       // Native subgraphs are an optimization, not a new source admission
       // requirement. A large synchronous body can still use budgeted checked
       // continuation storage when the native physical frame would be too big.
-      auto legacy = continuation::plan(input, {.nativeSubgraphs = false});
-      if (!legacy) return std::unexpected(legacy.error());
+      auto legacy = continuation::plan(input, {.nativeSubgraphs = false, .valueScopes = true});
+      if (!legacy)
+        return std::unexpected(legacy.error());
       fallback.emplace(std::move(*legacy));
       planner = &*fallback;
       kernels = lowerNative(planner->kernels, {}, {}, arithmetic, true, target);
@@ -2188,12 +2457,15 @@ std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &inp
     if (!module)
       return std::unexpected("cannot read verified kernel LLVM module");
     std::set<llvm::Function *> kernelFunctions;
-    for (auto &fn : *module) if (!fn.isDeclaration()) kernelFunctions.insert(&fn);
+    for (auto &fn : *module)
+      if (!fn.isDeclaration())
+        kernelFunctions.insert(&fn);
     Emitter(*planner, *module).run(testEntry);
     for (auto &fn : *module)
       if (!fn.isDeclaration() && !kernelFunctions.contains(&fn))
         fn.addFnAttr("kalandra.task.frame");
-    if (auto error = optimizeNativeCalls(module)) return std::unexpected(*error);
+    if (auto error = optimizeNativeCalls(module))
+      return std::unexpected(*error);
     std::string errors;
     llvm::raw_string_ostream stream(errors);
     if (llvm::verifyModule(*module, &stream))

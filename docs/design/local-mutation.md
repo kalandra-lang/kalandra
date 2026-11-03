@@ -92,10 +92,10 @@ Rebinding a name does not grant write access to read-only storage.
 4. Explicit mutating contracts and the storage/read-access proof are implemented
    and locally qualified. Branches conservatively
    retain possible outstanding readers; loops account for zero iterations and
-   require iteration-owned tasks to settle. Element writes remain gated on the
-   following stage.
+   require iteration-owned tasks to settle. Element writes and sorting use
+   this same proof.
 5. Bounds-checked numeric/Bool element writes are implemented and locally
-   qualified; sorting remains to implement. Document supported element
+   qualified, together with in-place `sort` and fresh `sorted`. Document supported element
    types, copy depth, float ordering and cancellation behavior. In-place mutation
    need not be transactional, but must remain memory-safe on every exit.
 6. Update user documentation, formatter, editor, examples and migration notes;
@@ -162,12 +162,12 @@ and validated as for the existing callable ABI. Open/large target sets retain th
 existing generic callable ABI and its conservative escaped-result lifetime. This
 is an implementation choice, not a source call-count or recursion limit.
 
-Bool array name replacement and replacement across task/expected-error
-coordination remain gated. The older Bool carrier and generic continuation slots
-retain backing until invocation settlement. They need explicit lifetime work;
-merely copying descriptors into reusable slots would keep distinct discarded
-arrays alive. Existing cumulative invocation quota reservations remain unchanged,
-including after explicit frees. The numerical loop qualification measures actual
+Bool array name replacement remains gated. The older Bool carrier retains
+backing until invocation settlement and needs its own lifetime integration.
+Numeric array replacement across CPU task/expected-error coordination uses
+transactional frame scopes as described below. Merely copying descriptors into
+reusable slots would keep distinct discarded arrays alive. Default invocation
+quota reservations remain cumulative, including after explicit frees. The numerical loop qualification measures actual
 live owners separately from those cumulative reservations. Mixed GPU source-array
 carriers remain a separate integration boundary.
 
@@ -275,7 +275,7 @@ retry effects and GPU kernel memory semantics require explicit decisions; this
 proposal does not silently admit them.
 
 
-### Scoped ownership foundation (not yet enabled in compiler output)
+### Scoped ownership in CPU continuations
 
 The private runtime can separate an invocation's owner list into compiler-owned
 storage scopes. All scopes share the same Invocation pointer: cancellation,
@@ -298,11 +298,11 @@ Runtime component tests exercise 10,000 replacement iterations, 5,000 recursive
 graph publications, saved aliases, bounded aggregate reservations, failure
 attempts across resets, cancellation/fault precedence, worker migration,
 transport retention and early invocation settlement in all four build modes.
-These tests do not establish source-level suspended replacement support. Task
-frame construction, instruction commits, return publication and frame destruction
-still need integration and qualification before removing the admission gates.
+Generated CPU continuations now integrate task frame construction, instruction
+commits, return publication, suspension and frame destruction for numeric array
+replacement. Programs without this requirement retain their previous paths.
 The private layout link guard advances to v4; development compiler and runtime
-bundles must be rebuilt together. No released source behavior changes here.
+bundles must be rebuilt together. This remains unreleased branch work.
 
 
 Compiler value-scope storage now has a private runtime component: one reusable
@@ -321,10 +321,14 @@ work scope was rejected: it could free registered child scope nodes before their
 destructors ran. The skipped-return regression tests cover both parent-frame
 cleanup and final invocation settlement.
 
-These components are not yet selected by generated continuations. Integration
-must cover every owning producer, branch/error edge, map initialization and task
-suspension before the source reassignment gates are removed. No source behavior
-or cancellation contract changes in this foundation.
+Each generated instruction selects a temporary work scope. Its owning writes
+commit complete graphs; all branch/error, suspension and return edges restore
+the previous selection. Frame layouts accept stopped results without reading
+absent success payloads; ordinary transport validation remains strict. Numeric
+parallel-map buffers retain their raw numeric backing before initialization.
+Bool and owned-element map buffers are explicitly rejected in these scoped
+plans until initialized-prefix ownership is implemented. No cancellation
+contract changes.
 
 
 Multi-output instructions must publish as a batch. Each output first copies its
@@ -337,5 +341,13 @@ This handles cloned closure environments whose sibling outputs still refer to
 the original environment. Empty arrays and supported positive-stride numeric views retain their
 descriptors and aliases through the same private bridge. Boolean transport
 continues to require its existing contiguous representation; negative-stride
-imports remain rejected. These runtime components still require
-compiler instruction/edge integration before source admission changes.
+imports remain rejected. The compiler emits this batch bridge for multi-output capture instructions.
+
+
+The current access proof uses allocation-site origins. It can conservatively
+reject a loop that repeatedly spawns a reader of the old array, replaces the
+binding with a fresh array at the same source allocation site, and edits the
+fresh array before awaiting the reader. This needs a bounded distinction between
+current and previous allocation instances; removing reader checks would be
+unsound. Saved aliases and zero-iteration edges must remain protected when that
+precision is added.

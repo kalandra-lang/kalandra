@@ -96,6 +96,28 @@ def program_cases():
         'fn work(a:[int])->[int]:\n  a=sorted(a)\n  a[0]=9\n  a\n'
         'fn main()->int ! TaskError:\n  a=[3,1,2]\n  b=try parallel:\n'
         '    try await spawn work(a)\n  a[0]*100+b[0]\n'), output='309\n')
+    for numeric in ('int', 'float64'):
+        cases['array-rebind-suspended-' + numeric] = dict(source=(
+            f'fn read(a:[{numeric}])->int:\n  int(a[0])\n'
+            'fn main()->int ! TaskError:\n'
+            f'  a=[{numeric}(7),{numeric}(8)]\n  saved=a\n  i=0\n  total=0\n'
+            '  while i<1000:\n    value=try parallel:\n      old=spawn read(a)\n'
+            f'      a=if i%2==0:[{numeric}(1),{numeric}(2),{numeric}(3)]\n'
+            f'      else:[{numeric}(4)]\n      try await old\n'
+            '    total=total+value\n    i=i+1\n'
+            '  int(saved[0])+total+int(a[0])+length(a)\n'), output='2515\n')
+    cases['array-rebind-error-capture'] = dict(source=(
+        'type Box:\n  apply:fn(int)->int\nerror Stop:\n  Bad:\n    values:[int]\n'
+        'fn work(ok:Bool)->Box ! Stop:\n  a=[7,8]\n  a=[1,2]\n'
+        '  if ok:Box {apply:fn(i:int):a[0]+i}\n  else:fail Stop.Bad {values:a}\n'
+        'fn main()->int:\n  good=work(true) catch fn(error):Box {apply:fn(i:int):0}\n'
+        '  bad=work(false) catch fn(error):\n    match error:\n'
+        '      Stop.Bad {values}:Box {apply:fn(i:int):values[1]+i}\n'
+        '  good.apply(10)*100+bad.apply(10)\n'), output='1112\n')
+    cases['array-rebind-repeated-map'] = dict(source=(
+        'fn main()->int ! TaskError:\n  a=[7]\n  saved=a\n  i=0\n  total=0\n'
+        '  while i<100:\n    a=try parallelMap([1,2,3,4,5,6,7,8,9],fn(value):value+1)\n'
+        '    total=total+a[8]\n    i=i+1\n  saved[0]+total+length(a)\n'), output='1016\n')
     cases['bool-array-sort'] = dict(source=(
         'fn main()->int:\n  a=[true,false,true,false]\n  b=sorted(a)\n  c=sort(a)\n'
         '  if not a[0] and not c[1] and b[2] and b[3]:42\n  else:0\n'), output='42\n')

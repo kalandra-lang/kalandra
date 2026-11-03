@@ -39,7 +39,8 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return op.elements;
         else if constexpr (std::is_same_v<T, TensorTransform>) {
           std::vector<ValueId> result{op.input};
-          if (op.epsilon) result.push_back(*op.epsilon);
+          if (op.epsilon)
+            result.push_back(*op.epsilon);
           return result;
         } else if constexpr (std::is_same_v<T, TensorUnary> || std::is_same_v<T, ScalarUnary>)
           return {op.operand};
@@ -49,7 +50,8 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return {op.left, op.right};
         else if constexpr (std::is_same_v<T, ReduceSum> || std::is_same_v<T, CollectionQuery> ||
                            std::is_same_v<T, StringQuery> || std::is_same_v<T, NumericConvert> ||
-                           std::is_same_v<T, TensorToArray> || std::is_same_v<T, ArraySort> || std::is_same_v<T, ShapeCheck>)
+                           std::is_same_v<T, TensorToArray> || std::is_same_v<T, ArraySort> ||
+                           std::is_same_v<T, ShapeCheck>)
           return {op.input};
         else if constexpr (std::is_same_v<T, StringSlice> || std::is_same_v<T, ArraySlice>)
           return {op.input, op.start, op.end};
@@ -110,8 +112,11 @@ public:
     if (hasPlacement(input) && !options.preserveCalls)
       throw std::runtime_error("placement-aware plans require preserved target calls");
     for (const auto &symbol : input.symbols)
-      if (symbol.reassignable && symbol.type.array && resumable.at(symbol.owner))
-        throw std::runtime_error("array binding reassignment is not yet supported with task or expected-error coordination; move synchronous array work into a helper");
+      if (symbol.reassignable && symbol.type.array && resumable.at(symbol.owner) &&
+          (!options.valueScopes || options.preserveCalls))
+        throw std::runtime_error(
+            "array binding reassignment is not yet supported with task or expected-error "
+            "coordination; move synchronous array work into a helper");
     localCells.resize(input.functions.size());
     for (SymbolId symbol = 0; symbol < input.symbols.size(); ++symbol)
       if (input.symbols[symbol].reassignable)
@@ -188,12 +193,14 @@ private:
       // but all of its computation belongs to one native subgraph/boundary.
       kernels.functions[target].name = "__step_native_" + std::to_string(id);
       const auto output = slot(plan, input.functions[id].resultType);
-      plan.code.push_back({Code::Kernel, output, args, target, 0, 0,
-                           input.functions[id].result});
+      plan.code.push_back({Code::Kernel, output, args, target, 0, 0, input.functions[id].result});
       return output;
     }
     if (!stack.insert(id).second || stack.size() > 128)
       throw std::runtime_error("recursive calls are not implemented in task-enabled modules yet");
+    if (options.valueScopes)
+      for (auto symbol : localCells[id])
+        plan.valueScopes |= input.symbols[symbol].type.array;
     Environment env;
     env.group = ambient;
     const auto &fn = input.functions[id];
@@ -254,7 +261,8 @@ private:
             op.symbol = importSymbol(op.symbol);
           else if constexpr (std::is_same_v<T, TensorTransform>) {
             op.input = importValue(op.input);
-            if (op.epsilon) op.epsilon = importValue(*op.epsilon);
+            if (op.epsilon)
+              op.epsilon = importValue(*op.epsilon);
           } else if constexpr (std::is_same_v<T, ScalarUnary> || std::is_same_v<T, TensorUnary>)
             op.operand = importValue(op.operand);
           else if constexpr (std::is_same_v<T, ScalarBinary> || std::is_same_v<T, TensorBinary> ||
@@ -465,7 +473,8 @@ private:
       multiply->right = reads[1];
     } else if (auto *transform = std::get_if<TensorTransform>(&op)) {
       transform->input = reads[0];
-      if (transform->epsilon) transform->epsilon = reads[1];
+      if (transform->epsilon)
+        transform->epsilon = reads[1];
     } else if (auto *unary = std::get_if<TensorUnary>(&op)) {
       unary->operand = reads[0];
     } else if (auto *elementwise = std::get_if<TensorBinary>(&op)) {
@@ -560,7 +569,9 @@ private:
     ValueType boolean;
     boolean.builtin = BuiltinValue::Bool;
     const auto active = slot(plan, boolean);
-    plan.code.push_back({Code::MapInit, buffer, {inputSlot}, 0, 0, 0, id});
+    // Map execution can repeat on a statement-loop backedge. The frame is only
+    // zeroed once, so each new map must explicitly reset its iteration index.
+    plan.code.push_back({Code::MapInit, buffer, {inputSlot, index}, 0, 0, 0, id});
     plan.code.push_back({Code::Copy, output, {buffer}});
     const auto loop = plan.code.size();
     plan.code.push_back({Code::MapCheck, active, {inputSlot, index}});
@@ -1042,8 +1053,8 @@ private:
       std::vector<Slot> args;
       for (auto arg : operands(node))
         args.push_back(expression(plan, arg, env, stack));
-      plan.code.push_back({Code::Kernel, output, args,
-                           options.preserveCalls ? 0 : kernel(id), 0, 0, id});
+      plan.code.push_back(
+          {Code::Kernel, output, args, options.preserveCalls ? 0 : kernel(id), 0, 0, id});
     } else if (const auto *unary = std::get_if<ScalarUnary>(&node.operation)) {
       auto arg = expression(plan, unary->operand, env, stack);
       plan.code.push_back({Code::Unary, output, {arg}, 0, 0, 0, id});

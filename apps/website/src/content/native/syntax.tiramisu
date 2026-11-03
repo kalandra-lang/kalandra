@@ -41,7 +41,7 @@ The pipeline inserts its left value as the first argument. Here the final line i
 
 h2 { "Reassign a local scalar" }
 
-Unreleased language branch: reuse = to update a numeric or Bool binding while preserving its type. A scalar function parameter is a private value; rebinding it cannot change the caller's binding. Existing scalar names are reassigned across statement branches, while newly introduced names remain scoped to their body. Synchronous, non-fallible CPU functions also support replacing numeric array names as described in the array tutorial. Other array element categories, records, function values and tensors are not reassignable in this stage.
+Unreleased language branch: reuse = to update a numeric or Bool binding while preserving its type. A scalar function parameter is a private value; rebinding it cannot change the caller's binding. Existing scalar names are reassigned across statement branches, while newly introduced names remain scoped to their body. CPU functions also support replacing numeric array names, including across task waits and expected-error handling, as described in the array tutorial. Other array element categories, records, function values and tensors are not reassignable in this stage.
 
 codeblock { language = kalandra, """fn double(value: int) -> int:
   value = value * 2
