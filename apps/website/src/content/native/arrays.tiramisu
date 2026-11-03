@@ -50,7 +50,7 @@ codeblock { language = kalandra, """fn main() -> [int]:
 """ }
 The result is [3, 4, 1]. Branches and while loops carry the current array reference. Ordinary numeric-array parameters and captures may replace their own private name; that does not grant permission to modify their original read-only storage. A replacement with fresh storage provides writable data, while assigning another read-only array preserves its read-only access path.
 
-Bool, String, record and function-array name reassignment is not included yet. Functions that combine replacement with parallelMap currently support numeric output arrays only; Bool and owned-element outputs remain gated. Source arrays also remain unsupported in mixed GPU supervisors. Element assignment and sort on existing numeric or Bool storage follow the separate rules below.
+Bool, String, record and function-array name reassignment is not included yet. Functions that combine replacement with parallelMap support numeric and Bool output arrays; outputs containing owned child values remain gated. Source arrays also remain unsupported in mixed GPU supervisors. Element assignment and sort on existing numeric or Bool storage follow the separate rules below.
 
 A task continues reading the storage it received even when the parent replaces its local name. Fresh replacement storage can be modified independently. An alias of the old array remains protected until its task readers settle.
 

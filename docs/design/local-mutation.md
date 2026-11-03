@@ -326,8 +326,10 @@ commit complete graphs; all branch/error, suspension and return edges restore
 the previous selection. Frame layouts accept stopped results without reading
 absent success payloads; ordinary transport validation remains strict. Numeric
 parallel-map buffers retain their raw numeric backing before initialization.
-Bool and owned-element map buffers are explicitly rejected in these scoped
-plans until initialized-prefix ownership is implemented. No cancellation
+Boolean map buffers first receive valid false bytes in checked 4 KiB chunks,
+so complete frame-layout validation never reads uninitialized cells. Every
+callback still writes its output before success can escape. Owned-element map
+buffers remain rejected until initialized-prefix ownership is implemented. No cancellation
 contract changes.
 
 

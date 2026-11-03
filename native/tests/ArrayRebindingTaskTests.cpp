@@ -4,6 +4,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <thread>
 using namespace kalandra::runtime;
 #ifndef EXPECTED_BIAS
@@ -11,6 +12,9 @@ using namespace kalandra::runtime;
 #endif
 #ifndef EXPECTED_PER_PAIR
 #define EXPECTED_PER_PAIR 5
+#endif
+#ifndef TASK_IN_FLIGHT
+#define TASK_IN_FLIGHT 8
 #endif
 extern "C" const TaskEntry *const kalandra_task_test_entry;
 struct Value {
@@ -47,7 +51,7 @@ int main() {
         limits.records = 16;
         limits.groups = 8;
         limits.ready = 8;
-        limits.inFlight = 8;
+        limits.inFlight = TASK_IN_FLIGHT;
         auto core = TaskCore::create(limits);
         require(bool(core), "array loop task core creation failed");
         const bool cancel = mode == 1;
@@ -90,8 +94,12 @@ int main() {
             require(failure.kind == TaskFailure::Fault && failure.code == 4,
                     "array loop arithmetic fault was replaced during cleanup");
           else if (failure.kind != TaskFailure::None)
-            require(allocationFailure && failure.kind == TaskFailure::Fault && failure.code == 2,
-                    "array loop allocation failure changed its error channel");
+            if (!(allocationFailure && failure.kind == TaskFailure::Fault && failure.code == 2))
+              throw std::runtime_error("array loop allocation failure changed its error channel: " +
+                                       std::to_string(workers) + " workers, attempt " +
+                                       std::to_string(allocationFailure) + ", kind " +
+                                       std::to_string(static_cast<unsigned>(failure.kind)) +
+                                       ", code " + std::to_string(failure.code));
           if (!allocationFailure && !fault)
             require(failure.kind == TaskFailure::None, "healthy array loop failed");
         }

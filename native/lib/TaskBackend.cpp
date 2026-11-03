@@ -127,8 +127,10 @@ public:
       scopeSlots.emplace_back();
       if (plan.valueScopes) {
         for (const auto &op : plan.code)
-          if (op.code == Code::MapInit && plan.slots.at(op.output).builtin != BuiltinValue::Numeric)
-            throw std::runtime_error("Boolean/owned-element continuation maps with array "
+          if (op.code == Code::MapInit &&
+              plan.slots.at(op.output).builtin != BuiltinValue::Numeric &&
+              !isBoolArray(plan.slots.at(op.output)))
+            throw std::runtime_error("owned-element continuation maps with array "
                                      "reassignment are not yet supported");
         arenaFields.back() = fields.size();
         fields.push_back(pointer);
@@ -1996,6 +1998,35 @@ private:
         auto *buffer = builder.CreatePHI(pointer, 2);
         buffer->addIncoming(llvm::ConstantPointerNull::get(builder.getPtrTy()), empty);
         buffer->addIncoming(data, allocated);
+        if (arenaFields[id] && isBoolArray(type)) {
+          // Frame publication validates every Boolean byte. Establish valid
+          // false cells before retaining a partially constructed map; each
+          // callback still replaces its own cell before success is published.
+          // Keep initialization interruptible rather than one unbounded memset.
+          auto *zero = Block::Create(context, "map.zero", resume);
+          auto *chunk = Block::Create(context, "map.zero.chunk", resume);
+          auto *advance = Block::Create(context, "map.zero.advance", resume);
+          auto *initialized = Block::Create(context, "map.initialized", resume);
+          auto *initial = builder.GetInsertBlock();
+          builder.CreateBr(zero);
+          builder.SetInsertPoint(zero);
+          auto *offset = builder.CreatePHI(i64, 2);
+          offset->addIncoming(c64(0), initial);
+          builder.CreateCondBr(builder.CreateICmpULT(offset, count), chunk, initialized);
+          builder.SetInsertPoint(chunk);
+          auto *remaining = builder.CreateSub(count, offset);
+          auto *bytes = builder.CreateSelect(builder.CreateICmpULT(remaining, c64(4096)), remaining,
+                                             c64(4096));
+          auto *address = builder.CreateInBoundsGEP(builder.getInt8Ty(), buffer, offset);
+          builder.CreateMemSet(address, builder.getInt8(0), bytes, llvm::MaybeAlign(1));
+          builder.CreateCondBr(builder.CreateICmpEQ(call("kalandra_poll_v1", i64, {ctx}), c64(0)),
+                               advance, abort);
+          builder.SetInsertPoint(advance);
+          auto *nextOffset = builder.CreateAdd(offset, bytes);
+          offset->addIncoming(nextOffset, advance);
+          builder.CreateBr(zero);
+          builder.SetInsertPoint(initialized);
+        }
         Value *value = llvm::Constant::getNullValue(descriptor(type));
         value = builder.CreateInsertValue(value, buffer, {0});
         value = builder.CreateInsertValue(value, buffer, {1});
