@@ -16,6 +16,9 @@ public:
   };
   // Retain every result before retiring input storage shared by the results.
   bool commitBatch(const Write *, std::uint64_t) noexcept;
+  // Keep a fully normalized element graph in a partially built array's scope.
+  // The caller stores the rewritten payload, not the original graph's bytes.
+  bool append(std::size_t, const ValueLayout &, void *) noexcept;
   void end() noexcept;
   bool publish(std::size_t, void *, const void *) noexcept;
 
@@ -28,6 +31,7 @@ private:
   Invocation::OwnershipScope work_, spare_;
   Invocation::OwnershipScope *slots_ = nullptr;
   std::byte *scratch_ = nullptr;
+  std::size_t scratchBytes_ = 0;
   std::optional<Invocation::OwnershipSelection> selection_;
 };
 } // namespace kalandra::runtime
@@ -47,6 +51,8 @@ void kalandra_value_scopes_end_v1(kalandra::runtime::ValueScopes *) noexcept;
 bool kalandra_value_scopes_batch_v1(kalandra::runtime::ValueScopes *,
                                     const kalandra::runtime::ValueScopes::Write *,
                                     std::uint64_t) noexcept;
+bool kalandra_value_scopes_append_v1(kalandra::runtime::ValueScopes *, std::uint64_t,
+                                     const kalandra::runtime::ValueLayout *, void *) noexcept;
 void kalandra_value_scopes_destroy_v1(kalandra::runtime::ValueScopes *) noexcept;
 }
 static_assert(sizeof(kalandra::runtime::ValueScopes::Write) == 16 &&

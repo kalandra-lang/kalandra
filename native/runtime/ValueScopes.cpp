@@ -48,6 +48,7 @@ ValueScopes *ValueScopes::create(Invocation &context,
   auto *arena = new (storage) ValueScopes(context, layouts);
   arena->slots_ = reinterpret_cast<Scope *>(storage + slotsOffset);
   arena->scratch_ = storage + scratchOffset;
+  arena->scratchBytes_ = scratch;
   std::size_t constructed = 0;
   for (; constructed < layouts.size(); ++constructed)
     new (arena->slots_ + constructed) Scope(context);
@@ -74,6 +75,40 @@ bool ValueScopes::begin() noexcept {
 void ValueScopes::end() noexcept {
   work_.reset();
   selection_.reset();
+}
+bool ValueScopes::append(std::size_t slot, const ValueLayout &layout, void *value) noexcept {
+  if (!selection_ || slot >= layouts_.size() || !layouts_[slot] || !value || !layout.copy ||
+      !layout.destroy || !layout.bytes || !layout.alignment ||
+      layout.alignment > alignof(std::max_align_t) || (layout.alignment & (layout.alignment - 1)) ||
+      layout.bytes > scratchBytes_) {
+    context_.fault(3);
+    return false;
+  }
+  if (context_.poll() || !context_.usable())
+    return false;
+  bool copied = false;
+  {
+    Invocation::OwnershipSelection target(slots_[slot]);
+    for (std::size_t offset = 0; offset < layout.bytes;) {
+      if (context_.poll())
+        return false;
+      const auto count = std::min<std::size_t>(4096, layout.bytes - offset);
+      std::memset(scratch_ + offset, 0, count);
+      offset += count;
+    }
+    copied = layout.copy(context_, scratch_, context_, value) && !context_.poll();
+  }
+  if (copied) {
+    for (std::size_t offset = 0; offset < layout.bytes;) {
+      if (context_.poll())
+        return false;
+      const auto count = std::min<std::size_t>(4096, layout.bytes - offset);
+      std::memcpy(static_cast<std::byte *>(value) + offset, scratch_ + offset, count);
+      offset += count;
+    }
+  } else if (!context_.poll())
+    context_.fault(3);
+  return copied;
 }
 bool ValueScopes::commit(std::size_t slot, void *value) noexcept {
   if (!selection_ || slot >= layouts_.size() || !value) {
@@ -287,6 +322,10 @@ bool kalandra_value_scopes_publish_v1(ValueScopes *scopes, std::uint64_t slot, v
 bool kalandra_value_scopes_batch_v1(ValueScopes *scopes, const ValueScopes::Write *writes,
                                     std::uint64_t count) noexcept {
   return scopes && scopes->commitBatch(writes, count);
+}
+bool kalandra_value_scopes_append_v1(ValueScopes *scopes, std::uint64_t slot,
+                                     const ValueLayout *layout, void *value) noexcept {
+  return scopes && layout && scopes->append(slot, *layout, value);
 }
 void kalandra_value_scopes_end_v1(ValueScopes *scopes) noexcept {
   if (scopes)

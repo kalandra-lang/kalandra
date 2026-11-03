@@ -572,7 +572,7 @@ private:
     // Map execution can repeat on a statement-loop backedge. The frame is only
     // zeroed once, so each new map must explicitly reset its iteration index.
     plan.code.push_back({Code::MapInit, buffer, {inputSlot, index}, 0, 0, 0, id});
-    plan.code.push_back({Code::Copy, output, {buffer}});
+    plan.code.push_back({Code::MapPrepare, output, {buffer}});
     const auto loop = plan.code.size();
     plan.code.push_back({Code::MapCheck, active, {inputSlot, index}});
     const auto empty = plan.code.size();
@@ -620,7 +620,7 @@ private:
     const auto join = plan.code.size();
     for (auto error : errors)
       plan.code[error].jump = join;
-    plan.code.push_back({Code::Join, output, {buffer}, 0, group, 0, id});
+    plan.code.push_back({Code::MapJoin, output, {buffer}, 0, group, 0, id});
     plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group, 0, id});
     plan.code.push_back({Code::MapSuccess, active, {output}});
     const auto failed = plan.code.size();
@@ -629,6 +629,7 @@ private:
     plan.code.push_back({Code::Jump, 0, {}, 0, 0, loop});
     plan.code[empty].jump = plan.code[failed].jump = plan.code.size();
     plan.code.push_back({Code::Label, 0, {}});
+    plan.code.push_back({Code::MapPublish, output, {buffer}, 0, 0, 0, id});
   }
   void indirectCall(Plan &plan, ValueId id, Slot output, const FunctionInvoke &call,
                     Environment &env, std::set<FunctionId> &stack) {
@@ -1217,6 +1218,9 @@ std::string dump(const ModulePlan &module) {
                                           "function.invoke",
                                           "synchronous.call",
                                           "map.init",
+                                          "map.prepare",
+                                          "map.join",
+                                          "map.publish",
                                           "map.check",
                                           "map.load",
                                           "map.store",

@@ -31,5 +31,11 @@ if(BUILD_TESTING)
         "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/scoped-boolean-map-${VARIANT}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyScopedBooleanMap.cmake")
     set_tests_properties(native-scoped-boolean-map-${VARIANT} PROPERTIES TIMEOUT 300)
+    add_test(NAME native-owned-map-builder-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+        "-DRUNTIME=$<TARGET_FILE:${MUTATION_RUNTIME}>" "-DVARIANT=${VARIANT}"
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/owned-map-builder-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyOwnedMapBuilder.cmake")
+    set_tests_properties(native-owned-map-builder-${VARIANT} PROPERTIES TIMEOUT 600)
   endforeach()
 endif()

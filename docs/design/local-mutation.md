@@ -328,9 +328,22 @@ absent success payloads; ordinary transport validation remains strict. Numeric
 parallel-map buffers retain their raw numeric backing before initialization.
 Boolean map buffers first receive valid false bytes in checked 4 KiB chunks,
 so complete frame-layout validation never reads uninitialized cells. Every
-callback still writes its output before success can escape. Owned-element map
-buffers remain rejected until initialized-prefix ownership is implemented. No cancellation
-contract changes.
+callback still writes its output before success can escape. Owned-element maps retain their raw buffer root without inspecting unfinished
+cells. Each successful element is copied using its complete layout into that
+builder scope; the generated store writes the normalized payload returned by the
+copy, including cloned closure environments. Reusing an observation/element slot
+therefore cannot retire references already stored in the initialized prefix.
+
+Map preparation, batch join and final publication are distinct continuation
+operations. Intermediate success descriptors are not passed to a full-array layout.
+A failed join publishes its stopped/error layout before child groups are released;
+only an empty, completed or stopped map reaches final full-layout publication.
+Uninitialized cells are never treated as zero-valued closures or records. Builder
+roots and every completed child graph count against the existing task budget and
+settle with their frame. Runtime append scratch is bounded by the admitted frame
+layouts, and byte copies retain 4 KiB cancellation checkpoints. These private raw
+layouts cannot be used as ordinary task packet or public value layouts. No
+cancellation-contract change.
 
 
 Multi-output instructions must publish as a batch. Each output first copies its

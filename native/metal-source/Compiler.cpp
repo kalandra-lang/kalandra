@@ -2646,6 +2646,9 @@ class Compiler {
         break;
       }
       case Code::MapInit:
+      case Code::MapPrepare:
+      case Code::MapJoin:
+      case Code::MapPublish:
       case Code::MapCheck:
       case Code::MapLoad:
       case Code::MapStore:

@@ -10,17 +10,6 @@ RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAG
   -DEXPECTED_PER_PAIR=15 -DTASK_IN_FLIGHT=16 "${SOURCE_DIR}/tests/ArrayRebindingTaskTests.cpp"
   "${OUTPUT_DIR}/probe.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/probe-harness")
 RUN_OK("${OUTPUT_DIR}/probe-harness")
-# Zero bytes cannot stand in for unconstructed owned children (notably function
-# environments). Keep that path explicitly rejected and preserve existing files.
-file(WRITE "${OUTPUT_DIR}/owned.k" "fn main()->int ! TaskError:\n  a=[1]\n  a=[2]\n  values=try parallelMap([1,2],fn(value):\"text\")\n  length(values)+a[0]\n")
-file(WRITE "${OUTPUT_DIR}/preserved" "existing executable")
-file(WRITE "${OUTPUT_DIR}/preserved.ll" "existing LLVM")
-execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/owned.k" -o "${OUTPUT_DIR}/preserved"
-  --emit-llvm "${OUTPUT_DIR}/preserved.ll" ${EXTRA}
-  RESULT_VARIABLE STATUS ERROR_VARIABLE ERR)
-file(READ "${OUTPUT_DIR}/preserved" BINARY)
-file(READ "${OUTPUT_DIR}/preserved.ll" LLVM)
-if(NOT STATUS EQUAL 1 OR NOT ERR MATCHES "owned-element continuation maps" OR
-   NOT BINARY STREQUAL "existing executable" OR NOT LLVM STREQUAL "existing LLVM")
-  message(FATAL_ERROR "Owned map gate/artifact preservation failed: ${STATUS}: ${ERR}")
-endif()
+# Owned cells are now built through initialized-prefix ownership, not zeroing.
+COMPILE(owned "fn main()->int ! TaskError:\n  a=[1]\n  a=[2]\n  values=try parallelMap([1,2],fn(value):\"text\")\n  length(values)+a[0]\n")
+EXPECT(owned 4)

@@ -385,6 +385,103 @@ static bool clonePayload(Invocation &destination, void *output, const Invocation
 }
 static const ValueLayout cloningLayout{2, sizeof(Payload), alignof(Payload), clonePayload,
                                        destroyPayload};
+static void initializedPrefixes() {
+  // The root layout retains raw bytes without inspecting the unfinished cells.
+  // Each appended element clones its payload, just as a callable environment can.
+  for (unsigned failure = 0; failure <= 40; ++failure) {
+    Budget budget;
+    Invocation ctx;
+    bound(ctx, budget);
+    if (failure)
+      ctx.failAllocationAt(failure);
+    const ValueLayout *layouts[] = {&layout, &cloningLayout};
+    auto *arena = ValueScopes::create(ctx, layouts);
+    bool complete = arena != nullptr;
+    unsigned rounds = failure ? 2 : 1000;
+    for (unsigned round = 0; complete && round < rounds; ++round) {
+      complete = arena->begin();
+      Payload root{};
+      if (complete) {
+        root = {ctx.allocate(16 * sizeof(Payload)), 16 * sizeof(Payload)};
+        complete = root.data && arena->commit(0, &root);
+      }
+      auto *cells = static_cast<Payload *>(root.data);
+      for (unsigned i = 0; complete && i < 16; ++i) {
+        complete = arena->begin();
+        Payload value{};
+        if (complete) {
+          value = {ctx.allocate(64), 64};
+          if (value.data)
+            std::memset(value.data, (round + i) % 256, value.count);
+          complete = value.data && arena->commit(1, &value);
+        }
+        if (complete) {
+          const auto *original = value.data;
+          complete = arena->begin() && arena->append(0, cloningLayout, &value);
+          if (complete) {
+            CHECK(value.data != original);
+            cells[i] = value; // Store the normalized graph, never the old pointer.
+          }
+          arena->end();
+        }
+        if (complete)
+          for (unsigned j = 0; j <= i; ++j) {
+            auto lease = ctx.lease(cells[j].data);
+            CHECK(lease && lease->bytes().size() == 64);
+            CHECK(std::to_integer<unsigned char>(lease->bytes()[0]) == (round + j) % 256);
+          }
+      }
+      CHECK(budget.peak < 8192);
+    }
+    if (!failure)
+      CHECK(complete);
+    if (arena)
+      arena->destroy();
+    ctx.settle();
+    CHECK(!ctx.live() && !budget.used && ctx.allocations() == ctx.releases());
+  }
+  for (bool oversized : {false, true}) {
+    Budget budget;
+    Invocation ctx;
+    bound(ctx, budget);
+    const ValueLayout *layouts[] = {&layout};
+    auto *arena = ValueScopes::create(ctx, layouts);
+    CHECK(arena && arena->begin());
+    Payload value{ctx.allocate(64), 64};
+    CHECK(value.data && arena->commit(0, &value));
+    CHECK(arena->begin());
+    auto bad = cloningLayout;
+    if (oversized)
+      ++bad.bytes;
+    else
+      bad.alignment = 3;
+    CHECK(!arena->append(0, bad, &value) && ctx.status() == 3);
+    arena->destroy();
+    ctx.settle();
+    CHECK(!ctx.live() && !budget.used);
+  }
+  {
+    Budget budget;
+    Invocation ctx;
+    std::atomic<bool> cancel = false;
+    bound(ctx, budget);
+    ctx.bindCancellation(&cancel);
+    const ValueLayout *layouts[] = {&layout};
+    auto *arena = ValueScopes::create(ctx, layouts);
+    CHECK(arena && arena->begin());
+    Payload value{ctx.allocate(64), 64};
+    CHECK(value.data && arena->commit(0, &value));
+    CHECK(arena->begin());
+    const auto *original = value.data;
+    cancelClone = &cancel;
+    CHECK(!arena->append(0, cloningLayout, &value));
+    cancelClone = nullptr;
+    CHECK(value.data == original && !ctx.status());
+    arena->destroy();
+    ctx.settle();
+    CHECK(!ctx.live() && !budget.used && ctx.allocations() == ctx.releases());
+  }
+}
 static void batchPublication() {
   Budget budget;
   Invocation ctx;
@@ -517,6 +614,7 @@ static void sourceAbortCleanup() {
   }
 }
 int main() {
+  initializedPrefixes();
   batchPublication();
   batchFailures();
   sourceAbortCleanup();

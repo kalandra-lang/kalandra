@@ -45,6 +45,8 @@ class Emitter {
   std::optional<TaskValueTypes> taskTypes;
   std::map<std::string, llvm::GlobalVariable *> layouts;
   std::map<std::string, llvm::GlobalVariable *> frameLayouts;
+  std::map<std::string, llvm::GlobalVariable *> rawArrayLayouts;
+  std::vector<std::set<Slot>> mapBuilders;
   std::map<std::string, Function *> copyCallbacks;
   std::map<std::size_t, Function *> recordRetainers;
   std::vector<std::size_t> pendingRecordRetainers;
@@ -125,13 +127,13 @@ public:
       scopeReturnFields.emplace_back();
       scopeWriteCapacity.push_back(1);
       scopeSlots.emplace_back();
+      mapBuilders.emplace_back();
       if (plan.valueScopes) {
         for (const auto &op : plan.code)
           if (op.code == Code::MapInit &&
               plan.slots.at(op.output).builtin != BuiltinValue::Numeric &&
               !isBoolArray(plan.slots.at(op.output)))
-            throw std::runtime_error("owned-element continuation maps with array "
-                                     "reassignment are not yet supported");
+            mapBuilders.back().insert(op.output);
         arenaFields.back() = fields.size();
         fields.push_back(pointer);
         for (Slot slot = 0; slot < plan.slots.size(); ++slot) {
@@ -174,8 +176,8 @@ public:
           if (planner.plans[id]->groups ||
               std::ranges::any_of(planner.plans[id]->code, [](const auto &op) {
                 return op.code == Code::Open || op.code == Code::Spawn || op.code == Code::Await ||
-                       op.code == Code::Join || op.code == Code::Device ||
-                       op.code == Code::Transfer;
+                       op.code == Code::Join || op.code == Code::MapJoin ||
+                       op.code == Code::Device || op.code == Code::Transfer;
               }))
             throw std::runtime_error("synchronous callable plan contains task/device coordination");
           const auto result = source.declaredResult.value_or(source.resultType);
@@ -216,7 +218,9 @@ public:
       if (arenaFields[id]) {
         std::vector<llvm::Constant *> elements;
         for (const auto &[slot, index] : scopeSlots[id])
-          elements.push_back(frameLayout(planner.plans[id]->slots[slot]));
+          elements.push_back(mapBuilders[id].contains(slot)
+                                 ? rawArrayLayout(planner.plans[id]->slots[slot])
+                                 : frameLayout(planner.plans[id]->slots[slot]));
         auto *tableType = llvm::ArrayType::get(pointer, elements.size());
         scopeTables[id] =
             new llvm::GlobalVariable(module, tableType, true, llvm::GlobalValue::InternalLinkage,
@@ -1163,6 +1167,36 @@ private:
     if (auto error = nativeStackBudgetError(*fn, module.getDataLayout()))
       throw std::runtime_error(*error);
   }
+  llvm::GlobalVariable *rawArrayLayout(const ValueType &type) {
+    const auto name = key(type);
+    if (auto found = rawArrayLayouts.find(name); found != rawArrayLayouts.end())
+      return found->second;
+    llvm::IRBuilderBase::InsertPointGuard restore(builder);
+    auto *wrapper = valueType(type);
+    auto *cell = scalarType(recordArrayElement(type));
+    auto *fn = function("map.root.copy." + name, boolean, {pointer, pointer, pointer, pointer});
+    builder.SetInsertPoint(Block::Create(context, "entry", fn));
+    auto *input = builder.CreateStructGEP(wrapper, fn->getArg(3), 1);
+    auto *copied = Block::Create(context, "retained", fn);
+    auto *failed = Block::Create(context, "failed", fn);
+    builder.CreateCondBr(
+        call("kalandra_record_array_retain_v1", boolean,
+             {fn->getArg(0), fn->getArg(2), input, c64(size(cell)), c64(alignment(cell))}),
+        copied, failed);
+    builder.SetInsertPoint(copied);
+    copy(fn->getArg(1), fn->getArg(3), wrapper);
+    builder.CreateRet(builder.getTrue());
+    builder.SetInsertPoint(failed);
+    builder.CreateRet(builder.getFalse());
+    auto *result = new llvm::GlobalVariable(
+        module, layoutType, true, llvm::GlobalValue::InternalLinkage,
+        llvm::ConstantStruct::get(layoutType,
+                                  {c64(0xe000000000ULL + rawArrayLayouts.size()),
+                                   c64(size(wrapper)), c64(alignment(wrapper)), fn, destroy}),
+        "map.root.layout." + name);
+    rawArrayLayouts.emplace(name, result);
+    return result;
+  }
   llvm::GlobalVariable *frameLayout(const ValueType &type) {
     const auto name = key(type);
     if (auto found = frameLayouts.find(name); found != frameLayouts.end())
@@ -1492,7 +1526,7 @@ private:
       observations[target] = builder.CreateStructGEP(frameType, frame, field);
     std::vector<std::size_t> groupExits(plan.groups, SIZE_MAX);
     for (std::size_t n = 0; n < plan.code.size(); ++n)
-      if (plan.code[n].code == Code::Join)
+      if (plan.code[n].code == Code::Join || plan.code[n].code == Code::MapJoin)
         groupExits.at(plan.code[n].group) = n;
     auto *leave = Block::Create(context, "suspend", resume);
     auto *abort = Block::Create(context, "fault", resume);
@@ -1682,6 +1716,15 @@ private:
       case Code::Join:
       case Code::Try:
         written.push_back(instruction.output);
+        break;
+      case Code::MapPrepare:
+      case Code::MapJoin:
+        if (!mapBuilders[id].contains(instruction.args[0]))
+          written.push_back(instruction.output);
+        break;
+      case Code::MapPublish:
+        if (mapBuilders[id].contains(instruction.args[0]))
+          written.push_back(instruction.output);
         break;
       case Code::CallableCaptures:
         written.push_back(instruction.output);
@@ -2038,6 +2081,14 @@ private:
         builder.CreateBr(next);
         break;
       }
+      case Code::MapPrepare:
+        copyResult(type, slot(instruction.output), plan.slots[instruction.args[0]],
+                   slot(instruction.args[0]));
+        builder.CreateBr(next);
+        break;
+      case Code::MapPublish:
+        builder.CreateBr(next);
+        break;
       case Code::MapCheck: {
         auto *value = builder.CreateLoad(descriptor(plan.slots[instruction.args[0]]),
                                          payload(instruction.args[0]));
@@ -2064,6 +2115,15 @@ private:
         break;
       }
       case Code::MapStore: {
+        if (mapBuilders[id].contains(instruction.output)) {
+          auto *normalized = Block::Create(context, "map.element.normalized", resume);
+          builder.CreateCondBr(
+              call("kalandra_value_scopes_append_v1", boolean,
+                   {arena(), c64(scopeSlots[id].at(instruction.output)),
+                    frameLayout(plan.slots[instruction.args[1]]), slot(instruction.args[1])}),
+              normalized, abort);
+          builder.SetInsertPoint(normalized);
+        }
         auto *value = builder.CreateLoad(descriptor(type), payload(instruction.output));
         auto *index = builder.CreateAdd(builder.CreateLoad(i64, payload(instruction.args[0])),
                                         c64(instruction.target));
@@ -2337,7 +2397,12 @@ private:
         builder.CreateBr(next);
         break;
       }
-      case Code::Join: {
+      case Code::Join:
+      case Code::MapJoin: {
+        auto *errorNext =
+            instruction.code == Code::MapJoin && mapBuilders[id].contains(instruction.args[0])
+                ? edge(n + 1 < blocks.size() ? blocks[n + 1] : abort, {instruction.output})
+                : next;
         call("kalandra_task_close_v1", voidType, {task, group(instruction.group)});
         wait(call("kalandra_task_join_v1", boolean, {task, group(instruction.group)}));
         auto *header = builder.CreateStructGEP(valueType(type), slot(instruction.output), 0);
@@ -2345,12 +2410,12 @@ private:
         // Do not replace it with the scheduler's internal stop marker.
         if (type.errorRecord) {
           auto *settled = Block::Create(context, "group.outcome", resume);
-          builder.CreateCondBr(hasResultError(type, slot(instruction.output)), next, settled);
+          builder.CreateCondBr(hasResultError(type, slot(instruction.output)), errorNext, settled);
           builder.SetInsertPoint(settled);
         }
         call("kalandra_group_failure_v1", voidType, {task, group(instruction.group), header});
         auto *success = Block::Create(context, "group.success", resume);
-        builder.CreateCondBr(hasFailure(header), next, success);
+        builder.CreateCondBr(hasFailure(header), errorNext, success);
         builder.SetInsertPoint(success);
         copyResult(type, slot(instruction.output), plan.slots[instruction.args[0]],
                    slot(instruction.args[0]));
