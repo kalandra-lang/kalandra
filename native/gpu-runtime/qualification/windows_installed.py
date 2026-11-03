@@ -86,6 +86,10 @@ else:
     run([sys.executable, repo/'native/vulkan/qualification/shared_capabilities.py', '--backend', 'vulkan',
          '--compiler', compiler, '--output', root/'shared-capabilities', '--compile-only'])
     probe = root/'applications/matrix-hardware/program.exe'
+# Link actual array-valued host continuations using only relocated package data.
+run([sys.executable, repo/'native/gpu-source/HostArrayTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'host-arrays'])
 for application in root.rglob('program.exe'):
     # Real GPU programs must not statically depend on either driver or an SDK DLL.
     dependencies = [name.lower() for name in imports(application)]

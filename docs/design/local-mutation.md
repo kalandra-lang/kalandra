@@ -1,9 +1,9 @@
 # Local mutation and read-only task sharing
 
 Accepted direction, 2026-11-02. Implementation tracked in #266. This document
-specifies the intended language; it does not claim the released compiler already
-accepts these examples. It supersedes the universal-immutability requirement in
-the original core proposal for the local bindings and arrays admitted below.
+records the language rules and their implementation rationale. It supersedes the
+universal-immutability requirement in the original core proposal for the local
+bindings and arrays admitted below.
 
 ## Why change the model?
 
@@ -26,7 +26,7 @@ sigils, or source lifetime annotations in this direction.
   ascending index order, without requiring an intermediate array of indices.
 - Ordinary parameters and captures grant read access. Writing caller-owned
   storage requires an explicit mutating parameter contract, including in function
-  types and indirect calls. Declaration syntax is still provisional.
+  types and indirect calls. The spelling is `mut`, as specified below.
 - A task can mutate storage it creates privately. Parent storage passed to or
   captured by a task is read-only. `spawn sort(a)` must be rejected.
 - While any unfinished task may read storage, the parent and every alias must be
@@ -38,7 +38,7 @@ sigils, or source lifetime annotations in this direction.
 - Tensors retain value semantics. No new GPU shared-memory, barrier or atomic
   model is implied. User-written kernels remain a separate dependent proposal.
 
-Illustrative pseudocode, pending implementation:
+Illustrative pseudocode:
 
 ```text
 a = [3, 1, 2]
@@ -59,20 +59,20 @@ Transfers must not be assumed to copy on unified-memory hardware. When a proof i
 unavailable, reject the write and identify the outstanding read and a remedy.
 Rebinding a name does not grant write access to read-only storage.
 
-## Implementation sequence and gates
+## Implementation and qualification boundaries
 
 1. Restore functional construction APIs independently of mutation. `generate` is
-   implemented in this branch: runtime/constant sizes, empty arrays, ten numeric
+   implemented: runtime/constant sizes, empty arrays, ten numeric
    types, owned elements, callbacks/captures, worker import, allocation failure and
    cancellation are covered. Editor completion, hover and signature help use its
    checked types. `copy` is also implemented for numeric, Bool and String arrays;
    raw-bit tests check separate backing, strided inputs, independence after source
    changes, retained results and allocation-failure cleanup. Existing runtime
    quotas apply; no unchecked allocator is added.
-2. Numeric/Bool rebinding, statement `if` and `while` are implemented in this
-   branch. Scalar types remain fixed. A loop has no source value and cannot be a
-   function's final result. Branch/iteration declarations stay local, while writes
-   to existing scalar bindings take effect in their enclosing invocation.
+2. Numeric/Bool rebinding, statement `if` and `while` are implemented. Scalar
+   types remain fixed. A loop has no source value and cannot be a function's
+   final result. Branch/iteration declarations stay local, while writes to existing
+   scalar bindings take effect in their enclosing invocation.
    Functions and closures receive scalar values; captures are snapshots. Rebinding
    a captured scalar affects only the current call, not the shared closure
    environment. Native entry-block cells promote to registers/SSA in optimized
@@ -84,11 +84,11 @@ Rebinding a name does not grant write access to read-only storage.
    cancellation/fault checks; ordinary CLI proofs may omit unnecessary checks as
    before. `break`, `continue`, `for` and general Unit-returning APIs remain outside
    this stage.
-3. Numeric arrays now use a qualified reference representation in this branch.
+3. Numeric and Bool arrays use an identity-preserving native representation.
    The earlier immutable MLIR tensor representation could clone
    returned arrays or reuse functional results; inserting writes into it would
-   violate the intended aliases. Verify identity returns, fresh transforms,
-   allocation ownership and every CPU/task ABI boundary before exposing mutation.
+   violate the intended aliases. Identity returns, fresh transforms, allocation
+   ownership and CPU/task ABI boundaries require explicit regression coverage.
 4. Explicit mutating contracts and the storage/read-access proof are implemented
    and locally qualified. Branches conservatively
    retain possible outstanding readers; loops account for zero iterations and
@@ -141,8 +141,7 @@ are per argument and do not promise preservation of aliases between foreign
 arguments. Read-only queries and proven fresh transforms borrow their inputs
 without this copy. Argument extents are validated before any import allocation
 or payload read. This adapter is not a stable public foreign-function interface.
-The new private runtime helpers require matching development runtime bundles;
-this branch reports `0.99.3-dev`, separately from published `0.99.2`.
+The new private runtime helpers require matching compiler/runtime bundles.
 
 Numeric and Bool array names now support replacement in synchronous, non-fallible CPU
 functions. Their lengths may change; their element identities remain fixed.
@@ -190,15 +189,12 @@ normalized scalar arguments. Failed RHS evaluation performs no store; earlier
 completed writes are not rolled back on fault or cancellation. Assignments remain
 statement-only, using a separate final function result as loops do.
 
-Native CPU programs support these arrays. The existing mixed GPU supervisor still
-rejects array-valued continuation carriers, including otherwise immutable arrays;
-element writes do not silently change that boundary. GPU kernel closures explicitly
-reject the new store operation. Host scalar-loop support on Metal/Vulkan/CUDA remains
-qualified by code-generation tests. Sharing the native CPU value/ownership lowering
-with the mixed supervisor remains an architectural integration task, rather than
-introducing a second array mutation implementation in its generated C++.
+Native CPU programs and mixed Metal/Vulkan/CUDA host continuations support
+numeric/Bool arrays through the same typed CPU lowering and ownership runtime.
+GPU kernel closures reject element stores. The mixed supervisor's remaining
+carrier limits are listed below; they do not grant mutation inside device kernels.
 
-## Access analysis for the next stage
+## Access analysis
 
 The spelling is `fn edit(mut values:[int])->int`, with the corresponding
 function type `fn(mut [int])->int`. The marker describes access to the array's
@@ -206,7 +202,7 @@ backing, not assignment to the parameter's local name. Ordinary parameters and
 all captures remain read-only access paths. A mutating contract must survive
 function values, record fields, arrays of functions and indirect calls; erasing
 the marker must be a type error rather than an implicit permission conversion.
-The first mutating contracts will admit flat numeric and Bool arrays only.
+Mutating contracts admit flat numeric and Bool arrays only.
 
 Storage permission and storage origin are separate facts. A local fresh array
 provides writable backing, but rebinding a read-only parameter does not make its
@@ -237,7 +233,8 @@ the checker may require an explicit copy when it cannot prove writable storage.
 Different incoming parameters can alias; synchronous calls do not require blanket
 uniqueness, but a task reading one can protect another potentially aliased parameter.
 The bounded analysis reports uncertainty/exhaustion rather than granting access.
-The representation and access proof do not enable element writes by themselves.
+The representation and access proof are both required before an element store
+can reach code generation.
 
 ## Sorting and repeated alias publication
 
@@ -272,7 +269,7 @@ frame scopes described below; escape-owner reuse alone is not sufficient.
 
 Existing functional programs keep their observable results. Repeated local `=`
 becomes reassignment instead of a duplicate-binding error in admitted contexts.
-Once arrays become mutable, aliases are observable and optimizations may reuse
+Array aliases are observable, and optimizations may reuse
 storage only when they preserve both value results and storage identity. Record
 field mutation, nested mutable containers, resizing, early loop exits, distributed
 retry effects and GPU kernel memory semantics require explicit decisions; this

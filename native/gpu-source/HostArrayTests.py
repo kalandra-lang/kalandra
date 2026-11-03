@@ -12,10 +12,13 @@ parser.add_argument('--compiler', required=True)
 parser.add_argument('--root', type=Path, required=True)
 parser.add_argument('--backend', choices=('metal', 'vulkan', 'cuda'), default='metal')
 parser.add_argument('--supervisor', action='store_true')
+parser.add_argument('--compile-only', action='store_true',
+                    help='Build complete GPU applications without requiring GPU execution')
 parser.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'thread-sanitized'))
 args = parser.parse_args()
 args.root.mkdir(parents=True, exist_ok=True)
 assert not (args.supervisor and args.variant)
+assert not args.compile_only or args.variant, '--compile-only requires a build variant'
 fixtures = Path(__file__).resolve().parents[1] / 'tests/fixtures/mixed-host-arrays'
 flags = [] if not args.variant else ['--build', {
     'debug': '-O0', 'optimized': '-O2', 'sanitized': '--sanitize',
@@ -93,12 +96,12 @@ for name, (source, expected) in cases.items():
     assert 'HostArrayScopes arrayScopes' in host and 'HostArrayWork work' in host
     llvm = (destination / 'cpu.ll').read_text()
     assert 'kalandra_gpu_step_' in llvm and (destination / 'cpu-steps.mlir').is_file()
-    if args.variant:
+    if args.variant and not args.compile_only:
         for workers in (1, 2, 4):
             run([destination / 'program'], output=f'{expected:016x}\n',
                 env=dict(os.environ, KALANDRA_WORKERS=str(workers), MTL_DEBUG_LAYER='1'))
     results.append({'case': name, 'expected': f'{expected:016x}',
-                    'status': 'executed' if args.variant else 'emitted'})
+                    'status': ('compiled' if args.compile_only else 'executed') if args.variant else 'emitted'})
 
 # The same proof must apply before every backend's host lowering. Rejection
 # must leave an existing output directory untouched.
@@ -141,10 +144,11 @@ fn main()->Tensor[int,?] ! TaskError:
     assert diagnostic in result.stderr, result.stderr
     assert list(destination.iterdir()) == [witness] and witness.read_text() == 'existing output\n'
     results.append({'case': name, 'status': 'rejected'})
-if args.variant:
+if args.variant and not args.compile_only:
     relocated = args.root / 'relocated'
     shutil.copytree(args.root / 'tasks', relocated, dirs_exist_ok=True)
     run([relocated / 'program'], output=f'{2538:016x}\n')
-summary = {'backend': args.backend, 'variant': args.variant, 'results': results}
+summary = {'backend': args.backend, 'variant': args.variant,
+           'gpuExecution': bool(args.variant and not args.compile_only), 'results': results}
 (args.root / 'report.json').write_text(json.dumps(summary, indent=2) + '\n')
 print(json.dumps(summary, indent=2))

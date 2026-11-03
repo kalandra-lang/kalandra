@@ -79,6 +79,14 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     run([compiler, transform_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", transform_app], cwd)
     assert run([transform_app / "program"], cwd).stdout.strip() == "40000000"
     applications.append((transform_app, "40000000"))
+    # Exercise native array ownership from the relocated compiler/header tree.
+    array_source = cwd / "host-arrays.k"
+    array_source.write_bytes((fixtures.parent / "tests/fixtures/mixed-host-arrays/functional.k").read_bytes())
+    array_app = cwd / "host arrays application"
+    run([compiler, array_source, "--target", "metal", "--arithmetic", "hardware-with-software-fallback",
+         "-O2", "-o", array_app], cwd)
+    assert run([array_app / "program"], cwd).stdout.strip() == "00000000000000ef"
+    applications.append((array_app, "00000000000000ef"))
     for name, flags in (("debug", []), ("optimized", ["-O2"]),
                         ("sanitized", ["--sanitize"]), ("thread-sanitized", ["--thread-sanitize"])):
         app = cwd / ("application " + name)
