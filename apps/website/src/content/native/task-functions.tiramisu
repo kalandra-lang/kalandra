@@ -1,18 +1,23 @@
 meta { title = "Task and device functions", description = "Parallel mapping, device selection and explicit tensor transfers.", order = 4, group = "Library reference" }
 
-These are callable built-ins. spawn, await, on, parallel and try are language syntax, documented in the language reference. Task and device names in these signatures describe inferred runtime values, not an invitation to invent source-level generic task annotations.
+These are callable built-ins. spawn, await, on, parallel and try are language syntax, documented in the language reference. Task and device results have types inferred by the compiler. The descriptive names below are reference notation, not generic type declarations to copy into source.
+
+list {
+  link { url = "/docs/parallelism", "CPU task guide" },
+  link { url = "/docs/gpu", "GPU placement and backend selection" }
+}
 
 h2 { "parallelMap" }
 
 code { "parallelMap(input: [T], callback: fn(T) -> U ! E) -> [U] ! (E | TaskError)" }
 
-Map supported scalar array elements using CPU workers and return results in input order. A non-fallible callback is allowed; then the error channel is TaskError alone. Application-error families from a fallible callback are preserved alongside task errors. Supported element kinds follow array mapping; callbacks cannot return pending tasks or arbitrary nested collections. Immutable captures must be supported worker values. The operation owns and settles its work before returning. Empty inputs invoke no callbacks. Work already completed is not rolled back after a failure. Execution, cancellation and admission errors can occur; error selection among racing failures is not deterministic. Requires ordinary CPU compilation; it is not supported in Metal numerical functions or the mixed Metal coordination subset. It is not a GPU per-element launch.
+Map supported scalar array elements using CPU workers and return results in input order. A non-fallible callback is allowed; then the error channel is TaskError alone. Application-error families from a fallible callback are preserved alongside task errors. Supported element kinds follow array mapping; callbacks cannot return pending tasks or arbitrary nested collections. Captured values must be supported CPU worker inputs, and captured arrays remain read-only. The operation owns and settles its work before returning. Empty inputs invoke no callbacks. Work already completed is not rolled back after a failure. Execution, cancellation and admission errors can occur; error selection among racing failures is not deterministic. Use it in CPU programs. It is not supported in programs compiled with GPU placement and does not launch one GPU operation per array element.
 
 h2 { "devices.cpu" }
 
 code { "devices.cpu() -> CPU device selector" }
 
-Return the host device selector, without arguments. Use it as a transfer destination or explicit CPU task placement. Available with placement checking and mixed CPU/Metal compilation. It does not start work, copy data or identify a worker thread.
+Return the host device selector, without arguments. Use it as a transfer destination or explicit CPU task placement. Available with placement checking and GPU-enabled compilation. It does not start work, copy data or identify a worker thread.
 
 h2 { "devices.gpu" }
 
@@ -20,13 +25,13 @@ code { "devices.gpu() -> GPU device selector" }
 
 code { "devices.gpu(index: constant uint32 literal) -> GPU device selector" }
 
-Select an Apple GPU; the omitted index is zero. An explicit index must be a nonnegative integer literal fitting uint32, not a runtime expression. A selector does not guarantee that a device exists: dispatch or transfer can fail on unavailable hardware. Available with placement checking and mixed CPU/Metal compilation. Selecting a device does not move tensors or make arbitrary functions eligible for GPU execution.
+Select a GPU exposed by the selected backend; the omitted index is zero. An explicit index must be a nonnegative integer literal fitting uint32, not a runtime expression. A selector does not guarantee that a device exists: dispatch or transfer can fail on unavailable hardware. Available with placement checking and GPU-enabled compilation. Selecting a device does not move tensors or make arbitrary functions eligible for GPU execution.
 
 h2 { "transfer" }
 
 code { "transfer(values: completed Tensor[T, ...], target: device selector) -> tensor transfer task" }
 
-Start an explicit tensor transfer owned by the surrounding parallel scope. Use try await to obtain the completed tensor or propagate TaskError. The element type and shape are preserved. Downloading to devices.cpu() produces a host tensor; awaiting a GPU destination produces a resident tensor, not an implicit download. The input must be a completed numeric tensor, not an array, String or unfinished task. Device compatibility, resource admission and execution can fail. Use only in a parallel scope with placement enabled. It is not a general conversion or arbitrary object transfer.
+Start an explicit tensor transfer owned by the surrounding parallel scope. Use try await to obtain the completed tensor or propagate TaskError. The element type and shape are preserved. Downloading to devices.cpu() produces a host tensor; awaiting a GPU destination produces a resident tensor, not an implicit download. The input must be a completed numeric tensor, not an array, String or unfinished task. Device compatibility, resource admission and execution can fail. Use only in a parallel scope in a GPU-enabled program. It is not a general conversion or arbitrary object transfer.
 
 h2 { "CPU example" }
 

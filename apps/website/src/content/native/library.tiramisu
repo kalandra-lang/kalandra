@@ -1,14 +1,21 @@
 meta { title = "Built-in functions", description = "Alphabetical index of every public built-in call and numeric conversion.", order = 0, group = "Library reference" }
 
-This is the alphabetical index of callable built-ins implemented by the native language. No import is needed. User-defined record and enum constructors are described in the language reference. Operators and task syntax are language constructs, not extra functions.
+Built-ins are functions available without an import. Use the alphabetical index to look up a name, or choose a reference by topic. Record and enum constructors, operators and task keywords are described in the language reference.
+
+list {
+  link { url = "/docs/collection-functions", "Collections — arrays, Strings and tensor construction" },
+  link { url = "/docs/numeric-functions", "Conversions — numeric ranges and rounding" },
+  link { url = "/docs/tensor-functions", "Numerical operations — products, reductions and row math" },
+  link { url = "/docs/task-functions", "Tasks and devices — parallel mapping and transfers" }
+}
+
+h2 { "Alphabetical index" }
 
 list {
   link { url = "/docs/collection-functions#array", "array — flatten a CPU tensor" },
   link { url = "/docs/collection-functions#bytelength", "byteLength — count UTF-8 bytes" },
   link { url = "/docs/collection-functions#concat", "concat — join arrays" },
   link { url = "/docs/collection-functions#copy", "copy — create independent array storage" },
-  link { url = "/docs/collection-functions#sort", "sort — order an array in place" },
-  link { url = "/docs/collection-functions#sorted", "sorted — create an independent sorted array" },
   link { url = "/docs/task-functions#devicescpu", "devices.cpu — select the host device" },
   link { url = "/docs/task-functions#devicesgpu", "devices.gpu — select a GPU" },
   link { url = "/docs/numeric-functions#float", "float — convert a scalar or tensor to float" },
@@ -31,6 +38,8 @@ list {
   link { url = "/docs/collection-functions#shape", "shape — read tensor extents" },
   link { url = "/docs/collection-functions#slice", "slice — extract an array or String range" },
   link { url = "/docs/tensor-functions#softmaxrows", "softmaxRows — compute row probabilities" },
+  link { url = "/docs/collection-functions#sort", "sort — order an array in place" },
+  link { url = "/docs/collection-functions#sorted", "sorted — create an independent sorted array" },
   link { url = "/docs/collection-functions#tensor", "tensor — construct a numeric tensor" },
   link { url = "/docs/task-functions#transfer", "transfer — transfer a tensor between devices" },
   link { url = "/docs/tensor-functions#transpose", "transpose — swap matrix axes" },
@@ -43,7 +52,15 @@ list {
 
 h2 { "How to read the reference" }
 
-Each entry describes accepted inputs, result, placement and failures. T, U, F and dimension letters are explanatory placeholders, not supported generic declarations. Overloads share one entry. A static type/shape mistake is diagnosed at compile time; dynamic bounds, shape, arithmetic and resource failures are checked during execution. TaskError is recoverable at task boundaries; not every checked failure is an application error channel on a direct call.
+Each entry gives the call signature, accepted inputs, result, execution location and possible failures. Multiple signatures under one name describe different accepted forms of the same call.
+
+T and U stand for supported element types; F stands for a floating type. M, K and N stand for tensor dimensions. A signature using these letters explains a family of calls; it is not a generic declaration to paste into your program. For example, T in map may be int when mapping an [int] array.
+
+Inputs described as completed values are ordinary values, not pending tasks; await a task before passing its result. A resident GPU tensor must be used on its device or transferred to the CPU before a host-only operation.
+
+Type and statically known shape errors are reported before execution. Bounds, dynamic shape, arithmetic and allocation failures are checked while the program runs. An ordinary call does not automatically expose every fault as an application error. Tasks report execution failures through TaskError.
+
+Built-in names are not first-class function values. To use one as a callback, wrap its call in a user-defined function.
 
 list {
   link { url = "/docs/language-reference", "Types, constructors, operators and error syntax" },

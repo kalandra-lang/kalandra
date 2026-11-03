@@ -1,4 +1,4 @@
-meta { title = "Kalandra 0.99.1 — ARM64 and cross-compilation", description = "Linux and Windows ARM64, Raspberry Pi and five CPU destinations from one compiler download.", order = 2, group = "Release archive" }
+meta { title = "Kalandra 0.99.1 — ARM64 and cross-compilation", description = "Linux and Windows ARM64, Raspberry Pi and five CPU destinations from one compiler download.", order = 1, group = "Release archive" }
 
 Kalandra 0.99.1 adds native Linux ARM64 and Windows ARM64 support, and CPU cross-compilation across all five supported platforms. This page covers the changes since 0.99.0. The macOS distribution continues to support mixed CPU/Metal development.
 

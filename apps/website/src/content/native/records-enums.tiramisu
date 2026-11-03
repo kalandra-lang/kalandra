@@ -14,7 +14,7 @@ fn main() -> int:
   original.x + moved.x + moved.y
 """ }
 
-Field initializer order follows source order. A with expression produces a new record; original remains unchanged. All required fields must be supplied once with compatible types. Supported records can own Strings, collections, nested aggregates and callable values under their native ownership rules.
+This returns 17: original.x is 2, moved.x is 12 and moved.y is 3. Field initializer order follows source order. A with expression produces a new record; original remains unchanged. All required fields must be supplied once with compatible types. Records can contain supported Strings, collections, nested records or enums, and function values; the contained values are kept alive automatically.
 
 h2 { "Represent alternatives" }
 
@@ -32,11 +32,11 @@ fn main() -> int:
   readOrDefault(Reading.Value { measurement: 42 })
 """ }
 
-Only the selected alternative exists as a language value. Read its payload by matching that variant. A final _ branch may handle remaining alternatives; missing, repeated and unreachable cases are diagnosed. Enum values do not gain record-style updates or implicit numeric ordinals.
+This returns 42. Only the selected alternative exists as a language value. Read its payload by matching that variant. A final _ branch may handle remaining alternatives; missing, repeated and unreachable cases are diagnosed. Enum values do not gain record-style updates or implicit numeric ordinals.
 
 h2 { "Cross calls and workers" }
 
-Records and enums use automatic lifetimes, including supported recursive CPU values and local worker transport. Functions, aggregates and expected errors retain their checked type identity across imported aliases. GPU records and enums are not part of the numerical device subset.
+Records and enums keep their contained values alive automatically and can be passed through supported CPU worker tasks. Importing a declaration under a different name does not create a new type. GPU numerical functions do not accept records or enums.
 
 list {
   link { url = "/docs/errors", "Declare application-error alternatives" },

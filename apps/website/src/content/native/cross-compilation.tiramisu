@@ -1,21 +1,40 @@
-meta { title = "Cross-compilation", description = "Build for another CPU platform from one host compiler installation.", order = 5, group = "Using Kalandra" }
+meta { title = "Cross-compilation", description = "Build for another CPU platform from one host compiler installation.", order = 4, group = "Using Kalandra" }
 
 Install the standalone Kalandra package for the machine performing the build. It includes the CPU runtimes for Linux x86-64 and ARM64, Windows x86-64 and ARM64, and macOS ARM64, together with host-native LLVM linkers. You do not need a compiler executable for each destination.
 
-Select the destination with --platform. Only its runtime libraries are linked into your program; the bundled alternatives add download and disk space, not execution overhead. These options are available starting with v0.99.1.
+Select the destination with --platform. Only its runtime libraries are linked into your program; the bundled alternatives add download and disk space, not execution overhead. The target programs retain the same language checks as native builds.
+
+h2 { "Choose a destination" }
+
+table {
+  row = ["Destination", "--platform value", "Additional link inputs"],
+  row = ["Linux x86-64", "linux-x86_64", "Destination GNU development libraries"],
+  row = ["Linux ARM64", "linux-arm64", "Destination GNU development libraries"],
+  row = ["Windows x86-64", "windows-x86_64", "Windows SDK and MSVC CRT libraries"],
+  row = ["Windows ARM64", "windows-arm64", "ARM64 Windows SDK and MSVC CRT libraries"],
+  row = ["macOS Apple silicon", "macos-arm64", "Bundled system import declarations"]
+}
+
+Cross-compilation here targets CPU execution. It does not translate Metal shaders to CUDA or Vulkan. Test the output on its destination; building it on one machine does not make it runnable on that machine.
 
 h2 { "A shared example" }
 
 Save this program as compute.k:
 
-codeblock { language = kalandra, """fn count(n:int,a:int)->int:
-  if n==0:a
-  else:count(n-1,a+1)
-fn fib(n:int)->int:
-  if n<2:n
-  else:fib(n-1)+fib(n-2)
-fn main()->int:
-  count(1000,0)+fib(12)
+codeblock { language = kalandra, """fn count(n: int, total: int) -> int:
+  if n == 0:
+    total
+  else:
+    count(n - 1, total + 1)
+
+fn fib(n: int) -> int:
+  if n < 2:
+    n
+  else:
+    fib(n - 1) + fib(n - 2)
+
+fn main() -> int:
+  count(1000, 0) + fib(12)
 """ }
 
 h2 { "Build for macOS" }
@@ -113,7 +132,7 @@ Advanced toolchain authors can override runtimePackage with another matching tar
 
 The compiler queries the destination data layout from its private Clang and checks runtime version, platform, LLVM version, macOS deployment compatibility, archive checksums and object architectures. It verifies the linked output's architecture before publication. Runtime alternatives are not emulated or loaded into the resulting application.
 
---platform and --toolchain select a CPU ABI. --target cpu or --target metal selects the execution backend. Cross-compilation currently supports the CPU backend. Cross-toolchain --sanitize and --thread-sanitize modes fail explicitly while their target combinations remain unqualified. Normal and optimized builds retain the language's arithmetic, bounds, ownership and task checks.
+--platform and --toolchain choose the destination operating system, CPU architecture and calling convention. --target selects an execution backend such as cpu, metal, vulkan or cuda. Cross-compilation currently supports the CPU backend. Cross-toolchain --sanitize and --thread-sanitize modes fail explicitly while their target combinations remain unqualified. Normal and optimized builds retain the language's arithmetic, bounds, ownership and task checks.
 
 list {
   link { url = "/docs/installation", "Platform baselines and package installation" },

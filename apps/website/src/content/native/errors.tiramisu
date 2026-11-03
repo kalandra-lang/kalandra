@@ -8,18 +8,18 @@ codeblock { language = kalandra, """error InputError:
   Negative:
     value: int
 
-fn requirePositive(value: int) -> int ! InputError:
+fn requireNonnegative(value: int) -> int ! InputError:
   if value < 0:
     fail InputError.Negative { value: value }
   value
 
 fn main() -> int:
-  requirePositive(-1) catch fn(error):
+  requireNonnegative(-1) catch fn(error):
     match error:
       InputError.Negative { value }: -value
 """ }
 
-An early validation guard may omit else when its body ends in fail. catch receives the actual error family and must produce the original success type, or propagate through another declared channel. Payload bindings belong to their match branch.
+This returns 1: the handler turns the rejected -1 into its positive counterpart. An early validation guard may omit else when its body ends in fail. catch receives the actual error family and must produce the original success type, or propagate through another declared channel. Payload bindings belong to their match branch.
 
 h2 { "Propagate through a helper" }
 
@@ -38,9 +38,11 @@ fn main() -> int:
   adjusted(40) catch fn(error): 0
 """ }
 
+This returns 42. try in adjusted propagates InputError; the call in main handles it if validation fails.
+
 h2 { "Task errors are a separate channel" }
 
-CPU worker execution can fail independently of an application validation error. parallelMap and ordinary spawn/await observation therefore use TaskError, combined with the callback application families when necessary. Error unions use the spelling ! (InputError | TaskError).
+CPU worker execution can fail independently of application validation. parallelMap and spawn/await therefore expose TaskError as well as any application-defined errors from the work. Error unions use the spelling ! (InputError | TaskError).
 
 Checked arithmetic, bounds, shape and allocation faults are execution failures rather than implicit application variants. Handle a TaskError at a task boundary when you need recovery. An application-only handler does not swallow unrelated execution faults.
 
@@ -56,7 +58,7 @@ h2 { "TaskError variants" }
 
 TaskError.Fault carries kind and message. The kind is a FaultKind value: Arithmetic, Bounds, Shape, Allocation or Native. The message is a String describing the failure; do not parse it as a stable error code.
 
-TaskError.Cancelled means task cancellation. TaskError.DeadlineExceeded means a task deadline was exceeded. TaskError.AdmissionRejected carries a reason String when work could not be admitted. These variants describe task outcomes; they do not promise that every deadline or resource policy is configurable from language source.
+TaskError.Cancelled means task cancellation. TaskError.DeadlineExceeded means a task deadline was exceeded. TaskError.AdmissionRejected carries a reason String when work could not be admitted. These variants describe task outcomes. There is no source-level API for configuring every deadline or resource policy.
 
 Match a variant to bind its fields, or use a catch-all handler when every failure has the same recovery. Only the active variant's fields are available. Task errors can be combined with application-error families using an error union.
 

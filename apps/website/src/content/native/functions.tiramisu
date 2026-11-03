@@ -15,7 +15,7 @@ fn main() -> int:
   apply(21, callback)
 """ }
 
-A function type records parameter types, result type and any expected-error channel. A function-valued binding can be passed, returned or invoked with ordinary call syntax.
+This returns 42. A function type records parameter types, result type and any expected-error channel. A function-valued binding can be passed, returned or invoked with ordinary call syntax.
 
 h2 { "Capture a value" }
 
@@ -27,11 +27,11 @@ fn main() -> int:
   addTen(32)
 """ }
 
-The returned closure retains its captured environment after makeAdder returns. Scalar captures are value snapshots. Anonymous bodies may also use an indented suite with local bindings. Rebinding a captured scalar changes only the current call's private copy. It does not update the captured environment, a later call, or the caller's binding. Array captures are read-only aliases to retained backing storage.
+This returns 42. The returned closure retains its captured environment after makeAdder returns. Scalar captures are value snapshots. Anonymous bodies may also use an indented suite with local bindings. Rebinding a captured scalar changes only the current call's private copy. It does not update the captured environment, a later call, or the caller's binding. Array captures are read-only aliases to retained backing storage.
 
 h2 { "Array access contracts" }
 
-Ordinary array parameters and all array captures provide read access. A mut parameter requests permission to write caller-owned flat numeric or Bool array storage. This permission is separate from rebinding a local name. The contract also appears in function types and cannot be erased by assigning the function to another binding or aggregate field.
+Ordinary array parameters and array captures provide read access. Declare a mut parameter when the helper needs to write its caller's numeric or Bool array. Changing a parameter's local name is different from writing its array elements. A function type records the same access requirement, even if the function is stored in another binding or record field.
 
 codeblock { language = kalandra, """fn writableIdentity(mut values: [int]) -> [int]:
   values
@@ -42,13 +42,13 @@ fn main() -> int:
   length(forward(values))
 """ }
 
-A fresh local array or an independent copy can satisfy a mut contract. An ordinary parameter or captured array cannot acquire write permission merely through a local alias, a function return or an indirect call. Use copy when a function needs independent writable storage.
+This example returns 3. Its function type preserves the mut requirement even though writableIdentity itself only returns the array. A fresh local array or an independent copy can satisfy a mut contract. An ordinary parameter or captured array cannot acquire write permission merely through a local alias, a function return or an indirect call. Use copy when a function needs independent writable storage.
 
 Tasks receive parent-provided arrays read-only. A spawned call cannot request mut access to those arrays; it can create and edit its own private storage. While any unfinished task may read an array, mutating calls through every alias are rejected. Await every relevant reader before writing. Awaiting only one of several readers, awaiting in only one conditional branch, or awaiting inside a loop that may run zero times does not establish unconditional settlement. When two parameters might alias, the checker preserves the same protection.
 
 h2 { "Callbacks and execution" }
 
-Ordinary map is sequential. parallelMap explicitly schedules callbacks through CPU workers. Function values, arrays of functions and function-valued aggregate fields have checked signatures and ownership rules. Crossing a worker boundary also requires eligible captures and proven callable origins; an arbitrary function value is not a GPU closure.
+map calls its callback sequentially. parallelMap schedules callbacks on CPU workers. Both accept checked function values and supported closures. A closure passed to a worker must capture values that can be shared with that worker. GPU functions accept a more restricted set of values; an arbitrary CPU closure cannot be sent to a GPU.
 
 h2 { "Recursive calls" }
 
@@ -62,7 +62,7 @@ fn main() -> int:
   factorial(5)
 """ }
 
-Functions can call themselves and each other on the CPU, including in CPU tasks. Recursive calls consume execution resources; very deep recursion can exhaust them. Do not depend on tail-call elimination for correctness.
+This returns 120. Functions can call themselves and each other on the CPU, including in CPU tasks. Recursive calls consume execution resources; very deep recursion can exhaust them. Do not depend on tail-call elimination for correctness.
 
 list {
   link { url = "/docs/arrays", "Map arrays sequentially" },

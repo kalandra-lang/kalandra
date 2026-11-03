@@ -1,89 +1,117 @@
-meta { title = "Installation", description = "Choose a native package and prepare your platform.", order = 0, group = "Using Kalandra" }
+meta { title = "Installation", description = "Choose a release package, install prerequisites and verify your toolchain.", order = 0, group = "Using Kalandra" }
 
-Choose the mixed CPU/Metal toolchain for a supported Mac when you need GPU execution. It also compiles ordinary CPU programs. Linux and Windows provide native CPU packages; 0.99.2 also provides Linux x86-64 CUDA/Vulkan packages and experimental Windows GPU packages. An editor-only package provides checking, formatting and the language server, rather than application compilation.
+Install the package for the operating system and CPU architecture of the computer that will run the compiler. Choose a GPU-enabled package if you also want to compile GPU programs. Every GPU-enabled package can compile ordinary CPU programs.
+
+h2 { "Choose a package" }
+
+table {
+  row = ["Build computer", "CPU architectures", "GPU packages", "System baseline"],
+  row = ["macOS", "ARM64 (Apple silicon)", "Metal", "macOS 26 or newer"],
+  row = ["Linux", "x86-64 and ARM64", "CUDA or Vulkan on x86-64", "glibc 2.39 or newer; Ubuntu 24.04 baseline"],
+  row = ["Windows", "x86-64 and ARM64", "CUDA or Vulkan (experimental)", "Windows 11"]
+}
+
+Download packages from GitHub Releases, in the release's Assets section. The GPU backend is part of the package: passing --target cuda to a CPU-only compiler does not add CUDA support. An editor-only package provides checking, formatting and the language server, but cannot compile applications.
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/releases", "Download Kalandra from GitHub Releases" },
+  link { url = "/docs/gpu#experimental-windows-gpu-support", "Windows GPU support and testing limitations" }
+}
+
+For macOS CPU and GPU development, choose kalandra-native-metal-standalone.dmg. For a CPU compiler on Linux or Windows, choose the matching archive:
+
+list {
+  code { "kalandra-native-cpu-standalone-linux-x86_64.tar.gz" },
+  code { "kalandra-native-cpu-standalone-linux-arm64.tar.gz" },
+  code { "kalandra-native-cpu-standalone-windows-x86_64.tar.gz" },
+  code { "kalandra-native-cpu-standalone-windows-arm64.tar.gz" }
+}
+
+CUDA and Vulkan archives replace cpu in the name with cuda or vulkan. Linux GPU archives target x86-64; experimental Windows GPU archives are available for both x86-64 and ARM64. Compiler availability on Windows ARM64 does not establish NVIDIA ARM64 driver support. Read the backend requirements below before choosing a GPU package.
+
+h2 { "Install the toolchain" }
+
+Verify the download against its supplied SHA-256 sidecar. On macOS, open the signed DMG and copy the complete toolchain directory to a permanent location, then eject the disk image. On Linux or Windows, extract the complete archive.
+
+Keep the directory intact. The bin, lib, libexec and share directories contain required tools and resources; moving only kalandra will break the installation. Add the bin directory to PATH. For example, if you placed the toolchain at $HOME/kalandra, a macOS or Linux shell can use:
+
+codeblock { language = bash, """export PATH="$HOME/kalandra/bin:$PATH"
+""" }
+
+Add that setting to your shell configuration to keep it across terminal sessions. On Windows, add the full bin path to your user PATH through Environment Variables, then open a new developer shell. Install Git if you will use kalandra install to fetch source dependencies.
+
+Standalone packages bundle Kalandra's private compiler dependencies, host linkers and CPU runtime data for all five supported destinations. System development libraries and GPU drivers remain separate requirements. Advanced external-toolchain packages require the paths specified in their metadata.
 
 h2 { "Supported platforms" }
 
 h3 { "macOS" }
 
-Use macOS 26 or newer on Apple silicon. Native compilation requires the Apple SDK and system linker. Metal builds additionally require the pinned Apple Metal Toolchain component; the driver validates its signature and version. For GPU compilation, use Xcode 26.2 with its Metal Toolchain component, compiler version 32023.864. Open Xcode once to finish installing its components, select it as the active Command Line Tools in Xcode Settings → Locations, and install Metal Toolchain from Settings → Components. An arbitrary newer Metal compiler is not interchangeable with the pinned one. The exact requirements are recorded in the toolchain link below.
+Use macOS 26 or newer on Apple silicon. Native application compilation requires the Apple SDK and system linker. For Metal compilation, install Xcode 26.2 and its Metal Toolchain component, compiler version 32023.864. Open Xcode once to finish setup, select it in Xcode Settings → Locations → Command Line Tools, and install Metal Toolchain from Settings → Components. The compiler checks the component's signature and version; an arbitrary newer Metal compiler is not interchangeable with the pinned one.
+
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.2/native/metal-proof/toolchain.json", "Exact Metal toolchain requirements" }
+}
 
 h3 { "Linux" }
 
-Linux packages target x86-64 and ARM64 with an Ubuntu 24.04 / glibc 2.39 baseline. ARM64 support is available starting with v0.99.1. Standalone archives include private compiler dependencies while retaining their declared system-runtime requirements. Install g++, binutils and Git using your distribution package manager. Git is required for dependency management.
+Use x86-64 or ARM64 Linux with glibc 2.39 or newer, matching the Ubuntu 24.04 package baseline. Install g++, binutils and Git through your distribution's package manager. GPU application compilation additionally requires system C++23 development headers; a GPU driver is needed to run the result.
 
-For Raspberry Pi, use a 64-bit OS on Pi 3, Pi 4, Pi 5 or Zero 2 W. Use Raspberry Pi OS Trixie (Debian 13); Bookworm has an older glibc than the packaged toolchain supports. Choose kalandra-native-cpu-standalone-linux-arm64.tar.gz. The target uses ordinary ARMv8-A CPU execution and does not provide VideoCore GPU acceleration. CI runs natively on ARM64 and checks the downloaded package in official Raspberry Pi OS userspace; physical Pi hardware, firmware and kernel variants are not qualified by that test. 32-bit OS installations and older 32-bit Pi models are unsupported.
+For Raspberry Pi 3, 4, 5 or Zero 2 W, use 64-bit Raspberry Pi OS Trixie (Debian 13) and the linux-arm64 CPU archive. Bookworm's glibc is too old for this package. Execution uses ARMv8-A CPU instructions; VideoCore GPU acceleration is not provided. Testing covers native ARM64 runners and Raspberry Pi OS userspace, rather than physical Pi boards. 32-bit operating systems and older 32-bit Pi models are unsupported.
 
 h3 { "Windows" }
 
-Use Windows 11 x86-64 or ARM64 with Microsoft C++ Build Tools and the Windows SDK. ARM64 support is available starting with v0.99.1; choose kalandra-native-cpu-standalone-windows-arm64.tar.gz. Install the Desktop development with C++ workload, including the MSVC compiler and Windows SDK. Use a Developer PowerShell or Developer Command Prompt for Visual Studio when compiling applications. The package supports native CPU execution. On ARM64, install the Visual Studio 2026 ARM64 C++ tools and ARM64 SDK libraries, then use an ARM64-targeting developer shell. Use a native ARM64 Git installation for dependency management. The ARM64 compiler, language server and generated applications run natively; GPU execution is a separate target. The pinned Windows ARM64 toolchain does not include ASan, UBSan or TSan runtimes, so --sanitize and --thread-sanitize report an explicit unsupported-mode error. Normal and optimized builds retain checked arithmetic and language runtime safety.
+Use Windows 11 and install Microsoft C++ Build Tools with the Desktop development with C++ workload and Windows SDK. Compile from a Visual Studio Developer PowerShell or Developer Command Prompt configured for the destination architecture.
 
-h2 { "Install a native package" }
+On ARM64, install the Visual Studio 2026 ARM64 C++ tools and ARM64 SDK libraries, then use an ARM64-targeting developer shell. A native ARM64 Git installation is recommended for dependency management. The compiler, editor tools and generated CPU applications run natively. The Windows ARM64 toolchain does not include sanitizer runtimes, so --sanitize and --thread-sanitize are unavailable. Ordinary and optimized programs retain Kalandra's arithmetic, bounds and runtime checks.
 
-Download Kalandra from GitHub Releases. Open the release you want to install and choose the package for your operating system and architecture from its Assets section. Use the mixed macOS distribution, or the matching native CPU archive on Linux and Windows. For macOS CPU and GPU development, choose kalandra-native-metal-standalone.dmg. For x86-64, Linux and Windows use kalandra-native-cpu-standalone-linux-x86_64.tar.gz and kalandra-native-cpu-standalone-windows-x86_64.tar.gz respectively. ARM64 Linux and Windows builds use kalandra-native-cpu-standalone-linux-arm64.tar.gz and kalandra-native-cpu-standalone-windows-arm64.tar.gz respectively, as described above. Starting with v0.99.1, standalone compiler packages include private LLVM dependencies, host-native linkers and CPU runtime data for all five supported platforms. Install the package for the machine running the compiler, then select a destination with --platform; you do not need its compiler package. Linux and Windows destinations still require their system development libraries. Check the supplied SHA-256 sidecar before extracting. Keep the complete extracted toolchain directory together: its bin, lib, libexec and share resources are required.
+h2 { "Verify installation" }
+
+Run kalandra --version in a new terminal and compare it with the release you downloaded. The checker, formatter, parser and language server also accept --version. If a command is not found, check PATH and confirm you kept the complete package directory together.
+
+You are ready to check and compile a CPU program. Editor setup is optional and can be done separately.
 
 list {
-  link { url = "https://github.com/kalandra-lang/kalandra/releases", "Download Kalandra from GitHub Releases" }
+  link { url = "/docs/getting-started", "Run your first program" },
+  link { url = "/docs/tooling#set-up-vs-code", "Set up VS Code or another editor" },
+  link { url = "/docs/troubleshooting", "Resolve installation and build problems" }
 }
 
-On macOS, open the signed DMG and copy the complete toolchain directory to a permanent location before ejecting it. On Linux and Windows, extract the complete archive. Add the package bin directory to PATH. For example, if the complete package is at $HOME/kalandra, a POSIX shell can use:
+h2 { "Vulkan compiler packages" }
 
-codeblock { language = bash, """export PATH="$HOME/kalandra/bin:$PATH"
-""" }
+On Linux x86-64, choose kalandra-native-vulkan-standalone-linux-x86_64.tar.gz. The package includes private compiler and SPIR-V tools. Generated applications need the system Vulkan loader and a compatible physical GPU driver. Linux execution has been tested on NVIDIA RTX 5090 and Intel ARL; this does not guarantee support for every Vulkan device or provide Raspberry Pi VideoCore acceleration.
 
-Use a permanent directory and add the equivalent path through your shell or Windows environment settings. Git is also required when installing source dependencies with kalandra install. Moving only the compiler executable loses its private resources. Standalone packages bundle the private LLVM toolchain; external-toolchain packages retain the requirements listed in their metadata.
+Windows x86-64 and ARM64 Vulkan packages are experimental. They pass compiler build and installed-package checks, but physical Windows GPU execution, numerical behavior and performance have not been verified. Use the matching Visual Studio tools and SDK, the Vulkan loader and a compatible vendor driver.
 
 list {
-  link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.2/native/metal-proof/toolchain.json", "Metal toolchain requirements" }
+  link { url = "/docs/gpu#experimental-vulkan-backend", "Compile and run with Vulkan" }
+}
+
+h2 { "CUDA compiler packages" }
+
+On Linux x86-64, choose kalandra-native-cuda-standalone-linux-x86_64.tar.gz. You do not need the CUDA toolkit to use the standalone compiler, but you do need system C++23 development headers to compile an application. Running it requires a compatible NVIDIA driver with PTX 9.2 support. Execution has been tested on RTX 5090; older drivers and other GPUs are not yet verified.
+
+Windows x86-64 and ARM64 CUDA packages are experimental and require the matching Visual Studio tools and SDK to compile applications. Physical Windows GPU execution has not been verified. An ARM64 compiler package does not imply that a compatible NVIDIA ARM64 CUDA driver exists. macOS uses Metal; there is no macOS CUDA package.
+
+Deploy a generated CUDA or Vulkan application as a complete directory, including its executable and PTX or SPIR-V resources.
+
+list {
+  link { url = "/docs/gpu#experimental-linux-cuda-backend", "Compile and run with CUDA" },
+  link { url = "/docs/gpu#experimental-windows-gpu-support", "Experimental Windows GPU requirements" }
 }
 
 h2 { "Build from source" }
 
-From a release-tag checkout, install CMake 3.28 or newer, Ninja, toml++ 3.4.0 and the pinned LLVM/MLIR/Clang 23.1.3 toolchain. Then use the native presets:
+Source builds are an alternative to release packages. From a release-tag checkout, install CMake 3.28 or newer, Ninja, toml++ 3.4.0 and the pinned LLVM/MLIR/Clang 23.1.3 toolchain, then run:
 
 codeblock { language = bash, """cmake --preset native
 cmake --build --preset native
 ctest --preset native
 """ }
 
-The build-tree tools are under build/native/native. Metal configuration has additional opt-in dependencies and Apple toolchain requirements; follow the source guide rather than substituting an arbitrary compiler version.
+The tools are created under build/native/native. GPU builds have additional dependencies and opt-in configuration. Follow the source-build guide for your backend rather than substituting an arbitrary toolchain version.
 
 list {
-  link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.2/native/README.md", "Native source-build instructions" }
-}
-
-h2 { "Vulkan compiler packages" }
-
-Starting with v0.99.2, Linux x86-64 users can download kalandra-native-vulkan-standalone-linux-x86_64.tar.gz from GitHub Releases. It includes the private compiler and SPIR-V tools; application compilation still needs system C++23 development headers. A Vulkan-enabled source build additionally needs Vulkan development headers, glslc, spirv-val and spirv-dis. Configure the source checkout with KALANDRA_BUILD_VULKAN_RUNTIME=ON and the pinned LLVM toolchain. The normal compiler then accepts --target vulkan; there is no separate source language. Generated GPU applications need a compatible physical GPU driver and the system Vulkan loader. CPU-only packages do not gain Vulkan compilation by passing that flag.
-
-list {
-  link { url = "/docs/gpu#experimental-vulkan-backend", "Vulkan placement, numerical policies and current limits" }
-}
-
-h2 { "Verify installation" }
-
-Run kalandra --version and confirm that it matches the release you downloaded. Each compiler, checker, formatter, parser and language-server executable reports its native toolchain version.
-
-list {
-  link { url = "/docs/getting-started", "Create, check and run the native starter" },
-  link { url = "/docs/tooling#set-up-vs-code", "Install the VS Code extension or configure another LSP editor" }
-}
-
-h2 { "CUDA compiler packages" }
-
-Starting with v0.99.2, Linux x86-64 users can download kalandra-native-cuda-standalone-linux-x86_64.tar.gz from GitHub Releases. Building the Linux development target from source requires a build with KALANDRA_BUILD_CUDA_SOURCE=ON and KALANDRA_BUILD_CUDA_RUNTIME=ON, the pinned LLVM toolchain, CUDA development headers and NVRTC. The build uses LLVM and device-only NVRTC rather than NVCC's host compiler mode. A compatible installed CUDA compiler accepts --target cuda and needs system C++23 development headers, without requiring the CUDA toolkit on the end user's system. Generated applications require the NVIDIA driver and their complete PTX resource directory.
-
-The initial execution qualification covers Linux x86-64 and RTX 5090. This does not add CUDA to macOS or every ARM64 Linux installation. Use the released Metal distribution on supported Macs. Install published toolchains from GitHub Releases; Actions artifacts are development qualification inputs.
-
-list {
-  link { url = "/docs/gpu#experimental-linux-cuda-backend", "CUDA placement, numerical policies and current limits" }
-}
-
-h2 { "Experimental Windows GPU support" }
-
-Windows CUDA and Vulkan support is experimental. Starting with v0.99.2, GitHub Releases provides kalandra-native-cuda-standalone-windows-x86_64.tar.gz, kalandra-native-cuda-standalone-windows-arm64.tar.gz, kalandra-native-vulkan-standalone-windows-x86_64.tar.gz and kalandra-native-vulkan-standalone-windows-arm64.tar.gz. Choose the archive for the build host and backend; CPU-only packages do not include these GPU compilers. Native x86-64 and ARM64 compiler packages have passed build and installed-package qualification, but physical Windows GPU execution, numerical correctness, cancellation behavior and performance remain unverified. Use matching Visual Studio C++ Build Tools and the Windows SDK in a developer command prompt. Generated applications require a compatible vendor GPU driver and their complete resource directory. ARM64 compiler availability does not establish ARM64 CUDA driver support.
-
-list {
-  link { url = "/docs/gpu#experimental-windows-gpu-support", "Windows GPU requirements and qualification status" },
-  link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows VM and GPU hardware testing" }
+  link { url = "https://github.com/kalandra-lang/kalandra/blob/v0.99.2/native/README.md", "Native source-build instructions" },
+  link { url = "/docs/contributing", "Build and test a contribution" },
+  link { url = "/docs/cross-compilation", "Compile for another CPU platform" }
 }

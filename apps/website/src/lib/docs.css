@@ -313,6 +313,9 @@
 }
 .swiss-doc-page .doc-body :is(th, td) {
   padding: 14px 16px;
+  min-width: 10ch;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 .docs-code {
   margin: 28px 0;

@@ -1,6 +1,16 @@
 meta { title = "Collection functions", description = "Signatures, results and failures for strings, arrays and tensor construction.", order = 2, group = "Library reference" }
 
-These signatures describe call forms, not generic declarations you can paste into a program. T and U stand for compatible element types; dimensions describe a tensor shape. Unless stated otherwise, inputs must be completed CPU values rather than pending tasks. GPU placement has a smaller supported subset, described in the GPU guide. These examples are ordinary CPU programs. slice and concat are not available in programs that use GPU placement. Built-ins are available without an import and are not first-class callback values; wrap a built-in call in a user-defined function when you need a callback.
+Use these functions to construct and transform collections. They are available without an import. T and U in the signatures stand for supported element types; they are reference notation, not generic declarations. Examples on this page are complete CPU programs.
+
+Inputs must be values rather than pending tasks; await task results first. Array operations run on the CPU. Some, including slice and concat, are not supported in programs compiled with GPU placement. Tensor construction creates host storage; use transfer to move a tensor to a GPU.
+
+Built-in names cannot be passed directly as callbacks. Wrap a built-in call in a named or anonymous function when an API requires a callback.
+
+list {
+  link { url = "/docs/arrays", "Array values, copies and write access" },
+  link { url = "/docs/strings", "String indexes and Unicode" },
+  link { url = "/docs/tensors", "Tensor shapes and construction" }
+}
 
 h2 { "length" }
 
@@ -42,7 +52,9 @@ h2 { "sort" }
 
 code { "sort(mut input: [T]) -> [T]" }
 
-Sort a numeric or Bool array in ascending order, in place, and return the same array. Existing aliases observe the writes. Ordinary array parameters and captured arrays are read-only; a function that sorts its caller's array must declare a mut parameter. A live task reader prevents sorting that storage until the task settles, and spawn sort(input) is rejected. Owned-child arrays, strings, tensors and custom comparators are not supported. Sorting is unstable and takes O(n log n) time with constant auxiliary storage. Cancellation can leave a partially sorted input; completed writes remain visible. Checked faults and cancellation checks remain enabled. This requires CPU execution without GPU placement.
+Sort a numeric or Bool array in ascending order, in place, and return the same array. Existing aliases observe the writes. Ordinary array parameters and captured arrays are read-only; a function that sorts its caller's array must declare a mut parameter. A live task reader prevents sorting that storage until the task settles, and spawn sort(input) is rejected. Arrays of Strings, records, enums or function values, tensor arguments and custom comparators are not supported.
+
+Sorting is unstable: equal elements have no guaranteed relative order. It takes O(n log n) time with constant auxiliary storage. Cancellation can leave a partially sorted input; completed writes remain visible. Checked faults and cancellation checks remain enabled. This requires CPU execution without GPU placement.
 
 Integer ordering is numeric; Bool orders false before true. Floating-point ordering is deterministic and preserves exact bits: negative NaNs, negative infinity, negative finite values, negative zero, positive zero, positive finite values, positive infinity, then positive NaNs. Within a NaN sign, negative encodings are ordered by decreasing raw bits and positive encodings by increasing raw bits, including their quiet/signaling bit and payload. Sorting uses integer bit keys, without floating-point arithmetic or comparisons, and does not change the rounding mode or raise floating-point exception flags.
 

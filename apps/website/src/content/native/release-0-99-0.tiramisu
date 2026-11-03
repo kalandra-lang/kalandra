@@ -1,4 +1,4 @@
-meta { title = "Kalandra 0.99.0 — the native revival", description = "Release notes for the native CPU and GPU toolchain.", order = 1, group = "Release archive" }
+meta { title = "Kalandra 0.99.0 — the native revival", description = "Release notes for the native CPU and GPU toolchain.", order = 2, group = "Release archive" }
 
 Kalandra 0.99.0 revives an eight-year-old project with a new native implementation. The jump from the earlier 0.12.0 line is deliberate: this is a new direction and a substantial step toward 1.0.
 

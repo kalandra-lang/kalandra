@@ -1,12 +1,19 @@
 meta { title = "Numerical tensor functions", description = "Matrix multiplication, reductions, activations and row normalization.", order = 3, group = "Library reference" }
 
+These functions return new values without modifying their inputs. Use them directly on CPU tensors or inside an eligible function placed on a GPU. Inputs must be on the device executing the operation; the calls do not perform implicit transfers.
+
 T denotes one of the ten numeric element types. M, K and N are compatible dimensions, including runtime dimensions. These signatures are reference notation, not source-level generic definitions. Inputs are immutable. Arithmetic policies affect numerical results; they do not remove shape, conversion or checked integer failures.
+
+list {
+  link { url = "/docs/tensors", "Tensor construction, shapes and examples" },
+  link { url = "/docs/gpu-numerics#matrix-precision-policies", "Choose matrix accumulation and arithmetic policies" }
+}
 
 h2 { "matmul" }
 
 code { "matmul(left: Tensor[T, M, K], right: Tensor[T, K, N]) -> Tensor[T, M, N]" }
 
-Multiply two rank-two tensors of the same numeric type. Inner extents must match; there is no batched multiplication, implicit element conversion or broadcasting. Zero inner extent yields additive zeros. Integer products and accumulation are checked. CPU execution keeps a balanced adjacent-pair contraction tree. Metal hardware float32 defaults to optimized full-precision accumulation. Experimental Vulkan and CUDA default to fixed-tree; use --matmul-policy optimized explicitly for its tiled float32 kernel. --matmul-policy fixed-tree requests separately rounded products and the fixed tree. Metal float64 arithmetic requires explicit software fallback; CUDA uses native float64 on the qualified NVIDIA device; Vulkan float64 depends on the device and operation, as described in the GPU guide. Shape and allocation sizes are checked.
+Multiply two rank-two tensors of the same numeric type. Inner extents must match; there is no batched multiplication, implicit element conversion or broadcasting. Zero inner extent yields additive zeros. Integer products and accumulation are checked. CPU execution keeps a balanced adjacent-pair contraction tree. Metal hardware float32 defaults to optimized full-precision accumulation. Experimental Vulkan and CUDA default to fixed-tree; use --matmul-policy optimized explicitly for their tiled float32 kernels. --matmul-policy fixed-tree requests separately rounded products and the fixed tree. Metal float64 arithmetic requires explicit software fallback; CUDA uses native float64 on the qualified NVIDIA device; Vulkan float64 depends on the device and operation, as described in the GPU guide. Shape and allocation sizes are checked.
 
 h2 { "reduceSum" }
 

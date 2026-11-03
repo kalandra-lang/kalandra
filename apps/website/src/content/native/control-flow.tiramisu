@@ -14,7 +14,7 @@ fn main() -> int:
   clampLow(12, 42)
 """ }
 
-A general if expression needs both branches and a compatible result type. Only the selected branch executes, and bindings introduced in it stay within that branch. A non-final validation guard may omit else when its body ends in an explicit fail.
+This returns 42. A general if expression needs both branches and a compatible result type. Only the selected branch executes, and bindings introduced in it stay within that branch. A non-final validation guard may omit else when its body ends in an explicit fail.
 
 h2 { "Combine conditions" }
 
@@ -27,7 +27,7 @@ codeblock { language = kalandra, """fn main() -> int:
     0
 """ }
 
-Write separate comparisons joined with and. Ungrouped chained comparisons are rejected. Floating-point comparisons follow the numerical rules, including NaN behavior; Boolean arrays and numerical tensors remain distinct types.
+This also returns 42. Write separate comparisons joined with and. Ungrouped chained comparisons are rejected. Floating-point comparisons follow the numerical rules, including NaN behavior; Boolean arrays and numerical tensors remain distinct types.
 
 h2 { "Update local state in a loop" }
 
@@ -51,7 +51,7 @@ Tasks started in an iteration must settle before the next iteration. A task star
 
 h2 { "Match a declared variant" }
 
-Use match to select an enum or error alternative. Cover every alternative or use a final wildcard branch. Named payload bindings exist only in the selected branch; guards and nested destructuring are outside the current match subset.
+Use match to select an enum or error alternative. Cover every alternative or use a final _ wildcard branch. Names bound to a variant's fields exist only in the selected branch. Match guards and nested destructuring are not supported.
 
 list {
   link { url = "/docs/records-enums", "Declare records and enums" },

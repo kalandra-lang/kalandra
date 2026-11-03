@@ -88,6 +88,10 @@
   ],
   "getting-started": [
     {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
       "kind": "module",
       "expected": "[2, 4, 6]"
     },
@@ -285,7 +289,44 @@
       "expected": "42"
     }
   ],
-  "tutorial": [],
+  "tutorial": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "10"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[2, 4, 6, 8]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[9, 1]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "23"
+    },
+    {
+      "kind": "cpu",
+      "expected": "0"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
   "release-notes": [],
   "cross-compilation": [
     {
@@ -294,5 +335,6 @@
     }
   ],
   "release-0-99-0": [],
-  "release-0-99-1": []
+  "release-0-99-1": [],
+  "glossary": []
 }

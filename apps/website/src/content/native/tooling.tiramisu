@@ -1,6 +1,12 @@
-meta { title = "Editor and CLI tools", description = "Check, format and navigate native projects.", order = 3, group = "Using Kalandra" }
+meta { title = "Editor and CLI tools", description = "Check, format and navigate native projects.", order = 1, group = "Using Kalandra" }
 
-The native toolchain includes kalandra, kalandra-check, kalandra-fmt and kalandra-lsp. The VS Code extension connects the native language server to the editor; it does not download or build that server for you.
+Use kalandra to create, install dependencies for, and compile projects; kalandra-check to diagnose source without running it; kalandra-fmt to format it; and kalandra-lsp for editor language services. The VS Code extension connects the native language server to the editor; it does not download or build that server for you.
+
+The commands below assume main.k exists in the current directory and my-app is a project created with kalandra new my-app. They can be used independently.
+
+list {
+  link { url = "/docs/getting-started", "Create the example program and project" }
+}
 
 h2 { "Check source without executing it" }
 
@@ -33,17 +39,17 @@ codeblock { language = bash, """kalandra main.k -O2 -o program
 kalandra main.k --emit-mlir program.mlir --emit-llvm program.ll -o program
 """ }
 
-IR outputs are explicit inspection artifacts. Source paths, project manifests and installed dependency files are protected against accidental output replacement. Use the appropriate Metal-capable driver for --target metal.
+The optional --emit-mlir and --emit-llvm flags write intermediate compiler representations for inspection; you do not need them to build an application. Source paths, project manifests and installed dependency files are protected against accidental output replacement. Use a package that includes your GPU backend when passing --target metal, --target vulkan or --target cuda.
 
 list {
-  link { url = "/docs/cross-compilation", "Build for another CPU platform with an explicit toolchain profile" }
+  link { url = "/docs/cross-compilation", "Build for another CPU platform using --platform or a toolchain profile" }
 }
 
 h2 { "Other code editors" }
 
 Any editor with a Language Server Protocol client can launch kalandra-lsp directly over standard input/output. Associate .k files with Kalandra, configure the server command as the absolute path to kalandra-lsp and leave command arguments empty for ordinary relative-import projects. Do not launch the server through a shell. A native toolchain package supplies the executable and its resources; no JavaScript runtime is required.
 
-For package mappings, pass --project followed by the absolute kalandra.toml path as two server arguments. Add --placement when CPU/Metal placement diagnostics are wanted. The client should support UTF-16 positions and apply workspace edits for rename and formatting. Editor-specific adapters are not bundled beyond VS Code. The server provides language services, not a debugger or build runner.
+For package mappings, pass --project followed by the absolute kalandra.toml path as two server arguments. Add --placement when you want CPU/GPU placement diagnostics. The client should support UTF-16 positions and apply workspace edits for rename and formatting. Editor-specific adapters are not bundled beyond VS Code. The server provides language services, not a debugger or build runner.
 
 list {
   link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.2", "Download the toolchain and VS Code extension" },

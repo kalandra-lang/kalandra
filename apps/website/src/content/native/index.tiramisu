@@ -1,35 +1,51 @@
-meta { title = "Kalandra documentation", description = "Tutorials, language and built-in references, practical guides and contribution instructions.", order = 1, group = "Start here" }
+meta { title = "Kalandra documentation", description = "Learn the language, look up its rules and build CPU and GPU programs.", order = 0, group = "Start here" }
 
-Kalandra is a native language for CPU and GPU computing. Write typed functions, compose numerical operations and choose where tasks run. These pages describe the native development preview and its implemented language and tools.
+Kalandra is a compiled language for CPU and GPU computing. A program is made of typed functions. You can run those functions on the CPU, start independent tasks, or place supported numerical work on a GPU. Memory is managed automatically; data transfers to and from a GPU are explicit.
 
-h2 { "Learn Kalandra" }
+h2 { "New to Kalandra?" }
 
-Start with a guided introduction if you are new to the language. The tutorial follows the path from a first project to functions, collections and parallel work.
+Install the toolchain, run your first program, then follow the tutorial. You need basic programming experience, but no prior knowledge of Kalandra, GPU programming or its compiler.
 
 list {
-  link { url = "/docs/tutorial", "Tutorial — learn the language by example" },
-  link { url = "/docs/installation", "Installation — choose and set up the toolchain" }
+  link { url = "/docs/installation", "Installation — choose a package for your computer" },
+  link { url = "/docs/getting-started", "Getting started — check, compile and run a program" },
+  link { url = "/docs/tutorial", "Tutorial — learn functions, collections, errors and tasks" },
+  link { url = "/docs/tooling#set-up-vs-code", "Editor setup — install the VS Code extension or connect an LSP editor" }
 }
 
-h2 { "Look something up" }
+h2 { "Reference" }
 
-The language reference explains syntax, types and execution. The library reference lists every built-in call, including numeric conversions, collection operations, numerical functions and device selectors.
+Return here when you need an exact rule or a function signature. The language reference covers syntax and behavior; the built-in function reference covers calls available without imports.
 
 list {
-  link { url = "/docs/language-reference", "Language reference" },
+  link { url = "/docs/language-reference", "Language reference — types, expressions, mutation and execution" },
   link { url = "/docs/library", "Built-in functions — alphabetical index" },
-  link { url = "/docs/tooling", "Compiler, checker, formatter and editor tools" }
+  link { url = "/docs/collection-functions", "Collection functions — arrays, Strings and tensor construction" },
+  link { url = "/docs/numeric-functions", "Numeric conversions — names, ranges and rounding" },
+  link { url = "/docs/tensor-functions", "Numerical functions — matrix products, reductions and normalization" },
+  link { url = "/docs/task-functions", "Task and device functions — parallel maps, selectors and transfers" },
+  link { url = "/docs/glossary", "Glossary — language and execution terms" }
 }
 
-h2 { "Solve a specific task" }
+h2 { "HOWTO guides" }
+
+Choose a guide for the task you want to complete. These guides assume you can already check and compile a small program.
 
 list {
-  link { url = "/docs/parallelism", "Run independent CPU tasks" },
-  link { url = "/docs/gpu", "Transfer tensors and run a GPU function" },
-  link { url = "/docs/gpu-numerics", "Compose GPU numerical operations" },
-  link { url = "/docs/projects", "Configure a native project" },
+  link { url = "/docs/parallelism", "Run independent work on CPU workers" },
+  link { url = "/docs/gpu", "Compile and run a GPU program" },
+  link { url = "/docs/gpu-numerics", "Keep numerical operations and intermediate tensors on the GPU" }
+}
+
+h2 { "Set up and use the toolchain" }
+
+list {
+  link { url = "/docs/tooling", "Check, format and compile source; configure an editor" },
+  link { url = "/docs/projects", "Configure a project and map local libraries" },
   link { url = "/docs/packages", "Install and update source dependencies" },
-  link { url = "/docs/troubleshooting", "Troubleshoot common problems" }
+  link { url = "/docs/cross-compilation", "Build for another operating system or CPU architecture" },
+  link { url = "/docs/troubleshooting", "Resolve common errors and setup problems" },
+  link { url = "/docs/release-notes", "Release notes — what changed in Kalandra 0.99.2" }
 }
 
 h2 { "A first program" }
@@ -38,21 +54,22 @@ codeblock { language = kalandra, """fn main() -> int:
   6 * 7
 """ }
 
-Save this as main.k. Check the source, compile it, then run the executable; it displays 42.
+Save this as main.k. In a macOS or Linux terminal, check it, compile it, then run the executable:
 
 codeblock { language = bash, """kalandra-check main.k
 kalandra main.k -o program
 ./program
 """ }
 
-Unless a page gives a project layout, save each complete language example as main.k and use these commands. GPU examples use the Metal compilation commands in the GPU guide. Companion modules and intentionally rejected examples are labeled on their pages.
+The executable displays 42, the result of main. On Windows, compile with -o program.exe and run ./program.exe. There is no interactive prompt or separate run command in this workflow.
+
+Unless a page names companion files, each complete language example is a separate program: replace main.k rather than appending examples together. Command blocks contain commands to enter, without shell prompts. GPU examples need a backend-enabled package and the commands in the GPU guide.
 
 h2 { "Contribute" }
 
-Learn how to build and test the compiler, locate the relevant implementation, improve documentation and submit a focused change. Compiler design documents and project planning remain in the repository.
+The contributor guide explains the source layout, builds, tests and documentation workflow. Use GitHub for proposals, implementation discussions and project planning.
 
 list {
   link { url = "/docs/contributing", "Contributor guide" },
-  link { url = "https://github.com/kalandra-lang/kalandra/issues", "Report a bug" },
-  link { url = "/docs/release-notes", "What’s new in Kalandra 0.99.2" }
+  link { url = "https://github.com/kalandra-lang/kalandra/issues", "Report a bug or propose a change" }
 }

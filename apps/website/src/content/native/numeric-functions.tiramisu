@@ -4,11 +4,16 @@ Conversion calls accept one completed numeric scalar or CPU tensor. They do not 
 
 Integer destinations truncate floating input toward zero and check the resulting integer range. NaN and infinity cannot convert to integers. Integer destinations do not wrap. Integer-to-float and float narrowing use nearest, ties-to-even rounding; a finite value outside the floating destination range fails. Invalid known constants are diagnosed before execution; other invalid conversions produce checked arithmetic faults. Empty tensors perform no element conversions.
 
+list {
+  link { url = "/docs/numbers", "Choosing numeric types and converting values" },
+  link { url = "/docs/gpu-numerics#hardware-arithmetic-and-explicit-fallback", "Device arithmetic and explicit fallback" }
+}
+
 h2 { "int8" }
 
 code { "int8(value: numeric scalar | Tensor[T, ...]) -> int8 scalar or same-shape tensor" }
 
-Convert to a 8-bit signed integer. The destination range is -128 through 127, inclusive. The scalar result, or every tensor element, must fit that range.
+Convert to an 8-bit signed integer. The destination range is -128 through 127, inclusive. The scalar result, or every tensor element, must fit that range.
 
 h2 { "int16" }
 
@@ -32,7 +37,7 @@ h2 { "uint8" }
 
 code { "uint8(value: numeric scalar | Tensor[T, ...]) -> uint8 scalar or same-shape tensor" }
 
-Convert to a 8-bit unsigned integer. The destination range is 0 through 255, inclusive. The scalar result, or every tensor element, must fit that range.
+Convert to an 8-bit unsigned integer. The destination range is 0 through 255, inclusive. The scalar result, or every tensor element, must fit that range.
 
 h2 { "uint16" }
 

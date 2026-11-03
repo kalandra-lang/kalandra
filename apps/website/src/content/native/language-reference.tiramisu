@@ -20,9 +20,28 @@ list {
   link { url = "/docs/records-enums", "Record and enum declarations" }
 }
 
+h2 { "Mutation at a glance" }
+
+Reassignment changes a local binding; an element write changes array storage. These are different operations.
+
+table {
+  row = ["Operation", "Rule"],
+  row = ["Reassign a numeric or Bool scalar", "Allowed locally; the type stays fixed"],
+  row = ["Replace a numeric CPU array binding", "Allowed; existing aliases retain the previous array"],
+  row = ["Write a numeric or Bool array element", "Requires writable storage and no unfinished task readers"],
+  row = ["Write through an array parameter", "The parameter must declare mut"],
+  row = ["Edit a String or tensor in place", "Not supported; construct a new value"],
+  row = ["Update a record", "Use with to construct a new record"]
+}
+
+list {
+  link { url = "/docs/arrays", "Array access, copying, sorting and shared readers" },
+  link { url = "/docs/functions#array-access-contracts", "Function parameter access contracts" }
+}
+
 h2 { "Functions and control flow" }
 
-Functions return their final expression. Parameters and results can be annotated; recursive functions need enough type information to check their calls. Function values and captured values support composition. Numeric and Bool bindings support local reassignment. Statement if and while support local control flow. Numeric and Bool arrays support checked element writes with explicit mut contracts and protection for active task readers. Conditions and matching choose expressions lazily; a branch that is not selected does not run.
+Functions return their final expression. A function value can be passed to another function or retain values from its defining scope as a closure. Conditions choose which branch runs, while repeats a body, and match selects a declared enum or error alternative. Function signatures record parameter access and any expected-error channel.
 
 list {
   link { url = "/docs/functions", "Definitions, function values, closures and recursion" },
@@ -47,4 +66,4 @@ Numeric expressions use +, -, *, / and integer remainder %. String concatenation
 
 Multiplication, division and remainder bind more tightly than addition and subtraction. The -> pipeline passes its left expression as the first argument of the call on its right. Use parentheses to make the intended grouping explicit, especially when combining a pipeline with arithmetic or comparisons.
 
-Indexes are zero-based. Array and String indexing uses one index; tensor indexing uses one per dimension. Bounds are checked. Arrays, Strings and tensors are immutable; these expressions read values rather than assigning into storage.
+Indexes are zero-based. Array and String indexing uses one index; tensor indexing uses one per dimension. Bounds are checked. An indexed expression reads a value. Numeric and Bool CPU arrays also permit checked element assignment when the caller has write access and no unfinished task readers share that storage. Strings and tensors do not support in-place edits.

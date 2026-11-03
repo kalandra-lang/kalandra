@@ -23,6 +23,8 @@ kalandra main.k -o program
 ./program
 """ }
 
+The executable displays 42. The import path is relative to main.k, not to the terminal's working directory. Keep both files in the same directory for this example.
+
 h2 { "Export types deliberately" }
 
 Record, enum and error declarations can be exported and imported. Aliasing preserves their nominal identity rather than creating a new type. A helper continues resolving its own private names in its declaring module; importing it does not expose all of that module.

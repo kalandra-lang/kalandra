@@ -1,4 +1,4 @@
-meta { title = "Kalandra 0.99.2 — CUDA and Vulkan", description = "Linux CUDA and Vulkan, experimental Windows GPU packages, and native call correctness fixes.", order = 5, group = "Start here" }
+meta { title = "Kalandra 0.99.2 — CUDA and Vulkan", description = "Linux CUDA and Vulkan, experimental Windows GPU packages, and native call correctness fixes.", order = 0, group = "Release archive" }
 
 Kalandra 0.99.2 adds Linux CUDA and Vulkan compiler distributions and experimental Windows CUDA/Vulkan distributions. It is a GPU-delivery checkpoint before the next language-design work. Existing programs keep the immutable language model; the mutation and loop proposals are not part of this release.
 

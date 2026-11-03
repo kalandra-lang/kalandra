@@ -1,6 +1,6 @@
 meta { title = "Arrays and mapping", description = "Create arrays, transform their elements and control local write access.", order = 6, group = "Language reference" }
 
-An array type is written [T]. Array lengths may vary at runtime; its elements keep one type. Arrays and tensors are different values, with explicit conversions between supported numeric forms.
+An array type is written [T]. Array lengths may vary at runtime; its elements keep one type. Use arrays for indexed collections and callbacks; use tensors for shaped numerical operations. Conversions between them are explicit.
 
 h2 { "Create and read an array" }
 
@@ -9,7 +9,7 @@ codeblock { language = kalandra, """fn main() -> int:
   values[1] + length(values)
 """ }
 
-Indexes are zero-based and bounds-checked. Empty arrays need an element type from an annotation or surrounding context. Arrays can contain the supported numeric, Bool, String, record, enum and function-value types; this does not imply arbitrary nested arrays or arrays of tensors.
+This returns 23: the element at index 1 is 20, and the array has length 3. Indexes are zero-based and bounds-checked. Empty arrays need an element type from an annotation or surrounding context. Arrays can contain the supported numeric, Bool, String, record, enum and function-value types; this does not imply arbitrary nested arrays or arrays of tensors.
 
 h2 { "Map sequentially" }
 
@@ -20,7 +20,7 @@ fn main() -> [int]:
   [1, 2, 3] -> map(double)
 """ }
 
-map evaluates its callback sequentially and preserves input order. A supported callback can capture immutable values or return another supported element type. For CPU task scheduling, choose parallelMap explicitly.
+This returns [2, 4, 6]. map evaluates its callback sequentially and preserves input order. A supported callback can capture immutable values or return another supported element type. For CPU task scheduling, choose parallelMap explicitly.
 
 h2 { "Construct by index" }
 
@@ -31,7 +31,7 @@ codeblock { language = kalandra, """fn main() -> [int]:
   generate(4, fn(index): index * 2 + offset)
 """ }
 
-The result is [10, 12, 14, 16]. Indices run from zero up to count, excluding count, in ascending order. A zero count calls no callbacks. The count is a nonnegative int; invalid runtime counts and excessive allocation sizes produce checked faults. Callbacks follow the same completed-element and capture rules as sequential map.
+The result is [10, 12, 14, 16]. Indices run from zero up to count, excluding count, in ascending order. A zero count calls no callbacks. The count is a nonnegative int; invalid runtime counts and excessive allocation sizes produce checked faults. As with map, a callback must return an ordinary supported array element rather than a task or expected-error result.
 
 h2 { "Copy array storage" }
 
@@ -74,7 +74,15 @@ codeblock { language = kalandra, """fn main() -> [int]:
   concat(slice(values, 0, 2), [9])
 """ }
 
-slice uses a checked half-open range. concat requires matching element types. Both allocate fresh outer array storage and preserve element order.
+This returns [1, 2, 9]. slice includes the start index and excludes the end index; both are checked. concat requires matching element types. Both allocate fresh outer array storage and preserve element order.
+
+h2 { "Sorting" }
+
+sort(values) orders a numeric or Bool array in place and returns that same array. sorted(values) returns an independent sorted array. Use sort when aliases should observe the changes; use sorted to preserve the input. Both use the same deterministic ordering, including NaNs and signed zeros.
+
+list {
+  link { url = "/docs/collection-functions#sort", "Sorting order, shared readers and cancellation" }
+}
 
 h2 { "Enter a numerical pipeline" }
 
@@ -118,16 +126,12 @@ fn main() -> int ! TaskError:
     values[0]
 """ }
 
+This returns 4. The write is allowed because pending has been awaited. If the write appeared before await, the checker would reject it even through an alias.
+
 Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Array operations require CPU execution. Programs that place work on a GPU do not support array-valued locals; use tensors for GPU data.
 
 list {
   link { url = "/docs/tensors", "Shapes and tensor arithmetic" },
   link { url = "/docs/parallelism", "Parallel array mapping" },
   link { url = "/docs/collection-functions", "Collection function reference" }
-}
-
-sort(values) orders a numeric or Bool array in place and returns that same array; sorted(values) returns an independent sorted array. Both use the same deterministic ordering, including a defined order for NaNs and signed zeros. See the collection-functions reference for ordering, task-reader restrictions and cancellation behavior.
-
-list {
-  link { url = "/docs/collection-functions#sort", "Sorting reference" }
 }

@@ -2,6 +2,15 @@ meta { title = "GPU computing", description = "Transfer tensors and place numeri
 
 Kalandra uses one source language for CPU functions and eligible GPU numerical functions. The Apple Metal backend requires macOS 26 or newer with Apple silicon. Use the mixed CPU/Metal compiler distribution and its Apple toolchain prerequisites. The experimental Vulkan and CUDA backends on Linux and Windows use the same placement and transfer APIs. Windows GPU execution is experimental and has not been verified on physical Windows GPUs.
 
+h2 { "Before you begin" }
+
+Install a package that includes the backend you want, plus its system prerequisites. This example uses float32 so it needs no software-arithmetic fallback. Save it as main.k. The same source works with the backend-specific commands below; no user-written shader is required.
+
+list {
+  link { url = "/docs/installation", "GPU package and system prerequisites" },
+  link { url = "/docs/tensors", "Tensor shape and element-type rules" }
+}
+
 h2 { "Transfer, dispatch and observe" }
 
 codeblock { language = kalandra, """fn project(input: Tensor[float32, ?, ?], weights: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
@@ -20,7 +29,18 @@ fn main() -> float32 ! TaskError:
     reduceSum(host)
 """ }
 
-Construction creates host tensors. transfer returns a task and makes data movement explicit. on gpu places the numerical call. Awaiting the tensor task returns a resident device tensor; it does not download its contents. Transfer the result to devices.cpu() before host-side use.
+The steps are explicit:
+
+list {
+  type = "ordered",
+  "Construct the input and weights as tensors on the CPU.",
+  "Use transfer and await to upload each input to the selected GPU.",
+  "Start project on that GPU with spawn … on gpu.",
+  "Await the result. It is still a resident GPU tensor.",
+  "Transfer it to devices.cpu(), then use the host result."
+}
+
+The ? dimensions on project accept runtime extents while keeping rank two. matmul checks that the inner dimensions match. transfer returns a task, so it uses the same try await error handling as other task work.
 
 h2 { "Compile a mixed application" }
 
@@ -28,7 +48,7 @@ codeblock { language = bash, """kalandra main.k --target metal -O2 -o app
 ./app/program
 """ }
 
-For this example the numerical result is 23. The current Metal development entry displays float32 results as hexadecimal IEEE-754 bit patterns, so program prints 41b80000. This diagnostic result display is not a general-purpose printing API.
+For this example the numerical result is 23. The Metal executable displays this float32 result as hexadecimal IEEE-754 bits: 41b80000. This represents 23, not an integer result. The executable's result display is separate from a general-purpose printing API.
 
 The output is an application directory containing program and its metallib resources. Keep them together when moving the application. The generated application can run without the compiler distribution; compatible hardware and system frameworks remain required.
 
@@ -44,7 +64,7 @@ GPU compilation requires system C++23 development headers in addition to the com
 
 Vulkan currently defaults to fixed-tree matmul. Select --matmul-policy optimized explicitly to use the full-float32 tiled matrix kernel. Its private right-operand transpose consumes an extra GPU buffer and dispatch within the normal resource limits. Matrix optimization does not enable fast math for ordinary elementwise expressions.
 
-Native float64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel float64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Intel kernels without float64 division remain native. The current fallback companion replaces float64 arithmetic for the selected kernel as a whole while retaining native float32; it does not substitute individual instructions. Missing or malformed shader resources never trigger numerical fallback, and hardware-only mode never silently selects software.
+Native float64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel float64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Intel kernels without float64 division remain native. Fallback applies to float64 arithmetic for the selected kernel as a whole while retaining native float32; it is not chosen separately for each instruction. Missing or malformed shader resources are errors, not reasons to select software arithmetic. Hardware-only mode never silently selects software.
 
 h2 { "Experimental Linux CUDA backend" }
 
@@ -60,13 +80,13 @@ CUDA supports the same ten numeric types and ranks zero through eight. Float32 a
 
 Matrix products default to fixed-tree. Explicit --matmul-policy optimized permits full-float32 fused multiply-add and a different accumulation order. Eligible aligned shapes use audited BSD-3-Clause CUTLASS SIMT kernels with bounded temporary workspace and deterministic contraction partitions. Other shapes, including empty dimensions and contraction tails, use a fixed-tree GPU companion. There is no CPU, TF32, half-precision or cuBLAS substitution. Unlike the Vulkan tiled implementation, the CUDA tiled kernel consumes both source operands in row-major order.
 
-Submitted device work retains its inputs, outputs and temporary storage through actual completion. Cancellation takes effect at completed stage boundaries; it does not reset the GPU or interrupt another process. The public sanitizer CLI variants are not currently available for CUDA.
+Submitted device work retains its inputs, outputs and temporary storage through actual completion. Cancellation takes effect at completed stage boundaries; it does not reset the GPU or interrupt another process. The sanitizer CLI variants are not available for CUDA.
 
 h2 { "Experimental Windows GPU support" }
 
 Windows CUDA and Vulkan support is experimental. Compiler packages for x86-64 and ARM64 have passed build and installed-package checks, including native CPU execution and GPU program compilation. Physical Windows GPU execution, numerical correctness, cancellation behavior and performance have not yet been qualified. An ARM64 compiler package does not imply that NVIDIA provides a compatible ARM64 CUDA driver.
 
-Use the matching Visual Studio developer command prompt with C++ Build Tools and the Windows SDK. A CUDA-enabled compiler accepts --target cuda; a Vulkan-enabled compiler accepts --target vulkan. CPU-only release packages do not gain GPU compilation by passing these flags. Generated applications use program.exe and require their complete PTX or SPIR-V directory, the appropriate system loader and a compatible vendor driver. These experimental Windows GPU packages are available from GitHub Releases starting with v0.99.2.
+Use the matching Visual Studio developer command prompt with C++ Build Tools and the Windows SDK. A CUDA-enabled compiler accepts --target cuda; a Vulkan-enabled compiler accepts --target vulkan. CPU-only release packages do not gain GPU compilation by passing these flags. Generated applications use program.exe and require their complete PTX or SPIR-V directory, the appropriate system loader and a compatible vendor driver. Download the experimental Windows GPU packages from GitHub Releases.
 
 list {
   link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows GPU hardware qualification" }
