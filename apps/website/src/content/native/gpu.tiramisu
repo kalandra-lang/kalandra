@@ -1,6 +1,6 @@
 meta { title = "GPU computing", description = "Transfer tensors and place numerical functions on a GPU.", order = 2, group = "HOWTO guides" }
 
-Kalandra uses one source language for CPU functions and eligible GPU numerical functions. The released Apple Metal backend requires macOS 26 or newer with Apple silicon. Use the mixed CPU/Metal compiler distribution and its Apple toolchain prerequisites. The experimental Vulkan and CUDA backends on Linux and Windows use the same placement and transfer APIs. They are distributed starting with v0.99.2; Windows GPU execution remains experimental and hardware-unqualified.
+Kalandra uses one source language for CPU functions and eligible GPU numerical functions. The Apple Metal backend requires macOS 26 or newer with Apple silicon. Use the mixed CPU/Metal compiler distribution and its Apple toolchain prerequisites. The experimental Vulkan and CUDA backends on Linux and Windows use the same placement and transfer APIs. Windows GPU execution is experimental and has not been verified on physical Windows GPUs.
 
 h2 { "Transfer, dispatch and observe" }
 

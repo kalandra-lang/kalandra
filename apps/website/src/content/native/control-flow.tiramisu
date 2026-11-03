@@ -31,7 +31,7 @@ Write separate comparisons joined with and. Ungrouped chained comparisons are re
 
 h2 { "Update local state in a loop" }
 
-Unreleased language branch: numeric and Bool scalars can be reassigned without a mut declaration. Synchronous, non-fallible CPU functions also support replacing numeric array names, including changing their length while preserving the element type. A while statement reevaluates a completed Bool condition before each iteration. It may run zero times. Supply the function result separately after the loop; while does not produce an expression value.
+Numeric and Bool scalars can be reassigned without a mut declaration. Numeric array bindings can also be reassigned in CPU functions, including across task waits and expected-error handling. Their lengths may change; their element type stays fixed. A while statement reevaluates its Bool condition before each iteration. It may run zero times. Supply the function result separately after the loop; while does not produce an expression value.
 
 codeblock { language = kalandra, """fn main() -> int:
   index = 0
@@ -45,9 +45,9 @@ codeblock { language = kalandra, """fn main() -> int:
   total
 """ }
 
-This returns 23. A statement if may omit else; a value-producing if still needs both branches. Assignment to an existing scalar changes that binding; a new name introduced in a branch or iteration stays in that scope. Reassignment preserves the scalar type. Checked numeric/Bool array element writes are described in the array tutorial. break, continue and for loops are not yet implemented.
+This returns 23. A statement if may omit else; a value-producing if still needs both branches. Assignment to an existing scalar changes that binding; a new name introduced in a branch or iteration stays in that scope. Reassignment preserves the scalar type. Checked numeric/Bool array element writes are described in the array tutorial. break, continue and for loops are not supported.
 
-Task work created in an iteration must be observed before its successful backedge. An await in a loop body does not prove that an incoming task was observed after the loop, since the loop might never run. Existing execution cancellation and resource limits also apply to loops.
+Tasks started in an iteration must settle before the next iteration. A task started before the loop may still be running after it: an await inside the body might never execute if the loop runs zero times. Wait for that task outside the loop before writing storage it reads. Cancellation and resource limits apply to loops.
 
 h2 { "Match a declared variant" }
 

@@ -8,9 +8,9 @@ link { url = "/docs/collection-functions#bytelength", "byteLength — count UTF-
 
 link { url = "/docs/collection-functions#concat", "concat — join arrays" }
 
-link { url = "/docs/collection-functions#copy", "copy — create independent array storage (unreleased)" }
-link { url = "/docs/collection-functions#sort", "sort — order an array in place (unreleased)" }
-link { url = "/docs/collection-functions#sorted", "sorted — create an independent sorted array (unreleased)" }
+link { url = "/docs/collection-functions#copy", "copy — create independent array storage" }
+link { url = "/docs/collection-functions#sort", "sort — order an array in place" }
+link { url = "/docs/collection-functions#sorted", "sorted — create an independent sorted array" }
 
 link { url = "/docs/task-functions#devicescpu", "devices.cpu — select the host device" }
 
@@ -22,7 +22,7 @@ link { url = "/docs/numeric-functions#float32", "float32 — convert a scalar or
 
 link { url = "/docs/numeric-functions#float64", "float64 — convert a scalar or tensor to float64" }
 
-link { url = "/docs/collection-functions#generate", "generate — construct an array by index (unreleased)" }
+link { url = "/docs/collection-functions#generate", "generate — construct an array by index" }
 
 link { url = "/docs/numeric-functions#int", "int — convert a scalar or tensor to int" }
 

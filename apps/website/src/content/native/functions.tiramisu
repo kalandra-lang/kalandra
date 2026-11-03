@@ -27,11 +27,11 @@ fn main() -> int:
   addTen(32)
 """ }
 
-The returned closure retains its captured environment after makeAdder returns. Scalar captures are value snapshots. Anonymous bodies may also use an indented suite with local bindings. In the unreleased language branch, rebinding a captured scalar changes only the current call's private copy. It does not update the captured environment, a later call, or the caller's binding. Array captures in that branch are read-only aliases to retained backing storage.
+The returned closure retains its captured environment after makeAdder returns. Scalar captures are value snapshots. Anonymous bodies may also use an indented suite with local bindings. Rebinding a captured scalar changes only the current call's private copy. It does not update the captured environment, a later call, or the caller's binding. Array captures are read-only aliases to retained backing storage.
 
 h2 { "Array access contracts" }
 
-Unreleased language branch: ordinary array parameters and all array captures provide read access. A mut parameter requests permission to write caller-owned flat numeric or Bool array storage. This permission is separate from rebinding a local name. The contract also appears in function types and cannot be erased by assigning the function to another binding or aggregate field.
+Ordinary array parameters and all array captures provide read access. A mut parameter requests permission to write caller-owned flat numeric or Bool array storage. This permission is separate from rebinding a local name. The contract also appears in function types and cannot be erased by assigning the function to another binding or aggregate field.
 
 codeblock { language = kalandra, """fn writableIdentity(mut values: [int]) -> [int]:
   values
