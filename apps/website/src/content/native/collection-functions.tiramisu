@@ -2,7 +2,7 @@ meta { title = "Collection functions", description = "Signatures, results and fa
 
 Use these functions to construct and transform collections. They are available without an import. T and U in the signatures stand for supported element types; they are reference notation, not generic declarations. Examples on this page are complete CPU programs.
 
-Inputs must be values rather than pending tasks; await task results first. Array operations run on the CPU. Some, including slice and concat, are not supported in programs compiled with GPU placement. Tensor construction creates host storage; use transfer to move a tensor to a GPU.
+Inputs must be values rather than pending tasks; await task results first. Array operations run on the CPU. Numeric and Bool arrays are also supported on the host side of Metal, Vulkan and CUDA programs, including CPU helpers and task results. String, record and function-array values remain limited to CPU programs. Tensor construction creates host storage; use transfer to move a tensor to a GPU. These array functions do not become GPU kernels through placement.
 
 Built-in names cannot be passed directly as callbacks. Wrap a built-in call in a named or anonymous function when an API requires a callback.
 
@@ -46,7 +46,7 @@ h2 { "copy" }
 
 code { "copy(input: [T]) -> [T]" }
 
-Return an independent array with the same length, element order and exact numeric bits. Supported elements are the ten numeric types, Bool and String. The array storage is fresh; String elements remain immutable values and may share their own text backing. Records, function values and nested arrays are not accepted. Empty arrays need an element type from context. Allocation and execution faults remain checked. Like slice, copy requires CPU execution without GPU placement; worker tasks are supported.
+Return an independent array with the same length, element order and exact numeric bits. Supported elements are the ten numeric types, Bool and String. The array storage is fresh; String elements remain immutable values and may share their own text backing. Records, function values and nested arrays are not accepted. Empty arrays need an element type from context. Allocation and execution faults remain checked. CPU worker tasks are supported. Numeric and Bool arrays can also be copied on the host side of GPU programs; String arrays require CPU programs.
 
 h2 { "sort" }
 
@@ -54,7 +54,7 @@ code { "sort(mut input: [T]) -> [T]" }
 
 Sort a numeric or Bool array in ascending order, in place, and return the same array. Existing aliases observe the writes. Ordinary array parameters and captured arrays are read-only; a function that sorts its caller's array must declare a mut parameter. A live task reader prevents sorting that storage until the task settles, and spawn sort(input) is rejected. Arrays of Strings, records, enums or function values, tensor arguments and custom comparators are not supported.
 
-Sorting is unstable: equal elements have no guaranteed relative order. It takes O(n log n) time with constant auxiliary storage. Cancellation can leave a partially sorted input; completed writes remain visible. Checked faults and cancellation checks remain enabled. This requires CPU execution without GPU placement.
+Sorting is unstable: equal elements have no guaranteed relative order. It takes O(n log n) time with constant auxiliary storage. Cancellation can leave a partially sorted input; completed writes remain visible. Checked faults and cancellation checks remain enabled. Sorting runs on the CPU, including the host side of GPU programs.
 
 Integer ordering is numeric; Bool orders false before true. Floating-point ordering is deterministic and preserves exact bits: negative NaNs, negative infinity, negative finite values, negative zero, positive zero, positive finite values, positive infinity, then positive NaNs. Within a NaN sign, negative encodings are ordered by decreasing raw bits and positive encodings by increasing raw bits, including their quiet/signaling bit and payload. Sorting uses integer bit keys, without floating-point arithmetic or comparisons, and does not change the rounding mode or raise floating-point exception flags.
 
@@ -62,7 +62,7 @@ h2 { "sorted" }
 
 code { "sorted(input: [T]) -> [T]" }
 
-Return a fresh sorted array without changing the input. Accepts the same numeric and Bool element types and uses the same ordering as sort. The copy requires O(n) additional element storage; sorting that copy uses constant auxiliary storage. Ordinary read-only inputs and worker tasks are supported. Allocation failures and cancellation remain checked; a canceled operation does not modify the input. CPU execution without GPU placement only.
+Return a fresh sorted array without changing the input. Accepts the same numeric and Bool element types and uses the same ordering as sort. The copy requires O(n) additional element storage; sorting that copy uses constant auxiliary storage. Ordinary read-only inputs and worker tasks are supported. Allocation failures and cancellation remain checked; a canceled operation does not modify the input. Sorting runs on the CPU, including the host side of GPU programs.
 
 codeblock { language = kalandra, """fn main() -> [int]:
   values = [3, 1, 2]
