@@ -218,8 +218,10 @@ def build(a):
     templates = re.findall(r'codeblock \{ language = json, """([\s\S]*?)""" \}', documentation)
     documented_profile = json.loads(templates[0])
     assert documented_profile['format'] == 1 and documented_profile['target'] == 'aarch64-unknown-linux-gnu'
-    documented_source = re.findall(r'codeblock \{ language = kalandra, """([\s\S]*?)""" \}', documentation)[0]
-    assert documented_source == SOURCES['calls'], 'Cross-compiled documentation source drift'
+    # Compile the authored example, not a second source copy whose formatting or
+    # parameter names can drift during documentation edits. Its result is checked
+    # on native destination hardware below, independently of the ABI fixture.
+    documented_source, = re.findall(r'codeblock \{ language = kalandra, """([\s\S]*?)""" \}', documentation)
     profile = dict(format=1, target=triple)
     if not bundled:
         profile.update(runtimePackage=str(target_root.resolve()), linker=str(a.linker.absolute()))
