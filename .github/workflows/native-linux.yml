@@ -18,7 +18,15 @@ on:
         "bun.lock",
       ]
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-linux.yml", ".github/scripts/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
+    paths:
+      [
+        "CMakeLists.txt",
+        "VERSION",
+        "native/**",
+        ".github/workflows/native-linux.yml",
+        ".github/scripts/**",
+        "apps/website/src/content/native/cross-compilation.tiramisu",
+      ]
   workflow_dispatch:
 permissions:
   contents: read
@@ -43,6 +51,11 @@ jobs:
       ZERO_AR_DATE: "1"
     steps:
       - uses: actions/checkout@v4
+      - name: Reserve disk space for the LLVM SDK
+        run: |
+          df -h "$RUNNER_TEMP"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h "$RUNNER_TEMP"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
@@ -142,6 +155,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Reserve disk space for the LLVM SDK
+        run: |
+          df -h "$RUNNER_TEMP"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h "$RUNNER_TEMP"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
