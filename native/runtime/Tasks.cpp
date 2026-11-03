@@ -567,14 +567,18 @@ struct TaskCore::Impl : std::enable_shared_from_this<TaskCore::Impl> {
       } catch (...) {
         task.execution.fault(3);
       }
-      if (!task.initialized)
+      // A checked constructor can stop before initializing its frame when its
+      // cancellation token is raised. That is not malformed packet data. A
+      // recorded allocation/value fault still takes precedence below.
+      if (!task.initialized && !task.cancel.load(std::memory_order_acquire))
         task.execution.fault(3);
       acquire(lock);
       task.runner = {};
     }
     --preparing;
-    if (task.execution.status()) {
-      task.failure = invocationFailure(task.execution);
+    if (task.execution.status() || !task.initialized) {
+      task.failure = task.execution.status() ? invocationFailure(task.execution)
+                                             : Failure{TaskFailure::Cancelled};
       task.state = State::Settling;
       ++stats.maintenanceTasks;
       failGroup(h, task.failure);

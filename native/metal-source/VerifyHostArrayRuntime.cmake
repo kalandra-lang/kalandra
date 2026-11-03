@@ -1,0 +1,29 @@
+file(MAKE_DIRECTORY "${OUTPUT_DIR}")
+set(FLAGS -O0)
+set(EXTRA -O0)
+if(VARIANT STREQUAL "optimized")
+  set(FLAGS -O2)
+  set(EXTRA -O2)
+elseif(VARIANT STREQUAL "sanitized")
+  set(FLAGS -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+  set(EXTRA --sanitize)
+elseif(VARIANT STREQUAL "thread-sanitized")
+  set(FLAGS -O1 -g -fsanitize=thread -fno-omit-frame-pointer)
+  set(EXTRA --thread-sanitize)
+endif()
+function(RUN_OK)
+  execute_process(COMMAND ${ARGN} RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR TIMEOUT 180)
+  string(REGEX REPLACE "[0-9-]+ [0-9:.]+ [^\n]+\\[[0-9]+:[0-9]+\\] Metal API Validation Enabled\n" "" ERR "${ERR}")
+  if(NOT STATUS EQUAL 0 OR NOT ERR STREQUAL "")
+    message(FATAL_ERROR "Host array runtime failed: ${ARGN}: ${STATUS}: ${OUT}${ERR}")
+  endif()
+  message(STATUS "${OUT}")
+endfunction()
+RUN_OK("${COMPILER}" --target metal "${SOURCE_DIR}/tests/fixtures/mixed-host-arrays/tasks.k"
+  -o "${OUTPUT_DIR}/program" --build ${EXTRA})
+RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module -ffp-contract=off
+  "-mmacosx-version-min=${MACOS_MINIMUM}" -isysroot "${SDK}" ${FLAGS}
+  "-I${SOURCE_DIR}/metal" "-I${OUTPUT_DIR}/program"
+  "${SOURCE_DIR}/tests/MixedHostArrayRuntimeTests.cpp" "${OUTPUT_DIR}/program/cpu.ll"
+  "${METAL_RUNTIME}" "${RUNTIME}" -framework Foundation -framework Metal -o "${OUTPUT_DIR}/harness")
+RUN_OK("${OUTPUT_DIR}/harness" "${OUTPUT_DIR}/program")

@@ -114,3 +114,17 @@ if(KALANDRA_BUILD_CUDA_SOURCE)
   target_link_libraries(kalandra-cuda-supervisor PRIVATE kalandra-gpu-supervisor)
   target_compile_options(kalandra-cuda-supervisor PRIVATE -Wall -Wextra -Werror)
 endif()
+
+if(BUILD_TESTING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  foreach(BACKEND IN ITEMS vulkan cuda)
+    if(TARGET kalandra-${BACKEND}-supervisor)
+      set_property(TARGET kalandra-${BACKEND}-supervisor PROPERTY EXCLUDE_FROM_ALL FALSE)
+      add_test(NAME native-${BACKEND}-host-arrays-emit
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/HostArrayTests.py"
+          "--compiler=$<TARGET_FILE:kalandra-${BACKEND}-supervisor>" --supervisor
+          "--backend=${BACKEND}" "--root=${CMAKE_CURRENT_BINARY_DIR}/${BACKEND}-host-arrays-emit")
+      set_tests_properties(native-${BACKEND}-host-arrays-emit PROPERTIES TIMEOUT 600)
+    endif()
+  endforeach()
+endif()

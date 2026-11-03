@@ -2438,10 +2438,6 @@ private:
       error("S027", "concat expects exactly two arrays", span);
       return {};
     }
-    if (options_.placement) {
-      error("S061", "concat requires CPU arrays without placement", span);
-      return {};
-    }
     const auto empty = [&](ExprId id) {
       auto *literal = std::get_if<ArrayExpr>(&syntax_.expressions[id].value);
       return literal && literal->elements.empty();
@@ -2511,7 +2507,7 @@ private:
     const bool array = type.array && type.tensor && type.shape.size() == 1 &&
                        (type.builtin == BuiltinValue::Numeric || isOwnedArray(type));
     const bool string = type.builtin == BuiltinValue::String && !type.tensor && !type.array;
-    if ((!array && !string) || type.task || type.fallible || type.device || options_.placement) {
+    if ((!array && !string) || type.task || type.fallible || type.device) {
       error("S061", "slice requires a completed CPU String or array without placement", span);
       return {};
     }
@@ -2567,7 +2563,7 @@ private:
       return {};
     const auto output = node(*input).type;
     if (!output.array || !output.tensor || output.shape.size() != 1 || output.task ||
-        output.fallible || output.device || options_.placement ||
+        output.fallible || output.device ||
         (output.builtin != BuiltinValue::Numeric && output.builtin != BuiltinValue::Bool)) {
       error("S078", callee + " requires a completed CPU numeric or Bool array without placement",
             span);
@@ -2588,7 +2584,7 @@ private:
       return {};
     const auto output = node(*input).type;
     if (!output.array || !output.tensor || output.shape.size() != 1 || output.task ||
-        output.fallible || output.device || options_.placement ||
+        output.fallible || output.device ||
         (output.builtin != BuiltinValue::Numeric && output.builtin != BuiltinValue::Bool &&
          output.builtin != BuiltinValue::String)) {
       error("S061",

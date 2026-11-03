@@ -113,7 +113,7 @@ public:
       throw std::runtime_error("placement-aware plans require preserved target calls");
     for (const auto &symbol : input.symbols)
       if (symbol.reassignable && symbol.type.array && resumable.at(symbol.owner) &&
-          (!options.valueScopes || options.preserveCalls))
+          !options.valueScopes)
         throw std::runtime_error(
             "array binding reassignment is not yet supported with task or expected-error "
             "coordination; move synchronous array work into a helper");
@@ -1069,13 +1069,22 @@ private:
       // Target-preserved constants are embedded tensor data, not thousands of
       // live continuation values. Nonconstant leaves still evaluate in order.
       const bool embedded =
-          options.preserveCalls && literal &&
+          options.preserveCalls && !node.type.array && literal &&
           std::ranges::all_of(literal->elements, [&](auto value) { return constant(value); });
       if (!embedded)
         for (auto arg : operands(node))
           args.push_back(expression(plan, arg, env, stack));
       plan.code.push_back(
-          {Code::Kernel, output, args, options.preserveCalls ? 0 : kernel(id), 0, 0, id});
+          {Code::Kernel, output, args,
+           !options.preserveCalls ||
+                   (options.valueScopes &&
+                    (node.type.array ||
+                     std::ranges::any_of(
+                         operands(node),
+                         [&](auto value) { return input.expressions[value].type.array; })))
+               ? kernel(id)
+               : 0,
+           0, 0, id});
     }
     env.values[id] = output;
     return output;

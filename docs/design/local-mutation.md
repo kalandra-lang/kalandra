@@ -168,12 +168,12 @@ including an all-zero empty value. Typed native branch/loop and closed callable
 paths expose their lifetimes to ownership conversion; pure functions require no
 task runner. The checked helper ABI is marshalled from its actual LLVM signature,
 so byte-backed arrays cannot be confused with scalar or aggregate arguments.
-Numeric array replacement across CPU task/expected-error coordination uses
+Numeric/Bool array replacement across CPU task/expected-error coordination uses
 transactional frame scopes as described below. Merely copying descriptors into
 reusable slots would keep distinct discarded arrays alive. Default invocation
 quota reservations remain cumulative, including after explicit frees. The numerical loop qualification measures actual
-live owners separately from those cumulative reservations. Mixed GPU source-array
-carriers remain a separate integration boundary.
+live owners separately from those cumulative reservations. Mixed GPU host frames
+use the same native array scopes, as described below.
 
 Flat numeric and Bool storage has no owned child references. String, record and
 function elements do: overwriting them after an alias crossed an invocation
@@ -303,10 +303,10 @@ graph publications, saved aliases, bounded aggregate reservations, failure
 attempts across resets, cancellation/fault precedence, worker migration,
 transport retention and early invocation settlement in all four build modes.
 Generated CPU continuations now integrate task frame construction, instruction
-commits, return publication, suspension and frame destruction for numeric array
+commits, return publication, suspension and frame destruction for numeric/Bool array
 replacement. Programs without this requirement retain their previous paths.
 The private layout link guard advances to v4; development compiler and runtime
-bundles must be rebuilt together. This remains unreleased branch work.
+bundles must be rebuilt together.
 
 
 Compiler value-scope storage now has a private runtime component: one reusable
@@ -378,3 +378,46 @@ runs: a surrounding assignment may already have saved its destination before
 evaluating that loop in its RHS. Zero-iteration edges remain in the fixed point.
 All older instances at one site merge conservatively, so this is bounded source
 analysis rather than arbitrary instance counting or a new runtime lock.
+
+### Native arrays in mixed GPU host continuations
+
+Mixed Metal, Vulkan and CUDA supervisors carry host numeric/Bool arrays as native
+rank-one descriptors. They do not wrap mutable storage in immutable GPU buffers:
+the existing tensor download bridge copies, which would otherwise hide edits
+from saved aliases. Array operations are compiled by the same typed CPU backend
+as ordinary programs. Array-to-tensor and tensor-to-array conversions still copy.
+The GPU kernel subset does not gain array writes, shared mutation or new barriers.
+
+Each host frame with array fields owns a native `ValueScopes` table. A generated
+case selects temporary ownership before calling native helpers, retains a
+successful output graph into its field's scope, then retires temporary owners.
+Reusing a field retires its old reference, preserving other aliases and task
+captures. Failed results commit an empty descriptor rather than inspecting an
+absent success payload. Failed frame construction explicitly destroys any scopes
+already initialized. TaskCore destroys completed frames before settling their
+execution invocation, so those tables cannot outlive their context.
+
+CPU worker packets and resumable helper packets retain array backing from their
+source invocation. Array results use a descriptor layout with checked numeric
+geometry or canonical Boolean bytes. Observing a settled result repeatedly retains
+the same backing; it does not invent a new independent array. CPU task readers
+still use the common source access proof. Resource limits are unchanged. Long
+loops should close a nested structured group per batch to retire task records;
+awaiting results alone does not close the enclosing group.
+
+Array operations in the host continuation are emitted as a separate typed native
+module and linked into `cpu.ll`. Pointer-only LLVM adapters load any aggregate
+arguments using the actual generated C-interface types; generated C++ never
+assumes the platform's aggregate argument ABI. Named CPU functions and synthesized
+host operators retain correct export indices even when checking appends anonymous
+callbacks. Programs without array carriers retain the existing scalar/tensor
+call path and have no array scope state or per-case scope checks.
+
+A host loop checkpoint now preserves the existing intended cancellation/fault
+precedence: a recorded checked fault wins; an ordinary cancellation remains
+cancellation rather than becoming a synthetic `fault(-1)`. This corrects the
+supervisor's handling of the poll sentinel, without changing the language's
+cancellation contract. Hardware kernels, arithmetic ordering and admission quotas
+are unchanged. Placed first-class function values, `parallelMap` and owned
+String/record/function array carriers remain explicit boundaries of the existing
+mixed supervisor subset.

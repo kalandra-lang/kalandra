@@ -47,7 +47,7 @@ codeblock { language = kalandra, """fn main() -> int:
 
 This returns 23. A statement if may omit else; a value-producing if still needs both branches. Assignment to an existing scalar changes that binding; a new name introduced in a branch or iteration stays in that scope. Reassignment preserves the scalar type. Checked numeric/Bool array element writes are described in the array tutorial. break, continue and for loops are not supported.
 
-Tasks started in an iteration must settle before the next iteration. A task started before the loop may still be running after it: an await inside the body might never execute if the loop runs zero times. Wait for that task outside the loop before writing storage it reads. Cancellation and resource limits apply to loops.
+Tasks started in an iteration must settle before the next iteration. A task started before the loop may still be running after it: an await inside the body might never execute if the loop runs zero times. Wait for that task outside the loop before writing storage it reads. Cancellation and resource limits apply to loops. For a long loop that starts tasks, use a nested parallel block for each batch. Closing the completed batch releases its scheduler records; awaiting a task alone does not close its enclosing group.
 
 h2 { "Match a declared variant" }
 

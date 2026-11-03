@@ -71,8 +71,8 @@ struct Options {
   // Internal optimization admission: retain checked continuation kernels if a
   // synchronous subgraph exceeds the native backend's physical-frame limits.
   bool nativeSubgraphs = true;
-  // CPU-only ownership scopes for mutable owned values in continuation frames.
-  // Placed supervisors retain their explicit admission gate until integrated.
+  // Ownership scopes for mutable owned values in continuation frames. Placed
+  // supervisors use the shared native descriptor scopes for host arrays.
   bool valueScopes = false;
 };
 struct ModulePlan {

@@ -62,6 +62,31 @@ The numerical result is the row-major matrix [[106, 156], [241, 354]]. The float
 
 The two ordinary helper calls form a resident graph. In this example the input is 2 by 3, weights are 3 by 2, and projection is 2 by 2. The final result is 2 by 2. Awaiting work twice reuses the completed tensor; only the final explicit transfer downloads it.
 
+h2 { "Prepare inputs with arrays" }
+
+Use numeric and Bool arrays to build and edit data on the CPU side of a GPU program. Local reassignment, map, generate, copy, sorting and element writes follow the same alias and task-reader rules as CPU programs. CPU helpers can receive and return arrays, including across task waits.
+
+Convert a numeric array to a tensor before transferring it to a GPU. tensor(values) copies the data, so later array edits cannot change the tensor snapshot or a running GPU calculation.
+
+codeblock { language = kalandra, """fn twice(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
+  values + values
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    values = generate(3, fn(index): float32(index + 1))
+    snapshot = tensor(values)
+    values[0] = float32(9)
+    gpu = devices.gpu()
+    resident = try await transfer(snapshot, gpu)
+    work = spawn twice(resident) on gpu
+    result = try await transfer(try await work, devices.cpu())
+    reduceSum(result) + values[0]
+""" }
+
+This returns 21, displayed as 41a80000. The GPU doubles the original [1, 2, 3] snapshot; the CPU adds the edited first array element, 9. array(tensor) also copies, so editing that array cannot change the tensor.
+
+These are host-side array operations. Device functions still operate on immutable numerical tensors; array element writes inside a GPU function are not supported. String, record and function-array values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
+
 h2 { "Types and ranks" }
 
 The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32 and float64. Dense tensors of rank zero through eight are supported by the numerical operations that accept those ranks. matmul remains rank two. Numeric identity and complete shape obligations are checked rather than implicitly promoted or broadcast.

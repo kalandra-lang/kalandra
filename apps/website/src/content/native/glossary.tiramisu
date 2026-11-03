@@ -4,7 +4,7 @@ Use this page to look up a term while reading the guides. The linked reference s
 
 h2 { "Alias and copy" }
 
-Two array names are aliases when they refer to the same storage. Writing through one writable alias changes what the others read. copy creates independent array storage. String elements remain immutable and can share their underlying text. Reassigning a local numeric array name changes that name's reference; it does not redirect existing aliases.
+Two array names are aliases when they refer to the same storage. Writing through one writable alias changes what the others read. copy creates independent array storage. String elements remain immutable and can share their underlying text. Reassigning a local numeric or Bool array name changes that name's reference; it does not redirect existing aliases.
 
 list {
   link { url = "/docs/arrays#copy-array-storage", "Array copies and aliases" }

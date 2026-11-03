@@ -27,7 +27,7 @@ Reassignment changes a local binding; an element write changes array storage. Th
 table {
   row = ["Operation", "Rule"],
   row = ["Reassign a numeric or Bool scalar", "Allowed locally; the type stays fixed"],
-  row = ["Replace a numeric CPU array binding", "Allowed; existing aliases retain the previous array"],
+  row = ["Replace a numeric or Bool CPU array binding", "Allowed; existing aliases retain the previous array"],
   row = ["Write a numeric or Bool array element", "Requires writable storage and no unfinished task readers"],
   row = ["Write through an array parameter", "The parameter must declare mut"],
   row = ["Edit a String or tensor in place", "Not supported; construct a new value"],

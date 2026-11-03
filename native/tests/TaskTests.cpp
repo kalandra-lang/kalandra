@@ -1,8 +1,11 @@
 #include "../runtime/String.h"
 #include "../runtime/Tasks.h"
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <new>
+#include <thread>
 using namespace kalandra::runtime;
 static void require(bool condition, int line) {
   if (!condition) {
@@ -461,7 +464,71 @@ static void allocatedBufferBudgets() {
     }
   }
 }
+static void cancelledConstruction() {
+  struct Input {
+    std::atomic<bool> entered{false}, release{false};
+    bool ownFault = false;
+  };
+  static const TaskEntry entry{1,
+                               0x43414e43454c4354,
+                               sizeof(Input),
+                               alignof(Input),
+                               8,
+                               8,
+                               [](Invocation &context, void *, const Packet &packet) {
+                                 auto &input =
+                                     *static_cast<Input *>(const_cast<void *>(packet.data));
+                                 CHECK(context.allocate(32));
+                                 input.entered.store(true, std::memory_order_release);
+                                 while (!input.release.load(std::memory_order_acquire))
+                                   std::this_thread::yield();
+                                 if (input.ownFault)
+                                   context.fault(4, 17, 3);
+                                 (void)context.poll();
+                                 return false;
+                               },
+                               [](void *) noexcept { CHECK(false); },
+                               [](Task &) { CHECK(false); },
+                               &scalar};
+  for (bool cancel : {false, true})
+    for (bool deadline : {false, true})
+      for (bool ownFault : {false, true}) {
+        auto core = TaskCore::create();
+        CHECK(core);
+        auto group = core->openRoot();
+        Input input;
+        input.ownFault = ownFault;
+        TaskHandle task;
+        std::jthread preparing([&] {
+          task = core->submit(group, entry, {entry.packetLayout, &input, sizeof(input), nullptr});
+        });
+        const auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        while (!input.entered.load(std::memory_order_acquire) &&
+               std::chrono::steady_clock::now() < timeout)
+          std::this_thread::yield();
+        CHECK(input.entered.load(std::memory_order_acquire));
+        if (cancel)
+          CHECK(core->cancel(group, deadline));
+        input.release.store(true, std::memory_order_release);
+        preparing.join();
+        CHECK(task && core->drain() && core->settled(task));
+        const auto failure = core->failure(task);
+        CHECK(failure.kind == (ownFault || !cancel ? TaskFailure::Fault : TaskFailure::Cancelled));
+        if (failure.kind == TaskFailure::Fault)
+          CHECK(failure.code == (ownFault ? 4 : 3));
+        if (ownFault)
+          CHECK(failure.line == 17 && failure.column == 3);
+        if (cancel)
+          CHECK(core->failure(group).kind ==
+                (deadline ? TaskFailure::DeadlineExceeded : TaskFailure::Cancelled));
+        CHECK(core->close(group) && core->drain() && core->release(group));
+        const auto stats = core->stats();
+        CHECK(!stats.retainedBytes && !stats.retainedOwners && !stats.records && !stats.groups &&
+              !stats.unfinished);
+      }
+}
 int main() {
+  cancelledConstruction();
   allocatedBufferBudgets();
   // Propagated errors preserve their variant and location. Recovery must never
   // erase a fault already raised in the receiving invocation.
