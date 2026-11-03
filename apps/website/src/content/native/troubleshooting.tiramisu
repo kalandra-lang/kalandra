@@ -50,6 +50,7 @@ h2 { "Editor results look stale" }
 
 Check the native server path, Workspace Trust and explicit project setting. Restart the language server after changing manifest contents or rebuilding the server. Use its output command for diagnostics. The extension handles local file workspaces; unsupported remote/virtual workspace behavior should not be assumed.
 
-link { url = "/docs/installation", "Platform prerequisites" }
-
-link { url = "/docs/errors", "Expected errors and task failures" }
+list {
+  link { url = "/docs/installation", "Platform prerequisites" },
+  link { url = "/docs/errors", "Expected errors and task failures" }
+}

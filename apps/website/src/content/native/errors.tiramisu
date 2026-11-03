@@ -48,7 +48,9 @@ h2 { "Choose a recovery policy" }
 
 Handle specific variants when different failures need different policies. A catch-all fallback is appropriate only when every error truly has the same meaning to the application. Parallel groups settle unfinished children before leaving; completed effects are not rolled back, and racing failures need not select a deterministic winner.
 
-link { url = "/docs/parallelism", "Task groups and observation" }
+list {
+  link { url = "/docs/parallelism", "Task groups and observation" }
+}
 
 h2 { "TaskError variants" }
 
@@ -58,4 +60,6 @@ TaskError.Cancelled means task cancellation. TaskError.DeadlineExceeded means a 
 
 Match a variant to bind its fields, or use a catch-all handler when every failure has the same recovery. Only the active variant's fields are available. Task errors can be combined with application-error families using an error union.
 
-link { url = "/docs/task-functions", "Fallible task built-ins" }
+list {
+  link { url = "/docs/task-functions", "Fallible task built-ins" }
+}

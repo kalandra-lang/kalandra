@@ -115,5 +115,7 @@ The compiler queries the destination data layout from its private Clang and chec
 
 --platform and --toolchain select a CPU ABI. --target cpu or --target metal selects the execution backend. Cross-compilation currently supports the CPU backend. Cross-toolchain --sanitize and --thread-sanitize modes fail explicitly while their target combinations remain unqualified. Normal and optimized builds retain the language's arithmetic, bounds, ownership and task checks.
 
-link { url = "/docs/installation", "Platform baselines and package installation" }
-link { url = "/docs/tooling", "Compiler and editor tools" }
+list {
+  link { url = "/docs/installation", "Platform baselines and package installation" },
+  link { url = "/docs/tooling", "Compiler and editor tools" }
+}

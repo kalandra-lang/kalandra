@@ -107,5 +107,7 @@ fn main() -> [int]:
 """ }
 The result is [4, 8, 3, 3, 8].
 
-link { url = "/docs/arrays", "Array tutorial and supported elements" }
-link { url = "/docs/tensors", "Tensor guide" }
+list {
+  link { url = "/docs/arrays", "Array tutorial and supported elements" },
+  link { url = "/docs/tensors", "Tensor guide" }
+}

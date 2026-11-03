@@ -10,14 +10,18 @@ Linux x86-64 Vulkan execution was qualified on NVIDIA RTX 5090 and Intel ARL. CU
 
 Hardware arithmetic is the default where supported; software arithmetic and hardware-with-software-fallback are explicit policies. Matrix products default to fixed-tree. Explicit optimized products permit full-float32 FMA and a different accumulation order, using reviewed permissively licensed kernels. No silent CPU, cuBLAS, TF32 or half-precision substitute is enabled.
 
-link { url = "/docs/gpu", "GPU placement, compilation and numerical scope" }
-link { url = "/docs/gpu-numerics", "Numerical policies and device limits" }
+list {
+  link { url = "/docs/gpu", "GPU placement, compilation and numerical scope" },
+  link { url = "/docs/gpu-numerics", "Numerical policies and device limits" }
+}
 
 h2 { "Windows GPU support is experimental" }
 
 Windows x86-64 and ARM64 CUDA/Vulkan compiler packages pass build and installed-package checks: complete GPU source compilation, native CPU execution, relocation, secure driver lookup, PE dependency audits and reproducibility. Physical Windows GPU execution, numerical correctness, cancellation behavior and performance remain unqualified. An ARM64 compiler package does not establish NVIDIA ARM64 CUDA driver availability.
 
-link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows GPU-passthrough VM testing" }
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows GPU-passthrough VM testing" }
+}
 
 h2 { "Install 0.99.2" }
 
@@ -27,9 +31,11 @@ GPU compiler packages include all five CPU target runtime datasets and private h
 
 kalandra --version and the native language server report 0.99.2. Install kalandra-native.vsix from the same release; its independent extension version remains 0.1.0. Existing editor setup continues to work.
 
-link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.2", "Download Kalandra 0.99.2" }
-link { url = "/docs/installation", "Installation and platform prerequisites" }
-link { url = "/docs/tooling", "Set up your code editor" }
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.2", "Download Kalandra 0.99.2" },
+  link { url = "/docs/installation", "Installation and platform prerequisites" },
+  link { url = "/docs/tooling", "Set up your code editor" }
+}
 
 h2 { "Native call correctness and safety" }
 
@@ -41,8 +47,10 @@ Windows GPU sanitizers, cross-target GPU builds, distributed compute and user-wr
 
 h2 { "Changes since 0.99.1" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/pull/273", "Vulkan backend" }
-link { url = "https://github.com/kalandra-lang/kalandra/pull/274", "Linux CUDA backend" }
-link { url = "https://github.com/kalandra-lang/kalandra/pull/275", "Windows CUDA and Vulkan delivery" }
-link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.1...v0.99.2", "Full release comparison" }
-link { url = "/docs/release-0-99-1", "Previous release: 0.99.1 — ARM64 and cross-compilation" }
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/273", "Vulkan backend" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/274", "Linux CUDA backend" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/275", "Windows CUDA and Vulkan delivery" },
+  link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.1...v0.99.2", "Full release comparison" },
+  link { url = "/docs/release-0-99-1", "Previous release: 0.99.1 — ARM64 and cross-compilation" }
+}

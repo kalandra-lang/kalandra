@@ -57,6 +57,7 @@ h2 { "Automatic lifetimes" }
 
 Values use automatic lifetime management. User code does not free arrays, tensors, Strings or captured environments. Immutable values may be retained across calls and task boundaries; this is not a promise that every operation avoids a copy.
 
-link { url = "/docs/functions", "Functions and closures" }
-
-link { url = "/docs/numbers", "Numeric types and conversion" }
+list {
+  link { url = "/docs/functions", "Functions and closures" },
+  link { url = "/docs/numbers", "Numeric types and conversion" }
+}

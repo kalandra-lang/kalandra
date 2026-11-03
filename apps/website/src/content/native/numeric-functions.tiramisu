@@ -97,4 +97,6 @@ codeblock { language = kalandra, """fn main() -> int:
 """ }
 This returns 42. Conversions do not supply an expected type to an already typed argument; annotate a tensor before converting it. No implicit numeric promotion takes place.
 
-link { url = "/docs/numbers", "Numeric values, arithmetic and policies" }
+list {
+  link { url = "/docs/numbers", "Numeric values, arithmetic and policies" }
+}

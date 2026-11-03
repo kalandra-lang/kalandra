@@ -262,6 +262,16 @@
 .swiss-doc-page .doc-body p {
   margin-bottom: 24px;
 }
+.swiss-doc-page .doc-body :is(ul, ol) {
+  margin-block: 0 24px;
+  padding-inline-start: 24px;
+}
+.swiss-doc-page .doc-body li + li {
+  margin-top: 8px;
+}
+.swiss-doc-page .doc-body li a {
+  overflow-wrap: anywhere;
+}
 .swiss-doc-page .doc-body :is(h1, h2, h3, h4) {
   scroll-margin-top: 104px;
   letter-spacing: -0.025em;

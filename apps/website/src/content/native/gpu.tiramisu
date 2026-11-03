@@ -68,7 +68,9 @@ Windows CUDA and Vulkan support is experimental. Compiler packages for x86-64 an
 
 Use the matching Visual Studio developer command prompt with C++ Build Tools and the Windows SDK. A CUDA-enabled compiler accepts --target cuda; a Vulkan-enabled compiler accepts --target vulkan. CPU-only release packages do not gain GPU compilation by passing these flags. Generated applications use program.exe and require their complete PTX or SPIR-V directory, the appropriate system loader and a compatible vendor driver. These experimental Windows GPU packages are available from GitHub Releases starting with v0.99.2.
 
-link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows GPU hardware qualification" }
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/issues/276", "Track Windows GPU hardware qualification" }
+}
 
 h2 { "Keep intermediates resident" }
 
@@ -80,6 +82,7 @@ h2 { "Numerical and control scope" }
 
 GPU numerical programs support all ten native numeric types, dense ranks zero through eight, rank-two matmul, balanced reduceSum, explicit conversions and resident numerical functions and supported control flow. Float32 uses hardware arithmetic by default. Metal float64 GPU operations require --arithmetic hardware-with-software-fallback; CPU float64 remains on hardware under that policy. --arithmetic software selects the strict software implementation. This does not imply general device Strings, records, enums, arbitrary closures or application-error handling.
 
-link { url = "/docs/gpu-numerics", "Read the numerical contract and graph example" }
-
-link { url = "/docs/task-functions", "Task and device function reference" }
+list {
+  link { url = "/docs/gpu-numerics", "Read the numerical contract and graph example" },
+  link { url = "/docs/task-functions", "Task and device function reference" }
+}

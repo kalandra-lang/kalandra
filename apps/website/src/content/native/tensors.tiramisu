@@ -84,10 +84,9 @@ h2 { "Move to a GPU" }
 
 Building a tensor does not place it on a device. Transfer data explicitly and dispatch an eligible numerical function on the chosen GPU. A tensor result can remain resident for later numerical work.
 
-link { url = "/docs/gpu", "GPU placement and residence" }
-
-link { url = "/docs/gpu-numerics", "Numerical types, ranks and strict semantics" }
-
-link { url = "/docs/collection-functions", "Collection function reference" }
-
-link { url = "/docs/tensor-functions", "Numerical function reference" }
+list {
+  link { url = "/docs/gpu", "GPU placement and residence" },
+  link { url = "/docs/gpu-numerics", "Numerical types, ranks and strict semantics" },
+  link { url = "/docs/collection-functions", "Collection function reference" },
+  link { url = "/docs/tensor-functions", "Numerical function reference" }
+}

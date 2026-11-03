@@ -53,6 +53,7 @@ h2 { "Match a declared variant" }
 
 Use match to select an enum or error alternative. Cover every alternative or use a final wildcard branch. Named payload bindings exist only in the selected branch; guards and nested destructuring are outside the current match subset.
 
-link { url = "/docs/records-enums", "Declare records and enums" }
-
-link { url = "/docs/errors", "Handle expected errors" }
+list {
+  link { url = "/docs/records-enums", "Declare records and enums" },
+  link { url = "/docs/errors", "Handle expected errors" }
+}

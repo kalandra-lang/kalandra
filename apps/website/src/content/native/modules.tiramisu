@@ -35,6 +35,7 @@ h2 { "Use a package name" }
 
 A bare import such as from "geometry" import total refers to an explicit package mapping or installed dependency. The compiler does not guess a module from your working directory or fetch a missing library while building.
 
-link { url = "/docs/projects", "Configure project entry and local package mappings" }
-
-link { url = "/docs/packages", "Install pinned source dependencies" }
+list {
+  link { url = "/docs/projects", "Configure project entry and local package mappings" },
+  link { url = "/docs/packages", "Install pinned source dependencies" }
+}

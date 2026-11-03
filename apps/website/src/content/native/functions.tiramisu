@@ -64,6 +64,7 @@ fn main() -> int:
 
 Functions can call themselves and each other on the CPU, including in CPU tasks. Recursive calls consume execution resources; very deep recursion can exhaust them. Do not depend on tail-call elimination for correctness.
 
-link { url = "/docs/arrays", "Map arrays sequentially" }
-
-link { url = "/docs/parallelism", "Schedule CPU callbacks" }
+list {
+  link { url = "/docs/arrays", "Map arrays sequentially" },
+  link { url = "/docs/parallelism", "Schedule CPU callbacks" }
+}

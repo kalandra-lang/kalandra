@@ -88,6 +88,7 @@ h2 { "AI and LLM foundations" }
 
 Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. The current language does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
 
-link { url = "/docs/tensors", "Tensor construction and shape rules" }
-
-link { url = "/docs/tensor-functions", "Numerical function reference" }
+list {
+  link { url = "/docs/tensors", "Tensor construction and shape rules" },
+  link { url = "/docs/tensor-functions", "Numerical function reference" }
+}

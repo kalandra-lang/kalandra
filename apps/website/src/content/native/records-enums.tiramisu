@@ -38,6 +38,7 @@ h2 { "Cross calls and workers" }
 
 Records and enums use automatic lifetimes, including supported recursive CPU values and local worker transport. Functions, aggregates and expected errors retain their checked type identity across imported aliases. GPU records and enums are not part of the numerical device subset.
 
-link { url = "/docs/errors", "Declare application-error alternatives" }
-
-link { url = "/docs/modules", "Export a type from a module" }
+list {
+  link { url = "/docs/errors", "Declare application-error alternatives" },
+  link { url = "/docs/modules", "Export a type from a module" }
+}

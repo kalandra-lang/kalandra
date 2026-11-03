@@ -40,6 +40,7 @@ codeblock { language = bash, """KALANDRA_WORKERS=4 ./program
 
 Cancellation is cooperative, and generated numerical loops poll for it. Worker capacity and admitted work are bounded; a parallel scope does not guarantee which racing failure is observed. GPU placement is explicit and has its own supported numerical subset.
 
-link { url = "/docs/gpu", "Combine CPU and GPU work" }
-
-link { url = "/docs/task-functions", "Task and device function reference" }
+list {
+  link { url = "/docs/gpu", "Combine CPU and GPU work" },
+  link { url = "/docs/task-functions", "Task and device function reference" }
+}

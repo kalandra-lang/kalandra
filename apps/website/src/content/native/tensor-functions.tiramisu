@@ -48,5 +48,7 @@ codeblock { language = kalandra, """fn main() -> float32:
 """ }
 The result is 0.5.
 
-link { url = "/docs/gpu-numerics", "GPU execution and numerical policies" }
-link { url = "/docs/tensors", "Tensor tutorial" }
+list {
+  link { url = "/docs/gpu-numerics", "GPU execution and numerical policies" },
+  link { url = "/docs/tensors", "Tensor tutorial" }
+}

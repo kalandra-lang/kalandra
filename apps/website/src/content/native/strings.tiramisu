@@ -33,6 +33,7 @@ h2 { "Equality and ownership" }
 
 Escapes include a quoted double quote, a backslash, newline, carriage return, tab, zero and Unicode-scalar escapes. Invalid UTF-8 and invalid escapes are diagnosed. String interpolation, raw multiline strings and general text parsing are not supported.
 
-link { url = "/docs/arrays", "Store and transform String arrays" }
-
-link { url = "/docs/collection-functions", "Collection function reference" }
+list {
+  link { url = "/docs/arrays", "Store and transform String arrays" },
+  link { url = "/docs/collection-functions", "Collection function reference" }
+}

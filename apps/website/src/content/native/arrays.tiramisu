@@ -120,13 +120,14 @@ fn main() -> int ! TaskError:
 
 Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Array operations require CPU execution. Programs that place work on a GPU do not support array-valued locals; use tensors for GPU data.
 
-link { url = "/docs/tensors", "Shapes and tensor arithmetic" }
-
-link { url = "/docs/parallelism", "Parallel array mapping" }
-
-link { url = "/docs/collection-functions", "Collection function reference" }
-
+list {
+  link { url = "/docs/tensors", "Shapes and tensor arithmetic" },
+  link { url = "/docs/parallelism", "Parallel array mapping" },
+  link { url = "/docs/collection-functions", "Collection function reference" }
+}
 
 sort(values) orders a numeric or Bool array in place and returns that same array; sorted(values) returns an independent sorted array. Both use the same deterministic ordering, including a defined order for NaNs and signed zeros. See the collection-functions reference for ordering, task-reader restrictions and cancellation behavior.
 
-link { url = "/docs/collection-functions#sort", "Sorting reference" }
+list {
+  link { url = "/docs/collection-functions#sort", "Sorting reference" }
+}

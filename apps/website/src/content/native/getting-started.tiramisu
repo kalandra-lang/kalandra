@@ -43,8 +43,8 @@ callout { type = info, "The parent directory must exist, and the destination for
 
 h2 { "Continue learning" }
 
-link { url = "/docs/syntax", "Understand bindings, indentation and results" }
-
-link { url = "/docs/parallelism", "Understand tasks and parallel maps" }
-
-link { url = "/docs/gpu", "Place a task on the GPU" }
+list {
+  link { url = "/docs/syntax", "Understand bindings, indentation and results" },
+  link { url = "/docs/parallelism", "Understand tasks and parallel maps" },
+  link { url = "/docs/gpu", "Place a task on the GPU" }
+}
