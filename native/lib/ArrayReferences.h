@@ -9,13 +9,14 @@ namespace kalandra {
 // Unknown/cyclic flows remain borrowed. Capture, aggregate and indirect-call
 // descriptors are checked as roots as well as ordinary function results.
 // This threshold selects a native implementation, not a source call limit.
-inline bool typedNumericArrayInvocation(const TypedExpr &expression,
+inline bool typedArrayReferenceInvocation(const TypedExpr &expression,
                                         const FunctionInvocationFlow *flow, ValueId id) {
   const auto &type = expression.type;
   return flow && id < flow->targets.size() && id < flow->unknown.size() &&
          !flow->unknown[id] && !flow->targets[id].empty() && flow->targets[id].size() <= 8 &&
          type.array && type.tensor && type.shape.size() == 1 &&
-         type.builtin == BuiltinValue::Numeric && !type.task && !type.fallible && !type.device;
+         (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool) &&
+         !type.task && !type.fallible && !type.device;
 }
 inline std::vector<bool> managedNumericArrayInputFunctions(
     const TypedModule &module, const FunctionInvocationFlow *typedCalls = nullptr) {
@@ -146,7 +147,7 @@ inline std::vector<bool> managedNumericArrayInputFunctions(
               for (auto value : operation.captures)
                 opaqueInput(value);
             else if constexpr (std::is_same_v<T, FunctionInvoke>) {
-              if (typedNumericArrayInvocation(module.expressions[id], typedCalls, id)) {
+              if (typedArrayReferenceInvocation(module.expressions[id], typedCalls, id)) {
                 for (auto target : typedCalls->targets[id])
                   calls(target);
               } else

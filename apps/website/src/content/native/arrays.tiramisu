@@ -37,9 +37,9 @@ h2 { "Copy array storage" }
 
 copy(values) returns an independent array of numeric, Bool or String elements. It preserves length, order and exact numeric bits. String text remains immutable and may share its own backing. copy does not accept records, function values or nested arrays.
 
-h2 { "Replace a numeric array binding" }
+h2 { "Replace an array binding" }
 
-A numeric array name can be reassigned in CPU functions, including functions with task suspension or expected-error handling. The new array may have a different length, but its numeric element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
+A numeric or Bool array name can be reassigned in CPU functions, including functions with task suspension or expected-error handling. The new array may have a different length, but its element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
 
 codeblock { language = kalandra, """fn main() -> [int]:
   values = [3, 1, 2]
@@ -48,9 +48,17 @@ codeblock { language = kalandra, """fn main() -> [int]:
   values = concat(values, [4])
   [original[0], length(values), values[0]]
 """ }
-The result is [3, 4, 1]. Branches and while loops carry the current array reference. Ordinary numeric-array parameters and captures may replace their own private name; that does not grant permission to modify their original read-only storage. A replacement with fresh storage provides writable data, while assigning another read-only array preserves its read-only access path.
+The result is [3, 4, 1]. Branches and while loops carry the current array reference. Ordinary numeric and Bool array parameters and captures may replace their own private name; that does not grant permission to modify their original read-only storage. A replacement with fresh storage provides writable data, while assigning another read-only array preserves its read-only access path.
 
-Bool, String, record and function-array bindings cannot be reassigned. Element assignment and sort on existing numeric or Bool storage follow the separate rules below.
+codeblock { language = kalandra, """fn main() -> [Bool]:
+  flags = [true, false]
+  original = flags
+  flags = [false]
+  [original[0], flags[0]]
+""" }
+This returns [true, false]. Replacing flags leaves original referring to the previous two-element array.
+
+String, record and function-array bindings cannot be reassigned. Element assignment and sort on existing numeric or Bool storage follow the separate rules below.
 
 A task continues reading the storage it received even when the parent replaces its local name. Fresh replacement storage can be modified independently. An alias of the old array remains protected until its task readers settle.
 

@@ -136,6 +136,12 @@ def program_cases():
         cases['owned-map-builder-' + fixture] = dict(
             source=(ROOT / 'native/tests/fixtures/scoped-owned-maps' / (fixture + '.k')).read_text(),
             output=str(expected) + '\n')
+    for fixture, expected in [('lifetime', '20012'), ('aliases', '8'),
+                              ('captures', '[false, true, true, false]'),
+                              ('rhs', 'true'), ('parallel-map', '886')]:
+        cases['bool-array-rebind-' + fixture] = dict(
+            source=(ROOT / 'native/tests/fixtures/bool-array-rebinding' / (fixture + '.k')).read_text(),
+            output=expected + '\n')
     cases['bool-array-sort'] = dict(source=(
         'fn main()->int:\n  a=[true,false,true,false]\n  b=sorted(a)\n  c=sort(a)\n'
         '  if not a[0] and not c[1] and b[2] and b[3]:42\n  else:0\n'), output='42\n')

@@ -1091,7 +1091,7 @@ private:
     return !type.task && !type.fallible && !type.device &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool) &&
            ((!type.tensor && !type.array) ||
-            (type.tensor && type.array && type.shape.size() == 1 && type.builtin == BuiltinValue::Numeric));
+            (type.tensor && type.array && type.shape.size() == 1));
   }
   ValueType bindingType(ValueType type) {
     if (type.array)

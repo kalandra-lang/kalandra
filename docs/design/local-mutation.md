@@ -110,13 +110,13 @@ exclusive-access proof.
 
 ## Array ownership boundaries
 
-Numeric arrays lower to rank-one memrefs with explicit loads and stores. Source
+Numeric and Bool arrays lower to rank-one memrefs with explicit loads and stores. Source
 arrays retain their identity through synchronous calls, records, closures and
 settled task results. Private array-returning implementations carry ownership
 information; their C and task adapters keep the existing collection descriptor
 layout. The ownership pass may return a borrowed reference without cloning its
 data. Layouts remain predictable at these boundaries. Programs that lower no
-numeric array references retain the existing tensor-only lowering pipeline.
+numeric or Bool array references retain the existing tensor-only lowering pipeline.
 
 `generate`, `map`, `copy`, `slice` and `concat` allocate fresh outer storage.
 Array-to-tensor and tensor-to-array conversions also copy: editing an array must
@@ -144,7 +144,7 @@ or payload read. This adapter is not a stable public foreign-function interface.
 The new private runtime helpers require matching development runtime bundles;
 this branch reports `0.99.3-dev`, separately from published `0.99.2`.
 
-Numeric array names now support replacement in synchronous, non-fallible CPU
+Numeric and Bool array names now support replacement in synchronous, non-fallible CPU
 functions. Their lengths may change; their element identities remain fixed.
 Native branch/match results and while-loop arguments carry actual memrefs, rather
 than descriptors hidden in scalar cells. This lets ownership conversion reclaim
@@ -156,14 +156,18 @@ the zero-iteration edge. A replacement can acquire fresh writable storage, but
 cannot launder a readonly parameter/capture into write permission.
 
 Proven closed function-value target sets can call their typed native entries for
-numeric-array results, preserving ownership information across functional calls.
+numeric/Bool-array results, preserving ownership information across functional calls.
 Arguments are evaluated once before dispatch; selected capture layouts are read
 and validated as for the existing callable ABI. Open/large target sets retain the
 existing generic callable ABI and its conservative escaped-result lifetime. This
 is an implementation choice, not a source call-count or recursion limit.
 
-Bool array name replacement remains gated. The older Bool carrier retains
-backing until invocation settlement and needs its own lifetime integration.
+Bool arrays use memref<i8> internally, with checked logical reads and normalized
+0/1 byte stores. Opaque boundaries retain the canonical contiguous descriptor,
+including an all-zero empty value. Typed native branch/loop and closed callable
+paths expose their lifetimes to ownership conversion; pure functions require no
+task runner. The checked helper ABI is marshalled from its actual LLVM signature,
+so byte-backed arrays cannot be confused with scalar or aggregate arguments.
 Numeric array replacement across CPU task/expected-error coordination uses
 transactional frame scopes as described below. Merely copying descriptors into
 reusable slots would keep distinct discarded arrays alive. Default invocation
@@ -261,8 +265,8 @@ matching owner is already marked escaped. Ordinary transport retains retain thei
 separate release obligations. Reuse still checks cancellation and prior faults;
 it never places mutable state on shared backing metadata. This bounds repeated
 same-backing publication, including source loops, without hiding ordinary leaks.
-It does not solve distinct fresh allocations accumulating in coordinating loops;
-array binding replacement still requires SSA/liveness work before admission.
+Distinct fresh allocations in coordinating loops instead use the transactional
+frame scopes described below; escape-owner reuse alone is not sufficient.
 
 ## Compatibility
 

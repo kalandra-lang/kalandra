@@ -1843,11 +1843,16 @@ private:
                                     type.builtin == BuiltinValue::Function;
         if (indirectResult)
           arguments.push_back(payload(instruction.output));
-        for (auto argument : instruction.args)
-          arguments.push_back(
-              plan.slots[argument].tensor && !isOwnedArray(plan.slots[argument])
-                  ? payload(argument)
-                  : builder.CreateLoad(scalarType(plan.slots[argument]), payload(argument)));
+        for (auto argument : instruction.args) {
+          // The C interface lowers aggregate parameters indirectly. Consult the
+          // actual wrapper signature rather than inferring its ABI from the
+          // language's array ownership category.
+          auto *parameter = fn->getFunctionType()->getParamType(arguments.size());
+          arguments.push_back(parameter->isPointerTy()
+                                  ? payload(argument)
+                                  : builder.CreateLoad(scalarType(plan.slots[argument]),
+                                                       payload(argument)));
+        }
         arguments.push_back(ctx);
         auto *value = builder.CreateCall(fn, arguments);
         if (!indirectResult) {
@@ -2107,10 +2112,22 @@ private:
         auto *position =
             builder.CreateAdd(builder.CreateExtractValue(value, {2}),
                               builder.CreateMul(index, builder.CreateExtractValue(value, {4, 0})));
-        auto *address = builder.CreateInBoundsGEP(scalarType(type),
-                                                  builder.CreateExtractValue(value, {1}), position);
-        builder.CreateStore(builder.CreateLoad(scalarType(type), address),
-                            payload(instruction.output));
+        const bool boolInput = isBoolArray(plan.slots[instruction.args[0]]);
+        auto *cell = boolInput ? builder.getInt8Ty() : scalarType(type);
+        auto *address = builder.CreateInBoundsGEP(cell, builder.CreateExtractValue(value, {1}),
+                                                  position);
+        Value *loaded = builder.CreateLoad(cell, address);
+        if (boolInput) {
+          auto *valid = Block::Create(context, "map.bool.valid", resume);
+          auto *invalid = Block::Create(context, "map.bool.invalid", resume);
+          builder.CreateCondBr(builder.CreateICmpULE(loaded, builder.getInt8(1)), valid, invalid);
+          builder.SetInsertPoint(invalid);
+          call("kalandra_fault_v1", voidType, {ctx, c64(3), c64(0), c64(0)});
+          builder.CreateBr(abort);
+          builder.SetInsertPoint(valid);
+          loaded = builder.CreateTrunc(loaded, boolean);
+        }
+        builder.CreateStore(loaded, payload(instruction.output));
         builder.CreateBr(next);
         break;
       }
@@ -2127,10 +2144,14 @@ private:
         auto *value = builder.CreateLoad(descriptor(type), payload(instruction.output));
         auto *index = builder.CreateAdd(builder.CreateLoad(i64, payload(instruction.args[0])),
                                         c64(instruction.target));
-        auto *cell = scalarType(recordArrayElement(type));
+        auto *logicalCell = scalarType(recordArrayElement(type));
+        auto *cell = isBoolArray(type) ? builder.getInt8Ty() : logicalCell;
         auto *address =
             builder.CreateInBoundsGEP(cell, builder.CreateExtractValue(value, {1}), index);
-        builder.CreateStore(builder.CreateLoad(cell, payload(instruction.args[1])), address);
+        Value *stored = builder.CreateLoad(logicalCell, payload(instruction.args[1]));
+        if (isBoolArray(type))
+          stored = builder.CreateZExt(stored, cell);
+        builder.CreateStore(stored, address);
         check();
         break;
       }

@@ -226,12 +226,13 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
         (symbol.owner >= module.functions.size() ||
          (symbol.type.array
               ? (!symbol.type.tensor || symbol.type.shape.size() != 1 ||
-                 symbol.type.builtin != BuiltinValue::Numeric)
+                 (symbol.type.builtin != BuiltinValue::Numeric &&
+                  symbol.type.builtin != BuiltinValue::Bool))
               : (symbol.type.tensor || !symbol.type.shape.empty())) ||
          symbol.type.task || symbol.type.fallible || symbol.type.device ||
          (symbol.type.builtin != BuiltinValue::Numeric &&
           symbol.type.builtin != BuiltinValue::Bool)))
-      return "reassignable bindings require completed CPU numeric or Bool scalars or flat numeric arrays";
+      return "reassignable bindings require completed CPU numeric or Bool scalars or flat numeric/Bool arrays";
     if (auto failure = error(symbol.type))
       return failure;
   }
