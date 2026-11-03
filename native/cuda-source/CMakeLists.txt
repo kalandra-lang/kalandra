@@ -1,6 +1,12 @@
 add_executable(kalandra-cuda-lower Lower.cpp)
-llvm_map_components_to_libnames(_cuda_nvptx_libraries NVPTX)
-target_link_libraries(kalandra-cuda-lower PRIVATE ${_cuda_nvptx_libraries})
+# Monolithic shared LLVM already owns the NVPTX targets. Linking a second
+# static copy registers duplicate targets with Homebrew's two-level namespace.
+# Static SDKs still need the explicit target components.
+get_target_property(_cuda_llvm_type LLVM TYPE)
+if(NOT _cuda_llvm_type STREQUAL "SHARED_LIBRARY")
+  llvm_map_components_to_libnames(_cuda_nvptx_libraries NVPTX)
+  target_link_libraries(kalandra-cuda-lower PRIVATE ${_cuda_nvptx_libraries})
+endif()
 target_link_libraries(kalandra-cuda-lower PRIVATE kalandra-strict-float kalandra-gpu-numeric MLIR LLVM)
 target_compile_options(kalandra-cuda-lower PRIVATE -Wall -Wextra -Werror)
 # PassOptions instantiates LLVM virtual option types. Match the linked SDK's
