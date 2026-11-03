@@ -82,7 +82,7 @@ void initializePortableStackBounds() noexcept {
 #endif
 
 // Generated modules retain a link-time dependency on this private layout.
-extern "C" const unsigned char kalandra_invocation_layout_v3 = 0;
+extern "C" const unsigned char kalandra_invocation_layout_v4 = 0;
 
 namespace kalandra::runtime {
 void InvocationABI::cacheStackBounds(Invocation &invocation) noexcept {
@@ -143,6 +143,11 @@ struct alignas(std::max_align_t) Backing {
   Backing **dependencies = nullptr;
   std::size_t dependencyCount = 0;
   Backing *releaseNext = nullptr; // Used exclusively after the final reference retires.
+};
+struct alignas(std::max_align_t) ControlAllocation {
+  ControlAllocation *next;
+  void (*cleanup)(void *) noexcept;
+  std::uint64_t charge;
 };
 namespace {
 // Reservations are transferred only when the corresponding owner is published.
@@ -371,6 +376,66 @@ void *Invocation::allocate(std::uint64_t bytes) noexcept {
   reservation.bytes = 0;
   attach(&backing->initial);
   return backing + 1;
+}
+void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
+  auto &state = ledger();
+  if (poll() || !usable() || !reserve())
+    return nullptr;
+  if (!bytes || !cleanup) {
+    fault(3);
+    return nullptr;
+  }
+  if (bytes > std::numeric_limits<std::size_t>::max() - sizeof(ControlAllocation)) {
+    fault(2);
+    return nullptr;
+  }
+  const auto total = bytes + sizeof(ControlAllocation);
+  BackingReservation reservation{state.recursiveBudget_, state.recursiveRelease_};
+  if (!reservation.acquire(*this, total, state.recursiveBytes_, state.recursiveReserve_))
+    return nullptr;
+  auto *storage = std::malloc(total);
+  if (!storage) {
+    fault(2);
+    return nullptr;
+  }
+  auto *control = new (storage) ControlAllocation{state.controls_, cleanup, reservation.bytes};
+  state.recursiveBytes_ += reservation.bytes;
+  reservation.bytes = 0;
+  state.controls_ = control;
+  live_.store(live_.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+  ++state.allocations_;
+  return control + 1;
+}
+void Invocation::clearControl() noexcept {
+  auto &state = storage_.value;
+  auto *control = state.controls_;
+  state.controls_ = control->next;
+  // A descendant's scope selectors must restore the still-live parent before
+  // the parent's fields are destroyed. This chain is iterative, not recursive.
+  control->cleanup(control + 1);
+  const auto charge = control->charge;
+  control->~ControlAllocation();
+  std::free(control);
+  if (charge && state.recursiveRelease_)
+    state.recursiveRelease_(state.recursiveBudget_, charge);
+  state.recursiveBytes_ -= charge;
+  live_.store(live_.load(std::memory_order_relaxed) - 1, std::memory_order_relaxed);
+  ++state.releases_;
+}
+void Invocation::releaseControl(void *address) noexcept {
+  auto &state = ledger();
+  auto *control = state.controls_;
+  while (control && control + 1 != address)
+    control = control->next;
+  if (!control) {
+    fault(3);
+    return;
+  }
+  // A skipped native return may leave descendant controls registered. Retire
+  // them first, while their parents and saved selections remain valid.
+  while (state.controls_ != control)
+    clearControl();
+  clearControl();
 }
 void *Invocation::allocateRecord(std::uint64_t bytes) noexcept {
   if (!bytes)
@@ -829,6 +894,7 @@ void Invocation::settleResources() noexcept {
   auto &state = storage_.value;
   if (flags_ & Settled) return;
   pollMode_ = 2;
+  while (state.controls_) clearControl();
   for (auto *scope = state.scopes_; scope; scope = scope->next_) clearOwners(*scope);
   clearOwners(state.root_);
   flags_ |= Settled;

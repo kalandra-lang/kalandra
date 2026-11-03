@@ -249,14 +249,14 @@ if(BUILD_TESTING)
   add_test(NAME native-bounded-entry COMMAND kalandra-bounded-entry-tests)
   set_tests_properties(native-bounded-entry PROPERTIES TIMEOUT 30)
 endif()
-add_library(kalandra-native-runtime STATIC runtime/Runtime.cpp runtime/Tasks.cpp runtime/TaskABI.cpp runtime/Entry.cpp)
+add_library(kalandra-native-runtime STATIC runtime/Runtime.cpp runtime/ValueScopes.cpp runtime/Tasks.cpp runtime/TaskABI.cpp runtime/Entry.cpp)
 target_link_libraries(kalandra-native-runtime PUBLIC Threads::Threads)
 target_compile_options(kalandra-native-runtime PRIVATE -Wall -Wextra -Werror)
-add_library(kalandra-native-runtime-sanitized STATIC runtime/Runtime.cpp runtime/Tasks.cpp runtime/TaskABI.cpp runtime/Entry.cpp)
+add_library(kalandra-native-runtime-sanitized STATIC runtime/Runtime.cpp runtime/ValueScopes.cpp runtime/Tasks.cpp runtime/TaskABI.cpp runtime/Entry.cpp)
 target_link_libraries(kalandra-native-runtime-sanitized PUBLIC Threads::Threads)
 target_compile_options(kalandra-native-runtime-sanitized PRIVATE -Wall -Wextra -Werror
   -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-add_library(kalandra-native-runtime-thread-sanitized STATIC runtime/Runtime.cpp runtime/Tasks.cpp runtime/TaskABI.cpp runtime/Entry.cpp)
+add_library(kalandra-native-runtime-thread-sanitized STATIC runtime/Runtime.cpp runtime/ValueScopes.cpp runtime/Tasks.cpp runtime/TaskABI.cpp runtime/Entry.cpp)
 target_link_libraries(kalandra-native-runtime-thread-sanitized PUBLIC Threads::Threads)
 target_compile_options(kalandra-native-runtime-thread-sanitized PRIVATE -Wall -Wextra -Werror -O1 -g
   -fsanitize=thread -fno-omit-frame-pointer)
@@ -415,7 +415,7 @@ if(KALANDRA_BUILD_METAL_PROOF)
 endif()
 
 # Keep optimized external/Metal tests optimized through the scheduler boundary.
-add_library(kalandra-task-core-optimized STATIC EXCLUDE_FROM_ALL runtime/Runtime.cpp runtime/Tasks.cpp)
+add_library(kalandra-task-core-optimized STATIC EXCLUDE_FROM_ALL runtime/Runtime.cpp runtime/ValueScopes.cpp runtime/Tasks.cpp)
 foreach(ORDINARY_RUNTIME IN ITEMS kalandra-native-runtime kalandra-native-runtime-sanitized kalandra-native-runtime-thread-sanitized kalandra-task-core-optimized)
   target_sources(${ORDINARY_RUNTIME} PRIVATE runtime/OrdinaryEntry.cpp)
 endforeach()
@@ -532,6 +532,23 @@ if(BUILD_TESTING)
     target_link_options(kalandra-ownership-scope-${VARIANT} PRIVATE ${LEASE_FLAGS})
     add_test(NAME native-ownership-scope-${VARIANT} COMMAND kalandra-ownership-scope-${VARIANT})
     set_tests_properties(native-ownership-scope-${VARIANT} PROPERTIES TIMEOUT 30)
+    add_executable(kalandra-value-scope-${VARIANT} tests/ValueScopeTests.cpp)
+    target_link_libraries(kalandra-value-scope-${VARIANT} PRIVATE ${LEASE_RUNTIME})
+    target_compile_options(kalandra-value-scope-${VARIANT} PRIVATE -Wall -Wextra -Werror ${LEASE_FLAGS})
+    target_link_options(kalandra-value-scope-${VARIANT} PRIVATE ${LEASE_FLAGS})
+    add_test(NAME native-value-scope-${VARIANT} COMMAND kalandra-value-scope-${VARIANT})
+    set_tests_properties(native-value-scope-${VARIANT} PROPERTIES TIMEOUT 60)
+    set(SCOPE_LAYOUT_RUNTIME ${LEASE_RUNTIME})
+    if(VARIANT STREQUAL "optimized")
+      set(SCOPE_LAYOUT_RUNTIME kalandra-native-runtime)
+    endif()
+    add_test(NAME native-value-scope-layout-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+        "-DRUNTIME=$<TARGET_FILE:${SCOPE_LAYOUT_RUNTIME}>" "-DVARIANT=${VARIANT}"
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/value-scope-layout-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyValueScopeLayouts.cmake")
+    set_tests_properties(native-value-scope-layout-${VARIANT} PROPERTIES TIMEOUT 300)
   endforeach()
 endif()
 

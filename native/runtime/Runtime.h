@@ -10,6 +10,7 @@
 namespace kalandra::runtime {
 struct Owner;
 struct Backing;
+struct ControlAllocation;
 // A read-only retained allocation independent of any invocation's owner list.
 // Move-only: shared values retain their enclosing backing, not this lease itself.
 class AllocationLease final {
@@ -71,6 +72,11 @@ public:
   void leaveCall() noexcept;
   std::uint64_t callDepth() const noexcept { return flags_ & ControlReady ? callDepth_ : 0; }
   void *allocate(std::uint64_t bytes) noexcept;
+  // Private compiler frame metadata, never source-visible or leaseable. The
+  // caller completes infallible construction before returning to source code.
+  // Cleanup does not enter source code; descendants retire before their parent.
+  void *allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
+  void releaseControl(void *) noexcept;
   // Field backing remains invocation-owned across inline aggregate copies.
   // Release only at a scalar CLI boundary; ordinary helpers may return records.
   void *allocateRecord(std::uint64_t bytes) noexcept;
@@ -139,7 +145,7 @@ public:
     }
     // Scalar work need not cross the runtime ABI to settle an empty ledger.
     // Keep owned buffers and both resource-budget release paths together.
-    const unsigned resources = unsigned(ledger().root_.head_ != nullptr) | unsigned(ledger().root_.spareSmall_ != nullptr) | unsigned(ledger().scopes_ != nullptr) |
+    const unsigned resources = unsigned(ledger().root_.head_ != nullptr) | unsigned(ledger().root_.spareSmall_ != nullptr) | unsigned(ledger().scopes_ != nullptr) | unsigned(ledger().controls_ != nullptr) |
                                unsigned(ledger().environmentBytes_ != 0) | unsigned(ledger().recursiveBytes_ != 0);
     if (!resources) {
       pollMode_ = 2;
@@ -207,6 +213,7 @@ private:
   struct Ledger {
     OwnerStore root_;
     OwnerStore *active_ = nullptr, *scopes_ = nullptr;
+    ControlAllocation *controls_ = nullptr;
     std::atomic<std::uint64_t> *pollCounter_ = nullptr;
     std::uint64_t environmentBytes_ = 0, recursiveBytes_ = 0;
     void *recursiveBudget_ = nullptr;
@@ -249,6 +256,7 @@ private:
   Owner *findOwner(const void *) const noexcept;
   void remove(Owner *owner) noexcept;
   void clearOwners(OwnerStore &) noexcept;
+  void clearControl() noexcept;
 };
 // Private compiler storage scopes. The Invocation outlives every scope and
 // selection. All context access stays exclusive; cancellation, faults, budgets
@@ -320,7 +328,7 @@ static_assert(std::is_standard_layout_v<Invocation>);
 // Generated entries allocate this storage and access these fields directly.
 // Fail the compiler/runtime build if a toolchain or future edit changes the ABI;
 // cross-compilers must never use a source-host layout for a different target.
-static_assert(sizeof(Invocation) == 288 && alignof(Invocation) == 8);
+static_assert(sizeof(Invocation) == 296 && alignof(Invocation) == 8);
 static_assert(sizeof(std::atomic<std::uint64_t>) == 8 && alignof(std::atomic<std::uint64_t>) == 8);
 static_assert(InvocationABI::cancellation == 0 && InvocationABI::control == 8 &&
               InvocationABI::pollMode == 12 && InvocationABI::depth == 24 &&

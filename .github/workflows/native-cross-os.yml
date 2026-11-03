@@ -84,6 +84,11 @@ jobs:
           cmake --build build/macos --target native-cpu-standalone-package kalandra kalandra-cross-target-tests -j2
           ctest --test-dir build/macos --output-on-failure \
             -R '^native-(cross-target-codegen|cross-toolchain-validation|call-foundation-source)$'
+      - name: Qualify scoped ownership and compiler value layouts
+        run: |
+          cmake --build build/macos --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j2
+          ctest --test-dir build/macos --output-on-failure \
+            -R '^native-(ownership-scope-optimized|value-scope-optimized|value-scope-layout-optimized)$'
       - name: Validate macOS 26 system imports and build own C++ safety objects
         run: >-
           python3 .github/scripts/macos_link_imports.py

@@ -99,6 +99,11 @@ jobs:
         run: |
           cmake --build build/linux --target kalandra-closed-task-tests-optimized -j2
           ctest --test-dir build/linux --output-on-failure -R '^native-closed-tasks-optimized$'
+      - name: Qualify scoped ownership and compiler value layouts
+        run: |
+          cmake --build build/linux --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j2
+          ctest --test-dir build/linux --output-on-failure \
+            -R '^native-(ownership-scope-optimized|value-scope-optimized|value-scope-layout-optimized)$'
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version

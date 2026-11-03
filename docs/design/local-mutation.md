@@ -301,5 +301,27 @@ transport retention and early invocation settlement in all four build modes.
 These tests do not establish source-level suspended replacement support. Task
 frame construction, instruction commits, return publication and frame destruction
 still need integration and qualification before removing the admission gates.
-The private layout link guard advances to v3; development compiler and runtime
+The private layout link guard advances to v4; development compiler and runtime
 bundles must be rebuilt together. No released source behavior changes here.
+
+
+Compiler value-scope storage now has a private runtime component: one reusable
+work scope, a spare scope for transactional copies, and one scope per generated
+value slot. Complete `ValueLayout` copies acquire dependencies before old roots
+retire. Synchronous returns publish into the restored caller scope before callee
+cleanup; task outcomes retain into their independent outcome invocation.
+
+Control metadata is separate from source backing. It is not leaseable, is charged
+to the same task budget, and registers an infallible cleanup callback with the
+invocation. Cleanup runs iteratively from descendants to parents, including when
+a native cancellation or source fault skips ordinary generated return blocks.
+Metadata charges retire with those control objects; ordinary backing still keeps
+its scope's cumulative reservations. Allocating control metadata inside a parent
+work scope was rejected: it could free registered child scope nodes before their
+destructors ran. The skipped-return regression tests cover both parent-frame
+cleanup and final invocation settlement.
+
+These components are not yet selected by generated continuations. Integration
+must cover every owning producer, branch/error edge, map initialization and task
+suspension before the source reassignment gates are removed. No source behavior
+or cancellation contract changes in this foundation.

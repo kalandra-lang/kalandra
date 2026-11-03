@@ -88,6 +88,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Closed task runner compilation failed' }
           & build/windows/closed-task-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Closed task runner qualification failed' }
+      - name: Qualify scoped ownership and compiler value layouts
+        run: |
+          foreach ($test in @('OwnershipScopeTests', 'ValueScopeTests')) {
+            & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static "native/tests/$test.cpp" build/windows/native/kalandra-task-core-optimized.lib -o "build/windows/$test.exe"
+            if ($LASTEXITCODE -ne 0) { throw "$test compilation failed" }
+            & "build/windows/$test.exe"
+            if ($LASTEXITCODE -ne 0) { throw "$test qualification failed" }
+          }
+          cmake "-DCOMPILER=$env:GITHUB_WORKSPACE/build/windows/native/kalandra.exe" "-DCLANGXX=$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" "-DRUNTIME=$env:GITHUB_WORKSPACE/build/windows/native/kalandra-native-runtime.lib" -DVARIANT=optimized "-DSOURCE_DIR=$env:GITHUB_WORKSPACE/native" "-DOUTPUT_DIR=$env:GITHUB_WORKSPACE/build/windows/value-scope-layout" -P native/cmake/VerifyValueScopeLayouts.cmake
+          if ($LASTEXITCODE -ne 0) { throw 'Compiler value layout qualification failed' }
       - name: Verify recursive scalar values and checked state
         run: >-
           python native/tests/RecursiveScalarTests.py
