@@ -63,7 +63,9 @@ int main() {
           "fn get(values:[int],index:int):\n  values[index]\nfn main() ! TaskError:\n  "
           "try parallel:\n    work=spawn get([1,2],1)\n    try await work\n",
           "fn make()->[int]:\n  [10,20]\nfn main() ! TaskError:\n  try parallel:\n    "
-          "work=spawn make()\n    values=try await work\n    values[1]\n"}) {
+          "work=spawn make()\n    values=try await work\n    values[1]\n",
+          "fn main()->int:\n  values=[1,2]\n  values[0]=3\n  values[0]\n",
+          "fn main()->Bool:\n  values=[false,true]\n  values[0]=true\n  values[0]\n"}) {
       auto typed = analyze(source);
       require(typed.ok(), std::string("valid index program rejected: ") + source);
       require(bool(continuation::plan(*typed.module)), "index graph import failed");
@@ -78,12 +80,16 @@ int main() {
           "fn main():\n  tensor([1,2])[0,0]\n", "fn main():\n  [1,2][uint(18446744073709551615)]\n",
           "fn main():\n  empty:[int]=[]\n  empty[0]\n",
           "fn run(index:int):\n  empty:[int]=[]\n  empty[index]\n",
-          "fn main():\n  values=[1,2]\n  values[0]=3\n  0\n", "fn main():\n  [1,2][]\n",
+          "fn write(values:[int])->int:\n  values[0]=3\n  values[0]\nfn main()->int:\n  "
+          "write([1,2])\n",
+          "fn main():\n  values=[1,2]\n  values[-1]=3\n  0\n",
+          "fn main():\n  values=[1,2]\n  values[2]=3\n  0\n",
+          "fn main():\n  values=[1,2]\n  values[0]=true\n  0\n", "fn main():\n  [1,2][]\n",
           "fn main():\n  [1,2][0,1]\n", "fn main():\n  [1,2][0\n", "fn main():\n  [1,2][0][0]\n",
           "fn make()->[int]:\n  [1,2]\nfn main() ! TaskError:\n  try parallel:\n    work=spawn "
           "make()\n    work[0]\n"})
       require(!analyze(source).ok(), std::string("invalid index accepted: ") + source);
-    std::cout << "checked array indexing: 24 numeric/index pairs, precedence, immutable "
+    std::cout << "checked array indexing: 24 numeric/index pairs, precedence, read-only "
                  "boundaries, captures, continuations and malformed IR passed\n";
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';

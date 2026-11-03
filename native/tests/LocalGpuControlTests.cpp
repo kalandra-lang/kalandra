@@ -8,18 +8,16 @@ static void require(bool value, const std::string &message) {
 }
 int main() {
   try {
-    const std::string kernel =
-        "fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n  x+x\n";
-    const std::string host =
-        "fn main()->Tensor[float32,3] ! TaskError:\n"
-        "  i=0\n  while i<3:\n    try parallel:\n"
-        "      gpu=devices.gpu()\n"
-        "      x:Tensor[float32,3]=tensor([1,2,3])\n"
-        "      input=try await transfer(x,gpu)\n"
-        "      result=try await spawn twice(input) on gpu\n"
-        "      output=try await transfer(result,devices.cpu())\n"
-        "      i=i+1\n      output\n"
-        "  tensor([4,5,6])\n";
+    const std::string kernel = "fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n  x+x\n";
+    const std::string host = "fn main()->Tensor[float32,3] ! TaskError:\n"
+                             "  i=0\n  while i<3:\n    try parallel:\n"
+                             "      gpu=devices.gpu()\n"
+                             "      x:Tensor[float32,3]=tensor([1,2,3])\n"
+                             "      input=try await transfer(x,gpu)\n"
+                             "      result=try await spawn twice(input) on gpu\n"
+                             "      output=try await transfer(result,devices.cpu())\n"
+                             "      i=i+1\n      output\n"
+                             "  tensor([4,5,6])\n";
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {
       auto emit = [&](const std::string &text) {
         auto source = std::make_shared<SourceFile>("gpu-locals.k", text);
@@ -35,14 +33,14 @@ int main() {
               "completed mixed groups retain iteration resources");
       require(cpp.find("task.context().poll()") != std::string::npos,
               "mixed loop lost cancellation checkpoint");
-      auto mutation = emit(
-          "fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
-          "  scale:float32=1\n  scale=2\n  x*scale\n" + host);
+      auto mutation = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
+                           "  scale:float32=1\n  scale=2\n  x*scale\n" +
+                           host);
       require(!mutation && mutation.error().message.find("CPU execution") != std::string::npos,
               "GPU kernel admitted mutable scalar state");
-      auto loop = emit(
-          "fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
-          "  while false: 0\n  x+x\n" + host);
+      auto loop = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
+                       "  while false: 0\n  x+x\n" +
+                       host);
       require(!loop && loop.error().message.find("CPU execution") != std::string::npos,
               "GPU kernel admitted statement loops");
       auto arrayWrite = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
@@ -51,19 +49,40 @@ int main() {
       require(!arrayWrite && arrayWrite.error().message.find("CPU execution") != std::string::npos,
               "GPU kernel admitted array element assignment");
       auto arraySort = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
-                            "  local=sorted([2,1])\n  x+x\n" + host);
+                            "  local=sorted([2,1])\n  x+x\n" +
+                            host);
       require(!arraySort && arraySort.error().message.find("CPU") != std::string::npos,
               "GPU kernel admitted CPU array sorting");
-      auto hostArray = emit(kernel + std::string("fn main()->Tensor[float32,3] ! TaskError:\n"
-                                                 "  local=[1,2]\n  local[0]=3\n"
-                                                 "  try parallel:\n    gpu=devices.gpu()\n"
-                                                 "    x:Tensor[float32,3]=tensor([1,2,3])\n"
-                                                 "    input=try await transfer(x,gpu)\n"
-                                                 "    result=try await spawn twice(input) on gpu\n"
-                                                 "    try await transfer(result,devices.cpu())\n"));
-      require(!hostArray && hostArray.error().message.find("array") != std::string::npos,
-              "mixed array carrier gate changed: " +
-                  (hostArray ? std::string("admitted") : hostArray.error().message));
+      auto hostArray =
+          emit(kernel + std::string("fn main()->Tensor[float32,3] ! TaskError:\n"
+                                    "  local:[float32]=[1,2,3]\n  local[0]=float32(3)\n"
+                                    "  try parallel:\n    gpu=devices.gpu()\n"
+                                    "    x:Tensor[float32,3]=tensor(local)\n"
+                                    "    input=try await transfer(x,gpu)\n"
+                                    "    result=try await spawn twice(input) on gpu\n"
+                                    "    try await transfer(result,devices.cpu())\n"));
+      require(bool(hostArray),
+              "mixed host array rejected: " + (hostArray ? "" : hostArray.error().message));
+      require(hostArray->at("host.cpp").find("HostArrayScopes arrayScopes") != std::string::npos &&
+                  hostArray->contains("cpu-steps.mlir"),
+              "mixed host array bypassed native ownership lowering");
+      auto readOnly =
+          emit(kernel + std::string("fn write(values:[int])->int:\n  values[0]=3\n  values[0]\n") +
+               host);
+      require(!readOnly && readOnly.error().message.find("read-only") != std::string::npos,
+              "mixed host admitted writes through a read-only parameter");
+      auto shared = emit(
+          kernel + std::string("fn read(values:[int])->int:\n  values[0]\n"
+                               "fn main()->Tensor[float32,3] ! TaskError:\n  try parallel:\n"
+                               "    local=[1,2]\n    alias=local\n"
+                               "    pending=spawn read(local) on devices.cpu()\n    alias[0]=3\n"
+                               "    observed=try await pending\n    gpu=devices.gpu()\n"
+                               "    x:Tensor[float32,3]=tensor([1,2,3])\n"
+                               "    input=try await transfer(x,gpu)\n"
+                               "    result=try await spawn twice(input) on gpu\n"
+                               "    try await transfer(result,devices.cpu())\n"));
+      require(!shared && shared.error().message.find("may still read") != std::string::npos,
+              "mixed host admitted an alias write while a task reads its backing");
     }
     std::cout << "Metal/Vulkan/CUDA: host loops, group release and kernel rejection gates passed\n";
   } catch (const std::exception &error) {

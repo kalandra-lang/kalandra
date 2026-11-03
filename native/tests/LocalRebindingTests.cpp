@@ -14,6 +14,8 @@ int main() {
   try {
     for (auto source :
          {"fn main()->int:\n  a=10\n  a=a*2\n  a\n", "fn main()->Bool:\n  a=true\n  a=false\n  a\n",
+          "fn main()->[int]:\n  a=[1]\n  a=[2]\n  a\n",
+          "fn main()->[Bool]:\n  a=[true]\n  a=[false,true]\n  a\n",
           "fn step(a:int)->int:\n  a=a+1\n  a\nfn main()->int:\n  step(2)\n",
           "fn main()->int:\n  a=0\n  while a<20: a=a+1\n  a\n",
           "fn main()->int:\n  a=0\n  if true:\n    a=4\n  a\n",
@@ -41,7 +43,8 @@ int main() {
     }
     for (auto source :
          {"fn main()->int:\n  a=1\n  a=false\n  a\n", "fn main()->int:\n  a=1\n  a:float=2\n  a\n",
-          "fn main()->[int]:\n  a=[1]\n  a=[2]\n  a\n",
+          "fn main()->[String]:\n  a=[\"one\"]\n  a=[\"two\"]\n  a\n",
+          "fn main()->[int]:\n  a=[1]\n  a=[true]\n  a\n",
           "fn main()->int:\n  a=0\n  while 1:\n    a=a+1\n  a\n",
           "fn main()->int:\n  a=0\n  while a<4:\n    local=1\n    a=a+1\n  local\n",
           "fn main():\n  a=0\n  while a<4: a=a+1\n",
