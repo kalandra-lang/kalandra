@@ -325,3 +325,17 @@ These components are not yet selected by generated continuations. Integration
 must cover every owning producer, branch/error edge, map initialization and task
 suspension before the source reassignment gates are removed. No source behavior
 or cancellation contract changes in this foundation.
+
+
+Multi-output instructions must publish as a batch. Each output first copies its
+complete graph into a temporary ownership scope while every old slot and work
+allocation remains alive. After all copies succeed, the slot scopes swap and the
+frame payloads publish; old roots retire together. Temporary metadata uses the
+same checked control allocator and failure sequence. Duplicate slot writes are
+rejected, and cancellation preserves its stopped status during rollback.
+This handles cloned closure environments whose sibling outputs still refer to
+the original environment. Empty arrays and supported positive-stride numeric views retain their
+descriptors and aliases through the same private bridge. Boolean transport
+continues to require its existing contiguous representation; negative-stride
+imports remain rejected. These runtime components still require
+compiler instruction/edge integration before source admission changes.

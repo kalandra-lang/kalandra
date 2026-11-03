@@ -10,6 +10,12 @@ public:
   void destroy() noexcept;
   bool begin() noexcept;
   bool commit(std::size_t, void *) noexcept;
+  struct Write {
+    std::uint64_t slot;
+    void *value;
+  };
+  // Retain every result before retiring input storage shared by the results.
+  bool commitBatch(const Write *, std::uint64_t) noexcept;
   void end() noexcept;
   bool publish(std::size_t, void *, const void *) noexcept;
 
@@ -38,5 +44,10 @@ bool kalandra_value_scopes_commit_v1(kalandra::runtime::ValueScopes *, std::uint
 bool kalandra_value_scopes_publish_v1(kalandra::runtime::ValueScopes *, std::uint64_t, void *,
                                       const void *) noexcept;
 void kalandra_value_scopes_end_v1(kalandra::runtime::ValueScopes *) noexcept;
+bool kalandra_value_scopes_batch_v1(kalandra::runtime::ValueScopes *,
+                                    const kalandra::runtime::ValueScopes::Write *,
+                                    std::uint64_t) noexcept;
 void kalandra_value_scopes_destroy_v1(kalandra::runtime::ValueScopes *) noexcept;
 }
+static_assert(sizeof(kalandra::runtime::ValueScopes::Write) == 16 &&
+              alignof(kalandra::runtime::ValueScopes::Write) == 8);

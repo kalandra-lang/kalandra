@@ -108,6 +108,135 @@ bool ValueScopes::commit(std::size_t slot, void *value) noexcept {
   end();
   return copied;
 }
+bool ValueScopes::commitBatch(const Write *writes, std::uint64_t count) noexcept {
+  const auto reject = [&](std::int64_t code) {
+    context_.fault(code);
+    end();
+    return false;
+  };
+  if (count > maxSlots)
+    return reject(2);
+  if (!selection_ || count > layouts_.size() || (!writes && count))
+    return reject(3);
+  if (!count) {
+    const bool ok = !context_.poll();
+    end();
+    return ok;
+  }
+  if (count == 1)
+    return commit(writes[0].slot, writes[0].value);
+  constexpr auto maximum = std::numeric_limits<std::size_t>::max();
+  constexpr auto align = alignof(std::max_align_t);
+  std::size_t scratchBytes = 0;
+  for (std::uint64_t i = 0; i < count; ++i) {
+    if (context_.poll()) {
+      end();
+      return false;
+    }
+    if (writes[i].slot >= layouts_.size() || !writes[i].value)
+      return reject(3);
+    if (auto *layout = layouts_[writes[i].slot]) {
+      if (layout->bytes > maximum - (align - 1))
+        return reject(2);
+      const auto stride = (layout->bytes + align - 1) & ~(align - 1);
+      if (stride > maximum - scratchBytes)
+        return reject(2);
+      scratchBytes += stride;
+    }
+  }
+  struct Temporary {
+    std::size_t constructed = 0;
+    Scope *scopes = nullptr;
+  };
+  // maxSlots bounds fixed metadata independently of payload sizes.
+  constexpr auto scopeOffset = (sizeof(Temporary) + alignof(Scope) - 1) & ~(alignof(Scope) - 1);
+  const auto bitmapOffset = scopeOffset + count * sizeof(Scope);
+  const auto bitmapBytes = (layouts_.size() + 7) / 8;
+  const auto scratchOffset = (bitmapOffset + bitmapBytes + align - 1) & ~(align - 1);
+  if (scratchBytes > maximum - scratchOffset)
+    return reject(2);
+  auto *storage = static_cast<std::byte *>(
+      context_.allocateControl(scratchOffset + scratchBytes, [](void *pointer) noexcept {
+        auto *temporary = static_cast<Temporary *>(pointer);
+        for (std::size_t i = 0; i < temporary->constructed; ++i)
+          temporary->scopes[i].~Scope();
+        temporary->~Temporary();
+      }));
+  if (!storage) {
+    end();
+    return false;
+  }
+  auto *temporary = new (storage) Temporary;
+  temporary->scopes = reinterpret_cast<Scope *>(storage + scopeOffset);
+  auto *bitmap = storage + bitmapOffset;
+  auto *scratch = storage + scratchOffset;
+  std::memset(bitmap, 0, bitmapBytes);
+  const auto finish = [&](bool ok) {
+    context_.releaseControl(temporary);
+    end();
+    return ok;
+  };
+  std::size_t offset = 0;
+  for (std::uint64_t i = 0; i < count; ++i) {
+    if (context_.poll())
+      return finish(false);
+    const auto slot = writes[i].slot;
+    const auto mask = std::byte(1u << (slot % 8));
+    if ((bitmap[slot / 8] & mask) != std::byte{}) {
+      context_.fault(3);
+      return finish(false);
+    }
+    bitmap[slot / 8] |= mask;
+    auto *scope = new (temporary->scopes + i) Scope(context_);
+    ++temporary->constructed;
+    if (!scope->valid())
+      return finish(false);
+    if (auto *layout = layouts_[slot]) {
+      bool copied = true;
+      {
+        Invocation::OwnershipSelection target(*scope);
+        for (std::size_t byte = 0; byte < layout->bytes;) {
+          if (context_.poll()) {
+            copied = false;
+            break;
+          }
+          const auto bytes = std::min<std::size_t>(4096, layout->bytes - byte);
+          std::memset(scratch + offset + byte, 0, bytes);
+          byte += bytes;
+        }
+        if (copied)
+          copied = layout->copy(context_, scratch + offset, context_, writes[i].value);
+      }
+      // Restore the work selection before destroying temporary scopes.
+      if (!copied || context_.poll()) {
+        if (!context_.poll())
+          context_.fault(3);
+        return finish(false);
+      }
+      offset += (layout->bytes + align - 1) & ~(align - 1);
+    }
+  }
+  // All outputs have complete graphs; no old slot/work owner has retired yet.
+  // A stopped publication aborts the task. Cleanup ignores partial frame bytes.
+  offset = 0;
+  for (std::uint64_t i = 0; i < count; ++i) {
+    const auto slot = writes[i].slot;
+    if (!slots_[slot].swap(temporary->scopes[i]))
+      return finish(false);
+    if (auto *layout = layouts_[slot]) {
+      for (std::size_t byte = 0; byte < layout->bytes;) {
+        if (context_.poll())
+          return finish(false);
+        const auto bytes = std::min<std::size_t>(4096, layout->bytes - byte);
+        std::memcpy(static_cast<std::byte *>(writes[i].value) + byte, scratch + offset + byte,
+                    bytes);
+        byte += bytes;
+      }
+      offset += (layout->bytes + align - 1) & ~(align - 1);
+    }
+  }
+  return finish(true);
+}
 bool ValueScopes::publish(std::size_t slot, void *output, const void *input) noexcept {
   end(); // Restore the caller's storage scope before acquiring return ownership.
   if (slot >= layouts_.size() || !layouts_[slot] || !output || !input) {
@@ -154,6 +283,10 @@ bool kalandra_value_scopes_commit_v1(ValueScopes *scopes, std::uint64_t slot,
 bool kalandra_value_scopes_publish_v1(ValueScopes *scopes, std::uint64_t slot, void *output,
                                       const void *input) noexcept {
   return scopes && scopes->publish(slot, output, input);
+}
+bool kalandra_value_scopes_batch_v1(ValueScopes *scopes, const ValueScopes::Write *writes,
+                                    std::uint64_t count) noexcept {
+  return scopes && scopes->commitBatch(writes, count);
 }
 void kalandra_value_scopes_end_v1(ValueScopes *scopes) noexcept {
   if (scopes)

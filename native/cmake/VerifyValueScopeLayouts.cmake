@@ -26,13 +26,14 @@ foreach(INDEX RANGE 0 10)
   list(GET LAYOUTS 0 LAYOUT)
   string(REGEX REPLACE " = internal constant$" "" SYMBOL "${LAYOUT}")
   file(APPEND "${OUTPUT_DIR}/${NAME}.ll" "
-@scope_test_layouts = internal constant [2 x ptr] [ptr ${SYMBOL}, ptr ${SYMBOL}]
+@scope_test_layouts = internal constant [3 x ptr] [ptr ${SYMBOL}, ptr ${SYMBOL}, ptr ${SYMBOL}]
 define ptr @scope_test_layout() { ret ptr ${SYMBOL} }
 ")
   foreach(DECL IN ITEMS
       "ptr @kalandra_value_scopes_create_v1(ptr, ptr, i64)"
       "i1 @kalandra_value_scopes_begin_v1(ptr)"
       "i1 @kalandra_value_scopes_commit_v1(ptr, i64, ptr)"
+      "i1 @kalandra_value_scopes_batch_v1(ptr, ptr, i64)"
       "void @kalandra_value_scopes_destroy_v1(ptr)")
     string(REGEX MATCH "@([A-Za-z0-9_]+)" FUNCTION_NAME "${DECL}")
     if(NOT IR MATCHES "${FUNCTION_NAME}\\(")
@@ -41,7 +42,7 @@ define ptr @scope_test_layout() { ret ptr ${SYMBOL} }
   endforeach()
   file(APPEND "${OUTPUT_DIR}/${NAME}.ll" "
 define ptr @scope_test_create(ptr %ctx) {
-  %result = call ptr @kalandra_value_scopes_create_v1(ptr %ctx, ptr @scope_test_layouts, i64 2)
+  %result = call ptr @kalandra_value_scopes_create_v1(ptr %ctx, ptr @scope_test_layouts, i64 3)
   ret ptr %result
 }
 define i1 @scope_test_begin(ptr %arena) {
@@ -50,6 +51,10 @@ define i1 @scope_test_begin(ptr %arena) {
 }
 define i1 @scope_test_commit(ptr %arena, i64 %slot, ptr %value) {
   %ok = call i1 @kalandra_value_scopes_commit_v1(ptr %arena, i64 %slot, ptr %value)
+  ret i1 %ok
+}
+define i1 @scope_test_batch(ptr %arena, ptr %writes, i64 %count) {
+  %ok = call i1 @kalandra_value_scopes_batch_v1(ptr %arena, ptr %writes, i64 %count)
   ret i1 %ok
 }
 define void @scope_test_destroy(ptr %arena) {

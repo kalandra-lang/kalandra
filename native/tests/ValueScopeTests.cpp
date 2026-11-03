@@ -365,6 +365,122 @@ static void invalidAdmission() {
     CHECK(!ValueScopes::create(ctx, layouts) && ctx.status() == 3 && !ctx.live());
   }
 }
+static std::atomic<bool> *cancelClone = nullptr;
+static bool clonePayload(Invocation &destination, void *output, const Invocation &source,
+                         const void *input) noexcept {
+  const auto value = *static_cast<const Payload *>(input);
+  auto lease = source.lease(value.data);
+  if (!lease || lease->bytes().size() < value.count) {
+    destination.fault(3);
+    return false;
+  }
+  auto *copy = destination.allocate(value.count);
+  if (!copy)
+    return false;
+  std::memcpy(copy, lease->bytes().data(), value.count);
+  *static_cast<Payload *>(output) = {copy, value.count};
+  if (cancelClone)
+    cancelClone->store(true);
+  return true;
+}
+static const ValueLayout cloningLayout{2, sizeof(Payload), alignof(Payload), clonePayload,
+                                       destroyPayload};
+static void batchPublication() {
+  Budget budget;
+  Invocation ctx;
+  bound(ctx, budget);
+  const ValueLayout *layouts[] = {&cloningLayout, &cloningLayout};
+  auto *arena = ValueScopes::create(ctx, layouts);
+  CHECK(arena);
+  Payload first{}, second{};
+  unsigned expected = 0;
+  for (unsigned round = 0; round < 5000; ++round) {
+    CHECK(arena->begin());
+    if (round % 2 == 0) {
+      first = {ctx.allocate(64), 64};
+      CHECK(first.data);
+      expected = round % 256;
+      std::memset(first.data, expected, 64);
+    }
+    // Both outputs refer to the old environment. Copying the first result can
+    // clone that environment, so it must not retire the second result's input.
+    second = first;
+    const ValueScopes::Write writes[] = {{0, &first}, {1, &second}};
+    CHECK(kalandra_value_scopes_batch_v1(arena, writes, 2));
+    CHECK(first.data != second.data);
+    CHECK(static_cast<unsigned char *>(first.data)[0] == expected);
+    CHECK(static_cast<unsigned char *>(second.data)[0] == expected);
+    CHECK(ctx.live() == 3 && budget.peak < 4096);
+  }
+  arena->destroy();
+  ctx.settle();
+  CHECK(!ctx.live() && !budget.used && ctx.allocations() == ctx.releases());
+}
+static void batchFailures() {
+  for (unsigned failure = 1; failure <= 7; ++failure) {
+    Budget budget;
+    Invocation ctx;
+    bound(ctx, budget);
+    ctx.failAllocationAt(failure);
+    const ValueLayout *layouts[] = {&cloningLayout, &cloningLayout};
+    auto *arena = ValueScopes::create(ctx, layouts);
+    if (arena && arena->begin()) {
+      Payload first{ctx.allocate(64), 64}, second{};
+      if (first.data) {
+        std::memset(first.data, 0x37, 64);
+        second = first;
+        const ValueScopes::Write writes[] = {{0, &first}, {1, &second}};
+        const bool copied = arena->commitBatch(writes, 2);
+        CHECK(copied == (failure > 5));
+      }
+    }
+    if (arena)
+      arena->destroy();
+    CHECK(ctx.status() == (failure <= 5 ? 2 : 0));
+    ctx.settle();
+    CHECK(!ctx.live() && !budget.used && ctx.allocations() == ctx.releases());
+  }
+  {
+    Budget budget;
+    Invocation ctx;
+    bound(ctx, budget);
+    const ValueLayout *layouts[] = {&cloningLayout, &cloningLayout};
+    auto *arena = ValueScopes::create(ctx, layouts);
+    CHECK(arena && arena->begin());
+    Payload first{ctx.allocate(64), 64};
+    CHECK(first.data);
+    std::memset(first.data, 0x49, 64);
+    CHECK(arena->commit(0, &first) && arena->begin());
+    const ValueScopes::Write duplicate[] = {{0, &first}, {0, &first}};
+    CHECK(!arena->commitBatch(duplicate, 2) && ctx.status() == 3);
+    CHECK(static_cast<unsigned char *>(first.data)[0] == 0x49);
+    arena->destroy();
+    ctx.settle();
+    CHECK(!ctx.live() && !budget.used && ctx.allocations() == ctx.releases());
+  }
+  {
+    Budget budget;
+    Invocation ctx;
+    std::atomic<bool> cancel = false;
+    bound(ctx, budget);
+    ctx.bindCancellation(&cancel);
+    const ValueLayout *layouts[] = {&cloningLayout, &cloningLayout};
+    auto *arena = ValueScopes::create(ctx, layouts);
+    CHECK(arena && arena->begin());
+    Payload first{ctx.allocate(64), 64}, second{};
+    CHECK(first.data);
+    std::memset(first.data, 0, 64);
+    second = first;
+    const ValueScopes::Write writes[] = {{0, &first}, {1, &second}};
+    cancelClone = &cancel;
+    CHECK(!arena->commitBatch(writes, 2));
+    cancelClone = nullptr;
+    CHECK(!ctx.status() && ctx.poll() == -1);
+    arena->destroy();
+    ctx.settle();
+    CHECK(!ctx.status() && !ctx.live() && !budget.used && ctx.allocations() == ctx.releases());
+  }
+}
 extern "C" [[noreturn]] void kalandra_source_abort_v2();
 extern "C" bool kalandra_source_run_v3(Invocation *, bool (*)(void *), void *) noexcept;
 struct AbortInput {
@@ -401,6 +517,8 @@ static void sourceAbortCleanup() {
   }
 }
 int main() {
+  batchPublication();
+  batchFailures();
   sourceAbortCleanup();
   invalidAdmission();
   valueTransactions();
