@@ -273,3 +273,33 @@ storage only when they preserve both value results and storage identity. Record
 field mutation, nested mutable containers, resizing, early loop exits, distributed
 retry effects and GPU kernel memory semantics require explicit decisions; this
 proposal does not silently admit them.
+
+
+### Scoped ownership foundation (not yet enabled in compiler output)
+
+The private runtime can separate an invocation's owner list into compiler-owned
+storage scopes. All scopes share the same Invocation pointer: cancellation,
+source-fault precedence, native call control, poll observers, allocation-attempt
+counting and task-budget callbacks remain unchanged. Lookups can resolve backing
+across registered scopes; allocation, retention and explicit release target the
+selected scope. Scope metadata has exclusive invocation access and can migrate
+between workers with the execution lease.
+
+A scope keeps cumulative reservations until that scope settles; freeing one
+owner does not refund its quota. Replacing a value must first copy its complete
+layout and dependency graph into a spare scope, then retire the old value and
+work scopes and publish the spare. This is essential for recursive graph
+children: a raw descriptor or a retained parent alone is not sufficient to
+transfer the child's budget responsibility. Every live destination graph needs
+its own complete ownership and reservation. The aggregate invocation counters
+include all scopes. The default scope retains the previous settlement contract.
+
+Runtime component tests exercise 10,000 replacement iterations, 5,000 recursive
+graph publications, saved aliases, bounded aggregate reservations, failure
+attempts across resets, cancellation/fault precedence, worker migration,
+transport retention and early invocation settlement in all four build modes.
+These tests do not establish source-level suspended replacement support. Task
+frame construction, instruction commits, return publication and frame destruction
+still need integration and qualification before removing the admission gates.
+The private layout link guard advances to v3; development compiler and runtime
+bundles must be rebuilt together. No released source behavior changes here.
