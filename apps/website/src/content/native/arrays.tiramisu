@@ -65,7 +65,7 @@ fn main() -> int ! TaskError:
     try await reader
   oldFirst * 100 + values[0]
 """ }
-The result is 309: the reader sees the original array, while the parent edits the fresh sorted array. The current access proof can conservatively reject this pattern when the same allocation site repeats inside a loop. Await the old readers before editing the replacement if it cannot prove that the instances are independent.
+The result is 309: the reader sees the original array, while the parent edits the fresh sorted array. This distinction also holds when the sequence repeats inside a loop.
 
 h2 { "Slice and concatenate" }
 

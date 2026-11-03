@@ -73,7 +73,7 @@ public:
         for (auto root : result) {
           if (root == unknown)
             next.uncertain = true;
-          else if (root < module.expressions.size())
+          else if (freshRoot(root))
             next.fresh = true;
           else {
             const auto symbol = root - module.expressions.size();
@@ -111,6 +111,143 @@ private:
   std::size_t budget = 1000000, depth = 0;
   bool checking = false;
   std::map<std::size_t, bool> writable;
+  std::map<ValueId, std::set<ValueId>> loopAllocations;
+  std::size_t parameterEnd() const { return module.expressions.size() + module.symbols.size(); }
+  bool parameterRoot(std::size_t root) const {
+    return root >= module.expressions.size() && root < parameterEnd();
+  }
+  bool freshRoot(std::size_t root) const {
+    return root < module.expressions.size() ||
+           (root >= parameterEnd() && root - parameterEnd() < module.expressions.size());
+  }
+  // Recency is scoped to the loop's structural expression graph. Never age
+  // unrelated allocations: a surrounding expression can hold a destination
+  // snapshot while its RHS executes an inner loop.
+  const std::set<ValueId> &allocationSites(ValueId loop) {
+    if (auto found = loopAllocations.find(loop); found != loopAllocations.end())
+      return found->second;
+    std::set<ValueId> sites;
+    std::vector<ValueId> pending{loop};
+    while (!pending.empty()) {
+      spend();
+      const auto id = pending.back();
+      pending.pop_back();
+      if (!sites.insert(id).second)
+        continue;
+      if (id >= module.expressions.size())
+        throw Exhausted{};
+      std::visit(
+          [&](const auto &op) {
+            using T = std::decay_t<decltype(op)>;
+            const auto add = [&](ValueId value) { pending.push_back(value); };
+            const auto body = [&](const auto &statements) {
+              for (const auto &statement : statements)
+                add(statement.value);
+            };
+            if constexpr (requires { op.input; })
+              add(op.input);
+            if constexpr (requires { op.operand; })
+              add(op.operand);
+            if constexpr (requires { op.subject; })
+              add(op.subject);
+            if constexpr (requires { op.error; })
+              add(op.error);
+            if constexpr (requires { op.condition; })
+              add(op.condition);
+            if constexpr (requires { op.callee; })
+              add(op.callee);
+            if constexpr (requires { op.arguments; })
+              for (auto v : op.arguments)
+                add(v);
+            if constexpr (requires {
+                            op.left;
+                            op.right;
+                          }) {
+              add(op.left);
+              add(op.right);
+            }
+            if constexpr (requires {
+                            op.start;
+                            op.end;
+                          }) {
+              add(op.start);
+              add(op.end);
+            }
+            if constexpr (requires { op.index; })
+              add(op.index);
+            if constexpr (requires { op.elements; })
+              for (auto v : op.elements)
+                add(v);
+            if constexpr (requires { op.captures; })
+              for (auto v : op.captures)
+                add(v);
+            if constexpr (requires { op.indices; })
+              for (auto v : op.indices)
+                add(v);
+            if constexpr (requires { op.dimensions; }) {
+              if constexpr (std::is_same_v<T, ArrayToTensor>) {
+                if (op.dimensions)
+                  for (auto v : *op.dimensions)
+                    add(v);
+              } else
+                for (auto v : op.dimensions)
+                  add(v);
+            }
+            if constexpr (requires { op.epsilon; })
+              if (op.epsilon)
+                add(*op.epsilon);
+            if constexpr (std::is_same_v<T, Transfer>)
+              add(op.target);
+            if constexpr (std::is_same_v<T, TaskOperation>)
+              if (op.placement)
+                add(*op.placement);
+            if constexpr (std::is_same_v<T, ArrayStore>)
+              add(op.value);
+            if constexpr (std::is_same_v<T, RecordValue>) {
+              if (op.base)
+                add(*op.base);
+              for (const auto &field : op.fields)
+                add(field.value);
+            }
+            if constexpr (requires { op.body; })
+              body(op.body);
+            if constexpr (requires { op.result; })
+              add(op.result);
+            if constexpr (std::is_same_v<T, ConditionalOperation>) {
+              body(op.whenTrue);
+              body(op.whenFalse);
+              add(op.trueResult);
+              add(op.falseResult);
+            }
+            if constexpr (std::is_same_v<T, MatchOperation>)
+              for (const auto &arm : op.cases) {
+                body(arm.body);
+                add(arm.result);
+              }
+          },
+          module.expressions[id].operation);
+    }
+    return loopAllocations.emplace(loop, std::move(sites)).first->second;
+  }
+  void ageLoopStorage(Environment &env, const std::set<ValueId> &sites) {
+    const auto age = [&](Roots &roots) {
+      spend(roots.size());
+      Roots next;
+      for (auto root : roots) {
+        if (root < module.expressions.size() && sites.contains(root)) {
+          const auto old = parameterEnd() + root;
+          writable[old] = writable.at(root);
+          root = old;
+        }
+        next.insert(root);
+      }
+      roots = std::move(next);
+    };
+    for (auto &[symbol, roots] : env.symbols)
+      age(roots);
+    for (auto &[reader, roots] : env.readers)
+      age(roots);
+  }
   void spend(std::size_t count = 1) {
     if (count > budget)
       throw Exhausted{};
@@ -169,9 +306,9 @@ private:
         return true;
       // Different incoming parameters can refer to the same backing. Only
       // local fresh storage is automatically disjoint from caller-owned data.
-      if (root >= module.expressions.size())
+      if (parameterRoot(root))
         for (auto other : b)
-          if (other >= module.expressions.size())
+          if (parameterRoot(other))
             return true;
     }
     return false;
@@ -358,6 +495,7 @@ private:
             // later replacement can expose a readonly origin on a backedge.
             // Rebuild expression caches for each abstract iteration; names
             // keep their current origin sets, old captured values keep theirs.
+            const auto &sites = allocationSites(id);
             for (;;) {
               spend();
               spend(env.symbols.size() + env.readers.size());
@@ -366,6 +504,10 @@ private:
               auto iteration = fork(env);
               iteration.values.clear();
               iteration.inputs.clear();
+              // Saved aliases/readers follow the old instance together. A
+              // fresh allocation in this iteration receives its current root.
+              // Previous instances collapse to one conservative old root.
+              ageLoopStorage(iteration, sites);
               unite(inputs, evaluate(op.condition, iteration));
               for (const auto &statement : op.body) {
                 auto value = evaluate(statement.value, iteration);

@@ -6,6 +6,12 @@
 #include <stdexcept>
 #include <thread>
 using namespace kalandra::runtime;
+#ifndef EXPECTED_BIAS
+#define EXPECTED_BIAS 15
+#endif
+#ifndef EXPECTED_PER_PAIR
+#define EXPECTED_PER_PAIR 5
+#endif
 extern "C" const TaskEntry *const kalandra_task_test_entry;
 struct Value {
   Failure failure;
@@ -77,7 +83,7 @@ int main() {
                     "array loop result observation failed");
             failure = result.failure;
             if (failure.kind == TaskFailure::None)
-              require(!fault && result.value == 15 + rounds / 2 * 5,
+              require(!fault && result.value == EXPECTED_BIAS + rounds / 2 * EXPECTED_PER_PAIR,
                       "array replacement lost a saved alias or a task read snapshot");
           }
           if (fault)

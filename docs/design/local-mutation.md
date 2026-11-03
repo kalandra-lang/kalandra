@@ -344,10 +344,18 @@ continues to require its existing contiguous representation; negative-stride
 imports remain rejected. The compiler emits this batch bridge for multi-output capture instructions.
 
 
-The current access proof uses allocation-site origins. It can conservatively
-reject a loop that repeatedly spawns a reader of the old array, replaces the
-binding with a fresh array at the same source allocation site, and edits the
-fresh array before awaiting the reader. This needs a bounded distinction between
-current and previous allocation instances; removing reader checks would be
-unsound. Saved aliases and zero-iteration edges must remain protected when that
-precision is added.
+The access proof distinguishes a loop's current allocation instances from its
+previous instances. Before an abstract iteration, aliases and readers of storage
+created by that loop age together into a conservative previous-instance root;
+new allocations get the current root. This permits reading an old array in a
+task while editing a fresh replacement at the same repeated source location.
+Two aliases of the old array still overlap, and a reader of the new array still
+blocks its mutation. Incoming parameter roots retain their existing conservative
+alias and readonly rules. Function summaries recognize both fresh root classes.
+
+Allocation membership follows the loop's structural expression graph, including
+nested bodies and conditions. Unrelated roots are never aged when an inner loop
+runs: a surrounding assignment may already have saved its destination before
+evaluating that loop in its RHS. Zero-iteration edges remain in the fixed point.
+All older instances at one site merge conservatively, so this is bounded source
+analysis rather than arbitrary instance counting or a new runtime lock.

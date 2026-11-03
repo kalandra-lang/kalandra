@@ -20,8 +20,8 @@ void accepted(const CheckResult &result) {
   }
 }
 void rejected(std::string text, std::string_view code, SemanticLimits limits = {}) {
-  auto result = analyze(std::move(text), limits);
-  require(!result.ok() && !result.module, "invalid module published typed IR");
+  auto result = analyze(text, limits);
+  require(!result.ok() && !result.module, "invalid module published typed IR:\n" + text);
   require(std::ranges::any_of(result.diagnostics, [code](const auto &d) { return d.code == code; }),
           "missing diagnostic: " + std::string(code));
 }
@@ -386,8 +386,9 @@ void diagnostics() {
       {"fn f(a: Tensor[float16,2,3]) -> float32:\n  1\n", "S003"},
       {"fn f() -> float32:\n  1\nfn f() -> float32:\n  2\n", "S004"},
       {"fn f(x: float32,x: float32) -> float32:\n  x\n", "S005"},
-      {"fn f(x: [float32]) -> [float32]:\n  x = [1]\n  x\n", "S008"},
-      {"fn f() -> [float32]:\n  x: [float32] = [1]\n  x: [float32] = [2]\n  x\n", "S008"},
+      {"fn f(x: String) -> String:\n  x = \"new\"\n  x\n", "S008"},
+      {"fn f() -> String:\n  x = \"first\"\n  x = \"second\"\n  x\n", "S008"},
+      {"fn f(x: [float32]) -> [float32]:\n  x = [int(1)]\n  x\n", "S010"},
       {"fn f() -> float32:\n  x: float32 = x\n  x\n", "S016"},
       {"fn f() -> float32:\n  missing\n", "S016"},
       {"fn f() -> float32:\n  missing(1)\n", "S031"},
@@ -410,6 +411,14 @@ void diagnostics() {
   };
   for (const auto &[text, code] : cases)
     rejected(text, code);
+  for (const auto *text : {
+           "fn f(x: [float32]) -> [float32]:\n  x = [1]\n  x\n",
+           "fn f() -> [float32]:\n  x: [float32] = [1]\n  x: [float32] = [2]\n  x\n",
+       }) {
+    auto result = analyze(text);
+    accepted(result);
+    validIR(*result.module);
+  }
   auto malformed = analyze("fn f(x):\n  x\n");
   require(!malformed.ok() && !malformed.module && malformed.diagnostics[0].code == "P002",
           "syntax diagnostics were lost");

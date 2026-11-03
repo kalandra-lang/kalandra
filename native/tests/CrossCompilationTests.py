@@ -118,6 +118,12 @@ def program_cases():
         'fn main()->int ! TaskError:\n  a=[7]\n  saved=a\n  i=0\n  total=0\n'
         '  while i<100:\n    a=try parallelMap([1,2,3,4,5,6,7,8,9],fn(value):value+1)\n'
         '    total=total+a[8]\n    i=i+1\n  saved[0]+total+length(a)\n'), output='1016\n')
+    cases['array-rebind-fresh-instance'] = dict(source=(
+        'fn read(a:[int])->int:\n  a[0]\nfn main()->int ! TaskError:\n'
+        '  a=[3,1,2]\n  i=0\n  total=0\n  while i<1000:\n'
+        '    old=try parallel:\n      task=spawn read(a)\n'
+        '      a=sorted(a)\n      a[0]=9\n      try await task\n'
+        '    total=total+old\n    i=i+1\n  total+a[0]\n'), output='9003\n')
     cases['bool-array-sort'] = dict(source=(
         'fn main()->int:\n  a=[true,false,true,false]\n  b=sorted(a)\n  c=sort(a)\n'
         '  if not a[0] and not c[1] and b[2] and b[3]:42\n  else:0\n'), output='42\n')

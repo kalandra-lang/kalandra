@@ -17,9 +17,46 @@ int main() {
                                "fn read(values:[int])->int:\n  length(values)\n"
                                "fn identity(values:[int])->[int]:\n  values\n"
                                "fn box(values:[int])->Box:\n  Box {values:values}\n";
+    // Repeated source allocation sites denote new backing on each execution.
+    // Preserve every old alias and reader while distinguishing the new instance.
+    for (const auto *replacement : {"sorted(a)", "copy(a)", "slice(a,0,length(a))", "concat(a,[1])",
+                                    "map(a,fn(x):x)", "generate(length(a),fn(j):j)", "fresh(a)"}) {
+      for (bool captured : {false, true})
+        for (unsigned variant = 0; variant < 3; ++variant) {
+          const auto source =
+              prefix +
+              "fn fresh(a:[int])->[int]:\n  copy(a)\n"
+              "fn main()->int ! TaskError:\n  a=[3,1,2]\n  i=0\n  while i<3:\n"
+              "    try parallel:\n      saved=a\n" +
+              (captured ? std::string("      f=fn():read(saved)\n      t=spawn f()\n")
+                        : std::string("      t=spawn read(saved)\n")) +
+              "      a=" + replacement + "\n" +
+              (variant == 2 ? std::string("      u=spawn read(a)\n") : std::string()) +
+              (variant == 1 ? std::string("      edit(saved)\n") : std::string("      edit(a)\n")) +
+              "      n=try await t\n" +
+              (variant == 2 ? std::string("      n+try await u\n") : std::string("      n\n")) +
+              "    i=i+1\n  length(a)\n";
+          const auto result = analyze(source);
+          require(variant ? !result.ok() &&
+                                std::ranges::any_of(result.diagnostics,
+                                                    [](const auto &d) { return d.code == "S077"; })
+                          : result.ok(),
+                  "allocation-instance proof lost fresh/old reader distinction:\n" + source);
+        }
+    }
     for (const auto *source : {
-             "fn run(a:[int])->int:\n  a=sorted(a)\n  a[0]=9\n  a[0]\nfn main()->int:\n  run([1,2])\n",
-             "fn run(a:[int],flag:Bool)->int:\n  b=a\n  if flag:\n    b=copy(a)\n  else:\n    b=[2]\n  b[0]=3\n  b[0]\nfn main()->int:\n  run([1],true)\n",
+             "fn main()->int ! TaskError:\n  a=[3,1,2]\n  i=0\n  total=0\n  while i<1000:\n    "
+             "old=try parallel:\n      task=spawn read(a)\n      a=sorted(a)\n      a[0]=9\n      "
+             "try await task\n    total=total+old\n    i=i+1\n  total+a[0]\n",
+             "fn make()->[int]:\n  a=[1]\n  i=0\n  while i<3:\n    a=copy(a)\n    i=i+1\n  a\nfn "
+             "main()->int:\n  edit(make())\n",
+             "fn main()->int ! TaskError:\n  a=[3,1,2]\n  i=0\n  while i<3:\n    try parallel:\n   "
+             "   t=spawn read(a)\n      j=0\n      while j<2:\n        a=sorted(a)\n        "
+             "a[0]=9\n        j=j+1\n      try await t\n    i=i+1\n  a[0]\n",
+             "fn run(a:[int])->int:\n  a=sorted(a)\n  a[0]=9\n  a[0]\nfn main()->int:\n  "
+             "run([1,2])\n",
+             "fn run(a:[int],flag:Bool)->int:\n  b=a\n  if flag:\n    b=copy(a)\n  else:\n    "
+             "b=[2]\n  b[0]=3\n  b[0]\nfn main()->int:\n  run([1],true)\n",
              "fn main()->int:\n  a=[3,1,2]\n  b=sort(a)\n  b[0]\n",
              "fn run(a:[int])->[int]:\n  sorted(a)\nfn main()->int:\n  run([2,1])[0]\n",
              "fn main()->int ! TaskError:\n  a=[2,1]\n  try parallel:\n    t=spawn read(a)\n    "
@@ -62,8 +99,20 @@ int main() {
       }
     }
     for (const auto *source : {
-             "fn run(a:[int])->int:\n  b=[0]\n  i=0\n  while i<2:\n    b[0]=1\n    b=a\n    i=i+1\n  0\nfn main()->int:\n  0\n",
-             "fn run(a:[int],flag:Bool)->int:\n  b=[1]\n  if flag:\n    b=a\n  b[0]=3\n  b[0]\nfn main()->int:\n  0\n",
+             "fn main()->int ! TaskError:\n  a=[3,1,2]\n  i=0\n  while i<3:\n    try parallel:\n   "
+             "   saved=a\n      t=spawn read(saved)\n      a=sorted(a)\n      saved[0]=9\n      "
+             "try await t\n    i=i+1\n  a[0]\n",
+             "fn main()->int ! TaskError:\n  a=[3,1,2]\n  i=0\n  while i<3:\n    try parallel:\n   "
+             "   t=spawn read(a)\n      a=sorted(a)\n      u=spawn read(a)\n      a[0]=9\n      "
+             "first=try await t\n      first+try await u\n    i=i+1\n  a[0]\n",
+             "fn main()->int ! TaskError:\n  a=[3,1,2]\n  i=0\n  while i<3:\n    try parallel:\n   "
+             "   t=spawn read(a)\n      a[0]=if true:\n        j=0\n        while j<2:\n          "
+             "a=copy(a)\n          j=j+1\n        4\n      else:0\n      try await t\n    i=i+1\n  "
+             "a[0]\n",
+             "fn run(a:[int])->int:\n  b=[0]\n  i=0\n  while i<2:\n    b[0]=1\n    b=a\n    "
+             "i=i+1\n  0\nfn main()->int:\n  0\n",
+             "fn run(a:[int],flag:Bool)->int:\n  b=[1]\n  if flag:\n    b=a\n  b[0]=3\n  b[0]\nfn "
+             "main()->int:\n  0\n",
              "fn run(a:[int])->int:\n  b=[1]\n  b=a\n  b[0]=9\n  0\nfn main()->int:\n  0\n",
              "fn run(a:[int])->[int]:\n  sort(a)\nfn main()->int:\n  0\n",
              "fn main()->int ! TaskError:\n  a=[2,1]\n  try parallel:\n    t=spawn read(a)\n    "
