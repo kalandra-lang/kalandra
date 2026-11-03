@@ -40,7 +40,15 @@ kalandra --project my-app/kalandra.toml -o my-app/program
 ./my-app/program
 """ }
 
-The program displays [2, 4, 6]. On Windows, compile with -o my-app/program.exe and run ./my-app/program.exe. The project manifest tells the checker and compiler where to find the entry module; you select it explicitly with --project.
+The program displays [2, 4, 6]. Use these commands in a Windows developer shell:
+
+codeblock { language = powershell, """kalandra new my-app
+kalandra-check --project my-app/kalandra.toml
+kalandra --project my-app/kalandra.toml -o my-app/program.exe
+./my-app/program.exe
+""" }
+
+The project manifest tells the checker and compiler where to find the entry module; you select it explicitly with --project.
 
 callout { type = info, "kalandra new requires a new destination directory. Its parent must already exist, and my-app must not exist, even as an empty directory. Choose another name if you already have one." }
 
