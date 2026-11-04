@@ -299,6 +299,11 @@ public:
                                                                 std::span<const NumericInstruction>,
                                                                 std::uint32_t result, NumericType,
                                                                 bool scalarResult) noexcept;
+  std::expected<NumericExecutable, Error> prepareNumericProgram(std::uint32_t inputCount,
+                                                                std::span<const NumericInstruction>,
+                                                                std::uint32_t result, NumericType,
+                                                                bool scalarResult,
+                                                                bool booleanResult) noexcept;
   TaskHandle executeNumericProgram(TaskCore &, GroupHandle, const NumericExecutable &,
                                    std::span<const Buffer>,
                                    std::span<const std::uint64_t> captures = {}) noexcept;

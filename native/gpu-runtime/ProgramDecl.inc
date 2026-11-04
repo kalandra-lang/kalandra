@@ -40,6 +40,7 @@ struct ProgramInstruction {
 };
 struct ProgramLimits {
   std::uint64_t maxMetadataBytes = 1024 * 1024;
+  bool booleanResult = false;
 };
 struct ProgramDispatch {
   Kernel kernel;
@@ -62,6 +63,7 @@ public:
                                                std::span<const std::uint64_t>) const;
   std::expected<std::uint64_t, Error> invocationBytes(std::size_t scalarCount) const;
   std::optional<NumericType> scalarType() const noexcept;
+  bool booleanResult() const noexcept;
   explicit operator bool() const { return bool(definition_); }
 
 private:

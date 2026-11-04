@@ -480,7 +480,7 @@ public:
           !options.deviceScalarParameters.empty() && options.deviceScalarParameters[position];
       ++position;
       if ((type.builtin != BuiltinValue::Numeric &&
-           !(type.builtin == BuiltinValue::Bool && deviceScalar)) ||
+           !(type.builtin == BuiltinValue::Bool && !type.tensor)) ||
           type.array || !describeNumeric(type.element))
         reject(root.declaration, "typed GPU captures require one exact numerical type");
       if (type.tensor) {
@@ -489,7 +489,8 @@ public:
       } else if (deviceScalar) {
         args.push_back({{}, yes, yes, false, type.builtin == BuiltinValue::Bool, tensors++, {}});
       } else {
-        const auto bits = describeNumeric(type.element)->bits;
+        const auto numeric = type.builtin == BuiltinValue::Bool ? NumericType::UInt8 : type.element;
+        const auto bits = describeNumeric(numeric)->bits;
         const auto offset = 1 + scalarWords;
         scalarWords += bits == 64 ? 2 : 1;
         auto load = [&](unsigned i) -> Value {
@@ -502,7 +503,10 @@ public:
           value = arith::OrIOp::create(
               header, loc(), value,
               arith::ShLIOp::create(header, loc(), load(offset + 1), c(header, 32)));
-        args.push_back({value, yes, yes});
+        const bool boolean = type.builtin == BuiltinValue::Bool;
+        if (boolean)
+          value = cmp(header, arith::CmpIPredicate::ne, value, c(header, 0));
+        args.push_back({value, yes, yes, false, boolean});
       }
       args.back().element = type.builtin == BuiltinValue::Bool ? NumericType::UInt8 : type.element;
     }
@@ -824,7 +828,7 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
         !options.deviceScalarParameters.empty() && options.deviceScalarParameters[position];
     ++position;
     if ((type.builtin != BuiltinValue::Numeric &&
-         !(type.builtin == BuiltinValue::Bool && deviceScalar)) ||
+         !(type.builtin == BuiltinValue::Bool && !type.tensor)) ||
         type.array || !desc)
       return std::unexpected(
           Diagnostic{"G001", "typed GPU captures require numeric values", root.declaration});
@@ -835,7 +839,7 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
       narrow8 |= desc->bits == 8;
       narrow16 |= desc->bits == 16;
     } else {
-      scalarTypes.push_back(type.element);
+      scalarTypes.push_back(numeric);
       scalarWords += desc->bits == 64 ? 2 : 1;
     }
   }

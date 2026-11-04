@@ -209,7 +209,8 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
                                                std::span<const ProgramInstruction> code,
                                                std::uint32_t result, NumericType resultType,
                                                bool scalar, ProgramLimits limits) {
-  if (!describeNumeric(resultType) || !limits.maxMetadataBytes)
+  if (!describeNumeric(resultType) || !limits.maxMetadataBytes ||
+      (limits.booleanResult && (!scalar || resultType != NumericType::UInt8)))
     return std::unexpected(Error::Invalid);
   std::uint64_t slots = inputCount, bytes = sizeof(ProgramDefinition), peakDispatch = 0;
   const auto charge = [&](std::uint64_t count, std::uint64_t unit) {
@@ -302,6 +303,9 @@ std::optional<NumericType> Program::scalarType() const noexcept {
   if (!definition_ || !definition_->scalar)
     return {};
   return definition_->resultType;
+}
+bool Program::booleanResult() const noexcept {
+  return definition_ && definition_->limits.booleanResult;
 }
 std::expected<ProgramExecution, Error>
 Program::start(Runtime &runtime, std::span<const TensorValue> inputs,

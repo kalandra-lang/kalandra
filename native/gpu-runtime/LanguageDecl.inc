@@ -112,6 +112,9 @@ public:
                                                                 std::span<const NumericInstruction>,
                                                                 std::uint32_t, NumericType, bool,
                                                                 Device = {}) noexcept;
+  std::expected<NumericExecutable, Error>
+  prepareNumericProgram(std::uint32_t, std::span<const NumericInstruction>, std::uint32_t,
+                        NumericType, bool, bool booleanResult, Device) noexcept;
   TaskHandle executeNumericProgram(TaskCore &, GroupHandle, const NumericExecutable &,
                                    std::span<const Buffer>,
                                    std::span<const std::uint64_t> = {}) noexcept;

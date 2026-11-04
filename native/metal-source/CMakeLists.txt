@@ -1259,6 +1259,12 @@ if(BUILD_TESTING)
         --root "${CMAKE_CURRENT_BINARY_DIR}/device-arrays-${VARIANT}")
     set_tests_properties(native-metal-device-arrays-${VARIANT} PROPERTIES TIMEOUT 1200
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-bool-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceBoolTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-bool-${VARIANT}")
+    set_tests_properties(native-metal-device-bool-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endforeach()
   foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
     if(VARIANT STREQUAL "optimized")
@@ -1274,6 +1280,22 @@ if(BUILD_TESTING)
         --root "${CMAKE_CURRENT_BINARY_DIR}/device-array-safety-${VARIANT}")
     set_tests_properties(native-metal-device-array-safety-${VARIANT} PROPERTIES TIMEOUT 1200
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-bool-safety-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceBoolSafetyTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --clang "${CMAKE_CXX_COMPILER}"
+        --metal-runtime "$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+        --runtime "$<TARGET_FILE:${ARRAY_CONTROL_RUNTIME}>" --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-bool-safety-${VARIANT}")
+    set_tests_properties(native-metal-device-bool-safety-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    if(NOT VARIANT STREQUAL "optimized")
+      add_test(NAME native-metal-device-bool-${VARIANT}
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceBoolTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+          --root "${CMAKE_CURRENT_BINARY_DIR}/device-bool-${VARIANT}")
+      set_tests_properties(native-metal-device-bool-${VARIANT} PROPERTIES TIMEOUT 1200
+        RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    endif()
     add_test(NAME native-metal-device-sort-bits-${VARIANT}
       COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceSortBitsTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --backend metal --clang "${CMAKE_CXX_COMPILER}"

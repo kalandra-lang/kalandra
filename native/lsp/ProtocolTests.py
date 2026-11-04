@@ -183,6 +183,16 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "snapshot: [int64]"
     client.finish()
 
+    device_boolean = ("fn predicate(flag:Bool)->Bool:\n  flag\n"
+                      "fn main()->Bool ! TaskError:\n  try parallel:\n"
+                      "    result=try await spawn predicate(true) on devices.gpu()\n    result\n")
+    client = Client("--placement")
+    client.init()
+    client.open(main, device_boolean)
+    assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
+    assert client.hover(main, 4, 6)["result"]["contents"]["value"] == "result: Bool"
+    client.finish()
+
     # Explicit project package mappings and no startup source execution.
     lib.write_text("export fn value()->int:\n  42\n")
     manifest = root / "kalandra.toml"

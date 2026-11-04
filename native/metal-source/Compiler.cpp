@@ -54,7 +54,7 @@ struct Value {
   std::optional<std::size_t> failure = {};
   std::array<std::optional<std::uint64_t>, 6> higherExtents{};
   NumericType element = NumericType::Float32;
-  bool array = false, booleanArray = false;
+  bool array = false, booleanArray = false, booleanTask = false;
 };
 class Compiler {
   ArithmeticMode arithmetic_;
@@ -1324,8 +1324,6 @@ class Compiler {
     const bool tensorResult = fn.resultType.tensor;
     const bool booleanResult = !tensorResult && fn.resultType.builtin == BuiltinValue::Bool;
     const bool arrayResult = fn.resultType.array;
-    if (spawned && booleanResult)
-      reject(span, "Boolean CPU task results are not implemented by the Metal bridge");
     auto out = spawned ? std::string("value")
                        : field(arrayResult     ? tensorDescriptor(isBoolArray(fn.resultType)
                                                                       ? NumericType::UInt8
@@ -1341,7 +1339,9 @@ class Compiler {
                 spawned ? 0 : next - 1};
     value.array = arrayResult;
     value.booleanArray = isBoolArray(fn.resultType);
-    value.element = value.booleanArray ? NumericType::UInt8 : fn.resultType.element;
+    value.element =
+        (value.booleanArray || booleanResult) ? NumericType::UInt8 : fn.resultType.element;
+    value.booleanTask = booleanResult;
     if (!spawned)
       trackArray(value);
     if (tensorResult) {
@@ -1527,9 +1527,10 @@ class Compiler {
                   "Packet),alignof(" + prefix + "Packet),sizeof(" + prefix + "Frame),alignof(" +
                   prefix + "Frame)," + prefix + "Construct," + prefix + "Destroy," + prefix +
                   "Resume," +
-                  (arrayResult    ? "&" + arrayLayout(value)
-                   : tensorResult ? "&m::Runtime::bufferLayout()"
-                                  : "numericScalarLayout(" + elementName(value.element) + ")") +
+                  (arrayResult     ? "&" + arrayLayout(value)
+                   : tensorResult  ? "&m::Runtime::bufferLayout()"
+                   : booleanResult ? "&boolScalarLayout()"
+                                   : "numericScalarLayout(" + elementName(value.element) + ")") +
                   "};\n";
     auto taskField = field("TaskHandle");
     steps.push_back(prefix + "Packet packet{" + captures + "};\nf." + taskField + "=task.spawn(" +
@@ -1570,7 +1571,8 @@ class Compiler {
     const auto type = fn.declaredResult.value_or(fn.resultType);
     value.array = type.array;
     value.booleanArray = isBoolArray(type);
-    value.element = value.booleanArray ? NumericType::UInt8 : type.element;
+    value.booleanTask = !type.tensor && type.builtin == BuiltinValue::Bool;
+    value.element = (value.booleanArray || value.booleanTask) ? NumericType::UInt8 : type.element;
     value.scalarTask = !type.tensor;
     if (type.tensor) {
       value.rank = type.shape.size();
@@ -1617,8 +1619,11 @@ class Compiler {
       const auto &type = cpu.symbols.at(fn.parameters.at(i)).type;
       const auto &value = inputs[i];
       completed(value, span);
-      if (type.builtin != BuiltinValue::Numeric || value.element != type.element ||
-          value.kind != (type.tensor ? Value::Tensor : Value::Scalar))
+      const bool boolean = type.builtin == BuiltinValue::Bool && !type.tensor;
+      if ((!boolean && (type.builtin != BuiltinValue::Numeric || value.element != type.element)) ||
+          value.kind != (boolean       ? Value::Boolean
+                         : type.tensor ? Value::Tensor
+                                       : Value::Scalar))
         reject(span, "typed numerical program argument mismatch");
       if (type.tensor) {
         if (!value.gpu || value.device != target.device || value.rank != type.shape.size())
@@ -1672,7 +1677,8 @@ class Compiler {
     auto out = field("TaskHandle");
     Value result{Value::Task, next - 1, true, target.device};
     result.scalarTask = !program.type.tensor;
-    result.element = program.type.element;
+    result.booleanTask = program.type.builtin == BuiltinValue::Bool && !program.type.tensor;
+    result.element = result.booleanTask ? NumericType::UInt8 : program.type.element;
     result.rank = program.type.shape.size();
     for (unsigned axis = 0; axis < result.rank; ++axis)
       setExtent(result, axis, program.type.shape[axis].constant);
@@ -1689,6 +1695,8 @@ class Compiler {
       return text + "}";
     };
     auto capture = [&](const Value &value) {
+      if (value.kind == Value::Boolean)
+        return "std::uint64_t(" + ref(value) + " ? 1 : 0)";
       return "std::uint64_t(std::bit_cast<std::uint" +
              std::to_string(describeNumeric(value.element)->bits) + "_t>(" + ref(value) + "))";
     };
@@ -1771,8 +1779,8 @@ class Compiler {
           "u" + (op.workPerElement ? "," + std::to_string(op.workPerElement) + "u" : "") + "},";
     }
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
-            "u,code," + std::to_string(program.result) + "u," + elementName(program.type.element) +
-            "," + (result.scalarTask ? "true" : "false") +
+            "u,code," + std::to_string(program.result) + "u," + elementName(result.element) + "," +
+            (result.scalarTask ? "true" : "false") + (result.booleanTask ? ",true" : "") +
             (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\nf." + out +
             "=r.executeNumericProgram(task," + activeGroup + ",f." + executable +
@@ -1788,7 +1796,11 @@ class Compiler {
                      SourceSpan span) {
     admitGpuTypes(function);
     const auto &fn = cpu.functions.at(function);
-    if (backend_ != GpuBackend::Metal || numericPrograms.contains(function))
+    if (backend_ != GpuBackend::Metal || numericPrograms.contains(function) ||
+        fn.resultType.builtin == BuiltinValue::Bool ||
+        std::ranges::any_of(fn.parameters, [&](auto id) {
+          return cpu.symbols.at(id).type.builtin == BuiltinValue::Bool;
+        }))
       return spawnNumericProgram(function, inputs, target, span);
     auto found = numericShaders.find(function);
     if (found == numericShaders.end()) {
@@ -2600,6 +2612,9 @@ class Compiler {
       }
       trackArray(value);
       value.scalarTask = type.task && !type.tensor;
+      value.booleanTask = value.scalarTask && type.builtin == BuiltinValue::Bool;
+      if (value.booleanTask)
+        value.element = NumericType::UInt8;
       if (type.fallible) {
         field("Failure");
         value.failure = next - 1;
@@ -2796,8 +2811,9 @@ class Compiler {
           read = "if(!task.read(" + ref(input) + "," + arrayLayout(input) + ",&" + ref(output) +
                  ")) return;\n";
         else
-          read = (input.scalarTask ? "if(!readScalar<" + elementName(input.element) + ">(task,"
-                                   : "if(!readBuffer(task,") +
+          read = (input.booleanTask  ? "if(!readBool(task,"
+                  : input.scalarTask ? "if(!readScalar<" + elementName(input.element) + ">(task,"
+                                     : "if(!readBuffer(task,") +
                  ref(input) + "," + ref(output) + ")) return;\n";
         steps.push_back("if(!task.await(" + ref(input) + ")) return;\n" + failureRef(output) +
                         "=task.failure(" + ref(input) + ");\nif(" + failureRef(output) +
@@ -2973,9 +2989,6 @@ class Compiler {
   }
   std::string helperBody(FunctionId id) const {
     const auto &fn = placement.functions.at(id);
-    if (!fn.resultType.tensor && fn.resultType.builtin == BuiltinValue::Bool)
-      reject(fn.declaration, "Boolean coordinating task results are not "
-                             "implemented by the Metal bridge");
     std::ostringstream out;
     out << "namespace " << helperName(id) << " {\n"
         << arrayScopeDeclaration()
@@ -3033,9 +3046,10 @@ class Compiler {
         << 0x4b414c52534d0000ULL + id
         << "ull,sizeof(PacketData),alignof(PacketData),"
            "sizeof(Frame),alignof(Frame),construct,destroy,resume,"
-        << (fn.resultType.array ? "&" + arrayLayout(fn.resultType)
-            : fn.resultType.tensor
-                ? "&m::Runtime::bufferLayout()"
+        << (fn.resultType.array    ? "&" + arrayLayout(fn.resultType)
+            : fn.resultType.tensor ? "&m::Runtime::bufferLayout()"
+            : fn.resultType.builtin == BuiltinValue::Bool
+                ? "&boolScalarLayout()"
                 : "numericScalarLayout(" + elementName(fn.resultType.element) + ")")
         << "};\n}\n";
     return out.str();
@@ -3775,12 +3789,14 @@ public:
       reject(fn.span, "Metal main requires no parameters, a float32 or tensor "
                       "result, and ! TaskError");
     bool scalarResult = !fn.result->tensor;
-    if (scalarResult && !resolveNumeric(text(fn.result->name)))
+    const bool booleanResult = scalarResult && text(fn.result->name) == "Bool";
+    if (scalarResult && !booleanResult && !resolveNumeric(text(fn.result->name)))
       reject(fn.span, "Metal main requires float32 or a rank-one through "
                       "rank-eight float32 tensor");
     if (!scalarResult)
       tensorType(*fn.result);
-    const auto mainElement = placement.functions.at(*main).resultType.element;
+    const auto mainElement =
+        booleanResult ? NumericType::UInt8 : placement.functions.at(*main).resultType.element;
     const auto mainWidth = describeNumeric(mainElement)->bytes();
     auto planned = continuation::plan(
         placement,
@@ -3952,8 +3968,9 @@ using namespace kalandra::runtime;
                  : "namespace m = kalandra::runtime::metal;\n")
          << " " << declarations << helperDeclarations << cpuEntries;
     if (scalarResult)
-      host << "const ValueLayout &scalarLayout=*numericScalarLayout(" + elementName(mainElement) +
-                  ");\n";
+      host << (booleanResult ? "const ValueLayout &scalarLayout=boolScalarLayout();\n"
+                             : "const ValueLayout &scalarLayout=*numericScalarLayout(" +
+                                   elementName(mainElement) + ");\n");
     host << arrayScopeDeclaration();
     host << R"(struct PacketData { m::Runtime *runtime; const char *directory; };
 struct Frame { m::Runtime *runtime; std::string directory; unsigned pc=1;
@@ -3992,6 +4009,11 @@ bool readScalar(Task &task,TaskHandle child,NumericValue<Element> &output) {
   if(failure.kind!=TaskFailure::None) {task.fault(failure.code ? failure.code : std::int64_t(m::Error::Device)); return false;}
   return task.read(child,*numericScalarLayout(Element),&output);
 }
+bool readBool(Task &task,TaskHandle child,bool &output) {
+  auto failure=task.failure(child);
+  if(failure.kind!=TaskFailure::None){task.fault(failure.code ? failure.code : std::int64_t(m::Error::Device));return false;}
+  return task.read(child,boolScalarLayout(),&output);
+}
 void resume(Task &task) {
   auto &f=*static_cast<Frame *>(task.frame()); [[maybe_unused]] auto &r=*f.runtime;
   for (;;) { switch(f.pc) {
@@ -4024,7 +4046,7 @@ void resume(Task &task) {
   Invocation context;
 )";
     if (scalarResult)
-      host << scalarType(mainElement)
+      host << (booleanResult ? "bool" : scalarType(mainElement))
            << " value{};\n"
               "auto "
               "failure=runner->run(entry,{entry.packetLayout,&packet,sizeof(packet)},scalarLayout,"
@@ -4039,7 +4061,9 @@ void resume(Task &task) {
   if (failure.kind!=TaskFailure::None) { std::fprintf(stderr,"Metal task failed: %d/%lld\n",int(failure.kind),(long long)failure.code); status=1; }
   else {
 )";
-    if (scalarResult) {
+    if (booleanResult) {
+      host << "std::puts(value ? \"true\" : \"false\");\n";
+    } else if (scalarResult) {
       host << "std::printf(\"%0*llx\\n\"," << mainWidth * 2
            << ",static_cast<unsigned long long>(std::bit_cast<std::uint" << mainWidth * 8
            << "_t>(value)));\n";
@@ -4110,12 +4134,16 @@ void resume(Task &task) {
     for (auto [function, index] : entries) {
       if (auto found = numericPrograms.find(function); found != numericPrograms.end()) {
         const auto prefix = "kernel" + std::to_string(index) + ".";
-        manifest +=
-            prefix + "numeric_program_instructions=" + std::to_string(found->second.code.size()) +
-            "\n" + prefix +
-            "numeric_program_stages=" + std::to_string(found->second.kernels.size()) + "\n" +
-            prefix +
-            "numeric_type=" + std::string(describeNumeric(found->second.type.element)->name) + "\n";
+        manifest += prefix +
+                    "numeric_program_instructions=" + std::to_string(found->second.code.size()) +
+                    "\n" + prefix +
+                    "numeric_program_stages=" + std::to_string(found->second.kernels.size()) +
+                    "\n" + prefix + "numeric_type=" +
+                    std::string(describeNumeric(found->second.type.builtin == BuiltinValue::Bool
+                                                    ? NumericType::UInt8
+                                                    : found->second.type.element)
+                                    ->name) +
+                    "\n";
         continue;
       }
       if (auto found = numericShaders.find(function); found != numericShaders.end()) {

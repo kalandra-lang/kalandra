@@ -540,7 +540,7 @@ struct NumericProgramArguments {
   std::uint32_t result = 0, index = 0, inputs = 0;
   NumericType element = NumericType::Float32;
   std::size_t pc = 0;
-  bool scalar = false, reading = false, condition = false;
+  bool scalar = false, boolean = false, reading = false, condition = false;
   std::uint64_t reserved = 0;
   explicit NumericProgramArguments(std::shared_ptr<State> s) : state(std::move(s)) {
     ++state->argumentPacks;
@@ -587,9 +587,10 @@ struct Bridge {
   static std::expected<std::shared_ptr<NumericProgramArguments>, Error>
   captureProgram(std::shared_ptr<State> state, std::span<const Buffer> inputs,
                  std::span<const NumericInstruction> code, std::uint32_t resultId,
-                 NumericType element, bool scalar, bool prepareOnly = false) noexcept {
-    if (!describeNumeric(element) || code.empty() || code.size() > UINT32_MAX ||
-        inputs.size() > UINT32_MAX)
+                 NumericType element, bool scalar, bool prepareOnly = false,
+                 bool boolean = false) noexcept {
+    if ((boolean && (!scalar || element != NumericType::UInt8)) || !describeNumeric(element) ||
+        code.empty() || code.size() > UINT32_MAX || inputs.size() > UINT32_MAX)
       return std::unexpected(Error::Invalid);
     std::uint64_t values = inputs.size(), edges = 0, scalars = 0, controlSlots = 0;
     std::optional<std::uint32_t> index;
@@ -719,6 +720,7 @@ struct Bridge {
       result->result = resultId;
       result->element = element;
       result->scalar = scalar;
+      result->boolean = boolean;
       for (std::size_t i = 0; !prepareOnly && i < inputs.size(); ++i) {
         const auto &input = inputs[i].storage_;
         if (!input || !input->device || input->state != state || input->deviceIndex != *index)
@@ -832,6 +834,7 @@ struct Bridge {
       result->result = plan->result;
       result->element = plan->element;
       result->scalar = plan->scalar;
+      result->boolean = plan->boolean;
       if (!state->permit())
         return std::unexpected(Error::Allocation);
       result->values.resize(plan->slots);
@@ -1328,7 +1331,16 @@ struct Bridge {
   }
   static const ValueLayout layout;
   static const TaskEntry entry, reductionEntry;
-  static const TaskEntry &numericEntry(NumericType type) {
+  static const TaskEntry &numericEntry(NumericType type, bool boolean = false) {
+    if (boolean) {
+      static const TaskEntry entry = [] {
+        auto value = reductionEntry;
+        value.packetLayout = 0x4b414c424f4f4c01;
+        value.result = &boolScalarLayout();
+        return value;
+      }();
+      return entry;
+    }
     static const auto entries = [] {
       std::array<TaskEntry, 10> result{};
       for (std::size_t i = 0; i < numericTypes.size(); ++i) {
@@ -2841,7 +2853,16 @@ struct Bridge {
             } else if (program.reading || program.condition) {
               auto bytes = static_cast<const std::byte *>(f.staging->contents());
               if (program.reading) {
-                completeNumeric(task, program.element, bytes);
+                if (program.boolean) {
+                  const auto byte = std::to_integer<unsigned>(*bytes);
+                  if (byte > 1) {
+                    fail(task, f, std::int64_t(Error::Invalid));
+                    return;
+                  }
+                  const bool value = byte != 0;
+                  task.complete(&value);
+                } else
+                  completeNumeric(task, program.element, bytes);
                 return;
               }
               const auto value = std::to_integer<unsigned>(*bytes);
@@ -5455,13 +5476,20 @@ bool NumericExecutable::on(Device device) const noexcept {
 std::expected<NumericExecutable, Error>
 Runtime::prepareNumericProgram(std::uint32_t inputCount, std::span<const NumericInstruction> code,
                                std::uint32_t result, NumericType element, bool scalar) noexcept {
+  return prepareNumericProgram(inputCount, code, result, element, scalar, false);
+}
+std::expected<NumericExecutable, Error>
+Runtime::prepareNumericProgram(std::uint32_t inputCount, std::span<const NumericInstruction> code,
+                               std::uint32_t result, NumericType element, bool scalar,
+                               bool boolean) noexcept {
   if (std::uint64_t(inputCount) * sizeof(Buffer) > state_->options.maxArgumentBytes)
     return std::unexpected(Error::Budget);
   try {
     if (!state_->permit())
       return std::unexpected(Error::Allocation);
     std::vector<Buffer> placeholders(inputCount);
-    auto plan = Bridge::captureProgram(state_, placeholders, code, result, element, scalar, true);
+    auto plan =
+        Bridge::captureProgram(state_, placeholders, code, result, element, scalar, true, boolean);
     if (!plan)
       return std::unexpected(plan.error());
     return NumericExecutable(*plan);
@@ -5480,9 +5508,10 @@ TaskHandle Runtime::executeNumericProgram(TaskCore &core, GroupHandle group,
     packet.numericProgram = *program;
   else
     packet.preparation = program.error();
-  const auto &entry = executable.plan_ && executable.plan_->scalar
-                          ? Bridge::numericEntry(executable.plan_->element)
-                          : Bridge::entry;
+  const auto &entry =
+      executable.plan_ && executable.plan_->scalar
+          ? Bridge::numericEntry(executable.plan_->element, executable.plan_->boolean)
+          : Bridge::entry;
   return core.submit(group, entry, {entry.packetLayout, &packet, sizeof(packet)});
 }
 TaskHandle Runtime::executeNumericProgram(Task &task, GroupHandle group,
@@ -5496,9 +5525,10 @@ TaskHandle Runtime::executeNumericProgram(Task &task, GroupHandle group,
     packet.numericProgram = *program;
   else
     packet.preparation = program.error();
-  const auto &entry = executable.plan_ && executable.plan_->scalar
-                          ? Bridge::numericEntry(executable.plan_->element)
-                          : Bridge::entry;
+  const auto &entry =
+      executable.plan_ && executable.plan_->scalar
+          ? Bridge::numericEntry(executable.plan_->element, executable.plan_->boolean)
+          : Bridge::entry;
   return task.spawn(group, entry, {entry.packetLayout, &packet, sizeof(packet)});
 }
 std::expected<Buffer, Failure>

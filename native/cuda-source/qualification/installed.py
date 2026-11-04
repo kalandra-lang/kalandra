@@ -83,6 +83,12 @@ device_arrays = [sys.executable, repo/'native/gpu-source/DeviceArrayTests.py',
 if not a.execute:
     device_arrays.append('--compile-only')
 subprocess.run(device_arrays, check=True, timeout=1200)
+booleans = [sys.executable, repo/'native/gpu-source/DeviceBoolTests.py',
+            '--compiler', compiler, '--backend', 'cuda',
+            '--variant', 'optimized', '--root', a.root/'device-bool']
+if not a.execute:
+    booleans.append('--compile-only')
+subprocess.run(booleans, check=True, timeout=1200)
 
 # Use different source constructs to require the precise missing resource.
 transform=a.root/'transpose.k'

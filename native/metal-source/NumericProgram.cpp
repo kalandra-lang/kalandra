@@ -532,16 +532,20 @@ public:
     normalized.source = input.source;
   }
   NumericProgram run(FunctionId id) {
-    if (root.resultType.builtin != BuiltinValue::Numeric || root.resultType.array ||
-        root.resultType.task || root.resultType.fallible)
-      reject(root.declaration, "GPU numerical program requires a numeric scalar or tensor result");
+    if ((root.resultType.builtin != BuiltinValue::Numeric &&
+         !(root.resultType.builtin == BuiltinValue::Bool && !root.resultType.tensor)) ||
+        root.resultType.array || root.resultType.task || root.resultType.fallible)
+      reject(root.declaration,
+             "GPU numerical program requires a numeric/Bool scalar or numeric tensor result");
     std::vector<Ref> args;
     std::uint32_t scalar = 0;
     for (auto parameter : root.parameters) {
       const auto &type = input.symbols.at(parameter).type;
-      if (type.builtin != BuiltinValue::Numeric || type.array || type.task || type.fallible)
+      if ((type.builtin != BuiltinValue::Numeric &&
+           !(type.builtin == BuiltinValue::Bool && !type.tensor)) ||
+          type.array || type.task || type.fallible)
         reject(root.declaration,
-               "GPU numerical programs capture numeric scalars and resident tensors");
+               "GPU numerical programs capture numeric/Bool scalars and resident numeric tensors");
       args.push_back(type.tensor ? resident(type, value()) : leaf(type, scalar++, true));
     }
     auto result = force(invoke(id, args));

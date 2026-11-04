@@ -90,6 +90,12 @@ device_arrays = [sys.executable, repo/'native/gpu-source/DeviceArrayTests.py',
 if not a.execute:
     device_arrays.append('--compile-only')
 subprocess.run(device_arrays, check=True, timeout=1200)
+booleans = [sys.executable, repo/'native/gpu-source/DeviceBoolTests.py',
+            '--compiler', compiler, '--backend', 'vulkan',
+            '--variant', 'optimized', '--root', a.root/'device-bool']
+if not a.execute:
+    booleans.append('--compile-only')
+subprocess.run(booleans, check=True, timeout=1200)
 
 # Individually remove required owned resources. An installed compiler must not
 # reuse its compiled-in build-tree paths or ambient PATH when one is missing.

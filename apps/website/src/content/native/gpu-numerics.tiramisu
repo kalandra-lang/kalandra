@@ -115,9 +115,25 @@ h2 { "Conditions in GPU functions" }
 
 Eligible GPU functions can use numeric comparisons, Boolean expressions and conditions to choose work. Only a selected branch runs, including its shape checks. Boolean conditions do not make Bool tensors, Strings or arbitrary host objects valid device data. Device and task resource limits still apply.
 
+GPU functions can accept Bool scalars and return Bool results. Awaiting a Bool task produces a Bool, not a numeric byte; numeric and Bool arguments are not interchangeable. A Bool main prints true or false, while numerical GPU results keep their hexadecimal bit display.
+
+codeblock { language = kalandra, """fn oddAndEnabled(enabled: Bool, value: int) -> Bool:
+  enabled and value % 2 == 1
+
+fn main() -> Bool ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    result = spawn oddAndEnabled(true, 7) on gpu
+    first = try await result
+    second = try await result
+    first and second
+""" }
+
+This prints true. Repeated awaits observe the same completed value. The same Bool result type works for CPU tasks and for coordinating helpers that await GPU work. Bounds/arithmetic failures and cancellation remain task failures; they are not converted into false.
+
 h2 { "Scalar loops on the GPU" }
 
-Numeric scalar helpers can use local numeric and Bool state, while loops, for loops over range(...), break and continue on the GPU. Both single-result loop expressions and statement loops are supported. Call these helpers from numerical GPU functions or place a numeric scalar entry directly on the device.
+Numeric and Bool scalar helpers can use local numeric and Bool state, while loops, for loops over range(...), break and continue on the GPU. Both single-result loop expressions and statement loops are supported. Call these helpers from numerical GPU functions or place a numeric or Bool scalar entry directly on the device.
 
 codeblock { language = kalandra, """fn countSteps(count: int) -> float32:
   total: float32 = 0
@@ -133,7 +149,7 @@ fn main() -> float32 ! TaskError:
 
 This computes 1000 on the GPU. The executable prints its float32 bits as 447a0000. Loop arithmetic and branch decisions execute on the device. Each scalar helper runs sequentially in one GPU thread; placing it on a GPU does not parallelize its iterations. The runtime saves private scalar state between bounded chunks and checks cancellation before submitting more work. There is no total iteration limit; execution remains subject to ordinary device, task and memory limits. A cancellation request cannot reclaim buffers until submitted work has finished.
 
-Helpers with numeric results can use numeric, Bool, plain-data record/enum and local numeric/Bool array state. Tensor values carried around a loop and recursive device calls are not supported. Keep tensor operations outside those loops and compose them with scalar helpers. Numeric policies still apply; Metal float64 arithmetic requires explicit software arithmetic or hardware-with-software-fallback.
+Helpers with numeric or Bool results can use numeric, Bool, plain-data record/enum and local numeric/Bool array state. Tensor values carried around a loop and recursive device calls are not supported. Keep tensor operations outside those loops and compose them with scalar helpers. Numeric policies still apply; Metal float64 arithmetic requires explicit software arithmetic or hardware-with-software-fallback.
 
 h2 { "Local arrays and collecting loops" }
 
@@ -201,6 +217,7 @@ Device support means the operation executes on the selected GPU. A host continua
 table {
   row = ["Feature", "CPU", "Inside a GPU function"],
   row = ["Numeric arithmetic and conditions", "Supported", "Supported; select a supported arithmetic policy"],
+  row = ["Bool parameters and task results", "Supported", "Supported; Bool and uint8 remain distinct types"],
   row = ["Numeric and Bool local reassignment", "Supported", "Supported in scalar helpers"],
   row = ["Integer-range for, while, break and continue", "Supported", "Supported in scalar helpers; sequential iterations"],
   row = ["Single-result loop expressions", "Supported", "Supported for numeric/Bool scalar results"],

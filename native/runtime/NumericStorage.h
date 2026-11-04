@@ -47,6 +47,25 @@ bool copyNumericScalar(Invocation &, void *output, const Invocation &, const voi
   return true;
 }
 inline void destroyNumericScalar(void *) noexcept {}
+inline bool copyBooleanScalar(Invocation &destination, void *output, const Invocation &,
+                              const void *input) noexcept {
+  static_assert(sizeof(bool) == 1);
+  if (!output || !input || destination.poll())
+    return false;
+  std::uint8_t byte;
+  std::memcpy(&byte, input, sizeof(byte));
+  if (byte > 1) {
+    destination.fault(3);
+    return false;
+  }
+  const bool value = byte != 0;
+  std::memcpy(output, &value, sizeof(value));
+  return true;
+}
+// Bool has its own task identity. UInt8 is only the private shader carrier.
+inline constexpr ValueLayout booleanScalarLayout{0x4b414c424f4f4cULL, sizeof(bool), alignof(bool),
+                                                 copyBooleanScalar, destroyNumericScalar};
+constexpr const ValueLayout &boolScalarLayout() noexcept { return booleanScalarLayout; }
 // Private process-local layouts, not serialized numeric type IDs. Keep the
 // existing float32 bridge identity while distinguishing every other family/width.
 template <NumericType Type> constexpr ValueLayout numericScalarLayoutValue() {

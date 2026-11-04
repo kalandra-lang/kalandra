@@ -154,6 +154,10 @@
     },
     {
       "kind": "gpu",
+      "expected": "true"
+    },
+    {
+      "kind": "gpu",
       "expected": "447a0000"
     },
     {

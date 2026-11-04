@@ -82,6 +82,7 @@ struct AsyncRuntime::Bridge {
     std::optional<std::uint32_t> faultWord;
     std::optional<ProgramExecution> program;
     std::optional<NumericType> scalarType{};
+    bool booleanResult = false;
     std::optional<TensorValue> transferInput{};
     bool upload = false;
   };
@@ -97,6 +98,8 @@ struct AsyncRuntime::Bridge {
     TensorValue tensorOutput{};
     bool tensorResult = false;
     std::optional<NumericType> scalarType{};
+    bool booleanResult = false;
+    bool booleanOutput = false;
     alignas(std::max_align_t) std::array<std::byte, 8> scalarOutput{};
   };
   static bool construct(Invocation &, void *memory, const Packet &packet) {
@@ -105,6 +108,7 @@ struct AsyncRuntime::Bridge {
     frame->tensorResult =
         data.operation->program.has_value() || data.operation->transferInput.has_value();
     frame->scalarType = data.operation->scalarType;
+    frame->booleanResult = data.operation->booleanResult;
     return true;
   }
   static void destroy(void *memory) noexcept { static_cast<Frame *>(memory)->~Frame(); }
@@ -128,6 +132,21 @@ struct AsyncRuntime::Bridge {
         return fault ? scalarFaultEntries[i] : scalarEntries[i];
     return tensorFaultEntry;
   }
+  static const TaskEntry &booleanEntry(bool fault = false) {
+    static const TaskEntry value = [] {
+      auto entry = scalarEntry(NumericType::UInt8);
+      entry.result = &boolScalarLayout();
+      entry.packetLayout = 0x564b424f4f4c01;
+      return entry;
+    }();
+    static const TaskEntry failure = [] {
+      auto entry = scalarEntry(NumericType::UInt8, true);
+      entry.result = &boolScalarLayout();
+      entry.packetLayout = 0x564b424f4f4c02;
+      return entry;
+    }();
+    return fault ? failure : value;
+  }
   static void resume(Task &task) {
     auto &frame = *static_cast<Frame *>(task.frame());
     if (task.cancelled())
@@ -135,6 +154,8 @@ struct AsyncRuntime::Bridge {
     if (frame.started) {
       if (frame.error)
         task.fault(static_cast<std::int64_t>(*frame.error));
+      else if (frame.booleanResult)
+        task.complete(&frame.booleanOutput);
       else if (frame.scalarType)
         task.complete(frame.scalarOutput.data());
       else if (frame.tensorResult)
@@ -224,6 +245,13 @@ struct AsyncRuntime::Bridge {
                                     .first(describeNumeric(*operation.scalarType)->bytes()));
               if (!copied)
                 frame.error = copied.error();
+              else if (operation.booleanResult) {
+                const auto byte = std::to_integer<unsigned>(frame.scalarOutput[0]);
+                if (byte > 1)
+                  frame.error = Error::Invalid;
+                else
+                  frame.booleanOutput = byte != 0;
+              }
             } else
               frame.tensorOutput = std::move(*result);
           } else
@@ -308,8 +336,9 @@ struct AsyncRuntime::Bridge {
   }
   template <class Caller>
   static TaskHandle rejected(Caller &caller, GroupHandle group, Error error, bool tensor = false,
-                             std::optional<NumericType> scalar = {}) {
-    const auto &descriptor = scalar   ? scalarEntry(*scalar, true)
+                             std::optional<NumericType> scalar = {}, bool boolean = false) {
+    const auto &descriptor = boolean  ? booleanEntry(true)
+                             : scalar ? scalarEntry(*scalar, true)
                              : tensor ? tensorFaultEntry
                                       : faultEntry;
     return submit(caller, group, descriptor, {descriptor.packetLayout, &error, sizeof(error)});
@@ -373,11 +402,12 @@ struct AsyncRuntime::Bridge {
                                    const Program &program, std::span<const TensorValue> inputs,
                                    std::span<const std::uint64_t> scalars) noexcept {
     const auto scalarType = program.scalarType();
+    const bool boolean = program.booleanResult();
     auto bytes = program.invocationBytes(scalars.size());
     if (!bytes)
-      return rejected(caller, group, bytes.error(), true, scalarType);
+      return rejected(caller, group, bytes.error(), true, scalarType, boolean);
     if (*bytes > UINT64_MAX - sizeof(Operation))
-      return rejected(caller, group, Error::Budget, true, scalarType);
+      return rejected(caller, group, Error::Budget, true, scalarType, boolean);
     try {
       auto operation = std::make_shared<Operation>();
       operation->state = std::move(state);
@@ -385,17 +415,20 @@ struct AsyncRuntime::Bridge {
       operation->reservation.bytes = *bytes + sizeof(Operation);
       auto reserved = operation->reservation.acquire();
       if (!reserved)
-        return rejected(caller, group, reserved.error(), true, scalarType);
+        return rejected(caller, group, reserved.error(), true, scalarType, boolean);
       auto invocation = program.start(*operation->state->runtime, inputs, scalars);
       if (!invocation)
-        return rejected(caller, group, invocation.error(), true, scalarType);
+        return rejected(caller, group, invocation.error(), true, scalarType, boolean);
       operation->program.emplace(std::move(*invocation));
       operation->scalarType = scalarType;
+      operation->booleanResult = boolean;
       PacketData packet{std::move(operation)};
-      const auto &descriptor = scalarType ? scalarEntry(*scalarType) : programEntry;
+      const auto &descriptor = boolean      ? booleanEntry()
+                               : scalarType ? scalarEntry(*scalarType)
+                                            : programEntry;
       return submit(caller, group, descriptor, {descriptor.packetLayout, &packet, sizeof(packet)});
     } catch (const std::bad_alloc &) {
-      return rejected(caller, group, Error::Allocation, true, scalarType);
+      return rejected(caller, group, Error::Allocation, true, scalarType, boolean);
     }
   }
 };

@@ -1,17 +1,20 @@
 # Checkpointed scalar GPU control flow
 
-This is the first device-language extension in #279. It supports numeric/Bool
-scalar state, local plain-data records/enums and numeric results, `while`, integer-range `for`, lexical exits,
-and single-result loop expressions across Metal, Vulkan and CUDA. It does not
-complete #279: device arrays, collecting `yield`, tensor loop state, owned values
-and recursive device calls remain outside admission. Scalar helpers compose with
-ordinary immutable tensor graph operations.
+Scalar checkpoints support numeric/Bool state and results, local plain-data
+records/enums, `while`, integer-range `for`, lexical exits and single-result loop
+expressions across Metal, Vulkan and CUDA. Reference-free arrays, collecting
+`yield`, construction/composition and sorting extend this mechanism through
+[`DeviceControl` storage](gpu-device-storage.md). This does not complete #279:
+owned-reference values, typed aggregate transport, tensor loop state, general
+function values and recursive device calls remain required work. Scalar helpers
+compose with ordinary immutable tensor graph operations.
 
 ## Execution and private ABI
 
 The CPU continuation planner already defines scope, value snapshots, checked
 ranges and lexical exits. Device planning reuses that CFG, expands nonrecursive
-scalar helpers, and rejects task/owned/recursive instructions. The CPU planner's
+scalar helpers, and rejects device task scheduling, recursive calls and
+unimplemented owned-reference instructions. The CPU planner's
 default behavior is unchanged; device inlining is an explicit internal option.
 
 A `ScalarControl` numerical-program instruction launches a compiled device state

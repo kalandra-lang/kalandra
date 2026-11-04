@@ -126,8 +126,22 @@ alias identity without importing device addresses. Transfer failure must retire
 all partially constructed host/device storage after submitted work settles.
 Transport may pack/unpack typed ownership metadata; that is separate from
 executing source algorithms or choosing garbage-collection reachability on the
-CPU. Public Bool GPU results also need the ordinary Bool task layout, rather
-than exposing an internal UInt8 carrier as if it were the same source type.
+CPU.
+
+Scalar Bool arguments/results now preserve their source type across the task
+boundary. The shader uses a private UInt8 carrier, while prepared programs retain
+an explicit Boolean-result tag and publish through `boolScalarLayout()`, whose
+identity differs from numeric UInt8. Completion validates the byte before
+constructing a C++ Bool; noncanonical bytes produce Invalid rather than false.
+Preparation failures retain the Bool task descriptor. Awaiting repeatedly or
+moving a Bool between CPU/GPU tasks does not reinterpret its layout. Source
+checking rejects substituting numeric UInt8 arguments for Bool and vice versa.
+
+The mixed host bridge uses real C++ Bool fields and checked CPU export ABI
+extensions. Bool main displays true/false. Cancellation before acknowledgement
+still wins over an unrecorded outcome; an acknowledged fault stays primary over
+later cancellation. This scalar boundary does not implement aggregate transport
+or Bool tensors.
 
 ## Implemented backing protocol
 

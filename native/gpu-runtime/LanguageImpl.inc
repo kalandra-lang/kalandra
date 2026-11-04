@@ -255,6 +255,14 @@ std::expected<NumericExecutable, Error>
 Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInstruction> code,
                                std::uint32_t result, NumericType type, bool scalar,
                                Device selected) noexcept {
+  return prepareNumericProgram(inputs, code, result, type, scalar, false, selected);
+}
+std::expected<NumericExecutable, Error>
+Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInstruction> code,
+                               std::uint32_t result, NumericType type, bool scalar,
+                               bool booleanResult, Device selected) noexcept {
+  if (booleanResult && (!scalar || type != NumericType::UInt8))
+    return std::unexpected(Error::Invalid);
   try {
     std::uint64_t bytes = sizeof(Prepared) + sizeof(ProgramExecution), slots = inputs;
     const auto maximum = state_->options.maxArgumentBytes;
@@ -327,8 +335,9 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
         instruction.constants.assign(op.scalars.begin(), op.scalars.end());
       owned.push_back(std::move(instruction));
     }
-    auto program = Program::prepare(*state_->contexts[plan->device].driver, inputs, owned, result,
-                                    type, scalar, {.maxMetadataBytes = maximum});
+    auto program =
+        Program::prepare(*state_->contexts[plan->device].driver, inputs, owned, result, type,
+                         scalar, {.maxMetadataBytes = maximum, .booleanResult = booleanResult});
     if (!program)
       return std::unexpected(program.error());
     plan->program = std::move(*program);
