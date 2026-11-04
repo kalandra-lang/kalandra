@@ -2473,6 +2473,15 @@ private:
         else
           builder.CreateCondBr(hasResultError(source, slot(input)), propagate, success);
         builder.SetInsertPoint(propagate);
+        // Cleanup also applies when an earlier group failure remains primary
+        // and stop_group declines to replace its error payload.
+        for (auto collection : instruction.collections) {
+          auto *discarded = Block::Create(context, "collection.discarded", resume);
+          builder.CreateCondBr(call("kalandra_collect_discard_v1", boolean,
+                                    {arena(), c64(scopeSlots[id].at(collection))}),
+                               discarded, abort);
+          builder.SetInsertPoint(discarded);
+        }
         if (instruction.group != SIZE_MAX && target.errorRecord) {
           auto *accepted =
               call("kalandra_task_stop_group_v1", boolean, {task, group(instruction.group)});
@@ -2503,13 +2512,6 @@ private:
                  failureType);
         } else
           copyErrors(target, slot(instruction.target), source, slot(input));
-        for (auto collection : instruction.collections) {
-          auto *discarded = Block::Create(context, "collection.discarded", resume);
-          builder.CreateCondBr(call("kalandra_collect_discard_v1", boolean,
-                                    {arena(), c64(scopeSlots[id].at(collection))}),
-                               discarded, abort);
-          builder.SetInsertPoint(discarded);
-        }
         builder.CreateBr(
             edge(blocks[instruction.jump], instruction.group == SIZE_MAX || target.errorRecord
                                                ? std::vector<Slot>{instruction.target}

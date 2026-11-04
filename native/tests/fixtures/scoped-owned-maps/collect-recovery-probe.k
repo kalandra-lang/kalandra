@@ -1,3 +1,10 @@
+error Stop:
+  Done
+fn checked(value:int)->int ! Stop:
+  if value<0:
+    fail Stop.Done
+  else:
+    value
 type Job:
   run: fn(int) -> int
   data: [int]
@@ -22,13 +29,17 @@ fn probe(n: int, faultAt: int) -> LoopResult ! TaskError:
       else: [4]
       try await old
     outcome=parallel:
+      checkedValue=try checked(1)
       jobs=for item in range(9):
         if item==8:
           child=spawn divide(0)
           ignored=try await child
         yield make(item)
       length(jobs)
-    recovered=outcome catch fn(error):0
+    recovered=outcome catch fn(error):
+      match error:
+        TaskError.Fault:0
+        _:100
     total=total+value+recovered
     if index == faultAt:
       zero = 0

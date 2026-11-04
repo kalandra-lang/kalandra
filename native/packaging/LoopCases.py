@@ -668,3 +668,29 @@ fn main()->[int] ! TaskError:
     value=outcome catch fn(error):7
     yield value
 ''', '[7, 7, 7]')
+
+CASES['yield-union-primary-recovery'] = ('''error Stop:
+  Done
+fn checked(value:int)->int ! Stop:
+  if value<0:
+    fail Stop.Done
+  else:
+    value
+fn divide(value:int)->int:
+  6/value
+fn main()->int ! TaskError:
+  total=0
+  for round in range(5):
+    value=parallel:
+      checkedValue=try checked(1)
+      values=for i in range(3):
+        child=spawn divide(2-i)
+        yield try await child
+      length(values)
+    recovered=value catch fn(error):
+      match error:
+        TaskError.Fault:7
+        _:100
+    total=total+recovered
+  total
+''', '35')
