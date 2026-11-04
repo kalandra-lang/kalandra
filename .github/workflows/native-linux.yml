@@ -99,6 +99,10 @@ jobs:
           cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j2
           ctest --test-dir build/linux --output-on-failure -j2 \
             -R '^native-(ordinary-(entry|source|pair-source|arrays|reductions|buffer-types|buffer-faults|direct-faults|scalar-exact|integer-cases)|windows-ordinary-codegen)$'
+      - name: Qualify loop checking and native copy budgets
+        run: |
+          cmake --build build/linux --target kalandra-local-rebinding-tests-debug -j2
+          ctest --test-dir build/linux --output-on-failure -R '^native-local-rebinding-frontend-debug$'
       - name: Qualify loop exits, cancellation and bounded structured groups
         run: >-
           ctest --test-dir build/linux --output-on-failure -j1
