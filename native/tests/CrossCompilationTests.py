@@ -32,13 +32,13 @@ def digest(path):
 
 def run(command, **kwargs):
     argv = [v.as_posix() if isinstance(v, Path) else str(v) for v in command]
-    r = subprocess.run(argv, capture_output=True, text=True, timeout=240, **kwargs)
+    r = subprocess.run(argv, capture_output=True, text=True, timeout=240, encoding='utf-8', **kwargs)
     assert r.returncode == 0, (command, r.returncode, r.stdout[-1000:], r.stderr[-4000:])
     return r.stdout
 
 
 def extract(archive, destination):
-    assert digest(archive) == archive.with_suffix('.gz.sha256').read_text().split()[0]
+    assert digest(archive) == archive.with_suffix('.gz.sha256').read_text(encoding='utf-8').split()[0]
     destination.mkdir(parents=True)
     with tarfile.open(archive) as package:
         assert all(m.isdir() or m.isfile() for m in package.getmembers())
@@ -137,13 +137,13 @@ def program_cases():
     for fixture, expected in [('strings', 25), ('callables', 155), ('records', 291),
                               ('empty', 2), ('repeated', 8595), ('errors', 20)]:
         cases['owned-map-builder-' + fixture] = dict(
-            source=(ROOT / 'native/tests/fixtures/scoped-owned-maps' / (fixture + '.k')).read_text(),
+            source=(ROOT / 'native/tests/fixtures/scoped-owned-maps' / (fixture + '.k')).read_text(encoding='utf-8'),
             output=str(expected) + '\n')
     for fixture, expected in [('lifetime', '20012'), ('aliases', '8'),
                               ('captures', '[false, true, true, false]'),
                               ('rhs', 'true'), ('parallel-map', '886')]:
         cases['bool-array-rebind-' + fixture] = dict(
-            source=(ROOT / 'native/tests/fixtures/bool-array-rebinding' / (fixture + '.k')).read_text(),
+            source=(ROOT / 'native/tests/fixtures/bool-array-rebinding' / (fixture + '.k')).read_text(encoding='utf-8'),
             output=expected + '\n')
     cases['bool-array-sort'] = dict(source=(
         'fn main()->int:\n  a=[true,false,true,false]\n  b=sorted(a)\n  c=sort(a)\n'
@@ -187,7 +187,8 @@ def program_cases():
         ('recursive-array', 'recursive-callables/array-result.k', '42\n'),
         ('owned-error', 'recursive-callables/owned-error.k', '42\n'),
         ('resumable', 'resumable-callables/recursive.k', '42\n')):
-        cases[name] = dict(source=(ROOT / 'native/tests/fixtures' / fixture).read_text(), output=expected)
+        cases[name] = dict(source=(ROOT / 'native/tests/fixtures' / fixture).read_text(encoding='utf-8'), output=expected)
+    cases['unicode-source'] = dict(source='fn main()->String:\n  "été λ"\n', output='été λ\n')
     cases['fault'] = dict(source='fn crash(n:int)->int:\n  1/(n-n)\nfn main()->int:\n  crash(0)\n',
                          status=86, stderr='ArithmeticFault')
     return cases
@@ -209,7 +210,7 @@ def build(a):
                    extract(a.target_archive, a.output / 'target package'))
     assert target_root.is_dir(), 'Host package lacks its bundled destination runtime'
     if bundled:
-        metadata = json.loads((host_root / 'share/kalandra-native-tools/toolchain.json').read_text())
+        metadata = json.loads((host_root / 'share/kalandra-native-tools/toolchain.json').read_text(encoding='utf-8'))
         assert len(metadata['bundledCpuTargets']) == 5
         driver = 'lld-link' if windows else 'ld64.lld' if a.system == 'macos' else 'ld.lld'
         a.linker = host_root / 'libexec/kalandra' / (driver + host_suffix)
@@ -217,7 +218,7 @@ def build(a):
     compiler = host_root / ('bin/kalandra' + host_suffix)
     clang = host_root / ('libexec/kalandra/clang++' + host_suffix)
     triple = TRIPLES[a.system][a.target]
-    documentation = (ROOT / 'apps/website/src/content/native/cross-compilation.tiramisu').read_text()
+    documentation = (ROOT / 'apps/website/src/content/native/cross-compilation.tiramisu').read_text(encoding='utf-8')
     templates = re.findall(r'codeblock \{ language = json, """([\s\S]*?)""" \}', documentation)
     documented_profile = json.loads(templates[0])
     assert documented_profile['format'] == 1 and documented_profile['target'] == 'aarch64-unknown-linux-gnu'
@@ -234,10 +235,10 @@ def build(a):
                             if json.loads(v)['target'] == 'x86_64-pc-windows-msvc']
         profile = dict(windows_template, **profile)
         assert windows
-        sdk = json.loads((a.windows_sdk / 'sdk.json').read_text())
+        sdk = json.loads((a.windows_sdk / 'sdk.json').read_text(encoding='utf-8'))
         assert sdk['platform'] == 'windows-' + a.target
         assert sdk['checkoutCommit'] == run(['git', 'rev-parse', 'HEAD']).strip()
-        for line in (a.windows_sdk / 'SHA256SUMS').read_text().splitlines():
+        for line in (a.windows_sdk / 'SHA256SUMS').read_text(encoding='utf-8').splitlines():
             checksum, name = line.split('  ', 1)
             path = (a.windows_sdk / name).resolve()
             assert path.is_relative_to(a.windows_sdk.resolve()) and digest(path) == checksum
@@ -245,11 +246,11 @@ def build(a):
                        libraryDirectories=[str((a.windows_sdk / 'lib').resolve())])
     elif a.macos_imports:
         assert a.system == 'macos' and a.target == 'arm64'
-        sdk = json.loads((a.macos_imports / 'imports.json').read_text())
+        sdk = json.loads((a.macos_imports / 'imports.json').read_text(encoding='utf-8'))
         assert sdk['platform'] == 'macos-arm64' and sdk['minimumMacOS'] == '26.0'
         assert sdk['validatedOnMacOS'].split('.')[0] == '26', 'Requires macOS 26 baseline validation'
         assert sdk['checkoutCommit'] == run(['git', 'rev-parse', 'HEAD']).strip()
-        for line in (a.macos_imports / 'SHA256SUMS').read_text().splitlines():
+        for line in (a.macos_imports / 'SHA256SUMS').read_text(encoding='utf-8').splitlines():
             checksum, name = line.split('  ', 1)
             path = (a.macos_imports / name).resolve()
             assert path.is_relative_to(a.macos_imports.resolve()) and digest(path) == checksum
@@ -265,7 +266,7 @@ def build(a):
         assert a.system == 'linux'
         sys.path.insert(0, str(ROOT / '.github/scripts'))
         from linux_cross_sdk import fetch
-        sdk = json.loads((a.linux_sdk / 'sdk.json').read_text())
+        sdk = json.loads((a.linux_sdk / 'sdk.json').read_text(encoding='utf-8'))
         assert sdk['architecture'] == a.target
         assert sdk['checkoutCommit'] == run(['git', 'rev-parse', 'HEAD']).strip()
         sysroot = a.output / 'GNU sysroot'
@@ -292,7 +293,7 @@ def build(a):
         profile.pop('linker', None)
     resolved_linker = a.linker.absolute().as_posix()
     profile_file = a.output / 'cross toolchain.json'
-    profile_file.write_text(json.dumps(profile))
+    profile_file.write_text(json.dumps(profile), encoding='utf-8')
     # Hostile ambient toolchain hints must not replace the explicit target.
     environment = dict(os.environ, CCC_OVERRIDE_OPTIONS='+--target=' + TRIPLES[host_system][host],
                        LIBRARY_PATH='/not-a-target-library-directory')
@@ -310,7 +311,7 @@ def build(a):
     repeats.mkdir()
     for name, case in cases.items():
         source = a.output / (name + '.k')
-        source.write_text(case['source'])
+        source.write_text(case['source'], encoding='utf-8')
         for mode in ('-O0', '-O2'):
             binary = products / (name + mode + suffix)
             run([compiler, source, *selected_command, mode, '-o', binary], env=environment)
@@ -385,7 +386,7 @@ def build(a):
         recipe, = re.findall(r'codeblock \{ language = powershell, """([\s\S]*?)""" \}', documentation)
         recipe = recipe.replace('windows-arm64', 'windows-' + a.target)
         recipe = recipe.replace('kalandra compute.k', '& "' + compiler.resolve().as_posix() + '" compute.k')
-        (a.output / 'compute.k').write_text(documented_source)
+        (a.output / 'compute.k').write_text(documented_source, encoding='utf-8')
         recipe_environment = dict(os.environ, LIB=';'.join(profile['libraryDirectories']), WindowsSdkDir=profile['sysroot'])
         run(['pwsh', '-NoProfile', '-NonInteractive', '-Command', recipe], cwd=a.output, env=recipe_environment)
         binary = products / 'documentation-O2.exe'
@@ -397,8 +398,8 @@ def build(a):
     else:
         # Execute the documented compiler command with SDK paths substituted in
         # the actual profile template, then run its product on the destination.
-        (a.output / 'compute.k').write_text(documented_source)
-        (a.output / 'cross.json').write_text(json.dumps(profile))
+        (a.output / 'compute.k').write_text(documented_source, encoding='utf-8')
+        (a.output / 'cross.json').write_text(json.dumps(profile), encoding='utf-8')
         snippets = re.findall(r'codeblock \{ language = bash, """([\s\S]*?)""" \}', documentation)
         authored_command, = [shlex.split(v) for v in snippets if v.strip().startswith('kalandra compute.k ') and '--toolchain' in v]
         assert authored_command[0] == 'kalandra'
@@ -415,17 +416,17 @@ def build(a):
     # Misconfigured targets must preserve every requested output.
     source = a.output / 'int64.k'
     protected = a.output / 'protected'
-    protected.write_text('keep executable')
+    protected.write_text('keep executable', encoding='utf-8')
     protected_ir = a.output / 'protected.ll'
-    protected_ir.write_text('keep LLVM')
+    protected_ir.write_text('keep LLVM', encoding='utf-8')
     for change in ({'target': 'armv7-linux-gnueabihf'}, {'target': TRIPLES[host_system][host], 'runtimePackage': str(target_root.resolve())},
                    {'sysroot': '/missing/sysroot'}, {'format': 2}, {'surprise': True}):
-        profile_file.write_text(json.dumps(dict(profile, **change)))
+        profile_file.write_text(json.dumps(dict(profile, **change)), encoding='utf-8')
         r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
-                           '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True)
+                           '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 2, (change, r.returncode, r.stderr)
-        assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
-    profile_file.write_text(json.dumps(profile))
+        assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
+    profile_file.write_text(json.dumps(profile), encoding='utf-8')
     # Even a self-consistent inventory must not admit runtime code for the
     # source architecture. A damaged archive must fail its original digest.
     runtime_name = 'kalandra-int64-entry-debug.lib' if windows else 'libkalandra-int64-entry-debug.a'
@@ -437,17 +438,17 @@ def build(a):
         host_runtime_name = ('kalandra-int64-entry-debug.lib' if host_system == 'windows' else
                              'libkalandra-int64-entry-debug.a')
         library.write_bytes((host_root / 'lib/kalandra/native' / host_runtime_name).read_bytes())
-        inventory.write_text(original_inventory.decode().replace('\r\n', '\n').replace(old_digest, digest(library)))
+        inventory.write_text(original_inventory.decode().replace('\r\n', '\n').replace(old_digest, digest(library)), encoding='utf-8')
         r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
-                           '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True)
+                           '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 2 and 'object ABI mismatch' in r.stderr, (r.returncode, r.stderr)
-        assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
+        assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
         library.write_bytes(original[:-1] + bytes([original[-1] ^ 1]))
         inventory.write_bytes(original_inventory)
         r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
-                           '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True)
+                           '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 2 and 'checksum mismatch' in r.stderr, (r.returncode, r.stderr)
-        assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
+        assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
     finally:
         library.write_bytes(original)
         inventory.write_bytes(original_inventory)
@@ -459,9 +460,9 @@ def build(a):
         try:
             interface.write_bytes(original_interface + b'\n# corrupt interface\n')
             r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
-                               '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True)
+                               '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
             assert r.returncode == 2 and 'checksum mismatch' in r.stderr, (r.returncode, r.stderr)
-            assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
+            assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
         finally:
             interface.write_bytes(original_interface)
     if a.system == 'macos':
@@ -472,38 +473,38 @@ def build(a):
                 altered = json.loads(original_metadata)
                 if minimum is None: altered.pop('minimumMacOS')
                 else: altered['minimumMacOS'] = minimum
-                metadata.write_text(json.dumps(altered))
+                metadata.write_text(json.dumps(altered), encoding='utf-8')
                 r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
-                                   '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True)
+                                   '-o', protected, '--emit-llvm', protected_ir])), capture_output=True, text=True, encoding='utf-8')
                 assert r.returncode == 2 and 'macOS minimum' in r.stderr, (r.returncode, r.stderr)
-                assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
+                assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
         finally:
             metadata.write_bytes(original_metadata)
     if windows:
         # Clang must invoke the explicitly selected executable, not its default
         # linker. Reusing the host compiler as an intentionally invalid linker
         # gives a recognizable diagnostic on every source OS without a wrapper.
-        profile_file.write_text(json.dumps(dict(profile, linker=str(compiler.resolve()))))
+        profile_file.write_text(json.dumps(dict(profile, linker=str(compiler.resolve()))), encoding='utf-8')
         r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
-                           '-o', protected])), capture_output=True, text=True)
+                           '-o', protected])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 1 and 'unknown or incomplete option: -out:' in r.stderr, (r.returncode, r.stderr)
-        assert protected.read_text() == 'keep executable'
+        assert protected.read_text(encoding='utf-8') == 'keep executable'
         empty_libraries = a.output / 'empty SDK libraries'
         empty_libraries.mkdir()
-        profile_file.write_text(json.dumps(dict(profile, libraryDirectories=[str(empty_libraries.resolve())])))
+        profile_file.write_text(json.dumps(dict(profile, libraryDirectories=[str(empty_libraries.resolve())])), encoding='utf-8')
         r = subprocess.run(list(map(str, [compiler, source, '--toolchain', profile_file,
-                           '-o', protected])), capture_output=True, text=True)
+                           '-o', protected])), capture_output=True, text=True, encoding='utf-8')
         assert r.returncode == 1 and 'native link failed' in r.stderr, (r.returncode, r.stderr)
-        assert protected.read_text() == 'keep executable' and protected_ir.read_text() == 'keep LLVM'
+        assert protected.read_text(encoding='utf-8') == 'keep executable' and protected_ir.read_text(encoding='utf-8') == 'keep LLVM'
         assert not list(a.output.rglob('.kalandra-link*')), 'Failed link leaked a staging directory'
-        profile_file.write_text(json.dumps(profile))
+        profile_file.write_text(json.dumps(profile), encoding='utf-8')
     (products / 'qualification.json').write_text(json.dumps(dict(
         sourceSystem=host_system, destinationSystem=a.system, sourceArchitecture=host, destinationArchitecture=a.target, compilerSHA256=digest(compiler),
         hostArchiveSHA256=digest(a.host_archive), bundledTargets=bundled,
         targetArchiveSHA256=digest(a.target_archive) if a.target_archive else None,
         linker=run([a.linker, '--version']).strip(), clang=run([clang, '--version']).strip(),
         toolchain=profile, targetInterfaces=sdk, sdkVersions={k: os.environ[k] for k in ('VCToolsVersion', 'WindowsSDKVersion') if k in os.environ},
-        records=records), indent=2) + '\n')
+        records=records), indent=2) + '\n', encoding='utf-8')
     print(f'{host_system}/{host} -> {a.system}/{a.target}: {len(records)} reproducible target programs prepared; not executed on source host')
 
 
@@ -511,7 +512,7 @@ def execute(a):
     machine = platform.machine().lower()
     assert machine in ('aarch64', 'arm64', 'amd64', 'x86_64'), machine
     host = 'arm64' if machine in ('aarch64', 'arm64') else 'x86_64'
-    report = json.loads((a.output / 'qualification.json').read_text())
+    report = json.loads((a.output / 'qualification.json').read_text(encoding='utf-8'))
     assert SYSTEM.get(platform.system()) == report['destinationSystem'] and report['destinationArchitecture'] == host
     for record in report['records']:
         binary = (a.output / record['file']).resolve()
@@ -519,7 +520,7 @@ def execute(a):
         binary.chmod(0o755)
         if report['destinationSystem'] == 'macos':
             run(['codesign', '--verify', '--strict', binary])
-        r = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120)
+        r = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120, encoding='utf-8')
         case = record['case']
         assert r.returncode == case.get('status', 0), (record['file'], r.returncode, r.stdout, r.stderr)
         if case.get('stderr'):
