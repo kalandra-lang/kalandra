@@ -55,9 +55,10 @@ fn main()->int:
     total=total+i
   total
 ''', '8'),
+    # INT64_MAX - 1 plus two overflows on the first advance.
     'range-positive-overflow': ('''fn main()->int:
   count=0
-  for i in range(9223372036854775805,9223372036854775807,2):
+  for i in range(9223372036854775806,9223372036854775807,2):
     count=count+1
   count
 ''', '1'),
