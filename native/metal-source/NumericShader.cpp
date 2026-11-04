@@ -1069,10 +1069,10 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   };
   bool storage = std::ranges::any_of(plan.slots, flatArray);
   if (!scalar(root.resultType) || std::ranges::any_of(root.parameters, [&](auto symbol) {
-        return !scalar(input.symbols.at(symbol).type);
+        return !scalar(input.symbols.at(symbol).type) && !flatArray(input.symbols.at(symbol).type);
       }))
-    return reject("GPU checkpointed entry inputs/results currently require numeric/Bool scalars; "
-                  "aggregate transport needs a typed entry ABI");
+    return reject("GPU checkpointed entry requires numeric/Bool scalar results and scalar/array inputs; "
+                  "aggregate outputs need typed transport");
   // Plain aggregates are values, not host pointers. Each scalar leaf occupies
   // one private 64-bit cell. Enum tags use their canonical synthetic first field.
   // Plan the nominal graph iteratively so recursive source types cannot recurse
@@ -1160,6 +1160,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     if (frameWords > 300000)
       return reject("GPU aggregate control frame exceeds configured compilation work budget");
   }
+  const auto arrayInputs = std::count_if(root.parameters.begin(), root.parameters.end(),
+      [&](auto parameter) { return flatArray(input.symbols.at(parameter).type); });
+  if (std::size_t(arrayInputs) > (UINT32_MAX - 4) / 2 - frameWords)
+    return reject("GPU array input metadata exceeds the device ABI");
+  frameWords += arrayInputs; // Sealed actual backing lengths, never source slots.
   if (frameWords > (UINT32_MAX - 4) / 2)
     return reject("GPU scalar control parameter layout exceeds the device ABI");
   using C = continuation::Code;
@@ -1270,14 +1275,23 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   std::vector<NumericType> inputs;
   for (auto parameter : root.parameters) {
     const auto &t = input.symbols.at(parameter).type;
-    inputs.push_back(t.builtin == BuiltinValue::Bool ? NumericType::UInt8 : t.element);
+    inputs.push_back(t.array ? NumericType::UInt64 :
+                     t.builtin == BuiltinValue::Bool ? NumericType::UInt8 : t.element);
   }
   if (storage)
     inputs.push_back(NumericType::UInt64);
   std::vector<NumericType> states(frames, NumericType::UInt64);
   auto name = numericKernelName(type, inputs, states);
-  if (!root.parameters.empty())
-    name += "_d_" + std::string(root.parameters.size(), 's') + (storage ? "t" : "");
+  std::vector<std::uint8_t> roles;
+  for (auto parameter : root.parameters)
+    roles.push_back(flatArray(input.symbols.at(parameter).type) ? 2 : 1);
+  if (storage)
+    roles.push_back(0);
+  if (!root.parameters.empty()) {
+    name += "_d_";
+    for (auto role : roles)
+      name += role == 2 ? 'a' : role ? 's' : 't';
+  }
   std::ostringstream source;
   const auto hasWidth = [&](unsigned width) {
     return bits == width || std::ranges::any_of(inputs, [&](auto type) {
@@ -1341,9 +1355,17 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     memref::StoreOp::create(b, loc, lo, params, ValueRange{at(1 + slot * 2)});
     memref::StoreOp::create(b, loc, hi, params, ValueRange{at(2 + slot * 2)});
   };
+  std::vector<DeviceArrayInput> captures;
+  for (std::size_t i = 0; i < root.parameters.size(); ++i) {
+    const auto &type = input.symbols.at(root.parameters[i]).type;
+    if (flatArray(type))
+      captures.push_back({kernel.getArgument(i), load(frames - arrayInputs + captures.size()),
+          type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1});
+  }
   std::optional<DeviceHeapEmitter> heap;
   if (storage)
-    heap.emplace(b, kernel.getArgument(inputs.size() - 1), params, 2 + 2 * frames, allocationRoots);
+    heap.emplace(b, kernel.getArgument(inputs.size() - 1), params, 2 + 2 * frames, allocationRoots,
+                 std::span<const DeviceTraceLayout>{}, captures);
   auto yes = constant(1, 1);
   auto initial = scf::IfOp::create(
       b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, load(0), constant(0)), false);
@@ -1351,6 +1373,12 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToStart(&initial.getThenRegion().front());
     for (std::size_t i = 0; i < plan.parameters.size(); ++i) {
+      if (flatArray(input.symbols.at(root.parameters[i]).type)) {
+        const auto index = std::count_if(root.parameters.begin(), root.parameters.begin() + i,
+            [&](auto parameter) { return flatArray(input.symbols.at(parameter).type); });
+        store(offsets.at(plan.parameters[i]), constant(runtime::DeviceArrayWireABI::ExternalHandle | (index + 1)));
+        continue;
+      }
       Value value = memref::LoadOp::create(b, loc, kernel.getArgument(i), ValueRange{at(0)});
       if (describeNumeric(inputs[i])->bits != 64)
         value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
@@ -1359,6 +1387,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     if (heap)
       heap->initialize();
     store(0, constant(1)); // Zero is uninitialized; instruction PCs are one-based.
+    for (std::size_t i = 0; i < captures.size(); ++i)
+      heap->read(constant(runtime::DeviceArrayWireABI::ExternalHandle | (i + 1)), constant(1));
   }
   auto loop = scf::WhileOp::create(b, loc, TypeRange{b.getI32Type()}, ValueRange{constant(0, 32)});
   auto *before = new Block;
@@ -1839,9 +1869,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                        true,
                        std::move(inputs),
                        std::move(states),
-                       std::vector<std::uint8_t>(root.parameters.size(), 1)};
-  if (storage)
-    resultShader.scalarBuffers.push_back(0);
+                       std::move(roles)};
   resultShader.deviceStorage = storage;
   return resultShader;
 }

@@ -1,4 +1,5 @@
 #include "ControlArena.h"
+#include <array>
 #include <atomic>
 #include <cstring>
 #include <iostream>
@@ -166,8 +167,43 @@ void asynchronousPages() {
   check(driver.ledger.bytes == 0, "asynchronous growth retained allocations");
 }
 } // namespace
+void captureLengths() {
+  using namespace kalandra::runtime::detail;
+  const std::array<std::uint8_t, 4> roles{2, 1, 2, 0};
+  std::array<std::uint64_t, 4> sizes{32, 1, 72, 256};
+  std::array<std::uint64_t, 8> frame{};
+  auto operation = [&](bool initialize) {
+    return controlInputLengths(
+        roles, frame.size(), initialize,
+        [&](std::size_t i) {
+          check(i == 0 || i == 2, "scalar treated as array wire");
+          return sizes[i];
+        },
+        [&](std::size_t i) { return frame[i]; },
+        [&](std::size_t i, std::uint64_t value) { frame[i] = value; });
+  };
+  check(operation(true) && frame[6] == 4 && frame[7] == 9 && operation(false),
+        "capture sizes were not sealed in the frame tail");
+  frame[6] = 5;
+  check(!operation(false), "modified GPU capture metadata was accepted");
+  frame[6] = 4;
+  sizes[2] = 80;
+  check(!operation(false), "changed capture backing size was accepted");
+  sizes[2] = 72;
+  for (auto malformed :
+       {UINT64_C(0), UINT64_C(24), UINT64_C(33), UINT64_C(8) * (UINT64_C(1) + UINT32_MAX)}) {
+    auto before = frame;
+    sizes[2] = malformed;
+    check(!operation(true) && frame == before,
+          "malformed later input published partial capture metadata");
+  }
+  check(!validControlInputRoles(roles, 5), "metadata overlaps control header");
+  for (auto malformed : {std::array<std::uint8_t, 4>{2, 0, 2, 0}, {2, 1, 2, 1}, {3, 1, 2, 0}})
+    check(!validControlInputRoles(malformed, 8), "unknown/domain role accepted as capture");
+}
 int main() {
   try {
+    captureLengths();
     lifecycle();
     interruptedCopy();
     asynchronousPages();

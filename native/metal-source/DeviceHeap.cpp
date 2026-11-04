@@ -1,4 +1,5 @@
 #include "DeviceHeap.h"
+#include "../runtime/DeviceArrayABI.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -8,9 +9,16 @@ using namespace mlir;
 namespace kalandra {
 DeviceHeapEmitter::DeviceHeapEmitter(OpBuilder &builder, Value heap, Value frame, unsigned words,
                                      std::span<const DeviceRootMap> maps,
-                                     std::span<const DeviceTraceLayout> traceLayouts)
+                                     std::span<const DeviceTraceLayout> traceLayouts,
+                                     std::span<const DeviceArrayInput> arrayInputs)
     : b(builder), loc(b.getUnknownLoc()), arena(heap), params(frame), parameterWords(words),
-      roots(maps), layouts(traceLayouts) {
+      roots(maps), layouts(traceLayouts), inputs(arrayInputs) {
+  for (const auto &input : inputs) {
+    const auto buffer = mlir::dyn_cast<mlir::MemRefType>(input.buffer.getType());
+    if (!buffer || buffer.getRank() != 1 || !buffer.getElementType().isInteger(64) ||
+        !input.words.getType().isInteger(64) || !input.layout || input.layout > 11)
+      throw std::invalid_argument("invalid external device array layout");
+  }
   std::set<unsigned> identities;
   std::size_t fields = 0;
   for (const auto &layout : layouts) {
@@ -63,7 +71,7 @@ void DeviceHeapEmitter::fault(unsigned code) {
                           ValueRange{at});
   store(PC, c(UINT64_MAX));
 }
-Value DeviceHeapEmitter::read(Value h, Value field) {
+Value DeviceHeapEmitter::readArena(Value h, Value field) {
   auto less = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, h, load(Capacity));
   auto rest = arith::SubIOp::create(b, loc, load(Capacity), h);
   auto bounded = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, field, rest);
@@ -81,7 +89,7 @@ Value DeviceHeapEmitter::read(Value h, Value field) {
   }
   return choose.getResult(0);
 }
-void DeviceHeapEmitter::write(Value h, Value field, Value v) {
+void DeviceHeapEmitter::writeArena(Value h, Value field, Value v) {
   auto less = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, h, load(Capacity));
   auto rest = arith::SubIOp::create(b, loc, load(Capacity), h);
   auto bounded = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, field, rest);
@@ -93,10 +101,127 @@ void DeviceHeapEmitter::write(Value h, Value field, Value v) {
   b.setInsertionPointToStart(&choose.getElseRegion().front());
   fault(99);
 }
+Value DeviceHeapEmitter::read(Value h, Value field) {
+  if (inputs.empty())
+    return readArena(h, field);
+  auto external = arith::CmpIOp::create(
+      b, loc, arith::CmpIPredicate::ne,
+      arith::AndIOp::create(b, loc, h, c(runtime::DeviceArrayWireABI::ExternalHandle)), c(0));
+  auto branch = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()}, external, true);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(&branch.getThenRegion().front());
+  auto value = readInput(h, field);
+  scf::YieldOp::create(b, loc, ValueRange{value});
+  b.setInsertionPointToStart(&branch.getElseRegion().front());
+  value = readArena(h, field);
+  scf::YieldOp::create(b, loc, ValueRange{value});
+  return branch.getResult(0);
+}
+void DeviceHeapEmitter::write(Value h, Value field, Value value) {
+  if (inputs.empty()) {
+    writeArena(h, field, value);
+    return;
+  }
+  auto local =
+      eq(arith::AndIOp::create(b, loc, h, c(runtime::DeviceArrayWireABI::ExternalHandle)), c(0));
+  auto branch = scf::IfOp::create(b, loc, local, true);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(&branch.getThenRegion().front());
+  writeArena(h, field, value);
+  b.setInsertionPointToStart(&branch.getElseRegion().front());
+  fault(99); // Read-only input backing, including a forged write path.
+}
+void DeviceHeapEmitter::mark(Value h) {
+  if (inputs.empty()) {
+    markArena(h);
+    return;
+  }
+  auto local =
+      eq(arith::AndIOp::create(b, loc, h, c(runtime::DeviceArrayWireABI::ExternalHandle)), c(0));
+  auto branch = scf::IfOp::create(b, loc, local, true);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(&branch.getThenRegion().front());
+  markArena(h);
+  b.setInsertionPointToStart(&branch.getElseRegion().front());
+  readInput(h, c(1)); // Validate; captured backing is retained outside the arena.
+}
+Value DeviceHeapEmitter::readInput(Value h, Value field) {
+  Value result = c(0), found = arith::ConstantIntOp::create(b, loc, 0, 1);
+  const auto both = [&](Value a, Value d) -> Value { return arith::AndIOp::create(b, loc, a, d); };
+  const auto less = [&](Value a, Value d) -> Value {
+    return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, a, d);
+  };
+  for (std::size_t i = 0; i < inputs.size(); ++i) {
+    const auto &input = inputs[i];
+    auto selected = eq(h, c(runtime::DeviceArrayWireABI::ExternalHandle | (i + 1)));
+    found = arith::OrIOp::create(b, loc, found, selected);
+    auto choose = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()}, selected, true);
+    {
+      OpBuilder::InsertionGuard guard(b);
+      b.setInsertionPointToStart(&choose.getThenRegion().front());
+      const auto load = [&](Value word) -> Value {
+        auto index = arith::IndexCastOp::create(b, loc, b.getIndexType(), word);
+        return memref::LoadOp::create(b, loc, input.buffer, ValueRange{index});
+      };
+      auto bounded = both(less(c(3), input.words), less(field, input.words));
+      bounded = both(bounded, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, input.words,
+                                                    c(runtime::DeviceArrayWireABI::MaxWords)));
+      auto access = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()}, bounded, true);
+      {
+        OpBuilder::InsertionGuard checked(b);
+        b.setInsertionPointToStart(&access.getThenRegion().front());
+        auto origin = load(c(3));
+        auto valid = both(eq(load(c(0)), c(runtime::DeviceArrayWireABI::Magic)),
+                          eq(load(c(1)), c(input.layout)));
+        valid = both(valid, eq(load(c(2)), arith::SubIOp::create(b, loc, input.words, c(4))));
+        valid = both(
+            valid, both(less(c(0), origin), arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule,
+                                                                  origin, c(UINT32_MAX))));
+        auto typed = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()}, valid, true);
+        {
+          OpBuilder::InsertionGuard canonical(b);
+          b.setInsertionPointToStart(&typed.getThenRegion().front());
+          auto value = load(field);
+          // Present an ordinary read-only block descriptor to source array code.
+          value = arith::SelectOp::create(b, loc, eq(field, c(0)), input.words, value);
+          if (input.layout == 11) {
+            auto payload = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, field, c(4));
+            auto invalid = both(payload, less(c(1), value));
+            auto fail = scf::IfOp::create(b, loc, invalid, false);
+            OpBuilder::InsertionGuard invalidGuard(b);
+            b.setInsertionPointToStart(&fail.getThenRegion().front());
+            fault(99);
+          }
+          scf::YieldOp::create(b, loc, ValueRange{value});
+          b.setInsertionPointToStart(&typed.getElseRegion().front());
+          fault(99);
+          scf::YieldOp::create(b, loc, ValueRange{c(0)});
+        }
+        scf::YieldOp::create(b, loc, ValueRange{typed.getResult(0)});
+        b.setInsertionPointToStart(&access.getElseRegion().front());
+        fault(99);
+        scf::YieldOp::create(b, loc, ValueRange{c(0)});
+      }
+      scf::YieldOp::create(b, loc, ValueRange{access.getResult(0)});
+      b.setInsertionPointToStart(&choose.getElseRegion().front());
+      scf::YieldOp::create(b, loc, ValueRange{result});
+    }
+    result = choose.getResult(0);
+  }
+  auto missing = scf::IfOp::create(
+      b, loc, arith::XOrIOp::create(b, loc, found, arith::ConstantIntOp::create(b, loc, 1, 1)),
+      false);
+  {
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(&missing.getThenRegion().front());
+    fault(99);
+  }
+  return result;
+}
 // Header mark word: zero is white, one black, (next << 2) | 2 grey.
 // Handles are bounded to UINT32_MAX words by ControlArenaABI, so links fit.
 // Only the paused mutator's live roots and typed payloads may supply handles.
-void DeviceHeapEmitter::mark(Value h) {
+void DeviceHeapEmitter::markArena(Value h) {
   auto branch = scf::IfOp::create(
       b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, h, c(0)), false);
   OpBuilder::InsertionGuard guard(b);

@@ -22,6 +22,10 @@ struct DeviceTraceLayout {
   unsigned identity, stride;
   std::vector<DeviceReferenceField> references;
 };
+struct DeviceArrayInput {
+  mlir::Value buffer, words;
+  unsigned layout;
+};
 class DeviceHeapEmitter {
 public:
   // The first four cells are the runtime PC/capacity/request/resume ABI. The
@@ -59,7 +63,8 @@ public:
                 Resume == runtime::detail::ControlArenaABI::Resume);
   DeviceHeapEmitter(mlir::OpBuilder &, mlir::Value arena, mlir::Value params,
                     unsigned parameterWords, std::span<const DeviceRootMap> roots,
-                    std::span<const DeviceTraceLayout> layouts = {});
+                    std::span<const DeviceTraceLayout> layouts = {},
+                    std::span<const DeviceArrayInput> inputs = {});
   mlir::Value load(unsigned cell);
   void store(unsigned cell, mlir::Value);
   void initialize();
@@ -86,6 +91,11 @@ private:
   unsigned parameterWords;
   std::span<const DeviceRootMap> roots;
   std::span<const DeviceTraceLayout> layouts;
+  std::span<const DeviceArrayInput> inputs;
+  mlir::Value readArena(mlir::Value, mlir::Value);
+  void writeArena(mlir::Value, mlir::Value, mlir::Value);
+  mlir::Value readInput(mlir::Value, mlir::Value);
+  void markArena(mlir::Value);
   void mark(mlir::Value handle);
   mlir::Value c(std::uint64_t);
   mlir::Value add(mlir::Value, mlir::Value);

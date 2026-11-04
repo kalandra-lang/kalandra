@@ -120,13 +120,16 @@ bool validInstruction(const ProgramInstruction &op) {
         op.kernel->tensorTypes.size() != n + 1 ||
         op.kernel->tensorTypes.back() != NumericType::UInt64 ||
         op.kernel->scalarBuffers.size() != n + 1 || op.kernel->scalarBuffers.back() != 0 ||
-        !std::all_of(op.kernel->scalarBuffers.begin(), op.kernel->scalarBuffers.end() - 1,
-                     [](auto role) { return role == 1; }) ||
+        !detail::validControlInputRoles(op.kernel->scalarBuffers, op.kernel->scalarTypes.size()) ||
         !std::all_of(op.constants.begin(), op.constants.end(), [](auto x) { return x == 0; }) ||
         !std::all_of(op.kernel->scalarTypes.begin(), op.kernel->scalarTypes.end(),
                      [](auto type) { return type == NumericType::UInt64; }) ||
         op.kernel->scalarTypes.size() != op.scalarSources.size() + op.constants.size())
       return false;
+    for (std::size_t i = 0; i < n; ++i)
+      if (op.kernel->scalarBuffers[i] == DeviceArrayWireABI::InputRole &&
+          op.kernel->tensorTypes[i] != NumericType::UInt64)
+        return false;
     if (op.kernel->reads) {
       if (op.kernel->reads->size() != n + 1)
         return false;
@@ -200,7 +203,7 @@ std::expected<KernelContract, Error> kernelContract(const ProgramKernel &kernel,
   if (maps(kind) && std::any_of(kernel.scalarBuffers.begin(), kernel.scalarBuffers.end(),
                                 [](auto role) { return role != 0; })) {
     result.entry += "_d_";
-    for (auto role : kernel.scalarBuffers) result.entry += role ? 's' : 't';
+    for (auto role : kernel.scalarBuffers) result.entry += role == 2 ? 'a' : role ? 's' : 't';
   }
   result.entry += backendKernelSuffix;
   return result;
@@ -532,9 +535,12 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
         std::optional<std::size_t> domain;
         for (std::size_t i = 0; i < op.inputs.size(); ++i) {
           const auto &value = values_[op.inputs[i]];
-          if (value.type != schema.tensorTypes[i] || value.scalar != bool(schema.scalarBuffers[i]))
+          if (value.type != schema.tensorTypes[i] || value.scalar != (schema.scalarBuffers[i] == 1))
             return fail(Error::Invalid);
-          if (!schema.scalarBuffers[i]) {
+          if (schema.scalarBuffers[i] == DeviceArrayWireABI::InputRole) {
+            if (op.kind != K::DeviceControl || value.rank != 1 || value.type != NumericType::UInt64)
+              return fail(Error::Invalid);
+          } else if (!schema.scalarBuffers[i]) {
             if (domain && !sameShape(value, values_[op.inputs[*domain]]))
               return fail(Error::Shape);
             domain = i;
@@ -639,6 +645,20 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
         dispatch.parameters[1 + ABI::Capacity * 2] = std::uint32_t(controlArena_.words());
         dispatch.parameters[2 + ABI::Capacity * 2] = std::uint32_t(controlArena_.words() >> 32);
       }
+      if (op.kind == K::DeviceControl) {
+        const auto read = [&](std::size_t cell) {
+          return std::uint64_t(dispatch.parameters[1 + 2 * cell]) |
+                 (std::uint64_t(dispatch.parameters[2 + 2 * cell]) << 32);
+        };
+        const auto write = [&](std::size_t cell, std::uint64_t value) {
+          dispatch.parameters[1 + 2 * cell] = value;
+          dispatch.parameters[2 + 2 * cell] = value >> 32;
+        };
+        if (!detail::controlInputLengths(schema.scalarBuffers, schema.scalarTypes.size(),
+                controlParameters_.empty(), [&](std::size_t i) { return values_[op.inputs[i]].data.bytes(); },
+                read, write))
+          return fail(Error::Invalid);
+      }
       dispatch.parameters.push_back(UINT32_MAX);
       dispatch.outputBytes = std::uint64_t(count) * describeNumeric(schema.type)->bytes();
       const auto width = schema.kernel.localSize();
@@ -700,7 +720,12 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
         return std::uint64_t(result.parameters[1 + index * 2]) |
                (std::uint64_t(result.parameters[2 + index * 2]) << 32);
       };
-      if (cell(ABI::Capacity) != controlArena_.words())
+      const auto &instruction = definition_->code[pc_];
+      if (cell(ABI::Capacity) != controlArena_.words() ||
+          !detail::controlInputLengths(instruction.kernel->scalarBuffers,
+              instruction.kernel->scalarTypes.size(), false,
+              [&](std::size_t i) { return values_[instruction.inputs[i]].data.bytes(); },
+              cell, [](std::size_t, std::uint64_t) {}))
         return fail(Error::Invalid);
       if (next == ABI::Grow) {
         if (!cell(ABI::Resume) || cell(ABI::Resume) >= ABI::Grow)

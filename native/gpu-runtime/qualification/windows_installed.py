@@ -96,6 +96,9 @@ run([sys.executable, repo/'native/gpu-source/ScalarControlTests.py', '--compiler
 run([sys.executable, repo/'native/gpu-source/DeviceArrayTests.py', '--compiler', compiler,
      '--backend', a.backend, '--variant', 'optimized', '--compile-only',
      '--root', root/'device-arrays'])
+run([sys.executable, repo/'native/gpu-source/DeviceArrayEntryTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-array-entry'])
 run([sys.executable, repo/'native/gpu-source/DeviceBoolTests.py', '--compiler', compiler,
      '--backend', a.backend, '--variant', 'optimized', '--compile-only',
      '--root', root/'device-bool'])

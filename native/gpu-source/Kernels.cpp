@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
   }
   constexpr std::array names{"Map",         "Reduce",     "Matmul",       "Branch",
                              "Jump",        "Alias",      "EqualShape",   "Extent",
-                             "MatrixShape", "ShapeFault", "ScalarControl"};
+                             "MatrixShape", "ShapeFault", "ScalarControl", "DeviceControl"};
   for (const auto &op : program->code) {
     llvm::json::Array constants;
     // Decimal strings preserve every uint64 carrier even in non-integer JSON consumers.
@@ -136,6 +136,8 @@ int main(int argc, char **argv) {
         llvm::json::Object{{"name", symbol.name},
                            {"type", std::string(describeNumeric(symbol.type.element)->name)},
                            {"tensor", symbol.type.tensor},
+                           {"array", symbol.type.array},
+                           {"boolean", symbol.type.builtin == BuiltinValue::Bool},
                            {"shape", std::move(shape)}});
   }
   llvm::json::Object artifact{{"format", 1},
@@ -143,7 +145,8 @@ int main(int argc, char **argv) {
                               {"scope", "kernel-program"},
                               {"arithmetic", std::string(arithmeticModeName(*arithmetic))},
                               {"parameters", std::move(parameters)},
-                              {"type", std::string(describeNumeric(program->type.element)->name)},
+                              {"type", std::string(describeNumeric(program->type.builtin == BuiltinValue::Bool && !program->type.tensor ? NumericType::UInt8 : program->type.element)->name)},
+                              {"booleanResult", program->type.builtin == BuiltinValue::Bool && !program->type.tensor},
                               {"tensor", program->type.tensor},
                               {"rank", std::int64_t(program->type.shape.size())},
                               {"result", std::int64_t(program->result)},

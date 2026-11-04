@@ -1,0 +1,241 @@
+#pragma once
+#include "DeviceArrayWire.h"
+#include "HostArrays.h"
+#include <tuple>
+namespace kalandra::runtime {
+template <NumericType Element, bool Boolean = false> struct DeviceArrayArgument {
+  using Descriptor = CpuTensor<Element, 1>;
+  using Capture = DeviceArrayCapture<Element, Boolean>;
+  static const ValueLayout &layout() noexcept { return hostArrayLayout<Element, Boolean>(); }
+};
+// Private source bridge. Packing and upload belong to this admitted child, not
+// its caller, so spawn does not insert an implicit await in the parent program.
+// Runtime/Buffer/Device/Executable are the existing backend facade types.
+template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
+          NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
+          class... Arguments>
+class DeviceArrayInputJob final {
+  static constexpr std::size_t Count = sizeof...(Arguments);
+  static_assert(Count > 0);
+  using Result = std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>;
+  using Descriptors = std::tuple<typename Arguments::Descriptor...>;
+  using Captures = std::tuple<typename Arguments::Capture...>;
+  inline static const std::array<const ValueLayout *, Count> layouts{&Arguments::layout()...};
+
+public:
+  struct PacketData {
+    Runtime *runtime;
+    Executable executable;
+    Device device;
+    std::array<std::uint64_t, ScalarCount> scalars;
+    Descriptors arguments;
+  };
+
+private:
+  struct Frame {
+    Runtime *runtime;
+    Executable executable;
+    Device device;
+    std::array<std::uint64_t, ScalarCount> scalars;
+    Descriptors arguments;
+    HostArrayScopes scopes;
+    Captures captures;
+    std::array<Buffer, Count> snapshots{}, inputs{};
+    std::array<TaskHandle, Count> uploads{};
+    std::array<std::uint64_t, Count> origins{};
+    GroupHandle group{};
+    TaskHandle computation{};
+    std::size_t packing = 0;
+    unsigned phase = 0;
+    Result value{};
+    explicit Frame(const PacketData &packet)
+        : runtime(packet.runtime), executable(packet.executable), device(packet.device),
+          scalars(packet.scalars), arguments(packet.arguments) {}
+  };
+  template <class F, std::size_t... I> static void each(F &&function, std::index_sequence<I...>) {
+    (function.template operator()<I>(), ...);
+  }
+  template <class F> static void each(F &&function) {
+    each(std::forward<F>(function), std::make_index_sequence<Count>{});
+  }
+  static const ValueLayout &resultLayout() noexcept {
+    if constexpr (BooleanResult)
+      return boolScalarLayout();
+    else
+      return *numericScalarLayout(ResultElement);
+  }
+  static bool construct(Invocation &context, void *out, const Packet &packet) {
+    if (!packet.data || !packet.source) {
+      context.fault(3);
+      return false;
+    }
+    const auto &data = *static_cast<const PacketData *>(packet.data);
+    if (!data.runtime || !data.executable || !data.device || !data.executable.on(data.device)) {
+      context.fault(3);
+      return false;
+    }
+    auto &frame = *new (out) Frame(data);
+    bool valid = frame.scopes.initialize(context, layouts);
+    each([&]<std::size_t I>() {
+      if (valid)
+        valid = frame.scopes.capture(context, I, *layouts[I], &std::get<I>(frame.arguments),
+                                     *packet.source, &std::get<I>(data.arguments));
+      frame.origins[I] = I + 1;
+    });
+    // Distinct capture slots can name the same native array. Canonicalize their
+    // origin IDs without allocating an uncharged hash table.
+    each([&]<std::size_t I>() {
+      each([&]<std::size_t J>() {
+        if constexpr (J < I && std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
+                                              std::tuple_element_t<J, std::tuple<Arguments...>>>) {
+          const auto &a = std::get<I>(frame.arguments), &b = std::get<J>(frame.arguments);
+          if (a.allocated == b.allocated && a.aligned == b.aligned && a.offset == b.offset &&
+              a.sizes == b.sizes && a.strides == b.strides)
+            frame.origins[I] = frame.origins[J];
+        }
+      });
+    });
+    if (!valid || context.poll()) {
+      frame.~Frame();
+      return false;
+    }
+    return true;
+  }
+  static void destroy(void *memory) noexcept { static_cast<Frame *>(memory)->~Frame(); }
+  static bool readBuffer(Task &task, TaskHandle child, Buffer &destination) {
+    alignas(Buffer) std::byte storage[sizeof(Buffer)];
+    if (!task.read(child, Runtime::bufferLayout(), storage))
+      return false;
+    auto *value = std::launder(reinterpret_cast<Buffer *>(storage));
+    destination = *value;
+    value->~Buffer();
+    return true;
+  }
+  static void resume(Task &task) {
+    auto &frame = *static_cast<Frame *>(task.frame());
+    if (task.cancelled())
+      return;
+    auto &runtime = *frame.runtime;
+    if (frame.phase == 0) {
+      const auto selected = frame.packing;
+      bool valid = true;
+      each([&]<std::size_t I>() {
+        if (selected != I)
+          return;
+        auto &capture = std::get<I>(frame.captures);
+        if (!capture.original().allocated && capture.origin() == 0 &&
+            !capture.initialize(task.context(), std::get<I>(frame.arguments), frame.origins[I])) {
+          valid = false;
+          return;
+        }
+        if (capture.advance()) {
+          auto snapshot = runtime.fromCpu(task.context(), capture.wire()->view());
+          if (!snapshot) {
+            task.fault(std::int64_t(snapshot.error()));
+            valid = false;
+            return;
+          }
+          frame.snapshots[I] = std::move(*snapshot);
+          ++frame.packing;
+        } else if (task.context().poll())
+          valid = false;
+      });
+      if (!valid) {
+        hostArrayFailure(task);
+        return;
+      }
+      if (frame.packing != Count) {
+        task.yield();
+        return;
+      }
+      frame.phase = 1;
+    }
+    if (frame.phase == 1) {
+      frame.group = task.openGroup();
+      if (!frame.group) {
+        hostArrayFailure(task);
+        return;
+      }
+      for (std::size_t i = 0; i < Count; ++i)
+        frame.uploads[i] = runtime.upload(task, frame.group, frame.snapshots[i], frame.device);
+      frame.phase = 2;
+    }
+    if (frame.phase == 2) {
+      for (const auto child : frame.uploads)
+        if (!task.await(child))
+          return;
+      if (!task.close(frame.group)) {
+        hostArrayFailure(task);
+        return;
+      }
+      frame.phase = 3;
+    }
+    if (frame.phase == 3) {
+      if (!task.join(frame.group))
+        return;
+      const auto failure = task.failure(frame.group);
+      if (failure.kind != TaskFailure::None) {
+        task.releaseGroup(frame.group);
+        task.fail(failure);
+        return;
+      }
+      for (std::size_t i = 0; i < Count; ++i)
+        if (!readBuffer(task, frame.uploads[i], frame.inputs[i])) {
+          hostArrayFailure(task);
+          return;
+        }
+      if (!task.releaseGroup(frame.group)) {
+        hostArrayFailure(task);
+        return;
+      }
+      frame.snapshots = {};
+      frame.group = task.openGroup();
+      if (!frame.group) {
+        hostArrayFailure(task);
+        return;
+      }
+      frame.computation = runtime.executeNumericProgram(task, frame.group, frame.executable,
+                                                        frame.inputs, frame.scalars);
+      frame.phase = 4;
+    }
+    if (frame.phase == 4) {
+      if (!task.await(frame.computation))
+        return;
+      if (!task.close(frame.group)) {
+        hostArrayFailure(task);
+        return;
+      }
+      frame.phase = 5;
+    }
+    if (!task.join(frame.group))
+      return;
+    const auto failure = task.failure(frame.group);
+    if (failure.kind != TaskFailure::None) {
+      task.releaseGroup(frame.group);
+      task.fail(failure);
+      return;
+    }
+    if (!task.read(frame.computation, resultLayout(), &frame.value)) {
+      hostArrayFailure(task);
+      return;
+    }
+    if (!task.releaseGroup(frame.group)) {
+      hostArrayFailure(task);
+      return;
+    }
+    task.complete(&frame.value);
+  }
+
+public:
+  inline static const TaskEntry entry{1,
+                                      Identity,
+                                      sizeof(PacketData),
+                                      alignof(PacketData),
+                                      sizeof(Frame),
+                                      alignof(Frame),
+                                      construct,
+                                      destroy,
+                                      resume,
+                                      &resultLayout()};
+};
+} // namespace kalandra::runtime

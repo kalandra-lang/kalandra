@@ -542,8 +542,8 @@ public:
     for (auto parameter : root.parameters) {
       const auto &type = input.symbols.at(parameter).type;
       if ((type.builtin != BuiltinValue::Numeric &&
-           !(type.builtin == BuiltinValue::Bool && !type.tensor)) ||
-          type.array || type.task || type.fallible)
+           !(type.builtin == BuiltinValue::Bool && (!type.tensor || type.array))) ||
+          (type.array && type.shape.size() != 1) || type.task || type.fallible)
         reject(root.declaration,
                "GPU numerical programs capture numeric/Bool scalars and resident numeric tensors");
       args.push_back(type.tensor ? resident(type, value()) : leaf(type, scalar++, true));

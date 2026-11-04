@@ -3,7 +3,8 @@
 This is the storage contract for #279. Invocation-local numeric/Bool arrays and
 ordered collecting loops use its arena and a collector for reference-free
 payloads. Local acyclic records/enums may contain these arrays; their live inline
-owned leaves are roots, preserving array aliases through allocation checkpoints. Owned-reference layouts, cyclic values and typed entry transport
+owned leaves are roots, preserving array aliases through allocation checkpoints. Flat numeric/Bool host-array inputs have typed read-only capture transport.
+Owned-reference source layouts, cyclic values and aggregate/result transport
 remain required work. The plain-record frame remains an inline value
 representation; host pointers are not a valid extension of it.
 
@@ -196,8 +197,9 @@ These initial payload layouts contain no owned references. They therefore do
 not implement the grey-block traversal needed for owned fields, record/function
 arrays or cycles. Those types remain rejected. Collector append grows private
 backing geometrically, copies one initialized cell per step, then publishes the
-new logical prefix. No source array pointer escapes the invocation; typed entry
-transport remains unimplemented. The complete reference-tracing design above
+new logical prefix. No source array pointer escapes the invocation; typed result
+transport remains unimplemented. Flat host-array input transport uses sealed
+lengths and read-only external handles above the 32-bit local handle range. The complete reference-tracing design above
 remains required for full parity.
 
 ## Required qualification

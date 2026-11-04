@@ -63,3 +63,33 @@ implied here; those kernel-authoring APIs belong to #265. Production numerical
 implementations remain independent of vendor numerical libraries. Remote testing
 uses only authorized project-local dependencies and removes its copies after
 evidence is saved.
+
+## Typed array input transport
+
+Flat numeric and Bool host-array inputs use a private versioned word protocol.
+Each input contains magic/version, element layout, logical length and invocation
+origin ID, followed by zero-extended raw element bits. Origin IDs identify
+captured aliases; native addresses never appear in shader-visible cells. Public
+array results still require a separate decoder that preserves captured aliases
+and creates owners for new device allocations; accepting inputs does not satisfy
+that result contract.
+
+The admitted GPU child retains native backing, packs at most one 64 KiB wire
+page per scheduler step, and then uploads and executes. Parent `spawn` does not
+wait for that packing. The existing task read borrow protects the original and
+its aliases until settlement. Native resident tensors keep their explicit
+transfer requirement. Captured inputs are read-only on the GPU; `copy` creates
+ordinary invocation-local writable device storage.
+
+Input-buffer byte lengths are checked and sealed in private checkpoint metadata
+before first dispatch, then rechecked after acknowledgements. Device reads
+validate the wire header and bounds against those sealed lengths. Tagged input
+handles resolve only to retained input buffers and are never swept as local heap
+allocations. Mutating a captured input is rejected; it cannot grow its read bound
+by changing a wire length or checkpoint cell.
+
+Child uploads and computation are explicitly awaited before their groups close,
+so normal task observation and fault/cancellation rules remain intact. This adds
+no wall-clock preemption or cancellation-contract exception. Physical input
+execution, malformed metadata, failure/acknowledgement lifetimes and installed
+backend checks must all qualify before this transport is reported complete.

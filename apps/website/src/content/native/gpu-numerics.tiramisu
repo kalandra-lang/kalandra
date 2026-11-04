@@ -153,7 +153,7 @@ Helpers with numeric or Bool results can use numeric, Bool, plain-data record/en
 
 h2 { "Local arrays and collecting loops" }
 
-A GPU helper can construct numeric and Bool arrays, index and iterate them, and modify local elements. Assignment keeps the same backing; copy creates independent element storage. slice and concat also construct independent arrays. A synchronous helper with a mut parameter can modify an array created by the calling GPU helper. Array parameters and results cannot cross the CPU/device entry boundary.
+A GPU helper can construct numeric and Bool arrays, index and iterate them, and modify local elements. Assignment keeps the same backing; copy creates independent element storage. slice and concat also construct independent arrays. A synchronous helper with a mut parameter can modify an array created by the calling GPU helper. GPU tasks can capture existing numeric and Bool arrays as read-only parameters. Array results cannot cross the CPU/device entry boundary.
 
 codeblock { language = kalandra, """fn selected(n: int) -> int:
   indices = generate(n, fn(i): i)
@@ -224,6 +224,25 @@ fn main() -> int ! TaskError:
 
 This computes 10 and prints 000000000000000a. The array is constructed and read on the GPU. Its backing remains alive while batch refers to it, including across helper calls and allocation checkpoints.
 
+h2 { "Capture host arrays" }
+
+Pass a numeric or Bool array directly to a GPU-placed helper. The task captures the array as read-only, packs and uploads its elements, then executes the helper on the GPU. Packing belongs to the spawned task; spawn does not wait for it. The original array and its aliases stay read-locked until the task settles. An empty array is valid.
+
+codeblock { language = kalandra, """fn firstAndOriginal(values: [int]) -> int:
+  ordered = sorted(values)
+  ordered[0] + values[0]
+
+fn main() -> int ! TaskError:
+  values: [int] = [5, 3, 1]
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn firstAndOriginal(values) on gpu
+""" }
+
+This computes 6 and prints 0000000000000006. sorted creates independent device storage; values remains unchanged. Captured arrays follow the same read-only rules as ordinary function parameters. Use copy or sorted before modifying elements inside the GPU helper. Writing through a host alias while the task is pending is a compile-time error.
+
+Array capture supports all ten numeric types and Bool, subject to the selected arithmetic policy. Packing and upload costs count toward end-to-end latency, and their storage counts toward task and device budgets. The private wire representation uses a 64-bit cell per element, so it can use more memory than the corresponding CPU array. Captured host arrays and resident tensor inputs cannot yet be combined in one GPU entry. Return a numeric or Bool scalar; array and record results are not supported across this boundary.
+
 h2 { "AI and LLM foundations" }
 
 Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. Kalandra does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
@@ -240,6 +259,7 @@ table {
   row = ["Integer-range for, while, break and continue", "Supported", "Supported in scalar helpers; sequential iterations"],
   row = ["Single-result loop expressions", "Supported", "Supported for numeric/Bool scalar results"],
   row = ["Plain-data records, enums and match", "Supported", "Local values and internal helpers; no aggregate host/device transport"],
+  row = ["Numeric and Bool array parameters", "Supported", "Read-only task captures with packing/upload costs; scalar results only"],
   row = ["Array iteration, indexing and element mutation", "Supported with access rules", "Local numeric/Bool arrays; bounds checked; existing access rules apply"],
   row = ["Collecting loops with yield", "Supported", "Numeric/Bool elements; ordered, nested and filtered collection"],
   row = ["Array copy, slice and concat", "Supported for their documented element types", "Local numeric/Bool arrays"],

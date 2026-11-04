@@ -332,7 +332,8 @@ struct KernelState {
   id<MTLComputePipelineState> blockReduction = nil, tiledMatrix = nil, block32Matrix = nil,
                               block64Matrix = nil, registerMatrix = nil, groupedMatrix = nil,
                               skinnyMatrix = nil;
-  bool scalarBuffer(std::size_t i) const { return !scalarBuffers.empty() && scalarBuffers[i]; }
+  bool scalarBuffer(std::size_t i) const { return !scalarBuffers.empty() && scalarBuffers[i] == 1; }
+  bool arrayCapture(std::size_t i) const { return !scalarBuffers.empty() && scalarBuffers[i] == 2; }
   NumericType tensorType(std::size_t i) const {
     return tensorTypes.empty() ? *numericType : tensorTypes[i];
   }
@@ -607,9 +608,11 @@ struct Bridge {
             kernel->tensorTypes.back() != NumericType::UInt64 ||
             kernel->scalarBuffers.size() != op.inputs.size() + 1 ||
             kernel->scalarBuffers.back() || kernel->readCount != op.inputs.size() + 1 ||
-            !std::all_of(kernel->scalarBuffers.begin(), kernel->scalarBuffers.end() - 1,
-                         [](auto role) { return role == 1; }))
+            !detail::validControlInputRoles(kernel->scalarBuffers, op.scalars.size()))
           return std::unexpected(Error::Invalid);
+        for (std::size_t i = 0; i < op.inputs.size(); ++i)
+          if (kernel->arrayCapture(i) && kernel->tensorTypes[i] != NumericType::UInt64)
+            return std::unexpected(Error::Invalid);
         for (std::size_t i = 0; i <= op.inputs.size(); ++i)
           if (kernel->tensorIndex(i) != i)
             return std::unexpected(Error::Invalid);
@@ -2368,7 +2371,11 @@ struct Bridge {
             std::uint64_t(words[1 + i * 2]) | (std::uint64_t(words[2 + i * 2]) << 32);
       if (last.kind == NumericInstructionKind::DeviceControl) {
         using A = detail::ControlArenaABI;
-        if (p.controlState[A::Capacity] != p.controlArena.words())
+        if (p.controlState[A::Capacity] != p.controlArena.words() ||
+            !detail::controlInputLengths(last.kernel.state_->scalarBuffers, last.scalars.size(), false,
+                [&](std::size_t i) { return p.values[last.inputs[i]].bytes(); },
+                [&](std::size_t i) { return p.controlState[i]; },
+                [](std::size_t, std::uint64_t) {}))
           return std::unexpected(Error::Invalid);
         if (next == A::Grow) {
           if (!p.controlState[A::Resume] || p.controlState[A::Resume] >= A::Grow)
@@ -3147,6 +3154,14 @@ struct Bridge {
                 program.controlState[A::Requested] = program.controlState[A::Resume] = 0;
               }
               program.controlState[A::Capacity] = program.controlArena.words();
+              if (!detail::controlInputLengths(kernel->scalarBuffers, op.scalars.size(),
+                      program.controlState[A::PC] == 0,
+                      [&](std::size_t i) { return input(i).bytes(); },
+                      [&](std::size_t i) { return program.controlState[i]; },
+                      [&](std::size_t i, std::uint64_t value) { program.controlState[i] = value; })) {
+                fail(task, f, std::int64_t(Error::Invalid));
+                return;
+              }
               program.controlActive = true;
             }
             f.packet.kernel = op.kernel;
@@ -3549,13 +3564,18 @@ struct Bridge {
                                      (f.packet.graph && f.graphPhase == 0 &&
                                       i >= f.packet.graph->products[f.graphStage].tensorCount());
               const bool privateArena = arenaControl && i + 1 == signature.tensors;
+              const bool capturedArray = kernel->arrayCapture(i);
               if (!other ||
                   other->format !=
                       (kernel->numericType ? *storageFormat(kernel->tensorType(i)) : format) ||
                   (broadcast &&
                    (other->size != describeNumeric(*storageNumericType(other->format))->bytes())) ||
                   (other->rank > 8 || (!kernel->numericType && other->rank < 1)) ||
-                  (read && !broadcast && !privateArena &&
+                  (capturedArray && (!arenaControl || other->rank != 1 ||
+                      other->format != *storageFormat(NumericType::UInt64) ||
+                      other->size % 8 || other->size / 8 < DeviceArrayWireABI::HeaderWords ||
+                      other->size / 8 > DeviceArrayWireABI::MaxWords)) ||
+                  (read && !broadcast && !privateArena && !capturedArray &&
                    (other->rank != source->rank ||
                     other->size / describeNumeric(*storageNumericType(other->format))->bytes() !=
                         source->size / width ||
@@ -4499,12 +4519,12 @@ std::expected<Kernel, Error> Runtime::loadKernel(
           scalarTypes.size() >= detail::ControlArenaABI::Cells &&
           std::all_of(scalarTypes.begin(), scalarTypes.end(),
                       [](auto type) { return type == NumericType::UInt64; }) &&
-          std::all_of(scalarBuffers.begin(), scalarBuffers.end() - 1,
-                      [](auto role) { return role == 1; });
+          detail::validControlInputRoles(scalarBuffers, scalarTypes.size());
       bool seen = false;
       for (std::size_t i = 0; i < scalarBuffers.size(); ++i) {
         const auto role = scalarBuffers[i];
-        if (role > 1 || (seen && !role && !(privateControl && i + 1 == scalarBuffers.size())))
+        if (role > 2 || (role == 2 && (!privateControl || tensorTypes[i] != NumericType::UInt64)) ||
+            (seen && !role && !(privateControl && i + 1 == scalarBuffers.size())))
           return std::unexpected(Error::Invalid);
         seen |= role;
       }
@@ -4692,7 +4712,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
                         [](auto x) { return x != 0; })) {
           spelling += "_d_";
           for (auto role : scalarBuffers)
-            spelling += role ? 's' : 't';
+            spelling += role == 2 ? 'a' : role ? 's' : 't';
         }
         numericName = [[NSString alloc] initWithBytes:spelling.data()
                                                length:spelling.size()

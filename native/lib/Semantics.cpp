@@ -5202,7 +5202,10 @@ private:
     }
     for (auto operand : operands) {
       const auto type = node(operand).type;
-      if (type.tensor && type.device != device) {
+      // Host arrays are read-borrowed task captures. The selected GPU entry
+      // packs/uploads them in its own admitted child; resident tensors still
+      // require an explicit transfer to the selected execution device.
+      if (type.tensor && !type.array && type.device != device) {
         error("S047",
               "tensor arguments require an explicit transfer to the selected execution device",
               span);

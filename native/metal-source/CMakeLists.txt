@@ -1259,6 +1259,12 @@ if(BUILD_TESTING)
         --root "${CMAKE_CURRENT_BINARY_DIR}/device-arrays-${VARIANT}")
     set_tests_properties(native-metal-device-arrays-${VARIANT} PROPERTIES TIMEOUT 1200
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-array-entry-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceArrayEntryTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-array-entry-${VARIANT}")
+    set_tests_properties(native-metal-device-array-entry-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
     add_test(NAME native-metal-device-bool-${VARIANT}
       COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceBoolTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"

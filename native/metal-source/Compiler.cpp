@@ -109,13 +109,12 @@ class Compiler {
         continue;
       const auto &fn = cpu.functions[function];
       const auto supported = [&](const ValueType &type) {
-        if (type.array && function == root)
-          reject(fn.declaration,
-                 "GPU entry host arrays require typed array transport; local device arrays are supported");
         if (type.builtin == BuiltinValue::Numeric &&
             !numericArithmeticAvailable(type.element, NumericTarget::AppleGpu))
           reject(fn.declaration, "GPU kernel numeric type is not implemented");
       };
+      if (function == root && fn.resultType.array)
+        reject(fn.declaration, "GPU entry array results require typed result transport");
       supported(fn.resultType);
       for (auto parameter : fn.parameters)
         supported(cpu.symbols[parameter].type);
@@ -1619,13 +1618,16 @@ class Compiler {
       const auto &type = cpu.symbols.at(fn.parameters.at(i)).type;
       const auto &value = inputs[i];
       completed(value, span);
-      const bool boolean = type.builtin == BuiltinValue::Bool && !type.tensor;
-      if ((!boolean && (type.builtin != BuiltinValue::Numeric || value.element != type.element)) ||
-          value.kind != (boolean       ? Value::Boolean
+      const bool boolean = type.builtin == BuiltinValue::Bool && !type.tensor && !type.array;
+      if ((!boolean && !isBoolArray(type) &&
+           (type.builtin != BuiltinValue::Numeric || value.element != type.element)) ||
+          value.kind != (type.array    ? Value::Array
+                         : boolean     ? Value::Boolean
                          : type.tensor ? Value::Tensor
-                                       : Value::Scalar))
+                                       : Value::Scalar) ||
+          (type.array && (value.gpu || value.booleanArray != isBoolArray(type))))
         reject(span, "typed numerical program argument mismatch");
-      if (type.tensor) {
+      if (type.tensor && !type.array) {
         if (!value.gpu || value.device != target.device || value.rank != type.shape.size())
           reject(span,
                  "typed numerical program requires explicit matching device tensor transfers");
@@ -1633,7 +1635,7 @@ class Compiler {
           if (type.shape[axis].constant)
             requireLength(value, *type.shape[axis].constant, span, axis);
       }
-      (type.tensor ? tensors : scalars).push_back(value);
+      ((type.tensor || type.array) ? tensors : scalars).push_back(value);
     }
     auto locate = [&](const Extent &extent) -> std::pair<std::size_t, unsigned> {
       std::size_t tensor = 0;
@@ -1725,7 +1727,9 @@ class Compiler {
       const auto &kernel = program.kernels[i];
       const auto name = "kernel" + std::to_string(i);
       const auto path = base + (i ? "-stage" + std::to_string(i) : "") +
-                        (backend_ == GpuBackend::Vulkan ? ".spv" : backend_ == GpuBackend::Cuda ? ".ptx" : ".metallib");
+                        (backend_ == GpuBackend::Vulkan ? ".spv"
+                         : backend_ == GpuBackend::Cuda ? ".ptx"
+                                                        : ".metallib");
       auto instruction = std::find_if(program.code.begin(), program.code.end(),
                                       [i](const auto &op) { return op.kernel == i; });
       if (instruction == program.code.end())
@@ -1756,8 +1760,8 @@ class Compiler {
                 indices(kernel.scalarBuffers, "std::uint8_t");
       code += ");if(!" + name + "){" + error(name + ".error()") + "}\n";
     }
-    constexpr std::array names{"Map",         "Reduce",     "Matmul",       "Branch",
-                               "Jump",        "Alias",      "EqualShape",   "Extent",
+    constexpr std::array names{"Map",         "Reduce",     "Matmul",        "Branch",
+                               "Jump",        "Alias",      "EqualShape",    "Extent",
                                "MatrixShape", "ShapeFault", "ScalarControl", "DeviceControl"};
     for (std::size_t i = 0; i < program.code.size(); ++i) {
       const auto &op = program.code[i];
@@ -1782,13 +1786,38 @@ class Compiler {
             "u,code," + std::to_string(program.result) + "u," + elementName(result.element) + "," +
             (result.scalarTask ? "true" : "false") + (result.booleanTask ? ",true" : "") +
             (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
-            error("prepared.error()") + "}f." + executable + "=*prepared;\n}\nf." + out +
-            "=r.executeNumericProgram(task," + activeGroup + ",f." + executable +
-            ",std::array<m::Buffer," + std::to_string(tensors.size()) + ">{";
-    for (const auto &value : tensors)
-      code += ref(value) + ",";
-    code += "},std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
-            "});\n" + admitted("f." + out);
+            error("prepared.error()") + "}f." + executable + "=*prepared;\n}\n";
+    const bool arrayInputs =
+        std::ranges::any_of(tensors, [](const auto &v) { return v.kind == Value::Array; });
+    if (arrayInputs) {
+      if (std::ranges::any_of(tensors, [](const auto &v) { return v.kind != Value::Array; }))
+        reject(span, "GPU array entry cannot yet combine host arrays and resident tensors");
+      std::string arguments;
+      for (const auto &value : tensors)
+        arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
+                     (value.booleanArray ? "true" : "false") + ">";
+      code += "using "
+              "ArrayJob=DeviceArrayInputJob<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
+              std::to_string(0x4b414c4441520000ULL + function) + "ull," +
+              elementName(result.element) + "," + (result.booleanTask ? "true" : "false") + "," +
+              std::to_string(captureCount) + arguments + ">;\n";
+      code += "ArrayJob::PacketData packet{&r,f." + executable + ",*target," +
+              "std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
+              "},std::tuple{";
+      for (const auto &value : tensors)
+        code += ref(value) + ",";
+      code += "}};\nf." + out + "=task.spawn(" + activeGroup +
+              ",ArrayJob::entry,{ArrayJob::entry.packetLayout,&packet,sizeof(packet),&task.context("
+              ")});\n";
+    } else {
+      code += "f." + out + "=r.executeNumericProgram(task," + activeGroup + ",f." + executable +
+              ",std::array<m::Buffer," + std::to_string(tensors.size()) + ">{";
+      for (const auto &value : tensors)
+        code += ref(value) + ",";
+      code += "},std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
+              "});\n";
+    }
+    code += admitted("f." + out);
     steps.push_back(std::move(code));
     return result;
   }
@@ -1799,7 +1828,8 @@ class Compiler {
     if (backend_ != GpuBackend::Metal || numericPrograms.contains(function) ||
         fn.resultType.builtin == BuiltinValue::Bool ||
         std::ranges::any_of(fn.parameters, [&](auto id) {
-          return cpu.symbols.at(id).type.builtin == BuiltinValue::Bool;
+          return cpu.symbols.at(id).type.builtin == BuiltinValue::Bool ||
+                 cpu.symbols.at(id).type.array;
         }))
       return spawnNumericProgram(function, inputs, target, span);
     auto found = numericShaders.find(function);
@@ -3858,14 +3888,18 @@ public:
           const auto &shader = found->second.kernels[stage];
           auto name = base + (stage ? "-stage" + std::to_string(stage) : "");
           if (backend_ != GpuBackend::Metal && shader.element == NumericType::Float32 &&
-              std::any_of(found->second.code.begin(), found->second.code.end(), [&](const auto &op) {
-                return op.kernel == stage && op.kind == NumericProgramKind::Matmul;
-              }))
+              std::any_of(found->second.code.begin(), found->second.code.end(),
+                          [&](const auto &op) {
+                            return op.kernel == stage && op.kind == NumericProgramKind::Matmul;
+                          }))
             outputs[name + (backend_ == GpuBackend::Cuda ? ".cuda-matmul" : ".vulkan-matmul")] =
-                backend_ == GpuBackend::Cuda ? "kalandra-cuda-matmul-v1\ntype=float32\n" : "kalandra-vulkan-matmul-v1\ntype=float32\n";
+                backend_ == GpuBackend::Cuda ? "kalandra-cuda-matmul-v1\ntype=float32\n"
+                                             : "kalandra-vulkan-matmul-v1\ntype=float32\n";
           if (backend_ != GpuBackend::Metal && shader.transform) {
-            outputs[name + (backend_ == GpuBackend::Cuda ? ".cuda-transform" : ".vulkan-transform")] =
-                std::string(backend_ == GpuBackend::Cuda ? "kalandra-cuda-transform-v1\nkind=" : "kalandra-vulkan-transform-v1\nkind=") +
+            outputs[name +
+                    (backend_ == GpuBackend::Cuda ? ".cuda-transform" : ".vulkan-transform")] =
+                std::string(backend_ == GpuBackend::Cuda ? "kalandra-cuda-transform-v1\nkind="
+                                                         : "kalandra-vulkan-transform-v1\nkind=") +
                 std::string(tensorTransformName(*shader.transform)) +
                 "\ntype=" + std::string(describeNumeric(shader.element)->name) + "\n";
             continue;
@@ -3950,6 +3984,7 @@ public:
     std::ostringstream host;
     host << (backend_ != GpuBackend::Metal ? "#include \"Language.h\"\n" : "#include \"Metal.h\"\n")
          << R"(#include "../runtime/HostArrays.h"
+#include "../runtime/DeviceArrayInputJob.h"
 #include <array>
 #include <bit>
 #include <charconv>
@@ -4115,9 +4150,11 @@ void resume(Task &task) {
       for (std::size_t at = 0; (at = hostText.find(destruction, at)) != std::string::npos;)
         hostText.replace(at, destruction.size(), "std::destroy_at(value)");
       for (std::size_t at = 0; (at = hostText.find("Metal unavailable", at)) != std::string::npos;)
-        hostText.replace(at, 17, backend_ == GpuBackend::Cuda ? "CUDA unavailable" : "Vulkan unavailable");
+        hostText.replace(at, 17,
+                         backend_ == GpuBackend::Cuda ? "CUDA unavailable" : "Vulkan unavailable");
       for (std::size_t at = 0; (at = hostText.find("Metal task failed", at)) != std::string::npos;)
-        hostText.replace(at, 17, backend_ == GpuBackend::Cuda ? "CUDA task failed" : "Vulkan task failed");
+        hostText.replace(at, 17,
+                         backend_ == GpuBackend::Cuda ? "CUDA task failed" : "Vulkan task failed");
       const std::string metalCleanup =
           "s.bytes || s.metalBuffers || s.hostBackings || s.deviceBackings || s.inFlight || "
           "s.stagingBuffers || s.argumentBytes || s.argumentPacks";

@@ -1,5 +1,7 @@
 #pragma once
+#include "../runtime/DeviceArrayABI.h"
 #include <algorithm>
+#include <span>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -13,6 +15,42 @@ struct ControlArenaABI {
   static constexpr std::uint64_t Done = UINT64_MAX, Grow = UINT64_MAX - 1;
   static constexpr std::size_t PC = 0, Capacity = 1, Requested = 2, Resume = 3, Cells = 4;
 };
+// Capture role 2 is a read-only array wire, not a scalar broadcast or a map
+// domain. Its actual backing length is sealed in the final frame cells by the
+// runtime, never trusted from the wire's own bytes. Verify it after each fence.
+inline bool validControlInputRoles(std::span<const std::uint8_t> roles, std::size_t slots) {
+  if (roles.empty() || roles.back() != 0)
+    return false;
+  std::size_t arrays = 0;
+  for (auto role : roles.first(roles.size() - 1)) {
+    if (role != 1 && role != DeviceArrayWireABI::InputRole)
+      return false;
+    arrays += role == DeviceArrayWireABI::InputRole;
+  }
+  return slots >= ControlArenaABI::Cells && arrays <= slots - ControlArenaABI::Cells;
+}
+template <class Bytes, class Read, class Write>
+bool controlInputLengths(std::span<const std::uint8_t> roles, std::size_t slots, bool initialize,
+                         Bytes bytes, Read read, Write write) {
+  if (!validControlInputRoles(roles, slots))
+    return false;
+  const auto arrays = std::count(roles.begin(), roles.end(), DeviceArrayWireABI::InputRole);
+  // Validate every input before publishing any metadata, even in initialization.
+  for (std::size_t i = 0, index = slots - arrays; i + 1 < roles.size(); ++i) {
+    if (roles[i] != DeviceArrayWireABI::InputRole)
+      continue;
+    const auto size = bytes(i);
+    if (size % 8 || size / 8 < DeviceArrayWireABI::HeaderWords ||
+        size / 8 > DeviceArrayWireABI::MaxWords || (!initialize && read(index) != size / 8))
+      return false;
+    ++index;
+  }
+  if (initialize)
+    for (std::size_t i = 0, index = slots - arrays; i + 1 < roles.size(); ++i)
+      if (roles[i] == DeviceArrayWireABI::InputRole)
+        write(index++, bytes(i) / 8);
+  return true;
+}
 // Private invocation storage. Callbacks allocate charged device storage and
 // perform fence-complete opaque GPU copies; this class never evaluates source
 // operations or traverses source objects. One advance copies at most one page,
