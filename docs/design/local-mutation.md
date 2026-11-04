@@ -71,7 +71,7 @@ Rebinding a name does not grant write access to read-only storage.
    quotas apply; no unchecked allocator is added.
 2. Numeric/Bool rebinding and statement/expression `if`, `while` and `for` are
    implemented. Scalar types remain fixed. Statement loops use bare `break`;
-   expression loops require a normal-completion `else` result and use
+   single-result expression loops require a normal-completion `else` result and use
    `break value`. `continue` advances the nearest lexical loop. Every result
    path has a compatible completed type; no last-iteration result is inferred.
    Array iteration pins one input backing; integer `range(stop)`,
@@ -454,3 +454,50 @@ Ordinary native subgraphs keep their existing direct entry. Export-only modules
 omit task resume entries and internalize private definitions, so linking a GPU
 supervisor does not introduce unused TaskABI dependencies or duplicate symbols.
 GPU kernels keep their existing numerical and placement rules.
+
+
+## Eager collecting loops with yield
+
+The array-producing form uses the existing loop expression syntax, without a
+second `collect` keyword. A collecting expression appends every executed `yield`
+to one eager CPU array. Nested statement loops target that expression; a nested
+loop used as its own expression owns a separate collection. Anonymous functions
+reset the lexical collection boundary. `yield` neither suspends nor transfers
+control, and all successful loop backedges still discharge task obligations.
+
+The semantic checker infers one completed array element type, or takes it from
+an expected array type. The existing scalar numeric/Bool/String/record/function
+array element model is preserved; this change does not add nested arrays or
+tensor elements. Yielding a fallible value, task or device-resident value is
+rejected. Zero executed yields produces a correctly typed empty array. Bare
+`break` preserves the accumulated prefix and skips the rest of the loop;
+`continue` keeps the prefix and advances the nearest loop. Mixing `yield` with
+value-bearing breaks or an else result in the same collecting expression is
+rejected. Existing single-result loops remain distinct and unchanged.
+
+Native CFG collection instructions use invocation-local value scopes. A private
+builder grows storage geometrically and copies only the initialized payload
+prefix, polling between bounded chunks. It retains owned element graphs into a
+separate scope; growing the payload retires the previous storage rather than
+keeping all prior capacities alive. Publication retains a complete array before
+retiring the builder. The builder is a descendant control allocation of its
+native frame, so normal returns, expected-error propagation, checked faults,
+allocation failures and cancellation all retire its scopes. There is no new
+cancellation contract, public builder ABI, allocator exemption or lazy generator.
+Numeric/Bool GPU-host carriers use the same implementation as CPU CFG entries.
+Expected-error transfers record which lexical collections they leave, then
+discard those builders from inner to outer before resuming the handler. An
+outer collection survives a failure handled by an inner task group. Synchronous
+callers with owned values use frame scopes too, even without a lexical loop;
+function normalization includes compiler-generated map/generate references.
+Read-lock analysis joins the alias roots of yielded owned elements, including
+records and function captures, into the completed array's provenance.
+
+The shared portable/cross-compilation loop corpus covers nested forwarding,
+independent nested collectors, empty and filtered results, multiple yields,
+nearest-loop exits, functions/captures, Strings, records, aliases, all ten
+numeric types, Bool mutation, await-before-yield, and rejected read-lock and
+function-boundary violations. Runtime probes inject allocation failures during
+construction, cancel a running collection, test faults after growth, and check
+bounded live buffers and complete budget release. GPU-host cases cover both
+CPU helper collectors and direct supervisor collection across task waits.

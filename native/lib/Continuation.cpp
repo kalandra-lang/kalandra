@@ -88,6 +88,7 @@ class Builder : public ModulePlan {
     Slot output;
     std::optional<std::size_t> group;
     std::vector<std::size_t> jumps;
+    std::size_t collectionDepth = 0;
   };
   struct LoopBoundary {
     Slot output;
@@ -106,6 +107,8 @@ class Builder : public ModulePlan {
     std::optional<std::size_t> group;
     std::vector<std::size_t> groups;
     std::unordered_map<std::size_t, LoopBoundary *> loops;
+    std::unordered_map<std::size_t, Slot> collections;
+    std::vector<Slot> collectionStack;
   };
 
 public:
@@ -158,10 +161,13 @@ public:
       std::set<FunctionId> stack;
       plan.result = function(plan, id, parameters, stack);
       plan.code.push_back({Code::Return, 0, {plan.result}});
+      // A caller can own a collected result or a catch fallback without
+      // containing a lexical loop itself. Retire those values with its frame.
       if (options.valueScopes &&
-          std::ranges::any_of(input.functions[id].expressions, [&](ValueId value) {
-            return std::holds_alternative<WhileOperation>(input.expressions[value].operation);
-          }))
+          (loopControl[id] ||
+           std::ranges::any_of(input.functions[id].expressions, [&](ValueId value) {
+             return std::holds_alternative<WhileOperation>(input.expressions[value].operation);
+           })))
         plan.valueScopes |= std::ranges::any_of(plan.slots, [](const ValueType &type) {
           return type.tensor || type.record || type.errorRecord ||
                  type.builtin == BuiltinValue::String || type.builtin == BuiltinValue::Function;
@@ -372,6 +378,8 @@ private:
             for (auto &value : op.exitValues) value = importValue(value);
           } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
             if (op.value) op.value = importValue(*op.value);
+          } else if constexpr (std::is_same_v<T, YieldOperation>) {
+            op.operand = importValue(op.operand);
           } else if constexpr (std::is_same_v<T, IntegerRangeOperation>) {
             op.current = importValue(op.current);
             op.stop = importValue(op.stop);
@@ -880,7 +888,7 @@ private:
       plan.code.push_back({Code::FunctionInvoke, output, args, 0, 0, 0, id});
     } else if (const auto *block = std::get_if<ParallelOperation>(&node.operation)) {
       const auto group = plan.groups++;
-      Boundary boundary{output, group, {}};
+      Boundary boundary{output, group, {}, env.collectionStack.size()};
       auto nested = env;
       nested.boundary = &boundary;
       nested.group = group;
@@ -951,6 +959,8 @@ private:
                                {operand},
                                env.boundary->output,
                                env.boundary->group.value_or(SIZE_MAX)});
+          for (auto n = env.collectionStack.size(); n > env.boundary->collectionDepth; --n)
+            plan.code.back().collections.push_back(env.collectionStack[n - 1]);
           env.boundary->jumps.push_back(index);
         }
       }
@@ -959,7 +969,7 @@ private:
       const auto error = slot(plan, input.symbols[handler->parameter].type);
       auto nested = env;
       nested.symbols[handler->parameter] = error;
-      Boundary boundary{output, {}, {}};
+      Boundary boundary{output, {}, {}, env.collectionStack.size()};
       nested.boundary = &boundary;
       const auto dispatch = plan.code.size();
       plan.code.push_back({Code::Catch, output, {operand, error}});
@@ -976,6 +986,12 @@ private:
       plan.code[dispatch].target = exit;
       for (auto jump : boundary.jumps)
         plan.code[jump].jump = exit;
+    } else if (const auto *yield = std::get_if<YieldOperation>(&node.operation)) {
+      const auto value = expression(plan, yield->operand, env, stack);
+      const auto found = env.collections.find(yield->collection);
+      if (found == env.collections.end())
+        throw std::runtime_error("yield has no lexical collection");
+      plan.code.push_back({Code::CollectAppend, found->second, {value}, 0, 0, 0, id});
     } else if (const auto *jump = std::get_if<LoopTransferOperation>(&node.operation)) {
       auto found = env.loops.find(jump->loop);
       if (found == env.loops.end())
@@ -1003,6 +1019,12 @@ private:
       if (!jump->continuing)
         loop.exits.push_back(branch);
     } else if (const auto *loop = std::get_if<WhileOperation>(&node.operation)) {
+      if (loop->collecting) {
+        plan.valueScopes = true;
+        env.collections[loop->identity] = output;
+        env.collectionStack.push_back(output);
+        plan.code.push_back({Code::CollectInit, output, {}, 0, 0, 0, id});
+      }
       for (const auto &statement : loop->initial) {
         const auto value = expression(plan, statement.value, env, stack);
         if (statement.binding)
@@ -1043,6 +1065,11 @@ private:
       plan.code.push_back({Code::Label, 0, {}});
       for (auto branch : boundary.exits)
         plan.code[branch].jump = exit;
+      if (loop->collecting) {
+        plan.code.push_back({Code::CollectFinish, output, {}, 0, 0, 0, id});
+        env.collections.erase(loop->identity);
+        env.collectionStack.pop_back();
+      }
     } else if (const auto *guard = std::get_if<GuardOperation>(&node.operation)) {
       auto condition = expression(plan, guard->condition, env, stack);
       const auto dispatch = plan.code.size();
@@ -1128,6 +1155,8 @@ private:
                            {error},
                            env.boundary->output,
                            env.boundary->group.value_or(SIZE_MAX)});
+      for (auto n = env.collectionStack.size(); n > env.boundary->collectionDepth; --n)
+        plan.code.back().collections.push_back(env.collectionStack[n - 1]);
       env.boundary->jumps.push_back(index);
     } else if ((std::holds_alternative<BoolLiteral>(node.operation) ||
                 std::holds_alternative<Float64Literal>(node.operation) ||
@@ -1215,7 +1244,7 @@ std::vector<bool> loopControlFunctions(const TypedModule &input) {
     for (auto value : input.functions[id].expressions) {
       const auto &operation = input.expressions.at(value).operation;
       if (const auto *loop = std::get_if<WhileOperation>(&operation))
-        result[id] = result[id] || loop->transfers || !loop->whenDone.empty();
+        result[id] = result[id] || loop->transfers || loop->collecting || !loop->whenDone.empty();
       if (const auto *call = std::get_if<FunctionCall>(&operation))
         callers.at(call->function).push_back(id);
       if (const auto *reference = std::get_if<FunctionReference>(&operation))
@@ -1259,7 +1288,7 @@ std::vector<bool> resumableFunctions(const TypedModule &input) {
           std::holds_alternative<LoopTransferOperation>(op) ||
           (std::holds_alternative<WhileOperation>(op) &&
            (!std::get<WhileOperation>(op).whenDone.empty() ||
-            std::get<WhileOperation>(op).transfers)) ||
+            std::get<WhileOperation>(op).transfers || std::get<WhileOperation>(op).collecting)) ||
           std::holds_alternative<MatchOperation>(op) ||
           std::holds_alternative<GuardOperation>(op) || std::holds_alternative<FailOperation>(op) ||
           std::holds_alternative<ErrorFieldRead>(op) ||
@@ -1369,7 +1398,11 @@ std::string dump(const ModulePlan &module) {
                                           "callable.captures",
                                           "callable.sync.guard",
                                           "callable.invalid",
-                                          "group.propagate"};
+                                          "group.propagate",
+                                          "collect.init",
+                                          "collect.append",
+                                          "collect.finish"};
+  static_assert(std::size(names) == static_cast<unsigned>(Code::CollectFinish) + 1);
   std::ostringstream out;
   for (std::size_t f = 0; f < module.plans.size(); ++f) {
     const auto &plan = *module.plans[f];

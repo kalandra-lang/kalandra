@@ -24,6 +24,7 @@ struct Environment {
   std::map<ValueId, Roots> readers;
   bool stopped = false;
   std::map<std::size_t, LoopFlow *> loops;
+  std::map<std::size_t, Roots *> collections;
 };
 struct LoopFlow {
   std::vector<Environment> breaks, continues;
@@ -518,6 +519,12 @@ private:
             }
             env.stopped = yes.stopped && no.stopped;
             return value;
+          } else if constexpr (std::is_same_v<T, YieldOperation>) {
+            const auto found = env.collections.find(op.collection);
+            if (found == env.collections.end())
+              throw Exhausted{};
+            unite(*found->second, input(op.operand));
+            return {};
           } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
             auto found = env.loops.find(op.loop);
             if (found == env.loops.end())
@@ -542,6 +549,9 @@ private:
             const auto &sites = allocationSites(id);
             auto head = fork(env);
             LoopFlow paths;
+            Roots collected;
+            if (op.collecting)
+              head.collections[op.identity] = &collected;
             for (;;) {
               spend();
               spend(head.symbols.size() + head.readers.size());
@@ -588,6 +598,12 @@ private:
               joinReaders(env, path);
             }
             env.stopped = normal.stopped && paths.breaks.empty();
+            if (op.collecting) {
+              unite(inputs, collected);
+              unite(value, fresh(id));
+              // The array backing is new; owned elements keep their aliases.
+              unite(value, collected);
+            }
             return value;
           } else if constexpr (std::is_same_v<T, GuardOperation>) {
             input(op.condition);

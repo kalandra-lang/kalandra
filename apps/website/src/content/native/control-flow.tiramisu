@@ -75,9 +75,51 @@ codeblock { language = kalandra, """fn main() -> int:
 
 This returns 8, from 5 + 3 + 1 - 1. Reassigning index inside the body changes that iteration's local value; it does not change the next range value.
 
+h2 { "Build an array with yield" }
+
+A for or while expression containing yield builds an array. Each executed yield appends one value in execution order. You can filter values with if, skip an iteration with continue, or stop with a bare break. Values yielded before continue or break remain in the result. A collecting loop has no else result and does not accept break value.
+
+codeblock { language = kalandra, """fn main() -> [int]:
+  squares = for value in [3, -2, 7, 0]:
+    if value > 0:
+      yield value * value
+  squares
+""" }
+
+This returns [9, 49]. All yielded values must have the same element type. A type annotation on the result supplies the element type for numeric literals. If no yield executes, the result is an empty array of that type. The loop runs eagerly before the assignment completes; yield does not suspend execution or create a lazy generator.
+
+Nested statement loops contribute to the enclosing collecting expression. This lets one traversal produce zero, one or several values per iteration.
+
+codeblock { language = kalandra, """fn main() -> [int]:
+  results = for row in range(4):
+    for value in range(row):
+      if value % 2 == 0:
+        yield row * 10 + value
+  results
+""" }
+
+This returns [10, 20, 30, 32]. break and continue still target the nearest loop. Assigning a nested loop expression to a separate binding creates a separate result array; its yields do not append to the outer result. A function or callback cannot yield into its caller's loop.
+
+codeblock { language = kalandra, """fn main() -> [int]:
+  index = 0
+  values = while index < 6:
+    index = index + 1
+    if index == 2:
+      continue
+    yield index
+    if index == 4:
+      break
+    yield index * 10
+  values
+""" }
+
+This returns [1, 10, 3, 30, 4]. yield accepts the supported array element types: numeric scalars, Bool, Strings, records and functions. Array and tensor elements are not supported. Values must be completed and on the CPU; await tasks and handle expected errors before yielding their results. Yielding does not settle other tasks created in the iteration. Cancellation, faults and resource exhaustion abort construction without returning a partial array.
+
+The result has fresh array storage. Owned elements retain their ordinary aliasing rules: yielding a record does not duplicate arrays referenced by its fields. Existing read locks and mutation permissions still apply. Use generate for an indexed construction with a known count, map to transform an existing array, or a collecting loop when filtering, nested traversal or early exits make the construction clearer.
+
 h2 { "Get a value from a loop" }
 
-Both while and for can be expressions. An expression loop has an else suite that supplies its result when iteration finishes normally, including when the body never runs. break value ends the nearest loop and supplies its result instead; that path skips else. Every break and the else result must have compatible types. There is no implicit last-iteration result, and continue never supplies a value.
+For a single result rather than a yielded array, both while and for support an else suite that supplies its result when iteration finishes normally, including when the body never runs. break value ends the nearest loop and supplies its result instead; that path skips else. Every break and the else result must have compatible types. There is no implicit last-iteration result, and continue never supplies a value.
 
 codeblock { language = kalandra, """fn main() -> int:
   for value in [3, 7, 9]:
@@ -87,7 +129,7 @@ codeblock { language = kalandra, """fn main() -> int:
     0
 """ }
 
-This returns 7. The same search over an empty array would return 0. A statement loop uses bare break; an expression loop uses break value.
+This returns 7. The same search over an empty array would return 0. Statement and collecting loops use bare break; a single-result expression loop uses break value.
 
 codeblock { language = kalandra, """fn main() -> int:
   index = 0

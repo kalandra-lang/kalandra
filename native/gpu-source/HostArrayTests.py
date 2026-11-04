@@ -49,7 +49,8 @@ def compile_command(path, destination, qualified=True):
 cases = {name: ((fixtures / (name + '.k')).read_text(), expected)
          for name, expected in [('snapshot', 1013), ('boolean', 3012),
                                 ('tasks', 2538), ('functional', 239),
-                                ('recovery', 27), ('empty', 210), ('loops', 20160)]}
+                                ('recovery', 27), ('empty', 210), ('loops', 20160),
+                                ('yields', 62), ('yield-recovery', 42)]}
 for numeric in ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32',
                 'uint64', 'float32', 'float64'):
     cases['element-' + numeric] = (f'''fn twice(values:Tensor[{numeric},?])->Tensor[{numeric},?]:

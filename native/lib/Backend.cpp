@@ -3574,7 +3574,8 @@ private:
                                std::is_same_v<T, ErrorFieldRead> ||
                                std::is_same_v<T, FailOperation> ||
                                std::is_same_v<T, GuardOperation> ||
-                               std::is_same_v<T, LoopTransferOperation>) {
+                               std::is_same_v<T, LoopTransferOperation> ||
+                               std::is_same_v<T, YieldOperation>) {
             throw LoweringFailure{"task operation requires continuation lowering"};
           } else if constexpr (std::is_same_v<T, ShapeCheck>) {
             auto input = expression(frame, operation.input);
@@ -3958,7 +3959,8 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
                std::holds_alternative<LoopTransferOperation>(e.operation) ||
                (std::holds_alternative<WhileOperation>(e.operation) &&
                 (!std::get<WhileOperation>(e.operation).whenDone.empty() ||
-                 std::get<WhileOperation>(e.operation).transfers)) ||
+                 std::get<WhileOperation>(e.operation).transfers ||
+                 std::get<WhileOperation>(e.operation).collecting)) ||
                (!recursive && std::holds_alternative<MatchOperation>(e.operation));
       })) {
     if (!exports.empty())

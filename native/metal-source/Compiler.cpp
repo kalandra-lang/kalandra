@@ -2807,6 +2807,15 @@ class Compiler {
           code += "task.failGroup(" + plannedGroups.at(op.group) + "," + failure + ");\n";
         else
           code += failureRef(get(op.target)) + "=" + failure + ";\n";
+        for (auto collection : op.collections) {
+          const auto value = get(collection);
+          const auto found = arrayFields.find(value.slot);
+          if (found == arrayFields.end())
+            reject(span, "missing abandoned collection slot");
+          code += "if(!f.arrayScopes.collectDiscard(" +
+                  std::to_string(std::distance(arrayFields.begin(), found)) +
+                  ")){hostArrayFailure(task);return;}\n";
+        }
         code += jump(op.jump) + "}\n";
         if (op.code == Code::Try)
           code += copy(write(op.output, args[0]), args[0]);
@@ -2876,6 +2885,28 @@ class Compiler {
         steps.push_back("{auto failure=task.failure(" + plannedGroups.at(op.group) +
                         ");if(failure.kind!=TaskFailure::None){task.fail(failure);return;}}\n");
         break;
+      case Code::CollectInit:
+      case Code::CollectAppend:
+      case Code::CollectFinish: {
+        const auto output = get(op.output);
+        const auto found = arrayFields.find(output.slot);
+        if (found == arrayFields.end())
+          reject(span, "missing collection ownership slot");
+        const auto index = std::to_string(std::distance(arrayFields.begin(), found));
+        std::string call;
+        if (op.code == Code::CollectInit)
+          call = "f.arrayScopes.collectBegin(" + index + ",hostScalarLayout<" +
+                 elementName(output.element) + "," + (output.booleanArray ? "true" : "false") +
+                 ">()," + arrayLayout(output) + "," + (output.booleanArray ? "true" : "false") +
+                 ")";
+        else if (op.code == Code::CollectAppend)
+          call = "f.arrayScopes.collectAppend(" + index + ",&" + ref(args.at(0)) + ")";
+        else
+          call = "f.arrayScopes.collectFinish(" + index + ",&" + ref(output) + ")";
+        steps.push_back("if(!" + call + "){hostArrayFailure(task);return;}\n" +
+                        (op.code == Code::CollectFinish ? commitArray(output) : ""));
+        break;
+      }
       case Code::MapInit:
       case Code::MapPrepare:
       case Code::MapJoin:
@@ -4025,15 +4056,18 @@ void resume(Task &task) {
     auto hostText = host.str();
     if (backend_ != GpuBackend::Metal) {
       hostText = "#include \"ExecutablePath.h\"\n" + hostText;
-      const std::string oldDirectory =
-          "const auto directory=argc==2 ? std::string(argv[1]) : std::filesystem::absolute(argv[0]).parent_path().string();";
+      const std::string oldDirectory = "const auto directory=argc==2 ? std::string(argv[1]) : "
+                                       "std::filesystem::absolute(argv[0]).parent_path().string();";
       const auto directoryAt = hostText.find(oldDirectory);
       if (directoryAt == std::string::npos)
         reject({}, "missing Vulkan artifact-directory initialization");
       hostText.replace(directoryAt, oldDirectory.size(),
-          "auto resolvedDirectory=argc==2 ? std::expected<std::string,std::error_code>(std::string(argv[1])) : kalandra::runtime::vulkan::executableDirectoryUtf8();\n"
-          "  if (!resolvedDirectory) { std::fprintf(stderr,\"Vulkan artifact directory unavailable\\n\"); return 1; }\n"
-          "  const auto &directory=*resolvedDirectory;");
+                       "auto resolvedDirectory=argc==2 ? "
+                       "std::expected<std::string,std::error_code>(std::string(argv[1])) : "
+                       "kalandra::runtime::vulkan::executableDirectoryUtf8();\n"
+                       "  if (!resolvedDirectory) { std::fprintf(stderr,\"Vulkan artifact "
+                       "directory unavailable\\n\"); return 1; }\n"
+                       "  const auto &directory=*resolvedDirectory;");
       if (arithmetic_ == ArithmeticMode::HardwareWithSoftwareFallback) {
         const std::string create = "auto made=m::Runtime::create();";
         const auto at = hostText.find(create);

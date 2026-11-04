@@ -784,10 +784,12 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
                              module.records[*input.record].fields[read->field].type))
           return "function field read changes its declared signature";
       } else if (const auto *loop = std::get_if<WhileOperation>(&expression.operation)) {
-        if (!loop->normalResult || loop->exitValues.empty())
+        if ((!loop->normalResult && !loop->collecting) || loop->exitValues.empty())
           return "loop has no function result";
         for (auto result : loop->exitValues)
-          if (result >= id || !sameStorageType(completed(expression.type),
+          if (result >= id ||
+              !sameStorageType(loop->collecting ? recordArrayElement(expression.type)
+                                                : completed(expression.type),
                                                completed(module.expressions[result].type)))
             return "loop changes a function-value signature";
       } else if (const auto *choice = std::get_if<ConditionalOperation>(&expression.operation)) {

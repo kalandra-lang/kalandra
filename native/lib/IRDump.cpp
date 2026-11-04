@@ -264,6 +264,17 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
                      expression.type.element != NumericType::Int64))
         return "invalid range result type";
     }
+    if (const auto *yield = std::get_if<YieldOperation>(&expression.operation)) {
+      const auto index = static_cast<ValueId>(&expression - module.expressions.data());
+      if (target != NumericTarget::Cpu || !yield->collection || yield->operand >= index ||
+          expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
+          expression.type.fallible)
+        return "invalid yield operation";
+      const auto &element = module.expressions[yield->operand].type;
+      if (element.array || element.tensor || element.task || element.fallible || element.device ||
+          element.builtin == BuiltinValue::Device)
+        return "yield requires a completed CPU array element";
+    }
     if (const auto *jump = std::get_if<LoopTransferOperation>(&expression.operation)) {
       if (target != NumericTarget::Cpu || !jump->loop || (jump->continuing && jump->value) ||
           (jump->value && *jump->value >= module.expressions.size()) ||
@@ -279,7 +290,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       const auto &condition = module.expressions[loop->condition].type;
       if (condition.builtin != BuiltinValue::Bool || condition.tensor || condition.task ||
           condition.fallible || condition.device ||
-          (!loop->normalResult &&
+          (!loop->normalResult && !loop->collecting &&
            (expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
             expression.type.task || expression.type.fallible)))
         return "while requires a completed CPU Bool condition and a valid result";
@@ -288,6 +299,17 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           if (statement.value >= module.expressions.size() ||
               (statement.binding && *statement.binding >= module.symbols.size()))
             return "while references an invalid statement";
+      if (loop->collecting) {
+        if (!expression.type.array || expression.type.shape.size() != 1 || expression.type.task ||
+            expression.type.fallible || expression.type.device || loop->normalResult ||
+            !loop->whenDone.empty() || loop->exitValues.empty())
+          return "invalid collecting loop result";
+        for (auto yielded : loop->exitValues)
+          if (yielded >= module.expressions.size() ||
+              !sameFunctionValueType(recordArrayElement(expression.type),
+                                     module.expressions[yielded].type))
+            return "collecting loop changes its element type";
+      }
       if (loop->normalResult &&
           (*loop->normalResult >= module.expressions.size() || loop->whenDone.empty() ||
            loop->whenDone.back().value != *loop->normalResult))
@@ -1076,7 +1098,9 @@ std::string dumpTypedIR(const TypedModule &module) {
             else if constexpr (std::is_same_v<T, ErrorNarrow>)
               out << "narrow error %" << operation.input;
             else if constexpr (std::is_same_v<T, WhileOperation>) {
-              out << (operation.normalResult ? "while.expression " : "while.statement ");
+              out << (operation.collecting     ? "while.collect "
+                      : operation.normalResult ? "while.expression "
+                                               : "while.statement ");
               value(operation.condition);
               out << " {";
               for (const auto &statement : operation.body) {
@@ -1084,6 +1108,8 @@ std::string dumpTypedIR(const TypedModule &module) {
                 value(statement.value);
               }
               out << " }";
+            } else if constexpr (std::is_same_v<T, YieldOperation>) {
+              out << "yield " << operation.collection << " %" << operation.operand;
             } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
               out << (operation.continuing ? "continue " : "break ") << operation.loop;
               if (operation.value)

@@ -304,6 +304,11 @@ struct WhileOperation {
   bool transfers = false;
   std::vector<TypedStatement> initial = {}, iteration = {};
   std::vector<ValueId> exitValues = {};
+  bool collecting = false;
+};
+struct YieldOperation {
+  std::size_t collection;
+  ValueId operand;
 };
 struct LoopTransferOperation {
   std::size_t loop;
@@ -390,7 +395,7 @@ struct TypedExpr {
                TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat,
                ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection,
                Transfer, TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
-               LoopTransferOperation, IntegerRangeOperation,
+               LoopTransferOperation, IntegerRangeOperation, YieldOperation,
                CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
                RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke,
                ArrayBoundsCheck, ArrayStore, ArraySort>

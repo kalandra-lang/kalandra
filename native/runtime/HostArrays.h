@@ -30,6 +30,28 @@ template <NumericType Element, bool Boolean = false> const ValueLayout &hostArra
       [](void *) noexcept {}};
   return layout;
 }
+template <NumericType Element, bool Boolean = false>
+const ValueLayout &hostScalarLayout() noexcept {
+  using Scalar = NumericValue<Element>;
+  static_assert(!Boolean || Element == NumericType::UInt8);
+  static const ValueLayout layout{
+      UINT64_C(0x4b414c5343410000) + static_cast<unsigned>(Element) + (Boolean ? 256 : 0),
+      sizeof(Scalar), alignof(Scalar),
+      [](Invocation &destination, void *out, const Invocation &, const void *input) noexcept {
+        if (!out || !input || destination.poll())
+          return false;
+        if constexpr (Boolean) {
+          if (*static_cast<const std::uint8_t *>(input) > 1) {
+            destination.fault(3);
+            return false;
+          }
+        }
+        std::memcpy(out, input, sizeof(Scalar));
+        return true;
+      },
+      [](void *) noexcept {}};
+  return layout;
+}
 class HostArrayScopes final {
 public:
   HostArrayScopes() = default;
@@ -54,6 +76,19 @@ public:
   }
   bool commit(std::size_t slot, void *value) noexcept {
     return scopes_ && scopes_->commit(slot, value);
+  }
+  bool collectBegin(std::size_t slot, const ValueLayout &element, const ValueLayout &array,
+                    bool recordStorage) noexcept {
+    return scopes_ && scopes_->collectBegin(slot, element, array, recordStorage);
+  }
+  bool collectAppend(std::size_t slot, const void *value) noexcept {
+    return scopes_ && scopes_->collectAppend(slot, value);
+  }
+  bool collectFinish(std::size_t slot, void *value) noexcept {
+    return scopes_ && scopes_->collectFinish(slot, value);
+  }
+  bool collectDiscard(std::size_t slot) noexcept {
+    return scopes_ && scopes_->collectDiscard(slot);
   }
   bool capture(Invocation &context, std::size_t slot, const ValueLayout &layout, void *out,
                const Invocation &source, const void *input) noexcept {

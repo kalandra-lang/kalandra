@@ -33,6 +33,11 @@ class Checker {
     std::vector<ValueId> results;
     bool transfers = false;
   };
+  struct CollectionScope {
+    std::size_t identity;
+    std::optional<ValueType> element;
+    std::vector<ValueId> values;
+  };
   struct Frame;
   struct ClosureScope {
     Frame *parent;
@@ -55,6 +60,7 @@ class Checker {
     std::shared_ptr<const std::unordered_set<std::string>> writtenNames = {};
     std::shared_ptr<LoopScope> loop = {};
     bool stopped = false;
+    std::shared_ptr<CollectionScope> collection = {};
   };
   struct TensorData {
     std::vector<std::uint64_t> shape;
@@ -277,6 +283,8 @@ private:
     if (!callTarget)
       for (const auto *keyword : {"true", "false", "if", "match", "fn", "not", "while", "for"})
         insert(keyword, ScopeNameKind::Keyword);
+    if (!callTarget && frame.loop)
+      insert("yield", ScopeNameKind::Keyword);
     if (!callTarget && frame.loop) {
       insert("break", ScopeNameKind::Keyword);
       insert("continue", ScopeNameKind::Keyword);
@@ -381,7 +389,7 @@ private:
   static bool reservedControl(const std::string &name) {
     return name == "true" || name == "false" || name == "while" || name == "if" || name == "else" ||
            name == "and" || name == "or" || name == "not" || name == "type" || name == "with" ||
-           name == "mut" || name == "for" || name == "in" || name == "break" || name == "continue";
+           name == "mut" || name == "for" || name == "in" || name == "break" || name == "continue" || name == "yield";
   }
   void rememberSourceToken(ResolvedSourceToken token) {
     if (token.span.end > token.span.begin)
@@ -3062,6 +3070,34 @@ private:
       }
     }
   }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const YieldExpr &yield,
+                               const std::optional<ValueType> &) {
+    if (!frame.collection) {
+      error("S076", "yield requires an enclosing collecting loop in this function", span);
+      return {};
+    }
+    auto &collection = *frame.collection;
+    auto value = expression(frame, yield.operand, collection.element);
+    if (!value)
+      return {};
+    const auto type = node(*value).type;
+    if (type.task || type.fallible || type.tensor || type.array || type.device ||
+        type.builtin == BuiltinValue::Device) {
+      error("S076", "yield requires a completed CPU array element; handle errors before yielding",
+            span);
+      return {};
+    }
+    if (collection.element && !sameFunctionValueType(type, *collection.element)) {
+      error("S076", "all yields in a collecting loop require the same element type", span);
+      return {};
+    }
+    if (!collection.element)
+      collection.element = bindingType(type);
+    collection.values.push_back(*value);
+    ValueType marker;
+    marker.builtin = BuiltinValue::Bool;
+    return add(frame, marker, span, YieldOperation{collection.identity, *value});
+  }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const LoopTransferExpr &jump,
                                const std::optional<ValueType> &) {
     if (!frame.loop) {
@@ -3121,7 +3157,7 @@ private:
     }
     const auto before = *frame.tasks;
     auto scope = std::make_shared<LoopScope>(
-        LoopScope{nextLoop_++, before, !loop.statementOnly, expected, {}});
+        LoopScope{nextLoop_++, before, !loop.statementOnly && !loop.collecting, expected, {}});
     auto context = expected;
     if (context)
       context->fallible = true;
@@ -3144,6 +3180,18 @@ private:
     nested.conditional = true;
     nested.tasks = std::make_shared<TaskChecks>(before);
     nested.loop = scope;
+    std::shared_ptr<CollectionScope> collection;
+    if (loop.collecting) {
+      if (expected && (!expected->array || expected->task || expected->device)) {
+        error("S076", "a collecting loop produces a CPU array", span);
+        return {};
+      }
+      collection = std::make_shared<CollectionScope>(
+          CollectionScope{scope->identity,
+                          expected ? std::optional(recordArrayElement(*expected)) : std::nullopt,
+                          {}});
+      nested.collection = collection;
+    }
     std::vector<TypedStatement> body;
     if (!suite(nested, loop.body, {}, body, {}, true))
       return {};
@@ -3153,7 +3201,16 @@ private:
     if (!completed)
       return {};
     finishBranch(before, nested, *completed, span);
-    if (!loop.statementOnly) {
+    if (loop.collecting) {
+      if (!collection->element || collection->values.empty()) {
+        error("S076", "a collecting loop requires a yield to determine its element type", span);
+        return {};
+      }
+      resultType = *collection->element;
+      resultType.tensor = resultType.array = true;
+      resultType.shape = {dynamic()};
+      scope->results = collection->values;
+    } else if (!loop.statementOnly) {
       if (!normalResult) {
         error("S076", "loop expressions require a normal-completion result", span);
         return {};
@@ -3185,7 +3242,7 @@ private:
                WhileOperation{condition, std::move(body), std::move(whenDone),
                               loop.statementOnly ? std::optional<ValueId>{} : normalResult,
                               scope->identity, scope->transfers, std::move(initial),
-                              std::move(iteration), scope->results});
+                              std::move(iteration), scope->results, loop.collecting});
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ForExpr &loop,
                                const std::optional<ValueType> &expected) {
@@ -3313,7 +3370,7 @@ private:
         return {};
       iteration.push_back({span, counter, *advance});
     }
-    return checkLoop(frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly},
+    return checkLoop(frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
                      expected, condition, std::move(nested), std::move(initial),
                      std::move(iteration));
   }
@@ -3334,8 +3391,10 @@ private:
     const auto *sourceFor = std::get_if<ForExpr>(&ast.value);
     if ((sourceLoop && sourceLoop->statementOnly) || (sourceFor && sourceFor->statementOnly) ||
         std::holds_alternative<LoopTransferExpr>(ast.value) ||
+        std::holds_alternative<YieldExpr>(ast.value) ||
         std::holds_alternative<ArraySetExpr>(ast.value)) {
-      if (statement.binding || (last && !std::holds_alternative<LoopTransferExpr>(ast.value))) {
+      if (statement.binding || (last && !std::holds_alternative<LoopTransferExpr>(ast.value) &&
+                                !std::holds_alternative<YieldExpr>(ast.value))) {
         error("S075",
               "loop or element assignment is a statement; supply a separate result expression",
               ast.span);

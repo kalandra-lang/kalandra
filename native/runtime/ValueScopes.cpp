@@ -1,9 +1,83 @@
 #include "ValueScopes.h"
+#include "Tensor.h"
 #include <algorithm>
 #include <cstring>
 #include <limits>
 namespace kalandra::runtime {
 using Scope = Invocation::OwnershipScope;
+// Eager, initialized-prefix collection. Growth copies relocatable compiler
+// payloads; element backing is retained once into a separate scope. The live
+// storage is O(capacity), not a chain of old array concatenations.
+struct ValueScopes::Collection {
+  ValueScopes &parent;
+  std::size_t slot;
+  const ValueLayout &element, &array;
+  bool recordStorage;
+  Scope dataScope, elements;
+  std::byte *data = nullptr;
+  std::uint64_t count = 0, capacity = 0;
+  Collection(ValueScopes &parent, std::size_t slot, const ValueLayout &element,
+             const ValueLayout &array, bool recordStorage)
+      : parent(parent), slot(slot), element(element), array(array), recordStorage(recordStorage),
+        dataScope(parent.context_), elements(parent.context_) {}
+  static void cleanup(void *value) noexcept {
+    auto *self = static_cast<Collection *>(value);
+    self->parent.collections_[self->slot] = nullptr;
+    self->~Collection();
+  }
+  bool append(const void *value) noexcept {
+    auto &ctx = parent.context_;
+    if (ctx.poll() || !ctx.usable())
+      return false;
+    const auto maximum = std::uint64_t(INT64_MAX) / element.bytes;
+    if (count == maximum) {
+      ctx.fault(2);
+      return false;
+    }
+    if (count == capacity) {
+      const auto grown = capacity ? (capacity > maximum / 2 ? maximum : capacity * 2)
+                                  : std::min<std::uint64_t>(16, maximum);
+      Scope next(ctx);
+      if (!next.valid())
+        return false;
+      std::byte *storage;
+      {
+        Invocation::OwnershipSelection selection(next);
+        storage = static_cast<std::byte *>(recordStorage ? ctx.allocateRecord(grown * element.bytes)
+                                                         : ctx.allocate(grown * element.bytes));
+      }
+      if (!storage)
+        return false;
+      for (std::uint64_t offset = 0; offset < count * element.bytes;) {
+        if (ctx.poll())
+          return false;
+        const auto bytes = std::min<std::uint64_t>(4096, count * element.bytes - offset);
+        std::memcpy(storage + offset, data + offset, bytes);
+        offset += bytes;
+      }
+      if (!dataScope.swap(next))
+        return false;
+      data = storage;
+      capacity = grown;
+    }
+    auto *cell = data + count * element.bytes;
+    for (std::size_t offset = 0; offset < element.bytes;) {
+      if (ctx.poll())
+        return false;
+      const auto bytes = std::min<std::size_t>(4096, element.bytes - offset);
+      std::memset(cell + offset, 0, bytes);
+      offset += bytes;
+    }
+    Invocation::OwnershipSelection selection(elements);
+    if (!element.copy(ctx, cell, ctx, value) || ctx.poll()) {
+      if (!ctx.poll())
+        ctx.fault(3);
+      return false;
+    }
+    ++count;
+    return true;
+  }
+};
 ValueScopes::ValueScopes(Invocation &context, std::span<const ValueLayout *const> layouts) noexcept
     : context_(context), layouts_(layouts), work_(context), spare_(context) {}
 ValueScopes *ValueScopes::create(Invocation &context,
@@ -28,12 +102,13 @@ ValueScopes *ValueScopes::create(Invocation &context,
     scratch = std::max(scratch, layout->bytes);
   }
   constexpr auto slotsOffset = (sizeof(ValueScopes) + alignof(Scope) - 1) & ~(alignof(Scope) - 1);
-  if (layouts.size() > (maximum - slotsOffset - alignof(std::max_align_t)) / sizeof(Scope)) {
+  if (layouts.size() > (maximum - slotsOffset - alignof(std::max_align_t)) /
+                           (sizeof(Scope) + sizeof(Collection *))) {
     context.fault(2);
     return nullptr;
   }
   const auto scratchOffset =
-      (slotsOffset + layouts.size() * sizeof(Scope) + alignof(std::max_align_t) - 1) &
+      (slotsOffset + layouts.size() * (sizeof(Scope) + sizeof(Collection *)) + alignof(std::max_align_t) - 1) &
       ~(alignof(std::max_align_t) - 1);
   if (scratch > maximum - scratchOffset) {
     context.fault(2);
@@ -47,6 +122,9 @@ ValueScopes *ValueScopes::create(Invocation &context,
     return nullptr;
   auto *arena = new (storage) ValueScopes(context, layouts);
   arena->slots_ = reinterpret_cast<Scope *>(storage + slotsOffset);
+  arena->collections_ =
+      reinterpret_cast<Collection **>(storage + slotsOffset + layouts.size() * sizeof(Scope));
+  std::fill_n(arena->collections_, layouts.size(), nullptr);
   arena->scratch_ = storage + scratchOffset;
   arena->scratchBytes_ = scratch;
   std::size_t constructed = 0;
@@ -109,6 +187,59 @@ bool ValueScopes::append(std::size_t slot, const ValueLayout &layout, void *valu
   } else if (!context_.poll())
     context_.fault(3);
   return copied;
+}
+bool ValueScopes::collectBegin(std::size_t slot, const ValueLayout &element,
+                               const ValueLayout &array, bool recordStorage) noexcept {
+  if (!selection_ || slot >= layouts_.size() || !layouts_[slot] || collections_[slot] ||
+      !array.copy || array.bytes != 40 || !element.bytes || !element.copy || !element.destroy ||
+      !element.alignment || element.bytes > std::uint64_t(INT64_MAX) ||
+      element.alignment > alignof(std::max_align_t) ||
+      (element.alignment & (element.alignment - 1))) {
+    context_.fault(3);
+    return false;
+  }
+  auto *storage = context_.allocateControl(sizeof(Collection), Collection::cleanup);
+  if (!storage)
+    return false;
+  auto *collection = new (storage) Collection(*this, slot, element, array, recordStorage);
+  collections_[slot] = collection;
+  return collection->dataScope.valid() && collection->elements.valid() && !context_.poll();
+}
+bool ValueScopes::collectAppend(std::size_t slot, const void *value) noexcept {
+  if (!selection_ || slot >= layouts_.size() || !collections_[slot] || !value) {
+    context_.fault(3);
+    return false;
+  }
+  return collections_[slot]->append(value);
+}
+bool ValueScopes::collectFinish(std::size_t slot, void *output) noexcept {
+  if (!selection_ || slot >= layouts_.size() || !collections_[slot] || !output) {
+    context_.fault(3);
+    return false;
+  }
+  auto *collection = collections_[slot];
+  // Every supported array uses the same rank-one native descriptor ABI.
+  struct Descriptor {
+    void *allocated, *aligned;
+    std::int64_t offset, size, stride;
+  };
+  Descriptor descriptor{collection->data, collection->data, 0,
+                        static_cast<std::int64_t>(collection->count), collection->count ? 1 : 0};
+  static_assert(sizeof(Descriptor) == 40);
+  const bool ok =
+      collection->array.copy(context_, output, context_, &descriptor) && !context_.poll();
+  if (!ok && !context_.poll())
+    context_.fault(3);
+  context_.releaseControl(collection);
+  return ok;
+}
+bool ValueScopes::collectDiscard(std::size_t slot) noexcept {
+  if (slot >= layouts_.size() || !collections_[slot]) {
+    context_.fault(3);
+    return false;
+  }
+  context_.releaseControl(collections_[slot]);
+  return true;
 }
 bool ValueScopes::commit(std::size_t slot, void *value) noexcept {
   if (!selection_ || slot >= layouts_.size() || !value) {
@@ -326,6 +457,20 @@ bool kalandra_value_scopes_batch_v1(ValueScopes *scopes, const ValueScopes::Writ
 bool kalandra_value_scopes_append_v1(ValueScopes *scopes, std::uint64_t slot,
                                      const ValueLayout *layout, void *value) noexcept {
   return scopes && layout && scopes->append(slot, *layout, value);
+}
+bool kalandra_collect_begin_v1(ValueScopes *scopes, std::uint64_t slot, const ValueLayout *element,
+                               const ValueLayout *array, bool recordStorage) noexcept {
+  return scopes && element && array && scopes->collectBegin(slot, *element, *array, recordStorage);
+}
+bool kalandra_collect_append_v1(ValueScopes *scopes, std::uint64_t slot,
+                                const void *value) noexcept {
+  return scopes && scopes->collectAppend(slot, value);
+}
+bool kalandra_collect_finish_v1(ValueScopes *scopes, std::uint64_t slot, void *output) noexcept {
+  return scopes && scopes->collectFinish(slot, output);
+}
+bool kalandra_collect_discard_v1(ValueScopes *scopes, std::uint64_t slot) noexcept {
+  return scopes && scopes->collectDiscard(slot);
 }
 void kalandra_value_scopes_end_v1(ValueScopes *scopes) noexcept {
   if (scopes)

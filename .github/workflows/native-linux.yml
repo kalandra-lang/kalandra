@@ -102,7 +102,7 @@ jobs:
       - name: Qualify loop exits, cancellation and bounded structured groups
         run: >-
           ctest --test-dir build/linux --output-on-failure -j1
-          -R '^native-loop-control-(debug|optimized|sanitized|thread-sanitized)$'
+          -R '^native-(loop-control|collect-ownership)-(debug|optimized|sanitized|thread-sanitized)$'
       - name: Qualify CPU tensor transforms
         run: >-
           python3 native/tests/TensorTransformTests.py

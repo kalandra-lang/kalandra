@@ -71,6 +71,18 @@
     },
     {
       "kind": "cpu",
+      "expected": "[9, 49]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[10, 20, 30, 32]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[1, 10, 3, 30, 4]"
+    },
+    {
+      "kind": "cpu",
       "expected": "7"
     },
     {

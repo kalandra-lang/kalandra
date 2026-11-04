@@ -45,7 +45,10 @@ enum class Code {
   CallableCaptures,
   CallableSyncGuard,
   InvalidCallable,
-  PropagateGroup
+  PropagateGroup,
+  CollectInit,
+  CollectAppend,
+  CollectFinish
 };
 struct Instruction {
   Code code;
@@ -54,6 +57,8 @@ struct Instruction {
   std::size_t target = 0, group = 0, jump = 0;
   ValueId source = 0;
   std::optional<Slot> placement = {};
+  // Innermost first: collecting expressions abandoned by error propagation.
+  std::vector<Slot> collections = {};
 };
 struct Plan {
   std::vector<ValueType> slots;

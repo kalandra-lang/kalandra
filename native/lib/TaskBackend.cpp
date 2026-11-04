@@ -45,7 +45,7 @@ class Emitter {
   std::optional<TaskValueTypes> taskTypes;
   std::map<std::string, llvm::GlobalVariable *> layouts;
   std::map<std::string, llvm::GlobalVariable *> frameLayouts;
-  std::map<std::string, llvm::GlobalVariable *> rawArrayLayouts;
+  std::map<std::string, llvm::GlobalVariable *> rawArrayLayouts, payloadLayouts;
   std::vector<std::set<Slot>> mapBuilders;
   std::map<std::string, Function *> copyCallbacks;
   std::map<std::size_t, Function *> recordRetainers;
@@ -1288,6 +1288,17 @@ private:
         accept(planner.input, *ref, expression.type,
                coordinating.at(ref->function) ? static_cast<Value *>(entries.at(ref->function))
                                               : synchronousEntries.at(ref->function));
+    // Map/generate adapters also introduce code-bound references in the plan.
+    // They are not necessarily FunctionReference nodes in the source module.
+    // Scoped callers must normalize these callbacks just like source closures.
+    for (const auto &plan : planner.plans)
+      for (const auto &instruction : plan->code)
+        if (instruction.code == Code::FunctionReference)
+          accept(planner.input, FunctionReference{instruction.target, {}},
+                 plan->slots.at(instruction.output),
+                 coordinating.at(instruction.target)
+                     ? static_cast<Value *>(entries.at(instruction.target))
+                     : synchronousEntries.at(instruction.target));
     builder.CreateBr(failed);
     builder.SetInsertPoint(failed);
     auto *fault = Block::Create(context, "function.fault", fn);
@@ -1328,6 +1339,43 @@ private:
                                    c64(size(wrapper)), c64(alignment(wrapper)), fn, destroy}),
         "map.root.layout." + name);
     rawArrayLayouts.emplace(name, result);
+    return result;
+  }
+  llvm::GlobalVariable *payloadLayout(const ValueType &type) {
+    const auto name = key(type);
+    if (auto found = payloadLayouts.find(name); found != payloadLayouts.end())
+      return found->second;
+    llvm::IRBuilderBase::InsertPointGuard guard(builder);
+    auto *base = frameLayout(type);
+    auto *wrappedCopy = llvm::cast<Function>(base->getInitializer()->getOperand(3));
+    auto *wrapper = valueType(type);
+    auto *payloadType = scalarType(type);
+    auto *fn =
+        function("collection.payload.copy." + name, boolean, {pointer, pointer, pointer, pointer});
+    builder.SetInsertPoint(Block::Create(context, "entry", fn));
+    auto *source = builder.CreateAlloca(wrapper);
+    auto *destination = builder.CreateAlloca(wrapper);
+    builder.CreateStore(llvm::Constant::getNullValue(wrapper), source);
+    builder.CreateStore(builder.CreateLoad(payloadType, fn->getArg(3)),
+                        builder.CreateStructGEP(wrapper, source, 1));
+    auto *ok = builder.CreateCall(wrappedCopy, {fn->getArg(0), destination, fn->getArg(2), source});
+    auto *ready = Block::Create(context, "ready", fn);
+    auto *failed = Block::Create(context, "failed", fn);
+    builder.CreateCondBr(ok, ready, failed);
+    builder.SetInsertPoint(ready);
+    builder.CreateStore(
+        builder.CreateLoad(payloadType, builder.CreateStructGEP(wrapper, destination, 1)),
+        fn->getArg(1));
+    builder.CreateRet(builder.getTrue());
+    builder.SetInsertPoint(failed);
+    builder.CreateRet(builder.getFalse());
+    auto *result = new llvm::GlobalVariable(
+        module, layoutType, true, llvm::GlobalValue::InternalLinkage,
+        llvm::ConstantStruct::get(layoutType, {c64(0xf000000000ULL + payloadLayouts.size()),
+                                               c64(size(payloadType)), c64(alignment(payloadType)),
+                                               fn, destroy}),
+        "collection.payload.layout." + name);
+    payloadLayouts.emplace(name, result);
     return result;
   }
   llvm::GlobalVariable *frameLayout(const ValueType &type) {
@@ -1851,6 +1899,7 @@ private:
       case Code::SynchronousCall:
       case Code::FunctionInvoke:
       case Code::MapInit:
+      case Code::CollectFinish:
       case Code::MapLoad:
       case Code::Await:
       case Code::Field:
@@ -2143,6 +2192,25 @@ private:
         check();
         break;
       }
+      case Code::CollectInit:
+        builder.CreateCondBr(call("kalandra_collect_begin_v1", boolean,
+                                  {arena(), c64(scopeSlots[id].at(instruction.output)),
+                                   payloadLayout(recordArrayElement(type)), payloadLayout(type),
+                                   builder.getInt1(isOwnedArray(type))}),
+                             next, abort);
+        break;
+      case Code::CollectAppend:
+        builder.CreateCondBr(call("kalandra_collect_append_v1", boolean,
+                                  {arena(), c64(scopeSlots[id].at(instruction.output)),
+                                   payload(instruction.args[0])}),
+                             next, abort);
+        break;
+      case Code::CollectFinish:
+        builder.CreateCondBr(call("kalandra_collect_finish_v1", boolean,
+                                  {arena(), c64(scopeSlots[id].at(instruction.output)),
+                                   payload(instruction.output)}),
+                             next, abort);
+        break;
       case Code::MapInit: {
         const auto input = instruction.args[0];
         builder.CreateStore(c64(0), payload(instruction.args[1]));
@@ -2434,6 +2502,13 @@ private:
                  failureType);
         } else
           copyErrors(target, slot(instruction.target), source, slot(input));
+        for (auto collection : instruction.collections) {
+          auto *discarded = Block::Create(context, "collection.discarded", resume);
+          builder.CreateCondBr(call("kalandra_collect_discard_v1", boolean,
+                                    {arena(), c64(scopeSlots[id].at(collection))}),
+                               discarded, abort);
+          builder.SetInsertPoint(discarded);
+        }
         builder.CreateBr(
             edge(blocks[instruction.jump], instruction.group == SIZE_MAX || target.errorRecord
                                                ? std::vector<Slot>{instruction.target}

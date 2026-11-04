@@ -19,6 +19,11 @@ public:
   // Keep a fully normalized element graph in a partially built array's scope.
   // The caller stores the rewritten payload, not the original graph's bytes.
   bool append(std::size_t, const ValueLayout &, void *) noexcept;
+  bool collectBegin(std::size_t, const ValueLayout &, const ValueLayout &,
+                    bool recordStorage) noexcept;
+  bool collectAppend(std::size_t, const void *) noexcept;
+  bool collectFinish(std::size_t, void *) noexcept;
+  bool collectDiscard(std::size_t) noexcept;
   void end() noexcept;
   bool publish(std::size_t, void *, const void *) noexcept;
 
@@ -26,6 +31,8 @@ private:
   ValueScopes(Invocation &, std::span<const ValueLayout *const>) noexcept;
   ~ValueScopes() = default;
   void cleanup() noexcept;
+  struct Collection;
+  Collection **collections_ = nullptr;
   Invocation &context_;
   std::span<const ValueLayout *const> layouts_;
   Invocation::OwnershipScope work_, spare_;
@@ -53,6 +60,13 @@ bool kalandra_value_scopes_batch_v1(kalandra::runtime::ValueScopes *,
                                     std::uint64_t) noexcept;
 bool kalandra_value_scopes_append_v1(kalandra::runtime::ValueScopes *, std::uint64_t,
                                      const kalandra::runtime::ValueLayout *, void *) noexcept;
+bool kalandra_collect_begin_v1(kalandra::runtime::ValueScopes *, std::uint64_t,
+                               const kalandra::runtime::ValueLayout *,
+                               const kalandra::runtime::ValueLayout *, bool) noexcept;
+bool kalandra_collect_append_v1(kalandra::runtime::ValueScopes *, std::uint64_t,
+                                const void *) noexcept;
+bool kalandra_collect_finish_v1(kalandra::runtime::ValueScopes *, std::uint64_t, void *) noexcept;
+bool kalandra_collect_discard_v1(kalandra::runtime::ValueScopes *, std::uint64_t) noexcept;
 void kalandra_value_scopes_destroy_v1(kalandra::runtime::ValueScopes *) noexcept;
 }
 static_assert(sizeof(kalandra::runtime::ValueScopes::Write) == 16 &&

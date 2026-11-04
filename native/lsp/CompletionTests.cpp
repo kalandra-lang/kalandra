@@ -28,6 +28,9 @@ int main() {
     require(has(loopExit, "break"), "loop exit keyword completion");
     auto loopContinue = query("fn main()->int:\n  for item in [1]:\n    cont|\n  0\n");
     require(has(loopContinue, "continue"), "loop continue keyword completion");
+    auto collectingYield =
+        query("fn main()->[int]:\n  values=for item in range(3):\n    yi|\n  values\n");
+    require(has(collectingYield, "yield"), "collecting loop yield completion");
     auto outerNames = query("fn main()->int:\n  for item in [1]:\n    item+1\n  it|\n");
     require(!has(outerNames, "item"), "for binding escaped its body scope");
 

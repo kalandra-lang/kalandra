@@ -203,13 +203,17 @@ struct ConditionalExpr {
   std::vector<Statement> whenTrue, whenFalse;
   bool statementOnly = false;
 };
-// A loop body performs statements. An expression loop has a normal-completion
-// suite and obtains its value there or from a lexically targeted break.
+// A loop body performs statements. A collecting expression accumulates yields;
+// a single-result expression obtains its value from else or a targeted break.
 struct WhileExpr {
   ExprId condition;
   std::vector<Statement> body;
   std::vector<Statement> whenDone;
   bool statementOnly = true;
+  bool collecting = false;
+};
+struct YieldExpr {
+  ExprId operand;
 };
 struct LoopTransferExpr {
   bool continuing;
@@ -220,6 +224,7 @@ struct ForExpr {
   ExprId input;
   std::vector<Statement> body, whenDone;
   bool statementOnly = true;
+  bool collecting = false;
 };
 struct LogicalExpr {
   bool conjunction;
@@ -251,7 +256,7 @@ struct Expr {
   std::variant<NameExpr, NumberExpr, StringExpr, UnaryExpr, BinaryExpr, ComparisonExpr, CallExpr,
                ArrayExpr, IndexExpr, TaskExpr, ParallelExpr, ConditionalExpr, LogicalExpr,
                CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr, WhileExpr,
-               ArraySetExpr, LoopTransferExpr, ForExpr>
+               ArraySetExpr, LoopTransferExpr, ForExpr, YieldExpr>
       value;
 };
 struct Statement {

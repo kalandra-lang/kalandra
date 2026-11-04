@@ -13,9 +13,15 @@ static CheckResult analyze(const std::string &source) {
 int main() {
   try {
     for (auto source :
-         {"fn main()->int:\n  i=0\n  result=while i<4:\n    i=i+1\n    if i==2:\n      continue\n    break i\n  else:\n    0\n  result\n",
-          "fn main()->int:\n  total=0\n  for value in range(5,0,-1):\n    if value==3:\n      break\n    total=total+value\n  total\n",
-          "fn main()->String:\n  for text in [\"a\",\"b\"]:\n    break text\n  else:\n    \"empty\"\n",
+         {"fn main()->[int]:\n  for i in range(3):\n    for j in range(i):\n      if j%2==0:\n     "
+          "   yield i+j\n",
+          "fn main()->[float32]:\n  for i in range(0):\n    yield 1\n",
+          "fn main()->int:\n  i=0\n  result=while i<4:\n    i=i+1\n    if i==2:\n      continue\n  "
+          "  break i\n  else:\n    0\n  result\n",
+          "fn main()->int:\n  total=0\n  for value in range(5,0,-1):\n    if value==3:\n      "
+          "break\n    total=total+value\n  total\n",
+          "fn main()->String:\n  for text in [\"a\",\"b\"]:\n    break text\n  else:\n    "
+          "\"empty\"\n",
           "fn main()->int:\n  a=10\n  a=a*2\n  a\n", "fn main()->Bool:\n  a=true\n  a=false\n  a\n",
           "fn main()->[int]:\n  a=[1]\n  a=[2]\n  a\n",
           "fn main()->[Bool]:\n  a=[true]\n  a=[false,true]\n  a\n",
