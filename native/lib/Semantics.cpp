@@ -1,4 +1,5 @@
 #include "kalandra/Semantics.h"
+#include "ArrayAccess.h"
 #include "ErrorFamilies.h"
 #include "RecordLayout.h"
 #include "RecordStorage.h"
@@ -24,6 +25,19 @@ class Checker {
     std::unordered_map<std::size_t, std::vector<ValueId>> children;
     std::unordered_set<std::size_t> observed, pending, handled;
   };
+  struct LoopScope {
+    std::size_t identity;
+    TaskChecks before;
+    bool expression;
+    std::optional<ValueType> context;
+    std::vector<ValueId> results;
+    bool transfers = false;
+  };
+  struct CollectionScope {
+    std::size_t identity;
+    std::optional<ValueType> element;
+    std::vector<ValueId> values;
+  };
   struct Frame;
   struct ClosureScope {
     Frame *parent;
@@ -43,6 +57,10 @@ class Checker {
     std::shared_ptr<ClosureScope> closure = {};
     std::size_t enumBranchDepth = 0;
     std::shared_ptr<std::optional<std::size_t>> handlerErrorRecord = {};
+    std::shared_ptr<const std::unordered_set<std::string>> writtenNames = {};
+    std::shared_ptr<LoopScope> loop = {};
+    bool stopped = false;
+    std::shared_ptr<CollectionScope> collection = {};
   };
   struct TensorData {
     std::vector<std::uint64_t> shape;
@@ -150,6 +168,9 @@ public:
       if (auto unsupported = numericCapabilityError(output_, NumericTarget::Cpu))
         error("S054", *unsupported,
               syntax_.functions.empty() ? SourceSpan{} : syntax_.functions[0].name);
+    if (!syntax_.editorOnly && diagnostics_.empty())
+      for (auto &diagnostic : arrayAccessDiagnostics(output_))
+        error(diagnostic.code, diagnostic.message, diagnostic.span);
     if (!diagnostics_.empty())
       return {syntax_.source, {}, std::move(diagnostics_)};
     recordImportOrigins();
@@ -249,8 +270,8 @@ private:
       // Insert last so lexical and module bindings retain their normal priority.
       for (const auto *label :
            {"array", "tensor", "reshape", "map", "parallelMap", "matmul", "reduceSum", "relu",
-            "transpose", "softmaxRows", "rmsNormRows",
-            "length", "byteLength", "shape", "slice", "concat"})
+            "transpose", "softmaxRows", "rmsNormRows", "length", "byteLength", "shape", "slice",
+            "concat", "generate", "copy",       "sort",      "sorted"})
         insert(label, ScopeNameKind::Function);
       if (allowTransfer && options_.placement && !frame.groups.empty())
         insert("transfer", ScopeNameKind::Function);
@@ -260,8 +281,14 @@ private:
         insert(alias, ScopeNameKind::Function);
     }
     if (!callTarget)
-      for (const auto *keyword : {"true", "false", "if", "match", "fn", "not"})
+      for (const auto *keyword : {"true", "false", "if", "match", "fn", "not", "while", "for"})
         insert(keyword, ScopeNameKind::Keyword);
+    if (!callTarget && frame.loop)
+      insert("yield", ScopeNameKind::Keyword);
+    if (!callTarget && frame.loop) {
+      insert("break", ScopeNameKind::Keyword);
+      insert("continue", ScopeNameKind::Keyword);
+    }
     for (const auto &[label, kind] : names) {
       if (query->names.size() == 256) {
         query->truncated = true;
@@ -360,8 +387,9 @@ private:
            std::ranges::any_of(type.shape, [](const auto &d) { return !d.constant; });
   }
   static bool reservedControl(const std::string &name) {
-    return name == "true" || name == "false" || name == "if" || name == "else" || name == "and" ||
-           name == "or" || name == "not" || name == "type" || name == "with";
+    return name == "true" || name == "false" || name == "while" || name == "if" || name == "else" ||
+           name == "and" || name == "or" || name == "not" || name == "type" || name == "with" ||
+           name == "mut" || name == "for" || name == "in" || name == "break" || name == "continue" || name == "yield";
   }
   void rememberSourceToken(ResolvedSourceToken token) {
     if (token.span.end > token.span.begin)
@@ -449,7 +477,8 @@ private:
         result->fallible = true;
         result->errorRecord = normalizedError(*family);
       }
-      auto callable = callableType(std::move(parameters), *result, syntax.span);
+      auto callable = callableType(std::move(parameters), *result, syntax.span,
+                                   syntax.function->mutableParameters);
       if (callable && syntax.array) {
         callable->tensor = callable->array = true;
         callable->shape = {dynamic()};
@@ -531,8 +560,17 @@ private:
       return {};
     return result;
   }
+  static bool mutableArrayType(const ValueType &value) {
+    return value.array && !value.task && !value.fallible && !value.device &&
+           (value.builtin == BuiltinValue::Numeric || value.builtin == BuiltinValue::Bool);
+  }
   std::optional<ValueType> callableType(std::vector<ValueType> parameters, ValueType result,
-                                        SourceSpan span) {
+                                        SourceSpan span, std::vector<bool> mutations = {}) {
+    for (std::size_t i = 0; i < mutations.size(); ++i)
+      if (mutations[i] && (i >= parameters.size() || !mutableArrayType(parameters[i]))) {
+        error("S076", "mut parameters require flat numeric or Bool array storage", span);
+        return {};
+      }
     const auto supported = [](const ValueType &value) {
       return !value.task && !value.fallible && !value.device &&
              value.builtin != BuiltinValue::Device;
@@ -553,7 +591,7 @@ private:
     ValueType value;
     value.builtin = BuiltinValue::Function;
     value.callable = std::make_shared<const FunctionSignature>(
-        FunctionSignature{std::move(parameters), std::move(result)});
+        FunctionSignature{std::move(parameters), std::move(result), std::move(mutations)});
     return value;
   }
   ValueType recordType(std::size_t id) const {
@@ -999,9 +1037,15 @@ private:
           signatures_[id] = false;
           continue;
         }
+        if (parameter.mutableAccess && !mutableArrayType(*parameterType)) {
+          error("S076", "mut parameters require flat numeric or Bool array storage",
+                parameter.name);
+          signatures_[id] = false;
+        }
         target.parameters.push_back(output_.symbols.size());
         output_.symbols.push_back(
             {parameterName, std::move(*parameterType), parameter.name, id, true});
+        output_.symbols.back().mutableAccess = parameter.mutableAccess;
       }
       if (function.errorType &&
           !(function.errorTypes.size() <= 1 && name(*function.errorType) == "TaskError")) {
@@ -1065,6 +1109,192 @@ private:
       }
     }
   }
+  static bool localBinding(const ValueType &type) {
+    return !type.task && !type.fallible && !type.device &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool) &&
+           ((!type.tensor && !type.array) ||
+            (type.tensor && type.array && type.shape.size() == 1));
+  }
+  ValueType bindingType(ValueType type) {
+    if (type.array)
+      type.shape = {dynamic()};
+    return type;
+  }
+  // Discover writes before checking any initializer/condition. A binding that
+  // changes later must not supply a constant to checks on an earlier read.
+  void prepareBindings(Frame &frame, const std::vector<Statement> &body) {
+    auto written = std::make_shared<std::unordered_set<std::string>>();
+    std::unordered_set<std::string> visible;
+    for (const Frame *scope = &frame; scope;) {
+      for (const auto &[label, symbol] : scope->locals)
+        visible.insert(label);
+      if (!scope->closure)
+        break;
+      for (const auto &[label, symbol] : scope->closure->captures)
+        visible.insert(label);
+      scope = scope->closure->parent;
+    }
+    // Explicit scope events avoid recursive walks of long flat expression trees,
+    // and avoid treating declarations in two sibling branches as reassignment.
+    using Scope = std::shared_ptr<std::vector<std::string>>;
+    enum class Kind { Body, Expression, Binding, Leave };
+    struct Work {
+      Kind kind;
+      const std::vector<Statement> *body = nullptr;
+      const Statement *statement = nullptr;
+      ExprId expression = 0;
+      Scope scope = {};
+    };
+    std::vector<Work> pending{{Kind::Body, &body}};
+    while (!pending.empty()) {
+      auto work = std::move(pending.back());
+      pending.pop_back();
+      if (work.kind == Kind::Leave) {
+        for (const auto &label : *work.scope)
+          visible.erase(label);
+        continue;
+      }
+      if (work.kind == Kind::Binding) {
+        const auto label = name(*work.statement->binding);
+        if (!visible.insert(label).second)
+          written->insert(label);
+        else
+          work.scope->push_back(label);
+        continue;
+      }
+      if (work.kind == Kind::Body) {
+        auto scope = std::make_shared<std::vector<std::string>>();
+        pending.push_back({Kind::Leave, {}, {}, 0, scope});
+        for (auto it = work.body->rbegin(); it != work.body->rend(); ++it) {
+          if (it->binding)
+            pending.push_back({Kind::Binding, {}, &*it, 0, scope});
+          pending.push_back({Kind::Expression, {}, {}, it->expression});
+        }
+        continue;
+      }
+      const auto expression = [&](ExprId id) { pending.push_back({Kind::Expression, {}, {}, id}); };
+      const auto statements = [&](const auto &items) { pending.push_back({Kind::Body, &items}); };
+      std::visit(
+          [&](const auto &op) {
+            using T = std::decay_t<decltype(op)>;
+            if constexpr (!std::is_same_v<T, LambdaExpr>) {
+              if constexpr (requires { op.body; })
+                statements(op.body);
+              if constexpr (std::is_same_v<T, WhileExpr> || std::is_same_v<T, ForExpr>)
+                statements(op.whenDone);
+              if constexpr (std::is_same_v<T, ForExpr>)
+                expression(op.input);
+              if constexpr (std::is_same_v<T, LoopTransferExpr>)
+                if (op.value)
+                  expression(*op.value);
+              if constexpr (std::is_same_v<T, ConditionalExpr>) {
+                statements(op.whenFalse);
+                statements(op.whenTrue);
+              }
+              if constexpr (std::is_same_v<T, MatchExpr>)
+                for (auto it = op.arms.rbegin(); it != op.arms.rend(); ++it)
+                  statements(it->body);
+              if constexpr (requires { op.condition; })
+                expression(op.condition);
+              if constexpr (requires { op.operand; })
+                expression(op.operand);
+              if constexpr (requires {
+                              op.left;
+                              op.right;
+                            }) {
+                expression(op.right);
+                expression(op.left);
+              }
+              if constexpr (requires { op.input; })
+                expression(op.input);
+              if constexpr (std::is_same_v<T, ArraySetExpr>) {
+                expression(op.value);
+                expression(op.index);
+              }
+              if constexpr (requires { op.subject; })
+                expression(op.subject);
+              if constexpr (requires { op.callee; })
+                expression(op.callee);
+              if constexpr (requires { op.arguments; })
+                for (auto it = op.arguments.rbegin(); it != op.arguments.rend(); ++it)
+                  expression(*it);
+              if constexpr (requires { op.elements; })
+                for (auto it = op.elements.rbegin(); it != op.elements.rend(); ++it)
+                  expression(*it);
+              if constexpr (requires { op.indices; })
+                for (auto it = op.indices.rbegin(); it != op.indices.rend(); ++it)
+                  expression(*it);
+              if constexpr (std::is_same_v<T, RecordExpr>) {
+                for (auto it = op.fields.rbegin(); it != op.fields.rend(); ++it)
+                  expression(it->value);
+                if (op.base)
+                  expression(*op.base);
+              }
+            }
+          },
+          syntax_.expressions[work.expression].value);
+    }
+    frame.writtenNames = std::move(written);
+    for (const auto &[label, symbol] : frame.locals)
+      if (frame.writtenNames->contains(label) && localBinding(output_.symbols[symbol].type)) {
+        output_.symbols[symbol].reassignable = true;
+        output_.symbols[symbol].type = bindingType(output_.symbols[symbol].type);
+      }
+  }
+  bool mayReassign(const Frame &frame, const std::string &label) const {
+    return frame.writtenNames && frame.writtenNames->contains(label);
+  }
+  std::optional<SymbolId> visibleScalar(const Frame &frame, const std::string &label) const {
+    const Frame *scope = &frame;
+    while (scope) {
+      if (auto found = scope->locals.find(label); found != scope->locals.end())
+        return localBinding(output_.symbols[found->second].type) ? std::optional(found->second)
+                                                                : std::nullopt;
+      if (!scope->closure)
+        break;
+      if (auto found = scope->closure->captures.find(label);
+          found != scope->closure->captures.end())
+        return localBinding(output_.symbols[found->second].type) ? std::optional(found->second)
+                                                                : std::nullopt;
+      scope = scope->closure->parent;
+    }
+    return {};
+  }
+  std::optional<ValueType> rebindContext(const Frame &frame, const Statement &statement) {
+    if (!statement.binding)
+      return {};
+    if (auto symbol = visibleScalar(frame, name(*statement.binding)))
+      return bindingType(output_.symbols[*symbol].type);
+    return {};
+  }
+  std::optional<SymbolId> scalarRebinding(Frame &frame, const Statement &statement, ValueId value) {
+    if (!statement.binding)
+      return {};
+    const auto label = name(*statement.binding);
+    auto found = frame.locals.find(label);
+    if (found == frame.locals.end() && frame.closure && visibleScalar(frame, label)) {
+      // Captured scalars are value snapshots, never references to the caller's
+      // binding. Rebinding initializes/updates this invocation's private copy.
+      if (auto capture = lookupSymbol(frame, *statement.binding);
+          capture && localBinding(output_.symbols[*capture].type))
+        found = frame.locals.emplace(label, *capture).first;
+    }
+    if (found == frame.locals.end())
+      return {};
+    auto &symbol = output_.symbols[found->second];
+    if (!localBinding(symbol.type))
+      return {};
+    if (!localBinding(node(value).type) || !sameFunctionValueType(bindingType(symbol.type), bindingType(node(value).type))) {
+      error("S075", "local reassignment must preserve the element or scalar type " + describeType(symbol.type),
+            *statement.binding);
+      return {};
+    }
+    symbol.reassignable = true;
+    symbol.type = bindingType(symbol.type);
+    rememberSourceToken(
+        {*statement.binding, symbol.definition.value_or(symbol.declaration), symbol.type, {}});
+    return found->second;
+  }
   bool analyzeFunction(FunctionId id) {
     if (states_[id] == State::Complete)
       return true;
@@ -1095,6 +1325,7 @@ private:
     const auto initialErrors = errorCount_;
     bool success = true;
     const auto &body = syntax_.functions[id].body;
+    prepareBindings(frame, body);
     for (std::size_t index = 0; index < body.size() && diagnostics_.size() < limits_.maxDiagnostics;
          ++index) {
       const auto &statement = body[index];
@@ -1105,16 +1336,27 @@ private:
           success = false;
           continue;
         }
-      } else if (index + 1 == body.size() && !statement.binding)
+      } else if (statement.binding)
+        expected = rebindContext(frame, statement);
+      else if (index + 1 == body.size())
         expected = output_.functions[id].declaredResult;
       auto value = statementValue(frame, statement, expected, index + 1 == body.size());
+      // An editor signature query deliberately stops at its checked argument
+      // projection. Recovery may append a result hole after a statement loop;
+      // that later hole must not invalidate an already validated signature.
+      if (syntax_.editorOnly && options_.signature && options_.signature->snapshot) {
+        success = false;
+        break;
+      }
       std::optional<SymbolId> symbol;
       if (statement.binding) {
         const auto bindingName = name(*statement.binding);
         if (reservedControl(bindingName))
           error("S056", "Control-flow keywords cannot be binding names", *statement.binding);
         // The initializer is checked before this name is introduced.
-        if (frame.locals.contains(bindingName)) {
+        if (value && (symbol = scalarRebinding(frame, statement, *value))) {
+          // Same invocation-local scalar, with a new value at this statement.
+        } else if (frame.locals.contains(bindingName)) {
           error("S008", "duplicate binding '" + bindingName + "'; bindings are immutable",
                 *statement.binding);
           success = false;
@@ -1123,11 +1365,17 @@ private:
           output_.symbols.push_back(
               {bindingName, node(*value).type, *statement.binding, id, false});
           frame.locals.emplace(bindingName, *symbol);
+          output_.symbols[*symbol].reassignable =
+              mayReassign(frame, bindingName) && localBinding(node(*value).type);
+          if (output_.symbols[*symbol].reassignable)
+            output_.symbols[*symbol].type = bindingType(output_.symbols[*symbol].type);
           if (auto it = stringCounts_.find(*value); it != stringCounts_.end())
             stringBindings_[*symbol] = it->second;
-          if (auto it = intConstants_.find(*value); it != intConstants_.end())
+          if (auto it = intConstants_.find(*value);
+              it != intConstants_.end() && !output_.symbols[*symbol].reassignable)
             intBindings_[*symbol] = it->second;
-          if (auto it = floatConstants_.find(*value); it != floatConstants_.end())
+          if (auto it = floatConstants_.find(*value);
+              it != floatConstants_.end() && !output_.symbols[*symbol].reassignable)
             floatBindings_.insert_or_assign(*symbol, it->second);
         }
       }
@@ -1297,7 +1545,8 @@ private:
       else if (const auto *n = std::get_if<UInt64Literal>(&op))
         constant = n->value;
       else if (const auto *read = std::get_if<SymbolRead>(&op)) {
-        if (auto it = intBindings_.find(read->symbol); it != intBindings_.end())
+        if (auto it = intBindings_.find(read->symbol);
+            it != intBindings_.end() && !output_.symbols[read->symbol].reassignable)
           constant = it->second;
       } else if (const auto *unary = std::get_if<ScalarUnary>(&op)) {
         if (auto it = intConstants_.find(unary->operand); it != intConstants_.end())
@@ -1514,7 +1763,10 @@ private:
     if (!origin)
       return {};
     const auto capture = output_.symbols[*origin];
-    const auto type = capture.type;
+    auto type = capture.type;
+    const bool privateCopy = mayReassign(frame, identifier) && localBinding(type);
+    if (privateCopy)
+      type = bindingType(type);
     if (type.task || type.fallible || type.device ||
         (type.builtin != BuiltinValue::Numeric && type.builtin != BuiltinValue::Bool &&
          type.builtin != BuiltinValue::Record && type.builtin != BuiltinValue::String &&
@@ -1528,6 +1780,7 @@ private:
     const auto symbol = output_.symbols.size();
     output_.symbols.push_back({identifier, type, span, frame.function, true,
                                capture.definition.value_or(capture.declaration)});
+    output_.symbols.back().reassignable = privateCopy;
     output_.functions[frame.function].parameters.push_back(symbol);
     frame.closure->captures.emplace(identifier, symbol);
     frame.closure->origins.push_back(*origin);
@@ -1733,7 +1986,12 @@ private:
                 parameter.name);
         return {};
       }
-      if (context && !sameFunctionValueType(*resolved, context->parameters[i])) {
+      if (parameter.mutableAccess && !mutableArrayType(*resolved)) {
+        error("S076", "mut parameters require flat numeric or Bool array storage", parameter.name);
+        return {};
+      }
+      if (context && (parameter.mutableAccess != context->mutates(i) ||
+                      !sameFunctionValueType(*resolved, context->parameters[i]))) {
         error("S060", "anonymous parameter differs from its expected function type",
               parameter.name);
         return {};
@@ -1783,6 +2041,7 @@ private:
       }
       auto symbol = output_.symbols.size();
       output_.symbols.push_back({label, parameters[i], lambda.parameters[i].name, id, true});
+      output_.symbols.back().mutableAccess = lambda.parameters[i].mutableAccess;
       output_.functions[id].parameters.push_back(symbol);
       nested.locals.emplace(label, symbol);
     }
@@ -1790,6 +2049,7 @@ private:
     for (const auto &parameter : lambda.parameters)
       introduced.insert(name(parameter.name));
     std::vector<TypedStatement> statements;
+    prepareBindings(nested, lambda.body);
     auto result = suite(nested, lambda.body, resultContext, statements, introduced);
     if (!result)
       return {};
@@ -1804,7 +2064,10 @@ private:
       error("S072", "anonymous function return channel does not cover every error family", span);
       return {};
     }
-    auto signature = callableType(parameters, declaredResult, span);
+    std::vector<bool> mutations;
+    for (const auto &parameter : lambda.parameters)
+      mutations.push_back(parameter.mutableAccess);
+    auto signature = callableType(parameters, declaredResult, span, std::move(mutations));
     if (!signature)
       return {};
     output_.functions[id].body = std::move(statements);
@@ -1830,6 +2093,13 @@ private:
       auto value = add(frame, output_.symbols[origin].type, span, SymbolRead{origin});
       if (!value)
         return {};
+      const auto &function = output_.functions[id];
+      const auto captureSymbol = function.parameters[function.parameters.size() - function.captureCount + captures.size()];
+      const auto &capture = output_.symbols[captureSymbol];
+      if (capture.reassignable && capture.type.array)
+        value = add(frame, capture.type, span, ShapeCheck{*value, {}});
+      if (!value)
+        return {};
       captures.push_back(*value);
     }
     return add(frame, *signature, span, FunctionReference{id, std::move(captures)});
@@ -1844,18 +2114,26 @@ private:
       boolean.builtin = BuiltinValue::Bool;
       return add(frame, boolean, span, BoolLiteral{identifier == "true"});
     }
-    if (auto found = lookupSymbol(frame, read.name))
-      return add(frame, output_.symbols[*found].type, span, SymbolRead{*found});
+    if (auto found = lookupSymbol(frame, read.name)) {
+      auto readType = output_.symbols[*found].type;
+      if (output_.symbols[*found].reassignable && readType.array)
+        readType = bindingType(readType); // No extent equality survives a replacement/backedge.
+      return add(frame, readType, span, SymbolRead{*found});
+    }
     if (auto found = functions_.find(functionKey(frame, identifier)); found != functions_.end()) {
       const auto id = found->second;
       if (!analyzeFunction(id))
         return {};
       const auto &target = output_.functions[id];
       std::vector<ValueType> parameters;
-      for (auto symbol : target.parameters)
+      std::vector<bool> mutations;
+      for (auto symbol : target.parameters) {
         parameters.push_back(output_.symbols[symbol].type);
-      auto signature = callableType(std::move(parameters),
-                                    target.declaredResult.value_or(target.resultType), span);
+        mutations.push_back(output_.symbols[symbol].mutableAccess);
+      }
+      auto signature =
+          callableType(std::move(parameters), target.declaredResult.value_or(target.resultType),
+                       span, std::move(mutations));
       if (!signature)
         return {};
       return add(frame, *signature, span, FunctionReference{id});
@@ -2189,10 +2467,6 @@ private:
       error("S027", "concat expects exactly two arrays", span);
       return {};
     }
-    if (options_.placement) {
-      error("S061", "concat requires CPU arrays without placement", span);
-      return {};
-    }
     const auto empty = [&](ExprId id) {
       auto *literal = std::get_if<ArrayExpr>(&syntax_.expressions[id].value);
       return literal && literal->elements.empty();
@@ -2262,7 +2536,7 @@ private:
     const bool array = type.array && type.tensor && type.shape.size() == 1 &&
                        (type.builtin == BuiltinValue::Numeric || isOwnedArray(type));
     const bool string = type.builtin == BuiltinValue::String && !type.tensor && !type.array;
-    if ((!array && !string) || type.task || type.fallible || type.device || options_.placement) {
+    if ((!array && !string) || type.task || type.fallible || type.device) {
       error("S061", "slice requires a completed CPU String or array without placement", span);
       return {};
     }
@@ -2305,6 +2579,59 @@ private:
     }
     return add(frame, type, span, StringSlice{*input, bounds[0], bounds[1]});
   }
+  std::optional<ValueId> arraySort(Frame &frame, SourceSpan span, const std::string &callee,
+                                   const std::vector<ExprId> &arguments,
+                                   const std::optional<ValueType> &expected) {
+    if (arguments.size() != 1) {
+      error("S027", callee + " expects exactly one array", span);
+      return {};
+    }
+    auto input =
+        expression(frame, arguments[0], expected && expected->array ? expected : std::nullopt);
+    if (!input)
+      return {};
+    const auto output = node(*input).type;
+    if (!output.array || !output.tensor || output.shape.size() != 1 || output.task ||
+        output.fallible || output.device ||
+        (output.builtin != BuiltinValue::Numeric && output.builtin != BuiltinValue::Bool)) {
+      error("S078", callee + " requires a completed CPU numeric or Bool array without placement",
+            span);
+      return {};
+    }
+    return add(frame, output, span, ArraySort{*input, callee == "sorted"});
+  }
+  std::optional<ValueId> arrayCopy(Frame &frame, SourceSpan span,
+                                   const std::vector<ExprId> &arguments,
+                                   const std::optional<ValueType> &expected) {
+    if (arguments.size() != 1) {
+      error("S027", "copy expects exactly one array", span);
+      return {};
+    }
+    auto input =
+        expression(frame, arguments[0], expected && expected->array ? expected : std::nullopt);
+    if (!input)
+      return {};
+    const auto output = node(*input).type;
+    if (!output.array || !output.tensor || output.shape.size() != 1 || output.task ||
+        output.fallible || output.device ||
+        (output.builtin != BuiltinValue::Numeric && output.builtin != BuiltinValue::Bool &&
+         output.builtin != BuiltinValue::String)) {
+      error("S061",
+            "copy requires a completed CPU numeric, Bool or String array without placement; "
+            "copying nested mutable storage is not yet defined",
+            span);
+      return {};
+    }
+    ValueType integer;
+    integer.element = NumericType::Int64;
+    auto start = add(frame, integer, span, Int64Literal{0});
+    auto end = add(frame, integer, span, CollectionQuery{CollectionQueryKind::Length, *input});
+    if (!start || !end)
+      return {};
+    // Reuse the checked, allocating slice operation. Its input is evaluated once;
+    // the output retains length facts but has separate element storage.
+    return add(frame, output, span, ArraySlice{*input, *start, *end});
+  }
   std::optional<ValueId> collectionQuery(Frame &frame, SourceSpan span, const std::string &callee,
                                          const std::vector<ExprId> &arguments) {
     if (arguments.size() != 1) {
@@ -2346,6 +2673,48 @@ private:
     return add(
         frame, result, span,
         CollectionQuery{length ? CollectionQueryKind::Length : CollectionQueryKind::Shape, *input});
+  }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ArraySetExpr &store,
+                               const std::optional<ValueType> &) {
+    auto input = expression(frame, store.input);
+    if (!input)
+      return {};
+    const auto array = node(*input).type;
+    if (!mutableArrayType(array)) {
+      error("S078", "element assignment requires a completed CPU numeric or Bool array",
+            store.target);
+      return {};
+    }
+    auto position = expression(frame, store.index);
+    if (!position)
+      return {};
+    const auto indexType = node(*position).type;
+    if (indexType.tensor || indexType.task || indexType.fallible || indexType.device ||
+        indexType.builtin != BuiltinValue::Numeric || !isInteger(indexType.element)) {
+      error("S061", "element assignment requires a completed CPU integer index", store.target);
+      return {};
+    }
+    if (auto known = intConstants_.find(*position); known != intConstants_.end()) {
+      if (known->second < 0 || known->second > INT64_MAX ||
+          (array.shape[0].constant && known->second >= *array.shape[0].constant)) {
+        error("S062", "index is outside its valid zero-based dimension range", store.target);
+        return {};
+      }
+    } else if (array.shape[0].constant && *array.shape[0].constant == 0) {
+      error("S062", "cannot index an empty dimension", store.target);
+      return {};
+    }
+    ValueType checkedIndex;
+    checkedIndex.element = NumericType::Int64;
+    auto checked = add(frame, checkedIndex, store.target, ArrayBoundsCheck{*input, *position});
+    if (!checked)
+      return {};
+    auto value = expression(frame, store.value, recordArrayElement(array));
+    if (!value)
+      return {};
+    ValueType marker;
+    marker.builtin = BuiltinValue::Bool;
+    return add(frame, marker, span, ArrayStore{*input, *checked, *value});
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const IndexExpr &read,
                                const std::optional<ValueType> &expected) {
@@ -2556,6 +2925,7 @@ private:
           !std::holds_alternative<TensorReshape>(node(*value).operation) &&
           !std::holds_alternative<TensorToArray>(node(*value).operation) &&
           !std::holds_alternative<ArraySlice>(node(*value).operation) &&
+          !std::holds_alternative<ArraySort>(node(*value).operation) &&
           !std::holds_alternative<ArrayConcat>(node(*value).operation) &&
           !std::holds_alternative<CollectionQuery>(node(*value).operation)) {
         error("S037", "this invocation is not a supported task entry", span);
@@ -2619,9 +2989,15 @@ private:
     std::optional<ValueId> result;
     for (std::size_t index = 0; index < block.body.size(); ++index) {
       const auto &statement = block.body[index];
+      if (nested.stopped) {
+        error("S076", "unreachable statement after loop transfer", statement.span);
+        return {};
+      }
       std::optional<ValueType> context;
       if (statement.annotation)
         context = type(*statement.annotation);
+      else if (statement.binding)
+        context = rebindContext(nested, statement);
       else if (index + 1 == block.body.size() && expected) {
         context = *expected;
         context->task = context->fallible = false;
@@ -2637,14 +3013,22 @@ private:
           error("S056", "Control-flow keywords cannot be binding names", *statement.binding);
           return {};
         }
-        if (!bindings.insert(binding).second) {
-          error("S008", "duplicate immutable binding", *statement.binding);
-          return {};
+        if ((symbol = scalarRebinding(nested, statement, *value))) {
+          bindings.insert(binding);
+        } else {
+          if (!bindings.insert(binding).second) {
+            error("S008", "duplicate immutable binding", *statement.binding);
+            return {};
+          }
+          symbol = output_.symbols.size();
+          output_.symbols.push_back(
+              {binding, node(*value).type, *statement.binding, frame.function, false});
+          output_.symbols[*symbol].reassignable =
+              mayReassign(frame, binding) && localBinding(node(*value).type);
+          if (output_.symbols[*symbol].reassignable)
+            output_.symbols[*symbol].type = bindingType(output_.symbols[*symbol].type);
+          nested.locals[binding] = *symbol;
         }
-        symbol = output_.symbols.size();
-        output_.symbols.push_back(
-            {binding, node(*value).type, *statement.binding, frame.function, false});
-        nested.locals[binding] = *symbol;
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
       }
@@ -2665,6 +3049,7 @@ private:
     resultType.fallible = true;
     resultType.errorRecord = errors->errorRecord;
     resultType.identity = 0;
+    frame.stopped = nested.stopped;
     return add(frame, resultType, span, ParallelOperation{std::move(statements), *result, group});
   }
   // Branch-local obligations must be discharged on the path which creates
@@ -2685,10 +3070,365 @@ private:
       }
     }
   }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const YieldExpr &yield,
+                               const std::optional<ValueType> &) {
+    if (!frame.collection) {
+      error("S076", "yield requires an enclosing collecting loop in this function", span);
+      return {};
+    }
+    auto &collection = *frame.collection;
+    auto value = expression(frame, yield.operand, collection.element);
+    if (!value)
+      return {};
+    const auto type = node(*value).type;
+    if (type.task || type.fallible || type.tensor || type.array || type.device ||
+        type.builtin == BuiltinValue::Device) {
+      error("S076", "yield requires a completed CPU array element; handle errors before yielding",
+            span);
+      return {};
+    }
+    if (collection.element && !sameFunctionValueType(type, *collection.element)) {
+      error("S076", "all yields in a collecting loop require the same element type", span);
+      return {};
+    }
+    if (!collection.element)
+      collection.element = bindingType(type);
+    collection.values.push_back(*value);
+    ValueType marker;
+    marker.builtin = BuiltinValue::Bool;
+    return add(frame, marker, span, YieldOperation{collection.identity, *value});
+  }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const LoopTransferExpr &jump,
+                               const std::optional<ValueType> &) {
+    if (!frame.loop) {
+      error("S076", "break and continue require an enclosing loop in this function", span);
+      return {};
+    }
+    auto &loop = *frame.loop;
+    loop.transfers = true;
+    std::optional<ValueId> value;
+    if (!jump.continuing) {
+      if (bool(jump.value) != loop.expression) {
+        error("S076",
+              loop.expression ? "an expression loop requires break value"
+                              : "a statement loop uses break without a value",
+              span);
+        return {};
+      }
+      if (jump.value) {
+        value = expression(frame, *jump.value, loop.context);
+        if (!value)
+          return {};
+        const auto &type = node(*value).type;
+        if (type.task || type.builtin == BuiltinValue::Device) {
+          error("S076", "break requires a completed value", span);
+          return {};
+        }
+        if (type.fallible)
+          frame.tasks->handled.insert(type.identity);
+        loop.results.push_back(*value);
+      }
+    }
+    ValueType marker;
+    marker.builtin = BuiltinValue::Bool;
+    auto completed = add(frame, marker, span, BoolLiteral{false});
+    if (!completed)
+      return {};
+    finishBranch(loop.before, frame, *completed, span);
+    frame.stopped = true;
+    return add(frame, marker, span, LoopTransferOperation{loop.identity, jump.continuing, value});
+  }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const WhileExpr &loop,
+                               const std::optional<ValueType> &expected) {
+    auto condition = expression(frame, loop.condition);
+    if (!condition)
+      return {};
+    return checkLoop(frame, span, loop, expected, *condition, frame);
+  }
+  std::optional<ValueId> checkLoop(Frame &frame, SourceSpan span, const WhileExpr &loop,
+                                   const std::optional<ValueType> &expected, ValueId condition,
+                                   Frame nested, std::vector<TypedStatement> initial = {},
+                                   std::vector<TypedStatement> iteration = {}) {
+    const auto test = node(condition).type;
+    if (test.builtin != BuiltinValue::Bool || test.tensor || test.array || test.task ||
+        test.fallible || test.device) {
+      error("S057", "while conditions require a completed CPU Bool", node(condition).span);
+      return {};
+    }
+    const auto before = *frame.tasks;
+    auto scope = std::make_shared<LoopScope>(
+        LoopScope{nextLoop_++, before, !loop.statementOnly && !loop.collecting, expected, {}});
+    auto context = expected;
+    if (context)
+      context->fallible = true;
+    auto normal = frame;
+    normal.conditional = true;
+    normal.tasks = std::make_shared<TaskChecks>(before);
+    std::vector<TypedStatement> whenDone;
+    std::optional<ValueId> normalResult;
+    if (!loop.whenDone.empty()) {
+      normalResult = suite(normal, loop.whenDone, context, whenDone, {}, loop.statementOnly);
+      if (!normalResult)
+        return {};
+      finishBranch(before, normal, *normalResult, span);
+      if (!loop.statementOnly && !expected) {
+        scope->context = node(*normalResult).type;
+        for (auto &axis : scope->context->shape)
+          axis = dynamic();
+      }
+    }
+    nested.conditional = true;
+    nested.tasks = std::make_shared<TaskChecks>(before);
+    nested.loop = scope;
+    std::shared_ptr<CollectionScope> collection;
+    if (loop.collecting) {
+      if (expected && (!expected->array || expected->task || expected->device)) {
+        error("S076", "a collecting loop produces a CPU array", span);
+        return {};
+      }
+      collection = std::make_shared<CollectionScope>(
+          CollectionScope{scope->identity,
+                          expected ? std::optional(recordArrayElement(*expected)) : std::nullopt,
+                          {}});
+      nested.collection = collection;
+    }
+    std::vector<TypedStatement> body;
+    if (!suite(nested, loop.body, {}, body, {}, true))
+      return {};
+    ValueType resultType;
+    resultType.builtin = BuiltinValue::Bool;
+    auto completed = add(nested, resultType, span, BoolLiteral{false});
+    if (!completed)
+      return {};
+    finishBranch(before, nested, *completed, span);
+    if (loop.collecting) {
+      if (!collection->element || collection->values.empty()) {
+        error("S076", "a collecting loop requires a yield to determine its element type", span);
+        return {};
+      }
+      resultType = *collection->element;
+      resultType.tensor = resultType.array = true;
+      resultType.shape = {dynamic()};
+      scope->results = collection->values;
+    } else if (!loop.statementOnly) {
+      if (!normalResult) {
+        error("S076", "loop expressions require a normal-completion result", span);
+        return {};
+      }
+      resultType = node(*normalResult).type;
+      scope->results.push_back(*normalResult);
+      for (auto value : scope->results) {
+        const auto actual = node(value).type;
+        if (actual.task || actual.builtin == BuiltinValue::Device ||
+            actual.builtin != resultType.builtin || actual.record != resultType.record ||
+            (actual.builtin == BuiltinValue::Numeric && actual.element != resultType.element) ||
+            (actual.builtin == BuiltinValue::Function &&
+             !sameFunctionValueType(recordArrayElement(actual), recordArrayElement(resultType))) ||
+            actual.tensor != resultType.tensor || actual.array != resultType.array ||
+            actual.shape.size() != resultType.shape.size() || actual.device != resultType.device) {
+          error("S076", "break and else results require a common completed type and residency",
+                node(value).span);
+          return {};
+        }
+        if (!joinErrors(resultType, actual, span))
+          return {};
+        for (std::size_t axis = 0; axis < actual.shape.size(); ++axis)
+          if (!same(resultType.shape[axis], actual.shape[axis]))
+            resultType.shape[axis] = dynamic();
+      }
+      resultType.identity = 0;
+    }
+    return add(frame, resultType, span,
+               WhileOperation{condition, std::move(body), std::move(whenDone),
+                              loop.statementOnly ? std::optional<ValueId>{} : normalResult,
+                              scope->identity, scope->transfers, std::move(initial),
+                              std::move(iteration), scope->results, loop.collecting});
+  }
+  std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ForExpr &loop,
+                               const std::optional<ValueType> &expected) {
+    if (reservedControl(name(loop.binding))) {
+      error("S076", "invalid for iteration binding", loop.binding);
+      return {};
+    }
+    Frame nested = frame;
+    std::vector<TypedStatement> initial, iteration;
+    ValueType integer;
+    integer.element = NumericType::Int64;
+    ValueType boolean;
+    boolean.builtin = BuiltinValue::Bool;
+    const auto literal = [&](std::int64_t value) {
+      return add(frame, integer, span, Int64Literal{value});
+    };
+    const auto bind = [&](ValueId value, bool mutableCell, std::vector<TypedStatement> &into,
+                          std::optional<SourceSpan> label = {}) {
+      const auto symbol = output_.symbols.size();
+      output_.symbols.push_back({label ? name(*label) : "__for_" + std::to_string(symbol),
+                                 bindingType(node(value).type), label.value_or(span),
+                                 frame.function, false});
+      output_.symbols.back().reassignable = mutableCell;
+      into.push_back({span, symbol, value});
+      if (label) {
+        nested.locals[name(*label)] = symbol;
+        rememberSourceToken({*label, *label, output_.symbols[symbol].type, {}});
+      }
+      return symbol;
+    };
+    const auto read = [&](SymbolId symbol) {
+      return add(frame, output_.symbols[symbol].type, span, SymbolRead{symbol});
+    };
+    ValueId condition;
+    const auto *call = std::get_if<CallExpr>(&syntax_.expressions[loop.input].value);
+    const auto *callee =
+        call ? std::get_if<NameExpr>(&syntax_.expressions[call->callee].value) : nullptr;
+    if (callee && name(callee->name) == "range") {
+      if (call->arguments.empty() || call->arguments.size() > 3) {
+        error("S076", "range expects stop, start/stop, or start/stop/step",
+              syntax_.expressions[loop.input].span);
+        return {};
+      }
+      std::vector<ValueId> arguments;
+      for (auto argument : call->arguments) {
+        auto value = expression(frame, argument, integer);
+        if (!value)
+          return {};
+        if (!sameFunctionValueType(node(*value).type, integer)) {
+          error("S076", "range arguments require completed int scalars", node(*value).span);
+          return {};
+        }
+        auto symbol = bind(*value, false, initial);
+        auto pinned = read(symbol);
+        if (!pinned)
+          return {};
+        arguments.push_back(*pinned);
+      }
+      auto zero = literal(0), one = literal(1);
+      if (!zero || !one)
+        return {};
+      const auto start = arguments.size() == 1 ? *zero : arguments[0];
+      const auto stop = arguments.size() == 1 ? arguments[0] : arguments[1];
+      const auto step = arguments.size() == 3 ? arguments[2] : *one;
+      auto checked =
+          add(frame, integer, span,
+              IntegerRangeOperation{IntegerRangeOperation::Kind::Validate, start, stop, step});
+      if (!checked)
+        return {};
+      const auto current = bind(*checked, true, initial);
+      auto position = read(current);
+      if (!position)
+        return {};
+      auto test =
+          add(frame, boolean, span,
+              IntegerRangeOperation{IntegerRangeOperation::Kind::Test, *position, stop, step});
+      if (!test)
+        return {};
+      condition = *test;
+      // Capture the iteration value before advancement. Continue therefore
+      // reaches the next value, while body writes cannot alter the range.
+      auto item = read(current);
+      if (!item)
+        return {};
+      bind(*item, true, iteration, loop.binding);
+      auto advance =
+          add(frame, integer, span,
+              IntegerRangeOperation{IntegerRangeOperation::Kind::Advance, *item, stop, step});
+      if (!advance)
+        return {};
+      iteration.push_back({span, current, *advance});
+    } else {
+      auto input = expression(frame, loop.input);
+      if (!input)
+        return {};
+      const auto type = node(*input).type;
+      if (!type.array || type.task || type.fallible || type.device) {
+        error("S076", "for expects a completed CPU array or range(...) iterable",
+              node(*input).span);
+        return {};
+      }
+      const auto source = bind(*input, false, initial);
+      auto values = read(source), zero = literal(0), one = literal(1);
+      if (!values || !zero || !one)
+        return {};
+      auto count = add(frame, integer, span, CollectionQuery{CollectionQueryKind::Length, *values});
+      if (!count)
+        return {};
+      const auto countSymbol = bind(*count, false, initial);
+      const auto counter = bind(*zero, true, initial);
+      auto position = read(counter), length = read(countSymbol);
+      if (!position || !length)
+        return {};
+      auto test =
+          add(frame, boolean, span, ScalarCompare{ComparisonKind::Less, *position, *length});
+      if (!test)
+        return {};
+      condition = *test;
+      auto item = add(frame, recordArrayElement(type), span, ArrayIndex{*values, *position});
+      if (!item)
+        return {};
+      bind(*item, localBinding(node(*item).type), iteration, loop.binding);
+      auto advance = add(frame, integer, span, ScalarBinary{TokenKind::Plus, *position, *one});
+      if (!advance)
+        return {};
+      iteration.push_back({span, counter, *advance});
+    }
+    return checkLoop(frame, span, WhileExpr{0, loop.body, loop.whenDone, loop.statementOnly, loop.collecting},
+                     expected, condition, std::move(nested), std::move(initial),
+                     std::move(iteration));
+  }
   std::optional<ValueId> statementValue(Frame &frame, const Statement &statement,
                                         const std::optional<ValueType> &expected, bool last) {
     const auto &ast = syntax_.expressions[statement.expression];
+    if (!last && !statement.binding && std::holds_alternative<FailExpr>(ast.value)) {
+      // A statement-body failure has no success value to infer. Its Bool marker
+      // is private; the existing boundary receives only the propagated error.
+      ValueType marker;
+      marker.builtin = BuiltinValue::Bool;
+      auto value = infer(frame, ast.span, std::get<FailExpr>(ast.value), marker);
+      if (value)
+        frame.tasks->handled.insert(node(*value).type.identity);
+      return value;
+    }
+    const auto *sourceLoop = std::get_if<WhileExpr>(&ast.value);
+    const auto *sourceFor = std::get_if<ForExpr>(&ast.value);
+    if ((sourceLoop && sourceLoop->statementOnly) || (sourceFor && sourceFor->statementOnly) ||
+        std::holds_alternative<LoopTransferExpr>(ast.value) ||
+        std::holds_alternative<YieldExpr>(ast.value) ||
+        std::holds_alternative<ArraySetExpr>(ast.value)) {
+      if (statement.binding || (last && !std::holds_alternative<LoopTransferExpr>(ast.value) &&
+                                !std::holds_alternative<YieldExpr>(ast.value))) {
+        error("S075",
+              "loop or element assignment is a statement; supply a separate result expression",
+              ast.span);
+        return {};
+      }
+    }
     const auto *guard = std::get_if<ConditionalExpr>(&ast.value);
+    if (guard && guard->statementOnly) {
+      if (statement.binding || (last && !frame.loop)) {
+        error("S075", "statement if requires a separate result expression", ast.span);
+        return {};
+      }
+      auto test = expression(frame, guard->condition);
+      if (!test)
+        return {};
+      auto value = conditional(frame, ast.span, *test, {},
+                         [&](Frame &branch, unsigned index, const std::optional<ValueType> &,
+                             std::vector<TypedStatement> &body) -> std::optional<ValueId> {
+                           const auto &source = index == 0 ? guard->whenTrue : guard->whenFalse;
+                           if (!source.empty() && !suite(branch, source, {}, body, {}, true))
+                             return {};
+                           ValueType marker;
+                           marker.builtin = BuiltinValue::Bool;
+                           auto value = add(branch, marker, ast.span, BoolLiteral{false});
+                           if (value)
+                             body.push_back({ast.span, {}, *value});
+                           return value;
+                         });
+      if (last && !frame.stopped) {
+        error("S075", "statement if requires a result on its continuing path", ast.span);
+        return {};
+      }
+      return value;
+    }
     if (!guard || !guard->whenFalse.empty())
       return expression(frame, statement.expression, expected);
     if (last || statement.binding || guard->whenTrue.empty() ||
@@ -2722,18 +3462,26 @@ private:
   std::optional<ValueId> suite(Frame &frame, const std::vector<Statement> &body,
                                std::optional<ValueType> context,
                                std::vector<TypedStatement> &statements,
-                               const std::unordered_set<std::string> &introduced = {}) {
+                               const std::unordered_set<std::string> &introduced = {},
+                               bool statementBody = false) {
     auto bindings = introduced;
     std::optional<ValueId> result;
     for (std::size_t index = 0; index < body.size(); ++index) {
       const auto &statement = body[index];
-      auto expected = index + 1 == body.size() ? context : std::optional<ValueType>{};
+      if (frame.stopped) {
+        error("S076", "unreachable statement after loop transfer", statement.span);
+        return {};
+      }
+      auto expected = statement.binding          ? rebindContext(frame, statement)
+                      : index + 1 == body.size() ? context
+                                                 : std::optional<ValueType>{};
       if (statement.annotation) {
         expected = type(*statement.annotation);
         if (!expected)
           return {};
       }
-      auto value = statementValue(frame, statement, expected, index + 1 == body.size());
+      auto value =
+          statementValue(frame, statement, expected, !statementBody && index + 1 == body.size());
       if (!value)
         return {};
       std::optional<SymbolId> symbol;
@@ -2743,14 +3491,22 @@ private:
           error("S056", "Control-flow keywords cannot be binding names", *statement.binding);
           return {};
         }
-        if (!bindings.insert(binding).second) {
-          error("S008", "duplicate immutable binding", *statement.binding);
-          return {};
+        if ((symbol = scalarRebinding(frame, statement, *value))) {
+          bindings.insert(binding);
+        } else {
+          if (!bindings.insert(binding).second) {
+            error("S008", "duplicate immutable binding", *statement.binding);
+            return {};
+          }
+          symbol = output_.symbols.size();
+          output_.symbols.push_back(
+              {binding, node(*value).type, *statement.binding, frame.function, false});
+          output_.symbols[*symbol].reassignable =
+              mayReassign(frame, binding) && localBinding(node(*value).type);
+          if (output_.symbols[*symbol].reassignable)
+            output_.symbols[*symbol].type = bindingType(output_.symbols[*symbol].type);
+          frame.locals[binding] = *symbol;
         }
-        symbol = output_.symbols.size();
-        output_.symbols.push_back(
-            {binding, node(*value).type, *statement.binding, frame.function, false});
-        frame.locals[binding] = *symbol;
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
       }
@@ -2870,6 +3626,7 @@ private:
     }
     const auto before = *frame.tasks;
     std::vector<std::shared_ptr<TaskChecks>> paths;
+    bool allStopped = true;
     std::vector<std::vector<TypedStatement>> bodies(2);
     std::vector<ValueId> results;
     std::optional<ValueType> resultType;
@@ -2910,6 +3667,7 @@ private:
       } else
         resultType = actual;
       finishBranch(before, branch, *value, span);
+      allStopped = allStopped && branch.stopped;
       paths.push_back(branch.tasks);
       results.push_back(*value);
     }
@@ -2923,6 +3681,7 @@ private:
               return path->observed.contains(node(child).type.identity);
             }))
           frame.tasks->observed.insert(node(child).type.identity);
+    frame.stopped = allStopped;
     resultType->identity = 0;
     return add(frame, *resultType, span,
                ConditionalOperation{condition, std::move(bodies[0]), std::move(bodies[1]),
@@ -2930,6 +3689,10 @@ private:
   }
   std::optional<ValueId> infer(Frame &frame, SourceSpan span, const ConditionalExpr &choice,
                                const std::optional<ValueType> &expected) {
+    if (choice.statementOnly) {
+      error("S075", "statement if cannot supply an expression value", span);
+      return {};
+    }
     if (choice.whenFalse.empty()) {
       error("S073", "if expressions require an else branch", span);
       return {};
@@ -3623,7 +4386,8 @@ private:
     else if (auto *n = std::get_if<Float64Literal>(&op))
       constant.emplace(llvm::APFloat::IEEEdouble(), llvm::APInt(64, n->bits));
     else if (auto *read = std::get_if<SymbolRead>(&op)) {
-      if (auto found = floatBindings_.find(read->symbol); found != floatBindings_.end())
+      if (auto found = floatBindings_.find(read->symbol);
+          found != floatBindings_.end() && !output_.symbols[read->symbol].reassignable)
         constant = found->second;
     } else if (auto *unary = std::get_if<ScalarUnary>(&op)) {
       if (auto found = floatConstants_.find(unary->operand); found != floatConstants_.end()) {
@@ -3728,6 +4492,46 @@ private:
       floatConstants_.insert_or_assign(*id, *floating);
     return id;
   }
+  std::optional<ValueId> mapInput(Frame &frame, ExprId syntax,
+                                  const std::optional<ValueType> &context, bool generate) {
+    if (!generate)
+      return expression(frame, syntax, context);
+    if (context && (!context->array || context->builtin != BuiltinValue::Numeric ||
+                    context->element != NumericType::Int64)) {
+      error("S059", "generate callback requires one int index parameter",
+            syntax_.expressions[syntax].span);
+      return {};
+    }
+    ValueType scalar;
+    scalar.element = NumericType::Int64;
+    auto value = expression(frame, syntax, scalar);
+    if (!value)
+      return {};
+    const auto &actual = node(*value).type;
+    if (actual.builtin != BuiltinValue::Numeric || actual.element != NumericType::Int64 ||
+        actual.tensor || actual.array || actual.task || actual.fallible || actual.device) {
+      error("S059", "generate count must be a completed int scalar",
+            syntax_.expressions[syntax].span);
+      return {};
+    }
+    if (auto constant = intConstants_.find(*value);
+        constant != intConstants_.end() && constant->second < 0) {
+      error("S059", "generate count must be nonnegative", syntax_.expressions[syntax].span);
+      return {};
+    }
+    return value;
+  }
+  ValueType mapInputType(ValueId value, bool generate) {
+    auto result = node(value).type;
+    if (generate) {
+      result.tensor = result.array = true;
+      auto constant = intConstants_.find(value);
+      result.shape = {constant == intConstants_.end()
+                          ? dynamic()
+                          : Extent{static_cast<std::uint64_t>(constant->second)}};
+    }
+    return result;
+  }
   std::optional<ValueId> finishMap(Frame &frame, SourceSpan span, ValueType output, ArrayMap map,
                                    bool parallel) {
     if (parallel) {
@@ -3744,7 +4548,7 @@ private:
   }
   std::optional<ValueId> anonymousMap(Frame &frame, SourceSpan span, ExprId inputSyntax,
                                       SourceSpan lambdaSpan, const LambdaExpr &lambda,
-                                      bool parallel = false) {
+                                      bool parallel = false, bool generate = false) {
     if (!parallel && !lambda.errorTypes.empty()) {
       error("S060",
             "map callbacks must return completed elements; handle errors inside an infallible "
@@ -3779,10 +4583,10 @@ private:
       inputContext->record = annotation->record;
       inputContext->callable = annotation->callable;
     }
-    auto input = expression(frame, inputSyntax, inputContext);
+    auto input = mapInput(frame, inputSyntax, inputContext, generate);
     if (!input)
       return {};
-    const auto inputType = node(*input).type;
+    const auto inputType = mapInputType(*input, generate);
     if (!inputType.array ||
         (inputType.builtin != BuiltinValue::Numeric && inputType.builtin != BuiltinValue::Record &&
          inputType.builtin != BuiltinValue::Bool && inputType.builtin != BuiltinValue::String &&
@@ -3844,6 +4648,7 @@ private:
     nested.locals.emplace(name(lambda.parameters[0].name), parameter);
     nested.closure = std::make_shared<ClosureScope>(ClosureScope{&frame, {}, {}});
     std::vector<TypedStatement> statements;
+    prepareBindings(nested, lambda.body);
     auto result =
         suite(nested, lambda.body, resultContext, statements, {name(lambda.parameters[0].name)});
     if (!result)
@@ -3876,6 +4681,13 @@ private:
       auto value = add(frame, output_.symbols[origin].type, lambdaSpan, SymbolRead{origin});
       if (!value)
         return {};
+      const auto &function = output_.functions[id];
+      const auto captureSymbol = function.parameters[function.parameters.size() - function.captureCount + captures.size()];
+      const auto &capture = output_.symbols[captureSymbol];
+      if (capture.reassignable && capture.type.array)
+        value = add(frame, capture.type, lambdaSpan, ShapeCheck{*value, {}});
+      if (!value)
+        return {};
       captures.push_back(*value);
     }
     auto output = inputType;
@@ -3886,17 +4698,22 @@ private:
     output.callable = resultType.callable;
     if (!validSize(output, span))
       return {};
-    return finishMap(frame, span, output, ArrayMap{*input, id, std::move(captures)}, parallel);
+    return finishMap(frame, span, output,
+                     ArrayMap{*input, id, std::move(captures), false, generate}, parallel);
   }
   std::optional<ValueId> arrayMap(Frame &frame, SourceSpan span,
-                                  const std::vector<ExprId> &arguments, bool parallel = false) {
+                                  const std::vector<ExprId> &arguments, bool parallel = false,
+                                  bool generate = false) {
     if (arguments.size() != 2) {
-      error("S027", "map expects an array and a one-argument function", span);
+      error("S027",
+            generate ? "generate expects a count and a one-argument function"
+                     : "map expects an array and a one-argument function",
+            span);
       return {};
     }
     if (const auto *lambda = std::get_if<LambdaExpr>(&syntax_.expressions[arguments[1]].value))
       return anonymousMap(frame, span, arguments[0], syntax_.expressions[arguments[1]].span,
-                          *lambda, parallel);
+                          *lambda, parallel, generate);
     const auto *callback = std::get_if<NameExpr>(&syntax_.expressions[arguments[1]].value);
     if (callback)
       completeScope(frame, callback->name);
@@ -3922,7 +4739,7 @@ private:
       auto inputType = targetType.callable->parameters[0];
       inputType.tensor = inputType.array = true;
       inputType.shape = {dynamic()};
-      auto input = expression(frame, arguments[0], inputType);
+      auto input = mapInput(frame, arguments[0], inputType, generate);
       if (!input)
         return {};
       const auto id = output_.functions.size();
@@ -3950,7 +4767,7 @@ private:
       output_.functions[id].resultType = resultType;
       output_.functions[id].result = *result;
       output_.functions[id].body = {{span, {}, *result}};
-      auto output = node(*input).type;
+      auto output = mapInputType(*input, generate);
       output.builtin = resultType.builtin;
       output.element = resultType.element;
       output.record = resultType.record;
@@ -3958,7 +4775,8 @@ private:
       output.callable = resultType.callable;
       if (!validSize(output, span))
         return {};
-      return finishMap(frame, span, output, ArrayMap{*input, id, {*target}}, parallel);
+      return finishMap(frame, span, output, ArrayMap{*input, id, {*target}, false, generate},
+                       parallel);
     }
     auto found = functions_.find(functionKey(frame, name(callback->name)));
     if (found == functions_.end() || !analyzeFunction(found->second)) {
@@ -3990,17 +4808,17 @@ private:
     context.builtin = output_.symbols[fn.parameters[0]].type.builtin;
     context.record = output_.symbols[fn.parameters[0]].type.record;
     context.callable = output_.symbols[fn.parameters[0]].type.callable;
-    auto input = expression(frame, arguments[0], context);
+    auto input = mapInput(frame, arguments[0], context, generate);
     if (!input)
       return {};
-    auto output = node(*input).type;
+    auto output = mapInputType(*input, generate);
     output.element = result.element;
     output.builtin = result.builtin;
     output.record = result.record;
     output.callable = result.callable;
     if (!validSize(output, span))
       return {};
-    return finishMap(frame, span, output, ArrayMap{*input, id}, parallel);
+    return finishMap(frame, span, output, ArrayMap{*input, id, {}, false, generate}, parallel);
   }
   std::optional<ValueId> builtin(Frame &frame, SourceSpan span, const std::string &callee,
                                  const std::vector<ExprId> &arguments,
@@ -4296,6 +5114,12 @@ private:
         return collectionSlice(frame, span, arguments, expected);
       if (callee == "length" || callee == "shape" || callee == "byteLength")
         return collectionQuery(frame, span, callee, arguments);
+      if (callee == "sort" || callee == "sorted")
+        return arraySort(frame, span, callee, arguments, expected);
+      if (callee == "copy")
+        return arrayCopy(frame, span, arguments, expected);
+      if (callee == "generate")
+        return arrayMap(frame, span, arguments, false, true);
       if (callee == "map" || callee == "parallelMap")
         return arrayMap(frame, span, arguments, callee == "parallelMap");
       if (callee == "tensor" || callee == "matmul" || callee == "reduceSum" || callee == "relu" ||
@@ -4321,6 +5145,7 @@ private:
         std::vector<std::string> names;
         for (const auto symbol : output_.functions[id].parameters) {
           signature.parameters.push_back(output_.symbols[symbol].type);
+          signature.mutableParameters.push_back(output_.symbols[symbol].mutableAccess);
           names.push_back(output_.symbols[symbol].name);
         }
         signature.result = output_.functions[id].resultType;
@@ -4422,6 +5247,7 @@ private:
       return {};
     return add(frame, std::move(resultType), span, FunctionCall{id, std::move(operands)});
   }
+  std::size_t nextLoop_ = 1;
   Module syntax_;
   SemanticLimits limits_;
   CheckOptions options_;

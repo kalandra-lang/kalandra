@@ -1,6 +1,16 @@
 meta { title = "Collection functions", description = "Signatures, results and failures for strings, arrays and tensor construction.", order = 2, group = "Library reference" }
 
-These signatures describe call forms, not generic declarations you can paste into a program. T and U stand for compatible element types; dimensions describe a tensor shape. Unless stated otherwise, inputs must be completed CPU values rather than pending tasks. GPU placement has a smaller supported subset, described in the GPU guide. These examples are ordinary CPU programs. In particular, slice and concat are rejected when placement checking is enabled; CPU-only does not imply support inside a mixed Metal application. Built-ins are available without an import and are not first-class callback values; wrap a built-in call in a user-defined function when you need a callback.
+Use these functions to construct and transform collections. They are available without an import. T and U in the signatures stand for supported element types; they are reference notation, not generic declarations. Examples on this page are complete CPU programs.
+
+Inputs must be values rather than pending tasks; await task results first. Array operations run on the CPU. Numeric and Bool arrays are also supported on the host side of Metal, Vulkan and CUDA programs, including CPU helpers and task results. String, record and function-array values remain limited to CPU programs. Tensor construction creates host storage; use transfer to move a tensor to a GPU. These array functions do not become GPU kernels through placement.
+
+Built-in names cannot be passed directly as callbacks. Wrap a built-in call in a named or anonymous function when an API requires a callback.
+
+list {
+  link { url = "/docs/arrays", "Array values, copies and write access" },
+  link { url = "/docs/strings", "String indexes and Unicode" },
+  link { url = "/docs/tensors", "Tensor shapes and construction" }
+}
 
 h2 { "length" }
 
@@ -18,7 +28,7 @@ h2 { "slice" }
 
 code { "slice(value: String | [T], start: integer, end: integer) -> same collection kind" }
 
-Return the half-open range from start through end, excluding end. Both bounds must be integer scalars and satisfy 0 <= start <= end <= length(value). String bounds count Unicode scalars. Equal bounds produce an empty value. Invalid constant bounds are diagnosed; invalid runtime bounds fail with a checked bounds fault. Values remain immutable; no zero-copy view is promised. CPU only.
+Return the half-open range from start through end, excluding end. Both bounds must be integer scalars and satisfy 0 <= start <= end <= length(value). String bounds count Unicode scalars. Equal bounds produce an empty value. Invalid constant bounds are diagnosed; invalid runtime bounds fail with a checked bounds fault. The result has independent outer array storage; no zero-copy view is promised. String values remain immutable. CPU only.
 
 h2 { "concat" }
 
@@ -31,6 +41,44 @@ h2 { "map" }
 code { "map(input: [T], callback: fn(T) -> U) -> [U]" }
 
 Call a one-argument function once per element, sequentially and in input order. The callback may be a named function, a function value or a supported closure. Its input and output must be supported array element kinds. The callback cannot return a task or an expected-error result; use parallelMap for supported fallible callbacks. An empty input calls no callbacks. Allocation and execution faults remain checked. CPU only.
+
+h2 { "copy" }
+
+code { "copy(input: [T]) -> [T]" }
+
+Return an independent array with the same length, element order and exact numeric bits. Supported elements are the ten numeric types, Bool and String. The array storage is fresh; String elements remain immutable values and may share their own text backing. Records, function values and nested arrays are not accepted. Empty arrays need an element type from context. Allocation and execution faults remain checked. CPU worker tasks are supported. Numeric and Bool arrays can also be copied on the host side of GPU programs; String arrays require CPU programs.
+
+h2 { "sort" }
+
+code { "sort(mut input: [T]) -> [T]" }
+
+Sort a numeric or Bool array in ascending order, in place, and return the same array. Existing aliases observe the writes. Ordinary array parameters and captured arrays are read-only; a function that sorts its caller's array must declare a mut parameter. A live task reader prevents sorting that storage until the task settles, and spawn sort(input) is rejected. Arrays of Strings, records, enums or function values, tensor arguments and custom comparators are not supported.
+
+Sorting is unstable: equal elements have no guaranteed relative order. It takes O(n log n) time with constant auxiliary storage. Cancellation can leave a partially sorted input; completed writes remain visible. Checked faults and cancellation checks remain enabled. Sorting runs on the CPU, including the host side of GPU programs.
+
+Integer ordering is numeric; Bool orders false before true. Floating-point ordering is deterministic and preserves exact bits: negative NaNs, negative infinity, negative finite values, negative zero, positive zero, positive finite values, positive infinity, then positive NaNs. Within a NaN sign, negative encodings are ordered by decreasing raw bits and positive encodings by increasing raw bits, including their quiet/signaling bit and payload. Sorting uses integer bit keys, without floating-point arithmetic or comparisons, and does not change the rounding mode or raise floating-point exception flags.
+
+h2 { "sorted" }
+
+code { "sorted(input: [T]) -> [T]" }
+
+Return a fresh sorted array without changing the input. Accepts the same numeric and Bool element types and uses the same ordering as sort. The copy requires O(n) additional element storage; sorting that copy uses constant auxiliary storage. Ordinary read-only inputs and worker tasks are supported. Allocation failures and cancellation remain checked; a canceled operation does not modify the input. Sorting runs on the CPU, including the host side of GPU programs.
+
+codeblock { language = kalandra, """fn main() -> [int]:
+  values = [3, 1, 2]
+  ordered = sorted(values)
+  alias = values
+  result = sort(values)
+  ordered[0] = 9
+  [alias[0], result[2], ordered[0]]
+""" }
+The result is [1, 3, 9].
+
+h2 { "generate" }
+
+code { "generate(count: int, callback: fn(int) -> T) -> [T]" }
+
+Construct a fresh array in ascending index order, without an intermediate index array. Call the callback once for each index from zero through count, excluding count. The callback may be a named function, function value or closure and must return a completed supported array element, as for sequential map. A zero count invokes no callbacks. A negative constant count is rejected; a negative runtime count produces a checked bounds fault. Byte-size overflow, allocation failures and callback execution faults remain checked. The count must be int (int64); use an explicit conversion for other integer widths. CPU execution, including worker tasks, is supported; this is not a GPU kernel operation.
 
 h2 { "tensor" }
 
@@ -71,5 +119,7 @@ fn main() -> [int]:
 """ }
 The result is [4, 8, 3, 3, 8].
 
-link { url = "/docs/arrays", "Array tutorial and supported elements" }
-link { url = "/docs/tensors", "Tensor guide" }
+list {
+  link { url = "/docs/arrays", "Array tutorial and supported elements" },
+  link { url = "/docs/tensors", "Tensor guide" }
+}

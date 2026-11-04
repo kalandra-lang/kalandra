@@ -22,6 +22,22 @@ static bool has(const lsp::CompletionInfo &info, const std::string &name) {
 }
 int main() {
   try {
+    auto loopNames = query("fn main()->int:\n  for item in range(3):\n    it|\n  0\n");
+    require(has(loopNames, "item"), "for binding is missing from its body scope");
+    auto loopExit = query("fn main()->int:\n  while true:\n    br|\n  0\n");
+    require(has(loopExit, "break"), "loop exit keyword completion");
+    auto loopContinue = query("fn main()->int:\n  for item in [1]:\n    cont|\n  0\n");
+    require(has(loopContinue, "continue"), "loop continue keyword completion");
+    auto collectingYield =
+        query("fn main()->[int]:\n  values=for item in range(3):\n    yi|\n  values\n");
+    require(has(collectingYield, "yield"), "collecting loop yield completion");
+    auto outerNames = query("fn main()->int:\n  for item in [1]:\n    item+1\n  it|\n");
+    require(!has(outerNames, "item"), "for binding escaped its body scope");
+
+    auto generator = query("fn main():\n  gen|(4,fn(i):i)\n");
+    require(has(generator, "generate"), "generator builtin completion");
+    generator = query("fn main():\n  offset=3\n  generate(4,fn(index:int): off|)\n");
+    require(has(generator, "offset"), "generator callback capture completion");
     auto info = query("fn main():\n  earlier = 2\n  ear|ly\n  later = 3\n  later\n");
     require(has(info, "earlier") && info.names.size() == 1, "partial prefix and suffix");
     require(info.replacement.end - info.replacement.begin == 5, "whole identifier replacement");
@@ -516,7 +532,8 @@ int main() {
     require(query("fn entry():\n  missing\n  ma|([1,2])\n").names.empty(),
             "prior errors still suppress builtin suggestions");
     info = query("fn entry():\n  co|([1], [2])\n  missing\n");
-    require(info.names.size() == 1 && has(info, "concat"), "later errors do not erase names");
+    require(info.names.size() == 2 && has(info, "concat") && has(info, "copy"),
+            "later errors do not erase names");
     CheckOptions placement;
     placement.placement = true;
     info = query("fn main():\n  target=devices.g|Suffix(1)\n  0\n", placement);

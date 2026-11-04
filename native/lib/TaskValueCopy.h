@@ -16,4 +16,8 @@ llvm::GlobalVariable *emitTaskValueLayout(const TypedModule &, llvm::Module &, c
 // Both modules must use the same nominal identities. No task entries are emitted.
 llvm::GlobalVariable *emitTaskKernelValueLayout(const TypedModule &, const TypedModule &kernels,
                                                 llvm::Module &, const ValueType &);
+// Compiler frame storage can carry a stopped result before its error edge runs.
+// This layout skips absent success payloads without weakening packet validation.
+llvm::GlobalVariable *emitTaskFrameValueLayout(const TypedModule &, const TypedModule &kernels,
+                                               llvm::Module &, const ValueType &);
 } // namespace kalandra

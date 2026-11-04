@@ -46,6 +46,15 @@ int main() {
                    "fn main():\n  0\n");
     require(result && result->parameters == std::vector<std::string>{"int64", "int64"},
             "function parameter signature");
+    result = query("fn inspect(mut values:[int])->int:\n  length(values)\n"
+                   "fn main():\n  inspect(|[1])\n");
+    require(result && result->label == "fn inspect(mut values: [int64]) -> int64" &&
+                result->parameters == std::vector<std::string>{"mut values: [int64]"},
+            "named signature lost mutating access contract");
+    result = query("fn inspect(mut values:[int])->int:\n  length(values)\n"
+                   "fn main():\n  f=inspect\n  f(|[1])\n");
+    require(result && result->label == "fn f(mut [int64]) -> int64",
+            "indirect signature lost mutating access contract");
     result = query("type Box:\n  callback:fn(int)->int\nfn double(n:int)->int:\n  n*2\n"
                    "fn main():\n  box=Box {callback:double}\n  box.callback(|2)\n");
     require(result && result->label == "fn callback(int64) -> int64", "function field signature");
@@ -67,6 +76,15 @@ int main() {
     require(!query(add + "fn main():\n  add(1,2)|\n"), "outside call has no signature");
     require(!query(add + "fn main():\n  ad|d(1,2)\n"), "callee text has no active argument");
     require(!query(add + "fn main():\n  missing\n  add(|1,2)\n"), "invalid graph fails closed");
+    result = query("fn main()->[int]:\n  copy(|[1,2])\n");
+    require(result && result->label == "fn copy(input: [int64]) -> [int64]",
+            "checked independent-copy signature");
+    result = query("fn main():\n  generate(|4,fn(i): i*2)\n");
+    require(result &&
+                result->label ==
+                    "fn generate(count: int64, callback: fn(int64) -> int64) -> [int64]" &&
+                result->activeParameter == 0,
+            "generator signature describes count and public callback without captures");
     result = query("fn main():\n  length(|[1,2])\n");
     require(result && result->label == "fn length(input: [int64]) -> int64" &&
                 result->activeParameter == 0,

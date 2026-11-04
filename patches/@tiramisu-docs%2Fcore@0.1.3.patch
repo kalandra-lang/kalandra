@@ -1,0 +1,54 @@
+diff --git a/dist/markdown.js b/dist/markdown.js
+index 7941595854a32090b276950f5d05d78cf33f8b46..34cd3d4ebe813268674b718096874b06ae0e7fcd 100644
+--- a/dist/markdown.js
++++ b/dist/markdown.js
+@@ -150,15 +150,15 @@ function emitFunctionCall(fc) {
+             return `\`\`\`${language}\n${code}\n\`\`\``;
+         }
+         case "list": {
+-            const children = getChildCalls(fc);
+-            const items = [];
+-            for (const child of children) {
+-                if (child.functionName === "item") {
+-                    items.push(`- ${getPositionalText(child)}`);
+-                }
+-            }
+-            return items.join("\n");
++          const ordered = getNamedParam(fc, "type") === "ordered"
++          const items = (fc.parameters?.parameters ?? []).filter((p) => p instanceof Parameter)
++          return items.map((item, index) => {
++            const text = emitNode(item).trim()
++            const marker = ordered ? `${index + 1}. ` : "- "
++            return marker + text.replace(/\n/g, "\n" + " ".repeat(marker.length))
++          }).join("\n")
+         }
++
+         case "callout": {
+             const type = getNamedParam(fc, "type") ?? "info";
+             const text = getPositionalText(fc);
+diff --git a/src/markdown.ts b/src/markdown.ts
+index 903ea9fbe2c3e52625e6534159b92db8f856d97e..8244c4fda8299d2f23326dedebec09ecb84282cc 100644
+--- a/src/markdown.ts
++++ b/src/markdown.ts
+@@ -189,14 +189,13 @@ function emitFunctionCall(fc: FunctionCall): string {
+     }
+ 
+     case "list": {
+-      const children = getChildCalls(fc)
+-      const items: string[] = []
+-      for (const child of children) {
+-        if (child.functionName === "item") {
+-          items.push(`- ${getPositionalText(child)}`)
+-        }
+-      }
+-      return items.join("\n")
++      const ordered = getNamedParam(fc, "type") === "ordered"
++      const items = (fc.parameters?.parameters ?? []).filter((p) => p instanceof Parameter)
++      return items.map((item, index) => {
++        const text = emitNode(item).trim()
++        const marker = ordered ? `${index + 1}. ` : "- "
++        return marker + text.replace(/\n/g, "\n" + " ".repeat(marker.length))
++      }).join("\n")
+     }
+ 
+     case "callout": {

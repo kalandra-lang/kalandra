@@ -40,6 +40,30 @@ primary     = identifier | number | "(", expression, ")"
 arguments   = expression, (",", expression)*, ","? ;
 ```
 
+Loop syntax extends the grammar as follows (the general expression grammar
+above omits several later language features):
+
+```ebnf
+statement   = binding | element_assignment | loop_transfer | yield_statement | expression ;
+loop        = "while", expression, ":", statement_suite, ("else", ":", suite)?
+            | "for", identifier, "in", iterable, ":", statement_suite,
+              ("else", ":", suite)? ;
+iterable    = expression ;
+range_form  = "range", "(", expression, (",", expression, (",", expression)?)?, ")" ;
+loop_transfer = "break", expression? | "continue" ;
+yield_statement = "yield", expression ;
+```
+
+Within a for iterable, range has the allocation-free integer iteration meaning
+specified in [local mutation](local-mutation.md). A collecting loop expression
+contains lexical yields, omits else, and produces an eager array. Nested
+statement loops forward yields to this collection; a separately evaluated loop
+expression or function starts a distinct lexical scope. A single-result loop
+requires an else result and compatible break values. Statement and collecting
+loops use bare break.
+Transfers are lexical within the current function and must satisfy task
+settlement rules. No implicit result comes from the last iteration.
+
 A function body must end in an expression statement. The grammar's generic type-name alternative does not allow bare Tensor without its brackets. A tensor element name is retained separately from its dimensions. Dimensions must be decimal, nonnegative uint64-representable integers or `?`; this is syntactic validation, not a claim every extent can be allocated.
 
 The [function-type parser](function-values.md#implementation-status) extends type syntax with recursive callable signatures and grouping:

@@ -1183,3 +1183,42 @@ if(BUILD_TESTING)
   set_tests_properties(native-metal-tensor-transforms PROPERTIES TIMEOUT 1200
     RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1;MTL_SHADER_VALIDATION=1")
 endif()
+
+if(BUILD_TESTING)
+  add_test(NAME native-metal-host-arrays-emit COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../gpu-source/HostArrayTests.py"
+    "--compiler=$<TARGET_FILE:kalandra>" "--root=${CMAKE_CURRENT_BINARY_DIR}/host-arrays-emit")
+  set_tests_properties(native-metal-host-arrays-emit PROPERTIES TIMEOUT 600)
+  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    add_test(NAME native-metal-host-arrays-cli-${VARIANT} COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/../gpu-source/HostArrayTests.py"
+      "--compiler=$<TARGET_FILE:kalandra>" "--variant=${VARIANT}"
+      "--root=${CMAKE_CURRENT_BINARY_DIR}/host-arrays-cli-${VARIANT}")
+    set_tests_properties(native-metal-host-arrays-cli-${VARIANT} PROPERTIES TIMEOUT 1800
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    if(VARIANT STREQUAL "sanitized")
+      set(HOST_ARRAY_RUNTIME kalandra-native-runtime-sanitized)
+    elseif(VARIANT STREQUAL "thread-sanitized")
+      set(HOST_ARRAY_RUNTIME kalandra-native-runtime-thread-sanitized)
+    elseif(VARIANT STREQUAL "optimized")
+      set(HOST_ARRAY_RUNTIME kalandra-task-core-optimized)
+    else()
+      set(HOST_ARRAY_RUNTIME kalandra-native-runtime)
+    endif()
+    add_test(NAME native-metal-host-array-runtime-${VARIANT} COMMAND "${CMAKE_COMMAND}"
+      "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}/native" "-DVARIANT=${VARIANT}"
+      "-DSDK=${KALANDRA_METAL_SDK}" "-DMACOS_MINIMUM=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+      "-DMETAL_RUNTIME=$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+      "-DRUNTIME=$<TARGET_FILE:${HOST_ARRAY_RUNTIME}>"
+      "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/host-array-runtime-${VARIANT}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyHostArrayRuntime.cmake")
+    set_tests_properties(native-metal-host-array-runtime-${VARIANT} PROPERTIES TIMEOUT 600
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()

@@ -74,7 +74,10 @@ int main() {
               if (output.sizes[0]) {
                 kept = context.lease(output.allocated);
                 require(bool(kept), "slice output not owned");
-              }
+              } else
+                require(!output.allocated && !output.aligned && !output.offset &&
+                            !output.strides[0],
+                        "empty slice descriptor is not canonical");
             } else {
               ++faults;
               require(context.line() == 2 && context.column() == 3 && !context.allocations(),
@@ -121,7 +124,8 @@ int main() {
       Tensor output{};
       _mlir_ciface_kalandra_test_entry(&output, &input, Position(0), Position(0), &context);
       // INT64_MAX one-byte cells fit the descriptor byte budget. Selecting
-      // an empty range may construct an owned empty result without reading input.
+      // an empty range can return the canonical empty descriptor without
+      // reading input or retaining a fictitious backing allocation.
       const bool representableEmpty = size == INT64_MAX && sizeof(Cell) == 1;
       require(context.status() == (size < 0             ? 1
                                    : representableEmpty ? 0
@@ -132,7 +136,8 @@ int main() {
         require(!context.allocations() && !output.allocated,
                 "invalid array size reached slicing or allocation");
       else
-        require(bool(context.lease(output.allocated)), "empty byte slice is not owned");
+        require(!output.allocated && !output.aligned && !output.offset && !output.strides[0],
+                "empty byte slice descriptor is not canonical");
       context.settle();
       require(!context.live(), "invalid metadata leaked");
     }

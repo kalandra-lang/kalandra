@@ -1,4 +1,4 @@
-meta { title = "Kalandra 0.99.1 — ARM64 and cross-compilation", description = "Linux and Windows ARM64, Raspberry Pi and five CPU destinations from one compiler download.", order = 2, group = "Release archive" }
+meta { title = "Kalandra 0.99.1 — ARM64 and cross-compilation", description = "Linux and Windows ARM64, Raspberry Pi and five CPU destinations from one compiler download.", order = 1, group = "Release archive" }
 
 Kalandra 0.99.1 adds native Linux ARM64 and Windows ARM64 support, and CPU cross-compilation across all five supported platforms. This page covers the changes since 0.99.0. The macOS distribution continues to support mixed CPU/Metal development.
 
@@ -24,7 +24,9 @@ macOS targets require macOS 26 or newer on Apple silicon. This path uses Kalandr
 
 Linux destinations still require GNU development libraries and startup objects. Windows destinations still require the Windows SDK and MSVC CRT link libraries. These system development libraries are not bundled. The cross-compilation guide includes complete commands, SDK configuration and reusable profiles.
 
-link { url = "/docs/cross-compilation", "Cross-compile your first program" }
+list {
+  link { url = "/docs/cross-compilation", "Cross-compile your first program" }
+}
 
 h2 { "Correctness and ABI safety" }
 
@@ -40,9 +42,11 @@ Verify the SHA-256 sidecar, keep the complete toolchain directory together and a
 
 Download kalandra-native.vsix from the same release. Install it using VS Code's Extensions: Install from VSIX command and select your installed kalandra-lsp in Kalandra Native: Server Path. The extension keeps its independent version, 0.1.0; the native language server reports 0.99.1. Other LSP editors can launch the same server over standard input/output. No Node.js or npm installation is required by the native tools or installed editor client.
 
-link { url = "/docs/installation", "Installation and platform prerequisites" }
-link { url = "/docs/tooling", "Editor setup" }
-link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.1", "Download Kalandra 0.99.1" }
+list {
+  link { url = "/docs/installation", "Installation and platform prerequisites" },
+  link { url = "/docs/tooling", "Editor setup" },
+  link { url = "https://github.com/kalandra-lang/kalandra/releases/tag/v0.99.1", "Download Kalandra 0.99.1" }
+}
 
 h2 { "Release scope" }
 
@@ -50,8 +54,10 @@ There are no numerical or cancellation-contract changes in this release. Cross-c
 
 h2 { "Changes since 0.99.0" }
 
-link { url = "https://github.com/kalandra-lang/kalandra/pull/269", "Linux ARM64 and Raspberry Pi support" }
-link { url = "https://github.com/kalandra-lang/kalandra/pull/270", "Windows ARM64 support" }
-link { url = "https://github.com/kalandra-lang/kalandra/pull/271", "CPU cross-compilation and bundled target runtimes" }
-link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.0...v0.99.1", "Full release comparison" }
-link { url = "/docs/release-0-99-0", "Previous release: 0.99.0 — the native revival" }
+list {
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/269", "Linux ARM64 and Raspberry Pi support" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/270", "Windows ARM64 support" },
+  link { url = "https://github.com/kalandra-lang/kalandra/pull/271", "CPU cross-compilation and bundled target runtimes" },
+  link { url = "https://github.com/kalandra-lang/kalandra/compare/v0.99.0...v0.99.1", "Full release comparison" },
+  link { url = "/docs/release-0-99-0", "Previous release: 0.99.0 — the native revival" }
+}

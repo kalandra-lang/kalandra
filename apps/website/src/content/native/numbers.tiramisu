@@ -12,7 +12,7 @@ codeblock { language = kalandra, """fn main() -> int32:
   left + right
 """ }
 
-Already typed values do not silently promote to a common numeric type. Convert deliberately when crossing widths or integer/floating families.
+This returns 42 as an int32. Already typed values do not silently promote to a common numeric type. Convert deliberately when crossing widths or integer/floating families.
 
 h2 { "Explicit conversion" }
 
@@ -21,19 +21,19 @@ codeblock { language = kalandra, """fn main() -> int32:
   int32(sample)
 """ }
 
-Float-to-integer conversion truncates toward zero and fails for NaN, infinity or an out-of-range result. Integer-to-integer conversion checks the destination range. Integer-to-float and float narrowing follow the specified rounding rules rather than promising exact representation for every input.
+This returns 42. Float-to-integer conversion truncates toward zero and fails for NaN, infinity or an out-of-range result. Integer-to-integer conversion checks the destination range. Integer-to-float and float narrowing follow the specified rounding rules rather than promising exact representation for every input.
 
 h2 { "Arithmetic is checked" }
 
-Integer overflow, invalid integer division and invalid conversions produce checked faults. Optimization does not turn signed overflow into wrapping behavior. Ordinary scalar and elementwise floating operations keep separate products and additions; reduceSum uses a specified balanced tree. Hardware GPU float32 matmul has its own accumulation policy, described in the numerical reference. -O2 does not enable generic fast math.
+Integer overflow, invalid integer division and invalid conversions produce checked faults. Optimization does not turn signed overflow into wrapping behavior or remove range checks. Floating-point results follow the arithmetic and matrix policies described below.
 
-Arithmetic and comparisons require compatible types. Numeric arrays and tensors keep one element identity, and tensor conversion preserves shape. An integer type does not automatically become suitable for every GPU operation; use the documented GPU numerical subset.
+Arithmetic and comparisons require compatible types. Numeric arrays and tensors keep a single element type; converting a tensor preserves its shape. GPU support also depends on the operation and device. Check the numerical guide when moving calculations to a GPU.
 
-link { url = "/docs/errors", "Recover from task faults" }
-
-link { url = "/docs/tensors", "Numeric tensor operations" }
-
-link { url = "/docs/gpu-numerics", "GPU numerical semantics" }
+list {
+  link { url = "/docs/errors", "Recover from task faults" },
+  link { url = "/docs/tensors", "Numeric tensor operations" },
+  link { url = "/docs/gpu-numerics", "GPU numerical semantics" }
+}
 
 h2 { "Arithmetic execution policy" }
 
@@ -41,4 +41,6 @@ CPU float32 and float64 arithmetic use hardware floating-point instructions by d
 
 Use --arithmetic software to select the strict integer-based floating implementation. Hardware mode follows the target floating environment and does not promise identical subnormal, NaN or rounding behavior across all devices. reduceSum keeps its balanced order, and ordinary scalar and elementwise operations keep separate multiply/add behavior. Hardware GPU float32 matmul may use fused and reordered accumulation unless you select --matmul-policy fixed-tree; CPU matmul retains its fixed tree under either policy. -O2 does not enable generic fast math.
 
-link { url = "/docs/numeric-functions", "Every numeric conversion and its destination range" }
+list {
+  link { url = "/docs/numeric-functions", "Every numeric conversion and its destination range" }
+}

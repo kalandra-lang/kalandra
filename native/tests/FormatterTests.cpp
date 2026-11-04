@@ -33,6 +33,12 @@ int main(int argc, char **argv) {
     expect("fn main():\n    1 .field\n", "fn main():\n  1 .field\n");
     expect("fn call( value : [ int ] ) -> int:\n    value [ 0 ]\n",
            "fn call(value: [int]) -> int:\n  value[0]\n");
+    expect("fn put(mut a:[int])->int:\n    a [ 0 ]= 9\n    a[0]\n",
+           "fn put(mut a: [int]) -> int:\n  a[0] = 9\n  a[0]\n");
+    expect("fn call( mut value : [ int ] ) -> int:\n    f:fn(mut[int])->int=fn(mut x):length(x)\n  "
+           "  f(value)\n",
+           "fn call(mut value: [int]) -> int:\n  f: fn(mut [int]) -> int = fn(mut x): length(x)\n  "
+           "f(value)\n");
     expect("type Point:\n    x:int\nfn main():\n    Point{ x:1 }\n",
            "type Point:\n  x: int\nfn main():\n  Point { x: 1 }\n");
     expect("fn main():\n    values=[\n        1, # first\n        2\n    ]\n    values\n",

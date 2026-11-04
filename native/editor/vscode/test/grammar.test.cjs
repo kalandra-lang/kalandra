@@ -67,3 +67,12 @@ test("string contents suppress keywords/comments and escaped quotes stay in the 
     ).tokens[0].scopes,
   ).toContain("keyword.declaration.kalandra");
 });
+
+
+test("loops and yield use control keyword scopes", async () => {
+  const g = await grammar();
+  for (const word of ["for", "in", "while", "break", "continue", "yield"]) {
+    const result = g.tokenizeLine(word, INITIAL);
+    expect(result.tokens[0].scopes).toContain("keyword.control.kalandra");
+  }
+});

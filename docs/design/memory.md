@@ -1,5 +1,10 @@
 # Kalandra automatic memory management
 
+The [local mutation and read-only task sharing decision](local-mutation.md), accepted
+2026-11-02, supersedes the universal-immutability baseline for the bindings and
+arrays it admits. Its implementation is staged in #266; unreleased behavior must
+not be inferred from this earlier proposal.
+
 Accepted programming direction — 2026-10-14. Allocation scopes and their keyword have been removed from the language proposal. The compiler chooses allocation strategies while the language guarantees valid immutable values. These rules belong to the fresh design, not a change to the released Kalandra 0.13 implementation.
 
 ## Programming model

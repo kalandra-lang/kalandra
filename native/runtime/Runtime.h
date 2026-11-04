@@ -10,6 +10,7 @@
 namespace kalandra::runtime {
 struct Owner;
 struct Backing;
+struct ControlAllocation;
 // A read-only retained allocation independent of any invocation's owner list.
 // Move-only: shared values retain their enclosing backing, not this lease itself.
 class AllocationLease final {
@@ -39,6 +40,9 @@ private:
 // later migrates between workers. Backing references can cross contexts.
 class Invocation final {
 public:
+  // Private compiler bridge; source programs never name ownership scopes.
+  class OwnershipScope;
+  class OwnershipSelection;
   // User-provided so Invocation{} and make_unique do not zero deferred storage.
   Invocation() noexcept {}
   ~Invocation() { settle(); }
@@ -68,6 +72,11 @@ public:
   void leaveCall() noexcept;
   std::uint64_t callDepth() const noexcept { return flags_ & ControlReady ? callDepth_ : 0; }
   void *allocate(std::uint64_t bytes) noexcept;
+  // Private compiler frame metadata, never source-visible or leaseable. The
+  // caller completes infallible construction before returning to source code.
+  // Cleanup does not enter source code; descendants retire before their parent.
+  void *allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept;
+  void releaseControl(void *) noexcept;
   // Field backing remains invocation-owned across inline aggregate copies.
   // Release only at a scalar CLI boundary; ordinary helpers may return records.
   void *allocateRecord(std::uint64_t bytes) noexcept;
@@ -98,7 +107,8 @@ public:
   // Conservative per-invocation reservations for all backing allocation and
   // retention in bound task contexts. Include backing and one owner; ordinary
   // retains each reserve independently, while graph visits reuse charged owners.
-  // Charges remain reserved until settlement, including after explicit release.
+  // Charges remain reserved until their compiler ownership scope settles,
+  // including after explicit release. The default scope settles with Invocation.
   void bindRecursiveBudget(void *state, EnvironmentReserve reserve,
                            EnvironmentRelease release) noexcept;
   std::uint64_t recursiveBytes() const noexcept { return flags_ & Materialized ? storage_.value.recursiveBytes_ : 0; }
@@ -114,6 +124,7 @@ public:
   bool retainRecursiveGraph(const AllocationLease &root, const void *key, std::uint64_t bytes,
                             std::uint64_t alignment) noexcept;
   bool retainFrom(const Invocation &source, void *buffer) noexcept;
+  bool holdArrayReference(void *buffer) noexcept;
   void release(void *buffer) noexcept;
   // Requires exclusive source-context access, like retainFrom. Reject unknown,
   // faulted or settled contexts before acquiring a backing reference.
@@ -134,7 +145,7 @@ public:
     }
     // Scalar work need not cross the runtime ABI to settle an empty ledger.
     // Keep owned buffers and both resource-budget release paths together.
-    const unsigned resources = unsigned(ledger().head_ != nullptr) | unsigned(ledger().spareSmall_ != nullptr) |
+    const unsigned resources = unsigned(ledger().root_.head_ != nullptr) | unsigned(ledger().root_.spareSmall_ != nullptr) | unsigned(ledger().scopes_ != nullptr) | unsigned(ledger().controls_ != nullptr) |
                                unsigned(ledger().environmentBytes_ != 0) | unsigned(ledger().recursiveBytes_ != 0);
     if (!resources) {
       pollMode_ = 2;
@@ -192,8 +203,17 @@ private:
   }
   // Inline storage, but no ledger object until a resource/observer is needed.
   // References still cross contexts through Backing's atomic ownership.
-  struct Ledger {
+  struct OwnerStore {
     Owner *head_ = nullptr;
+    // Released exclusive small buffer; logical charges still precede reuse.
+    Backing *spareSmall_ = nullptr;
+    std::uint64_t environmentBytes_ = 0, recursiveBytes_ = 0;
+    OwnerStore *next_ = nullptr;
+  };
+  struct Ledger {
+    OwnerStore root_;
+    OwnerStore *active_ = nullptr, *scopes_ = nullptr;
+    ControlAllocation *controls_ = nullptr;
     std::atomic<std::uint64_t> *pollCounter_ = nullptr;
     std::uint64_t environmentBytes_ = 0, recursiveBytes_ = 0;
     void *recursiveBudget_ = nullptr;
@@ -205,8 +225,6 @@ private:
     std::uint64_t allocations_ = 0, releases_ = 0, attempts_ = 0, failAt_ = 0;
     std::int64_t taskError_ = 0, expectedCode_ = 0, expectedLine_ = 0, expectedColumn_ = 0;
     const char *applicationFamily_ = nullptr, *applicationVariant_ = nullptr;
-    // Released exclusive small buffer; logical charges still precede reuse.
-    Backing *spareSmall_ = nullptr;
   };
   static_assert(std::is_trivially_destructible_v<Ledger>);
   union LedgerStorage {
@@ -233,7 +251,42 @@ private:
   std::int64_t pollObserved() noexcept;
   void settleResources() noexcept;
   void attach(Owner *owner) noexcept;
+  OwnerStore &owners() noexcept { auto &state = ledger(); return state.active_ ? *state.active_ : state.root_; }
+  const OwnerStore &owners() const noexcept { const auto &state = ledger(); return state.active_ ? *state.active_ : state.root_; }
+  Owner *findOwner(const void *) const noexcept;
   void remove(Owner *owner) noexcept;
+  void clearOwners(OwnerStore &) noexcept;
+  void clearControl() noexcept;
+};
+// Private compiler storage scopes. The Invocation outlives every scope and
+// selection. All context access stays exclusive; cancellation, faults, budgets
+// and allocation-failure attempts remain on the single Invocation.
+class Invocation::OwnershipScope final {
+public:
+  explicit OwnershipScope(Invocation &context) noexcept;
+  ~OwnershipScope();
+  OwnershipScope(const OwnershipScope &) = delete;
+  OwnershipScope &operator=(const OwnershipScope &) = delete;
+  bool valid() const noexcept { return context_ != nullptr; }
+  // Retire only after all escaping values have been retained into complete
+  // destination graphs. A raw cross-scope descriptor is not an owning copy.
+  void reset() noexcept;
+  // Publish a prepared complete store without changing registration identity.
+  bool swap(OwnershipScope &) noexcept;
+private:
+  friend class OwnershipSelection;
+  Invocation *context_ = nullptr;
+  OwnerStore store_;
+};
+class Invocation::OwnershipSelection final {
+public:
+  explicit OwnershipSelection(OwnershipScope &) noexcept;
+  ~OwnershipSelection();
+  OwnershipSelection(const OwnershipSelection &) = delete;
+  OwnershipSelection &operator=(const OwnershipSelection &) = delete;
+private:
+  Invocation *context_ = nullptr;
+  OwnerStore *previous_ = nullptr;
 };
 // The supported 64-bit CPU ABIs share this invocation layout. Keep compiler
 // field access and runtime storage identical even when built on different hosts.
@@ -275,7 +328,7 @@ static_assert(std::is_standard_layout_v<Invocation>);
 // Generated entries allocate this storage and access these fields directly.
 // Fail the compiler/runtime build if a toolchain or future edit changes the ABI;
 // cross-compilers must never use a source-host layout for a different target.
-static_assert(sizeof(Invocation) == 248 && alignof(Invocation) == 8);
+static_assert(sizeof(Invocation) == 296 && alignof(Invocation) == 8);
 static_assert(sizeof(std::atomic<std::uint64_t>) == 8 && alignof(std::atomic<std::uint64_t>) == 8);
 static_assert(InvocationABI::cancellation == 0 && InvocationABI::control == 8 &&
               InvocationABI::pollMode == 12 && InvocationABI::depth == 24 &&
@@ -388,3 +441,10 @@ extern "C" bool kalandra_invocation_ready_v1(kalandra::runtime::Invocation *) no
 extern "C" const void *kalandra_recursive_environment_transfer_v1(
     kalandra::runtime::Invocation *, const kalandra::runtime::Invocation *, const void *environment,
     std::uint64_t bytes, std::uint64_t alignment, const void *code) noexcept;
+
+// Private host-buffer normalization for reference arrays; not a public FFI.
+extern "C" bool kalandra_array_hold_v1(kalandra::runtime::Invocation *, void *buffer) noexcept;
+extern "C" void kalandra_array_import_v1(kalandra::runtime::Invocation *, void *output,
+                                         const void *input, std::uint64_t element) noexcept;
+extern "C" void kalandra_array_validate_v1(kalandra::runtime::Invocation *, const void *input,
+                                           std::uint64_t element) noexcept;

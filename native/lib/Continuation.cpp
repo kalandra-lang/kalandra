@@ -35,11 +35,14 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return values;
         } else if constexpr (std::is_same_v<T, RecordFieldRead> || std::is_same_v<T, ErrorNarrow>)
           return {op.input};
+        else if constexpr (std::is_same_v<T, IntegerRangeOperation>)
+          return {op.current, op.stop, op.step};
         else if constexpr (std::is_same_v<T, TensorLiteral>)
           return op.elements;
         else if constexpr (std::is_same_v<T, TensorTransform>) {
           std::vector<ValueId> result{op.input};
-          if (op.epsilon) result.push_back(*op.epsilon);
+          if (op.epsilon)
+            result.push_back(*op.epsilon);
           return result;
         } else if constexpr (std::is_same_v<T, TensorUnary> || std::is_same_v<T, ScalarUnary>)
           return {op.operand};
@@ -49,11 +52,15 @@ std::vector<ValueId> operands(const TypedExpr &expression) {
           return {op.left, op.right};
         else if constexpr (std::is_same_v<T, ReduceSum> || std::is_same_v<T, CollectionQuery> ||
                            std::is_same_v<T, StringQuery> || std::is_same_v<T, NumericConvert> ||
-                           std::is_same_v<T, TensorToArray> || std::is_same_v<T, ShapeCheck>)
+                           std::is_same_v<T, TensorToArray> || std::is_same_v<T, ArraySort> ||
+                           std::is_same_v<T, ShapeCheck>)
           return {op.input};
         else if constexpr (std::is_same_v<T, StringSlice> || std::is_same_v<T, ArraySlice>)
           return {op.input, op.start, op.end};
-        else if constexpr (std::is_same_v<T, ArrayIndex> || std::is_same_v<T, StringIndex>)
+        else if constexpr (std::is_same_v<T, ArrayStore>)
+          return {op.input, op.index, op.value};
+        else if constexpr (std::is_same_v<T, ArrayIndex> || std::is_same_v<T, ArrayBoundsCheck> ||
+                           std::is_same_v<T, StringIndex>)
           return {op.input, op.index};
         else if constexpr (std::is_same_v<T, TensorIndex>) {
           auto result = op.indices;
@@ -81,29 +88,58 @@ class Builder : public ModulePlan {
     Slot output;
     std::optional<std::size_t> group;
     std::vector<std::size_t> jumps;
+    std::size_t collectionDepth = 0;
+  };
+  struct LoopBoundary {
+    Slot output;
+    Slot condition;
+    std::size_t header;
+    std::size_t groupDepth;
+    ValueId source;
+    std::vector<std::size_t> exits;
   };
   struct Environment {
     std::unordered_map<ValueId, Slot> values;
     std::unordered_map<SymbolId, Slot> symbols;
+    std::unordered_map<SymbolId, Slot> cells;
     std::unordered_map<Slot, std::size_t> targets;
     Boundary *boundary = nullptr;
     std::optional<std::size_t> group;
+    std::vector<std::size_t> groups;
+    std::unordered_map<std::size_t, LoopBoundary *> loops;
+    std::unordered_map<std::size_t, Slot> collections;
+    std::vector<Slot> collectionStack;
   };
 
 public:
   std::size_t totalSlots = 0;
   Options options;
-  std::vector<bool> resumable, coordinating;
+  std::vector<bool> resumable, coordinating, loopControl;
   std::optional<FunctionInvocationFlow> invocationFlow;
   std::vector<FunctionId> pending;
   std::vector<bool> scheduled;
+  std::vector<std::vector<SymbolId>> localCells;
   explicit Builder(const TypedModule &input, Options options)
       : ModulePlan(input), options(options), resumable(resumableFunctions(input)),
-        coordinating(coordinatingFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
+        coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
+    if (options.preserveCalls)
+      for (FunctionId id = 0; id < input.functions.size(); ++id)
+        if (loopControl[id] && !coordinating[id] && !input.functions[id].resultType.fallible)
+          resumable[id] = false;
     if (options.entry && *options.entry >= input.functions.size())
       throw std::runtime_error("continuation entry function is out of range");
     if (hasPlacement(input) && !options.preserveCalls)
       throw std::runtime_error("placement-aware plans require preserved target calls");
+    for (const auto &symbol : input.symbols)
+      if (symbol.reassignable && symbol.type.array && resumable.at(symbol.owner) &&
+          !options.valueScopes)
+        throw std::runtime_error(
+            "array binding reassignment is not yet supported with task or expected-error "
+            "coordination; move synchronous array work into a helper");
+    localCells.resize(input.functions.size());
+    for (SymbolId symbol = 0; symbol < input.symbols.size(); ++symbol)
+      if (input.symbols[symbol].reassignable)
+        localCells.at(input.symbols[symbol].owner).push_back(symbol);
     kernels.source = input.source;
     kernels.records = input.records;
     plans.resize(input.functions.size());
@@ -125,6 +161,17 @@ public:
       std::set<FunctionId> stack;
       plan.result = function(plan, id, parameters, stack);
       plan.code.push_back({Code::Return, 0, {plan.result}});
+      // A caller can own a collected result or a catch fallback without
+      // containing a lexical loop itself. Retire those values with its frame.
+      if (options.valueScopes &&
+          (loopControl[id] ||
+           std::ranges::any_of(input.functions[id].expressions, [&](ValueId value) {
+             return std::holds_alternative<WhileOperation>(input.expressions[value].operation);
+           })))
+        plan.valueScopes |= std::ranges::any_of(plan.slots, [](const ValueType &type) {
+          return type.tensor || type.record || type.errorRecord ||
+                 type.builtin == BuiltinValue::String || type.builtin == BuiltinValue::Function;
+        });
     }
     if (options.preserveCalls) {
       std::vector<unsigned> state(plans.size());
@@ -160,6 +207,14 @@ private:
     plan.slots.push_back(std::move(type));
     return plan.slots.size() - 1;
   }
+  void bindScalar(Plan &plan, Environment &env, SymbolId symbol, Slot value) {
+    if (input.symbols[symbol].reassignable) {
+      auto cell = env.cells.at(symbol);
+      plan.code.push_back({Code::Copy, cell, {value}});
+      env.symbols[symbol] = cell;
+    } else
+      env.symbols[symbol] = value;
+  }
   Slot function(Plan &plan, FunctionId id, const std::vector<Slot> &args,
                 std::set<FunctionId> &stack, std::optional<std::size_t> ambient = {}) {
     if (!options.preserveCalls && options.nativeSubgraphs && nativeFunction(id)) {
@@ -168,24 +223,28 @@ private:
       // but all of its computation belongs to one native subgraph/boundary.
       kernels.functions[target].name = "__step_native_" + std::to_string(id);
       const auto output = slot(plan, input.functions[id].resultType);
-      plan.code.push_back({Code::Kernel, output, args, target, 0, 0,
-                           input.functions[id].result});
+      plan.code.push_back({Code::Kernel, output, args, target, 0, 0, input.functions[id].result});
       return output;
     }
     if (!stack.insert(id).second || stack.size() > 128)
       throw std::runtime_error("recursive calls are not implemented in task-enabled modules yet");
+    if (options.valueScopes)
+      for (auto symbol : localCells[id])
+        plan.valueScopes |= input.symbols[symbol].type.array;
     Environment env;
     env.group = ambient;
     const auto &fn = input.functions[id];
+    for (auto symbol : localCells[id])
+      env.cells[symbol] = slot(plan, input.symbols[symbol].type);
     for (std::size_t i = 0; i < args.size(); ++i)
-      env.symbols[fn.parameters[i]] = args[i];
+      bindScalar(plan, env, fn.parameters[i], args[i]);
     Boundary boundary{slot(plan, fn.resultType), {}, {}};
     env.boundary = &boundary;
     Slot value = boundary.output;
     for (const auto &statement : fn.body) {
       value = expression(plan, statement.value, env, stack);
       if (statement.binding)
-        env.symbols[*statement.binding] = value;
+        bindScalar(plan, env, *statement.binding, value);
     }
     plan.code.push_back({Code::Copy, boundary.output, {value}});
     const auto exit = plan.code.size();
@@ -232,7 +291,8 @@ private:
             op.symbol = importSymbol(op.symbol);
           else if constexpr (std::is_same_v<T, TensorTransform>) {
             op.input = importValue(op.input);
-            if (op.epsilon) op.epsilon = importValue(*op.epsilon);
+            if (op.epsilon)
+              op.epsilon = importValue(*op.epsilon);
           } else if constexpr (std::is_same_v<T, ScalarUnary> || std::is_same_v<T, TensorUnary>)
             op.operand = importValue(op.operand);
           else if constexpr (std::is_same_v<T, ScalarBinary> || std::is_same_v<T, TensorBinary> ||
@@ -272,7 +332,15 @@ private:
             op.input = importValue(op.input);
             op.start = importValue(op.start);
             op.end = importValue(op.end);
-          } else if constexpr (std::is_same_v<T, ArrayIndex> || std::is_same_v<T, StringIndex>) {
+          } else if constexpr (std::is_same_v<T, ArraySort>) {
+            op.input = importValue(op.input);
+          } else if constexpr (std::is_same_v<T, ArrayStore>) {
+            op.input = importValue(op.input);
+            op.index = importValue(op.index);
+            op.value = importValue(op.value);
+          } else if constexpr (std::is_same_v<T, ArrayIndex> ||
+                               std::is_same_v<T, ArrayBoundsCheck> ||
+                               std::is_same_v<T, StringIndex>) {
             op.input = importValue(op.input);
             op.index = importValue(op.index);
           } else if constexpr (std::is_same_v<T, TensorIndex>) {
@@ -302,6 +370,20 @@ private:
               statement = importStatement(statement);
             op.trueResult = importValue(op.trueResult);
             op.falseResult = importValue(op.falseResult);
+          } else if constexpr (std::is_same_v<T, WhileOperation>) {
+            op.condition = importValue(op.condition);
+            for (auto *body : {&op.initial, &op.iteration, &op.body, &op.whenDone})
+              for (auto &statement : *body) statement = importStatement(statement);
+            if (op.normalResult) op.normalResult = importValue(*op.normalResult);
+            for (auto &value : op.exitValues) value = importValue(value);
+          } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
+            if (op.value) op.value = importValue(*op.value);
+          } else if constexpr (std::is_same_v<T, YieldOperation>) {
+            op.operand = importValue(op.operand);
+          } else if constexpr (std::is_same_v<T, IntegerRangeOperation>) {
+            op.current = importValue(op.current);
+            op.stop = importValue(op.stop);
+            op.step = importValue(op.step);
           } else if constexpr (!(std::is_same_v<T, Float32Literal> ||
                                  std::is_same_v<T, Float64Literal> ||
                                  std::is_same_v<T, Int32Literal> ||
@@ -424,14 +506,19 @@ private:
       field->input = reads[0];
     else if (auto *narrow = std::get_if<ErrorNarrow>(&op))
       narrow->input = reads[0];
-    else if (auto *literal = std::get_if<TensorLiteral>(&op))
+    else if (auto *range = std::get_if<IntegerRangeOperation>(&op)) {
+      range->current = reads[0];
+      range->stop = reads[1];
+      range->step = reads[2];
+    } else if (auto *literal = std::get_if<TensorLiteral>(&op))
       literal->elements = reads;
     else if (auto *multiply = std::get_if<Matmul>(&op)) {
       multiply->left = reads[0];
       multiply->right = reads[1];
     } else if (auto *transform = std::get_if<TensorTransform>(&op)) {
       transform->input = reads[0];
-      if (transform->epsilon) transform->epsilon = reads[1];
+      if (transform->epsilon)
+        transform->epsilon = reads[1];
     } else if (auto *unary = std::get_if<TensorUnary>(&op)) {
       unary->operand = reads[0];
     } else if (auto *elementwise = std::get_if<TensorBinary>(&op)) {
@@ -467,7 +554,16 @@ private:
       query->input = reads[0];
     else if (auto *construction = std::get_if<TensorToArray>(&op))
       construction->input = reads[0];
-    else if (auto *read = std::get_if<ArrayIndex>(&op)) {
+    else if (auto *sort = std::get_if<ArraySort>(&op))
+      sort->input = reads[0];
+    else if (auto *store = std::get_if<ArrayStore>(&op)) {
+      store->input = reads[0];
+      store->index = reads[1];
+      store->value = reads[2];
+    } else if (auto *read = std::get_if<ArrayBoundsCheck>(&op)) {
+      read->input = reads[0];
+      read->index = reads[1];
+    } else if (auto *read = std::get_if<ArrayIndex>(&op)) {
       read->input = reads[0];
       read->index = reads[1];
     } else if (auto *read = std::get_if<TensorIndex>(&op)) {
@@ -517,8 +613,10 @@ private:
     ValueType boolean;
     boolean.builtin = BuiltinValue::Bool;
     const auto active = slot(plan, boolean);
-    plan.code.push_back({Code::MapInit, buffer, {inputSlot}, 0, 0, 0, id});
-    plan.code.push_back({Code::Copy, output, {buffer}});
+    // Map execution can repeat on a statement-loop backedge. The frame is only
+    // zeroed once, so each new map must explicitly reset its iteration index.
+    plan.code.push_back({Code::MapInit, buffer, {inputSlot, index}, 0, 0, 0, id});
+    plan.code.push_back({Code::MapPrepare, output, {buffer}});
     const auto loop = plan.code.size();
     plan.code.push_back({Code::MapCheck, active, {inputSlot, index}});
     const auto empty = plan.code.size();
@@ -566,7 +664,7 @@ private:
     const auto join = plan.code.size();
     for (auto error : errors)
       plan.code[error].jump = join;
-    plan.code.push_back({Code::Join, output, {buffer}, 0, group, 0, id});
+    plan.code.push_back({Code::MapJoin, output, {buffer}, 0, group, 0, id});
     plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group, 0, id});
     plan.code.push_back({Code::MapSuccess, active, {output}});
     const auto failed = plan.code.size();
@@ -575,6 +673,7 @@ private:
     plan.code.push_back({Code::Jump, 0, {}, 0, 0, loop});
     plan.code[empty].jump = plan.code[failed].jump = plan.code.size();
     plan.code.push_back({Code::Label, 0, {}});
+    plan.code.push_back({Code::MapPublish, output, {buffer}, 0, 0, 0, id});
   }
   void indirectCall(Plan &plan, ValueId id, Slot output, const FunctionInvoke &call,
                     Environment &env, std::set<FunctionId> &stack) {
@@ -707,8 +806,17 @@ private:
     if (auto found = env.values.find(id); found != env.values.end())
       return found->second;
     const auto &node = input.expressions[id];
-    if (const auto *read = std::get_if<SymbolRead>(&node.operation))
-      return env.symbols.at(read->symbol);
+    if (const auto *read = std::get_if<SymbolRead>(&node.operation)) {
+      const auto value = env.symbols.at(read->symbol);
+      if (!input.symbols[read->symbol].reassignable)
+        return value;
+      // Snapshot each source read. Passing a value to a task/closure must not
+      // pass the mutable continuation slot and observe a later reassignment.
+      const auto snapshot = slot(plan, node.type);
+      plan.code.push_back({Code::Copy, snapshot, {value}});
+      env.values[id] = snapshot;
+      return snapshot;
+    }
     if (const auto *call = std::get_if<FunctionCall>(&node.operation)) {
       std::vector<Slot> args;
       for (auto arg : call->arguments)
@@ -729,8 +837,8 @@ private:
         env.values[id] = value;
         return value;
       }
-      if (!options.preserveCalls && stack.contains(call->function) &&
-          !coordinating.at(call->function)) {
+      if (!options.preserveCalls && !coordinating.at(call->function) &&
+          (stack.contains(call->function) || loopControl.at(call->function))) {
         if (input.functions.at(call->function).captureCount)
           throw std::runtime_error("direct recursive calls require a named function entry");
         auto value = slot(plan, node.type);
@@ -780,19 +888,21 @@ private:
       plan.code.push_back({Code::FunctionInvoke, output, args, 0, 0, 0, id});
     } else if (const auto *block = std::get_if<ParallelOperation>(&node.operation)) {
       const auto group = plan.groups++;
-      Boundary boundary{output, group, {}};
+      Boundary boundary{output, group, {}, env.collectionStack.size()};
       auto nested = env;
       nested.boundary = &boundary;
       nested.group = group;
+      nested.groups.push_back(group);
       plan.code.push_back({Code::Open, 0, {}, env.group.value_or(SIZE_MAX), group, 0, id});
       Slot value = output;
       for (const auto &statement : block->body) {
         value = expression(plan, statement.value, nested, stack);
         if (statement.binding)
-          nested.symbols[*statement.binding] = value;
+          bindScalar(plan, nested, *statement.binding, value);
       }
       const auto exit = plan.code.size();
       plan.code.push_back({Code::Join, output, {value}, 0, group, 0, id});
+      plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group, 0, id});
       for (auto jump : boundary.jumps)
         plan.code[jump].jump = exit;
     } else if (const auto *device = std::get_if<DeviceSelection>(&node.operation)) {
@@ -849,6 +959,8 @@ private:
                                {operand},
                                env.boundary->output,
                                env.boundary->group.value_or(SIZE_MAX)});
+          for (auto n = env.collectionStack.size(); n > env.boundary->collectionDepth; --n)
+            plan.code.back().collections.push_back(env.collectionStack[n - 1]);
           env.boundary->jumps.push_back(index);
         }
       }
@@ -857,7 +969,7 @@ private:
       const auto error = slot(plan, input.symbols[handler->parameter].type);
       auto nested = env;
       nested.symbols[handler->parameter] = error;
-      Boundary boundary{output, {}, {}};
+      Boundary boundary{output, {}, {}, env.collectionStack.size()};
       nested.boundary = &boundary;
       const auto dispatch = plan.code.size();
       plan.code.push_back({Code::Catch, output, {operand, error}});
@@ -866,7 +978,7 @@ private:
       for (const auto &statement : handler->body) {
         result = expression(plan, statement.value, nested, stack);
         if (statement.binding)
-          nested.symbols[*statement.binding] = result;
+          bindScalar(plan, nested, *statement.binding, result);
       }
       plan.code.push_back({Code::Copy, output, {result}});
       const auto exit = plan.code.size();
@@ -874,6 +986,90 @@ private:
       plan.code[dispatch].target = exit;
       for (auto jump : boundary.jumps)
         plan.code[jump].jump = exit;
+    } else if (const auto *yield = std::get_if<YieldOperation>(&node.operation)) {
+      const auto value = expression(plan, yield->operand, env, stack);
+      const auto found = env.collections.find(yield->collection);
+      if (found == env.collections.end())
+        throw std::runtime_error("yield has no lexical collection");
+      plan.code.push_back({Code::CollectAppend, found->second, {value}, 0, 0, 0, id});
+    } else if (const auto *jump = std::get_if<LoopTransferOperation>(&node.operation)) {
+      auto found = env.loops.find(jump->loop);
+      if (found == env.loops.end())
+        throw std::runtime_error("loop transfer has no lexical target in this function");
+      auto &loop = *found->second;
+      if (jump->value) {
+        auto result = expression(plan, *jump->value, env, stack);
+        plan.code.push_back({Code::Copy, loop.output, {result}});
+      }
+      // A successful early exit closes every structured group it leaves. The
+      // checker has already required the iteration's children to be observed.
+      for (std::size_t depth = env.groups.size(); depth > loop.groupDepth; --depth) {
+        const auto group = env.groups[depth - 1];
+        ValueType type;
+        type.builtin = BuiltinValue::Bool;
+        type.fallible = true;
+        const auto joined = slot(plan, type);
+        plan.code.push_back({Code::Join, joined, {loop.condition}, 0, group, 0, id});
+        plan.code.push_back({Code::PropagateGroup, 0, {}, 0, group, 0, id});
+        plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group, 0, id});
+      }
+      const auto branch = plan.code.size();
+      plan.code.push_back(
+          {Code::Jump, 0, {}, 0, 0, jump->continuing ? loop.header : 0, loop.source});
+      if (!jump->continuing)
+        loop.exits.push_back(branch);
+    } else if (const auto *loop = std::get_if<WhileOperation>(&node.operation)) {
+      if (loop->collecting) {
+        plan.valueScopes = true;
+        env.collections[loop->identity] = output;
+        env.collectionStack.push_back(output);
+        plan.code.push_back({Code::CollectInit, output, {}, 0, 0, 0, id});
+      }
+      for (const auto &statement : loop->initial) {
+        const auto value = expression(plan, statement.value, env, stack);
+        if (statement.binding)
+          bindScalar(plan, env, *statement.binding, value);
+      }
+      const auto header = plan.code.size();
+      plan.code.push_back({Code::Label, 0, {}});
+      auto iteration = env;
+      const auto condition = expression(plan, loop->condition, iteration, stack);
+      LoopBoundary boundary{output, condition, header, env.groups.size(), id, {}};
+      iteration.loops[loop->identity] = &boundary;
+      const auto dispatch = plan.code.size();
+      plan.code.push_back({Code::Branch, output, {condition}});
+      for (const auto &statement : loop->iteration) {
+        const auto value = expression(plan, statement.value, iteration, stack);
+        if (statement.binding)
+          bindScalar(plan, iteration, *statement.binding, value);
+      }
+      for (const auto &statement : loop->body) {
+        const auto value = expression(plan, statement.value, iteration, stack);
+        if (statement.binding)
+          bindScalar(plan, iteration, *statement.binding, value);
+      }
+      plan.code.push_back({Code::Jump, 0, {}, 0, 0, header, id});
+      plan.code[dispatch].jump = plan.code.size();
+      plan.code.push_back({Code::Label, 0, {}});
+      auto normal = env;
+      for (const auto &statement : loop->whenDone) {
+        const auto value = expression(plan, statement.value, normal, stack);
+        if (statement.binding)
+          bindScalar(plan, normal, *statement.binding, value);
+      }
+      if (loop->normalResult) {
+        const auto result = expression(plan, *loop->normalResult, normal, stack);
+        plan.code.push_back({Code::Copy, output, {result}});
+      }
+      const auto exit = plan.code.size();
+      plan.code.push_back({Code::Label, 0, {}});
+      for (auto branch : boundary.exits)
+        plan.code[branch].jump = exit;
+      if (loop->collecting) {
+        plan.code.push_back({Code::CollectFinish, output, {}, 0, 0, 0, id});
+        env.collections.erase(loop->identity);
+        env.collectionStack.pop_back();
+      }
     } else if (const auto *guard = std::get_if<GuardOperation>(&node.operation)) {
       auto condition = expression(plan, guard->condition, env, stack);
       const auto dispatch = plan.code.size();
@@ -882,7 +1078,7 @@ private:
       for (const auto &statement : guard->body) {
         auto value = expression(plan, statement.value, branch, stack);
         if (statement.binding)
-          branch.symbols[*statement.binding] = value;
+          bindScalar(plan, branch, *statement.binding, value);
       }
       plan.code[dispatch].jump = plan.code.size();
       plan.code.push_back({Code::Label, 0, {}});
@@ -897,7 +1093,7 @@ private:
         for (const auto &statement : index == 0 ? choice->whenTrue : choice->whenFalse) {
           auto value = expression(plan, statement.value, branch, stack);
           if (statement.binding)
-            branch.symbols[*statement.binding] = value;
+            bindScalar(plan, branch, *statement.binding, value);
         }
         auto result =
             expression(plan, index == 0 ? choice->trueResult : choice->falseResult, branch, stack);
@@ -926,7 +1122,7 @@ private:
         for (const auto &statement : arm.body) {
           result = expression(plan, statement.value, branch, stack);
           if (statement.binding)
-            branch.symbols[*statement.binding] = result;
+            bindScalar(plan, branch, *statement.binding, result);
         }
         plan.code.push_back({Code::Copy, output, {result}});
         exits.push_back(plan.code.size());
@@ -959,6 +1155,8 @@ private:
                            {error},
                            env.boundary->output,
                            env.boundary->group.value_or(SIZE_MAX)});
+      for (auto n = env.collectionStack.size(); n > env.boundary->collectionDepth; --n)
+        plan.code.back().collections.push_back(env.collectionStack[n - 1]);
       env.boundary->jumps.push_back(index);
     } else if ((std::holds_alternative<BoolLiteral>(node.operation) ||
                 std::holds_alternative<Float64Literal>(node.operation) ||
@@ -974,8 +1172,8 @@ private:
       std::vector<Slot> args;
       for (auto arg : operands(node))
         args.push_back(expression(plan, arg, env, stack));
-      plan.code.push_back({Code::Kernel, output, args,
-                           options.preserveCalls ? 0 : kernel(id), 0, 0, id});
+      plan.code.push_back(
+          {Code::Kernel, output, args, options.preserveCalls ? 0 : kernel(id), 0, 0, id});
     } else if (const auto *unary = std::get_if<ScalarUnary>(&node.operation)) {
       auto arg = expression(plan, unary->operand, env, stack);
       plan.code.push_back({Code::Unary, output, {arg}, 0, 0, 0, id});
@@ -989,13 +1187,22 @@ private:
       // Target-preserved constants are embedded tensor data, not thousands of
       // live continuation values. Nonconstant leaves still evaluate in order.
       const bool embedded =
-          options.preserveCalls && literal &&
+          options.preserveCalls && !node.type.array && literal &&
           std::ranges::all_of(literal->elements, [&](auto value) { return constant(value); });
       if (!embedded)
         for (auto arg : operands(node))
           args.push_back(expression(plan, arg, env, stack));
       plan.code.push_back(
-          {Code::Kernel, output, args, options.preserveCalls ? 0 : kernel(id), 0, 0, id});
+          {Code::Kernel, output, args,
+           !options.preserveCalls || std::holds_alternative<IntegerRangeOperation>(node.operation) ||
+                   (options.valueScopes &&
+                    (node.type.array ||
+                     std::ranges::any_of(
+                         operands(node),
+                         [&](auto value) { return input.expressions[value].type.array; })))
+               ? kernel(id)
+               : 0,
+           0, 0, id});
     }
     env.values[id] = output;
     return output;
@@ -1023,6 +1230,42 @@ void indirectEffects(const TypedModule &input, std::vector<std::vector<FunctionI
       }
 }
 } // namespace
+std::vector<bool> loopControlFunctions(const TypedModule &input) {
+  std::vector<bool> result(input.functions.size());
+  std::vector<std::vector<FunctionId>> callers(input.functions.size());
+  const auto flow =
+      std::ranges::any_of(
+          input.expressions,
+          [](const auto &value) { return std::holds_alternative<FunctionInvoke>(value.operation); })
+          ? functionInvocationFlow(input)
+          : std::optional<FunctionInvocationFlow>{};
+  std::vector<FunctionId> pending;
+  for (FunctionId id = 0; id < input.functions.size(); ++id) {
+    for (auto value : input.functions[id].expressions) {
+      const auto &operation = input.expressions.at(value).operation;
+      if (const auto *loop = std::get_if<WhileOperation>(&operation))
+        result[id] = result[id] || loop->transfers || loop->collecting || !loop->whenDone.empty();
+      if (const auto *call = std::get_if<FunctionCall>(&operation))
+        callers.at(call->function).push_back(id);
+      if (const auto *reference = std::get_if<FunctionReference>(&operation))
+        callers.at(reference->function).push_back(id);
+      if (const auto *map = std::get_if<ArrayMap>(&operation))
+        callers.at(map->function).push_back(id);
+      if (flow && std::holds_alternative<FunctionInvoke>(operation))
+        for (auto target : flow->targets.at(value))
+          callers.at(target).push_back(id);
+    }
+    if (result[id])
+      pending.push_back(id);
+  }
+  for (std::size_t cursor = 0; cursor < pending.size(); ++cursor)
+    for (auto caller : callers[pending[cursor]])
+      if (!result[caller]) {
+        result[caller] = true;
+        pending.push_back(caller);
+      }
+  return result;
+}
 std::vector<bool> resumableFunctions(const TypedModule &input) {
   // Indirect synchronous entries already encapsulate their expected-error
   // control flow. Only actual coordination crosses that calling boundary.
@@ -1042,6 +1285,10 @@ std::vector<bool> resumableFunctions(const TypedModule &input) {
       if (input.expressions[value].type.fallible || std::holds_alternative<TaskOperation>(op) ||
           std::holds_alternative<ParallelOperation>(op) ||
           std::holds_alternative<CatchOperation>(op) ||
+          std::holds_alternative<LoopTransferOperation>(op) ||
+          (std::holds_alternative<WhileOperation>(op) &&
+           (!std::get<WhileOperation>(op).whenDone.empty() ||
+            std::get<WhileOperation>(op).transfers || std::get<WhileOperation>(op).collecting)) ||
           std::holds_alternative<MatchOperation>(op) ||
           std::holds_alternative<GuardOperation>(op) || std::holds_alternative<FailOperation>(op) ||
           std::holds_alternative<ErrorFieldRead>(op) ||
@@ -1138,6 +1385,9 @@ std::string dump(const ModulePlan &module) {
                                           "function.invoke",
                                           "synchronous.call",
                                           "map.init",
+                                          "map.prepare",
+                                          "map.join",
+                                          "map.publish",
                                           "map.check",
                                           "map.load",
                                           "map.store",
@@ -1148,7 +1398,11 @@ std::string dump(const ModulePlan &module) {
                                           "callable.captures",
                                           "callable.sync.guard",
                                           "callable.invalid",
-                                          "group.propagate"};
+                                          "group.propagate",
+                                          "collect.init",
+                                          "collect.append",
+                                          "collect.finish"};
+  static_assert(std::size(names) == static_cast<unsigned>(Code::CollectFinish) + 1);
   std::ostringstream out;
   for (std::size_t f = 0; f < module.plans.size(); ++f) {
     const auto &plan = *module.plans[f];

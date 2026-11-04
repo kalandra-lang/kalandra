@@ -37,6 +37,11 @@ int main() {
     require(!query(code, "fn double"), "keyword produced misleading hover");
     require(!query(code, "  result"), "whitespace produced misleading hover");
     require(!query(code, "*2"), "operator produced misleading hover");
+    const std::string store = "fn put(mut values:[int],index:int)->int:\n  values[index]=9\n  "
+                              "values[index]\nfn main()->int:\n  put([1],0)\n";
+    expect(store, "values[index]=", "values: [int64]");
+    expect(store, "index]=", "index: int64");
+    require(!query(store, "=9"), "element assignment leaked its private statement marker");
     require(!query("fn main():\n  missing\n", "main"), "failed graph leaked partial types");
     const std::string closure =
         "fn main():\n  offset=1\n  transform=fn(x:int):x+offset\n  transform(2)\n";
@@ -118,6 +123,12 @@ int main() {
     expect(
         "type Box:\n  map:fn(int)->int\nfn main():\n  box=Box {map:fn(v:int):v+1}\n  box.map(2)\n",
         "box.map", "map: fn(int64) -> int64", 4);
+    expect("fn main()->[int]:\n  sort([2,1])\n", "sort", "fn sort(mut input: [int64]) -> [int64]");
+    expect("fn main()->[int]:\n  sorted([2,1])\n", "sorted",
+           "fn sorted(input: [int64]) -> [int64]");
+    expect("fn main()->[int]:\n  copy([1,2])\n", "copy", "fn copy(input: [int64]) -> [int64]");
+    expect("fn main()->[int]:\n  offset=2\n  generate(3,fn(i):i+offset)\n", "generate",
+           "fn generate(count: int64, callback: fn(int64) -> int64) -> [int64]");
     require(!query("fn main():\n  length(42)\n", "length"), "invalid builtin leaked hover");
     require(!query("fn main():\n  length([1],)\n  missing\n", "length"),
             "later graph errors invalidate builtin hovers");

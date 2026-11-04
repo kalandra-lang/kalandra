@@ -69,6 +69,14 @@ subprocess.run([sys.executable, repo/'native/vulkan/tests/loader.py',
                 '--application', a.root/'applications/matrix-hardware/program',
                 '--cxx', prefix/'libexec/kalandra/clang++',
                 '--resource-dir', prefix/'lib/kalandra/toolchain/clang'], check=True, timeout=90)
+# Compile host array helpers after relocation as well as the shader-only cases.
+# This checks the native scope runtime symbols and all private header dependencies.
+arrays = [sys.executable, repo/'native/gpu-source/HostArrayTests.py',
+          '--compiler', compiler, '--backend', 'vulkan', '--variant', 'optimized',
+          '--root', a.root/'host-arrays']
+if not a.execute:
+    arrays.append('--compile-only')
+subprocess.run(arrays, check=True, timeout=1200)
 # Individually remove required owned resources. An installed compiler must not
 # reuse its compiled-in build-tree paths or ambient PATH when one is missing.
 for relative in ['libexec/kalandra/clang++', 'libexec/kalandra/mlir-opt',

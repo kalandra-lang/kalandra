@@ -1,6 +1,6 @@
 meta { title = "CPU parallelism", description = "Spawn typed tasks and keep their lifetimes structured.", order = 1, group = "HOWTO guides" }
 
-Ordinary function calls run synchronously in the current execution context. spawn creates a typed CPU task; await observes its completed result. Place task work inside a parallel scope, then handle or propagate the TaskError channel.
+Use CPU tasks when independent work can run concurrently. You will need the ordinary CPU compilation commands from getting started. spawn starts a task, await obtains its result, and a parallel scope keeps the tasks' lifetimes within its block. Declare and handle or propagate TaskError for execution failures.
 
 h2 { "Start independent work before awaiting" }
 
@@ -16,11 +16,17 @@ fn main() -> int ! TaskError:
     a + b
 """ }
 
-Both tasks are created before either is awaited, so the scheduler can run them concurrently. spawn followed immediately by await is useful for placement or boundaries, but a sequence of such pairs does not expose the same independent overlap.
+This returns 42. Both tasks are created before either is awaited, so the scheduler can run them concurrently. spawn followed immediately by await is useful for placement or boundaries, but a sequence of such pairs does not expose the same independent overlap.
 
 h2 { "A parallel scope owns its children" }
 
-Tasks use captured immutable values and return typed completed values. A scope settles its children before exiting. Awaiting suspends the coordinating continuation rather than occupying a worker thread while waiting. Repeated awaits observe the cached result; they do not rerun the task.
+A scope waits for its children to finish before exiting, including when work fails. A waiting task does not occupy a worker thread just to wait. Repeated awaits reuse the completed result; they do not rerun the work.
+
+Tasks can read supported captured values. Parent-provided arrays are read-only to the task, and the parent cannot write that storage while unfinished task readers may still use it. Await every reader before writing, or create an independent copy. Reassigning the parent's local array name does not change the array a task already received.
+
+list {
+  link { url = "/docs/arrays#wait-for-shared-readers", "Sharing arrays safely with tasks" }
+}
 
 h2 { "Map an array in parallel" }
 
@@ -29,17 +35,20 @@ codeblock { language = kalandra, """fn main() -> [int] ! TaskError:
   try parallelMap([1, 2, 3], fn(value: int): value * factor)
 """ }
 
-parallelMap returns results in input order and can change the element type under the supported callback rules. map remains sequential. Scheduling a map call with spawn creates a task containing one sequential mapping loop; it does not turn each element into an independent task.
+This returns [2, 4, 6]. parallelMap returns results in input order and can change the element type under the supported callback rules. map remains sequential. Scheduling a map call with spawn creates a task containing one sequential mapping loop; it does not turn each element into an independent task.
 
 h2 { "Workers and resource limits" }
 
-Generated CPU programs use a bounded worker pool. The detected default is capped at eight; KALANDRA_WORKERS accepts 1 through 64. Task records, ready queues, captures and nested groups have admission limits. Tiny callbacks may cost more to schedule than to execute, so measure your actual workload.
+Generated CPU programs use a limited pool of worker threads. The default is based on the host and capped at eight; KALANDRA_WORKERS accepts 1 through 64. The runtime also limits queued work and task storage. It can reject work with TaskError.AdmissionRejected when those limits are reached. Tiny callbacks may cost more to schedule than to execute, so measure your actual workload.
 
 codeblock { language = bash, """KALANDRA_WORKERS=4 ./program
 """ }
 
-Cancellation is cooperative, and generated numerical loops poll for it. Worker capacity and admitted work are bounded; a parallel scope does not guarantee which racing failure is observed. GPU placement is explicit and has its own supported numerical subset.
+The environment setting applies when running the compiled program; the command above uses a macOS or Linux shell.
 
-link { url = "/docs/gpu", "Combine CPU and GPU work" }
+Cancellation is cooperative: a task stops at a cancellation check rather than being killed at an arbitrary instruction. Completed writes are not rolled back. When several tasks fail concurrently, the observed failure is not guaranteed to be the same each run. GPU placement is explicit and supports a narrower set of operations than CPU execution.
 
-link { url = "/docs/task-functions", "Task and device function reference" }
+list {
+  link { url = "/docs/gpu", "Combine CPU and GPU work" },
+  link { url = "/docs/task-functions", "Task and device function reference" }
+}

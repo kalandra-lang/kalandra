@@ -148,7 +148,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
                 COVERED.add((result['page'], result['block']))
 
     # Actual check/compile/run instructions from the introductory and module pages.
-    for page in ['index', 'modules']:
+    for page in ['index', 'getting-started', 'tutorial', 'modules']:
         n = next(x for x in items if x[0] == page and 'fn main(' in x[3])
         shell(page, 0, BASE / page / str(n[1]), PLAN[page][n[1]]['expected'])
     parallel = next(x for x in reversed(items) if x[0] == 'parallelism')
@@ -170,12 +170,12 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
     # The documented starter, its exact sibling module, and an edited rebuild.
     starter = BASE / 'starter'
     starter.mkdir()
-    shell('getting-started', 0, starter, '[2, 4, 6]')
-    for name, (_, source) in zip(['main.k', 'math.k'], blocks('getting-started', 'kalandra')):
+    shell('getting-started', 1, starter, '[2, 4, 6]')
+    for name, (_, source) in zip(['main.k', 'math.k'], blocks('getting-started', 'kalandra')[1:]):
         assert (starter / 'my-app/src' / name).read_text().strip() == source.strip()
     math = starter / 'my-app/src/math.k'
     math.write_text(math.read_text().replace('value * 2', 'value * 3'))
-    shell('getting-started', 1, starter)
+    shell('getting-started', 2, starter)
     command([starter / 'my-app/program'], starter, '[3, 6, 9]')
 
     # Minimal project, local mapped module, and optimized mode.

@@ -289,10 +289,11 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     source = "fn main()->int:\n  value=1\n  if true:\n    value=2\n    value\n  else:\n    value\n"
     client.open(main, source)
     refs = client.references(main, 1, 3)["result"]
-    assert len(refs) == 1 and refs[0]["range"]["start"] == {"line": 6, "character": 4}
+    assert [r["range"]["start"] for r in refs] == [
+        {"line": 3, "character": 4}, {"line": 4, "character": 4}, {"line": 6, "character": 4}]
     refs = client.references(main, 1, 3, True)["result"]
-    assert [r["range"]["start"]["line"] for r in refs] == [1, 6]
-    assert client.references(main, 3, 5)["result"][0]["range"]["start"]["line"] == 4
+    assert [r["range"]["start"]["line"] for r in refs] == [1, 3, 4, 6]
+    assert [r["range"]["start"]["line"] for r in client.references(main, 3, 5)["result"]] == [3, 4, 6]
     assert client.references(main, 0, 0)["result"] is None
     assert client.references(main, 999, 0)["result"] is None
     assert client.references(main, 0, -1)["error"]["code"] == -32602
@@ -1466,7 +1467,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     start = builtin_completion.splitlines()[1].index('coSuffix')
     result = client.completion(signature_document, 1, start+2)["result"]
-    assert [item["label"] for item in result["items"]] == ["concat"], result
+    assert [item["label"] for item in result["items"]] == ["concat", "copy"], result
     item = result["items"][0]
     assert item["kind"] == 3 and item["textEdit"] == {"newText":"concat", "range":{
         "start":{"line":1,"character":start},"end":{"line":1,"character":start+8}}}, item
@@ -1501,7 +1502,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     result = client.completion(signature_document, 2, 4)["result"]
     assert [(item["label"],item["kind"],item["detail"]) for item in result["items"]] == [
-        ("concat",6,"binding")], result
+        ("concat",6,"binding"), ("copy",3,"function")], result
     assert not signature_document.exists()
     client.finish()
 

@@ -1,6 +1,12 @@
 meta { title = "GPU numerical graphs", description = "Compose resident numerical graphs with strict types and shapes.", order = 3, group = "HOWTO guides" }
 
-Place an eligible numerical function on the GPU, then compose operations inside that function. The graph determines device stages and intermediate lifetimes; it is not a promise that a whole function becomes one hardware kernel.
+Once you can run the first GPU example, combine numerical operations inside a function placed on that device. Keep intermediate tensors on the GPU and download only the values the CPU needs. The compiler may use several kernels or submissions for one function.
+
+The examples below use the Metal commands shown on this page. For Vulkan or CUDA, use the corresponding backend commands and prerequisites in the GPU guide.
+
+list {
+  link { url = "/docs/gpu", "First GPU program and backend-specific build commands" }
+}
 
 h2 { "Row math for attention" }
 
@@ -20,7 +26,7 @@ fn main() -> float32 ! TaskError:
     reduceSum(result)
 """ }
 
-Each row operation is a device stage with owned output and temporary storage retained through completion. The runtime still acknowledges individual stages in a typed program; composing a whole attention block does not currently imply one command submission. Softmax uses stable row maxima and adjacent-pair sums, with bounded exp approximation error. Do not assume CPU/GPU bit identity for transcendentals or identical subnormal handling on different devices.
+The numerical result is approximately 2: each row sums to approximately one. Intermediate outputs stay alive until the device has finished using them. Composing operations avoids unnecessary transfers, but does not guarantee a single kernel or command submission. Softmax uses row maxima for stability and an approximation to the exponential function; CPU and GPU results need not be bit-identical.
 
 h2 { "Compose two matrix products" }
 
@@ -52,13 +58,38 @@ codeblock { language = bash, """kalandra main.k --target metal -O2 -o app
 ./app/program
 """ }
 
-The numerical result is the row-major matrix [[106, 156], [241, 354]]. The current float32 Metal entry prints [42d40000,431c0000,43710000,43b10000], the corresponding hexadecimal bit patterns.
+The numerical result is the row-major matrix [[106, 156], [241, 354]]. The float32 Metal executable displays [42d40000,431c0000,43710000,43b10000], the corresponding hexadecimal bit patterns.
 
 The two ordinary helper calls form a resident graph. In this example the input is 2 by 3, weights are 3 by 2, and projection is 2 by 2. The final result is 2 by 2. Awaiting work twice reuses the completed tensor; only the final explicit transfer downloads it.
 
+h2 { "Prepare inputs with arrays" }
+
+Use numeric and Bool arrays to build and edit data on the CPU side of a GPU program. Local reassignment, map, generate, copy, sorting and element writes follow the same alias and task-reader rules as CPU programs. CPU helpers can receive and return arrays, including across task waits.
+
+Convert a numeric array to a tensor before transferring it to a GPU. tensor(values) copies the data, so later array edits cannot change the tensor snapshot or a running GPU calculation.
+
+codeblock { language = kalandra, """fn twice(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
+  values + values
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    values = generate(3, fn(index): float32(index + 1))
+    snapshot = tensor(values)
+    values[0] = float32(9)
+    gpu = devices.gpu()
+    resident = try await transfer(snapshot, gpu)
+    work = spawn twice(resident) on gpu
+    result = try await transfer(try await work, devices.cpu())
+    reduceSum(result) + values[0]
+""" }
+
+This returns 21, displayed as 41a80000. The GPU doubles the original [1, 2, 3] snapshot; the CPU adds the edited first array element, 9. array(tensor) also copies, so editing that array cannot change the tensor.
+
+These are host-side array operations. Device functions still operate on immutable numerical tensors; array element writes inside a GPU function are not supported. String, record and function-array values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
+
 h2 { "Types and ranks" }
 
-The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32 and float64. Dense scalar/rank-zero through rank-eight tensors are supported for the supported numerical operations. matmul remains rank two. Numeric identity and complete shape obligations are checked rather than implicitly promoted or broadcast.
+The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32 and float64. Dense tensors of rank zero through eight are supported by the numerical operations that accept those ranks. matmul remains rank two. Numeric identity and complete shape obligations are checked rather than implicitly promoted or broadcast.
 
 h2 { "Hardware arithmetic and explicit fallback" }
 
@@ -72,7 +103,7 @@ Metal hardware float32 matmul defaults to optimized full-precision accumulation.
 
 For eligible aligned float32 products, CUDA's optimized path splits the contraction into five independent GPU partitions and reduces them deterministically. It keeps full float32 inputs and accumulators. Temporary workspace counts against the device budget; if that workspace cannot fit, a slower GPU route computes the same accumulation order. Memory pressure does not select a different numerical result. Unsupported shapes keep the fixed-tree GPU companion.
 
-Use --matmul-policy fixed-tree to require separately rounded products and the existing balanced contraction tree. This selects a calculation order, not exact real arithmetic or universally greater accuracy. Optimized results may differ in rounding, signed zero and intermediate overflow. Severe cancellation can lose accuracy in either mode. Checked integer operations are unchanged, and CPU matmul currently retains the fixed tree under either policy.
+Use --matmul-policy fixed-tree to require separately rounded products and the existing balanced contraction tree. This selects a calculation order, not exact real arithmetic or universally greater accuracy. Optimized results may differ in rounding, signed zero and intermediate overflow. Subtraction of nearly equal large terms, called numerical cancellation, can lose accuracy in either mode; it is unrelated to task cancellation. Checked integer operations are unchanged, and CPU matmul currently retains the fixed tree under either policy.
 
 codeblock { language = bash, """kalandra main.k --target metal --matmul-policy fixed-tree -O2 -o app
 ./app/program
@@ -86,8 +117,9 @@ Eligible GPU functions can use numeric comparisons, Boolean expressions and cond
 
 h2 { "AI and LLM foundations" }
 
-Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. The current language does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
+Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. Kalandra does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
 
-link { url = "/docs/tensors", "Tensor construction and shape rules" }
-
-link { url = "/docs/tensor-functions", "Numerical function reference" }
+list {
+  link { url = "/docs/tensors", "Tensor construction and shape rules" },
+  link { url = "/docs/tensor-functions", "Numerical function reference" }
+}

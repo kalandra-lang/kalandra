@@ -1,6 +1,6 @@
-meta { title = "Project manifests", description = "Build an explicit entry with stable local package mappings.", order = 2, group = "Using Kalandra" }
+meta { title = "Project manifests", description = "Configure an application entry point and local source libraries.", order = 2, group = "Using Kalandra" }
 
-Use kalandra new for the starter, or write kalandra.toml explicitly. The manifest selects the source entry and any local package mappings. It is compiler input, not a file loaded by the generated application.
+Use kalandra new for a starter, or create the files shown here. The manifest selects the source entry and any local package mappings. It is compiler input, not a file loaded by the generated application.
 
 h2 { "A minimal application" }
 
@@ -64,7 +64,7 @@ version = "0.2.0"
 entry = "src/public.k"
 """ }
 
-Save that library manifest in a separate library root, with the exported area function above in src/public.k. A managed library declares its public entry and retains its own dependency scope. Its entry and local mappings must stay within its canonical root. Version metadata does not introduce version-range solving.
+Save that library manifest in a separate library root, with the exported area function above in src/public.k. A source library declares the module callers import and resolves its own dependencies. Its entry and local mappings must stay within its canonical root. Version metadata does not introduce version-range solving.
 
 h2 { "Build modes" }
 
@@ -72,8 +72,9 @@ codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o p
 ./program
 """ }
 
-The optimized CPU program also returns 42. CPU builds produce an executable; Metal builds produce a directory with program and shader libraries. Keep all Metal application files together. Shape, numeric and error checks remain part of the native semantics in optimized builds.
+The optimized CPU program also returns 42. CPU builds produce an executable. GPU builds produce an application directory containing the executable and its backend resources; keep those files together. Shape, numeric and error checks remain part of the native semantics in optimized builds.
 
-link { url = "/docs/packages", "Dependency installation and locks" }
-
-link { url = "/docs/gpu", "Build and run a complete Metal application" }
+list {
+  link { url = "/docs/packages", "Dependency installation and locks" },
+  link { url = "/docs/gpu", "Build and run a complete Metal application" }
+}

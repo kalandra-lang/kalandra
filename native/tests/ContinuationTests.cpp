@@ -25,20 +25,22 @@ void verify(const ModulePlan &module) {
       require(op.output < plan.slots.size(), "invalid output slot");
       for (auto arg : op.args)
         require(arg < plan.slots.size(), "invalid argument slot");
-      if (op.code == Code::Open || op.code == Code::Join || op.code == Code::Spawn ||
-          op.code == Code::Transfer)
+      if (op.code == Code::Open || op.code == Code::Join || op.code == Code::MapJoin ||
+          op.code == Code::Spawn || op.code == Code::Transfer)
         require(op.group < plan.groups, "invalid owning group");
       if (op.code == Code::Open) {
         require(op.target == SIZE_MAX || op.target < op.group, "invalid parent group");
         ++opened[op.group];
       }
-      if (op.code == Code::Join)
+      if (op.code == Code::Join || op.code == Code::MapJoin)
         ++joined[op.group];
       if (op.code == Code::Try || op.code == Code::Fail) {
         require(op.jump < plan.code.size(), "invalid failure exit");
         if (op.group != SIZE_MAX) {
-          require(plan.code[op.jump].code == Code::Join && plan.code[op.jump].group == op.group,
-                  "failure bypasses owning settlement");
+          require(
+              (plan.code[op.jump].code == Code::Join || plan.code[op.jump].code == Code::MapJoin) &&
+                  plan.code[op.jump].group == op.group,
+              "failure bypasses owning settlement");
         } else
           require(plan.code[op.jump].code == Code::Label, "invalid handler/function failure exit");
       }
@@ -206,19 +208,20 @@ int main(int argc, char **argv) {
     bool backedge = false;
     for (FunctionId id = 0; id < recursivePlan->kernels.functions.size(); ++id)
       for (auto value : recursivePlan->kernels.functions[id].expressions)
-        if (const auto *call = std::get_if<FunctionCall>(
-                &recursivePlan->kernels.expressions[value].operation))
+        if (const auto *call =
+                std::get_if<FunctionCall>(&recursivePlan->kernels.expressions[value].operation))
           backedge |= call->function == id;
     require(backedge, "recursive CPU call lost its native backedge");
     for (const auto &entry : recursivePlan->plans)
-      require(std::ranges::none_of(entry->code, [](const auto &op) {
-                return op.code == Code::SynchronousCall;
-              }), "pure recursive work retained per-call continuation frames");
+      require(std::ranges::none_of(entry->code,
+                                   [](const auto &op) { return op.code == Code::SynchronousCall; }),
+              "pure recursive work retained per-call continuation frames");
     auto legacyPlan = plan(*recursive.module, {.nativeSubgraphs = false});
     require(bool(legacyPlan), "checked continuation fallback was removed");
     backedge = false;
     for (const auto &entry : legacyPlan->plans)
-      for (const auto &op : entry->code) backedge |= op.code == Code::SynchronousCall;
+      for (const auto &op : entry->code)
+        backedge |= op.code == Code::SynchronousCall;
     require(backedge, "fallback lost checked recursive execution");
     verify(*legacyPlan);
     auto builtin =
@@ -240,8 +243,7 @@ int main(int argc, char **argv) {
           if (op.source < projected.module->expressions.size() &&
               std::holds_alternative<RecordFieldRead>(
                   projected.module->expressions[op.source].operation)) {
-            require(op.code == Code::Kernel,
-                    "record field plan used the wrong backend path");
+            require(op.code == Code::Kernel, "record field plan used the wrong backend path");
             found = true;
           }
       require(found, "record field projection missing from plan");

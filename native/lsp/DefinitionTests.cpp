@@ -49,7 +49,8 @@ int main() {
     expect(nested, "value\n", "value:int");
     const std::string shadow =
         "fn main()->int:\n  value=1\n  if true:\n    value=2\n    value\n  else:\n    value\n";
-    expect(shadow, "    value\n", "value=2", 4);
+    expect(shadow, "    value\n", "value=1", 4);
+    expect(shadow, "value=2", "value=1");
     auto outer = query(shadow, shadow.rfind("value"));
     require(outer && outer->span.begin == shadow.find("value=1"),
             "outer branch binding was shadowed");

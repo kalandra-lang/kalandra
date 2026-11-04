@@ -23,6 +23,8 @@ kalandra main.k -o program
 ./program
 """ }
 
+The executable displays 42. The import path is relative to main.k, not to the terminal's working directory. Keep both files in the same directory for this example.
+
 h2 { "Export types deliberately" }
 
 Record, enum and error declarations can be exported and imported. Aliasing preserves their nominal identity rather than creating a new type. A helper continues resolving its own private names in its declaring module; importing it does not expose all of that module.
@@ -35,6 +37,7 @@ h2 { "Use a package name" }
 
 A bare import such as from "geometry" import total refers to an explicit package mapping or installed dependency. The compiler does not guess a module from your working directory or fetch a missing library while building.
 
-link { url = "/docs/projects", "Configure project entry and local package mappings" }
-
-link { url = "/docs/packages", "Install pinned source dependencies" }
+list {
+  link { url = "/docs/projects", "Configure project entry and local package mappings" },
+  link { url = "/docs/packages", "Install pinned source dependencies" }
+}

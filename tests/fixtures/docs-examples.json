@@ -10,10 +10,38 @@
     },
     {
       "kind": "cpu",
+      "expected": "[10, 12, 14, 16]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[3, 4, 1]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[true, false]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "309"
+    },
+    {
+      "kind": "cpu",
       "expected": "[1, 2, 9]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "992"
+    },
+    {
+      "kind": "cpu",
+      "expected": "4"
     }
   ],
   "collection-functions": [
+    {
+      "kind": "cpu",
+      "expected": "[1, 3, 9]"
+    },
     {
       "kind": "cpu",
       "expected": "[4, 8, 3, 3, 8]"
@@ -28,6 +56,38 @@
     {
       "kind": "cpu",
       "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "23"
+    },
+    {
+      "kind": "cpu",
+      "expected": "8"
+    },
+    {
+      "kind": "cpu",
+      "expected": "8"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[9, 49]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[10, 20, 30, 32]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[1, 10, 3, 30, 4]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "7"
+    },
+    {
+      "kind": "cpu",
+      "expected": "44"
     }
   ],
   "errors": [
@@ -51,10 +111,18 @@
     },
     {
       "kind": "cpu",
+      "expected": "3"
+    },
+    {
+      "kind": "cpu",
       "expected": "120"
     }
   ],
   "getting-started": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
     {
       "kind": "module",
       "expected": "[2, 4, 6]"
@@ -79,6 +147,10 @@
     {
       "kind": "gpu",
       "expected": "[42d40000,431c0000,43710000,43b10000]"
+    },
+    {
+      "kind": "gpu",
+      "expected": "41a80000"
     }
   ],
   "index": [
@@ -190,6 +262,10 @@
     {
       "kind": "cpu",
       "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "20"
     }
   ],
   "task-functions": [
@@ -249,7 +325,44 @@
       "expected": "42"
     }
   ],
-  "tutorial": [],
+  "tutorial": [
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
+      "expected": "10"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[2, 4, 6, 8]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "[9, 1]"
+    },
+    {
+      "kind": "cpu",
+      "expected": "23"
+    },
+    {
+      "kind": "cpu",
+      "expected": "0"
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    }
+  ],
   "release-notes": [],
   "cross-compilation": [
     {
@@ -258,5 +371,6 @@
     }
   ],
   "release-0-99-0": [],
-  "release-0-99-1": []
+  "release-0-99-1": [],
+  "glossary": []
 }

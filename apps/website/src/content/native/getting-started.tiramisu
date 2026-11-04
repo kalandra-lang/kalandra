@@ -1,6 +1,38 @@
-meta { title = "Getting started", description = "Create a native project and run a typed parallel map.", order = 3, group = "Tutorial" }
+meta { title = "Getting started", description = "Run a first program, then create a small multi-file project.", order = 0, group = "Tutorial" }
 
-With the native toolchain installed and its bin directory on PATH, create a new project:
+Before you begin, install a Kalandra toolchain for your computer and add its bin directory to PATH. Run kalandra --version in your terminal to confirm that the compiler is available. A CPU package is sufficient for this page; no GPU is required.
+
+list {
+  link { url = "/docs/installation", "Installation and platform requirements" }
+}
+
+h2 { "Run your first program" }
+
+Create an empty working directory and save the following in main.k:
+
+codeblock { language = kalandra, """fn main() -> int:
+  6 * 7
+""" }
+
+Open a terminal in that directory. On macOS or Linux, run:
+
+codeblock { language = bash, """kalandra-check main.k
+kalandra main.k -o program
+./program
+""" }
+
+The checker succeeds without running the program. The compiler creates the executable program. Running it displays 42, the value returned by main. After changing the source, compile it again before running it.
+
+On Windows, use a Visual Studio developer shell. Give the executable its .exe suffix:
+
+codeblock { language = powershell, """kalandra-check main.k
+kalandra main.k -o program.exe
+./program.exe
+""" }
+
+h2 { "Create a project" }
+
+For an application with more than one file, the starter creates a manifest and two source modules. Run these commands from a directory that does not already contain my-app:
 
 codeblock { language = bash, """kalandra new my-app
 kalandra-check --project my-app/kalandra.toml
@@ -8,15 +40,21 @@ kalandra --project my-app/kalandra.toml -o my-app/program
 ./my-app/program
 """ }
 
-The program returns the ordered array [2, 4, 6]. In PowerShell, use an executable destination ending in program.exe and run it with the Windows path spelling:
+The program displays [2, 4, 6]. Use these commands in a Windows developer shell:
 
-codeblock { language = powershell, """kalandra --project my-app/kalandra.toml -o my-app/program.exe
+codeblock { language = powershell, """kalandra new my-app
+kalandra-check --project my-app/kalandra.toml
+kalandra --project my-app/kalandra.toml -o my-app/program.exe
 ./my-app/program.exe
 """ }
 
+The project manifest tells the checker and compiler where to find the entry module; you select it explicitly with --project.
+
+callout { type = info, "kalandra new requires a new destination directory. Its parent must already exist, and my-app must not exist, even as an empty directory. Choose another name if you already have one." }
+
 h2 { "Read the starter" }
 
-The starter creates kalandra.toml, src/main.k and src/math.k. Its entry imports a function and applies it using CPU workers:
+The files are kalandra.toml, src/main.k and src/math.k. The entry module src/main.k imports a function and applies it to each array element using CPU workers:
 
 codeblock { language = kalandra, """from "./math.k" import double
 
@@ -24,27 +62,28 @@ fn main() -> [int] ! TaskError:
   try parallelMap([1, 2, 3], double)
 """ }
 
-The sibling src/math.k module explicitly exports the function:
+The sibling src/math.k exports the function:
 
 codeblock { language = kalandra, """export fn double(value: int) -> int:
   value * 2
 """ }
 
-parallelMap keeps results in input order. Its TaskError channel accounts for worker execution failures; try propagates an error to main. Selecting a Metal-capable compiler does not automatically move these CPU tasks to the GPU.
+parallelMap preserves input order. TaskError represents failures of the parallel work; try propagates them from main instead of ignoring them. The tutorial introduces ordinary calls and arrays before explaining tasks and errors. Installing a GPU-enabled compiler does not move this CPU program to the GPU.
 
-h2 { "Make a change" }
+h2 { "Change and rebuild" }
 
-Change the multiplier in math.k, check again and rebuild. Existing compiled programs keep their compiled code until you rebuild them. Use -O2 to request optimization without changing the strict numerical rules:
+Change value * 2 to value * 3 in src/math.k. Check the project again and rebuild; the program will display [3, 6, 9]. Add -O2 to enable optimization while retaining the language's checked arithmetic and other safety rules:
 
 codeblock { language = bash, """kalandra --project my-app/kalandra.toml -O2 -o my-app/program
 """ }
 
-callout { type = info, "The parent directory must exist, and the destination for kalandra new must not already exist, even as an empty directory. Choose a new name; the starter does not merge into existing projects." }
+Run ./my-app/program after building. Use the .exe suffix on Windows as before. Editing a source file does not change an already compiled executable.
 
-h2 { "Continue learning" }
+h2 { "Next steps" }
 
-link { url = "/docs/syntax", "Understand bindings, indentation and results" }
-
-link { url = "/docs/parallelism", "Understand tasks and parallel maps" }
-
-link { url = "/docs/gpu", "Place a task on the GPU" }
+list {
+  link { url = "/docs/tutorial", "Follow the tutorial from values to parallel tasks" },
+  link { url = "/docs/tooling#set-up-vs-code", "Set up your editor" },
+  link { url = "/docs/projects", "Understand project manifests" },
+  link { url = "/docs/troubleshooting", "Troubleshoot an unsuccessful check or build" }
+}

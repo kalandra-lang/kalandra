@@ -121,6 +121,7 @@ struct FunctionTypeSyntax {
   TypeSyntax result;
   // Errors of this callable's invocation, not errors constructing a returned callable.
   std::vector<SourceSpan> errorTypes;
+  std::vector<bool> mutableParameters = {};
 };
 using ExprId = std::size_t;
 struct NameExpr {
@@ -154,6 +155,10 @@ struct IndexExpr {
   ExprId input;
   std::vector<ExprId> indices;
 };
+struct ArraySetExpr {
+  ExprId input, index, value;
+  SourceSpan target;
+}; // Statement-only element assignment; destination precedes the RHS.
 struct FieldInitializer {
   SourceSpan name;
   ExprId value;
@@ -176,6 +181,7 @@ struct Statement;
 struct LambdaParameter {
   SourceSpan name;
   std::optional<TypeSyntax> annotation;
+  bool mutableAccess = false;
 };
 struct LambdaExpr {
   std::vector<LambdaParameter> parameters;
@@ -195,6 +201,30 @@ struct ParallelExpr {
 struct ConditionalExpr {
   ExprId condition;
   std::vector<Statement> whenTrue, whenFalse;
+  bool statementOnly = false;
+};
+// A loop body performs statements. A collecting expression accumulates yields;
+// a single-result expression obtains its value from else or a targeted break.
+struct WhileExpr {
+  ExprId condition;
+  std::vector<Statement> body;
+  std::vector<Statement> whenDone;
+  bool statementOnly = true;
+  bool collecting = false;
+};
+struct YieldExpr {
+  ExprId operand;
+};
+struct LoopTransferExpr {
+  bool continuing;
+  std::optional<ExprId> value;
+};
+struct ForExpr {
+  SourceSpan binding;
+  ExprId input;
+  std::vector<Statement> body, whenDone;
+  bool statementOnly = true;
+  bool collecting = false;
 };
 struct LogicalExpr {
   bool conjunction;
@@ -225,7 +255,8 @@ struct Expr {
   SourceSpan span;
   std::variant<NameExpr, NumberExpr, StringExpr, UnaryExpr, BinaryExpr, ComparisonExpr, CallExpr,
                ArrayExpr, IndexExpr, TaskExpr, ParallelExpr, ConditionalExpr, LogicalExpr,
-               CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr>
+               CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr, WhileExpr,
+               ArraySetExpr, LoopTransferExpr, ForExpr, YieldExpr>
       value;
 };
 struct Statement {
@@ -237,6 +268,7 @@ struct Statement {
 struct Parameter {
   SourceSpan name;
   TypeSyntax type;
+  bool mutableAccess = false;
 };
 struct Function {
   SourceSpan span;

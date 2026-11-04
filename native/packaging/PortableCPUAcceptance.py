@@ -1,6 +1,7 @@
 """Execute the native CPU language/runtime contract on Linux and Windows."""
 from VersionCheck import expected_version, verify_binary_version
 from WindowsPlatform import has_sanitizers, pe_machine, rename_after_process_exit
+from LoopCases import CASES as LOOP_CASES
 import argparse
 import json
 import os
@@ -32,7 +33,7 @@ def qualify(compiler):
             assert result.returncode == expected, (args, result.returncode, result.stdout, result.stderr)
             return result
 
-        cases = []
+        cases = [("loop " + name, text, expected) for name, (text, expected) in LOOP_CASES.items()]
         values = {"int8": "127", "uint8": "255", "int16": "32767", "uint16": "65535",
                   "int32": "2147483647", "uint32": "4294967295",
                   "int64": "9223372036854775807", "uint64": "18446744073709551615",

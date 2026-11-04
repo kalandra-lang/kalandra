@@ -40,8 +40,10 @@ int main() {
     expect(closure, closure.find("value:int"), {closure.find("value\n"), closure.rfind("value")});
     const std::string shadow =
         "fn main()->int:\n  value=1\n  if true:\n    value=2\n    value\n  else:\n    value\n";
-    expect(shadow, shadow.find("value=1"), {shadow.rfind("value")});
-    expect(shadow, shadow.find("value=2"), {shadow.find("value\n")});
+    expect(shadow, shadow.find("value=1"),
+           {shadow.find("value=2"), shadow.find("value\n"), shadow.rfind("value")});
+    expect(shadow, shadow.find("value=2"),
+           {shadow.find("value=2"), shadow.find("value\n"), shadow.rfind("value")});
     const std::string field =
         "type Box:\n  value:int\nfn main():\n  value=Box {value:42}\n  value.value\n";
     expect(field, field.find("value:int"), {field.find("value:42"), field.rfind("value")});

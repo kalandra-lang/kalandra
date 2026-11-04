@@ -70,7 +70,13 @@ static void verify(const std::vector<std::uint64_t> &bits, std::array<std::int64
   ++cases;
   faults += code != 0;
   auto check = [&] {
+#ifdef KALANDRA_ARRAY_RESULT
+    require(expected.empty() ? !result.allocated && !result.aligned
+                             : bool(result.allocated) && bool(result.aligned),
+            "array conversion result has invalid backing");
+#else
     require(bool(result.aligned), "conversion result has no backing");
+#endif
     if constexpr (Rank > 0)
       require(result.sizes == shape, "conversion changed shape");
     for (std::size_t i = 0; i < expected.size(); ++i) {
@@ -89,8 +95,14 @@ static void verify(const std::vector<std::uint64_t> &bits, std::array<std::int64
     require(!result.allocated && !result.aligned, "partial conversion result published");
   else {
     check();
-    retained = context.lease(result.allocated);
-    require(bool(retained), "conversion output not owned");
+#ifdef KALANDRA_ARRAY_RESULT
+    if (result.allocated) {
+#endif
+      retained = context.lease(result.allocated);
+      require(bool(retained), "conversion output not owned");
+#ifdef KALANDRA_ARRAY_RESULT
+    }
+#endif
   }
   require(!std::memcmp(before.data(), backing.data(), backing.size() * sizeof(Input)),
           "conversion mutated borrowed input");

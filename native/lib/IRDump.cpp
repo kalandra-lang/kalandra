@@ -70,6 +70,8 @@ std::string describeType(const ValueType &type) {
     for (std::size_t i = 0; i < type.callable->parameters.size(); ++i) {
       if (i)
         signature += ", ";
+      if (type.callable->mutates(i))
+        signature += "mut ";
       signature += describeType(type.callable->parameters[i]);
     }
     auto result = type.callable->result;
@@ -217,12 +219,102 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       if (auto failure = error(*fn.declaredResult))
         return failure;
   }
-  for (const auto &symbol : module.symbols)
+  for (const auto &symbol : module.symbols) {
+    if (symbol.reassignable && target != NumericTarget::Cpu)
+      return "local reassignment currently requires CPU execution";
+    if (symbol.reassignable &&
+        (symbol.owner >= module.functions.size() ||
+         (symbol.type.array
+              ? (!symbol.type.tensor || symbol.type.shape.size() != 1 ||
+                 (symbol.type.builtin != BuiltinValue::Numeric &&
+                  symbol.type.builtin != BuiltinValue::Bool))
+              : (symbol.type.tensor || !symbol.type.shape.empty())) ||
+         symbol.type.task || symbol.type.fallible || symbol.type.device ||
+         (symbol.type.builtin != BuiltinValue::Numeric &&
+          symbol.type.builtin != BuiltinValue::Bool)))
+      return "reassignable bindings require completed CPU numeric or Bool scalars or flat "
+             "numeric/Bool arrays";
     if (auto failure = error(symbol.type))
       return failure;
+  }
   for (const auto &expression : module.expressions) {
     if (auto failure = error(expression.type))
       return failure;
+    if (const auto *range = std::get_if<IntegerRangeOperation>(&expression.operation)) {
+      if (target != NumericTarget::Cpu)
+        return "integer ranges require CPU execution";
+      if (range->kind != IntegerRangeOperation::Kind::Validate &&
+          range->kind != IntegerRangeOperation::Kind::Test &&
+          range->kind != IntegerRangeOperation::Kind::Advance)
+        return "invalid range operation";
+      const auto index = static_cast<ValueId>(&expression - module.expressions.data());
+      for (auto value : {range->current, range->stop, range->step}) {
+        if (value >= index)
+          return "range references an invalid or cyclic operand";
+        const auto &t = module.expressions[value].type;
+        if (t.builtin != BuiltinValue::Numeric || t.element != NumericType::Int64 || t.tensor ||
+            t.array || t.task || t.fallible || t.device)
+          return "range requires completed CPU int operands";
+      }
+      if (expression.type.tensor || expression.type.task || expression.type.fallible ||
+          expression.type.device || expression.type.array ||
+          (range->kind == IntegerRangeOperation::Kind::Test
+               ? expression.type.builtin != BuiltinValue::Bool
+               : expression.type.builtin != BuiltinValue::Numeric ||
+                     expression.type.element != NumericType::Int64))
+        return "invalid range result type";
+    }
+    if (const auto *yield = std::get_if<YieldOperation>(&expression.operation)) {
+      const auto index = static_cast<ValueId>(&expression - module.expressions.data());
+      if (target != NumericTarget::Cpu || !yield->collection || yield->operand >= index ||
+          expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
+          expression.type.fallible)
+        return "invalid yield operation";
+      const auto &element = module.expressions[yield->operand].type;
+      if (element.array || element.tensor || element.task || element.fallible || element.device ||
+          element.builtin == BuiltinValue::Device)
+        return "yield requires a completed CPU array element";
+    }
+    if (const auto *jump = std::get_if<LoopTransferOperation>(&expression.operation)) {
+      if (target != NumericTarget::Cpu || !jump->loop || (jump->continuing && jump->value) ||
+          (jump->value && *jump->value >= module.expressions.size()) ||
+          expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
+          expression.type.task || expression.type.fallible)
+        return "invalid loop transfer";
+    }
+    if (const auto *loop = std::get_if<WhileOperation>(&expression.operation)) {
+      if (target != NumericTarget::Cpu)
+        return "while statements currently require CPU execution";
+      if (loop->condition >= module.expressions.size() || loop->body.empty())
+        return "while requires a valid condition and nonempty body";
+      const auto &condition = module.expressions[loop->condition].type;
+      if (condition.builtin != BuiltinValue::Bool || condition.tensor || condition.task ||
+          condition.fallible || condition.device ||
+          (!loop->normalResult && !loop->collecting &&
+           (expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
+            expression.type.task || expression.type.fallible)))
+        return "while requires a completed CPU Bool condition and a valid result";
+      for (const auto *body : {&loop->initial, &loop->iteration, &loop->body, &loop->whenDone})
+        for (const auto &statement : *body)
+          if (statement.value >= module.expressions.size() ||
+              (statement.binding && *statement.binding >= module.symbols.size()))
+            return "while references an invalid statement";
+      if (loop->collecting) {
+        if (!expression.type.array || expression.type.shape.size() != 1 || expression.type.task ||
+            expression.type.fallible || expression.type.device || loop->normalResult ||
+            !loop->whenDone.empty() || loop->exitValues.empty())
+          return "invalid collecting loop result";
+        for (auto yielded : loop->exitValues)
+          if (yielded >= module.expressions.size() ||
+              !sameFunctionValueType(recordArrayElement(expression.type),
+                                     module.expressions[yielded].type))
+            return "collecting loop changes its element type";
+      }
+      if (loop->normalResult &&
+          (*loop->normalResult >= module.expressions.size() || loop->whenDone.empty() ||
+           loop->whenDone.back().value != *loop->normalResult))
+        return "invalid loop normal result";
+    }
     if (const auto *guard = std::get_if<GuardOperation>(&expression.operation)) {
       if (guard->condition >= module.expressions.size() ||
           guard->result >= module.expressions.size() ||
@@ -621,6 +713,45 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
                           : numericScalarArithmeticAvailable(source.element, target)))
         return "numeric conversions require implemented CPU values with unchanged shape";
     }
+    if (const auto *sort = std::get_if<ArraySort>(&expression.operation)) {
+      if (sort->input >= module.expressions.size())
+        return "array sorting references an invalid operand";
+      const auto &a = module.expressions[sort->input].type;
+      if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 ||
+          a.task || a.fallible || a.device ||
+          (a.builtin != BuiltinValue::Numeric && a.builtin != BuiltinValue::Bool) ||
+          !sameFunctionValueType(a, expression.type))
+        return "array sorting requires unchanged completed CPU numeric or Bool array identity";
+    }
+    if (std::holds_alternative<ArrayBoundsCheck>(expression.operation) ||
+        std::holds_alternative<ArrayStore>(expression.operation)) {
+      const auto *store = std::get_if<ArrayStore>(&expression.operation);
+      const auto *bounds = std::get_if<ArrayBoundsCheck>(&expression.operation);
+      const auto input = store ? store->input : bounds->input;
+      const auto index = store ? store->index : bounds->index;
+      if (input >= module.expressions.size() || index >= module.expressions.size() ||
+          (store && store->value >= module.expressions.size()))
+        return "array assignment references invalid operands";
+      const auto &a = module.expressions[input].type;
+      const auto &i = module.expressions[index].type;
+      const auto scalar = [](const ValueType &t) {
+        return !t.tensor && !t.array && !t.task && !t.fallible && !t.device && t.shape.empty();
+      };
+      if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 || a.task ||
+          a.fallible || a.device ||
+          (a.builtin != BuiltinValue::Numeric && a.builtin != BuiltinValue::Bool) || !scalar(i) ||
+          i.builtin != BuiltinValue::Numeric || !isInteger(i.element))
+        return "array assignment requires flat CPU numeric or Bool storage and an integer index";
+      if (store) {
+        const auto &value = module.expressions[store->value].type;
+        if (i.element != NumericType::Int64 ||
+            !sameFunctionValueType(value, recordArrayElement(a)) ||
+            expression.type.builtin != BuiltinValue::Bool || !scalar(expression.type))
+          return "array assignment changes its element identity or statement marker";
+      } else if (expression.type.builtin != BuiltinValue::Numeric ||
+                 expression.type.element != NumericType::Int64 || !scalar(expression.type))
+        return "array assignment bounds must produce a normalized int64 index";
+    }
     if (const auto *read = std::get_if<ArrayIndex>(&expression.operation)) {
       if (read->input >= module.expressions.size() || read->index >= module.expressions.size())
         return "array index references invalid operands";
@@ -756,7 +887,15 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       auto outputElement = recordArrayElement(expression.type);
       outputElement.fallible = false;
       outputElement.errorRecord.reset();
-      const auto &input = module.expressions[map->input].type;
+      auto input = module.expressions[map->input].type;
+      if (map->generate) {
+        if (map->parallel || input.builtin != BuiltinValue::Numeric ||
+            input.element != NumericType::Int64 || input.tensor || input.array || input.task ||
+            input.fallible || input.device || !input.shape.empty())
+          return "generate requires a completed int count and sequential callback";
+        input.tensor = input.array = true;
+        input.shape = expression.type.shape;
+      }
       const auto scalar = [](const ValueType &type) {
         return (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Record ||
                 type.builtin == BuiltinValue::Bool || type.builtin == BuiltinValue::String ||
@@ -898,6 +1037,8 @@ std::string dumpTypedIR(const TypedModule &module) {
       if (i)
         out << ", ";
       const auto symbol = function.parameters[i];
+      if (module.symbols[symbol].mutableAccess)
+        out << "mut ";
       out << '$' << symbol << ' ' << module.symbols[symbol].name << ": "
           << describeType(module.symbols[symbol].type);
     }
@@ -956,7 +1097,24 @@ std::string dumpTypedIR(const TypedModule &module) {
               out << "field %" << operation.input << '[' << operation.field << ']';
             else if constexpr (std::is_same_v<T, ErrorNarrow>)
               out << "narrow error %" << operation.input;
-            else if constexpr (std::is_same_v<T, ConditionalOperation>)
+            else if constexpr (std::is_same_v<T, WhileOperation>) {
+              out << (operation.collecting     ? "while.collect "
+                      : operation.normalResult ? "while.expression "
+                                               : "while.statement ");
+              value(operation.condition);
+              out << " {";
+              for (const auto &statement : operation.body) {
+                out << " ";
+                value(statement.value);
+              }
+              out << " }";
+            } else if constexpr (std::is_same_v<T, YieldOperation>) {
+              out << "yield " << operation.collection << " %" << operation.operand;
+            } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
+              out << (operation.continuing ? "continue " : "break ") << operation.loop;
+              if (operation.value)
+                out << " %" << *operation.value;
+            } else if constexpr (std::is_same_v<T, ConditionalOperation>)
               out << "if %" << operation.condition << " then %" << operation.trueResult << " else %"
                   << operation.falseResult;
             else if constexpr (std::is_same_v<T, ScalarCompare>)
@@ -1035,6 +1193,21 @@ std::string dumpTypedIR(const TypedModule &module) {
             } else if constexpr (std::is_same_v<T, TensorLiteral>) {
               out << (node.type.array ? "array.literal ordered " : "tensor.literal row_major ");
               arguments(operation.elements);
+            } else if constexpr (std::is_same_v<T, ArrayBoundsCheck>) {
+              out << "array.write_bounds checked ";
+              value(operation.input);
+              out << ", ";
+              value(operation.index);
+            } else if constexpr (std::is_same_v<T, ArraySort>) {
+              out << (operation.copying ? "array.sorted fresh " : "array.sort in_place ");
+              value(operation.input);
+            } else if constexpr (std::is_same_v<T, ArrayStore>) {
+              out << "array.store checked ";
+              value(operation.input);
+              out << ", ";
+              value(operation.index);
+              out << " = ";
+              value(operation.value);
             } else if constexpr (std::is_same_v<T, ArrayIndex>) {
               out << "array.index checked ";
               value(operation.input);
@@ -1065,7 +1238,9 @@ std::string dumpTypedIR(const TypedModule &module) {
                 arguments(*operation.dimensions);
               }
             } else if constexpr (std::is_same_v<T, ArrayMap>) {
-              out << (operation.parallel ? "array.parallelMap bounded @" : "array.map sequential @")
+              out << (operation.generate   ? "array.generate sequential @"
+                      : operation.parallel ? "array.parallelMap bounded @"
+                                           : "array.map sequential @")
                   << operation.function << " ";
               value(operation.input);
               if (!operation.captures.empty()) {

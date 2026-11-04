@@ -20,7 +20,8 @@ int main() {
     require(inferred.ok() && inferred.module->functions[0].resultType.errorRecord == 0,
             "inferred success type lost its explicit application channel");
     for (const auto *body :
-         {"fn checked(x:int)->int ! InputError:\n  if x==0:\n    fail InputError.Empty\n  x+1\n"
+         {"fn main()->int ! InputError:\n  if true:\n    42\n  1\n",
+          "fn checked(x:int)->int ! InputError:\n  if x==0:\n    fail InputError.Empty\n  x+1\n"
           "fn main()->int:\n  checked(0) catch fn(error):\n    match error:\n      "
           "InputError.Empty:42\n      InputError.Bad {count}:count\n",
           "fn checked(x:int)->int ! InputError:\n  if x==0:fail InputError.Bad "
@@ -65,7 +66,6 @@ int main() {
           "try parallel:\n    try await spawn bad()\n",
           "fn bad()->int ! InputError:\n  fail InputError.Empty\nfn main()->int ! TaskError:\n  "
           "try parallel:\n    try bad()\n",
-          "fn main()->int ! InputError:\n  if true:\n    42\n  1\n",
           "fn main()->int ! InputError:\n  result=if true:\n    fail InputError.Empty\n  1\n",
           "fn main()->int ! InputError:\n  if true:\n    fail InputError.Empty\n",
           "fn main()->int ! InputError:\n  if 1:\n    fail InputError.Empty\n  1\n",

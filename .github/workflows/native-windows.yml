@@ -12,7 +12,16 @@ on:
         ".github/workflows/native-windows.yml",
       ]
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-windows.yml", ".github/scripts/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
+    paths:
+      [
+        "CMakeLists.txt",
+        "VERSION",
+        "native/**",
+        ".github/workflows/native-windows.yml",
+        ".github/scripts/**",
+        "apps/website/src/content/native/cross-compilation.tiramisu",
+        "apps/website/src/content/native/getting-started.tiramisu",
+      ]
   workflow_dispatch:
 defaults:
   run:
@@ -88,6 +97,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Closed task runner compilation failed' }
           & build/windows/closed-task-tests.exe
           if ($LASTEXITCODE -ne 0) { throw 'Closed task runner qualification failed' }
+      - name: Qualify scoped ownership and compiler value layouts
+        run: |
+          foreach ($test in @('OwnershipScopeTests', 'ValueScopeTests')) {
+            & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static "native/tests/$test.cpp" build/windows/native/kalandra-task-core-optimized.lib -o "build/windows/$test.exe"
+            if ($LASTEXITCODE -ne 0) { throw "$test compilation failed" }
+            & "build/windows/$test.exe"
+            if ($LASTEXITCODE -ne 0) { throw "$test qualification failed" }
+          }
+          cmake "-DCOMPILER=$env:GITHUB_WORKSPACE/build/windows/native/kalandra.exe" "-DCLANGXX=$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" "-DRUNTIME=$env:GITHUB_WORKSPACE/build/windows/native/kalandra-native-runtime.lib" -DVARIANT=optimized "-DSOURCE_DIR=$env:GITHUB_WORKSPACE/native" "-DOUTPUT_DIR=$env:GITHUB_WORKSPACE/build/windows/value-scope-layout" -P native/cmake/VerifyValueScopeLayouts.cmake
+          if ($LASTEXITCODE -ne 0) { throw 'Compiler value layout qualification failed' }
       - name: Verify recursive scalar values and checked state
         run: >-
           python native/tests/RecursiveScalarTests.py
@@ -150,27 +169,33 @@ jobs:
           --compiler build/windows/native/kalandra.exe
           --clang "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe"
           --output build/windows/tensor-transforms --quick
-      - name: Verify documented PowerShell starter commands
+      - name: Verify documented PowerShell examples
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           $repo = (Get-Location).Path
           $driver = Join-Path $repo 'build/windows/native/kalandra.exe'
           $document = Get-Content 'apps/website/src/content/native/getting-started.tiramisu' -Raw
-          $match = [regex]::Match($document, 'codeblock \{ language = powershell, """([\s\S]*?)""" \}')
-          if (-not $match.Success) { throw 'Documented PowerShell example not found' }
+          $examples = [regex]::Matches($document, 'codeblock \{ language = powershell, """([\s\S]*?)""" \}')
+          $source = [regex]::Match($document, 'codeblock \{ language = kalandra, """([\s\S]*?)""" \}')
+          if ($examples.Count -ne 2 -or -not $source.Success) { throw 'Documented first-program/starter examples not found' }
           $env:PATH = "$(Split-Path $driver);$env:PATH"
-          $example = Join-Path $env:RUNNER_TEMP 'native-docs-powershell'
-          New-Item -ItemType Directory -Path $example | Out-Null
-          Push-Location $example
-          try {
-            & $driver new my-app
-            if ($LASTEXITCODE -ne 0) { throw 'Starter creation failed' }
-            $result = @(& ([scriptblock]::Create($match.Groups[1].Value)))
-            if ($LASTEXITCODE -ne 0 -or $result[-1].Trim() -ne '[2, 4, 6]') {
-              throw "Documented starter returned unexpected output: $result"
-            }
-          } finally { Pop-Location }
+          for ($index = 0; $index -lt $examples.Count; $index++) {
+            $example = Join-Path $env:RUNNER_TEMP "native-docs-powershell-$index"
+            New-Item -ItemType Directory -Path $example -Force | Out-Null
+            Push-Location $example
+            try {
+              if ($index -eq 0) {
+                Set-Content -Path main.k -Value $source.Groups[1].Value -Encoding utf8 -NoNewline
+              }
+              $result = @(& ([scriptblock]::Create($examples[$index].Groups[1].Value)))
+              $expected = if ($index -eq 0) { '42' } else { '[2, 4, 6]' }
+              if ($LASTEXITCODE -ne 0 -or $result[-1].Trim() -ne $expected) {
+                throw "Documented example $index returned unexpected output: $result"
+              }
+            } finally { Pop-Location }
+          }
       - name: Record native ARM64 scalar performance smoke evidence
         if: matrix.arch == 'arm64'
         run: >-

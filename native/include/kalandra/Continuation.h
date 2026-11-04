@@ -32,6 +32,9 @@ enum class Code {
   FunctionInvoke,
   SynchronousCall,
   MapInit,
+  MapPrepare,
+  MapJoin,
+  MapPublish,
   MapCheck,
   MapLoad,
   MapStore,
@@ -42,7 +45,10 @@ enum class Code {
   CallableCaptures,
   CallableSyncGuard,
   InvalidCallable,
-  PropagateGroup
+  PropagateGroup,
+  CollectInit,
+  CollectAppend,
+  CollectFinish
 };
 struct Instruction {
   Code code;
@@ -51,6 +57,8 @@ struct Instruction {
   std::size_t target = 0, group = 0, jump = 0;
   ValueId source = 0;
   std::optional<Slot> placement = {};
+  // Innermost first: collecting expressions abandoned by error propagation.
+  std::vector<Slot> collections = {};
 };
 struct Plan {
   std::vector<ValueType> slots;
@@ -58,6 +66,7 @@ struct Plan {
   std::vector<Instruction> code;
   std::size_t groups = 0;
   Slot result = 0;
+  bool valueScopes = false;
 };
 struct Options {
   // Preserve ordinary numeric calls; expand resumable helper bodies into the caller.
@@ -67,6 +76,9 @@ struct Options {
   // Internal optimization admission: retain checked continuation kernels if a
   // synchronous subgraph exceeds the native backend's physical-frame limits.
   bool nativeSubgraphs = true;
+  // Ownership scopes for mutable owned values in continuation frames. Placed
+  // supervisors use the shared native descriptor scopes for host arrays.
+  bool valueScopes = false;
 };
 struct ModulePlan {
   // The source typed module must outlive its plan and target emission.
@@ -80,6 +92,9 @@ struct ModulePlan {
 [[nodiscard]] std::vector<bool> resumableFunctions(const TypedModule &input);
 // Suspension/device effects, excluding synchronous expected-error control flow.
 [[nodiscard]] std::vector<bool> coordinatingFunctions(const TypedModule &input);
+// Direct/transitive lexical loop control needs native CFG entries, not task
+// scheduling or recursive source-body expansion.
+[[nodiscard]] std::vector<bool> loopControlFunctions(const TypedModule &input);
 [[nodiscard]] std::expected<ModulePlan, std::string> plan(const TypedModule &input,
                                                           Options options = {});
 [[nodiscard]] std::string dump(const ModulePlan &module);

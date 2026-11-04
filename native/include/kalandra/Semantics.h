@@ -1,7 +1,7 @@
 #pragma once
 #include "kalandra/NumericType.h"
-#include "kalandra/TensorTransform.h"
 #include "kalandra/Syntax.h"
+#include "kalandra/TensorTransform.h"
 
 namespace kalandra {
 using ValueId = std::size_t;
@@ -16,7 +16,8 @@ struct Extent {
 enum class BuiltinValue { Numeric, TaskError, FaultKind, String, Device, Bool, Record, Function };
 struct FunctionSignature;
 struct ValueType {
-  // Ranked immutable storage; arrays use rank one with a separate source category.
+  // Ranked collection storage. Tensors have value semantics; rank-one arrays
+  // have a separate source category and preserve their backing identity.
   bool tensor = false;
   std::vector<Extent> shape;
   bool task = false, fallible = false;
@@ -37,6 +38,10 @@ struct ValueType {
 struct FunctionSignature {
   std::vector<ValueType> parameters;
   ValueType result;
+  std::vector<bool> mutableParameters = {};
+  [[nodiscard]] bool mutates(std::size_t index) const {
+    return index < mutableParameters.size() && mutableParameters[index];
+  }
 };
 // Whole-module may-call information, indexed by expression ID. Unknown sources
 // remain explicit even when compatible known targets are also present.
@@ -98,6 +103,11 @@ struct Symbol {
   bool parameter;
   // Source definition of a lifted capture/narrowed alias. Diagnostics retain declaration.
   std::optional<SourceSpan> definition = {};
+  // Private invocation-local scalar cell; never a reference passed to a callee.
+  bool reassignable = false;
+  // Access to caller-owned array backing, independent of rebinding this name.
+  // Lifted captures always keep the default read-only contract.
+  bool mutableAccess = false;
 };
 struct Int32Literal {
   std::int32_t value;
@@ -179,7 +189,7 @@ struct FunctionCall {
   FunctionId function;
   std::vector<ValueId> arguments;
 };
-// Explicit immutable flat-array to CPU tensor construction.
+// Copy a flat source array into immutable CPU tensor storage.
 struct ArrayToTensor {
   ValueId input;
   std::optional<std::vector<ValueId>> dimensions =
@@ -191,7 +201,7 @@ struct TensorReshape {
 };
 struct TensorToArray {
   ValueId input;
-}; // Flatten logical row-major elements into an immutable numeric array.
+}; // Copy logical row-major tensor elements into a fresh numeric array.
 struct ArrayConcat {
   ValueId left, right;
 };
@@ -201,6 +211,16 @@ struct ArraySlice {
 struct ArrayIndex {
   ValueId input, index;
 };
+struct ArraySort {
+  ValueId input;
+  bool copying = false;
+};
+struct ArrayBoundsCheck {
+  ValueId input, index;
+}; // Normalize/validate the index before an element assignment's RHS runs.
+struct ArrayStore {
+  ValueId input, index, value;
+}; // Statement-only; index is the result of ArrayBoundsCheck, never unchecked.
 struct TensorIndex {
   ValueId input;
   std::vector<ValueId> indices;
@@ -215,6 +235,9 @@ struct ArrayMap {
   FunctionId function; // One explicit element parameter, followed by lifted captures.
   std::vector<ValueId> captures = {};
   bool parallel = false;
+  // A sequential generator receives a scalar int count instead of an array.
+  // Its callback receives each index; no intermediate index array is allocated.
+  bool generate = false;
 };
 enum class ReductionOrder { BalancedAdjacent };
 struct Matmul {
@@ -271,6 +294,32 @@ struct ConditionalOperation {
   ValueId condition;
   std::vector<TypedStatement> whenTrue, whenFalse;
   ValueId trueResult, falseResult;
+};
+struct WhileOperation {
+  ValueId condition;
+  std::vector<TypedStatement> body;
+  std::vector<TypedStatement> whenDone = {};
+  std::optional<ValueId> normalResult = {};
+  std::size_t identity = 0;
+  bool transfers = false;
+  std::vector<TypedStatement> initial = {}, iteration = {};
+  std::vector<ValueId> exitValues = {};
+  bool collecting = false;
+};
+struct YieldOperation {
+  std::size_t collection;
+  ValueId operand;
+};
+struct LoopTransferOperation {
+  std::size_t loop;
+  bool continuing;
+  std::optional<ValueId> value;
+};
+// A range never allocates an array. Advancement clamps an overflowing final
+// step to stop, so even ranges at the signed integer endpoints terminate.
+struct IntegerRangeOperation {
+  enum class Kind { Validate, Test, Advance } kind;
+  ValueId current, stop, step;
 };
 struct GuardOperation {
   ValueId condition;
@@ -343,12 +392,13 @@ struct TypedExpr {
                UInt64Literal, StringSlice, StringIndex, StringQuery, StringConcat, StringLiteral,
                BoolLiteral, ScalarCompare, SymbolRead, ScalarUnary, TensorUnary, ScalarBinary,
                TensorBinary, TensorLiteral, NumericConvert, FunctionCall, Matmul, ReduceSum,
-               TensorTransform,
-               ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat, ArraySlice,
-               ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection, Transfer,
-               TaskOperation, ParallelOperation, ConditionalOperation, CatchOperation,
-               MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue,
-               RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke>
+               TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat,
+               ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection,
+               Transfer, TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
+               LoopTransferOperation, IntegerRangeOperation, YieldOperation,
+               CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
+               RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke,
+               ArrayBoundsCheck, ArrayStore, ArraySort>
       operation;
 };
 struct ShapeEquality {

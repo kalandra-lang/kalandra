@@ -18,7 +18,15 @@ on:
         "bun.lock",
       ]
   pull_request:
-    paths: ["CMakeLists.txt", "VERSION", "native/**", ".github/workflows/native-linux.yml", ".github/scripts/**", "apps/website/src/content/native/cross-compilation.tiramisu"]
+    paths:
+      [
+        "CMakeLists.txt",
+        "VERSION",
+        "native/**",
+        ".github/workflows/native-linux.yml",
+        ".github/scripts/**",
+        "apps/website/src/content/native/cross-compilation.tiramisu",
+      ]
   workflow_dispatch:
 permissions:
   contents: read
@@ -43,6 +51,11 @@ jobs:
       ZERO_AR_DATE: "1"
     steps:
       - uses: actions/checkout@v4
+      - name: Reserve disk space for the LLVM SDK
+        run: |
+          df -h "$RUNNER_TEMP"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h "$RUNNER_TEMP"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
@@ -86,6 +99,14 @@ jobs:
           cmake --build build/linux --target kalandra-ordinary-entry-tests kalandra-task-core-optimized -j2
           ctest --test-dir build/linux --output-on-failure -j2 \
             -R '^native-(ordinary-(entry|source|pair-source|arrays|reductions|buffer-types|buffer-faults|direct-faults|scalar-exact|integer-cases)|windows-ordinary-codegen)$'
+      - name: Qualify loop checking and native copy budgets
+        run: |
+          cmake --build build/linux --target kalandra-local-rebinding-tests-debug -j2
+          ctest --test-dir build/linux --output-on-failure -R '^native-local-rebinding-frontend-debug$'
+      - name: Qualify loop exits, cancellation and bounded structured groups
+        run: >-
+          ctest --test-dir build/linux --output-on-failure -j1
+          -R '^native-(loop-control|collect-ownership)-(debug|optimized|sanitized|thread-sanitized)$'
       - name: Qualify CPU tensor transforms
         run: >-
           python3 native/tests/TensorTransformTests.py
@@ -99,6 +120,11 @@ jobs:
         run: |
           cmake --build build/linux --target kalandra-closed-task-tests-optimized -j2
           ctest --test-dir build/linux --output-on-failure -R '^native-closed-tasks-optimized$'
+      - name: Qualify scoped ownership and compiler value layouts
+        run: |
+          cmake --build build/linux --target kalandra-ownership-scope-optimized kalandra-value-scope-optimized -j2
+          ctest --test-dir build/linux --output-on-failure \
+            -R '^native-(ownership-scope-optimized|value-scope-optimized|value-scope-layout-optimized)$'
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
@@ -137,6 +163,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Reserve disk space for the LLVM SDK
+        run: |
+          df -h "$RUNNER_TEMP"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h "$RUNNER_TEMP"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"

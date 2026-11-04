@@ -1,7 +1,7 @@
 // Lexical display highlighting for native .k source. This is deliberately not
 // a parser or a dependency on the retired prototype compiler.
 const keywords = new Set(
-  "fn export from import as type enum error if else match not and or true false parallel spawn await try catch fail on with".split(
+  "fn export from import as type enum error if else while for in break continue yield match not and or true false parallel spawn await try catch fail on with mut".split(
     " ",
   ),
 );

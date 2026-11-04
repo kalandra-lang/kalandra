@@ -82,7 +82,7 @@ void initializePortableStackBounds() noexcept {
 #endif
 
 // Generated modules retain a link-time dependency on this private layout.
-extern "C" const unsigned char kalandra_invocation_layout_v2 = 0;
+extern "C" const unsigned char kalandra_invocation_layout_v4 = 0;
 
 namespace kalandra::runtime {
 void InvocationABI::cacheStackBounds(Invocation &invocation) noexcept {
@@ -131,6 +131,7 @@ struct Owner {
   Backing *backing;
   bool embedded;
   bool recursiveCharged = false;
+  bool arrayEscape = false; // Invocation-local ownership, never a shared backing flag.
 };
 struct alignas(std::max_align_t) Backing {
   std::atomic<std::uint64_t> references{1};
@@ -142,6 +143,11 @@ struct alignas(std::max_align_t) Backing {
   Backing **dependencies = nullptr;
   std::size_t dependencyCount = 0;
   Backing *releaseNext = nullptr; // Used exclusively after the final reference retires.
+};
+struct alignas(std::max_align_t) ControlAllocation {
+  ControlAllocation *next;
+  void (*cleanup)(void *) noexcept;
+  std::uint64_t charge;
 };
 namespace {
 // Reservations are transferred only when the corresponding owner is published.
@@ -235,12 +241,9 @@ AllocationLease::recursiveBytes(const void *key, std::uint64_t size,
   return bytes();
 }
 std::optional<AllocationLease> Invocation::lease(const void *allocated) const noexcept {
-  auto &ledgerState = ledger();
   if (!usable() || !allocated)
     return {};
-  auto *owner = ledgerState.head_;
-  while (owner && owner->backing + 1 != allocated)
-    owner = owner->next;
+  auto *owner = findOwner(allocated);
   if (!owner)
     return {};
   auto *backing = owner->backing;
@@ -306,11 +309,11 @@ bool Invocation::reserve() noexcept {
 void Invocation::attach(Owner *owner) noexcept {
   // Private callers have already admitted/materialized this ledger.
   auto &ledgerState = storage_.value;
-  owner->next = ledgerState.head_;
+  owner->next = owners().head_;
   owner->previous = nullptr;
-  if (ledgerState.head_)
-    ledgerState.head_->previous = owner;
-  ledgerState.head_ = owner;
+  if (owners().head_)
+    owners().head_->previous = owner;
+  owners().head_ = owner;
   // Invocation mutation has one exclusive writer. Keep diagnostic reads atomic
   // without paying for an inter-writer read/modify/write transaction.
   live_.store(live_.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
@@ -322,11 +325,11 @@ void Invocation::remove(Owner *owner) noexcept {
   if (owner->previous)
     owner->previous->next = owner->next;
   else
-    ledgerState.head_ = owner->next;
+    owners().head_ = owner->next;
   if (owner->next)
     owner->next->previous = owner->previous;
   auto *backing = owner->backing;
-  const bool recycle = !ledgerState.spareSmall_ && owner->embedded && !backing->record &&
+  const bool recycle = !owners().spareSmall_ && owner->embedded && !backing->record &&
                        backing->bytes <= 256 && !backing->dependencyCount &&
                        backing->references.load(std::memory_order_acquire) == 1;
   if (!owner->embedded) {
@@ -334,7 +337,7 @@ void Invocation::remove(Owner *owner) noexcept {
     std::free(owner);
   }
   if (recycle)
-    ledgerState.spareSmall_ = backing;
+    owners().spareSmall_ = backing;
   else
     releaseBacking(backing);
   live_.store(live_.load(std::memory_order_relaxed) - 1, std::memory_order_relaxed);
@@ -353,10 +356,10 @@ void *Invocation::allocate(std::uint64_t bytes) noexcept {
   if (!reservation.acquire(*this, storageBytes, ledgerState.recursiveBytes_, ledgerState.recursiveReserve_))
     return nullptr;
   Backing *backing;
-  if (ledgerState.spareSmall_ && ledgerState.spareSmall_->storageBytes == storageBytes) {
+  if (owners().spareSmall_ && owners().spareSmall_->storageBytes == storageBytes) {
     // The cache owns the sole reference to this numeric backing. Its size and
     // immutable metadata still match; attach resets the detached owner links.
-    backing = std::exchange(ledgerState.spareSmall_, nullptr);
+    backing = std::exchange(owners().spareSmall_, nullptr);
   } else {
     auto *storage = std::malloc(storageBytes);
     if (!storage) {
@@ -368,18 +371,78 @@ void *Invocation::allocate(std::uint64_t bytes) noexcept {
     backing->storageBytes = storageBytes;
   }
   ledgerState.recursiveBytes_ += reservation.bytes;
+  owners().recursiveBytes_ += reservation.bytes;
   backing->initial.recursiveCharged = reservation.bytes != 0;
   reservation.bytes = 0;
   attach(&backing->initial);
   return backing + 1;
 }
+void *Invocation::allocateControl(std::uint64_t bytes, void (*cleanup)(void *) noexcept) noexcept {
+  auto &state = ledger();
+  if (poll() || !usable() || !reserve())
+    return nullptr;
+  if (!bytes || !cleanup) {
+    fault(3);
+    return nullptr;
+  }
+  if (bytes > std::numeric_limits<std::size_t>::max() - sizeof(ControlAllocation)) {
+    fault(2);
+    return nullptr;
+  }
+  const auto total = bytes + sizeof(ControlAllocation);
+  BackingReservation reservation{state.recursiveBudget_, state.recursiveRelease_};
+  if (!reservation.acquire(*this, total, state.recursiveBytes_, state.recursiveReserve_))
+    return nullptr;
+  auto *storage = std::malloc(total);
+  if (!storage) {
+    fault(2);
+    return nullptr;
+  }
+  auto *control = new (storage) ControlAllocation{state.controls_, cleanup, reservation.bytes};
+  state.recursiveBytes_ += reservation.bytes;
+  reservation.bytes = 0;
+  state.controls_ = control;
+  live_.store(live_.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+  ++state.allocations_;
+  return control + 1;
+}
+void Invocation::clearControl() noexcept {
+  auto &state = storage_.value;
+  auto *control = state.controls_;
+  state.controls_ = control->next;
+  // A descendant's scope selectors must restore the still-live parent before
+  // the parent's fields are destroyed. This chain is iterative, not recursive.
+  control->cleanup(control + 1);
+  const auto charge = control->charge;
+  control->~ControlAllocation();
+  std::free(control);
+  if (charge && state.recursiveRelease_)
+    state.recursiveRelease_(state.recursiveBudget_, charge);
+  state.recursiveBytes_ -= charge;
+  live_.store(live_.load(std::memory_order_relaxed) - 1, std::memory_order_relaxed);
+  ++state.releases_;
+}
+void Invocation::releaseControl(void *address) noexcept {
+  auto &state = ledger();
+  auto *control = state.controls_;
+  while (control && control + 1 != address)
+    control = control->next;
+  if (!control) {
+    fault(3);
+    return;
+  }
+  // A skipped native return may leave descendant controls registered. Retire
+  // them first, while their parents and saved selections remain valid.
+  while (state.controls_ != control)
+    clearControl();
+  clearControl();
+}
 void *Invocation::allocateRecord(std::uint64_t bytes) noexcept {
-  auto &ledgerState = ledger();
   if (!bytes)
     return nullptr;
   auto *buffer = allocate(bytes);
   if (buffer)
-    ledgerState.head_->backing->record = true;
+    owners().head_->backing->record = true;
   return buffer;
 }
 const void *Invocation::makeRecursiveValue(std::span<const std::byte> payload, const void *key,
@@ -447,9 +510,7 @@ const void *Invocation::makeRecursiveValueImpl(std::span<const std::byte> payloa
     if (rawPointers) {
       if (!pointers[index])
         continue;
-      auto *owner = ledgerState.head_;
-      while (owner && owner->backing + 1 != pointers[index])
-        owner = owner->next;
+      auto *owner = findOwner(pointers[index]);
       if (owner)
         child = owner->backing;
     } else
@@ -470,6 +531,7 @@ const void *Invocation::makeRecursiveValueImpl(std::span<const std::byte> payloa
   if (poll())
     return nullptr;
   ledgerState.recursiveBytes_ += reservation.bytes;
+  owners().recursiveBytes_ += reservation.bytes;
   backing->initial.recursiveCharged = reservation.bytes != 0;
   reservation.bytes = 0; // Transfer the reservation only with complete ownership.
   attach(&backing->initial);
@@ -556,7 +618,6 @@ void Invocation::bindRecursiveBudget(void *state, EnvironmentReserve reserve,
   ledgerState.recursiveRelease_ = release;
 }
 void *Invocation::allocateEnvironment(std::uint64_t bytes, const void *key) noexcept {
-  auto &ledgerState = ledger();
   if (poll())
     return nullptr;
   if (!key || !bytes) {
@@ -565,7 +626,7 @@ void *Invocation::allocateEnvironment(std::uint64_t bytes, const void *key) noex
   }
   auto *result = allocateRecord(bytes);
   if (result)
-    ledgerState.head_->backing->environmentKey = key;
+    owners().head_->backing->environmentKey = key;
   return result;
 }
 void *Invocation::allocateTransportStorage(std::uint64_t bytes, const void *key) noexcept {
@@ -582,6 +643,7 @@ void *Invocation::allocateTransportStorage(std::uint64_t bytes, const void *key)
     return nullptr;
   }
   ledgerState.environmentBytes_ += bytes;
+  owners().environmentBytes_ += bytes;
   return allocateEnvironment(bytes, key);
 }
 void *Invocation::cloneEnvironment(const Invocation &source, const void *environment,
@@ -611,14 +673,30 @@ void *Invocation::cloneEnvironment(const Invocation &source, const void *environ
   return output;
 }
 void Invocation::releaseRecords() noexcept {
-  auto &ledgerState = ledger();
-  auto *owner = ledgerState.head_;
+  auto *owner = owners().head_;
   while (owner) {
     auto *next = owner->next;
-    if (owner->backing->record)
+    if (owner->backing->record || owner->arrayEscape)
       remove(owner);
     owner = next;
   }
+}
+bool Invocation::holdArrayReference(void *buffer) noexcept {
+  if (poll() || !usable())
+    return false;
+  // Repeated publication of the same alias needs one escape owner, not
+  // one owner per read. Inspect the first matching owner only: ordinary
+  // transport retains still have independent release obligations. This is
+  // invocation-local metadata and never changes shared backing state.
+  auto *existing = owners().head_;
+  while (existing && existing->backing + 1 != buffer)
+    existing = existing->next;
+  if (existing && existing->arrayEscape)
+    return true;
+  if (!retainFrom(*this, buffer))
+    return false;
+  owners().head_->arrayEscape = true;
+  return true;
 }
 bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
   auto &ledgerState = ledger();
@@ -628,9 +706,7 @@ bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
     fault(3);
     return false;
   }
-  auto *existing = source.ledger().head_;
-  while (existing && existing->backing + 1 != buffer)
-    existing = existing->next;
+  auto *existing = source.findOwner(buffer);
   if (!existing) {
     fault(3);
     return false;
@@ -655,6 +731,7 @@ bool Invocation::retainFrom(const Invocation &source, void *buffer) noexcept {
   }
   auto *owner = new (storage) Owner{nullptr, nullptr, backing, false, reservation.bytes != 0};
   ledgerState.recursiveBytes_ += reservation.bytes;
+  owners().recursiveBytes_ += reservation.bytes;
   reservation.bytes = 0;
   attach(owner);
   return true;
@@ -691,7 +768,7 @@ bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *k
     std::unordered_set<Backing *> charged, visited;
     std::vector<Backing *> pending{root.backing_};
     std::size_t owners = 0, edges = 0;
-    for (auto *owner = ledgerState.head_; owner; owner = owner->next) {
+    for (auto *owner = this->owners().head_; owner; owner = owner->next) {
       if (poll())
         return false;
       if (++owners > maxRecursiveDependencies) {
@@ -768,6 +845,7 @@ bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *k
     return false;
   }
   ledgerState.recursiveBytes_ += charge;
+  owners().recursiveBytes_ += charge;
   for (auto *owner : existingCharges)
     owner->recursiveCharged = true;
   // No allocation or fallible operation remains: publish the complete ledger.
@@ -779,35 +857,104 @@ bool Invocation::retainRecursiveGraph(const AllocationLease &root, const void *k
   return true;
 }
 void Invocation::release(void *buffer) noexcept {
-  auto &ledgerState = ledger();
-  auto *owner = ledgerState.head_;
-  while (owner && owner->backing + 1 != buffer)
+  auto *owner = owners().head_;
+  Owner *escaped = nullptr;
+  while (owner && (owner->backing + 1 != buffer || owner->arrayEscape))
+  {
+    if (owner->backing + 1 == buffer)
+      escaped = owner;
     owner = owner->next;
+  }
+  if (!owner)
+    owner = escaped; // An explicit host release may retire an escaped result.
   if (!owner) {
     fault(3);
     return;
   }
   remove(owner);
 }
-void Invocation::settleResources() noexcept {
-  // Private callers have already admitted/materialized this ledger.
-  auto &ledgerState = storage_.value;
-  if (flags_ & Settled)
-    return;
-  pollMode_ = 2;
-  while (ledgerState.head_)
-    remove(ledgerState.head_);
-  if (ledgerState.spareSmall_) {
-    ledgerState.spareSmall_->~Backing();
-    std::free(std::exchange(ledgerState.spareSmall_, nullptr));
+void Invocation::clearOwners(OwnerStore &store) noexcept {
+  auto &state = storage_.value;
+  auto *previous = state.active_;
+  state.active_ = &store;
+  while (store.head_) remove(store.head_);
+  if (store.spareSmall_) {
+    store.spareSmall_->~Backing();
+    std::free(std::exchange(store.spareSmall_, nullptr));
   }
+  if (store.environmentBytes_ && state.environmentRelease_)
+    state.environmentRelease_(state.environmentBudget_, store.environmentBytes_);
+  state.environmentBytes_ -= std::exchange(store.environmentBytes_, 0);
+  if (store.recursiveBytes_ && state.recursiveRelease_)
+    state.recursiveRelease_(state.recursiveBudget_, store.recursiveBytes_);
+  state.recursiveBytes_ -= std::exchange(store.recursiveBytes_, 0);
+  state.active_ = previous;
+}
+void Invocation::settleResources() noexcept {
+  auto &state = storage_.value;
+  if (flags_ & Settled) return;
+  pollMode_ = 2;
+  while (state.controls_) clearControl();
+  for (auto *scope = state.scopes_; scope; scope = scope->next_) clearOwners(*scope);
+  clearOwners(state.root_);
   flags_ |= Settled;
-  if (ledgerState.environmentBytes_ && ledgerState.environmentRelease_)
-    ledgerState.environmentRelease_(ledgerState.environmentBudget_, ledgerState.environmentBytes_);
-  ledgerState.environmentBytes_ = 0;
-  if (ledgerState.recursiveBytes_ && ledgerState.recursiveRelease_)
-    ledgerState.recursiveRelease_(ledgerState.recursiveBudget_, ledgerState.recursiveBytes_);
-  ledgerState.recursiveBytes_ = 0;
+}
+Owner *Invocation::findOwner(const void *address) const noexcept {
+  const auto search = [&](const OwnerStore &store) {
+    auto *owner = store.head_;
+    while (owner && owner->backing + 1 != address) owner = owner->next;
+    return owner;
+  };
+  if (auto *owner = search(owners())) return owner;
+  const auto &state = ledger();
+  if (state.active_ && state.active_ != &state.root_)
+    if (auto *owner = search(state.root_)) return owner;
+  for (auto *scope = state.scopes_; scope; scope = scope->next_)
+    if (scope != state.active_)
+      if (auto *owner = search(*scope)) return owner;
+  return nullptr;
+}
+Invocation::OwnershipScope::OwnershipScope(Invocation &context) noexcept {
+  if (context.poll() || !context.usable()) return;
+  auto &state = context.ledger();
+  context_ = &context;
+  store_.next_ = state.scopes_;
+  state.scopes_ = &store_;
+}
+Invocation::OwnershipScope::~OwnershipScope() {
+  if (!context_) return;
+  reset();
+  auto &state = context_->storage_.value;
+  auto **link = &state.scopes_;
+  while (*link && *link != &store_) link = &(*link)->next_;
+  if (*link) *link = store_.next_;
+  if (state.active_ == &store_) {
+    context_->fault(3);
+    state.active_ = nullptr;
+  }
+}
+void Invocation::OwnershipScope::reset() noexcept {
+  if (context_) context_->clearOwners(store_);
+}
+bool Invocation::OwnershipScope::swap(OwnershipScope &other) noexcept {
+  if (!context_ || context_ != other.context_) {
+    if (context_) context_->fault(3);
+    return false;
+  }
+  std::swap(store_.head_, other.store_.head_);
+  std::swap(store_.spareSmall_, other.store_.spareSmall_);
+  std::swap(store_.environmentBytes_, other.store_.environmentBytes_);
+  std::swap(store_.recursiveBytes_, other.store_.recursiveBytes_);
+  return true;
+}
+Invocation::OwnershipSelection::OwnershipSelection(OwnershipScope &scope) noexcept {
+  if (!scope.context_) return;
+  context_ = scope.context_;
+  previous_ = context_->storage_.value.active_;
+  context_->storage_.value.active_ = &scope.store_;
+}
+Invocation::OwnershipSelection::~OwnershipSelection() {
+  if (context_) context_->storage_.value.active_ = previous_;
 }
 bool Invocation::enterCall(std::int64_t line, std::int64_t column) noexcept {
   initializeControl();
@@ -1482,4 +1629,94 @@ kalandra_recursive_environment_transfer_v1(kalandra::runtime::Invocation *destin
     return nullptr;
   }
   return destination->retainRecursiveEnvironment(*source, environment, bytes, alignment, code);
+}
+
+// Private host adapter. Source arrays already carry managed storage and preserve
+// identity. Trusted unmanaged test/embedding buffers are imported once into
+// managed storage before source code can capture or return their descriptors.
+extern "C" bool kalandra_array_hold_v1(kalandra::runtime::Invocation *context,
+                                        void *buffer) noexcept {
+  return context->holdArrayReference(buffer);
+}
+static void importArrayReference(kalandra::runtime::Invocation *context,
+                                 void *output, const void *input,
+                                 std::uint64_t element, bool allowForeign) noexcept {
+  using namespace kalandra;
+  struct Descriptor {
+    void *allocated, *aligned;
+    std::int64_t offset, count, stride;
+  };
+  Descriptor source{}, result{};
+  if (!output)
+    return context->fault(3);
+  if (input && !context->poll())
+    std::memcpy(&source, input, sizeof(source));
+  std::memcpy(output, &result, sizeof(result));
+  if (context->poll())
+    return;
+  if (!input || element > static_cast<unsigned>(NumericType::Float64))
+    return context->fault(3);
+  const auto width = describeNumeric(static_cast<NumericType>(element))->bytes();
+  if (source.count < 0)
+    return context->fault(allowForeign ? 1 : 3);
+  if (static_cast<std::uint64_t>(source.count) > INT64_MAX / width)
+    return context->fault(allowForeign ? 2 : 3);
+  if (!source.count)
+    return;
+  const auto address = [&](std::int64_t index, std::uintptr_t &result) {
+    std::int64_t delta, position;
+    if (__builtin_mul_overflow(index, source.stride, &delta) ||
+        __builtin_add_overflow(source.offset, delta, &position))
+      return false;
+    const auto magnitude = position < 0 ? std::uint64_t(-(position + 1)) + 1
+                                        : std::uint64_t(position);
+    if (magnitude > UINTPTR_MAX / width)
+      return false;
+    const auto bytes = magnitude * width;
+    const auto base = reinterpret_cast<std::uintptr_t>(source.aligned);
+    if (!base || base % width || (position < 0 ? bytes > base : bytes > UINTPTR_MAX - base))
+      return false;
+    result = position < 0 ? base - bytes : base + bytes;
+    return result <= UINTPTR_MAX - width;
+  };
+  std::uintptr_t first, last;
+  if (!address(0, first) || !address(source.count - 1, last))
+    return context->fault(3);
+  if (auto lease = context->lease(source.allocated)) {
+    const auto base = reinterpret_cast<std::uintptr_t>(source.allocated);
+    const auto low = std::min(first, last), high = std::max(first, last);
+    if (low < base || high - base > lease->bytes().size() ||
+        width > lease->bytes().size() - (high - base))
+      return context->fault(3);
+    std::memcpy(output, &source, sizeof(source));
+    return;
+  }
+  if (!allowForeign)
+    return context->fault(3);
+  auto *data = static_cast<std::byte *>(context->allocate(source.count * width));
+  if (!data)
+    return;
+  for (std::int64_t i = 0; i < source.count; ++i) {
+    if (i % 256 == 0 && context->poll())
+      return;
+    std::uintptr_t cell;
+    if (!address(i, cell))
+      return context->fault(3);
+    std::memcpy(data + i * width, reinterpret_cast<const void *>(cell), width);
+  }
+  if (context->poll())
+    return;
+  result = {data, data, 0, source.count, 1};
+  std::memcpy(output, &result, sizeof(result));
+}
+
+extern "C" void kalandra_array_import_v1(kalandra::runtime::Invocation *context,
+                                         void *output, const void *input,
+                                         std::uint64_t element) noexcept {
+  importArrayReference(context, output, input, element, true);
+}
+extern "C" void kalandra_array_validate_v1(kalandra::runtime::Invocation *context,
+                                           const void *input, std::uint64_t element) noexcept {
+  alignas(std::max_align_t) std::byte ignored[2 * sizeof(void *) + 3 * sizeof(std::int64_t)];
+  importArrayReference(context, ignored, input, element, false);
 }

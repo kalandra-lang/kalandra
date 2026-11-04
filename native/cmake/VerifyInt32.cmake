@@ -53,7 +53,10 @@ foreach(OP IN ITEMS add sub mul div rem neg)
   RUN_OK("${OUTPUT_DIR}/${OP}-harness" "${OP}")
   if(INTEGER_BITS EQUAL 64 AND (OP STREQUAL "div" OR OP STREQUAL "rem"))
     file(READ "${OUTPUT_DIR}/${OP}.mlir" MLIR)
-    if(MLIR MATCHES "i128" OR NOT MLIR MATCHES "arith[.](divsi|remsi)")
+    # Target layout attributes can mention i128 alignment without any i128
+    # arithmetic. Check operation types after removing quoted attribute text.
+    string(REGEX REPLACE "\"[^\"]*\"" "" TYPED_MLIR "${MLIR}")
+    if(TYPED_MLIR MATCHES "i128" OR NOT TYPED_MLIR MATCHES "arith[.](divsi|remsi)")
       message(FATAL_ERROR "Int64 division/remainder must use guarded native-width arithmetic")
     endif()
   endif()

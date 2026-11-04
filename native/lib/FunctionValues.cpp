@@ -27,7 +27,8 @@ bool sameFunctionValueType(const ValueType &a, const ValueType &b, std::size_t d
         a.callable->parameters.size() != b.callable->parameters.size())
       return false;
     for (std::size_t i = 0; i < a.callable->parameters.size(); ++i)
-      if (!self(self, a.callable->parameters[i], b.callable->parameters[i], depth + 1))
+      if (a.callable->mutates(i) != b.callable->mutates(i) ||
+          !self(self, a.callable->parameters[i], b.callable->parameters[i], depth + 1))
         return false;
     return self(self, a.callable->result, b.callable->result, depth + 1);
   };
@@ -151,7 +152,8 @@ public:
         const auto &fn = module_.functions[map->function];
         if (fn.parameters.size() != map->captures.size() + 1)
           return false;
-        source(fn.parameters[0], map->input);
+        if (!map->generate)
+          source(fn.parameters[0], map->input);
         for (std::size_t i = 0; i < map->captures.size(); ++i)
           source(fn.parameters[i + 1], map->captures[i]);
         edge(fn.result, id);
@@ -195,6 +197,9 @@ public:
         source(caught->parameter, caught->operand);
         edge(caught->operand, id);
         edge(caught->result, id);
+      } else if (const auto *loop = std::get_if<WhileOperation>(&value.operation)) {
+        for (auto value : loop->exitValues)
+          edge(value, id);
       } else if (const auto *choice = std::get_if<ConditionalOperation>(&value.operation)) {
         edge(choice->trueResult, id);
         edge(choice->falseResult, id);
@@ -330,7 +335,12 @@ std::unordered_map<SymbolId, ValueId> valueBindings(const TypedModule &module) {
   for (const auto &expression : module.expressions)
     std::visit(
         [&](const auto &op) {
-          if constexpr (requires { op.body; })
+          if constexpr (std::is_same_v<std::decay_t<decltype(op)>, WhileOperation>) {
+            statements(op.initial);
+            statements(op.iteration);
+            statements(op.body);
+            statements(op.whenDone);
+          } else if constexpr (requires { op.body; })
             statements(op.body);
           else if constexpr (std::is_same_v<std::decay_t<decltype(op)>, ConditionalOperation>) {
             statements(op.whenTrue);
@@ -477,6 +487,14 @@ bool workerValueProvenance(const TypedModule &module, ValueId root) {
           pending.insert(pending.end(), sources->second.begin(), sources->second.end());
         }
       }
+    } else if (const auto *loop = std::get_if<WhileOperation>(&value.operation)) {
+      if (loop->exitValues.empty())
+        return false;
+      for (auto result : loop->exitValues) {
+        if (result >= id)
+          return false;
+        pending.push_back(result);
+      }
     } else if (const auto *choice = std::get_if<ConditionalOperation>(&value.operation)) {
       if (choice->trueResult >= id || choice->falseResult >= id)
         return false;
@@ -621,6 +639,15 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
       return false;
     if (type.callable->parameters.size() > 300000 - visited)
       return false;
+    if (type.callable->mutableParameters.size() > type.callable->parameters.size())
+      return false;
+    for (std::size_t i = 0; i < type.callable->parameters.size(); ++i) {
+      const auto &parameter = type.callable->parameters[i];
+      if (type.callable->mutates(i) &&
+          (!parameter.array || parameter.task || parameter.fallible || parameter.device ||
+           (parameter.builtin != BuiltinValue::Numeric && parameter.builtin != BuiltinValue::Bool)))
+        return false;
+    }
     visited += type.callable->parameters.size();
     const auto plain = [&](const ValueType &value) {
       const bool collection =
@@ -660,9 +687,15 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
     for (const auto &field : record.fields)
       if (!valid(valid, field.type, 0))
         return "invalid or unsupported function-valued field type";
-  for (const auto &symbol : module.symbols)
+  for (const auto &symbol : module.symbols) {
+    if (symbol.mutableAccess && (!symbol.parameter || !symbol.type.array || symbol.type.task ||
+                                 symbol.type.fallible || symbol.type.device ||
+                                 (symbol.type.builtin != BuiltinValue::Numeric &&
+                                  symbol.type.builtin != BuiltinValue::Bool)))
+      return "invalid mutating parameter access";
     if (!valid(valid, symbol.type, 0))
       return "invalid or unsupported function-value type";
+  }
   for (const auto &fn : module.functions) {
     if (!valid(valid, fn.resultType, 0) ||
         (fn.declaredResult && !valid(valid, *fn.declaredResult, 0)))
@@ -750,6 +783,15 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
             !sameStorageType(expression.type,
                              module.records[*input.record].fields[read->field].type))
           return "function field read changes its declared signature";
+      } else if (const auto *loop = std::get_if<WhileOperation>(&expression.operation)) {
+        if ((!loop->normalResult && !loop->collecting) || loop->exitValues.empty())
+          return "loop has no function result";
+        for (auto result : loop->exitValues)
+          if (result >= id ||
+              !sameStorageType(loop->collecting ? recordArrayElement(expression.type)
+                                                : completed(expression.type),
+                                               completed(module.expressions[result].type)))
+            return "loop changes a function-value signature";
       } else if (const auto *choice = std::get_if<ConditionalOperation>(&expression.operation)) {
         if (choice->trueResult >= id || choice->falseResult >= id ||
             !sameStorageType(completed(expression.type),
@@ -830,14 +872,16 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
         if (fn.parameters[i] >= module.symbols.size())
           return "function reference has invalid parameter metadata";
         if (i < explicitCount) {
-          if (!sameStorageType(module.symbols[fn.parameters[i]].type,
+          if (module.symbols[fn.parameters[i]].mutableAccess !=
+                  expression.type.callable->mutates(i) ||
+              !sameStorageType(module.symbols[fn.parameters[i]].type,
                                expression.type.callable->parameters[i]))
             return "function reference changes a target parameter";
         } else {
           const auto capture = ref->captures[i - explicitCount];
           const auto &parameter = module.symbols[fn.parameters[i]].type;
-          if (capture >= id || parameter.task || parameter.fallible || parameter.device ||
-              parameter.builtin == BuiltinValue::Device ||
+          if (module.symbols[fn.parameters[i]].mutableAccess || capture >= id || parameter.task ||
+              parameter.fallible || parameter.device || parameter.builtin == BuiltinValue::Device ||
               !sameStorageType(parameter, module.expressions[capture].type))
             return "function reference changes a capture type or escapes a scoped value";
         }

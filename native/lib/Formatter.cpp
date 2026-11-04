@@ -29,8 +29,10 @@ bool spaced(const SourceFile &source, const Token &left, const Token &right,
   if (b == TokenKind::LeftParen || b == TokenKind::LeftBracket) {
     if (a == TokenKind::Identifier) {
       const auto word = source.slice(left.span);
-      return word == "if" || word == "match" || word == "not" || word == "fail" || word == "try" ||
-             word == "await" || word == "spawn" || word == "and" || word == "or" || word == "on";
+      return word == "while" || word == "for" || word == "in" || word == "break" ||
+             word == "yield" || word == "if" || word == "match" || word == "not" ||
+             word == "fail" || word == "try" || word == "await" || word == "spawn" ||
+             word == "and" || word == "or" || word == "on" || word == "mut";
     }
     if (a == TokenKind::Number || a == TokenKind::String || closing(a))
       return false;

@@ -14,6 +14,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <iostream>
 #include <stdexcept>
+#include <string_view>
 namespace kalandra {
 std::optional<std::string> addCheckedInvocationABI(llvm::Module &, bool);
 }
@@ -24,7 +25,7 @@ static void require(bool value, const char *message) {
 }
 int main(int argc, char **argv) {
   try {
-    require(argc == 2, "expected output LLVM path");
+    require(argc == 2 || argc == 3, "expected output LLVM path and optional build mode");
     TypedModule input;
     ValueType integer;
     integer.element = NumericType::Int64;
@@ -587,6 +588,19 @@ int main(int argc, char **argv) {
       copy->setName(name);
       copy->setLinkage(llvm::GlobalValue::ExternalLinkage);
     }
+    auto singleCallableRecord = callableRecord;
+    singleCallableRecord.record = 12;
+    for (auto [type, name] : {std::pair{callable, "task_scope_copy_function"},
+                              {singleCallableRecord, "task_scope_copy_function_record"}}) {
+      auto *layout = emitTaskFrameValueLayout(input, kernels, *native, type);
+      auto *copy = llvm::cast<llvm::Function>(layout->getInitializer()->getOperand(3));
+      copy->setName(name);
+      copy->setLinkage(llvm::GlobalValue::ExternalLinkage);
+    }
+    auto *plainFunction = emitTaskKernelValueLayout(input, kernels, *native, callable);
+    auto *plainCopy = llvm::cast<llvm::Function>(plainFunction->getInitializer()->getOperand(3));
+    plainCopy->setName("task_copy_plain_function");
+    plainCopy->setLinkage(llvm::GlobalValue::ExternalLinkage);
     kernels.expressions.erase(kernels.expressions.begin());
     auto *restricted = emitTaskKernelValueLayout(input, kernels, *native, functionArray);
     auto *restrictedCopy = llvm::cast<llvm::Function>(restricted->getInitializer()->getOperand(3));
@@ -882,6 +896,16 @@ int main(int argc, char **argv) {
     for (auto &global : native->globals())
       require(!global.hasGlobalUnnamedAddr(), "nominal tokens could be merged by value");
     std::error_code outputError;
+    if (argc == 3) {
+      const std::string_view mode(argv[2]);
+      for (auto &function : *native)
+        if (!function.isDeclaration()) {
+          if (mode == "sanitized")
+            function.addFnAttr(llvm::Attribute::SanitizeAddress);
+          if (mode == "thread-sanitized")
+            function.addFnAttr(llvm::Attribute::SanitizeThread);
+        }
+    }
     llvm::raw_fd_ostream output(argv[1], outputError, llvm::sys::fs::OF_Text);
     require(!outputError, "cannot open LLVM output");
     native->print(output, nullptr);

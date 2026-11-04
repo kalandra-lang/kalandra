@@ -1,36 +1,200 @@
-meta { title = "Tutorial", description = "A guided route from your first program to CPU and GPU tasks.", order = 1, group = "Tutorial" }
+meta { title = "Tutorial", description = "A hands-on introduction to functions, collections, local state and parallel work.", order = 1, group = "Tutorial" }
 
-Start here if you are new to Kalandra. You will create a project, learn how functions produce values, work with collections and run independent tasks. Each linked lesson includes complete programs or an explicit project layout.
+This tutorial is for programmers learning Kalandra for the first time. It builds from ordinary CPU functions to arrays, numerical tensors and independent tasks. You do not need a GPU to run any example on this page.
 
-h2 { "Create and run a project" }
+Before you begin, install the toolchain and run the getting-started example. Save each example below as a separate main.k, replacing the previous contents. Check and run it using the same commands:
 
-Install the toolchain for your platform, then create the starter application. Learn the check, compile and run cycle before adding parallel work.
-link { url = "/docs/installation", "Install Kalandra" }
-link { url = "/docs/getting-started", "Create your first project" }
+codeblock { language = bash, """kalandra-check main.k
+kalandra main.k -o program
+./program
+""" }
 
-h2 { "Learn the language" }
+On Windows, use -o program.exe and ./program.exe. The text after each example describes the result the executable displays. The reference pages linked at each step explain additional rules and limitations.
 
-Learn immutable bindings and numeric types, then conditions, functions and collection operations. Follow the lessons in this order, or use the language reference to look up a particular construct.
-link { url = "/docs/syntax", "Values, bindings and expressions" }
-link { url = "/docs/numbers", "Numeric types and conversions" }
-link { url = "/docs/control-flow", "Conditions and matching" }
-link { url = "/docs/functions", "Functions, closures and recursion" }
-link { url = "/docs/strings", "Strings and Unicode" }
-link { url = "/docs/arrays", "Arrays and mapping" }
-link { url = "/docs/tensors", "Tensors and numerical operations" }
-link { url = "/docs/records-enums", "Records and enums" }
-link { url = "/docs/errors", "Errors and recovery" }
-link { url = "/docs/modules", "Modules and exports" }
+list {
+  link { url = "/docs/installation", "Install the toolchain" },
+  link { url = "/docs/getting-started", "Run your first program and create a project" }
+}
 
-h2 { "Choose where work runs" }
+h2 { "Values and function results" }
 
-Start with CPU tasks and ordered parallel mapping. On a supported Mac, continue with explicit tensor transfers and GPU numerical functions. GPU execution is a different placement of eligible work, not an automatic consequence of using tensors.
-link { url = "/docs/parallelism", "Run CPU tasks" }
-link { url = "/docs/gpu", "Run a numerical function on Metal" }
-link { url = "/docs/gpu-numerics", "Compose GPU numerical operations" }
+A .k file contains function and type declarations. Execution starts at main. Use fn to define a function; the indented body ends with the expression to return. You do not need a return keyword.
 
-h2 { "Keep a reference nearby" }
+codeblock { language = kalandra, """fn main() -> int:
+  width = 6
+  height: int = 7
+  width * height
+""" }
 
-The tutorial teaches by example. The language reference explains language constructs; the library reference lists the built-in calls, accepted inputs, return values and failures.
-link { url = "/docs/language-reference", "Language reference" }
-link { url = "/docs/library", "Built-in function reference" }
+This returns 42. The = introduces a name for a value. width has an inferred type; height explicitly declares int. The -> int after main() declares the function's result type. int is a signed 64-bit integer on every supported platform. Use # for a line comment and two spaces for each indentation level.
+
+list {
+  link { url = "/docs/syntax", "Syntax, bindings and comments" },
+  link { url = "/docs/numbers", "Numeric types and conversions" }
+}
+
+h2 { "Define and call a function" }
+
+Name parameters and their types inside parentheses. Call the function with arguments in the same order:
+
+codeblock { language = kalandra, """fn double(value: int) -> int:
+  value * 2
+
+fn main() -> int:
+  double(21)
+""" }
+
+This returns 42. A function can also be stored in a binding or passed to another function. You will use that when mapping an array.
+
+list {
+  link { url = "/docs/functions", "Functions, callbacks, closures and recursion" }
+}
+
+h2 { "Choose a result" }
+
+An if expression selects one result. Both branches must produce compatible types; only the selected branch runs.
+
+codeblock { language = kalandra, """fn absolute(value: int) -> int:
+  if value < 0:
+    -value
+  else:
+    value
+
+fn main() -> int:
+  absolute(-42)
+""" }
+
+This returns 42. Comparisons produce Bool values, true or false. Combine conditions with and, or and not. Write a separate comparison on each side of and, such as value >= 0 and value < 100.
+
+h2 { "Update local state" }
+
+Reuse = to change a numeric or Bool binding without changing its type. A while loop repeats while its condition is true. Put the function's result after the loop:
+
+codeblock { language = kalandra, """fn main() -> int:
+  index = 0
+  total = 0
+  while index < 5:
+    total = total + index
+    index = index + 1
+  total
+""" }
+
+This returns 10: the sum of 0, 1, 2, 3 and 4. Reassigning a scalar parameter inside a function does not change the caller's binding. Arrays have additional rules because two names can refer to the same storage.
+
+list {
+  link { url = "/docs/control-flow", "Conditions, loops, scope and matching" }
+}
+
+Use for value in values to visit array elements, or for index in range(start, stop, step) to count without constructing an array. break exits the nearest loop, and continue advances to its next iteration. Both loop kinds also have an expression form with break value and an else result for normal completion.
+
+list {
+  link { url = "/docs/control-flow", "Loops, ranges, early exits and loop results" }
+}
+
+h2 { "Build and transform an array" }
+
+An array contains elements of one type. [int] is an array of integers. generate creates elements from their indexes; map transforms them in order without changing the input array.
+
+codeblock { language = kalandra, """fn double(value: int) -> int:
+  value * 2
+
+fn main() -> [int]:
+  values = generate(4, fn(index): index + 1)
+  map(values, double)
+""" }
+
+This returns [2, 4, 6, 8]. The anonymous function fn(index): index + 1 receives indexes 0 through 3. You can also write values -> map(double): the pipeline passes values as the first argument to map. Indexes start at zero, and length(values) gives the number of elements.
+
+h2 { "Share an array or copy it" }
+
+Assigning an array to another name shares its storage. Use copy when changes should be independent:
+
+codeblock { language = kalandra, """fn main() -> [int]:
+  values = [1, 2, 3]
+  alias = values
+  independent = copy(values)
+  values[0] = 9
+  [alias[0], independent[0]]
+""" }
+
+This returns [9, 1]. alias sees the edit; independent keeps the original value. Fresh numeric and Bool arrays allow local element writes. A function that writes an array supplied by its caller must declare a mut parameter. Ordinary parameters and captured arrays are read-only, and an unfinished task reader prevents writes to shared storage.
+
+For a style that avoids in-place edits, use map, generate, slice, concat and sorted to construct new arrays. sort edits an existing array; sorted returns a new sorted one.
+
+list {
+  link { url = "/docs/arrays", "Array values, aliases, copies and write access" },
+  link { url = "/docs/collection-functions", "Collection function reference" }
+}
+
+h2 { "Compute with tensors" }
+
+A tensor is a dense numerical value with a shape. A matrix has two dimensions. Tensor[float32, 1, 2] means one row and two columns of 32-bit floating-point numbers.
+
+codeblock { language = kalandra, """fn main() -> float32:
+  left: Tensor[float32, 1, 2] = tensor([[2, 3]])
+  right: Tensor[float32, 2, 1] = tensor([[4], [5]])
+  reduceSum(matmul(left, right))
+""" }
+
+This returns 23. matmul computes 2 * 4 + 3 * 5; reduceSum turns the one-element result tensor into a scalar. Tensor inputs stay unchanged. Constructing a tensor does not send work to a GPU: this example runs on the CPU.
+
+list {
+  link { url = "/docs/tensors", "Tensor shapes, indexing and numerical operations" }
+}
+
+h2 { "Handle an expected error" }
+
+Declare errors that callers should handle explicitly. A function's ! annotation names its error family. fail produces an error instead of the success value; catch handles it.
+
+codeblock { language = kalandra, """error InputError:
+  Negative
+
+fn requireNonnegative(value: int) -> int ! InputError:
+  if value < 0:
+    fail InputError.Negative
+  value
+
+fn main() -> int:
+  requireNonnegative(-1) catch fn(error): 0
+""" }
+
+This returns 0 because the validation fails and the handler provides a fallback. A caller can instead use try to propagate the error through its own declared error channel. Checked execution faults, such as an array index outside its bounds, are distinct from these application-defined errors.
+
+list {
+  link { url = "/docs/errors", "Application errors, try, catch and task failures" }
+}
+
+h2 { "Run independent tasks" }
+
+Ordinary calls run synchronously. spawn starts a task; await waits for its result. A parallel scope waits for all of its child tasks before it exits. Start independent tasks before awaiting them so they can overlap.
+
+codeblock { language = kalandra, """fn double(value: int) -> int:
+  value * 2
+
+fn main() -> int ! TaskError:
+  try parallel:
+    left = spawn double(10)
+    right = spawn double(11)
+    a = try await left
+    b = try await right
+    a + b
+""" }
+
+This returns 42. Task execution can fail, so main declares ! TaskError and uses try to propagate failures from await and the parallel scope. This tiny example demonstrates the syntax; task scheduling is useful when the independent work is large enough to justify its cost. Use parallelMap when you want CPU workers to map an array while preserving result order.
+
+list {
+  link { url = "/docs/parallelism", "CPU parallelism and shared data" }
+}
+
+h2 { "Where to go next" }
+
+Use modules to split an application across files, records and enums to model your data, and explicit placement to run supported numerical functions on a GPU. GPU programming adds device requirements and data transfers; it does not change the basic function syntax.
+
+list {
+  link { url = "/docs/modules", "Organize a program into modules" },
+  link { url = "/docs/records-enums", "Model data with records and enums" },
+  link { url = "/docs/strings", "Work with Unicode text" },
+  link { url = "/docs/gpu", "Run your first GPU program" },
+  link { url = "/docs/language-reference", "Language reference" },
+  link { url = "/docs/library", "Alphabetical function index" }
+}

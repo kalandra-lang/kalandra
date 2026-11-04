@@ -1,5 +1,10 @@
 # Kalandra core language proposal
 
+The [local mutation and read-only task sharing decision](local-mutation.md), accepted
+2026-11-02, supersedes the universal-immutability baseline for the bindings and
+arrays it admits. Its implementation is staged in #266; unreleased behavior must
+not be inferred from this earlier proposal.
+
 Core syntax and immutable value behavior accepted for the design baseline — 2026-10-14. Numeric rules are accepted in the [numeric design](numbers.md); the memory programming model is recorded in [memory and allocation design](memory.md). The examples below describe proposed syntax and behavior for a fresh implementation. They are not supported programs for the released Kalandra 0.13 compiler.
 
 Kalandra should make immutable programs easy to write and learn, with safe memory use and a path to native CPU, GPU, and distributed execution. Start with values, bindings, functions, and transformations. Choose the syntax and observable behavior before choosing the memory-management mechanism or implementing a backend.

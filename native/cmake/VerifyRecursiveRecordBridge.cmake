@@ -13,7 +13,7 @@ elseif(VARIANT STREQUAL "sanitized")
 elseif(VARIANT STREQUAL "thread-sanitized")
   set(FLAGS -O1 -g -fsanitize=thread -fno-omit-frame-pointer)
 endif()
-RUN_OK("${EMITTER}" "${OUTPUT_DIR}/bridge.ll")
+RUN_OK("${EMITTER}" "${OUTPUT_DIR}/bridge.ll" "${VARIANT}")
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}
   "${SOURCE_DIR}/tests/RecursiveRecordBridgeTests.cpp" "${OUTPUT_DIR}/bridge.ll"
   ${TASK_ABI_OBJECTS} "${RUNTIME}" -o "${OUTPUT_DIR}/bridge")
@@ -66,3 +66,7 @@ RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAG
   "${SOURCE_DIR}/tests/RecursiveTaskErrorTests.cpp" "${OUTPUT_DIR}/bridge.ll"
   ${TASK_ABI_OBJECTS} "${RUNTIME}" -o "${OUTPUT_DIR}/task-errors")
 RUN_OK("${OUTPUT_DIR}/task-errors")
+RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}
+  "${SOURCE_DIR}/tests/FrameValueScopeTests.cpp" "${OUTPUT_DIR}/bridge.ll"
+  ${TASK_ABI_OBJECTS} "${RUNTIME}" -o "${OUTPUT_DIR}/frame-scopes")
+RUN_OK("${OUTPUT_DIR}/frame-scopes")

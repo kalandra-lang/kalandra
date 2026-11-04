@@ -49,3 +49,11 @@ test("Tiramisu numeric entities decode exactly once for comparisons and literal 
   expect(plain(html)).toBe(source);
   expect(decodeCode("&#60;&#x3E;&#39;")).toBe("<>'");
 });
+
+test("loop collection keywords use keyword highlighting", () => {
+  for (const keyword of ["for", "in", "break", "continue", "yield"]) {
+    const html = highlightKalandra(keyword);
+    expect(plain(html)).toBe(keyword);
+    expect(html).toContain("--shiki-dark:#f86737");
+  }
+});

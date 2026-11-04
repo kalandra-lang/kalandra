@@ -1,0 +1,108 @@
+meta { title = "Glossary", description = "Terms used in the language, function reference and CPU/GPU guides.", order = 11, group = "Language reference" }
+
+Use this page to look up a term while reading the guides. The linked reference sections give the full rules.
+
+h2 { "Alias and copy" }
+
+Two array names are aliases when they refer to the same storage. Writing through one writable alias changes what the others read. copy creates independent array storage. String elements remain immutable and can share their underlying text. Reassigning a local numeric or Bool array name changes that name's reference; it does not redirect existing aliases.
+
+list {
+  link { url = "/docs/arrays#copy-array-storage", "Array copies and aliases" }
+}
+
+h2 { "Backend" }
+
+The part of the compiler and runtime that executes work on a particular kind of device. CPU, Metal, Vulkan and CUDA are backends. Choose a GPU backend with --target using a compiler package that includes it. A backend flag does not install GPU support or a device driver.
+
+h2 { "Binding" }
+
+A name associated with a value, such as total = 42. A type annotation, total: int, declares its type; otherwise the checker infers it. Reassignment changes the value associated with an existing name without changing its type. Not every value category supports reassignment.
+
+list {
+  link { url = "/docs/syntax#reassign-a-local-scalar", "Bindings and reassignment" }
+}
+
+h2 { "Checked fault" }
+
+An execution failure such as integer overflow, an out-of-bounds index or an invalid tensor shape. It is separate from an application-defined error. At a task boundary, a fault can be observed as TaskError.Fault; its kind identifies the failure category.
+
+h2 { "Closure" }
+
+A function value that retains values from the scope where it was created. Scalar captures are snapshots; array captures are read-only aliases. Retained values remain alive for as long as the closure needs them.
+
+list {
+  link { url = "/docs/functions#capture-a-value", "Closures and capture rules" }
+}
+
+h2 { "Error channel" }
+
+The error family written after ! in a function signature. A function with -> int ! InputError produces either an int success or an InputError. try propagates an error; catch handles it. TaskError is the built-in family for task execution failures.
+
+list {
+  link { url = "/docs/errors", "Expected errors and task failures" }
+}
+
+h2 { "Expression" }
+
+A construct that produces a value. Functions return their final expression. if, while and for have expression forms: an if expression chooses a branch result, and a loop expression chooses a break value or its normal-completion else result.
+
+list {
+  link { url = "/docs/control-flow#get-a-value-from-a-loop", "Loop expressions" }
+}
+
+h2 { "Host and device" }
+
+The host is the CPU side of the running program. A GPU is a device that can run supported numerical functions. In cross-compilation instructions, the build host is the computer running the compiler, while the destination is the computer that will run the resulting application.
+
+h2 { "Immutable value" }
+
+A value whose contents cannot be edited in place. Strings and tensors are immutable. An operation on a tensor produces a result without modifying its inputs. Numeric and Bool arrays allow controlled writes; they should not be treated as immutable merely because an ordinary function receives them read-only.
+
+h2 { "mut parameter" }
+
+An explicit write-access declaration for an array parameter, such as mut values: [int]. It allows the function to edit writable caller-provided storage. It does not permit writing an array shared with unfinished task readers. Ordinary array parameters and captured arrays provide read access only.
+
+list {
+  link { url = "/docs/functions#array-access-contracts", "Array parameter access" }
+}
+
+h2 { "Parallel scope" }
+
+A parallel block that owns child tasks. The scope waits for its children to settle before it exits, including when work fails. This keeps task lifetimes within the block. Starting a task does not transfer permission to modify the parent's arrays.
+
+h2 { "Rank, shape and extent" }
+
+A tensor's rank is its number of dimensions. Its shape is the sequence of dimension sizes; each size is an extent. A tensor of shape [2, 3] has rank two, two rows and three columns. Rank zero is a tensor containing one scalar element, distinct from a scalar value. A zero extent gives a tensor with no elements.
+
+list {
+  link { url = "/docs/tensors", "Tensor construction and shape checking" }
+}
+
+h2 { "Resident tensor" }
+
+A tensor whose data remains on a GPU. Awaiting a GPU tensor task returns that resident value without downloading its contents. Pass it to another GPU task or explicitly transfer it to devices.cpu() for host access.
+
+h2 { "Scalar" }
+
+A single numeric or Bool value, rather than an array or tensor. int and float are aliases for int64 and float64; their widths do not depend on the CPU architecture. Tensor[float32] is a rank-zero tensor, not a float32 scalar.
+
+h2 { "Sysroot" }
+
+A directory tree containing a destination platform's system development libraries and other link inputs. Cross-compiling to Linux or Windows needs the appropriate destination libraries even though Kalandra bundles its own target runtimes and host linkers.
+
+list {
+  link { url = "/docs/cross-compilation", "Cross-compilation and toolchain profiles" }
+}
+
+h2 { "Statement" }
+
+A construct executed for its effects rather than a result, such as an assignment or a statement loop. break exits the nearest loop; continue advances it. A statement loop has no implicit last-iteration value.
+
+h2 { "Task and settlement" }
+
+A task represents work that may still be running. spawn starts work; await observes its result. transfer also returns a task. A task settles when it finishes successfully or with an error. Repeated awaits reuse its completed result. Unfinished task readers prevent mutation of the storage they may read.
+
+list {
+  link { url = "/docs/parallelism", "Task lifetimes and CPU scheduling" },
+  link { url = "/docs/gpu", "GPU transfers and placement" }
+}
