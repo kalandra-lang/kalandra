@@ -26,6 +26,10 @@ struct NumericShaderOptions {
   ArithmeticMode arithmetic = ArithmeticMode::Hardware;
   bool nativeFloat64Conversions = false;
 };
+bool usesScalarControl(const TypedModule &, FunctionId);
+std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModule &, FunctionId,
+                                                                 ArithmeticMode,
+                                                                 bool nativeFloat64Conversions);
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});
 } // namespace kalandra

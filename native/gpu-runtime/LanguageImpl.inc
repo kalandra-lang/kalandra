@@ -282,7 +282,8 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
         if (!selected)
           selected = op.kernel.device_;
         if (op.kernel.device_.owner_ != state_ || op.kernel.device_.index_ != selected.index_ ||
-            op.kernel.kind_ != op.kind)
+            (op.kernel.kind_ != op.kind && !(op.kind == NumericInstructionKind::ScalarControl &&
+                                             op.kernel.kind_ == NumericInstructionKind::Map)))
           return std::unexpected(Error::Residency);
       }
     }
@@ -303,7 +304,8 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
     owned.reserve(code.size());
     std::size_t captureCount = 0;
     for (const auto &op : code)
-      if (op.kind == NumericInstructionKind::Map)
+      if (op.kind == NumericInstructionKind::Map ||
+          op.kind == NumericInstructionKind::ScalarControl)
         captureCount += op.scalars.size();
     plan->captures.reserve(captureCount);
     for (const auto &op : code) {
@@ -313,7 +315,8 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
       instruction.target = op.target;
       if (op.kernel)
         instruction.kernel = op.kernel.schema_;
-      if (op.kind == NumericInstructionKind::Map) {
+      if (op.kind == NumericInstructionKind::Map ||
+          op.kind == NumericInstructionKind::ScalarControl) {
         for (auto word : op.scalars) {
           instruction.scalarSources.push_back(plan->captures.size());
           plan->captures.push_back(word);

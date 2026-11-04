@@ -340,6 +340,24 @@ class Builder {
       reject(fn.declaration, "recursive GPU numerical helper expansion");
     if (arguments.size() != fn.parameters.size())
       reject(fn.declaration, "numerical helper capture count mismatch");
+    if (usesScalarControl(input, function)) {
+      if (fn.resultType.tensor)
+        reject(fn.declaration, "device scalar control requires a numeric/Bool scalar helper; "
+                               "tensor loop state is not implemented");
+      auto shader =
+          emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_);
+      if (!shader)
+        throw Rejected{shader.error()};
+      NumericProgramInstruction op{NumericProgramKind::ScalarControl};
+      for (auto argument : arguments)
+        op.inputs.push_back(*force(argument).buffer);
+      op.constants.resize(shader->scalarTypes.size(), 0);
+      op.kernel = kernel(std::move(*shader));
+      op.output = value();
+      program.code.push_back(std::move(op));
+      active.erase(function);
+      return resident(fn.resultType, program.code.back().output);
+    }
     std::map<SymbolId, Ref> symbols;
     std::map<ValueId, Ref> cache;
     for (std::size_t i = 0; i < arguments.size(); ++i) {

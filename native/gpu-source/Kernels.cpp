@@ -108,8 +108,9 @@ int main(int argc, char **argv) {
                            {"scalar", kernel.scalar},
                            {"noArithmeticFault", kernel.noArithmeticFault}});
   }
-  constexpr std::array names{"Map",   "Reduce",     "Matmul", "Branch",      "Jump",
-                             "Alias", "EqualShape", "Extent", "MatrixShape", "ShapeFault"};
+  constexpr std::array names{"Map",         "Reduce",     "Matmul",       "Branch",
+                             "Jump",        "Alias",      "EqualShape",   "Extent",
+                             "MatrixShape", "ShapeFault", "ScalarControl"};
   for (const auto &op : program->code) {
     llvm::json::Array constants;
     // Decimal strings preserve every uint64 carrier even in non-integer JSON consumers.

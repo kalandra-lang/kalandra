@@ -108,12 +108,6 @@ class Compiler {
       if (!visited.insert(function).second)
         continue;
       const auto &fn = cpu.functions[function];
-      for (auto symbol : fn.parameters)
-        if (cpu.symbols[symbol].reassignable)
-          reject(fn.declaration, "local reassignment currently requires CPU execution");
-      for (const auto &statement : fn.body)
-        if (statement.binding && cpu.symbols[*statement.binding].reassignable)
-          reject(fn.declaration, "local reassignment currently requires CPU execution");
       const auto supported = [&](const ValueType &type) {
         if (type.array)
           reject(fn.declaration,
@@ -128,13 +122,8 @@ class Compiler {
       for (auto value : fn.expressions) {
         const auto &expression = cpu.expressions[value];
         const auto &op = expression.operation;
-        if (std::holds_alternative<WhileOperation>(op))
-          reject(expression.span, "statement loops currently require CPU execution");
         if (std::holds_alternative<ArrayStore>(op) || std::holds_alternative<ArraySort>(op))
           reject(expression.span, "array element assignment currently requires CPU execution");
-        if (const auto *read = std::get_if<SymbolRead>(&op);
-            read && cpu.symbols[read->symbol].reassignable)
-          reject(expression.span, "local reassignment currently requires CPU execution");
         if (auto *call = std::get_if<FunctionCall>(&op))
           pending.push_back(call->function);
         if (arithmetic_ != ArithmeticMode::Hardware)
@@ -1703,7 +1692,7 @@ class Compiler {
       for (auto value : op.constants)
         bindings += std::to_string(value) + "ull,";
       bindings += "};\n";
-      if (op.kind == NumericProgramKind::Map)
+      if (op.kind == NumericProgramKind::Map || op.kind == NumericProgramKind::ScalarControl)
         for (std::size_t j = 0; j < op.scalarSources.size() + op.constants.size(); ++j) {
           captureList += "scalars" + suffix + "[" + std::to_string(j) + "],";
           ++captureCount;
@@ -1737,7 +1726,7 @@ class Compiler {
                : kind == NumericProgramKind::Matmul ? "loadNumericMatmulKernel"
                                                     : "loadNumericGraphKernel") +
               "(f.directory+\"/" + path + "\",*target," + elementName(kernel.element);
-      if (kind == NumericProgramKind::Map)
+      if (kind == NumericProgramKind::Map || kind == NumericProgramKind::ScalarControl)
         code += ",m::ElementwiseSignature{" + std::to_string(kernel.tensorTypes.size()) + "," +
                 std::to_string(kernel.scalarTypes.size()) +
                 (kernel.indirect ? ",m::ElementwiseBinding::ArgumentBuffer}," : "},") +
@@ -1746,8 +1735,9 @@ class Compiler {
                 indices(kernel.scalarBuffers, "std::uint8_t");
       code += ");if(!" + name + "){" + error(name + ".error()") + "}\n";
     }
-    constexpr std::array names{"Map",   "Reduce",     "Matmul", "Branch",      "Jump",
-                               "Alias", "EqualShape", "Extent", "MatrixShape", "ShapeFault"};
+    constexpr std::array names{"Map",         "Reduce",     "Matmul",       "Branch",
+                               "Jump",        "Alias",      "EqualShape",   "Extent",
+                               "MatrixShape", "ShapeFault", "ScalarControl"};
     for (std::size_t i = 0; i < program.code.size(); ++i) {
       const auto &op = program.code[i];
       const auto suffix = std::to_string(i);
@@ -1924,7 +1914,7 @@ class Compiler {
     if (backend_ != GpuBackend::Metal)
       return spawnNumericProgram(function, inputs, target, span);
     bool mixed = false;
-    bool conditional = false, primitive = false, transform = false;
+    bool conditional = false, primitive = false, transform = false, control = false;
     std::set<FunctionId> inspected;
     std::vector<FunctionId> pending{function};
     while (!pending.empty()) {
@@ -1932,6 +1922,7 @@ class Compiler {
       pending.pop_back();
       if (!inspected.insert(id).second)
         continue;
+      control |= usesScalarControl(cpu, id);
       for (auto value : cpu.functions.at(id).expressions) {
         const auto &node = cpu.expressions.at(value);
         conditional |= std::holds_alternative<ConditionalOperation>(node.operation);
@@ -1946,7 +1937,7 @@ class Compiler {
           pending.push_back(call->function);
       }
     }
-    bool selectedProgram = transform;
+    bool selectedProgram = transform || control;
     if ((conditional || primitive) && !matrixGraph(function) && !primitiveEntry(function))
       selectedProgram |=
           primitive || !emitNumericShader(cpu, function, {.arithmetic = arithmetic_}).has_value();

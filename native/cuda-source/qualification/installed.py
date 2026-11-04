@@ -70,6 +70,13 @@ arrays = [sys.executable, repo/'native/gpu-source/HostArrayTests.py',
 if not a.execute:
     arrays.append('--compile-only')
 subprocess.run(arrays, check=True, timeout=1200)
+control = [sys.executable, repo/'native/gpu-source/ScalarControlTests.py',
+           '--compiler', compiler, '--backend', 'cuda', '--variant', 'optimized',
+           '--root', a.root/'scalar-control']
+if not a.execute:
+    control.append('--compile-only')
+subprocess.run(control, check=True, timeout=1200)
+
 # Use different source constructs to require the precise missing resource.
 transform=a.root/'transpose.k'
 transform.write_text('''fn work(v:Tensor[float32,?,?])->Tensor[float32,?,?]:

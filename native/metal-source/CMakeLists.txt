@@ -1222,3 +1222,31 @@ if(BUILD_TESTING)
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endforeach()
 endif()
+
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug optimized)
+    add_test(NAME native-metal-device-loops-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/ScalarControlTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/scalar-control-${VARIANT}")
+    set_tests_properties(native-metal-device-loops-${VARIANT} PROPERTIES TIMEOUT 900
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
+    if(VARIANT STREQUAL "optimized")
+      set(CONTROL_RUNTIME kalandra-task-core-optimized)
+    else()
+      set(CONTROL_RUNTIME kalandra-native-runtime-${VARIANT})
+    endif()
+    add_test(NAME native-metal-scalar-control-safety-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/ScalarControlSafetyTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --metal-runtime "$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+        --runtime "$<TARGET_FILE:${CONTROL_RUNTIME}>" --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/scalar-control-safety-${VARIANT}")
+    set_tests_properties(native-metal-scalar-control-safety-${VARIANT} PROPERTIES TIMEOUT 900
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()

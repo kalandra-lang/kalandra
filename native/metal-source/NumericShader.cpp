@@ -1,5 +1,6 @@
 #include "NumericShader.h"
 #include "MatmulShader.h"
+#include "kalandra/Continuation.h"
 #include "kalandra/GpuConversion.h"
 #include "kalandra/GpuInteger.h"
 #include "kalandra/NumericKernelName.h"
@@ -26,7 +27,7 @@ namespace {
 struct Rejected {
   Diagnostic diagnostic;
 };
-struct Expr {
+struct ShaderValue {
   Value value, valid, uniform;
   bool tensor = false, boolean = false;
   std::optional<std::uint32_t> parameter{};
@@ -93,7 +94,7 @@ class Emitter {
                      "independent domains "
                      "require separate stages");
   }
-  Value materialize(Expr &expr) {
+  Value materialize(ShaderValue &expr) {
     if (expr.value)
       return expr.value;
     if (!expr.parameter)
@@ -112,10 +113,10 @@ class Emitter {
     tensorValues.emplace(p, expr.value);
     return expr.value;
   }
-  Expr literal(std::uint64_t value, bool boolean = false) {
+  ShaderValue literal(std::uint64_t value, bool boolean = false) {
     return {c(header, value, boolean ? 1 : 64), yes, yes, false, boolean};
   }
-  Expr binary(Expr a, Expr d, TokenKind op, SourceSpan span) {
+  ShaderValue binary(ShaderValue a, ShaderValue d, TokenKind op, SourceSpan span) {
     const auto element = a.element;
     const auto bits = describeNumeric(element)->bits;
     if (a.element != d.element)
@@ -177,7 +178,7 @@ class Emitter {
       domains.push_back(shape);
     return {result, checked, uniform, tensor, false, {}, std::move(shape)};
   }
-  Expr comparison(Expr a, Expr d, ComparisonKind op, SourceSpan span) {
+  ShaderValue comparison(ShaderValue a, ShaderValue d, ComparisonKind op, SourceSpan span) {
     const auto element = a.element;
     const auto bits = describeNumeric(element)->bits;
     if (!a.boolean && a.element != d.element)
@@ -267,15 +268,17 @@ public:
     }
     return result;
   }
-  Expr invoke(FunctionId function, const std::vector<Expr> &args) {
+  ShaderValue invoke(FunctionId function, const std::vector<ShaderValue> &args) {
     const auto &fn = input.functions.at(function);
+    if (usesScalarControl(input, function))
+      reject(fn.declaration, "device local control requires checkpointed scalar execution");
     if (++work > 300000 || active.size() >= 128 || !active.insert(function).second)
       reject(fn.declaration, "recursive or oversized typed GPU helper expansion");
-    std::map<SymbolId, Expr> symbols;
-    std::map<ValueId, Expr> values;
+    std::map<SymbolId, ShaderValue> symbols;
+    std::map<ValueId, ShaderValue> values;
     for (std::size_t i = 0; i < args.size(); ++i)
       symbols.emplace(fn.parameters.at(i), args[i]);
-    std::function<Expr(ValueId)> emit = [&](ValueId id) -> Expr {
+    std::function<ShaderValue(ValueId)> emit = [&](ValueId id) -> ShaderValue {
       if (++work > 300000)
         reject(fn.declaration, "typed GPU expression budget exceeded");
       if (auto found = values.find(id); found != values.end())
@@ -286,7 +289,7 @@ public:
            (node.type.builtin != BuiltinValue::Numeric || !describeNumeric(node.type.element))))
         reject(node.span, "typed GPU maps require homogeneous numerical values "
                           "and internal Bool conditions");
-      Expr out;
+      ShaderValue out;
       if (auto read = std::get_if<SymbolRead>(&node.operation))
         out = symbols.at(read->symbol);
       else if (auto value = std::get_if<BoolLiteral>(&node.operation))
@@ -346,6 +349,28 @@ public:
         }
         if (out.tensor)
           domains.push_back(out.shape);
+      } else if (auto range = std::get_if<IntegerRangeOperation>(&node.operation)) {
+        auto a = emit(range->current), stop = emit(range->stop), step = emit(range->step);
+        auto x = materialize(a), end = materialize(stop), stride = materialize(step);
+        auto nonzero = cmp(header, arith::CmpIPredicate::ne, stride, c(header, 0));
+        auto positive = cmp(header, arith::CmpIPredicate::sgt, stride, c(header, 0));
+        out = a;
+        out.valid = both(lane, both(lane, a.valid, stop.valid), step.valid);
+        out.uniform = both(header, both(header, a.uniform, stop.uniform), step.uniform);
+        if (range->kind == IntegerRangeOperation::Kind::Validate) {
+          out.value = x;
+          out.valid = both(lane, out.valid, nonzero);
+          out.uniform = both(header, out.uniform, nonzero);
+        } else if (range->kind == IntegerRangeOperation::Kind::Test) {
+          out.value = choose(header, positive, cmp(header, arith::CmpIPredicate::slt, x, end),
+                             cmp(header, arith::CmpIPredicate::sgt, x, end));
+          out.boolean = true;
+        } else {
+          auto sum = *emitCheckedGpuInteger(header, loc(), NumericType::Int64,
+                                            GpuIntegerOperation::Add, x, stride);
+          out.value = choose(header, sum.valid, sum.bits, end);
+        }
+        out.parameter.reset();
       } else if (auto choice = std::get_if<ConditionalOperation>(&node.operation)) {
         auto condition = emit(choice->condition);
         if (!condition.boolean)
@@ -383,7 +408,7 @@ public:
             {},
             a.shape};
       } else if (auto call = std::get_if<FunctionCall>(&node.operation)) {
-        std::vector<Expr> inputs;
+        std::vector<ShaderValue> inputs;
         for (auto argument : call->arguments)
           inputs.push_back(emit(argument));
         out = invoke(call->function, inputs);
@@ -443,8 +468,8 @@ public:
     active.erase(function);
     return result;
   }
-  Expr rootCall(FunctionId id, unsigned tensorCount) {
-    std::vector<Expr> args;
+  ShaderValue rootCall(FunctionId id, unsigned tensorCount) {
+    std::vector<ShaderValue> args;
     unsigned tensors = 0, scalarWords = 0, position = 0, realTensors = 0;
     auto parameters = kernel.getArgument(tensorCount + 1);
     for (auto parameter : root.parameters) {
@@ -498,7 +523,8 @@ public:
       sameShape(shape, result.shape, root.declaration);
     return result;
   }
-  static const Expr &argsForTensor(const std::vector<Expr> &args, unsigned parameter) {
+  static const ShaderValue &argsForTensor(const std::vector<ShaderValue> &args,
+                                          unsigned parameter) {
     for (const auto &arg : args)
       if (arg.parameter && *arg.parameter == parameter)
         return arg;
@@ -986,5 +1012,274 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }
+}
+
+bool usesScalarControl(const TypedModule &input, FunctionId function) {
+  const auto &fn = input.functions.at(function);
+  return std::ranges::any_of(fn.expressions,
+                             [&](auto id) {
+                               const auto &op = input.expressions.at(id).operation;
+                               if (std::holds_alternative<WhileOperation>(op))
+                                 return true;
+                               const auto *read = std::get_if<SymbolRead>(&op);
+                               return read && input.symbols.at(read->symbol).reassignable;
+                             }) ||
+         std::ranges::any_of(fn.body,
+                             [&](const auto &statement) {
+                               return statement.binding &&
+                                      input.symbols.at(*statement.binding).reassignable;
+                             }) ||
+         std::ranges::any_of(fn.parameters,
+                             [&](auto symbol) { return input.symbols.at(symbol).reassignable; });
+}
+
+std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModule &input,
+                                                                 FunctionId function,
+                                                                 ArithmeticMode arithmetic,
+                                                                 bool nativeFloat64Conversions) {
+  const auto &root = input.functions.at(function);
+  const auto reject = [&](const std::string &message) -> std::expected<NumericShader, Diagnostic> {
+    return std::unexpected(Diagnostic{"G001", message, root.declaration});
+  };
+  auto planned = continuation::plan(
+      input, {.entry = function, .nativeSubgraphs = false, .inlineLoopCalls = true});
+  if (!planned)
+    return reject("GPU scalar control planning: " + planned.error());
+  const auto &plan = *planned->plans.at(function);
+  const auto scalar = [](const ValueType &type) {
+    return !type.tensor && !type.array && !type.task && !type.fallible &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+  };
+  if (!scalar(root.resultType) || !std::all_of(plan.slots.begin(), plan.slots.end(), scalar))
+    return reject("GPU checkpointed loops currently require numeric/Bool scalar state; "
+                  "device arrays and tensor loop state are not implemented");
+  if (plan.slots.size() > (UINT32_MAX - 4) / 2)
+    return reject("GPU scalar control parameter layout exceeds the device ABI");
+  using C = continuation::Code;
+  auto code = planned->kernels;
+  std::vector<std::optional<FunctionId>> kernels;
+  for (const auto &op : plan.code) {
+    if (op.code == C::Kernel) {
+      kernels.push_back(op.target);
+      continue;
+    }
+    kernels.push_back({});
+    if (op.code == C::Label || op.code == C::Copy || op.code == C::Branch || op.code == C::Jump ||
+        op.code == C::Return)
+      continue;
+    if (op.code != C::Literal && op.code != C::Unary && op.code != C::Binary)
+      return reject(
+          "GPU scalar control does not support task effects, recursive calls or owned values");
+    TypedFunction fn{};
+    fn.name = "control_cell" + std::to_string(kernels.size());
+    fn.declaration = root.declaration;
+    fn.resultType = plan.slots.at(op.output);
+    auto node = input.expressions.at(op.source);
+    std::vector<ValueId> args;
+    for (auto slot : op.args) {
+      const auto symbol = code.symbols.size();
+      code.symbols.push_back({"cell" + std::to_string(symbol), plan.slots.at(slot),
+                              root.declaration, code.functions.size(), true});
+      fn.parameters.push_back(symbol);
+      args.push_back(code.expressions.size());
+      code.expressions.push_back({root.declaration, plan.slots.at(slot), SymbolRead{symbol}});
+    }
+    if (auto unary = std::get_if<ScalarUnary>(&node.operation))
+      unary->operand = args.at(0);
+    else if (auto binary = std::get_if<ScalarBinary>(&node.operation)) {
+      binary->left = args.at(0);
+      binary->right = args.at(1);
+    }
+    fn.result = code.expressions.size();
+    code.expressions.push_back(std::move(node));
+    kernels.back() = code.functions.size();
+    code.functions.push_back(std::move(fn));
+  }
+  const auto type =
+      root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element;
+  const auto bits = describeNumeric(type)->bits;
+  const auto frames = std::uint32_t(1 + plan.slots.size());
+  std::vector<NumericType> inputs;
+  for (auto parameter : root.parameters) {
+    const auto &t = input.symbols.at(parameter).type;
+    inputs.push_back(t.builtin == BuiltinValue::Bool ? NumericType::UInt8 : t.element);
+  }
+  std::vector<NumericType> states(frames, NumericType::UInt64);
+  auto name = numericKernelName(type, inputs, states);
+  if (!inputs.empty())
+    name += "_d_" + std::string(inputs.size(), 's');
+  std::ostringstream source;
+  const auto hasWidth = [&](unsigned width) {
+    return bits == width || std::ranges::any_of(inputs, [&](auto type) {
+             return describeNumeric(type)->bits == width;
+           });
+  };
+  source << "module attributes {gpu.container_module, spirv.target_env = "
+            "#spirv.target_env<#spirv.vce<v1.0, [Shader, Int64";
+  if (hasWidth(8))
+    source << ", Int8, StorageBuffer8BitAccess";
+  if (hasWidth(16))
+    source << ", Int16, StorageBuffer16BitAccess";
+  source << "], [SPV_KHR_storage_buffer_storage_class";
+  if (hasWidth(8))
+    source << ", SPV_KHR_8bit_storage";
+  if (hasWidth(16))
+    source << ", SPV_KHR_16bit_storage";
+  source << "]>, #spirv.resource_limits<>>} { gpu.module @kernels { gpu.func @" << name << "(";
+  for (std::size_t i = 0; i < inputs.size(); ++i)
+    source << "%a" << i << ":memref<?xi" << describeNumeric(inputs[i])->bits << ">,";
+  source << "%out:memref<?xi" << bits << ">,%params:memref<" << 2 + 2 * frames
+         << "xi32>) kernel attributes {"
+            "spirv.entry_point_abi=#spirv.entry_point_abi<workgroup_size=[64,1,1]>} {"
+            "%thread=gpu.thread_id x\n%zero=arith.constant 0:index\n"
+            "%active=arith.cmpi eq,%thread,%zero:index\nscf.if %active {}\ngpu.return\n}}}";
+  DialectRegistry registry;
+  registerAllDialects(registry);
+  MLIRContext context(registry);
+  context.getOrLoadDialect<memref::MemRefDialect>();
+  auto module = parseSourceString<ModuleOp>(source.str(), &context);
+  if (!module)
+    return reject("GPU scalar control shader skeleton failed verification");
+  gpu::GPUFuncOp kernel;
+  scf::IfOp body;
+  module->walk([&](gpu::GPUFuncOp op) { kernel = op; });
+  module->walk([&](scf::IfOp op) { body = op; });
+  OpBuilder b = OpBuilder::atBlockTerminator(&body.getThenRegion().front());
+  const auto loc = b.getUnknownLoc();
+  const auto constant = [&](std::uint64_t value, unsigned width = 64) -> Value {
+    return arith::ConstantOp::create(
+        b, loc, b.getIntegerType(width),
+        b.getIntegerAttr(b.getIntegerType(width), llvm::APInt(width, value)));
+  };
+  const auto at = [&](std::uint64_t value) -> Value {
+    return arith::ConstantIndexOp::create(b, loc, value);
+  };
+  const auto params = kernel.getArgument(inputs.size() + 1);
+  const auto load = [&](std::size_t slot) -> Value {
+    auto lo = memref::LoadOp::create(b, loc, params, ValueRange{at(1 + slot * 2)});
+    auto hi = memref::LoadOp::create(b, loc, params, ValueRange{at(2 + slot * 2)});
+    auto low = arith::ExtUIOp::create(b, loc, b.getI64Type(), lo);
+    auto high = arith::ExtUIOp::create(b, loc, b.getI64Type(), hi);
+    return arith::OrIOp::create(b, loc, low, arith::ShLIOp::create(b, loc, high, constant(32)));
+  };
+  const auto store = [&](std::size_t slot, Value value) {
+    if (value.getType().isInteger(1))
+      value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
+    auto lo = arith::TruncIOp::create(b, loc, b.getI32Type(), value);
+    auto hi = arith::TruncIOp::create(b, loc, b.getI32Type(),
+                                      arith::ShRUIOp::create(b, loc, value, constant(32)));
+    memref::StoreOp::create(b, loc, lo, params, ValueRange{at(1 + slot * 2)});
+    memref::StoreOp::create(b, loc, hi, params, ValueRange{at(2 + slot * 2)});
+  };
+  auto yes = constant(1, 1);
+  auto initial = scf::IfOp::create(
+      b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, load(0), constant(0)), false);
+  {
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(&initial.getThenRegion().front());
+    for (std::size_t i = 0; i < plan.parameters.size(); ++i) {
+      Value value = memref::LoadOp::create(b, loc, kernel.getArgument(i), ValueRange{at(0)});
+      if (describeNumeric(inputs[i])->bits != 64)
+        value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
+      store(1 + plan.parameters[i], value);
+    }
+    store(0, constant(1)); // Zero is uninitialized; instruction PCs are one-based.
+  }
+  auto loop = scf::WhileOp::create(b, loc, TypeRange{b.getI32Type()}, ValueRange{constant(0, 32)});
+  auto *before = new Block;
+  loop.getBefore().push_back(before);
+  before->addArgument(b.getI32Type(), loc);
+  auto *after = new Block;
+  loop.getAfter().push_back(after);
+  after->addArgument(b.getI32Type(), loc);
+  try {
+    OpBuilder::InsertionGuard restore(b);
+    b.setInsertionPointToStart(before);
+    auto budget = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, before->getArgument(0),
+                                        constant(256, 32));
+    auto running =
+        arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, load(0), constant(UINT64_MAX));
+    scf::ConditionOp::create(b, loc, arith::AndIOp::create(b, loc, budget, running),
+                             before->getArguments());
+    b.setInsertionPointToStart(after);
+    const auto pc = load(0);
+    const NumericShaderOptions options{.arithmetic = arithmetic,
+                                       .nativeFloat64Conversions = nativeFloat64Conversions};
+    TypedFunction contextFunction{};
+    contextFunction.declaration = root.declaration;
+    const auto contextId = code.functions.size();
+    code.functions.push_back(std::move(contextFunction));
+    Emitter emitter(code, contextId, b, b, kernel, at(0), options);
+    for (std::size_t i = 0; i < plan.code.size(); ++i) {
+      const auto &op = plan.code[i];
+      auto selected = scf::IfOp::create(
+          b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, pc, constant(i + 1)),
+          false);
+      OpBuilder::InsertionGuard guard(b);
+      b.setInsertionPointToStart(&selected.getThenRegion().front());
+      Value next = constant(i + 2);
+      const auto read = [&](std::size_t slot) {
+        auto raw = load(1 + slot);
+        const auto &t = plan.slots.at(slot);
+        Value value =
+            t.builtin == BuiltinValue::Bool
+                ? Value(arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, raw, constant(0)))
+                : raw;
+        ShaderValue result{value, yes, yes, false, t.builtin == BuiltinValue::Bool};
+        result.element = t.element;
+        return result;
+      };
+      if (op.code == C::Copy)
+        store(1 + op.output, read(op.args.at(0)).value);
+      else if (op.code == C::Branch)
+        next =
+            arith::SelectOp::create(b, loc, read(op.args.at(0)).value, next, constant(op.jump + 1));
+      else if (op.code == C::Jump)
+        next = constant(op.jump + 1);
+      else if (op.code == C::Return)
+        next = constant(UINT64_MAX);
+      else if (op.code != C::Label) {
+        std::vector<ShaderValue> arguments;
+        for (auto arg : op.args)
+          arguments.push_back(read(arg));
+        auto value = emitter.invoke(*kernels[i], arguments);
+        store(1 + op.output, value.value);
+        auto bad = arith::XOrIOp::create(b, loc, value.valid, yes);
+        auto failure = scf::IfOp::create(b, loc, bad, false);
+        {
+          OpBuilder::InsertionGuard failed(b);
+          b.setInsertionPointToStart(&failure.getThenRegion().front());
+          memref::StoreOp::create(b, loc, constant(0, 32), params, ValueRange{at(1 + 2 * frames)});
+        }
+        next = arith::SelectOp::create(b, loc, bad, constant(UINT64_MAX), next);
+      }
+      store(0, next);
+    }
+    scf::YieldOp::create(
+        b, loc, ValueRange{arith::AddIOp::create(b, loc, after->getArgument(0), constant(1, 32))});
+  } catch (const Rejected &error) {
+    return std::unexpected(error.diagnostic);
+  }
+  Value result = load(1 + plan.result);
+  if (bits != 64)
+    result = arith::TruncIOp::create(b, loc, b.getIntegerType(bits), result);
+  memref::StoreOp::create(b, loc, result, kernel.getArgument(inputs.size()), ValueRange{at(0)});
+  if (failed(verify(*module)))
+    return reject("GPU scalar control shader failed verification");
+  std::string ir;
+  llvm::raw_string_ostream stream(ir);
+  module->print(stream);
+  std::vector<std::uint32_t> reads(inputs.size());
+  for (std::size_t i = 0; i < reads.size(); ++i)
+    reads[i] = i;
+  return NumericShader{type,
+                       std::move(ir),
+                       std::move(reads),
+                       {},
+                       false,
+                       true,
+                       std::move(inputs),
+                       std::move(states),
+                       std::vector<std::uint8_t>(root.parameters.size(), 1)};
 }
 } // namespace kalandra

@@ -528,6 +528,9 @@ struct NumericProgramArguments {
   std::span<const Instruction> code;
   std::shared_ptr<const NumericProgramArguments> definition;
   std::vector<std::uint64_t> captures;
+  std::vector<std::uint64_t> controlState;
+  std::uint32_t controlSlots = 0;
+  bool controlActive = false;
   std::uint32_t captureCount = 0, slots = 0;
   std::vector<Buffer> values;
   std::vector<std::uint32_t> uses, retired, origins;
@@ -586,7 +589,7 @@ struct Bridge {
     if (!describeNumeric(element) || code.empty() || code.size() > UINT32_MAX ||
         inputs.size() > UINT32_MAX)
       return std::unexpected(Error::Invalid);
-    std::uint64_t values = inputs.size(), edges = 0, scalars = 0;
+    std::uint64_t values = inputs.size(), edges = 0, scalars = 0, controlSlots = 0;
     std::optional<std::uint32_t> index;
     for (std::size_t pc = 0; pc < code.size(); ++pc) {
       const auto &op = code[pc];
@@ -594,6 +597,16 @@ struct Bridge {
       const auto kernel = op.kernel.state_;
       bool valid = false;
       switch (op.kind) {
+      case K::ScalarControl:
+        if (!kernel || op.scalars.empty() || op.target || op.workPerElement ||
+            !std::all_of(op.scalars.begin(), op.scalars.end(), [](auto v) { return v == 0; }) ||
+            !std::all_of(kernel->scalarTypes.begin(), kernel->scalarTypes.end(),
+                         [](auto t) { return t == NumericType::UInt64; }) ||
+            !std::all_of(kernel->scalarBuffers.begin(), kernel->scalarBuffers.end(),
+                         [](auto role) { return role == 1; }))
+          return std::unexpected(Error::Invalid);
+        controlSlots = std::max(controlSlots, std::uint64_t(op.scalars.size()));
+        [[fallthrough]];
       case K::Map:
         valid = kernel && kernel->numericType && kernel->signature && kernel->elementwise &&
                 !kernel->matrix && !kernel->reduction &&
@@ -653,9 +666,10 @@ struct Bridge {
     }
     if (!index || values > UINT32_MAX || resultId >= values)
       return std::unexpected(Error::Invalid);
-    const auto bytes =
-        sizeof(NumericProgramArguments) + values * (sizeof(Buffer) + sizeof(std::uint32_t)) +
-        code.size() * sizeof(NumericProgramArguments::Instruction) + edges * 4 + scalars * 8;
+    const auto bytes = sizeof(NumericProgramArguments) +
+                       values * (sizeof(Buffer) + sizeof(std::uint32_t)) +
+                       code.size() * sizeof(NumericProgramArguments::Instruction) + edges * 4 +
+                       scalars * 8 + controlSlots * 8;
     try {
       if (!state->permit())
         return std::unexpected(Error::Allocation);
@@ -676,6 +690,9 @@ struct Bridge {
       if (!prepareOnly)
         result->values.resize(values);
       result->slots = values;
+      result->controlSlots = controlSlots;
+      if (!prepareOnly)
+        result->controlState.resize(controlSlots);
       if (!state->permit())
         return std::unexpected(Error::Allocation);
       result->uses.resize(values);
@@ -694,9 +711,11 @@ struct Bridge {
         return std::unexpected(Error::Allocation);
       result->ownedCode.reserve(code.size());
       for (const auto &op : code) {
-        const bool produces =
-            op.kind == NumericInstructionKind::Map || op.kind == NumericInstructionKind::Reduce ||
-            op.kind == NumericInstructionKind::Matmul || op.kind == NumericInstructionKind::Alias;
+        const bool produces = op.kind == NumericInstructionKind::Map ||
+                              op.kind == NumericInstructionKind::ScalarControl ||
+                              op.kind == NumericInstructionKind::Reduce ||
+                              op.kind == NumericInstructionKind::Matmul ||
+                              op.kind == NumericInstructionKind::Alias;
         if (produces && (op.output < inputs.size() || op.output >= values))
           return std::unexpected(Error::Invalid);
         if (!produces && op.output != UINT32_MAX)
@@ -723,7 +742,8 @@ struct Bridge {
                                      op.workPerElement});
         auto &instruction = result->ownedCode.back();
         instruction.scalarOffset = result->captureCount;
-        if (op.kind == NumericInstructionKind::Map) {
+        if (op.kind == NumericInstructionKind::Map ||
+            op.kind == NumericInstructionKind::ScalarControl) {
           result->captureCount += op.scalars.size();
           if (prepareOnly) {
             std::vector<Buffer> placeholders(op.inputs.size());
@@ -757,15 +777,17 @@ struct Bridge {
         return std::unexpected(Error::Residency);
     if (!captures.empty())
       for (const auto &op : plan->code)
-        if (op.kind == NumericInstructionKind::Map)
+        if (op.kind == NumericInstructionKind::Map ||
+            op.kind == NumericInstructionKind::ScalarControl)
           for (std::size_t i = 0; i < op.scalars.size(); ++i) {
             const auto bits = describeNumeric(op.kernel.state_->scalarType(i))->bits;
-            if (bits < 64 && captures[op.scalarOffset + i] >> bits)
+            if ((bits < 64 && captures[op.scalarOffset + i] >> bits) ||
+                (op.kind == NumericInstructionKind::ScalarControl && captures[op.scalarOffset + i]))
               return std::unexpected(Error::Invalid);
           }
     const auto bytes = sizeof(NumericProgramArguments) +
                        std::uint64_t(plan->slots) * (sizeof(Buffer) + 3 * sizeof(std::uint32_t)) +
-                       captures.size_bytes();
+                       captures.size_bytes() + std::uint64_t(plan->controlSlots) * 8;
     try {
       if (!state->permit())
         return std::unexpected(Error::Allocation);
@@ -786,6 +808,8 @@ struct Bridge {
       result->index = plan->index;
       result->inputs = plan->inputs;
       result->slots = plan->slots;
+      result->controlSlots = plan->controlSlots;
+      result->controlState.resize(plan->controlSlots);
       result->result = plan->result;
       result->element = plan->element;
       result->scalar = plan->scalar;
@@ -2232,6 +2256,8 @@ struct Bridge {
   static std::uint64_t numericScalar(const NumericProgramArguments &program,
                                      const NumericProgramArguments::Instruction &op,
                                      std::size_t i) {
+    if (op.kind == NumericInstructionKind::ScalarControl && program.controlActive)
+      return program.controlState[i];
     return program.captures.empty() ? op.scalars[i] : program.captures[op.scalarOffset + i];
   }
   // Non-faulting arithmetic is a compiler proof; shapes, registry, residency,
@@ -2298,6 +2324,18 @@ struct Bridge {
     auto &p = *f.packet.numericProgram;
     const auto lastIndex = f.numericFused ? numericPostIndex(p) : p.pc;
     const auto &last = p.code[lastIndex];
+    if (last.kind == NumericInstructionKind::ScalarControl) {
+      const auto *words = static_cast<const std::uint32_t *>(f.staging->contents());
+      const auto next = std::uint64_t(words[1]) | (std::uint64_t(words[2]) << 32);
+      if (next != UINT64_MAX) {
+        for (std::size_t i = 0; i < last.scalars.size(); ++i)
+          p.controlState[i] =
+              std::uint64_t(words[1 + i * 2]) | (std::uint64_t(words[2 + i * 2]) << 32);
+        p.controlActive = true;
+        return;
+      }
+      p.controlActive = false;
+    }
     p.values[last.output] = std::move(f.result);
     if (!p.origins.empty())
       p.origins[last.output] =
@@ -2874,8 +2912,9 @@ struct Bridge {
                 op.kind == K::Matmul)
               retainProgressionChunk(f, true);
             f.numericPostWanted = numericPostCandidate(f);
-            if (op.kind == K::Map || op.kind == K::Matmul || op.kind == K::Reduce ||
-                op.kind == K::Branch || (op.kind == K::Alias && program.values[op.output])) {
+            if (op.kind == K::Map || op.kind == K::ScalarControl || op.kind == K::Matmul ||
+                op.kind == K::Reduce || op.kind == K::Branch ||
+                (op.kind == K::Alias && program.values[op.output])) {
               const auto work = numericBatchWork(f);
               f.numericEligible = work && numericHeadroom(f, *work);
               if (f.progression && work) {
@@ -2959,7 +2998,7 @@ struct Bridge {
               return;
             }
             f.packet.kernel = op.kernel;
-            if (op.kind == K::Map) {
+            if (op.kind == K::Map || op.kind == K::ScalarControl) {
               if (!kernel->elementwise || kernel->matrix || kernel->reduction) {
                 fail(task, f, std::int64_t(Error::Invalid));
                 return;
@@ -3788,12 +3827,13 @@ struct Bridge {
               parameters[0] = std::uint32_t(matrixShape[0]);
               parameters[1] = std::uint32_t(source->dimensions[1]);
               parameters[2] = std::uint32_t(matrixShape[1]);
-            } else if (f.packet.numericProgram && !f.packet.numericProgram->captures.empty()) {
+            } else if (f.packet.numericProgram && (!f.packet.numericProgram->captures.empty() ||
+                                                   f.packet.numericProgram->controlActive)) {
               const auto &program = *f.packet.numericProgram;
               const auto &op = program.code[program.pc];
               std::size_t word = 1;
               for (std::size_t i = 0; i < op.scalars.size(); ++i) {
-                const auto bits = program.captures[op.scalarOffset + i];
+                const auto bits = numericScalar(program, op, i);
                 parameters[word++] = std::uint32_t(bits);
                 if (describeNumeric(kernel->scalarType(i))->bytes() == 8)
                   parameters[word++] = std::uint32_t(bits >> 32);

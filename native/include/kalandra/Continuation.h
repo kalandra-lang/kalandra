@@ -79,6 +79,8 @@ struct Options {
   // Ownership scopes for mutable owned values in continuation frames. Placed
   // supervisors use the shared native descriptor scopes for host arrays.
   bool valueScopes = false;
+  // Device checkpoint lowering expands non-recursive synchronous loop helpers.
+  bool inlineLoopCalls = false;
 };
 struct ModulePlan {
   // The source typed module must outlive its plan and target emission.

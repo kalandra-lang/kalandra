@@ -36,12 +36,12 @@ int main() {
       auto mutation = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                            "  scale:float32=1\n  scale=2\n  x*scale\n" +
                            host);
-      require(!mutation && mutation.error().message.find("CPU execution") != std::string::npos,
+      require(!mutation && mutation.error().message.find("scalar helper") != std::string::npos,
               "GPU kernel admitted mutable scalar state");
       auto loop = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                        "  while false: 0\n  x+x\n" +
                        host);
-      require(!loop && loop.error().message.find("CPU execution") != std::string::npos,
+      require(!loop && loop.error().message.find("scalar helper") != std::string::npos,
               "GPU kernel admitted statement loops");
       auto arrayWrite = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                              "  local=[1,2]\n  local[0]=3\n  x+x\n" +
@@ -66,6 +66,24 @@ int main() {
       require(hostArray->at("host.cpp").find("HostArrayScopes arrayScopes") != std::string::npos &&
                   hostArray->contains("cpu-steps.mlir"),
               "mixed host array bypassed native ownership lowering");
+      const std::string scalar =
+          "fn work(n:int)->int:\n  total=0\n  for i in range(n):\n"
+          "    if i==5:\n      continue\n    if i>20:\n      break\n"
+          "    total=total+i\n  total\n"
+          "fn main()->int ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n"
+          "    try await spawn work(100) on gpu\n";
+      auto deviceLoop = emit(scalar);
+      require(bool(deviceLoop), "checkpointed scalar loop rejected: " +
+                                    (deviceLoop ? "" : deviceLoop.error().message));
+      require(deviceLoop->at("host.cpp").find("NumericInstructionKind::ScalarControl") !=
+                  std::string::npos,
+              "device loop was routed through a host continuation");
+      bool checkpoint = false;
+      for (const auto &[name, artifact] : *deviceLoop)
+        if (name.ends_with(".mlir"))
+          checkpoint |= artifact.find("scf.while") != std::string::npos &&
+                        artifact.find("memref.store") != std::string::npos;
+      require(checkpoint, "device loop has no bounded resumable shader");
       auto readOnly =
           emit(kernel + std::string("fn write(values:[int])->int:\n  values[0]=3\n  values[0]\n") +
                host);

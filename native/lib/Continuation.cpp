@@ -838,7 +838,8 @@ private:
         return value;
       }
       if (!options.preserveCalls && !coordinating.at(call->function) &&
-          (stack.contains(call->function) || loopControl.at(call->function))) {
+          (stack.contains(call->function) ||
+           (!options.inlineLoopCalls && loopControl.at(call->function)))) {
         if (input.functions.at(call->function).captureCount)
           throw std::runtime_error("direct recursive calls require a named function entry");
         auto value = slot(plan, node.type);

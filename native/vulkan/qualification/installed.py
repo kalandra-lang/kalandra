@@ -77,6 +77,13 @@ arrays = [sys.executable, repo/'native/gpu-source/HostArrayTests.py',
 if not a.execute:
     arrays.append('--compile-only')
 subprocess.run(arrays, check=True, timeout=1200)
+control = [sys.executable, repo/'native/gpu-source/ScalarControlTests.py',
+           '--compiler', compiler, '--backend', 'vulkan', '--variant', 'optimized',
+           '--root', a.root/'scalar-control']
+if not a.execute:
+    control.append('--compile-only')
+subprocess.run(control, check=True, timeout=1200)
+
 # Individually remove required owned resources. An installed compiler must not
 # reuse its compiled-in build-tree paths or ambient PATH when one is missing.
 for relative in ['libexec/kalandra/clang++', 'libexec/kalandra/mlir-opt',

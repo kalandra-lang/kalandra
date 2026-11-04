@@ -115,6 +115,26 @@ h2 { "Conditions in GPU functions" }
 
 Eligible GPU functions can use numeric comparisons, Boolean expressions and conditions to choose work. Only a selected branch runs, including its shape checks. Boolean conditions do not make Bool tensors, Strings or arbitrary host objects valid device data. Device and task resource limits still apply.
 
+h2 { "Scalar loops on the GPU" }
+
+Numeric scalar helpers can use local numeric and Bool state, while loops, for loops over range(...), break and continue on the GPU. Both single-result loop expressions and statement loops are supported. Call these helpers from numerical GPU functions or place a numeric scalar entry directly on the device.
+
+codeblock { language = kalandra, """fn countSteps(count: int) -> float32:
+  total: float32 = 0
+  for index in range(count):
+    total = total + float32(1)
+  total
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn countSteps(1000) on gpu
+""" }
+
+This computes 1000 on the GPU. The executable prints its float32 bits as 447a0000. Loop arithmetic and branch decisions execute on the device. Each scalar helper runs sequentially in one GPU thread; placing it on a GPU does not parallelize its iterations. The runtime saves private scalar state between bounded chunks and checks cancellation before submitting more work. There is no total iteration limit; execution remains subject to ordinary device, task and memory limits. A cancellation request cannot reclaim buffers until submitted work has finished.
+
+This support is for scalar helpers with numeric results and numeric or Bool local state. Device arrays, tensor values carried around a loop, collecting loops with yield, and recursive device calls are not supported. Keep tensor operations outside scalar loops and compose them with scalar helpers. Numeric policies still apply; Metal float64 arithmetic requires explicit software arithmetic or hardware-with-software-fallback.
+
 h2 { "AI and LLM foundations" }
 
 Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. Kalandra does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.

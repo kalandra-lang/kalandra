@@ -30,7 +30,8 @@ bool sameShape(const TensorValue &a, const TensorValue &b) {
   return a.scalar == b.scalar && a.rank == b.rank &&
          std::equal(a.shape().begin(), a.shape().end(), b.shape().begin());
 }
-bool computes(K kind) { return kind == K::Map || kind == K::Reduce || kind == K::Matmul; }
+bool maps(K kind) { return kind == K::Map || kind == K::ScalarControl; }
+bool computes(K kind) { return maps(kind) || kind == K::Reduce || kind == K::Matmul; }
 bool produces(K kind) { return computes(kind) || kind == K::Alias; }
 std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
   const auto &kernel = *op.kernel;
@@ -80,19 +81,18 @@ std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
       return std::unexpected(Error::Allocation);
     }
   }
-  const auto physical = op.kind == K::Map && kernel.reads ? kernel.reads->size() : op.inputs.size();
+  const auto physical = maps(op.kind) && kernel.reads ? kernel.reads->size() : op.inputs.size();
   if (kernel.kernel.inputCount() != physical)
     return std::unexpected(Error::Invalid);
   if (kernel.reads) {
     std::uint32_t previous = 0;
     for (std::size_t i = 0; i < kernel.reads->size(); ++i) {
       const auto input = (*kernel.reads)[i];
-      if (input >= op.inputs.size() || (i && input <= previous) ||
-          (op.kind != K::Map && input != i))
+      if (input >= op.inputs.size() || (i && input <= previous) || (!maps(op.kind) && input != i))
         return std::unexpected(Error::Invalid);
       previous = input;
     }
-    if (op.kind != K::Map && kernel.reads->size() != op.inputs.size())
+    if (!maps(op.kind) && kernel.reads->size() != op.inputs.size())
       return std::unexpected(Error::Invalid);
   }
   auto contract = kernelContract(kernel, op.kind);
@@ -108,9 +108,18 @@ std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
 
 bool validInstruction(const ProgramInstruction &op) {
   const auto n = op.inputs.size();
-  if (op.kind != K::Map && !op.scalarSources.empty())
+  if (!maps(op.kind) && !op.scalarSources.empty())
     return false;
   switch (op.kind) {
+  case K::ScalarControl:
+    if (!op.kernel || !op.kernel->scalar || op.target || op.kernel->scalarTypes.empty() ||
+        !std::all_of(op.constants.begin(), op.constants.end(), [](auto x) { return x == 0; }) ||
+        !std::all_of(op.kernel->scalarTypes.begin(), op.kernel->scalarTypes.end(),
+                     [](auto t) { return t == NumericType::UInt64; }) ||
+        !std::all_of(op.kernel->scalarBuffers.begin(), op.kernel->scalarBuffers.end(),
+                     [](auto role) { return role == 1; }))
+      return false;
+    [[fallthrough]];
   case K::Map:
     return op.kernel && op.kernel->tensorTypes.size() == n &&
            op.kernel->scalarTypes.size() == op.scalarSources.size() + op.constants.size() &&
@@ -157,13 +166,15 @@ std::expected<KernelContract, Error> kernelContract(const ProgramKernel &kernel,
   result.inputs = kind == K::Matmul ? 2 : kind == K::Reduce ? 1 :
                   kernel.reads ? kernel.reads->size() : kernel.tensorTypes.size();
   result.parameterWords = kind == K::Matmul ? 4 : 2;
-  if (kind == K::Map)
+  if (maps(kind))
     for (auto type : kernel.scalarTypes)
       result.parameterWords += describeNumeric(type)->bits == 64 ? 2 : 1;
-  result.entry = kind == K::Map ? numericKernelName(kernel.type, kernel.tensorTypes, kernel.scalarTypes)
-      : "kalandra_numeric_v1_" + std::string(kind == K::Reduce ? "reduce_" : "matmul_") +
-        std::string(describeNumeric(kernel.type)->name);
-  if (kind == K::Map && std::any_of(kernel.scalarBuffers.begin(), kernel.scalarBuffers.end(), [](auto role) { return role != 0; })) {
+  result.entry = maps(kind) ? numericKernelName(kernel.type, kernel.tensorTypes, kernel.scalarTypes)
+                            : "kalandra_numeric_v1_" +
+                                  std::string(kind == K::Reduce ? "reduce_" : "matmul_") +
+                                  std::string(describeNumeric(kernel.type)->name);
+  if (maps(kind) && std::any_of(kernel.scalarBuffers.begin(), kernel.scalarBuffers.end(),
+                                [](auto role) { return role != 0; })) {
     result.entry += "_d_";
     for (auto role : kernel.scalarBuffers) result.entry += role ? 's' : 't';
   }
@@ -217,7 +228,8 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
         return std::unexpected(Error::Budget);
       const std::uint64_t words = kernel.kernel.parameterWords();
       peakDispatch = std::max(peakDispatch, kernel.kernel.inputCount() * sizeof(Buffer) +
-                                                words * 8 + sizeof(ProgramDispatch));
+                                                words * (op.kind == K::ScalarControl ? 12 : 8) +
+                                                sizeof(ProgramDispatch));
     }
   }
   // Charge invocation slots too: a small code array must not authorize an
@@ -458,7 +470,7 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
         parameterWords_ = 6;
         pending_ = true;
         return std::optional<ProgramDispatch>(std::move(dispatch));
-      } else if (op.kind == K::Map) {
+      } else if (maps(op.kind)) {
         std::optional<std::size_t> domain;
         for (std::size_t i = 0; i < op.inputs.size(); ++i) {
           const auto &value = values_[op.inputs[i]];
@@ -497,7 +509,8 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
           } else
             value = op.constants[i - op.scalarSources.size()];
           const auto width = describeNumeric(schema.scalarTypes[i])->bits;
-          if (width < 64 && value >> width)
+          if ((width < 64 && value >> width) ||
+              (op.kind == K::ScalarControl && controlParameters_.empty() && value))
             return fail(Error::Invalid);
           dispatch.parameters.push_back(std::uint32_t(value));
           if (width == 64)
@@ -557,6 +570,8 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
                                std::uint32_t(b.dimensions[1])};
       } else
         return fail(Error::Invalid);
+      if (op.kind == K::ScalarControl && !controlParameters_.empty())
+        dispatch.parameters = controlParameters_;
       dispatch.parameters.push_back(UINT32_MAX);
       dispatch.outputBytes = std::uint64_t(count) * describeNumeric(schema.type)->bytes();
       const auto width = schema.kernel.localSize();
@@ -594,6 +609,25 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
     return fail(Error::Invalid);
   output_.data = std::move(result.output);
   pending_ = false;
+  if (definition_->code[pc_].kind == K::ScalarControl) {
+    if (result.parameters.size() < 4 || result.parameters[0] != 1)
+      return fail(Error::Invalid);
+    const auto next =
+        std::uint64_t(result.parameters[1]) | (std::uint64_t(result.parameters[2]) << 32);
+    if (!next)
+      return fail(Error::Invalid);
+    if (next != UINT64_MAX) {
+      try {
+        controlParameters_.assign(result.parameters.begin(), result.parameters.end() - 1);
+      } catch (const std::bad_alloc &) {
+        return fail(Error::Allocation);
+      }
+      output_ = {};
+      return {};
+    }
+    controlParameters_.clear();
+  }
+
   if (matrixTransposing_) {
     matrixRight_ = std::move(output_);
     matrixTransposing_ = false;
