@@ -26,6 +26,14 @@ fn work(n:int)->int:
   values=generate(1,fn(i):total(n))
   values[0]
 """,
+    'finite-sort': """fn work(n:int)->int:
+  sum=0
+  for i in range(n):
+    values=[n,i+1]
+    sort(values)
+    sum=sum+values[0]
+  sum
+""",
     'infinite': '''fn work(n:int)->int:
   i=0
   while true:

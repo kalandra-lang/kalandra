@@ -148,7 +148,8 @@ codeblock { language = kalandra, """fn selected(n: int) -> int:
   snapshot = copy(values)
   values[0] = 999
   total = 0
-  for value in map(snapshot, fn(value): value):
+  ordered = sorted(map(snapshot, fn(value): value))
+  for value in ordered:
     total = total + value
   total
 
@@ -164,7 +165,7 @@ generate calls a callback with each index; array map calls it with each input el
 
 Local arrays use invocation-owned device memory. Their backing can grow as needed, subject to device and task memory budgets. Unreachable numeric/Bool arrays are reclaimed during execution, so repeatedly constructing temporary arrays does not retain every earlier allocation. Allocation, copying and collection have cancellation checkpoints. Checked bounds errors discard partial results, and submitted work settles before its storage is released.
 
-The numeric and Bool array representation uses a 64-bit cell per element plus private allocation metadata. Memory costs can therefore exceed the corresponding CPU array payload. Strings, records and function values are not supported as device-array elements. sorted and sort are not supported inside a GPU helper.
+The numeric and Bool array representation uses a 64-bit cell per element plus private allocation metadata. Memory costs can therefore exceed the corresponding CPU array payload. Strings, records and function values are not supported as device-array elements. sort orders a local numeric/Bool array in place, so aliases observe the changes. sorted allocates independent backing first. Both use the same deterministic order as CPU arrays, including NaNs and signed zero, and compare floating values by integer keys without floating-point arithmetic. Sorting has cancellation checkpoints between bounded comparison/swap steps.
 
 h2 { "Plain-data values in GPU helpers" }
 
@@ -208,7 +209,7 @@ table {
   row = ["Collecting loops with yield", "Supported", "Numeric/Bool elements; ordered, nested and filtered collection"],
   row = ["Array copy, slice and concat", "Supported for their documented element types", "Local numeric/Bool arrays"],
   row = ["Array generate and map", "Supported for their documented element types", "Local numeric/Bool arrays; ordered nonrecursive callbacks with supported captures"],
-  row = ["Array sorted and sort", "Supported for their documented element types", "Not supported"],
+  row = ["Array sorted and sort", "Supported for their documented element types", "Local numeric/Bool arrays; deterministic ordering and checkpointed sorting"],
   row = ["Owned fields and recursive data", "Supported", "Not supported"],
   row = ["Function values, captures and recursive calls", "Supported", "Direct nonrecursive helpers and generate/map callback literals; general function values and recursive calls are not supported"],
   row = ["Tensor calculations", "Supported", "Supported numerical graphs; tensor loop state is not supported"],

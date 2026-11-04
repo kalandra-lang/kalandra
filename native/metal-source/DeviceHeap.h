@@ -1,5 +1,6 @@
 #pragma once
 #include "../gpu-runtime/ControlArena.h"
+#include "kalandra/NumericType.h"
 #include "mlir/IR/Builders.h"
 #include <span>
 #include <vector>
@@ -29,6 +30,12 @@ public:
     Collected,
     GrowStart,
     Allocation,
+    SortPhase,
+    SortHandle,
+    SortBuild,
+    SortEnd,
+    SortRoot,
+    SortResume,
     Cells
   };
   static_assert(PC == runtime::detail::ControlArenaABI::PC &&
@@ -52,6 +59,9 @@ public:
   mlir::Value read(mlir::Value handle, mlir::Value field);
   void write(mlir::Value handle, mlir::Value field, mlir::Value);
   void fault(unsigned code);
+  // One bounded heapsort comparison/swap per control step, preserving raw bits.
+  void beginSort(mlir::Value handle, mlir::Value count);
+  mlir::Value sortStep(NumericType element, bool boolean);
 
 private:
   mlir::OpBuilder &b;

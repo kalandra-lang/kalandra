@@ -163,8 +163,8 @@ void interruptCollection(g::Runtime &runtime, const g::Program &program) {
             take(runtime.execute(c.kernel, c.inputs, c.parameters, c.outputBytes, c.groups),
                  "execute collector probe");
         check(result.parameters.size() > 10, "missing device allocator frame");
-        const auto capacity = std::uint64_t(result.parameters[3]) |
-                              (std::uint64_t(result.parameters[4]) << 32);
+        const auto capacity =
+            std::uint64_t(result.parameters[3]) | (std::uint64_t(result.parameters[4]) << 32);
         check(capacity == detail::ControlArenaABI::InitialWords,
               "steady temporary arrays grew backing instead of reclaiming dead storage");
         const auto state =
@@ -185,12 +185,47 @@ void interruptCollection(g::Runtime &runtime, const g::Program &program) {
   check(seen[2] && seen[3] && seen[5], "missing physical collector interruption coverage");
   std::cout << "PASS: physical clear/mark/sweep interruption and heap retirement\n";
 }
+// The compiler's private SortPhase cell follows its 14 allocator cells.
+// Interrupt only after observing a real GPU-written phase at a completed fence.
+void interruptSort(g::Runtime &runtime, const g::Program &program) {
+  for (auto phase : {1u, 2u, 3u}) {
+    auto value = input(runtime, 1000);
+    const auto baseline = runtime.retainedBytes();
+    bool reached = false;
+    {
+      auto execution = take(program.start(runtime, std::array{value}, {}), "start sort probe");
+      for (unsigned step = 0; step < 10000 && !execution.finished(); ++step) {
+        auto command = take(execution.next(runtime), "advance sort probe");
+        if (!command)
+          continue;
+        auto &c = *command;
+        auto result =
+            take(runtime.execute(c.kernel, c.inputs, c.parameters, c.outputBytes, c.groups),
+                 "execute sort probe");
+        check(result.parameters.size() > 30, "missing device sorter frame");
+        const auto state =
+            std::uint64_t(result.parameters[29]) | (std::uint64_t(result.parameters[30]) << 32);
+        check(bool(execution.accept(runtime, std::move(result))), "accept sort probe");
+        if (state == phase) {
+          reached = true;
+          break;
+        }
+      }
+    }
+    check(reached && runtime.retainedBytes() == baseline,
+          "sort build/sift/extract phase not observed or interrupted heap retained storage");
+    value = {};
+    check(!runtime.retainedBytes(), "sort probe input retained storage");
+  }
+  std::cout << "PASS: physical heap-build/sift/extract interruption and heap retirement\n";
+}
 } // namespace
 int main(int argc, char **argv) {
   if (argc != 4 && argc != 5)
     return 2;
   try {
-    const bool arrays = argc == 5 && std::string_view(argv[4]) == "arrays";
+    const bool sorting = argc == 5 && std::string_view(argv[4]) == "sorting";
+    const bool arrays = sorting || (argc == 5 && std::string_view(argv[4]) == "arrays");
     g::Options options;
     if (arrays) {
 #if defined(KALANDRA_CONTROL_CUDA)
@@ -199,7 +234,7 @@ int main(int argc, char **argv) {
       // grows beyond its initial 32 words during 1,000 fresh allocations.
       options.maxBytes = 64 * 1024 * 1024;
 #else
-      options.maxBytes = 16 * 1024;
+      options.maxBytes = sorting ? 256 * 1024 : 16 * 1024;
 #endif
     }
     auto runtime = std::shared_ptr<g::Runtime>(take(g::Runtime::create(options), "create driver"));
@@ -220,7 +255,9 @@ int main(int argc, char **argv) {
       }
     }
     fault(*runtime, *async, bad, arrays ? 5 : 4);
-    if (arrays)
+    if (sorting)
+      interruptSort(*runtime, finite);
+    else if (arrays)
       interruptCollection(*runtime, finite);
 #if !defined(KALANDRA_CONTROL_CUDA)
     check(!runtime->validationErrors(), "source control emitted Vulkan validation errors");

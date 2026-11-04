@@ -244,6 +244,61 @@ fn work(n:int)->int:
     total=total+value
   total+values[n-1]
 """, 'work(1000)', 'int64', 1000999)
+    for typ in ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64'):
+        result['sort-'+typ] = (f"""fn work(n:{typ})->{typ}:
+  values:[{typ}]=[3,1,2,1]
+  alias=values
+  copied=sorted(values)
+  copied[0]=n
+  sort(values)
+  if alias[0]=={typ}(1) and alias[1]=={typ}(1) and alias[2]=={typ}(2) and alias[3]=={typ}(3) and copied[0]==n and copied[1]=={typ}(1) and copied[3]=={typ}(3):
+    {typ}(7)
+  else:
+    {typ}(0)
+""", f'work({typ}(4))', typ, 7)
+    result['sort-bool'] = ("""fn work(n:int)->int:
+  values=[true,false,true,false]
+  alias=values
+  copied=sorted(values)
+  copied[0]=true
+  sort(values)
+  if not alias[0] and not alias[1] and alias[2] and alias[3] and copied[0] and not copied[1]:
+    n
+  else:
+    0
+""", 'work(9)', 'int64', 9)
+    result['sort-empty-singleton-repeat'] = ("""fn work(n:int)->int:
+  empty=generate(n,fn(i):i)
+  sort(empty)
+  copied=sorted(empty)
+  single=[42]
+  sort(single)
+  result=sorted(single)
+  result[0]+length(copied)
+""", 'work(0)', 'int64', 42)
+    result['sort-large-checkpointed'] = ("""fn work(n:int)->int:
+  values=generate(n,fn(i):n-i)
+  alias=values
+  copied=sorted(values)
+  original=values[0]
+  sort(values)
+  total=0
+  for i in range(n):
+    total=total+i*copied[i]
+  total+original+alias[0]
+""", 'work(1000)', 'int64', 333334001)
+    result['sort-in-callback'] = ("""fn transform(value:int)->int:
+  values=[value+2,value,value+1]
+  copied=sorted(values)
+  copied[0]
+fn work(n:int)->int:
+  values=generate(n,fn(i):n-i)
+  changed=map(values,transform)
+  total=0
+  for value in changed:
+    total=total+value
+  total
+""", 'work(50)', 'int64', 1275)
     return result
 
 

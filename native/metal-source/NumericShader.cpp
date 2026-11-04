@@ -1173,7 +1173,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     const auto &node = input.expressions.at(op.source);
     return (flatArray(node.type) && (std::holds_alternative<TensorLiteral>(node.operation) ||
                                    std::holds_alternative<ArraySlice>(node.operation) ||
-                                   std::holds_alternative<ArrayConcat>(node.operation))) ||
+                                   std::holds_alternative<ArrayConcat>(node.operation) ||
+                                   std::holds_alternative<ArraySort>(node.operation))) ||
            std::holds_alternative<ArrayIndex>(node.operation) ||
            std::holds_alternative<ArrayBoundsCheck>(node.operation) ||
            std::holds_alternative<ArrayStore>(node.operation) ||
@@ -1558,7 +1559,53 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                 arith::TruncIOp::create(b, loc, b.getIntegerType(desc->bits), index));
           return index;
         };
-        if (flatArray(node.type)) {
+        if (const auto *sort = std::get_if<ArraySort>(&node.operation)) {
+          const auto count = lengthOf(op.args.at(0));
+          const auto phase = heap->load(DeviceHeapEmitter::SortPhase);
+          next = constant(i + 1);
+          condition(compare(arith::CmpIPredicate::ne, phase, constant(0)), [&] {
+            const auto &type = plan.slots.at(op.output);
+            auto done = heap->sortStep(type.element, type.builtin == BuiltinValue::Bool);
+            condition(done, [&] {
+              store(offsets.at(op.output), heap->load(DeviceHeapEmitter::SortHandle));
+            });
+          });
+          // The source PC remains here until sorting resets its phase. Starting
+          // a sort does not execute an unbounded native helper or host algorithm.
+          condition(compare(arith::CmpIPredicate::eq, phase, constant(0)), [&] {
+            if (!sort->copying) {
+              heap->beginSort(load(offsets.at(op.args.at(0))), count);
+            } else {
+              const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
+              const auto ready = heap->ready(), cursor = heap->cursor();
+              const Value complete = arith::AndIOp::create(b, loc, ready,
+                  compare(arith::CmpIPredicate::eq, cursor, count));
+              condition(empty, [&] { heap->beginSort(constant(0), constant(0)); });
+              condition(arith::AndIOp::create(b, loc,
+                  compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)),
+                  arith::XOrIOp::create(b, loc, empty, yes)), [&] {
+                const auto &type = plan.slots.at(op.output);
+                heap->begin(count, type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1);
+              });
+              condition(ready, [&] {
+                condition(compare(arith::CmpIPredicate::ult, cursor, count), [&] {
+                  const Value offset = arith::AddIOp::create(b, loc, constant(4), cursor);
+                  heap->write(heap->handle(), offset,
+                      heap->read(load(offsets.at(op.args.at(0))), offset));
+                  heap->advance();
+                });
+                condition(complete, [&] {
+                  heap->beginSort(heap->handle(), count);
+                  heap->finish();
+                });
+              });
+            }
+          });
+          const Value done = arith::AndIOp::create(b, loc,
+              compare(arith::CmpIPredicate::ne, phase, constant(0)),
+              compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::SortPhase), constant(0)));
+          next = arith::SelectOp::create(b, loc, done, constant(i + 2), constant(i + 1));
+        } else if (flatArray(node.type)) {
           const bool literal = std::holds_alternative<TensorLiteral>(node.operation);
           const bool slice = std::holds_alternative<ArraySlice>(node.operation);
           const bool shape = std::holds_alternative<CollectionQuery>(node.operation);

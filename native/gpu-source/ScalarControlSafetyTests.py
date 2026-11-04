@@ -16,6 +16,7 @@ p.add_argument('--driver', type=Path, required=True)
 p.add_argument('--backend', choices=('vulkan', 'cuda'), required=True)
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--arrays', action='store_true')
+p.add_argument('--sort', action='store_true')
 a = p.parse_args()
 a.root.mkdir(parents=True, exist_ok=True)
 sources = {
@@ -52,6 +53,24 @@ if a.arrays:
     sources['finite'] = cases()['reclaim-dead-keep-alias'][0]
     sources['infinite'] = "fn work(n:int)->int:\n  i=0\n  while true:\n    values=[i,n]\n    i=values[0]+1\n  i\n"
     sources['fault'] = fault_cases()['bounds-before-rhs'][0]
+if a.sort:
+    assert a.arrays, '--sort requires --arrays'
+    sources['finite'] = """fn work(n:int)->int:
+  values=generate(n,fn(i):n-i)
+  sort(values)
+  total=0
+  for value in values:
+    total=total+value
+  total
+"""
+    sources['infinite'] = """fn work(n:int)->int:
+  i=0
+  while true:
+    values=[n,i]
+    sort(values)
+    i=values[0]+1
+  i
+"""
 shaders = []
 for name, helper in sources.items():
     source = a.root/(name+'.k')
@@ -74,7 +93,7 @@ for name, helper in sources.items():
               and not any(x in f.stem for x in ('.lowered', '.converted', '.kernel'))]
     assert len(stages) == 1, (name, stages)
     shaders.append(stages[0])
-result = subprocess.run([str(a.driver.resolve()), *map(str, shaders), *(['arrays'] if a.arrays else [])],
+result = subprocess.run([str(a.driver.resolve()), *map(str, shaders), *(['sorting' if a.sort else 'arrays'] if a.arrays else [])],
                         capture_output=True, text=True, timeout=180)
 print(result.stdout, end='')
 print(result.stderr, end='')
@@ -82,6 +101,7 @@ assert result.returncode == 0, result.returncode
 assert 'PASS:' in result.stdout
 (a.root/'report.json').write_text(json.dumps({
     'backend': a.backend, 'gpuExecution': True,
+    'sorting': a.sort,
     'finiteStorage': 'invocation-local numeric arrays' if a.arrays else 'Step(value:int, enabled:Bool)',
     'driverChecks': ['prepared-reuse', 'distinct-concurrent-captures',
                      'infinite-cancellation', 'deadlines', 'fault-precedence',

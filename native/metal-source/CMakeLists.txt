@@ -74,7 +74,7 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-metal-source-lowering-sanitized SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-metal-source-lowering-sanitized PRIVATE -Wall -Wextra -Werror
     -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-  add_executable(kalandra-metal-source-compiler-sanitized main.cpp Compiler.cpp Command.cpp NumericShader.cpp NumericProgram.cpp DeviceHeap.cpp DeviceLiveness.cpp ../lib/GpuInteger.cpp ../lib/GpuConversion.cpp Build.cpp)
+  add_executable(kalandra-metal-source-compiler-sanitized main.cpp Compiler.cpp Command.cpp NumericShader.cpp NumericProgram.cpp DeviceHeap.cpp DeviceSort.cpp DeviceLiveness.cpp ../lib/GpuInteger.cpp ../lib/GpuConversion.cpp Build.cpp)
   target_link_libraries(kalandra-metal-source-compiler-sanitized PRIVATE kalandra-semantics-sanitized kalandra-packages-sanitized kalandra-metal-source-lowering-sanitized MLIR LLVM)
   target_include_directories(kalandra-metal-source-compiler-sanitized SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-metal-source-compiler-sanitized PRIVATE -Wall -Wextra -Werror -O1 -g
@@ -1273,6 +1273,14 @@ if(BUILD_TESTING)
         --runtime "$<TARGET_FILE:${ARRAY_CONTROL_RUNTIME}>" --variant "${VARIANT}"
         --root "${CMAKE_CURRENT_BINARY_DIR}/device-array-safety-${VARIANT}")
     set_tests_properties(native-metal-device-array-safety-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-sort-bits-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceSortBitsTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --clang "${CMAKE_CXX_COMPILER}"
+        --metal-runtime "$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+        --runtime "$<TARGET_FILE:${ARRAY_CONTROL_RUNTIME}>" --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-sort-bits-${VARIANT}")
+    set_tests_properties(native-metal-device-sort-bits-${VARIANT} PROPERTIES TIMEOUT 1200
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endforeach()
 endif()

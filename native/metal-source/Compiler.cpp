@@ -122,8 +122,6 @@ class Compiler {
       for (auto value : fn.expressions) {
         const auto &expression = cpu.expressions[value];
         const auto &op = expression.operation;
-        if (std::holds_alternative<ArraySort>(op))
-          reject(expression.span, "array sorting currently requires CPU execution");
         if (auto *call = std::get_if<FunctionCall>(&op))
           pending.push_back(call->function);
         if (auto *map = std::get_if<ArrayMap>(&op))
