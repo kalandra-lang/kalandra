@@ -299,6 +299,103 @@ fn work(n:int)->int:
     total=total+value
   total
 """, 'work(50)', 'int64', 1275)
+    result.update({
+        'record-only-array-root': ("""type Bundle:
+  values:[int]
+fn make(n:int)->Bundle:
+  Bundle {values:[n,n+1]}
+fn score(bundle:Bundle)->int:
+  bundle.values[0]+bundle.values[1]
+fn work(n:int)->int:
+  bundle=make(n)
+  for i in range(1000):
+    temporary=[i,i+1]
+    if temporary[0]<0:
+      break
+  score(bundle)
+""", 'work(20)', 'int', 41),
+        'nested-record-array-roots': ("""type Inner:
+  values:[int]
+  flags:[Bool]
+type Outer:
+  row:Inner
+  weight:int
+fn work(n:int)->int:
+  holder=Outer {row:Inner {values:[n,n+1],flags:[true,false]},weight:3}
+  for i in range(1000):
+    temporary=[i,i+1]
+    if temporary[0]<0:
+      break
+  if holder.row.flags[0]:
+    holder.row.values[1]*holder.weight
+  else:
+    0
+""", 'work(20)', 'int', 63),
+        'enum-array-roots': ("""enum Box:
+  Empty
+  Some:
+    values:[int]
+fn score(box:Box)->int:
+  match box:
+    Box.Empty:0
+    Box.Some {values}:values[0]
+fn work(n:int)->int:
+  total=0
+  for i in range(n):
+    box=if i%2==0:Box.Some {values:[i,i+1]}
+    else:Box.Empty
+    for j in range(4):
+      temporary=[j,i]
+      total=total+temporary[0]
+    total=total+score(box)
+  total
+""", 'work(80)', 'int', 2040),
+        'record-array-alias-update': ("""type Bundle:
+  values:[int]
+fn work(n:int)->int:
+  original=Bundle {values:[1,2]}
+  alias=original
+  view=alias.values
+  view[0]=n
+  changed=original with {values:copy(original.values)}
+  independent=changed.values
+  independent[1]=10
+  original.values[0]*100+alias.values[1]*10+changed.values[1]
+""", 'work(7)', 'int', 730),
+        'record-shadow-keeps-outer-root': ("""type Bundle:
+  values:[int]
+fn work(n:int)->int:
+  bundle=Bundle {values:[0]}
+  for i in range(n):
+    bundle=Bundle {values:[i+1]}
+  bundle.values[0]
+""", 'work(1000)', 'int', 0),
+    })
+    for typ in ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64'):
+        result['record-owned-'+typ] = (f"""type Holder:
+  values:[{typ}]
+fn work(n:{typ})->{typ}:
+  holder=Holder {{values:[n]}}
+  for i in range(80):
+    temporary=[i,i+1]
+    if temporary[0]<0:
+      break
+  holder.values[0]
+""", f'work({typ}(7))', typ, 7)
+    result['record-captured-in-map'] = ("""type Config:
+  values:[int]
+fn transform(config:Config,value:int)->int:
+  temporary=[value,config.values[0]]
+  temporary[0]+temporary[1]
+fn work(n:int)->int:
+  config=Config {values:[n]}
+  values=generate(100,fn(index):index)
+  changed=map(values,fn(value):transform(config,value))
+  total=0
+  for value in changed:
+    total=total+value
+  total
+""", 'work(7)', 'int', 5650)
     return result
 
 
@@ -352,3 +449,34 @@ fn work(n:int)->int:
   length(changed)
 """, 'work(4)', 4)
     return result
+
+
+def record_lifetime_cases():
+    """Record-held roots must survive/reclaim through actual task settlement."""
+    prefix = "type Holder:\n  values:[int]\n"
+    return {
+        'finite': prefix+"""fn work(n:int)->int:
+  holder=Holder {values:[n]}
+  total=0
+  for i in range(n):
+    temporary=[i+1,n]
+    total=total+temporary[0]
+  total+holder.values[0]-n
+""",
+        'infinite': prefix+"""fn work(n:int)->int:
+  holder=Holder {values:[n]}
+  i=0
+  while true:
+    temporary=[i,n]
+    if holder.values[0]<0:
+      break
+    i=temporary[0]+1
+  i
+""",
+        'fault': prefix+"""fn work(n:int)->int:
+  holder=Holder {values:[n,1]}
+  alias=holder.values
+  alias[n]=1/(n-n)
+  n
+""",
+    }

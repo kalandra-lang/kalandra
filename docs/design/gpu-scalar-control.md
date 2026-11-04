@@ -42,7 +42,7 @@ order; enum tags occupy their existing synthetic first field. Narrow numeric
 leaves retain their typed bit carriers and Bool leaves normalize on scalar reads.
 Nested field copies snapshot all source cells before writing a destination.
 Construction clears inactive enum payloads. The nominal layout graph is walked
-iteratively; recursive/owned fields require the separate device-storage layer.
+iteratively. Numeric/Bool array fields use stable arena handles, and live logical records expand into owned-leaf roots at allocation safepoints. Nested records/enums preserve these roots and zero inactive payloads. Recursive managed references and other owned fields still require further device-storage integration.
 Compilation charges expanded frames/copies against a work budget and rejects ABI
 overflow before generating huge shaders. No aggregate pointer crosses the
 host/device boundary: entry parameters/results remain scalar, and host-continuation

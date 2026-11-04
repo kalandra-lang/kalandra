@@ -1067,7 +1067,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
   };
-  const bool storage = std::ranges::any_of(plan.slots, flatArray);
+  bool storage = std::ranges::any_of(plan.slots, flatArray);
   if (!scalar(root.resultType) || std::ranges::any_of(root.parameters, [&](auto symbol) {
         return !scalar(input.symbols.at(symbol).type);
       }))
@@ -1080,6 +1080,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   struct RecordLayout {
     std::size_t words = 0;
     std::vector<std::size_t> fields;
+    std::vector<std::size_t> owned;
   };
   std::map<std::size_t, RecordLayout> layouts;
   const auto plainRecord = [](const ValueType &type) {
@@ -1108,7 +1109,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         if (!layoutBudget--)
           return reject("GPU aggregate layout exceeds configured work budget");
         const auto &child = record.fields[field++].type;
-        if (scalar(child))
+        if (scalar(child) || flatArray(child))
           continue;
         if (!plainRecord(child))
           return reject("GPU plain-data records cannot contain owned or host-only fields");
@@ -1121,13 +1122,26 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       RecordLayout layout;
       for (const auto &member : record.fields) {
         layout.fields.push_back(layout.words);
-        const auto size = scalar(member.type) ? 1 : layouts.at(*member.type.record).words;
+        const auto size = scalar(member.type) || flatArray(member.type)
+                              ? 1 : layouts.at(*member.type.record).words;
+        const auto owned = flatArray(member.type) ? 1
+                           : plainRecord(member.type) ? layouts.at(*member.type.record).owned.size()
+                                                     : 0;
+        if (owned > layoutBudget)
+          return reject("GPU aggregate owned layout exceeds configured work budget");
+        layoutBudget -= owned;
+        if (flatArray(member.type))
+          layout.owned.push_back(layout.words);
+        else if (plainRecord(member.type))
+          for (auto offset : layouts.at(*member.type.record).owned)
+            layout.owned.push_back(layout.words + offset);
         if (size > (UINT32_MAX - 4) / 2 - layout.words)
           return reject("GPU aggregate layout exceeds the device ABI");
         layout.words += size;
       }
       // Empty records still have an addressable private cell, never a host pointer.
       layout.words = std::max<std::size_t>(1, layout.words);
+      storage |= !layout.owned.empty();
       layouts.emplace(id, std::move(layout));
       activeRecords.erase(id);
       pending.pop_back();
@@ -1151,17 +1165,37 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   using C = continuation::Code;
   std::vector<std::vector<std::size_t>> liveRoots;
   if (storage) {
-    std::vector<continuation::Slot> arrays;
-    for (std::size_t i = 0; i < plan.slots.size(); ++i)
-      if (flatArray(plan.slots[i]))
-        arrays.push_back(i);
-    auto roots = deviceLiveRoots(plan, arrays);
+    std::vector<continuation::Slot> ownedSlots;
+    for (std::size_t i = 0; i < plan.slots.size(); ++i) {
+      const auto &type = plan.slots[i];
+      if (flatArray(type) || (plainRecord(type) && !layouts.at(*type.record).owned.empty()))
+        ownedSlots.push_back(i);
+    }
+    auto roots = deviceLiveRoots(plan, ownedSlots);
     if (!roots)
       return reject(roots.error());
     liveRoots = std::move(*roots);
-    for (auto &row : liveRoots)
-      for (auto &slot : row)
-        slot = offsets.at(slot);
+    // Liveness is solved for logical slots. Expand a live aggregate into all
+    // its owned leaves; stale dead slots and overwritten values stay unrooted.
+    // Inactive enum payload cells are zeroed at construction, including nested
+    // records. This inline representation never imports host pointers.
+    std::size_t rootBudget = 64 * 1024 * 1024 / sizeof(std::size_t);
+    for (auto &row : liveRoots) {
+      std::vector<std::size_t> expanded;
+      for (auto slot : row) {
+        const auto &type = plan.slots.at(slot);
+        const auto count = flatArray(type) ? 1 : layouts.at(*type.record).owned.size();
+        if (count > rootBudget)
+          return reject("GPU aggregate root expansion exceeds configured memory budget");
+        rootBudget -= count;
+        if (flatArray(type))
+          expanded.push_back(offsets.at(slot));
+        else
+          for (auto leaf : layouts.at(*type.record).owned)
+            expanded.push_back(offsets.at(slot) + leaf);
+      }
+      row = std::move(expanded);
+    }
   }
   std::vector<DeviceRootMap> allocationRoots;
   if (storage)

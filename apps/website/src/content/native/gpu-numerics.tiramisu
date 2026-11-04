@@ -85,7 +85,7 @@ fn main() -> float32 ! TaskError:
 
 This returns 21, displayed as 41a80000. The GPU doubles the original [1, 2, 3] snapshot; the CPU adds the edited first array element, 9. array(tensor) also copies, so editing that array cannot change the tensor.
 
-These are host-side array operations. Device functions still operate on immutable numerical tensors; array element writes inside a GPU function are not supported. String, record and function-array values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
+This example prepares arrays on the host and transfers an immutable tensor snapshot. GPU helpers can also construct and modify their own numeric/Bool arrays, as described below. Arrays cannot yet be passed across a CPU/device entry boundary. Arrays of Strings, records, enums or function values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
 
 h2 { "Types and ranks" }
 
@@ -183,9 +183,9 @@ Local arrays use invocation-owned device memory. Their backing can grow as neede
 
 The numeric and Bool array representation uses a 64-bit cell per element plus private allocation metadata. Memory costs can therefore exceed the corresponding CPU array payload. Strings, records and function values are not supported as device-array elements. sort orders a local numeric/Bool array in place, so aliases observe the changes. sorted allocates independent backing first. Both use the same deterministic order as CPU arrays, including NaNs and signed zero, and compare floating values by integer keys without floating-point arithmetic. Sorting has cancellation checkpoints between bounded comparison/swap steps.
 
-h2 { "Plain-data values in GPU helpers" }
+h2 { "Records and enums in GPU helpers" }
 
-A device helper can construct records and enum variants containing numeric scalars, Bool and nested plain-data records. Field access, record updates, value copies and match execute on the device, including inside loops. Internal nonrecursive helpers can accept and return those values.
+A device helper can construct records and enum variants containing numeric scalars, Bool, numeric/Bool arrays and nested records. Field access, record updates, value copies and match execute on the device, including inside loops. Internal nonrecursive helpers can accept and return those values.
 
 codeblock { language = kalandra, """type Sample:
   value: float32
@@ -204,7 +204,25 @@ fn main() -> float32 ! TaskError:
     try await spawn adjusted(float32(40)) on gpu
 """ }
 
-This computes 42; the executable prints 42280000. Records are copied by value within the private device frame. Inactive enum payloads are zeroed, and fields retain their declared numeric types. These are local device values: passing records across the host/device boundary or storing arrays, Strings, tensors or function values in their fields requires additional device storage and is not supported. Numeric scalar parameters and results retain the entry boundary.
+This computes 42; the executable prints 42280000. Records are copied by value within the private device frame. Inactive enum payloads are zeroed, and fields retain their declared numeric types. Record array fields preserve their backing aliases. Use copy on an array field when you need independent element storage. These are local device values: records cannot cross the host/device entry boundary. Strings, tensors, function values and recursive records are not supported as their device fields. Scalar entry parameters and results can be numeric or Bool.
+
+codeblock { language = kalandra, """type Batch:
+  values: [int]
+
+fn sumBatch(count: int) -> int:
+  batch = Batch {values: generate(count, fn(index): index + 1)}
+  total = 0
+  for value in batch.values:
+    total = total + value
+  total
+
+fn main() -> int ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn sumBatch(4) on gpu
+""" }
+
+This computes 10 and prints 000000000000000a. The array is constructed and read on the GPU. Its backing remains alive while batch refers to it, including across helper calls and allocation checkpoints.
 
 h2 { "AI and LLM foundations" }
 
@@ -227,7 +245,8 @@ table {
   row = ["Array copy, slice and concat", "Supported for their documented element types", "Local numeric/Bool arrays"],
   row = ["Array generate and map", "Supported for their documented element types", "Local numeric/Bool arrays; ordered nonrecursive callbacks with supported captures"],
   row = ["Array sorted and sort", "Supported for their documented element types", "Local numeric/Bool arrays; deterministic ordering and checkpointed sorting"],
-  row = ["Owned fields and recursive data", "Supported", "Not supported"],
+  row = ["Record/enum numeric and Bool array fields", "Supported", "Supported in local values and internal nonrecursive helpers"],
+  row = ["Recursive owned data and other owned fields", "Supported", "Not supported"],
   row = ["Function values, captures and recursive calls", "Supported", "Direct nonrecursive helpers and generate/map callback literals; general function values and recursive calls are not supported"],
   row = ["Tensor calculations", "Supported", "Supported numerical graphs; tensor loop state is not supported"],
   row = ["Task scheduling and device transfers", "Supported", "Host orchestration; not device instructions"]

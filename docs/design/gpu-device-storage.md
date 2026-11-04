@@ -2,7 +2,8 @@
 
 This is the storage contract for #279. Invocation-local numeric/Bool arrays and
 ordered collecting loops use its arena and a collector for reference-free
-payloads. Owned-reference layouts, cyclic values and typed entry transport
+payloads. Local acyclic records/enums may contain these arrays; their live inline
+owned leaves are roots, preserving array aliases through allocation checkpoints. Owned-reference layouts, cyclic values and typed entry transport
 remain required work. The plain-record frame remains an inline value
 representation; host pointers are not a valid extension of it.
 

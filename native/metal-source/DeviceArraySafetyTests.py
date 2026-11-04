@@ -13,7 +13,7 @@ p.add_argument('--root', type=Path, required=True)
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(repo/'native/gpu-source'))
-from DeviceArrayCases import cases, fault_cases
+from DeviceArrayCases import cases, fault_cases, record_lifetime_cases
 sources = {
     'finite': cases()['reclaim-dead-keep-alias'][0],
     'finite-map': """fn total(n:int)->int:
@@ -43,6 +43,7 @@ fn work(n:int)->int:
 ''',
     'fault': fault_cases()['bounds-before-rhs'][0],
 }
+sources.update({name+'-record': helper for name, helper in record_lifetime_cases().items()})
 flags = {'optimized': ['-O2'], 'sanitized': ['-O1', '-g', '-fsanitize=address,undefined',
     '-fno-sanitize-recover=all', '-fno-omit-frame-pointer'],
     'thread-sanitized': ['-O1', '-g', '-fsanitize=thread', '-fno-omit-frame-pointer']}[a.variant]
@@ -69,5 +70,5 @@ for name, helper in sources.items():
          '-DKALANDRA_ARRAY_HOST="'+str(fixture/'host.cpp')+'"',
          repo/'native/metal-source/DeviceArrayRuntimeTests.cpp', a.metal_runtime.resolve(),
          a.runtime.resolve(), '-framework', 'Foundation', '-framework', 'Metal', '-o', binary])
-    mode = [] if name.startswith('finite') else ['fault' if name == 'fault' else 'cancel-only']
+    mode = [] if name.startswith('finite') else ['fault' if name.startswith('fault') else 'cancel-only']
     print(a.variant, name, run([binary, fixture, *mode]), flush=True)

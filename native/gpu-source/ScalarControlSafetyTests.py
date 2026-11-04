@@ -17,6 +17,7 @@ p.add_argument('--backend', choices=('vulkan', 'cuda'), required=True)
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--arrays', action='store_true')
 p.add_argument('--sort', action='store_true')
+p.add_argument('--records', action='store_true', help='record-held array roots; requires --arrays')
 a = p.parse_args()
 a.root.mkdir(parents=True, exist_ok=True)
 sources = {
@@ -53,6 +54,10 @@ if a.arrays:
     sources['finite'] = cases()['reclaim-dead-keep-alias'][0]
     sources['infinite'] = "fn work(n:int)->int:\n  i=0\n  while true:\n    values=[i,n]\n    i=values[0]+1\n  i\n"
     sources['fault'] = fault_cases()['bounds-before-rhs'][0]
+if a.records:
+    assert a.arrays and not a.sort, '--records requires --arrays without --sort'
+    from DeviceArrayCases import record_lifetime_cases
+    sources = record_lifetime_cases()
 if a.sort:
     assert a.arrays, '--sort requires --arrays'
     sources['finite'] = """fn work(n:int)->int:

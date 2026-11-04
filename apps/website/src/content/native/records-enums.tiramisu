@@ -14,7 +14,7 @@ fn main() -> int:
   original.x + moved.x + moved.y
 """ }
 
-This returns 17: original.x is 2, moved.x is 12 and moved.y is 3. Field initializer order follows source order. A with expression produces a new record; original remains unchanged. All required fields must be supplied once with compatible types. Records can contain supported Strings, collections, nested records or enums, and function values; the contained values are kept alive automatically.
+This returns 17: original.x is 2, moved.x is 12 and moved.y is 3. Field initializer order follows source order. A with expression produces a new record; original remains unchanged. All required fields must be supplied once with compatible types. Records can contain supported Strings, collections, nested records or enums, and function values; the contained values are kept alive automatically. Copying a record preserves the backing aliases of its array fields. Use copy on an array field when the new record needs independent element storage.
 
 h2 { "Represent alternatives" }
 
@@ -36,9 +36,10 @@ This returns 42. Only the selected alternative exists as a language value. Read 
 
 h2 { "Cross calls and workers" }
 
-Records and enums keep their contained values alive automatically and can be passed through supported CPU worker tasks. Importing a declaration under a different name does not create a new type. GPU numerical functions do not accept records or enums.
+Records and enums keep their contained values alive automatically and can be passed through supported CPU worker tasks. Importing a declaration under a different name does not create a new type. GPU helpers can construct and pass local nonrecursive records/enums containing numeric/Bool scalars, numeric/Bool arrays and nested records. GPU task entry arguments and results cannot be records or enums; keep those values inside the placed helper.
 
 list {
   link { url = "/docs/errors", "Declare application-error alternatives" },
-  link { url = "/docs/modules", "Export a type from a module" }
+  link { url = "/docs/modules", "Export a type from a module" },
+  link { url = "/docs/gpu-numerics#records-and-enums-in-gpu-helpers", "Records and array fields inside GPU helpers" }
 }

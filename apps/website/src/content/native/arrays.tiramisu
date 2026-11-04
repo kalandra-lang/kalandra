@@ -39,7 +39,7 @@ copy(values) returns an independent array of numeric, Bool or String elements. I
 
 h2 { "Replace an array binding" }
 
-A numeric or Bool array name can be reassigned in CPU functions, including functions with task suspension or expected-error handling. The new array may have a different length, but its element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
+A numeric or Bool array name can be reassigned. CPU functions support this across task suspension and expected-error handling; GPU helpers support reassignment of arrays constructed inside the helper. The new array may have a different length, but its element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
 
 codeblock { language = kalandra, """fn main() -> [int]:
   values = [3, 1, 2]
@@ -136,7 +136,7 @@ fn main() -> int ! TaskError:
 
 This returns 4. The write is allowed because pending has been awaited. If the write appeared before await, the checker would reject it even through an alias.
 
-Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Numeric and Bool array operations run on the CPU, including the host side of Metal, Vulkan and CUDA programs. Convert an array to a tensor before transferring data to a GPU; device functions do not support array element writes.
+Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Numeric and Bool array operations also run inside GPU helpers on arrays constructed there, including element writes and sorting under the same access rules. To send an existing CPU array to a GPU, convert it to a tensor snapshot before transferring it; array arguments and results cannot cross the CPU/device entry boundary.
 
 list {
   link { url = "/docs/tensors", "Shapes and tensor arithmetic" },
