@@ -1,4 +1,5 @@
 #include "Metal.h"
+#include "../gpu-runtime/ControlArena.h"
 #include "../include/kalandra/NumericKernelName.h"
 #include "ElementwiseLayout.h"
 #include "MatmulLayout.h"
@@ -531,6 +532,7 @@ struct NumericProgramArguments {
   std::vector<std::uint64_t> controlState;
   std::uint32_t controlSlots = 0;
   bool controlActive = false;
+  detail::ControlArena<Buffer, Error> controlArena{false};
   std::uint32_t captureCount = 0, slots = 0;
   std::vector<Buffer> values;
   std::vector<std::uint32_t> uses, retired, origins;
@@ -597,20 +599,36 @@ struct Bridge {
       const auto kernel = op.kernel.state_;
       bool valid = false;
       switch (op.kind) {
+      case K::DeviceControl:
+        if (!kernel || !scalar || op.target || op.workPerElement ||
+            op.scalars.size() < detail::ControlArenaABI::Cells ||
+            kernel->tensorTypes.size() != op.inputs.size() + 1 ||
+            kernel->tensorTypes.back() != NumericType::UInt64 ||
+            kernel->scalarBuffers.size() != op.inputs.size() + 1 ||
+            kernel->scalarBuffers.back() || kernel->readCount != op.inputs.size() + 1 ||
+            !std::all_of(kernel->scalarBuffers.begin(), kernel->scalarBuffers.end() - 1,
+                         [](auto role) { return role == 1; }))
+          return std::unexpected(Error::Invalid);
+        for (std::size_t i = 0; i <= op.inputs.size(); ++i)
+          if (kernel->tensorIndex(i) != i)
+            return std::unexpected(Error::Invalid);
+        [[fallthrough]];
       case K::ScalarControl:
         if (!kernel || op.scalars.empty() || op.target || op.workPerElement ||
             !std::all_of(op.scalars.begin(), op.scalars.end(), [](auto v) { return v == 0; }) ||
             !std::all_of(kernel->scalarTypes.begin(), kernel->scalarTypes.end(),
                          [](auto t) { return t == NumericType::UInt64; }) ||
-            !std::all_of(kernel->scalarBuffers.begin(), kernel->scalarBuffers.end(),
-                         [](auto role) { return role == 1; }))
+            (op.kind == K::ScalarControl &&
+             !std::all_of(kernel->scalarBuffers.begin(), kernel->scalarBuffers.end(),
+                          [](auto role) { return role == 1; })))
           return std::unexpected(Error::Invalid);
         controlSlots = std::max(controlSlots, std::uint64_t(op.scalars.size()));
         [[fallthrough]];
       case K::Map:
         valid = kernel && kernel->numericType && kernel->signature && kernel->elementwise &&
                 !kernel->matrix && !kernel->reduction &&
-                op.inputs.size() == kernel->signature->tensors &&
+                op.inputs.size() + unsigned(op.kind == K::DeviceControl) ==
+                    kernel->signature->tensors &&
                 op.scalars.size() == kernel->signature->scalars;
         if (valid)
           for (std::size_t i = 0; i < op.scalars.size(); ++i) {
@@ -712,7 +730,7 @@ struct Bridge {
       result->ownedCode.reserve(code.size());
       for (const auto &op : code) {
         const bool produces = op.kind == NumericInstructionKind::Map ||
-                              op.kind == NumericInstructionKind::ScalarControl ||
+                              isGpuControlKind(op.kind) ||
                               op.kind == NumericInstructionKind::Reduce ||
                               op.kind == NumericInstructionKind::Matmul ||
                               op.kind == NumericInstructionKind::Alias;
@@ -743,10 +761,11 @@ struct Bridge {
         auto &instruction = result->ownedCode.back();
         instruction.scalarOffset = result->captureCount;
         if (op.kind == NumericInstructionKind::Map ||
-            op.kind == NumericInstructionKind::ScalarControl) {
+            isGpuControlKind(op.kind)) {
           result->captureCount += op.scalars.size();
           if (prepareOnly) {
-            std::vector<Buffer> placeholders(op.inputs.size());
+            std::vector<Buffer> placeholders(op.inputs.size() +
+                                             unsigned(op.kind == NumericInstructionKind::DeviceControl));
             auto schema = captureNumeric(state, op.kernel, placeholders, op.scalars);
             if (!schema)
               return std::unexpected(schema.error());
@@ -778,11 +797,11 @@ struct Bridge {
     if (!captures.empty())
       for (const auto &op : plan->code)
         if (op.kind == NumericInstructionKind::Map ||
-            op.kind == NumericInstructionKind::ScalarControl)
+            isGpuControlKind(op.kind))
           for (std::size_t i = 0; i < op.scalars.size(); ++i) {
             const auto bits = describeNumeric(op.kernel.state_->scalarType(i))->bits;
             if ((bits < 64 && captures[op.scalarOffset + i] >> bits) ||
-                (op.kind == NumericInstructionKind::ScalarControl && captures[op.scalarOffset + i]))
+                (isGpuControlKind(op.kind) && captures[op.scalarOffset + i]))
               return std::unexpected(Error::Invalid);
           }
     const auto bytes = sizeof(NumericProgramArguments) +
@@ -1238,7 +1257,7 @@ struct Bridge {
     std::shared_ptr<MetalAllocation> staging, resources;
     Error error = Error::Device;
     bool succeeded = false, started = false, active = false;
-    bool copyingUpload = false;
+    bool copyingUpload = false, arenaAcknowledging = false;
     std::uint64_t uploadOffset = 0;
     explicit Frame(PacketData p) : packet(std::move(p)) {}
     ~Frame() {
@@ -1259,7 +1278,10 @@ struct Bridge {
   static const Buffer &tensor(const Frame &frame, std::size_t index) {
     if (frame.packet.numericProgram) {
       const auto &program = *frame.packet.numericProgram;
-      return program.values[program.code[program.pc].inputs[index]];
+      const auto &op = program.code[program.pc];
+      if (op.kind == NumericInstructionKind::DeviceControl && index == op.inputs.size())
+        return program.controlArena.buffer();
+      return program.values[op.inputs[index]];
     }
     if (frame.packet.graph && frame.packet.kind == Kind::Elementwise) {
       if (frame.graphPhase == 2)
@@ -2256,7 +2278,7 @@ struct Bridge {
   static std::uint64_t numericScalar(const NumericProgramArguments &program,
                                      const NumericProgramArguments::Instruction &op,
                                      std::size_t i) {
-    if (op.kind == NumericInstructionKind::ScalarControl && program.controlActive)
+    if (isGpuControlKind(op.kind) && program.controlActive)
       return program.controlState[i];
     return program.captures.empty() ? op.scalars[i] : program.captures[op.scalarOffset + i];
   }
@@ -2320,21 +2342,37 @@ struct Bridge {
     return cells <= UINT32_MAX && used <= maximum && cells * 12 <= maximum - used &&
            maximum - used - cells * 12 >= 64 * 1024 + k->parameterWords() * 4;
   }
-  static void finishNumeric(Frame &f) {
+  static std::expected<void, Error> finishNumeric(Frame &f) {
     auto &p = *f.packet.numericProgram;
     const auto lastIndex = f.numericFused ? numericPostIndex(p) : p.pc;
     const auto &last = p.code[lastIndex];
-    if (last.kind == NumericInstructionKind::ScalarControl) {
+    if (isGpuControlKind(last.kind)) {
       const auto *words = static_cast<const std::uint32_t *>(f.staging->contents());
       const auto next = std::uint64_t(words[1]) | (std::uint64_t(words[2]) << 32);
+      if (!next || words[0] != 1)
+        return std::unexpected(Error::Invalid);
+      for (std::size_t i = 0; i < last.scalars.size(); ++i)
+        p.controlState[i] =
+            std::uint64_t(words[1 + i * 2]) | (std::uint64_t(words[2 + i * 2]) << 32);
+      if (last.kind == NumericInstructionKind::DeviceControl) {
+        using A = detail::ControlArenaABI;
+        if (p.controlState[A::Capacity] != p.controlArena.words())
+          return std::unexpected(Error::Invalid);
+        if (next == A::Grow) {
+          if (!p.controlState[A::Resume] || p.controlState[A::Resume] >= A::Grow)
+            return std::unexpected(Error::Invalid);
+          auto requested = p.controlArena.request(p.controlState[A::Requested]);
+          if (!requested)
+            return std::unexpected(requested.error());
+        } else if (p.controlState[A::Requested] || p.controlState[A::Resume])
+          return std::unexpected(Error::Invalid);
+      }
       if (next != UINT64_MAX) {
-        for (std::size_t i = 0; i < last.scalars.size(); ++i)
-          p.controlState[i] =
-              std::uint64_t(words[1 + i * 2]) | (std::uint64_t(words[2 + i * 2]) << 32);
         p.controlActive = true;
-        return;
+        return {};
       }
       p.controlActive = false;
+      p.controlArena = detail::ControlArena<Buffer, Error>(false);
     }
     p.values[last.output] = std::move(f.result);
     if (!p.origins.empty())
@@ -2344,6 +2382,7 @@ struct Bridge {
       for (auto input : p.code[i].inputs)
         p.release(input);
     p.pc = lastIndex + 1;
+    return {};
   }
   static Buffer reusableNumericMapResult(Frame &f) {
     if (!f.packet.numericProgram || !f.packet.numericProgram->definition ||
@@ -2699,6 +2738,50 @@ struct Bridge {
     // TaskCore checks cancellation again while publishing the result.
     task.complete(&f.result);
   }
+  // Each clear/copy page owns a real external completion. The invocation keeps
+  // both buffers until ACK; cancellation cannot retire an in-flight resource.
+  static std::expected<bool, Error> serviceControlArena(Task &task, Frame &f) {
+    auto &program = *f.packet.numericProgram;
+    auto page = program.controlArena.beginPage([&](std::uint64_t bytes)
+        -> std::expected<Buffer, Error> {
+      const std::int64_t words = bytes / 8;
+      auto storage = allocateStorage(program.state, std::span(&words, 1), Format::UInt64,
+                                     true, program.index);
+      if (!storage)
+        return std::unexpected(storage.error());
+      return Buffer(*storage);
+    });
+    if (!page)
+      return std::unexpected(page.error());
+    if (!*page)
+      return false;
+    auto state = program.state;
+    if (!state->permit())
+      return std::unexpected(Error::Allocation);
+    id<MTLCommandBuffer> command = [state->queues[program.index] commandBuffer];
+    if (!command)
+      return std::unexpected(Error::Device);
+    id<MTLBlitCommandEncoder> encoder = [command blitCommandEncoder];
+    if (!encoder)
+      return std::unexpected(Error::Device);
+    const auto &p = **page;
+    if (p.clear)
+      [encoder fillBuffer:p.target.storage_->metal->buffer
+                   range:NSMakeRange(p.offset, p.bytes) value:0];
+    else
+      [encoder copyFromBuffer:p.source.storage_->metal->buffer sourceOffset:p.offset
+                     toBuffer:p.target.storage_->metal->buffer destinationOffset:p.offset
+                         size:p.bytes];
+    [encoder endEncoding];
+    auto count = state->inFlight.load();
+    do {
+      if (count >= state->options.maxInFlight)
+        return std::unexpected(Error::Budget);
+    } while (!state->inFlight.compare_exchange_weak(count, count + 1));
+    f.active = f.arenaAcknowledging = true;
+    submitCommand(task, f, command);
+    return true;
+  }
   static void resume(Task &task) {
     ProgressionEncodingExit encodingExit{*static_cast<Frame *>(task.frame())};
     for (;;) {
@@ -2711,6 +2794,19 @@ struct Bridge {
         }
         if (f.packet.numericProgram && !f.packet.preparation) {
           auto &program = *f.packet.numericProgram;
+          if (f.arenaAcknowledging) {
+            if (!f.succeeded) {
+              fail(task, f, std::int64_t(f.error));
+              return;
+            }
+            auto settled = program.controlArena.acknowledge();
+            if (!settled) {
+              fail(task, f, std::int64_t(settled.error()));
+              return;
+            }
+            f.arenaAcknowledging = false;
+            f.started = f.succeeded = false;
+          }
           if (f.started) {
             if (!f.succeeded) {
               fail(task, f, std::int64_t(f.error));
@@ -2775,7 +2871,12 @@ struct Bridge {
               } else if (kernel && kernel->numericType && f.staging &&
                          static_cast<const std::uint32_t *>(
                              f.staging->contents())[kernel->parameterWords() - 1] != UINT32_MAX) {
-                fail(task, f, 4);
+                const auto flag = static_cast<const std::uint32_t *>(
+                    f.staging->contents())[kernel->parameterWords() - 1];
+                const bool arena = program.code[program.pc].kind ==
+                                   NumericInstructionKind::DeviceControl;
+                fail(task, f, arena ? (flag == 0 ? 4 : flag == 1 ? 5 : flag == 2 ? 2 :
+                                      flag == 3 ? 6 : 3) : 4);
                 return;
               }
               if (f.numericFused && f.fusedParameters &&
@@ -2786,7 +2887,11 @@ struct Bridge {
                 fail(task, f, 4);
                 return;
               }
-              finishNumeric(f);
+              auto finished = finishNumeric(f);
+              if (!finished) {
+                fail(task, f, std::int64_t(finished.error()));
+                return;
+              }
             }
             f.staging.reset();
             f.fusedParameters.reset();
@@ -2912,7 +3017,7 @@ struct Bridge {
                 op.kind == K::Matmul)
               retainProgressionChunk(f, true);
             f.numericPostWanted = numericPostCandidate(f);
-            if (op.kind == K::Map || op.kind == K::ScalarControl || op.kind == K::Matmul ||
+            if (op.kind == K::Map || isGpuControlKind(op.kind) || op.kind == K::Matmul ||
                 op.kind == K::Reduce || op.kind == K::Branch ||
                 (op.kind == K::Alias && program.values[op.output])) {
               const auto work = numericBatchWork(f);
@@ -2997,8 +3102,34 @@ struct Bridge {
               fail(task, f, std::int64_t(Error::Invalid));
               return;
             }
+            if (op.kind == K::DeviceControl) {
+              if (!program.controlArena.buffer() && !program.controlArena.growing()) {
+                std::fill(program.controlState.begin(), program.controlState.end(), 0);
+                auto requested = program.controlArena.request(32);
+                if (!requested) {
+                  fail(task, f, std::int64_t(requested.error()));
+                  return;
+                }
+              }
+              if (program.controlArena.growing()) {
+                auto serviced = serviceControlArena(task, f);
+                if (!serviced) {
+                  fail(task, f, std::int64_t(serviced.error()));
+                  return;
+                }
+                if (*serviced)
+                  return;
+              }
+              using A = detail::ControlArenaABI;
+              if (program.controlState[A::PC] == A::Grow) {
+                program.controlState[A::PC] = program.controlState[A::Resume];
+                program.controlState[A::Requested] = program.controlState[A::Resume] = 0;
+              }
+              program.controlState[A::Capacity] = program.controlArena.words();
+              program.controlActive = true;
+            }
             f.packet.kernel = op.kernel;
-            if (op.kind == K::Map || op.kind == K::ScalarControl) {
+            if (op.kind == K::Map || isGpuControlKind(op.kind)) {
               if (!kernel->elementwise || kernel->matrix || kernel->reduction) {
                 fail(task, f, std::int64_t(Error::Invalid));
                 return;
@@ -3012,7 +3143,7 @@ struct Bridge {
                     fail(task, f, 2);
                     return;
                   }
-                  placeholders.resize(op.inputs.size());
+                  placeholders.resize(op.inputs.size() + unsigned(op.kind == K::DeviceControl));
                 } catch (...) {
                   fail(task, f, 2);
                   return;
@@ -3025,7 +3156,7 @@ struct Bridge {
                 f.packet.arguments = *arguments;
               }
               f.packet.kind = Kind::Elementwise;
-              if (!kernel->readCount) {
+              if (!kernel->readCount || op.kind == K::DeviceControl) {
                 auto value = allocateStorage(state, {}, *storageFormat(*kernel->numericType), true,
                                              kernel->index);
                 if (!value) {
@@ -3268,7 +3399,9 @@ struct Bridge {
             return;
           }
         }
-        if (f.packet.arguments && !f.packet.numericScalar && f.packet.kernel.state_->readCount) {
+        if (f.packet.arguments && !f.packet.numericScalar && f.packet.kernel.state_->readCount &&
+            !(f.packet.numericProgram && f.packet.numericProgram->code[f.packet.numericProgram->pc].kind ==
+                                            NumericInstructionKind::DeviceControl)) {
           const auto &kernel = f.packet.kernel.state_;
           f.packet.input = tensor(f, kernel->tensorIndex(0));
         }
@@ -3341,13 +3474,17 @@ struct Bridge {
             return;
           }
         }
+        const bool arenaControl = f.packet.numericProgram &&
+            f.packet.numericProgram->pc < f.packet.numericProgram->code.size() &&
+            f.packet.numericProgram->code[f.packet.numericProgram->pc].kind ==
+                NumericInstructionKind::DeviceControl;
         if (compute) {
           const auto &kernel = f.packet.kernel.state_;
           const auto &right = f.packet.right.storage_;
           const auto signature =
               kernel && kernel->signature ? *kernel->signature : ElementwiseSignature{2, 0};
           const auto format = kernel && kernel->numericType
-                                  ? *storageFormat(f.packet.numericScalar
+                                  ? *storageFormat((f.packet.numericScalar || arenaControl)
                                                        ? *kernel->numericType
                                                        : kernel->tensorType(kernel->tensorIndex(0)))
                                   : Format::Float32;
@@ -3390,13 +3527,14 @@ struct Bridge {
               const bool broadcast = kernel->scalarBuffer(i) ||
                                      (f.packet.graph && f.graphPhase == 0 &&
                                       i >= f.packet.graph->products[f.graphStage].tensorCount());
+              const bool privateArena = arenaControl && i + 1 == signature.tensors;
               if (!other ||
                   other->format !=
                       (kernel->numericType ? *storageFormat(kernel->tensorType(i)) : format) ||
                   (broadcast &&
                    (other->size != describeNumeric(*storageNumericType(other->format))->bytes())) ||
                   (other->rank > 8 || (!kernel->numericType && other->rank < 1)) ||
-                  (read && !broadcast &&
+                  (read && !broadcast && !privateArena &&
                    (other->rank != source->rank ||
                     other->size / describeNumeric(*storageNumericType(other->format))->bytes() !=
                         source->size / width ||
@@ -3849,7 +3987,8 @@ struct Bridge {
                 const auto &input = tensor(f, kernel->tensorIndex(i)).storage_;
                 auto buffer = input->metal ? input->metal->buffer : (*result)->metal->buffer;
                 [arguments setBuffer:buffer offset:0 atIndex:i];
-                [encoder useResource:buffer usage:MTLResourceUsageRead];
+                [encoder useResource:buffer usage:arenaControl && i + 1 == tensors
+                    ? MTLResourceUsageRead | MTLResourceUsageWrite : MTLResourceUsageRead];
               }
               [arguments setBuffer:(*result)->metal->buffer offset:0 atIndex:tensors];
               [arguments setBuffer:f.staging->buffer offset:f.staging->offset atIndex:tensors + 1];
@@ -3997,7 +4136,11 @@ struct Bridge {
             f.numericParameters[postSlot] = std::move(f.fusedParameters);
           }
           program.deferRetirement = true;
-          finishNumeric(f);
+          auto finished = finishNumeric(f);
+          if (!finished) {
+            fail(task, f, std::int64_t(finished.error()));
+            return;
+          }
           f.packet.input = {};
           f.packet.right = {};
           f.packet.kernel = {};

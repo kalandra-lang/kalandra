@@ -113,6 +113,10 @@ public:
   std::expected<Buffer, Error> uploadBytes(std::span<const std::byte>);
   // Invocation-private scratch, zero initialized without an uncharged host copy.
   std::expected<Buffer, Error> blankBytes(std::uint64_t);
+  // Fence-complete private-arena copy. Distinct allocations, same byte offset;
+  // bounds/ownership checked before a command is submitted.
+  std::expected<void, Error> copyPrivateBytes(const Buffer &, const Buffer &,
+                                              std::uint64_t offset, std::uint64_t bytes);
   std::expected<std::vector<std::byte>, Error> downloadBytes(const Buffer &);
   std::expected<void, Error> readBytes(const Buffer &, std::span<std::byte>);
   // Compiler-owned SPIR-V only: flat set-0 storage buffers, fixed 1D workgroups.

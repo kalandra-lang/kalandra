@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra GPU headers λ ') as folder:
             shutil.copyfile(native/backend/(name+'.h'),root/backend/(name+'.h'))
         for source in (native/'runtime').glob('*.h'):shutil.copyfile(source,root/'runtime'/source.name)
         for source in (native/'include/kalandra').glob('*.h'):shutil.copyfile(source,root/'include/kalandra'/source.name)
-        resources=[*(native/'gpu-runtime').glob('*Decl.inc'),native/'gpu-runtime/ExecutablePath.inc']
+        resources=[*(native/'gpu-runtime').glob('*Decl.inc'),native/'gpu-runtime/ExecutablePath.inc',native/'gpu-runtime/ControlArena.h']
         for source in resources:shutil.copyfile(source,root/'gpu-runtime'/source.name)
         source=root/'consumer.cpp';source.write_text('#include "Language.h"\n#include "ExecutablePath.h"\nint main(){return 0;}\n')
         command=[a.compiler,'-std=c++23','-fsyntax-only','-I'+str(root/backend),'-I'+str(root/'include'),str(source)]
@@ -28,4 +28,4 @@ with tempfile.TemporaryDirectory(prefix='kalandra GPU headers λ ') as folder:
                 result=subprocess.run(command,cwd=root,capture_output=True,text=True)
                 assert result.returncode!=0 and resource.name in result.stderr,(backend,resource.name,result.stderr)
             finally:path.write_bytes(contents)
-print('PASS: both backends use isolated owned headers; all five missing shared resources rejected without source fallback')
+print('PASS: both backends use isolated owned headers; all shared missing resources rejected without source fallback')

@@ -13,6 +13,11 @@ enum class NumericProgramKind {
   Extent,
   MatrixShape,
   ShapeFault,
-  ScalarControl
+  ScalarControl,
+  // Explicit private-arena ABI; unknown runtimes must reject this instruction.
+  DeviceControl
 };
+constexpr bool isGpuControlKind(NumericProgramKind kind) {
+  return kind == NumericProgramKind::ScalarControl || kind == NumericProgramKind::DeviceControl;
+}
 } // namespace kalandra

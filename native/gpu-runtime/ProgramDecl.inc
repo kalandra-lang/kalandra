@@ -90,6 +90,7 @@ private:
   bool pending_ = false, reducing_ = false, finished_ = false;
   std::size_t parameterWords_ = 0;
   std::vector<std::uint32_t> controlParameters_;
+  detail::ControlArena<Buffer, Error> controlArena_;
   std::optional<Error> error_;
   void release(std::uint32_t);
   void skip(std::size_t, std::size_t);

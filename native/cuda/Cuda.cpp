@@ -39,6 +39,7 @@ struct Driver {
   using Free = CUresult (*)(CUdeviceptr);
   using HtoD = CUresult (*)(CUdeviceptr, const void *, size_t);
   using DtoH = CUresult (*)(void *, CUdeviceptr, size_t);
+  using DtoD = CUresult (*)(CUdeviceptr, CUdeviceptr, size_t);
   using Zero = CUresult (*)(CUdeviceptr, unsigned char, size_t);
   using Load = CUresult (*)(CUmodule *, const void *, unsigned, CUjit_option *, void **);
   using Unload = CUresult (*)(CUmodule);
@@ -64,6 +65,7 @@ struct Driver {
   CUDA_FUNCTION(free, Free);
   CUDA_FUNCTION(htod, HtoD);
   CUDA_FUNCTION(dtoh, DtoH);
+  CUDA_FUNCTION(dtod, DtoD);
   CUDA_FUNCTION(zero, Zero);
   CUDA_FUNCTION(load, Load);
   CUDA_FUNCTION(unload, Unload);
@@ -97,6 +99,7 @@ struct Driver {
     SYMBOL(free, "cuMemFree_v2");
     SYMBOL(htod, "cuMemcpyHtoD_v2");
     SYMBOL(dtoh, "cuMemcpyDtoH_v2");
+    SYMBOL(dtod, "cuMemcpyDtoD_v2");
     SYMBOL(zero, "cuMemsetD8_v2");
     SYMBOL(load, "cuModuleLoadDataEx");
     SYMBOL(unload, "cuModuleUnload");
@@ -176,6 +179,7 @@ struct Storage {
   std::shared_ptr<State> owner;
   CUdeviceptr pointer = 0;
   std::uint64_t size = 0, charge = 0;
+  bool privateCopyTarget = false;
   ~Storage() {
     if (!pointer)
       return;
@@ -284,7 +288,39 @@ std::expected<std::unique_ptr<Runtime>, Error> Runtime::create(Options options) 
   return std::unique_ptr<Runtime>(new Runtime(std::move(state)));
 }
 std::expected<Buffer, Error> Runtime::blankBytes(std::uint64_t size) {
-  return allocateBytes(size, true, false);
+  auto result = allocateBytes(size, true, false);
+  if (result)
+    result->storage_->privateCopyTarget = true;
+  return result;
+}
+std::expected<void, Error> Runtime::copyPrivateBytes(const Buffer &source, const Buffer &target,
+                                                     std::uint64_t offset, std::uint64_t bytes) {
+  if (!owns(source) || !owns(target))
+    return std::unexpected(Error::Residency);
+  if (!target.storage_->privateCopyTarget || source.storage_ == target.storage_ ||
+      offset > source.bytes() || offset > target.bytes() ||
+      bytes > source.bytes() - offset || bytes > target.bytes() - offset || offset % 4 || bytes % 4)
+    return std::unexpected(Error::Invalid);
+  std::lock_guard lock(state_->mutex);
+  Current current(*state_);
+  if (!current.entered || state_->poisoned)
+    return std::unexpected(Error::Device);
+  if (!bytes)
+    return {};
+  if (state_->fail(FailurePoint::Launch)) {
+    state_->poisoned = true;
+    return std::unexpected(Error::Device);
+  }
+  auto copied = state_->driver.dtod(target.storage_->pointer + offset,
+                                    source.storage_->pointer + offset, bytes);
+  // cuMemcpyDtoD need not block the host. Settle even a failed submission before
+  // either private allocation may be reclaimed or replaced.
+  auto settled = state_->driver.sync();
+  if (copied != CUDA_SUCCESS || settled != CUDA_SUCCESS || state_->fail(FailurePoint::WaitAfterCompletion)) {
+    state_->poisoned = true;
+    return std::unexpected(Error::Device);
+  }
+  return {};
 }
 std::expected<Buffer, Error> Runtime::allocateBytes(std::uint64_t size, bool initialize,
                                                     bool optional) {
@@ -348,7 +384,8 @@ std::expected<Buffer, Error> Runtime::allocateBytes(std::uint64_t size, bool ini
   return Buffer(std::move(storage));
 }
 std::expected<Buffer, Error> Runtime::uploadBytes(std::span<const std::byte> data) {
-  auto buffer = blankBytes(data.size());
+  // Uploaded captures are published read-only inputs, not private arena targets.
+  auto buffer = allocateBytes(data.size(), true, false);
   if (!buffer)
     return std::unexpected(buffer.error());
   if (data.empty())
@@ -880,6 +917,7 @@ std::expected<KernelResult, Error> Runtime::execute(const Kernel &kernel,
     else
       state_->fixedMatmuls.fetch_add(1);
   }
+  output->storage_->privateCopyTarget = false;
   KernelResult result{*output, std::vector<std::uint32_t>(words.size())};
   auto read = readBytes(*parameters, std::as_writable_bytes(std::span(result.parameters)));
   if (!read)

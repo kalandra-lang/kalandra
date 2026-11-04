@@ -1750,7 +1750,7 @@ class Compiler {
     }
     constexpr std::array names{"Map",         "Reduce",     "Matmul",       "Branch",
                                "Jump",        "Alias",      "EqualShape",   "Extent",
-                               "MatrixShape", "ShapeFault", "ScalarControl"};
+                               "MatrixShape", "ShapeFault", "ScalarControl", "DeviceControl"};
     for (std::size_t i = 0; i < program.code.size(); ++i) {
       const auto &op = program.code[i];
       const auto suffix = std::to_string(i);

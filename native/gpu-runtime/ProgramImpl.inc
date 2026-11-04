@@ -30,7 +30,7 @@ bool sameShape(const TensorValue &a, const TensorValue &b) {
   return a.scalar == b.scalar && a.rank == b.rank &&
          std::equal(a.shape().begin(), a.shape().end(), b.shape().begin());
 }
-bool maps(K kind) { return kind == K::Map || kind == K::ScalarControl; }
+bool maps(K kind) { return kind == K::Map || isGpuControlKind(kind); }
 bool computes(K kind) { return maps(kind) || kind == K::Reduce || kind == K::Matmul; }
 bool produces(K kind) { return computes(kind) || kind == K::Alias; }
 std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
@@ -81,14 +81,17 @@ std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
       return std::unexpected(Error::Allocation);
     }
   }
-  const auto physical = maps(op.kind) && kernel.reads ? kernel.reads->size() : op.inputs.size();
+  const auto physical = maps(op.kind) && kernel.reads
+                            ? kernel.reads->size()
+                            : op.inputs.size() + unsigned(op.kind == K::DeviceControl);
   if (kernel.kernel.inputCount() != physical)
     return std::unexpected(Error::Invalid);
   if (kernel.reads) {
     std::uint32_t previous = 0;
     for (std::size_t i = 0; i < kernel.reads->size(); ++i) {
       const auto input = (*kernel.reads)[i];
-      if (input >= op.inputs.size() || (i && input <= previous) || (!maps(op.kind) && input != i))
+      const auto count = op.inputs.size() + unsigned(op.kind == K::DeviceControl);
+      if (input >= count || (i && input <= previous) || (!maps(op.kind) && input != i))
         return std::unexpected(Error::Invalid);
       previous = input;
     }
@@ -111,6 +114,27 @@ bool validInstruction(const ProgramInstruction &op) {
   if (!maps(op.kind) && !op.scalarSources.empty())
     return false;
   switch (op.kind) {
+  case K::DeviceControl:
+    if (!op.kernel || !op.kernel->scalar || op.target ||
+        op.kernel->scalarTypes.size() < detail::ControlArenaABI::Cells ||
+        op.kernel->tensorTypes.size() != n + 1 ||
+        op.kernel->tensorTypes.back() != NumericType::UInt64 ||
+        op.kernel->scalarBuffers.size() != n + 1 || op.kernel->scalarBuffers.back() != 0 ||
+        !std::all_of(op.kernel->scalarBuffers.begin(), op.kernel->scalarBuffers.end() - 1,
+                     [](auto role) { return role == 1; }) ||
+        !std::all_of(op.constants.begin(), op.constants.end(), [](auto x) { return x == 0; }) ||
+        !std::all_of(op.kernel->scalarTypes.begin(), op.kernel->scalarTypes.end(),
+                     [](auto type) { return type == NumericType::UInt64; }) ||
+        op.kernel->scalarTypes.size() != op.scalarSources.size() + op.constants.size())
+      return false;
+    if (op.kernel->reads) {
+      if (op.kernel->reads->size() != n + 1)
+        return false;
+      for (std::size_t i = 0; i <= n; ++i)
+        if ((*op.kernel->reads)[i] != i)
+          return false;
+    }
+    return true;
   case K::ScalarControl:
     if (!op.kernel || !op.kernel->scalar || op.target || op.kernel->scalarTypes.empty() ||
         !std::all_of(op.constants.begin(), op.constants.end(), [](auto x) { return x == 0; }) ||
@@ -228,7 +252,7 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
         return std::unexpected(Error::Budget);
       const std::uint64_t words = kernel.kernel.parameterWords();
       peakDispatch = std::max(peakDispatch, kernel.kernel.inputCount() * sizeof(Buffer) +
-                                                words * (op.kind == K::ScalarControl ? 12 : 8) +
+                                                words * (isGpuControlKind(op.kind) ? 12 : 8) +
                                                 sizeof(ProgramDispatch));
     }
   }
@@ -402,6 +426,36 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
       if (values_[op.output].data)
         return fail(Error::Invalid);
       const auto &schema = *op.kernel;
+      if (op.kind == K::DeviceControl && (!controlArena_.buffer() || controlArena_.growing())) {
+        if (!controlArena_.growing()) {
+          auto requested = controlArena_.request(32);
+          if (!requested)
+            return fail(requested.error());
+        }
+        auto advanced = controlArena_.advance(
+            [&](auto bytes) { return runtime.blankBytes(bytes); },
+            [&](const auto &from, const auto &to, auto offset, auto bytes) {
+              return runtime.copyPrivateBytes(from, to, offset, bytes);
+            });
+        if (!advanced)
+          return fail(advanced.error());
+        if (*advanced && !controlParameters_.empty()) {
+          using ABI = detail::ControlArenaABI;
+          const auto set = [&](std::size_t cell, std::uint64_t value) {
+            controlParameters_[1 + cell * 2] = std::uint32_t(value);
+            controlParameters_[2 + cell * 2] = std::uint32_t(value >> 32);
+          };
+          const auto resume = std::uint64_t(controlParameters_[1 + ABI::Resume * 2]) |
+                              (std::uint64_t(controlParameters_[2 + ABI::Resume * 2]) << 32);
+          set(ABI::PC, resume);
+          set(ABI::Capacity, controlArena_.words());
+          set(ABI::Requested, 0);
+          set(ABI::Resume, 0);
+        }
+        // Growth is one completion-service step, even on the final copy page.
+        // The caller checks cancellation before requesting the next dispatch.
+        return std::optional<ProgramDispatch>{};
+      }
       ProgramDispatch dispatch{schema.kernel, {}, {}, 0, 0};
       output_ = {};
       output_.type = schema.type;
@@ -484,10 +538,14 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
         }
         if (schema.reads)
           for (auto input : *schema.reads)
-            dispatch.inputs.push_back(values_[op.inputs[input]].data);
+            dispatch.inputs.push_back(op.kind == K::DeviceControl && input == op.inputs.size()
+                                          ? controlArena_.buffer()
+                                          : values_[op.inputs[input]].data);
         else
           for (auto input : op.inputs)
             dispatch.inputs.push_back(values_[input].data);
+        if (op.kind == K::DeviceControl && !schema.reads)
+          dispatch.inputs.push_back(controlArena_.buffer());
         if (schema.scalar == domain.has_value())
           return fail(Error::Invalid);
         if (domain) {
@@ -510,7 +568,7 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
             value = op.constants[i - op.scalarSources.size()];
           const auto width = describeNumeric(schema.scalarTypes[i])->bits;
           if ((width < 64 && value >> width) ||
-              (op.kind == K::ScalarControl && controlParameters_.empty() && value))
+              (isGpuControlKind(op.kind) && controlParameters_.empty() && value))
             return fail(Error::Invalid);
           dispatch.parameters.push_back(std::uint32_t(value));
           if (width == 64)
@@ -570,8 +628,13 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
                                std::uint32_t(b.dimensions[1])};
       } else
         return fail(Error::Invalid);
-      if (op.kind == K::ScalarControl && !controlParameters_.empty())
+      if (isGpuControlKind(op.kind) && !controlParameters_.empty())
         dispatch.parameters = controlParameters_;
+      if (op.kind == K::DeviceControl && controlParameters_.empty()) {
+        using ABI = detail::ControlArenaABI;
+        dispatch.parameters[1 + ABI::Capacity * 2] = std::uint32_t(controlArena_.words());
+        dispatch.parameters[2 + ABI::Capacity * 2] = std::uint32_t(controlArena_.words() >> 32);
+      }
       dispatch.parameters.push_back(UINT32_MAX);
       dispatch.outputBytes = std::uint64_t(count) * describeNumeric(schema.type)->bytes();
       const auto width = schema.kernel.localSize();
@@ -601,21 +664,49 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
     return fail(Error::Invalid);
   if (!runtime.owns(definition_->code[pc_].kernel->kernel) || !runtime.owns(result.output))
     return fail(Error::Residency);
-  if (result.parameters.back() != UINT32_MAX)
-    return fail(Error::Arithmetic);
+  if (result.parameters.back() != UINT32_MAX) {
+    if (definition_->code[pc_].kind != K::DeviceControl)
+      return fail(Error::Arithmetic);
+    switch (result.parameters.back()) {
+    case 0: return fail(Error::Arithmetic);
+    case 1: return fail(Error::Bounds);
+    case 2: return fail(Error::Allocation);
+    case 3: return fail(Error::Budget);
+    default: return fail(Error::Invalid);
+    }
+  }
   auto size = cells(output_);
   if (!size || !result.output ||
       result.output.bytes() != std::uint64_t(*size) * describeNumeric(output_.type)->bytes())
     return fail(Error::Invalid);
   output_.data = std::move(result.output);
   pending_ = false;
-  if (definition_->code[pc_].kind == K::ScalarControl) {
+  if (isGpuControlKind(definition_->code[pc_].kind)) {
     if (result.parameters.size() < 4 || result.parameters[0] != 1)
       return fail(Error::Invalid);
     const auto next =
         std::uint64_t(result.parameters[1]) | (std::uint64_t(result.parameters[2]) << 32);
     if (!next)
       return fail(Error::Invalid);
+    if (definition_->code[pc_].kind == K::DeviceControl) {
+      using ABI = detail::ControlArenaABI;
+      if (result.parameters.size() < 2 + 2 * ABI::Cells)
+        return fail(Error::Invalid);
+      const auto cell = [&](std::size_t index) {
+        return std::uint64_t(result.parameters[1 + index * 2]) |
+               (std::uint64_t(result.parameters[2 + index * 2]) << 32);
+      };
+      if (cell(ABI::Capacity) != controlArena_.words())
+        return fail(Error::Invalid);
+      if (next == ABI::Grow) {
+        if (!cell(ABI::Resume) || cell(ABI::Resume) >= ABI::Grow)
+          return fail(Error::Invalid);
+        auto request = controlArena_.request(cell(ABI::Requested));
+        if (!request)
+          return fail(request.error());
+      } else if (cell(ABI::Requested) || cell(ABI::Resume))
+        return fail(Error::Invalid);
+    }
     if (next != UINT64_MAX) {
       try {
         controlParameters_.assign(result.parameters.begin(), result.parameters.end() - 1);
@@ -626,6 +717,7 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
       return {};
     }
     controlParameters_.clear();
+    controlArena_ = {};
   }
 
   if (matrixTransposing_) {

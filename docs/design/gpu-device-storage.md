@@ -27,6 +27,10 @@ acknowledged. Writable storage must be local or proven disjoint/exclusive by the
 same frontend rules as CPU access. A direct `mut` helper may borrow eligible
 local backing; spawning an in-place mutation of shared caller backing stays a
 compile-time error. Device storage does not weaken a host task's read lock.
+An asynchronous upload of mutable CPU arrays is itself a reader: every alias
+must remain read-locked until the transfer actually settles. Cancellation alone
+does not release that lock. Downloaded copies have fresh host backing, with
+alias relationships within the transferred object graph preserved.
 
 ## Growth and checkpoints
 
@@ -63,9 +67,42 @@ before gratuitously exhausting an otherwise adequate budget.
 Allocation, collection, tracing and array library operations must be resumable
 device work with bounded steps. A stop-the-world collector running unbounded
 inside one submission would violate the checkpoint design. Host code may copy
-opaque arena data for transport, but object traversal, reachability decisions,
+opaque arena data for transport, but liveness traversal, reachability decisions,
 sorting, filtering and collection ordering remain device computations. Keep
 temporary source values rooted across retries and checkpoint transitions.
+
+### Selected reclamation algorithm
+
+Use nonmoving, incremental mark-and-sweep. Handles are stable arena offsets, so
+collection does not invalidate aliases or require pointer rewriting. Each block
+has a checked span, typed traversal-layout identity and mark/scan state. Free
+spans are split for allocation and coalesced during sweeping. When no free span
+fits, collect before asking the host for larger backing. Fragmentation, peak
+growth storage and representation overhead remain real resource costs.
+
+The mutator pauses at an allocation safepoint. Compiler-generated CFG liveness
+maps identify live owned slots at that PC; active caller frames, collectors,
+captures and the allocation instruction's operands are additional roots. A slot
+being overwritten is not kept alive merely because its old bits remain in the
+frame. This is necessary for loops that repeatedly allocate temporary arrays
+under a steady memory budget. External read-only buffers are retained captures,
+not arena blocks to trace or free.
+
+Mark roots, then scan marked/unscanned blocks and their typed reference fields.
+Repeated bounded heap scans find newly marked blocks that occur earlier in the
+arena, avoiding an unbounded auxiliary mark stack. Stop when no grey block
+remains, then sweep unreachable blocks and coalesce adjacent free spans. Arrays
+scan their actual logical elements; enums scan the appropriate payload layout;
+function values scan their typed capture layouts. Tracing validates handles
+before dereferencing them. Root scanning, field scanning and sweeping each have
+resumable device cursors and consume a bounded quantum. Cancellation may settle
+between those quanta just as it does between source-control chunks.
+
+The first implementation can trade tracing speed for a small, bounded metadata
+footprint. It must still pass cyclic-value reclamation, repeated temporary
+allocation, fragmentation, collection interruption and resource-denial tests.
+This section specifies the algorithm to implement; passing backing-growth tests
+alone does not establish reclamation or source-language array support.
 
 ## Collections, calls and transport
 
@@ -86,6 +123,36 @@ descriptors. A local device record does not establish that transport. Downloaded
 owned values must be reconstructed with host ownership descriptors and preserve
 alias identity without importing device addresses. Transfer failure must retire
 all partially constructed host/device storage after submitted work settles.
+Transport may pack/unpack typed ownership metadata; that is separate from
+executing source algorithms or choosing garbage-collection reachability on the
+CPU. Public Bool GPU results also need the ordinary Bool task layout, rather
+than exposing an internal UInt8 carrier as if it were the same source type.
+
+## Implemented backing protocol
+
+`DeviceControl` is a private runtime instruction with a final invocation-owned
+UInt64 arena binding. Source inputs remain separate and read-only. The shared
+header defines capacity, growth-request and resume-PC cells; invalid capacity,
+non-increasing growth and malformed status are rejected before another source
+chunk can execute. Completed scalar results are published only at the terminal
+PC. This instruction is infrastructure; the source compiler does not yet emit
+it for arrays.
+
+The host admits a replacement allocation and copies opaque pages of at most
+64 KiB. Both allocations remain charged and retained until the actual GPU copy
+settles. Metal initializes new private storage and copies pages asynchronously
+through ordinary external task completions. Vulkan/CUDA use their existing
+completion services with fence-complete device copies. Each service step permits
+cancellation before the next page or source chunk. No source predicate, element
+computation or garbage-collection liveness decision runs on the host.
+
+Physical private-protocol tests write 16,385 values on the GPU across repeated
+arena growth, then read every value on the GPU for an independently checked
+checksum. Tests cover concurrent invocations, consecutive arena instructions,
+resource denial, cancellation/deadlines and cleanup; host protocol tests also
+exercise interrupted copies and duplicate acknowledgements. These tests qualify
+backing growth, not typed arrays, reclamation, collecting `yield` or aggregate
+transport. Those remain required by the implementation sequence.
 
 ## Required qualification
 

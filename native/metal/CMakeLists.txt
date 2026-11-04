@@ -90,3 +90,39 @@ if(BUILD_TESTING AND KALANDRA_BUILD_METAL_PROOF)
     set_tests_properties(native-metal-numeric-${VARIANT} PROPERTIES TIMEOUT 180 RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endforeach()
 endif()
+
+# Real private-heap execution. This fixture tests storage growth, not language
+# array admission. The hardware lock keeps it separate from other Metal tests.
+if(BUILD_TESTING AND KALANDRA_BUILD_METAL_PROOF)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  set(ARENA_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/control-arena")
+  add_test(NAME native-metal-control-arena-fixture
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../gpu-source/ControlArenaProbe.py"
+      --build "${PROJECT_BINARY_DIR}" --llvm "${KALANDRA_LLVM_ROOT}" --backend metal
+      --root "${ARENA_FIXTURE}" --metal "${KALANDRA_METAL_COMPILER}" --sdk "${KALANDRA_METAL_SDK}"
+      --cross "${KALANDRA_SPIRV_CROSS_ROOT}/bin/spirv-cross"
+      --validator "${KALANDRA_SPIRV_TOOLS_ROOT}/bin/spirv-val")
+  set_tests_properties(native-metal-control-arena-fixture PROPERTIES TIMEOUT 300
+    FIXTURES_SETUP metal-control-arena RESOURCE_LOCK apple-metal-gpu)
+  foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
+    add_executable(kalandra-metal-control-arena-${VARIANT} ControlArenaTests.cpp)
+    target_compile_options(kalandra-metal-control-arena-${VARIANT} PRIVATE -Wall -Wextra -Werror)
+    if(VARIANT STREQUAL "sanitized")
+      target_compile_options(kalandra-metal-control-arena-${VARIANT} PRIVATE -O1 -g
+        -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      target_link_options(kalandra-metal-control-arena-${VARIANT} PRIVATE -fsanitize=address,undefined)
+    elseif(VARIANT STREQUAL "thread-sanitized")
+      target_compile_options(kalandra-metal-control-arena-${VARIANT} PRIVATE -O1 -g
+        -fsanitize=thread -fno-omit-frame-pointer)
+      target_link_options(kalandra-metal-control-arena-${VARIANT} PRIVATE -fsanitize=thread)
+    else()
+      target_compile_options(kalandra-metal-control-arena-${VARIANT} PRIVATE -O2)
+    endif()
+    target_link_libraries(kalandra-metal-control-arena-${VARIANT} PRIVATE kalandra-metal-${VARIANT})
+    add_dependencies(kalandra-metal-control-arena-${VARIANT} kalandra-metal-strict64 kalandra-metal-extract)
+    add_test(NAME native-metal-control-arena-${VARIANT}
+      COMMAND kalandra-metal-control-arena-${VARIANT} "${ARENA_FIXTURE}/arena.metallib")
+    set_tests_properties(native-metal-control-arena-${VARIANT} PROPERTIES TIMEOUT 180
+      FIXTURES_REQUIRED metal-control-arena RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()

@@ -1,4 +1,5 @@
 #pragma once
+#include "../gpu-runtime/ControlArena.h"
 #include "CudaRuntime.h"
 #include "kalandra/GpuProgram.h"
 #include "kalandra/GpuTransform.h"

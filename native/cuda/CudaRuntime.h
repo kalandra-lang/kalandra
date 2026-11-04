@@ -124,6 +124,8 @@ public:
   DeviceInfo device() const;
   std::expected<Buffer, Error> uploadBytes(std::span<const std::byte>);
   std::expected<Buffer, Error> blankBytes(std::uint64_t);
+  std::expected<void, Error> copyPrivateBytes(const Buffer &, const Buffer &,
+                                              std::uint64_t offset, std::uint64_t bytes);
   std::expected<std::vector<std::byte>, Error> downloadBytes(const Buffer &);
   std::expected<Kernel, Error> loadKernel(const std::filesystem::path &,
                                           const KernelContract * = nullptr);
