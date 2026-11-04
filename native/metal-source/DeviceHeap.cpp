@@ -2,12 +2,29 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include <set>
+#include <stdexcept>
 using namespace mlir;
 namespace kalandra {
 DeviceHeapEmitter::DeviceHeapEmitter(OpBuilder &builder, Value heap, Value frame, unsigned words,
-                                     std::span<const DeviceRootMap> maps)
+                                     std::span<const DeviceRootMap> maps,
+                                     std::span<const DeviceTraceLayout> traceLayouts)
     : b(builder), loc(b.getUnknownLoc()), arena(heap), params(frame), parameterWords(words),
-      roots(maps) {}
+      roots(maps), layouts(traceLayouts) {
+  std::set<unsigned> identities;
+  std::size_t fields = 0;
+  for (const auto &layout : layouts) {
+    if (layout.identity <= 11 || !identities.insert(layout.identity).second || !layout.stride ||
+        layout.stride > runtime::detail::ControlArenaABI::MaxWords || layout.references.empty() ||
+        layout.references.size() > 100000 - fields)
+      throw std::invalid_argument("invalid device reference traversal layout");
+    fields += layout.references.size();
+    for (const auto &field : layout.references)
+      if (field.cell >= layout.stride ||
+          (field.tagCell != UINT32_MAX && field.tagCell >= layout.stride))
+        throw std::invalid_argument("device reference field outside element layout");
+  }
+}
 Value DeviceHeapEmitter::c(std::uint64_t n) {
   return arith::ConstantOp::create(b, loc, b.getI64Type(), b.getI64IntegerAttr(n));
 }
@@ -76,6 +93,45 @@ void DeviceHeapEmitter::write(Value h, Value field, Value v) {
   b.setInsertionPointToStart(&choose.getElseRegion().front());
   fault(99);
 }
+// Header mark word: zero is white, one black, (next << 2) | 2 grey.
+// Handles are bounded to UINT32_MAX words by ControlArenaABI, so links fit.
+// Only the paused mutator's live roots and typed payloads may supply handles.
+void DeviceHeapEmitter::mark(Value h) {
+  auto branch = scf::IfOp::create(
+      b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, h, c(0)), false);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(&branch.getThenRegion().front());
+  auto layout = read(h, c(1));
+  Value known = arith::AndIOp::create(
+      b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, layout, c(1)),
+      arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, layout, c(11)));
+  Value owned = arith::ConstantIntOp::create(b, loc, 0, 1);
+  for (const auto &descriptor : layouts)
+    owned = arith::OrIOp::create(b, loc, owned, eq(layout, c(descriptor.identity)));
+  known = arith::OrIOp::create(b, loc, known, owned);
+  auto span = read(h, c(0));
+  auto bounded = arith::AndIOp::create(
+      b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, span, c(4)),
+      arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, span,
+                            arith::SubIOp::create(b, loc, load(Capacity), h)));
+  auto payload = arith::SubIOp::create(b, loc, span, c(4));
+  bounded = arith::AndIOp::create(
+      b, loc, bounded,
+      arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, read(h, c(2)), payload));
+  auto valid = scf::IfOp::create(b, loc, arith::AndIOp::create(b, loc, known, bounded), true);
+  b.setInsertionPointToStart(&valid.getThenRegion().front());
+  auto white = scf::IfOp::create(b, loc, eq(read(h, c(3)), c(0)), false);
+  {
+    OpBuilder::InsertionGuard marking(b);
+    b.setInsertionPointToStart(&white.getThenRegion().front());
+    auto next =
+        arith::OrIOp::create(b, loc, arith::ShLIOp::create(b, loc, load(GreyHead), c(2)), c(2));
+    write(h, c(3), arith::SelectOp::create(b, loc, owned, next, c(1)));
+    store(GreyHead, arith::SelectOp::create(b, loc, owned, h, load(GreyHead)));
+  }
+  b.setInsertionPointToStart(&valid.getElseRegion().front());
+  fault(99);
+}
 void DeviceHeapEmitter::initialize() {
   write(c(1), c(0), arith::SubIOp::create(b, loc, load(Capacity), c(1)));
   write(c(1), c(1), c(0));
@@ -122,10 +178,10 @@ Value DeviceHeapEmitter::service() {
     body();
   };
   Value validPhase = arith::ConstantIntOp::create(b, loc, 0, 1);
-  for (unsigned state : {0u, 1u, 2u, 3u, 5u, 6u, 8u})
+  for (unsigned state : {0u, 1u, 2u, 3u, 4u, 5u, 6u, 8u})
     validPhase = arith::OrIOp::create(b, loc, validPhase, eq(phase, c(state)));
-  when(arith::XOrIOp::create(b, loc, validPhase,
-           arith::ConstantIntOp::create(b, loc, 1, 1)), [&] { fault(99); });
+  when(arith::XOrIOp::create(b, loc, validPhase, arith::ConstantIntOp::create(b, loc, 1, 1)),
+       [&] { fault(99); });
   // One physical block per scan step. Never read or skip a malformed span.
   auto block = [&](auto body) {
     auto h = load(Cursor);
@@ -211,6 +267,8 @@ Value DeviceHeapEmitter::service() {
         [&] {
           store(Phase, c(3));
           store(RootCursor, c(0));
+          store(GreyHead, c(0));
+          store(TraceHandle, c(0));
         });
   });
   when(eq(phase, c(3)), [&] {
@@ -229,17 +287,11 @@ Value DeviceHeapEmitter::service() {
                 offset =
                     arith::SelectOp::create(b, loc, eq(root, c(j)), c(roots[i].cells[j]), offset);
               auto handle = loadAt(offset);
-              when(compare(arith::CmpIPredicate::ne, handle, c(0)), [&] {
-                auto layout = read(handle, c(1));
-                auto valid =
-                    arith::AndIOp::create(b, loc, compare(arith::CmpIPredicate::uge, layout, c(1)),
-                                          compare(arith::CmpIPredicate::ule, layout, c(11)));
-                conditional(valid, [&] { write(handle, c(3), c(1)); }, [&] { fault(99); });
-              });
+              mark(handle);
               store(RootCursor, add(root, c(1)));
             },
             [&] {
-              store(Phase, c(5));
+              store(Phase, c(layouts.empty() ? 5 : 4));
               store(Cursor, c(1));
               store(PreviousFree, c(0));
             });
@@ -248,8 +300,95 @@ Value DeviceHeapEmitter::service() {
     when(arith::XOrIOp::create(b, loc, matched, arith::ConstantIntOp::create(b, loc, 1, 1)),
          [&] { fault(99); });
   });
-  // Initial layouts are scalar numeric/Bool arrays: they contain no references
-  // to trace. Owned payload layouts will require an additional bounded grey scan.
+  // One queue pop or typed reference field per step. No auxiliary allocation,
+  // recursive traversal or repeated full-heap scans, even for cycles.
+  when(eq(phase, c(4)), [&] {
+    conditional(
+        eq(load(TraceHandle), c(0)),
+        [&] {
+          auto h = load(GreyHead);
+          conditional(
+              eq(h, c(0)),
+              [&] {
+                store(Phase, c(5));
+                store(Cursor, c(1));
+                store(PreviousFree, c(0));
+              },
+              [&] {
+                auto state = read(h, c(3));
+                conditional(
+                    eq(arith::AndIOp::create(b, loc, state, c(3)), c(2)),
+                    [&] {
+                      store(GreyHead, arith::ShRUIOp::create(b, loc, state, c(2)));
+                      write(h, c(3), c(1)); // Black before visiting self/cyclic edges.
+                      store(TraceHandle, h);
+                      store(TraceElement, c(0));
+                      store(TraceField, c(0));
+                    },
+                    [&] { fault(99); });
+              });
+        },
+        [&] {
+          auto h = load(TraceHandle), layout = read(h, c(1)), length = read(h, c(2));
+          Value found = arith::ConstantIntOp::create(b, loc, 0, 1);
+          for (const auto &descriptor : layouts) {
+            auto selected = eq(layout, c(descriptor.identity));
+            found = arith::OrIOp::create(b, loc, found, selected);
+            when(selected, [&] {
+              auto element = load(TraceElement), field = load(TraceField);
+              auto valid = eq(arith::RemUIOp::create(b, loc, length, c(descriptor.stride)), c(0));
+              conditional(
+                  valid,
+                  [&] {
+                    conditional(
+                        compare(arith::CmpIPredicate::ult, element, length),
+                        [&] {
+                          Value offset = c(0), tagCell = c(0), tag = c(0);
+                          Value guarded = arith::ConstantIntOp::create(b, loc, 0, 1);
+                          for (std::size_t i = 0; i < descriptor.references.size(); ++i) {
+                            const auto &reference = descriptor.references[i];
+                            auto chosen = eq(field, c(i));
+                            offset =
+                                arith::SelectOp::create(b, loc, chosen, c(reference.cell), offset);
+                            if (reference.tagCell != UINT32_MAX) {
+                              tagCell = arith::SelectOp::create(b, loc, chosen,
+                                                                c(reference.tagCell), tagCell);
+                              tag = arith::SelectOp::create(b, loc, chosen, c(reference.tag), tag);
+                              guarded = arith::OrIOp::create(b, loc, guarded, chosen);
+                            }
+                          }
+                          conditional(
+                              compare(arith::CmpIPredicate::ult, field,
+                                      c(descriptor.references.size())),
+                              [&] {
+                                auto active = arith::OrIOp::create(
+                                    b, loc,
+                                    arith::XOrIOp::create(
+                                        b, loc, guarded,
+                                        arith::ConstantIntOp::create(b, loc, 1, 1)),
+                                    eq(read(h, add(c(4), add(element, tagCell))), tag));
+                                when(active,
+                                     [&] { mark(read(h, add(c(4), add(element, offset)))); });
+                                auto next = add(field, c(1));
+                                auto done = eq(next, c(descriptor.references.size()));
+                                store(TraceField,
+                                      arith::SelectOp::create(b, loc, done, c(0), next));
+                                store(TraceElement,
+                                      arith::SelectOp::create(b, loc, done,
+                                                              add(element, c(descriptor.stride)),
+                                                              element));
+                              },
+                              [&] { fault(99); });
+                        },
+                        [&] { store(TraceHandle, c(0)); });
+                  },
+                  [&] { fault(99); });
+            });
+          }
+          when(arith::XOrIOp::create(b, loc, found, arith::ConstantIntOp::create(b, loc, 1, 1)),
+               [&] { fault(99); });
+        });
+  });
   when(eq(phase, c(5)), [&] {
     conditional(
         compare(arith::CmpIPredicate::ult, load(Cursor), load(Capacity)),

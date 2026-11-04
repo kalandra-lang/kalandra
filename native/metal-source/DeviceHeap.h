@@ -11,6 +11,17 @@ struct DeviceRootMap {
   std::size_t pc;
   std::vector<std::size_t> cells;
 };
+// A repeated payload layout. Cells are private 64-bit arena words. A reference
+// may be guarded by an enum tag in the same element; UINT32_MAX is unconditional.
+struct DeviceReferenceField {
+  unsigned cell;
+  unsigned tagCell = UINT32_MAX;
+  std::uint64_t tag = 0;
+};
+struct DeviceTraceLayout {
+  unsigned identity, stride;
+  std::vector<DeviceReferenceField> references;
+};
 class DeviceHeapEmitter {
 public:
   // The first four cells are the runtime PC/capacity/request/resume ABI. The
@@ -36,6 +47,10 @@ public:
     SortEnd,
     SortRoot,
     SortResume,
+    GreyHead,
+    TraceHandle,
+    TraceElement,
+    TraceField,
     Cells
   };
   static_assert(PC == runtime::detail::ControlArenaABI::PC &&
@@ -43,7 +58,8 @@ public:
                 Requested == runtime::detail::ControlArenaABI::Requested &&
                 Resume == runtime::detail::ControlArenaABI::Resume);
   DeviceHeapEmitter(mlir::OpBuilder &, mlir::Value arena, mlir::Value params,
-                    unsigned parameterWords, std::span<const DeviceRootMap> roots);
+                    unsigned parameterWords, std::span<const DeviceRootMap> roots,
+                    std::span<const DeviceTraceLayout> layouts = {});
   mlir::Value load(unsigned cell);
   void store(unsigned cell, mlir::Value);
   void initialize();
@@ -69,6 +85,8 @@ private:
   mlir::Value arena, params;
   unsigned parameterWords;
   std::span<const DeviceRootMap> roots;
+  std::span<const DeviceTraceLayout> layouts;
+  void mark(mlir::Value handle);
   mlir::Value c(std::uint64_t);
   mlir::Value add(mlir::Value, mlir::Value);
   mlir::Value eq(mlir::Value, mlir::Value);

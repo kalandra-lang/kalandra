@@ -35,3 +35,24 @@ if(BUILD_TESTING)
     endforeach()
   endforeach()
 endif()
+
+if(BUILD_TESTING)
+  add_executable(kalandra-device-trace-emitter
+    metal-source/DeviceTraceEmitterTests.cpp metal-source/DeviceHeap.cpp metal-source/DeviceSort.cpp)
+  target_include_directories(kalandra-device-trace-emitter PRIVATE include)
+  target_include_directories(kalandra-device-trace-emitter SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
+  target_link_libraries(kalandra-device-trace-emitter PRIVATE MLIR LLVM)
+  target_compile_options(kalandra-device-trace-emitter PRIVATE -Wall -Wextra -Werror)
+  foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
+    add_test(NAME native-device-trace-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DEMITTER=$<TARGET_FILE:kalandra-device-trace-emitter>"
+        "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DMLIR_OPT=${LLVM_TOOLS_BINARY_DIR}/mlir-opt${CMAKE_EXECUTABLE_SUFFIX}"
+        "-DMLIR_TRANSLATE=${LLVM_TOOLS_BINARY_DIR}/mlir-translate${CMAKE_EXECUTABLE_SUFFIX}"
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DVARIANT=${VARIANT}"
+        "-DEXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/device-trace-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyDeviceTrace.cmake")
+    set_tests_properties(native-device-trace-${VARIANT} PROPERTIES TIMEOUT 120)
+  endforeach()
+
+endif()

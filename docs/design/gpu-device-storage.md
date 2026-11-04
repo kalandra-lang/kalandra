@@ -89,21 +89,35 @@ frame. This is necessary for loops that repeatedly allocate temporary arrays
 under a steady memory budget. External read-only buffers are retained captures,
 not arena blocks to trace or free.
 
-Mark roots, then scan marked/unscanned blocks and their typed reference fields.
-Repeated bounded heap scans find newly marked blocks that occur earlier in the
-arena, avoiding an unbounded auxiliary mark stack. Stop when no grey block
-remains, then sweep unreachable blocks and coalesce adjacent free spans. Arrays
-scan their actual logical elements; enums scan the appropriate payload layout;
-function values scan their typed capture layouts. Tracing validates handles
-before dereferencing them. Root scanning, field scanning and sweeping each have
-resumable device cursors and consume a bounded quantum. Cancellation may settle
-between those quanta just as it does between source-control chunks.
+Mark roots, enqueueing newly grey owned blocks in an intrusive work queue.
+The existing 64-bit mark word stores a two-bit colour and the next stable handle;
+the arena's checked 32-bit word limit leaves sufficient link bits. Reference-free
+blocks become black immediately. A pop removes one grey block and makes it black
+before tracing its children, so self-edges and cycles cannot enqueue it again.
+Private invocation cells retain queue head, active block, element and field
+cursors. No auxiliary allocation is needed during collection under memory
+pressure. This replaces the earlier proposed repeated whole-heap grey scans;
+typed-edge work scales with visited blocks and fields rather than heap-order
+rescans. Free-block searches and clear/sweep passes still scan physical blocks.
 
-The first implementation can trade tracing speed for a small, bounded metadata
-footprint. It must still pass cyclic-value reclamation, repeated temporary
-allocation, fragmentation, collection interruption and resource-denial tests.
-This section specifies the algorithm to implement; passing backing-growth tests
-alone does not establish reclamation or source-language array support.
+Repeated payload layouts specify element stride and owned-reference offsets.
+Enum references have a tag-cell/value guard; inactive payloads are never treated
+as handles. Every tracing step visits one field or pops one block; root scanning
+and sweeping are similarly resumable. Layout IDs, spans, lengths, stride
+multiples and reference bounds are checked before access. Compiler construction
+and typed transfer validation must establish that handles identify actual block
+starts, not arbitrary payload offsets. Tracing is not a substitute for that
+transport validation. No source mutator runs during collection.
+
+The tracing emitter passes independently generated cyclic graph oracles as
+CPU-lowered IR and on physical Metal, Vulkan and CUDA. Source-language ownership
+admission remains a separate gate: reference-free source arrays remain the
+currently qualified production scope. Source-level recursive owned
+values, typed transport, capture/call-frame roots and physical GPU tracing tests
+are still required; isolated emitted-IR tests do not establish those capabilities.
+This changes private collector representation, not cancellation or source
+semantics: collection consumes the existing bounded control quantum and may be
+cancelled between submissions. No wall-clock preemption is promised.
 
 ## Collections, calls and transport
 

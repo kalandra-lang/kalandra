@@ -1,0 +1,30 @@
+file(MAKE_DIRECTORY "${OUTPUT_DIR}")
+function(RUN_OK)
+  execute_process(COMMAND ${ARGV} RESULT_VARIABLE RESULT OUTPUT_VARIABLE OUTPUT ERROR_VARIABLE ERROR)
+  if(NOT RESULT EQUAL 0)
+    message(FATAL_ERROR "${ARGV}\n${OUTPUT}\n${ERROR}")
+  endif()
+  message(STATUS "${OUTPUT}")
+endfunction()
+execute_process(COMMAND "${EMITTER}" OUTPUT_FILE "${OUTPUT_DIR}/trace.mlir"
+  ERROR_VARIABLE ERROR RESULT_VARIABLE RESULT)
+if(NOT RESULT EQUAL 0)
+  message(FATAL_ERROR "trace emitter failed: ${ERROR}")
+endif()
+RUN_OK("${MLIR_OPT}" "${OUTPUT_DIR}/trace.mlir" --convert-scf-to-cf --convert-arith-to-llvm
+  --finalize-memref-to-llvm --convert-func-to-llvm --convert-cf-to-llvm
+  --reconcile-unrealized-casts -o "${OUTPUT_DIR}/trace-llvm.mlir")
+RUN_OK("${MLIR_TRANSLATE}" --mlir-to-llvmir "${OUTPUT_DIR}/trace-llvm.mlir" -o "${OUTPUT_DIR}/trace.ll")
+if(VARIANT STREQUAL "sanitized")
+  set(FLAGS -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+elseif(VARIANT STREQUAL "thread-sanitized")
+  set(FLAGS -O1 -g -fsanitize=thread -fno-omit-frame-pointer)
+elseif(VARIANT STREQUAL "optimized")
+  set(FLAGS -O2)
+else()
+  set(FLAGS -O0)
+endif()
+RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}
+  "${SOURCE_DIR}/metal-source/DeviceTraceExecutionTests.cpp" "${OUTPUT_DIR}/trace.ll"
+  -o "${OUTPUT_DIR}/trace-test${EXECUTABLE_SUFFIX}")
+RUN_OK("${OUTPUT_DIR}/trace-test${EXECUTABLE_SUFFIX}")
