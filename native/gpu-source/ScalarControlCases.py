@@ -18,6 +18,13 @@ def cases():
     for t in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','float32','float64'):
         out['numeric-'+t] = (f'fn work(n:int)->{t}:\n  total:{t}=0\n  for i in range(n):\n    total=total+{t}(1)\n  total\n', 'work(50)', 50)
         out['capture-'+t] = (f'fn work(n:{t})->{t}:\n  total:{t}=0\n  for i in range(10):\n    total=total+n\n  total\n', f'work({t}(3))', 30)
+    out.update({
+        'record-local-value': ('type Row:\n  value:int\n  enabled:Bool\nfn work(n:int)->int:\n  row=Row {value:n,enabled:true}\n  if row.enabled:\n    row.value+2\n  else:\n    0\n', 'work(40)', 42),
+        'record-update-loop': ('type Row:\n  value:int\n  weight:int\nfn work(n:int)->int:\n  total=0\n  for i in range(n):\n    row=Row {value:i,weight:3}\n    updated=row with {value:row.value+2}\n    total=total+row.value+updated.value*updated.weight\n  total\n', 'work(100)', sum(i+(i+2)*3 for i in range(100))),
+        'record-nested-helper': ('type Inner:\n  value:int\n  enabled:Bool\ntype Outer:\n  inner:Inner\n  weight:float32\nfn make(n:int)->Outer:\n  Outer {inner:Inner {value:n,enabled:true},weight:float32(2)}\nfn score(row:Outer)->int:\n  if row.inner.enabled:\n    row.inner.value*int(row.weight)\n  else:\n    0\nfn work(n:int)->int:\n  total=0\n  for i in range(n):\n    row=make(i)\n    total=total+score(row)\n  total\n', 'work(100)', 9900),
+        'enum-local-match': ('enum Choice:\n  Empty\n  Some:\n    value:int\n    enabled:Bool\nfn score(choice:Choice)->int:\n  match choice:\n    Choice.Empty:1\n    Choice.Some {value,enabled}:\n      if enabled:value+7\n      else:0\nfn work(n:int)->int:\n  total=0\n  for i in range(n):\n    choice=if i%3==0:Choice.Some {value:i,enabled:true}\n    else:Choice.Empty\n    total=total+score(choice)\n  total\n', 'work(100)', sum(i+7 if i%3==0 else 1 for i in range(100))),
+        'enum-nested-record': ('type Row:\n  value:int8\n  step:uint64\nenum Choice:\n  Missing\n  Present:\n    row:Row\nfn score(choice:Choice)->int:\n  match choice:\n    Choice.Missing:0\n    Choice.Present {row}:int(row.value)+int(row.step)\nfn work(n:int)->int:\n  total=0\n  for i in range(n):\n    choice=Choice.Present {row:Row {value:int8(i),step:uint64(2)}}\n    total=total+score(choice)\n  total\n', 'work(50)', 1325),
+    })
     return out
 
 def fault_cases():

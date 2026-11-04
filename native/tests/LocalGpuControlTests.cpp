@@ -84,6 +84,31 @@ int main() {
           checkpoint |= artifact.find("scf.while") != std::string::npos &&
                         artifact.find("memref.store") != std::string::npos;
       require(checkpoint, "device loop has no bounded resumable shader");
+      const std::string recordEntry =
+          "fn main()->int ! TaskError:\n  try parallel:\n"
+          "    gpu=devices.gpu()\n    try await spawn work(42) on gpu\n";
+      auto record = emit("type Row:\n  value:int\n  enabled:Bool\n"
+                         "fn work(n:int)->int:\n  row=Row {value:n,enabled:true}\n"
+                         "  if row.enabled:row.value\n  else:0\n" +
+                         recordEntry);
+      require(bool(record),
+              "plain device record rejected: " + (record ? "" : record.error().message));
+      require(record->at("host.cpp").find("NumericInstructionKind::ScalarControl") !=
+                  std::string::npos,
+              "device record was routed through host evaluation");
+      auto ownedRecord = emit("type Row:\n  values:[int]\n"
+                              "fn work(n:int)->int:\n  row=Row {values:[n]}\n  row.values[0]\n" +
+                              recordEntry);
+      require(!ownedRecord, "device record admitted host array pointers without storage");
+      auto transportedRecord =
+          emit("type Row:\n  value:int\nfn work(n:int)->Row:\n  Row {value:n}\n"
+               "fn main()->int ! TaskError:\n  try parallel:\n"
+               "    gpu=devices.gpu()\n    row=try await spawn work(42) on gpu\n    row.value\n");
+      require(!transportedRecord && transportedRecord.error().message.find("aggregate transport") !=
+                                        std::string::npos,
+              "host bridge record-result gate: " + (transportedRecord
+                                                        ? std::string("unexpectedly admitted")
+                                                        : transportedRecord.error().message));
       auto readOnly =
           emit(kernel + std::string("fn write(values:[int])->int:\n  values[0]=3\n  values[0]\n") +
                host);

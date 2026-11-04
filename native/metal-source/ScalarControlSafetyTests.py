@@ -16,7 +16,7 @@ def run(cmd):
  assert not any(x in r.stderr for x in ('AddressSanitizer','ThreadSanitizer','runtime error:')),r.stderr
  return r.stdout.strip()
 sources={
- 'finite':'fn work(n:int)->int:\n  i=0\n  total=0\n  while i<n:\n    i=i+1\n    total=total+i\n  total\n',
+ 'finite':'type Step:\n  value:int\n  enabled:Bool\nfn work(n:int)->int:\n  i=0\n  total=0\n  while i<n:\n    i=i+1\n    step=Step {value:i,enabled:true}\n    if step.enabled:\n      total=total+step.value\n  total\n',
  'infinite':'fn work(n:int)->int:\n  i=0\n  while true:\n    i=i+1\n  i\n',
  'fault':'fn work(n:int)->int:\n  i=0\n  total=0\n  while i<n:\n    total=total+1/(n-n)\n    i=i+1\n  total\n'}
 for name,helper in sources.items():

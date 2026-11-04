@@ -155,6 +155,19 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         assert bool(publications(client.barrier())[main.as_uri()]["diagnostics"]) == expected_error
         client.finish()
 
+    # Local device records use the same typed admission and nominal hover data.
+    device_record = ("type Row:\n  value:int\n  enabled:Bool\n"
+                     "fn work(n:int)->int:\n  row=Row {value:n,enabled:true}\n"
+                     "  if row.enabled:row.value\n  else:0\n"
+                     "fn main()->int ! TaskError:\n  try parallel:\n"
+                     "    try await spawn work(42) on devices.gpu()\n")
+    client = Client("--placement")
+    client.init()
+    client.open(main, device_record)
+    assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
+    assert client.hover(main, 5, 6)["result"]["contents"]["value"] == "row: Row"
+    client.finish()
+
     # Explicit project package mappings and no startup source execution.
     lib.write_text("export fn value()->int:\n  42\n")
     manifest = root / "kalandra.toml"

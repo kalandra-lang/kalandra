@@ -1023,6 +1023,10 @@ class Compiler {
   void declareCpuFunction(FunctionId id, const TypedModule *source = nullptr) {
     const auto &module = source ? *source : cpu;
     const auto &fn = module.functions.at(id);
+    if (fn.resultType.record || std::ranges::any_of(fn.parameters, [&](auto parameter) {
+          return module.symbols.at(parameter).type.record.has_value();
+        }))
+      return; // Internal device/CPU helpers do not cross this scalar host bridge.
     declarations +=
         "extern \"C\" " +
         (fn.resultType.tensor                          ? std::string("void")
@@ -1053,6 +1057,15 @@ class Compiler {
     std::unique_ptr<llvm::Module> linked;
     auto append = [&](const TypedModule &source, std::vector<std::string> exports,
                       const std::string &prefix, bool stepsModule) {
+      for (std::size_t i = 0; i < exports.size(); ++i) {
+        const auto &fn = source.functions.at(i);
+        if (!exports[i].empty() &&
+            (fn.resultType.record || std::ranges::any_of(fn.parameters, [&](auto parameter) {
+               return source.symbols.at(parameter).type.record.has_value();
+             })))
+          reject(fn.declaration,
+                 "records crossing the GPU host bridge require aggregate transport");
+      }
       auto lowered = lowerNative(source, {}, exports, arithmetic_);
       if (!lowered)
         reject(span, lowered.error());
@@ -2522,10 +2535,12 @@ class Compiler {
   Value lowerPlan(const continuation::Plan &plan, FunctionId entryId) {
     using namespace continuation;
     for (const auto &type : plan.slots)
-      if ((type.array && type.builtin != BuiltinValue::Numeric && !isBoolArray(type)) ||
+      if (type.record ||
+          (type.array && type.builtin != BuiltinValue::Numeric && !isBoolArray(type)) ||
           type.errorRecord)
         reject({}, "mixed GPU host continuations support numeric/Bool arrays, tensors and "
-                   "TaskError; owned array and application-error carriers require CPU execution");
+                   "TaskError; records, owned arrays and application-error carriers require "
+                   "aggregate transport");
     std::map<Slot, Value> values;
     std::map<Slot, unsigned> payloadWrites;
     std::map<std::size_t, std::size_t> joins;
@@ -3674,11 +3689,15 @@ public:
         reject(fn.span, "mixed source functions require an explicit result");
       if (fn.result->tensor && !fn.result->array)
         tensorType(*fn.result);
-      else if (!resolveNumeric(text(fn.result->name)) && text(fn.result->name) != "Bool")
+      else if (!placement.functions.at(i).resultType.record &&
+               !resolveNumeric(text(fn.result->name)) && text(fn.result->name) != "Bool")
         reject(fn.result->span,
                "mixed source results require numeric scalars, Bool, numeric/Bool arrays "
                "or rank-zero through rank-eight numeric tensors");
-      for (const auto &p : fn.parameters) {
+      for (std::size_t parameter = 0; parameter < fn.parameters.size(); ++parameter) {
+        const auto &p = fn.parameters[parameter];
+        if (placement.symbols.at(placement.functions.at(i).parameters.at(parameter)).type.record)
+          continue; // Internal aggregate helpers do not imply a host transport ABI.
         if (p.type.tensor && !p.type.array)
           tensorType(p.type);
         else if (!resolveNumeric(text(p.type.name)) && text(p.type.name) != "Bool")
@@ -3763,8 +3782,9 @@ public:
       tensorType(*fn.result);
     const auto mainElement = placement.functions.at(*main).resultType.element;
     const auto mainWidth = describeNumeric(mainElement)->bytes();
-    auto planned =
-        continuation::plan(placement, {.preserveCalls = true, .entry = *main, .valueScopes = true});
+    auto planned = continuation::plan(
+        placement,
+        {.preserveCalls = true, .entry = *main, .valueScopes = true, .deviceValues = true});
     if (!planned)
       reject(fn.span, planned.error());
     continuationCpu = &planned->kernels;

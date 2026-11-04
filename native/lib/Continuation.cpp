@@ -1348,7 +1348,7 @@ std::expected<ModulePlan, std::string> plan(const TypedModule &input, Options op
     auto storage = planRecordStorage(input);
     if (!storage)
       return std::unexpected(storage.error().message);
-    if (hasPlacement(input))
+    if (hasPlacement(input) && !options.deviceValues)
       return std::unexpected("records are not implemented in placement-aware continuations");
     if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
       return std::unexpected(*error);

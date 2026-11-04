@@ -155,6 +155,10 @@
     {
       "kind": "gpu",
       "expected": "447a0000"
+    },
+    {
+      "kind": "gpu",
+      "expected": "42280000"
     }
   ],
   "index": [

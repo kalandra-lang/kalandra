@@ -135,7 +135,10 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
     if (target != NumericTarget::Cpu || hasPlacement(module))
       return "ordinary Strings currently require CPU execution without placement";
   }
-  if (!module.records.empty() && (target != NumericTarget::Cpu || hasPlacement(module)))
+  // Placement is checked by the device compiler at each placed entry. Plain
+  // records in a CPU-typed module are also used by checkpointed device helpers;
+  // their mere presence must not reject the whole mixed CPU/GPU program.
+  if (!module.records.empty() && target != NumericTarget::Cpu)
     return "record values currently require CPU execution";
   const auto error = [&](const ValueType &type) -> std::optional<std::string> {
     if (type.errorRecord && (!type.fallible || *type.errorRecord >= module.records.size() ||

@@ -1,7 +1,7 @@
 # Checkpointed scalar GPU control flow
 
 This is the first device-language extension in #279. It supports numeric/Bool
-scalar state and numeric results, `while`, integer-range `for`, lexical exits,
+scalar state, local plain-data records/enums and numeric results, `while`, integer-range `for`, lexical exits,
 and single-result loop expressions across Metal, Vulkan and CUDA. It does not
 complete #279: device arrays, collecting `yield`, tensor loop state, owned values
 and recursive device calls remain outside admission. Scalar helpers compose with
@@ -33,6 +33,18 @@ A chunk's provisional scalar output is discarded until its PC reports completion
 Checked fault flags are inspected before accepting a chunk. Only then may the
 runtime publish a final result or schedule another chunk. No other invocation or
 prepared executable shares mutable control state.
+
+Plain-data records flatten into private 64-bit leaf cells in canonical field
+order; enum tags occupy their existing synthetic first field. Narrow numeric
+leaves retain their typed bit carriers and Bool leaves normalize on scalar reads.
+Nested field copies snapshot all source cells before writing a destination.
+Construction clears inactive enum payloads. The nominal layout graph is walked
+iteratively; recursive/owned fields require the separate device-storage layer.
+Compilation charges expanded frames/copies against a work budget and rejects ABI
+overflow before generating huge shaders. No aggregate pointer crosses the
+host/device boundary: entry parameters/results remain scalar, and host-continuation
+or CPU bridge aggregate transport is rejected explicitly. Internal inlined helpers
+may pass/return plain aggregates without exposing that transport ABI.
 
 ## Lifetimes, budgets and cancellation ordering
 

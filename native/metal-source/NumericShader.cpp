@@ -1021,6 +1021,10 @@ bool usesScalarControl(const TypedModule &input, FunctionId function) {
                                const auto &op = input.expressions.at(id).operation;
                                if (std::holds_alternative<WhileOperation>(op))
                                  return true;
+                               if (std::holds_alternative<RecordValue>(op) ||
+                                   std::holds_alternative<RecordFieldRead>(op) ||
+                                   std::holds_alternative<MatchOperation>(op))
+                                 return true;
                                const auto *read = std::get_if<SymbolRead>(&op);
                                return read && input.symbols.at(read->symbol).reassignable;
                              }) ||
@@ -1042,7 +1046,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return std::unexpected(Diagnostic{"G001", message, root.declaration});
   };
   auto planned = continuation::plan(
-      input, {.entry = function, .nativeSubgraphs = false, .inlineLoopCalls = true});
+      input,
+      {.entry = function, .nativeSubgraphs = false, .inlineLoopCalls = true, .deviceValues = true});
   if (!planned)
     return reject("GPU scalar control planning: " + planned.error());
   const auto &plan = *planned->plans.at(function);
@@ -1050,22 +1055,100 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return !type.tensor && !type.array && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
   };
-  if (!scalar(root.resultType) || !std::all_of(plan.slots.begin(), plan.slots.end(), scalar))
-    return reject("GPU checkpointed loops currently require numeric/Bool scalar state; "
-                  "device arrays and tensor loop state are not implemented");
-  if (plan.slots.size() > (UINT32_MAX - 4) / 2)
+  if (!scalar(root.resultType) || std::ranges::any_of(root.parameters, [&](auto symbol) {
+        return !scalar(input.symbols.at(symbol).type);
+      }))
+    return reject("GPU checkpointed entry inputs/results currently require numeric/Bool scalars; "
+                  "aggregate transport requires device storage");
+  // Plain aggregates are values, not host pointers. Each scalar leaf occupies
+  // one private 64-bit cell. Enum tags use their canonical synthetic first field.
+  // Plan the nominal graph iteratively so recursive source types cannot recurse
+  // through the compiler's C++ stack or acquire an accidental pointer ABI.
+  struct RecordLayout {
+    std::size_t words = 0;
+    std::vector<std::size_t> fields;
+  };
+  std::map<std::size_t, RecordLayout> layouts;
+  const auto plainRecord = [](const ValueType &type) {
+    return type.record && type.builtin == BuiltinValue::Record && !type.tensor && !type.array &&
+           !type.task && !type.fallible;
+  };
+  std::size_t layoutBudget = 300000;
+  for (const auto &type : plan.slots) {
+    if (scalar(type))
+      continue;
+    if (!plainRecord(type))
+      return reject("GPU checkpointed values require numeric/Bool or plain-data records/enums; "
+                    "device arrays, owned fields and tensor loop state need device storage");
+    std::vector<std::pair<std::size_t, std::size_t>> pending{{*type.record, 0}};
+    std::set<std::size_t> activeRecords;
+    while (!pending.empty()) {
+      auto &[id, field] = pending.back();
+      if (layouts.contains(id)) {
+        pending.pop_back();
+        continue;
+      }
+      if (field == 0 && !activeRecords.insert(id).second)
+        return reject("recursive owned device records require device storage");
+      const auto &record = input.records.at(id);
+      if (field < record.fields.size()) {
+        if (!layoutBudget--)
+          return reject("GPU aggregate layout exceeds configured work budget");
+        const auto &child = record.fields[field++].type;
+        if (scalar(child))
+          continue;
+        if (!plainRecord(child))
+          return reject("GPU plain-data records cannot contain owned or host-only fields");
+        if (activeRecords.contains(*child.record))
+          return reject("recursive owned device records require device storage");
+        if (!layouts.contains(*child.record))
+          pending.emplace_back(*child.record, 0);
+        continue;
+      }
+      RecordLayout layout;
+      for (const auto &member : record.fields) {
+        layout.fields.push_back(layout.words);
+        const auto size = scalar(member.type) ? 1 : layouts.at(*member.type.record).words;
+        if (size > (UINT32_MAX - 4) / 2 - layout.words)
+          return reject("GPU aggregate layout exceeds the device ABI");
+        layout.words += size;
+      }
+      // Empty records still have an addressable private cell, never a host pointer.
+      layout.words = std::max<std::size_t>(1, layout.words);
+      layouts.emplace(id, std::move(layout));
+      activeRecords.erase(id);
+      pending.pop_back();
+    }
+  }
+  const auto width = [&](const ValueType &type) -> std::size_t {
+    return scalar(type) ? 1 : layouts.at(*type.record).words;
+  };
+  std::vector<std::size_t> offsets;
+  std::size_t frameWords = 1;
+  for (const auto &type : plan.slots) {
+    offsets.push_back(frameWords);
+    if (width(type) > (UINT32_MAX - 4) / 2 - frameWords)
+      return reject("GPU aggregate control frame exceeds the device ABI");
+    frameWords += width(type);
+    if (frameWords > 300000)
+      return reject("GPU aggregate control frame exceeds configured compilation work budget");
+  }
+  if (frameWords > (UINT32_MAX - 4) / 2)
     return reject("GPU scalar control parameter layout exceeds the device ABI");
   using C = continuation::Code;
   auto code = planned->kernels;
   std::vector<std::optional<FunctionId>> kernels;
   for (const auto &op : plan.code) {
-    if (op.code == C::Kernel) {
+    if (op.code == C::Kernel &&
+        !std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)) {
       kernels.push_back(op.target);
       continue;
     }
     kernels.push_back({});
     if (op.code == C::Label || op.code == C::Copy || op.code == C::Branch || op.code == C::Jump ||
-        op.code == C::Return)
+        op.code == C::Return || op.code == C::Field || op.code == C::Case ||
+        (op.code == C::Kernel &&
+         std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)))
       continue;
     if (op.code != C::Literal && op.code != C::Unary && op.code != C::Binary)
       return reject(
@@ -1098,7 +1181,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   const auto type =
       root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element;
   const auto bits = describeNumeric(type)->bits;
-  const auto frames = std::uint32_t(1 + plan.slots.size());
+  const auto frames = std::uint32_t(frameWords);
   std::vector<NumericType> inputs;
   for (auto parameter : root.parameters) {
     const auto &t = input.symbols.at(parameter).type;
@@ -1181,7 +1264,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       Value value = memref::LoadOp::create(b, loc, kernel.getArgument(i), ValueRange{at(0)});
       if (describeNumeric(inputs[i])->bits != 64)
         value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
-      store(1 + plan.parameters[i], value);
+      store(offsets.at(plan.parameters[i]), value);
     }
     store(0, constant(1)); // Zero is uninitialized; instruction PCs are one-based.
   }
@@ -1210,6 +1293,13 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     const auto contextId = code.functions.size();
     code.functions.push_back(std::move(contextFunction));
     Emitter emitter(code, contextId, b, b, kernel, at(0), options);
+    std::size_t aggregateWork = 300000;
+    const auto chargeAggregate = [&](std::size_t words) {
+      if (words > aggregateWork)
+        throw Rejected{{"G001", "GPU aggregate copies exceed configured compilation work budget",
+                        root.declaration}};
+      aggregateWork -= words;
+    };
     for (std::size_t i = 0; i < plan.code.size(); ++i) {
       const auto &op = plan.code[i];
       auto selected = scf::IfOp::create(
@@ -1219,7 +1309,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       b.setInsertionPointToStart(&selected.getThenRegion().front());
       Value next = constant(i + 2);
       const auto read = [&](std::size_t slot) {
-        auto raw = load(1 + slot);
+        auto raw = load(offsets.at(slot));
         const auto &t = plan.slots.at(slot);
         Value value =
             t.builtin == BuiltinValue::Bool
@@ -1229,9 +1319,56 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         result.element = t.element;
         return result;
       };
+      const auto copyWords = [&](std::size_t destination, std::size_t source, std::size_t count) {
+        chargeAggregate(count);
+        std::vector<Value> values;
+        for (std::size_t word = 0; word < count; ++word)
+          values.push_back(load(source + word));
+        for (std::size_t word = 0; word < count; ++word)
+          store(destination + word, values[word]);
+      };
       if (op.code == C::Copy)
-        store(1 + op.output, read(op.args.at(0)).value);
-      else if (op.code == C::Branch)
+        copyWords(offsets.at(op.output), offsets.at(op.args.at(0)),
+                  width(plan.slots.at(op.output)));
+      else if (op.code == C::Field) {
+        const auto source = op.args.at(0);
+        const auto &layout = layouts.at(*plan.slots.at(source).record);
+        copyWords(offsets.at(op.output), offsets.at(source) + layout.fields.at(op.target),
+                  width(plan.slots.at(op.output)));
+      } else if (op.code == C::Case) {
+        auto tag = load(offsets.at(op.args.at(0)));
+        auto matches =
+            arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, tag, constant(op.target));
+        if (op.jump == SIZE_MAX) {
+          auto failed =
+              scf::IfOp::create(b, loc, arith::XOrIOp::create(b, loc, matches, yes), false);
+          OpBuilder::InsertionGuard failedGuard(b);
+          b.setInsertionPointToStart(&failed.getThenRegion().front());
+          memref::StoreOp::create(b, loc, constant(0, 32), params, ValueRange{at(1 + 2 * frames)});
+        }
+        next = arith::SelectOp::create(b, loc, matches, next,
+                                       constant(op.jump == SIZE_MAX ? UINT64_MAX : op.jump + 1));
+      } else if (op.code == C::Kernel &&
+                 std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)) {
+        const auto &record = std::get<RecordValue>(input.expressions.at(op.source).operation);
+        const auto destination = offsets.at(op.output);
+        const auto &layout = layouts.at(*plan.slots.at(op.output).record);
+        std::size_t argument = 0;
+        if (record.base) {
+          copyWords(destination, offsets.at(op.args.at(argument++)), layout.words);
+        } else {
+          chargeAggregate(layout.words);
+          for (std::size_t word = 0; word < layout.words; ++word)
+            store(destination + word, constant(0));
+          if (record.variant)
+            store(destination, constant(*record.variant + 1));
+        }
+        for (const auto &field : record.fields) {
+          const auto source = op.args.at(argument++);
+          copyWords(destination + layout.fields.at(field.field), offsets.at(source),
+                    width(plan.slots.at(source)));
+        }
+      } else if (op.code == C::Branch)
         next =
             arith::SelectOp::create(b, loc, read(op.args.at(0)).value, next, constant(op.jump + 1));
       else if (op.code == C::Jump)
@@ -1243,7 +1380,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         for (auto arg : op.args)
           arguments.push_back(read(arg));
         auto value = emitter.invoke(*kernels[i], arguments);
-        store(1 + op.output, value.value);
+        store(offsets.at(op.output), value.value);
         auto bad = arith::XOrIOp::create(b, loc, value.valid, yes);
         auto failure = scf::IfOp::create(b, loc, bad, false);
         {
@@ -1260,7 +1397,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }
-  Value result = load(1 + plan.result);
+  Value result = load(offsets.at(plan.result));
   if (bits != 64)
     result = arith::TruncIOp::create(b, loc, b.getIntegerType(bits), result);
   memref::StoreOp::create(b, loc, result, kernel.getArgument(inputs.size()), ValueRange{at(0)});
