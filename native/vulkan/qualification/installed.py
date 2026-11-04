@@ -83,6 +83,13 @@ control = [sys.executable, repo/'native/gpu-source/ScalarControlTests.py',
 if not a.execute:
     control.append('--compile-only')
 subprocess.run(control, check=True, timeout=1200)
+# Exercise invocation-local allocation and collection through relocated resources.
+device_arrays = [sys.executable, repo/'native/gpu-source/DeviceArrayTests.py',
+                 '--compiler', compiler, '--backend', 'vulkan',
+                 '--variant', 'optimized', '--root', a.root/'device-arrays']
+if not a.execute:
+    device_arrays.append('--compile-only')
+subprocess.run(device_arrays, check=True, timeout=1200)
 
 # Individually remove required owned resources. An installed compiler must not
 # reuse its compiled-in build-tree paths or ambient PATH when one is missing.

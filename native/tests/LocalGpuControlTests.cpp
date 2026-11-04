@@ -46,8 +46,8 @@ int main() {
       auto arrayWrite = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                              "  local=[1,2]\n  local[0]=3\n  x+x\n" +
                              host);
-      require(!arrayWrite && arrayWrite.error().message.find("CPU execution") != std::string::npos,
-              "GPU kernel admitted array element assignment");
+      require(!arrayWrite && arrayWrite.error().message.find("scalar helper") != std::string::npos,
+              "array control admitted an unsupported tensor entry result");
       auto arraySort = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                             "  local=sorted([2,1])\n  x+x\n" +
                             host);
@@ -87,6 +87,15 @@ int main() {
       const std::string recordEntry =
           "fn main()->int ! TaskError:\n  try parallel:\n"
           "    gpu=devices.gpu()\n    try await spawn work(42) on gpu\n";
+      auto arrays = emit("fn work(n:int)->int:\n  values=[1,2,3]\n"
+                         "  alias=values\n  alias[0]=n\n  copied=copy(values)\n"
+                         "  total=0\n  for value in copied:\n    total=total+value\n  total\n" +
+                         recordEntry);
+      require(bool(arrays), "device-local array lowering rejected: " +
+                                (arrays ? "" : arrays.error().message));
+      require(arrays->at("host.cpp").find("NumericInstructionKind::DeviceControl") !=
+                  std::string::npos,
+              "device arrays were routed through host computation");
       auto record = emit("type Row:\n  value:int\n  enabled:Bool\n"
                          "fn work(n:int)->int:\n  row=Row {value:n,enabled:true}\n"
                          "  if row.enabled:row.value\n  else:0\n" +

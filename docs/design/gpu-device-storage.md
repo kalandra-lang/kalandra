@@ -1,8 +1,9 @@
 # Invocation-owned device storage
 
-This is the storage design for the remaining array/owned-value requirements in
-#279. It is an implementation contract to qualify, not a claim of implemented
-array support. The plain-record checkpoint frame is already an inline value
+This is the storage contract for #279. Invocation-local numeric/Bool arrays and
+ordered collecting loops use its arena and a collector for reference-free
+payloads. Owned-reference layouts, cyclic values and typed entry transport
+remain required work. The plain-record frame remains an inline value
 representation; host pointers are not a valid extension of it.
 
 ## Storage and permissions
@@ -135,8 +136,8 @@ UInt64 arena binding. Source inputs remain separate and read-only. The shared
 header defines capacity, growth-request and resume-PC cells; invalid capacity,
 non-increasing growth and malformed status are rejected before another source
 chunk can execute. Completed scalar results are published only at the terminal
-PC. This instruction is infrastructure; the source compiler does not yet emit
-it for arrays.
+PC. The source compiler emits this instruction for invocation-local arrays and
+collecting loops; earlier plain-data programs retain ScalarControl.
 
 The host admits a replacement allocation and copies opaque pages of at most
 64 KiB. Both allocations remain charged and retained until the actual GPU copy
@@ -150,9 +151,25 @@ Physical private-protocol tests write 16,385 values on the GPU across repeated
 arena growth, then read every value on the GPU for an independently checked
 checksum. Tests cover concurrent invocations, consecutive arena instructions,
 resource denial, cancellation/deadlines and cleanup; host protocol tests also
-exercise interrupted copies and duplicate acknowledgements. These tests qualify
-backing growth, not typed arrays, reclamation, collecting `yield` or aggregate
-transport. Those remain required by the implementation sequence.
+exercise interrupted copies and duplicate acknowledgements. These private tests qualify backing growth separately from source-language
+coverage. Source tests compare array construction, mutation, iteration,
+copy/slice/concat and ordered collecting loops with independent CPU oracles.
+
+The initial typed allocator stores a four-word span/layout/logical-length/mark
+header and one 64-bit cell per numeric or Bool element. It performs first-fit
+allocation with splitting, then clears marks, marks compiler-proven live roots,
+sweeps and coalesces before requesting growth. Each service step visits one
+block or root. The compiler computes roots from the CFG, including allocation
+operands and implicit collector handles; stale overwritten/dead slots are not
+roots. An independent path oracle checks those liveness maps.
+
+These initial payload layouts contain no owned references. They therefore do
+not implement the grey-block traversal needed for owned fields, record/function
+arrays or cycles. Those types remain rejected. Collector append grows private
+backing geometrically, copies one initialized cell per step, then publishes the
+new logical prefix. No source array pointer escapes the invocation; typed entry
+transport remains unimplemented. The complete reference-tracing design above
+remains required for full parity.
 
 ## Required qualification
 

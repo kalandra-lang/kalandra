@@ -281,6 +281,26 @@ int main(int argc, char **argv) {
     require(bool(embedded) && embedded->plans[0]->slots.size() < 20,
             "embedded constants consumed continuation frame slots");
     verify(*embedded);
+    auto mapped = analyze("fn main()->int:\n  values=generate(4,fn(i):i+1)\n"
+                          "  changed=map(values,fn(v):v*2)\n  length(changed)\n");
+    require(mapped.ok(), "device map planning source rejected");
+    auto ordinaryMap = plan(*mapped.module, {.nativeSubgraphs = false});
+    auto deviceMap = plan(*mapped.module, {.nativeSubgraphs = false,
+                                           .valueScopes = true,
+                                           .inlineLoopCalls = true,
+                                           .deviceValues = true});
+    require(bool(ordinaryMap) && bool(deviceMap), "device/ordinary map planning failed");
+    verify(*ordinaryMap);
+    verify(*deviceMap);
+    const auto countMapInit = [](const auto &module) {
+      std::size_t count = 0;
+      for (const auto &plan : module.plans)
+        count += std::ranges::count_if(plan->code,
+                                       [](const auto &op) { return op.code == Code::MapInit; });
+      return count;
+    };
+    require(countMapInit(*ordinaryMap) == 0 && countMapInit(*deviceMap) == 2,
+            "device map lowering changed ordinary CPU planning or lost callbacks");
     std::cout << fixtures
               << " source fixtures: shared group/branch/failure edges, typed placement, evaluation "
                  "order, deterministic plans and CPU capability/recursion guards passed\n";

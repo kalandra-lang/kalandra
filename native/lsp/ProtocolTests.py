@@ -168,6 +168,21 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.hover(main, 5, 6)["result"]["contents"]["value"] == "row: Row"
     client.finish()
 
+    # Device-local arrays and ordered collectors share the ordinary array type
+    # and access diagnostics. Editor checking never initializes a GPU driver.
+    device_arrays = ("fn work(n:int)->int:\n"
+                     "  values=for i in range(n):\n    if i%2==1:\n      yield i\n"
+                     "  snapshot=copy(values)\n"
+                     "  if length(values)>0:\n    values[0]=99\n  length(snapshot)\n"
+                     "fn main()->int ! TaskError:\n  try parallel:\n"
+                     "    try await spawn work(10) on devices.gpu()\n")
+    client = Client("--placement")
+    client.init()
+    client.open(main, device_arrays)
+    assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
+    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "snapshot: [int64]"
+    client.finish()
+
     # Explicit project package mappings and no startup source execution.
     lib.write_text("export fn value()->int:\n  42\n")
     manifest = root / "kalandra.toml"

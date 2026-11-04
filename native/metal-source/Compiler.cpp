@@ -109,9 +109,9 @@ class Compiler {
         continue;
       const auto &fn = cpu.functions[function];
       const auto supported = [&](const ValueType &type) {
-        if (type.array)
+        if (type.array && function == root)
           reject(fn.declaration,
-                 "GPU kernel parameters and results require tensors rather than host arrays");
+                 "GPU entry host arrays require typed array transport; local device arrays are supported");
         if (type.builtin == BuiltinValue::Numeric &&
             !numericArithmeticAvailable(type.element, NumericTarget::AppleGpu))
           reject(fn.declaration, "GPU kernel numeric type is not implemented");
@@ -122,10 +122,12 @@ class Compiler {
       for (auto value : fn.expressions) {
         const auto &expression = cpu.expressions[value];
         const auto &op = expression.operation;
-        if (std::holds_alternative<ArrayStore>(op) || std::holds_alternative<ArraySort>(op))
-          reject(expression.span, "array element assignment currently requires CPU execution");
+        if (std::holds_alternative<ArraySort>(op))
+          reject(expression.span, "array sorting currently requires CPU execution");
         if (auto *call = std::get_if<FunctionCall>(&op))
           pending.push_back(call->function);
+        if (auto *map = std::get_if<ArrayMap>(&op))
+          pending.push_back(map->function);
         if (arithmetic_ != ArithmeticMode::Hardware)
           continue;
         bool requiresDouble =
@@ -1705,7 +1707,7 @@ class Compiler {
       for (auto value : op.constants)
         bindings += std::to_string(value) + "ull,";
       bindings += "};\n";
-      if (op.kind == NumericProgramKind::Map || op.kind == NumericProgramKind::ScalarControl)
+      if (op.kind == NumericProgramKind::Map || isGpuControlKind(op.kind))
         for (std::size_t j = 0; j < op.scalarSources.size() + op.constants.size(); ++j) {
           captureList += "scalars" + suffix + "[" + std::to_string(j) + "],";
           ++captureCount;
@@ -1739,7 +1741,7 @@ class Compiler {
                : kind == NumericProgramKind::Matmul ? "loadNumericMatmulKernel"
                                                     : "loadNumericGraphKernel") +
               "(f.directory+\"/" + path + "\",*target," + elementName(kernel.element);
-      if (kind == NumericProgramKind::Map || kind == NumericProgramKind::ScalarControl)
+      if (kind == NumericProgramKind::Map || isGpuControlKind(kind))
         code += ",m::ElementwiseSignature{" + std::to_string(kernel.tensorTypes.size()) + "," +
                 std::to_string(kernel.scalarTypes.size()) +
                 (kernel.indirect ? ",m::ElementwiseBinding::ArgumentBuffer}," : "},") +

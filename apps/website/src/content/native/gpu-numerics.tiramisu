@@ -93,7 +93,7 @@ The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int
 
 h2 { "Hardware arithmetic and explicit fallback" }
 
-Float32 uses hardware arithmetic on CPU, Metal and the experimental Vulkan/CUDA backends by default. CUDA also uses native float64 on supported hardware. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling a float64 GPU operation requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
+Float32 uses hardware arithmetic on CPU, Metal and the experimental Vulkan/CUDA backends by default. CUDA also uses native float64 on supported hardware. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling float64 GPU arithmetic requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
 
 Use --arithmetic software for the strict software implementation on both CPU and GPU. This selects software arithmetic with gradual underflow and its defined numerical contract. Default hardware mode follows device behavior, so Metal float32 subnormals may flush to zero. reduceSum keeps its balanced adjacent-pair tree, and scalar arithmetic retains its separately rounded operations. -O2 does not enable generic fast math.
 
@@ -133,7 +133,38 @@ fn main() -> float32 ! TaskError:
 
 This computes 1000 on the GPU. The executable prints its float32 bits as 447a0000. Loop arithmetic and branch decisions execute on the device. Each scalar helper runs sequentially in one GPU thread; placing it on a GPU does not parallelize its iterations. The runtime saves private scalar state between bounded chunks and checks cancellation before submitting more work. There is no total iteration limit; execution remains subject to ordinary device, task and memory limits. A cancellation request cannot reclaim buffers until submitted work has finished.
 
-This support is for scalar helpers with numeric results and numeric, Bool or plain-data record/enum local state. Device arrays, tensor values carried around a loop, collecting loops with yield, and recursive device calls are not supported. Keep tensor operations outside scalar loops and compose them with scalar helpers. Numeric policies still apply; Metal float64 arithmetic requires explicit software arithmetic or hardware-with-software-fallback.
+Helpers with numeric results can use numeric, Bool, plain-data record/enum and local numeric/Bool array state. Tensor values carried around a loop and recursive device calls are not supported. Keep tensor operations outside those loops and compose them with scalar helpers. Numeric policies still apply; Metal float64 arithmetic requires explicit software arithmetic or hardware-with-software-fallback.
+
+h2 { "Local arrays and collecting loops" }
+
+A GPU helper can construct numeric and Bool arrays, index and iterate them, and modify local elements. Assignment keeps the same backing; copy creates independent element storage. slice and concat also construct independent arrays. A synchronous helper with a mut parameter can modify an array created by the calling GPU helper. Array parameters and results cannot cross the CPU/device entry boundary.
+
+codeblock { language = kalandra, """fn selected(n: int) -> int:
+  indices = generate(n, fn(i): i)
+  values = for i in indices:
+    if i % 2 == 1:
+      for offset in range(2):
+        yield i * 10 + offset
+  snapshot = copy(values)
+  values[0] = 999
+  total = 0
+  for value in map(snapshot, fn(value): value):
+    total = total + value
+  total
+
+fn main() -> int ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn selected(10) on gpu
+""" }
+
+This computes 505 and prints its int64 bits as 00000000000001f9. yield appends in lexical order; filtering, nested loops, break, continue and empty results keep their ordinary CPU semantics. Array operations and collection run on the GPU, sequentially within the helper invocation. These arrays do not become shared append buffers or implicitly parallel loops.
+
+generate calls a callback with each index; array map calls it with each input element. Both visit indices in increasing order and allocate independent output storage before callbacks run. Named nonrecursive helpers and callback literals with supported captured values run on-device, including callbacks that use loops and local arrays. An empty input makes no callback calls; a negative generate count produces a checked bounds fault.
+
+Local arrays use invocation-owned device memory. Their backing can grow as needed, subject to device and task memory budgets. Unreachable numeric/Bool arrays are reclaimed during execution, so repeatedly constructing temporary arrays does not retain every earlier allocation. Allocation, copying and collection have cancellation checkpoints. Checked bounds errors discard partial results, and submitted work settles before its storage is released.
+
+The numeric and Bool array representation uses a 64-bit cell per element plus private allocation metadata. Memory costs can therefore exceed the corresponding CPU array payload. Strings, records and function values are not supported as device-array elements. sorted and sort are not supported inside a GPU helper.
 
 h2 { "Plain-data values in GPU helpers" }
 
@@ -156,7 +187,7 @@ fn main() -> float32 ! TaskError:
     try await spawn adjusted(float32(40)) on gpu
 """ }
 
-This computes 42; the executable prints 42280000. Records are copied by value within the private device frame. Inactive enum payloads are zeroed, and fields retain their declared numeric types. These are local device values: passing records across the host/device boundary or storing arrays, Strings, tensors or function values in their fields requires additional device storage and is not supported. Numeric or Bool parameters and numeric results retain the scalar entry boundary.
+This computes 42; the executable prints 42280000. Records are copied by value within the private device frame. Inactive enum payloads are zeroed, and fields retain their declared numeric types. These are local device values: passing records across the host/device boundary or storing arrays, Strings, tensors or function values in their fields requires additional device storage and is not supported. Numeric scalar parameters and results retain the entry boundary.
 
 h2 { "AI and LLM foundations" }
 
@@ -173,11 +204,13 @@ table {
   row = ["Integer-range for, while, break and continue", "Supported", "Supported in scalar helpers; sequential iterations"],
   row = ["Single-result loop expressions", "Supported", "Supported for numeric/Bool scalar results"],
   row = ["Plain-data records, enums and match", "Supported", "Local values and internal helpers; no aggregate host/device transport"],
-  row = ["Array iteration, indexing and element mutation", "Supported with access rules", "Not supported; mixed-program host arrays run on the CPU"],
-  row = ["Collecting loops with yield", "Supported", "Not supported"],
-  row = ["Array generate, map, copy, sorted and sort", "Supported for their documented element types", "Not supported"],
+  row = ["Array iteration, indexing and element mutation", "Supported with access rules", "Local numeric/Bool arrays; bounds checked; existing access rules apply"],
+  row = ["Collecting loops with yield", "Supported", "Numeric/Bool elements; ordered, nested and filtered collection"],
+  row = ["Array copy, slice and concat", "Supported for their documented element types", "Local numeric/Bool arrays"],
+  row = ["Array generate and map", "Supported for their documented element types", "Local numeric/Bool arrays; ordered nonrecursive callbacks with supported captures"],
+  row = ["Array sorted and sort", "Supported for their documented element types", "Not supported"],
   row = ["Owned fields and recursive data", "Supported", "Not supported"],
-  row = ["Function values, captures and recursive calls", "Supported", "Direct nonrecursive helpers only; function values and recursive calls are not supported"],
+  row = ["Function values, captures and recursive calls", "Supported", "Direct nonrecursive helpers and generate/map callback literals; general function values and recursive calls are not supported"],
   row = ["Tensor calculations", "Supported", "Supported numerical graphs; tensor loop state is not supported"],
   row = ["Task scheduling and device transfers", "Supported", "Host orchestration; not device instructions"]
 }

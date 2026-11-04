@@ -15,6 +15,7 @@ p.add_argument('--compiler', type=Path, required=True)
 p.add_argument('--driver', type=Path, required=True)
 p.add_argument('--backend', choices=('vulkan', 'cuda'), required=True)
 p.add_argument('--root', type=Path, required=True)
+p.add_argument('--arrays', action='store_true')
 a = p.parse_args()
 a.root.mkdir(parents=True, exist_ok=True)
 sources = {
@@ -46,6 +47,11 @@ fn work(n:int)->int:
   total
 ''',
 }
+if a.arrays:
+    from DeviceArrayCases import cases, fault_cases
+    sources['finite'] = cases()['reclaim-dead-keep-alias'][0]
+    sources['infinite'] = "fn work(n:int)->int:\n  i=0\n  while true:\n    values=[i,n]\n    i=values[0]+1\n  i\n"
+    sources['fault'] = fault_cases()['bounds-before-rhs'][0]
 shaders = []
 for name, helper in sources.items():
     source = a.root/(name+'.k')
@@ -57,7 +63,7 @@ for name, helper in sources.items():
     bundle = a.root/name
     subprocess.run([str(a.compiler.resolve()), str(source), '--target', a.backend,
                     '-O2', '-o', str(bundle)], check=True, timeout=180)
-    assert 'ScalarControl' in (bundle/'host.cpp').read_text(), name
+    assert ('DeviceControl' if a.arrays else 'ScalarControl') in (bundle/'host.cpp').read_text(), name
     control = [f for f in bundle.glob('*.mlir')
                if 'gpu.func' in f.read_text() and 'scf.while' in f.read_text()]
     # The initial artifact is the source form; converted/lowered artifacts can
@@ -68,7 +74,7 @@ for name, helper in sources.items():
               and not any(x in f.stem for x in ('.lowered', '.converted', '.kernel'))]
     assert len(stages) == 1, (name, stages)
     shaders.append(stages[0])
-result = subprocess.run([str(a.driver.resolve()), *map(str, shaders)],
+result = subprocess.run([str(a.driver.resolve()), *map(str, shaders), *(['arrays'] if a.arrays else [])],
                         capture_output=True, text=True, timeout=180)
 print(result.stdout, end='')
 print(result.stderr, end='')
@@ -76,7 +82,7 @@ assert result.returncode == 0, result.returncode
 assert 'PASS:' in result.stdout
 (a.root/'report.json').write_text(json.dumps({
     'backend': a.backend, 'gpuExecution': True,
-    'finiteRecord': 'Step(value:int, enabled:Bool)',
+    'finiteStorage': 'invocation-local numeric arrays' if a.arrays else 'Step(value:int, enabled:Bool)',
     'driverChecks': ['prepared-reuse', 'distinct-concurrent-captures',
                      'infinite-cancellation', 'deadlines', 'fault-precedence',
                      'zero-retained-resources'],

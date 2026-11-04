@@ -1,7 +1,8 @@
 # One typed map/program emitter for all GPU backends. Historical source paths
 # are retained while the host-supervisor/runtime interfaces are generalized.
 add_library(kalandra-gpu-source-ir STATIC
-  ../metal-source/NumericShader.cpp ../metal-source/NumericProgram.cpp)
+  ../metal-source/NumericShader.cpp ../metal-source/NumericProgram.cpp
+  ../metal-source/DeviceLiveness.cpp ../metal-source/DeviceHeap.cpp)
 target_include_directories(kalandra-gpu-source-ir PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source")
 target_include_directories(kalandra-gpu-source-ir SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 target_link_libraries(kalandra-gpu-source-ir PUBLIC kalandra-semantics PRIVATE kalandra-gpu-numeric MLIR LLVM)

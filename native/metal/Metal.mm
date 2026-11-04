@@ -600,7 +600,7 @@ struct Bridge {
       bool valid = false;
       switch (op.kind) {
       case K::DeviceControl:
-        if (!kernel || !scalar || op.target || op.workPerElement ||
+        if (!kernel || op.target || op.workPerElement ||
             op.scalars.size() < detail::ControlArenaABI::Cells ||
             kernel->tensorTypes.size() != op.inputs.size() + 1 ||
             kernel->tensorTypes.back() != NumericType::UInt64 ||
@@ -3105,7 +3105,7 @@ struct Bridge {
             if (op.kind == K::DeviceControl) {
               if (!program.controlArena.buffer() && !program.controlArena.growing()) {
                 std::fill(program.controlState.begin(), program.controlState.end(), 0);
-                auto requested = program.controlArena.request(32);
+                auto requested = program.controlArena.request(detail::ControlArenaABI::InitialWords);
                 if (!requested) {
                   fail(task, f, std::int64_t(requested.error()));
                   return;
@@ -4469,9 +4469,21 @@ std::expected<Kernel, Error> Runtime::loadKernel(
     if (!scalarBuffers.empty()) {
       if (!numericType || !signature || scalarBuffers.size() != signature->tensors)
         return std::unexpected(Error::Invalid);
+      // Ordinary maps put domain tensors before scalar broadcasts. Device
+      // control has no tensor domain: its final UInt64 binding is private heap
+      // storage, following scalar source inputs. Validate that complete frame
+      // schema here; captureProgram separately requires DeviceControl semantics.
+      const bool privateControl = !tensorTypes.empty() &&
+          tensorTypes.back() == NumericType::UInt64 && !scalarBuffers.back() &&
+          scalarTypes.size() >= detail::ControlArenaABI::Cells &&
+          std::all_of(scalarTypes.begin(), scalarTypes.end(),
+                      [](auto type) { return type == NumericType::UInt64; }) &&
+          std::all_of(scalarBuffers.begin(), scalarBuffers.end() - 1,
+                      [](auto role) { return role == 1; });
       bool seen = false;
-      for (auto role : scalarBuffers) {
-        if (role > 1 || (seen && !role))
+      for (std::size_t i = 0; i < scalarBuffers.size(); ++i) {
+        const auto role = scalarBuffers[i];
+        if (role > 1 || (seen && !role && !(privateControl && i + 1 == scalarBuffers.size())))
           return std::unexpected(Error::Invalid);
         seen |= role;
       }

@@ -100,7 +100,7 @@ Host coordination and CPU workers remain separate from shader execution even whe
 
 h2 { "Numerical and control scope" }
 
-GPU numerical programs support all ten native numeric types, dense ranks zero through eight, rank-two matmul, balanced reduceSum, explicit conversions and resident numerical functions and supported control flow. Float32 uses hardware arithmetic by default. Metal float64 GPU operations require --arithmetic hardware-with-software-fallback; CPU float64 remains on hardware under that policy. --arithmetic software selects the strict software implementation. This does not imply general device Strings, records, enums, arbitrary closures or application-error handling.
+GPU numerical programs support all ten native numeric types, dense ranks zero through eight, rank-two matmul, balanced reduceSum, explicit conversions and resident numerical functions and supported control flow. Float32 uses hardware arithmetic by default. Metal float64 GPU arithmetic requires --arithmetic hardware-with-software-fallback; CPU float64 remains on hardware under that policy. --arithmetic software selects the strict software implementation. GPU helpers also support local numeric/Bool arrays and plain-data records/enums. Array and aggregate entry transport, owned fields, arbitrary closures, recursive device calls and application-error handling are not supported. See the numerical guide for the complete CPU/device capability table.
 
 list {
   link { url = "/docs/gpu-numerics", "Read the numerical contract and graph example" },

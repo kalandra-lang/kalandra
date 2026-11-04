@@ -348,7 +348,8 @@ class Builder {
           emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_);
       if (!shader)
         throw Rejected{shader.error()};
-      NumericProgramInstruction op{NumericProgramKind::ScalarControl};
+      NumericProgramInstruction op{shader->deviceStorage ? NumericProgramKind::DeviceControl
+                                                          : NumericProgramKind::ScalarControl};
       for (auto argument : arguments)
         op.inputs.push_back(*force(argument).buffer);
       op.constants.resize(shader->scalarTypes.size(), 0);

@@ -1,4 +1,6 @@
 #include "NumericShader.h"
+#include "DeviceHeap.h"
+#include "DeviceLiveness.h"
 #include "MatmulShader.h"
 #include "kalandra/Continuation.h"
 #include "kalandra/GpuConversion.h"
@@ -1019,6 +1021,8 @@ bool usesScalarControl(const TypedModule &input, FunctionId function) {
   return std::ranges::any_of(fn.expressions,
                              [&](auto id) {
                                const auto &op = input.expressions.at(id).operation;
+                               if (input.expressions.at(id).type.array)
+                                 return true;
                                if (std::holds_alternative<WhileOperation>(op))
                                  return true;
                                if (std::holds_alternative<RecordValue>(op) ||
@@ -1047,7 +1051,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   };
   auto planned = continuation::plan(
       input,
-      {.entry = function, .nativeSubgraphs = false, .inlineLoopCalls = true, .deviceValues = true});
+      {.entry = function, .nativeSubgraphs = false, .valueScopes = true, .inlineLoopCalls = true, .deviceValues = true});
   if (!planned)
     return reject("GPU scalar control planning: " + planned.error());
   const auto &plan = *planned->plans.at(function);
@@ -1055,11 +1059,16 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return !type.tensor && !type.array && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
   };
+  const auto flatArray = [](const ValueType &type) {
+    return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+  };
+  const bool storage = std::ranges::any_of(plan.slots, flatArray);
   if (!scalar(root.resultType) || std::ranges::any_of(root.parameters, [&](auto symbol) {
         return !scalar(input.symbols.at(symbol).type);
       }))
     return reject("GPU checkpointed entry inputs/results currently require numeric/Bool scalars; "
-                  "aggregate transport requires device storage");
+                  "aggregate transport needs a typed entry ABI");
   // Plain aggregates are values, not host pointers. Each scalar leaf occupies
   // one private 64-bit cell. Enum tags use their canonical synthetic first field.
   // Plan the nominal graph iteratively so recursive source types cannot recurse
@@ -1075,11 +1084,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   };
   std::size_t layoutBudget = 300000;
   for (const auto &type : plan.slots) {
-    if (scalar(type))
+    if (scalar(type) || flatArray(type))
       continue;
     if (!plainRecord(type))
-      return reject("GPU checkpointed values require numeric/Bool or plain-data records/enums; "
-                    "device arrays, owned fields and tensor loop state need device storage");
+      return reject("GPU checkpointed values support numeric/Bool scalars, local numeric/Bool arrays and "
+                    "plain-data records/enums; owned aggregates and tensor loop state need device layouts");
     std::vector<std::pair<std::size_t, std::size_t>> pending{{*type.record, 0}};
     std::set<std::size_t> activeRecords;
     while (!pending.empty()) {
@@ -1121,10 +1130,10 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     }
   }
   const auto width = [&](const ValueType &type) -> std::size_t {
-    return scalar(type) ? 1 : layouts.at(*type.record).words;
+    return scalar(type) || flatArray(type) ? 1 : layouts.at(*type.record).words;
   };
   std::vector<std::size_t> offsets;
-  std::size_t frameWords = 1;
+  std::size_t frameWords = storage ? unsigned(DeviceHeapEmitter::Cells) : 1;
   for (const auto &type : plan.slots) {
     offsets.push_back(frameWords);
     if (width(type) > (UINT32_MAX - 4) / 2 - frameWords)
@@ -1136,16 +1145,53 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   if (frameWords > (UINT32_MAX - 4) / 2)
     return reject("GPU scalar control parameter layout exceeds the device ABI");
   using C = continuation::Code;
+  std::vector<std::vector<std::size_t>> liveRoots;
+  if (storage) {
+    std::vector<continuation::Slot> arrays;
+    for (std::size_t i = 0; i < plan.slots.size(); ++i)
+      if (flatArray(plan.slots[i]))
+        arrays.push_back(i);
+    auto roots = deviceLiveRoots(plan, arrays);
+    if (!roots)
+      return reject(roots.error());
+    liveRoots = std::move(*roots);
+    for (auto &row : liveRoots)
+      for (auto &slot : row)
+        slot = offsets.at(slot);
+  }
+  std::vector<DeviceRootMap> allocationRoots;
+  if (storage)
+    for (std::size_t i = 0; i < plan.code.size(); ++i) {
+      const auto &op = plan.code[i];
+      if ((op.code == C::Kernel || op.code == C::CollectAppend || op.code == C::MapInit) &&
+          flatArray(plan.slots.at(op.output)))
+        allocationRoots.push_back({i + 1, liveRoots[i]});
+    }
+  const auto arrayOperation = [&](const auto &op) {
+    if (!storage || op.code != C::Kernel)
+      return false;
+    const auto &node = input.expressions.at(op.source);
+    return (flatArray(node.type) && (std::holds_alternative<TensorLiteral>(node.operation) ||
+                                   std::holds_alternative<ArraySlice>(node.operation) ||
+                                   std::holds_alternative<ArrayConcat>(node.operation))) ||
+           std::holds_alternative<ArrayIndex>(node.operation) ||
+           std::holds_alternative<ArrayBoundsCheck>(node.operation) ||
+           std::holds_alternative<ArrayStore>(node.operation) ||
+           (std::holds_alternative<CollectionQuery>(node.operation) && !op.args.empty() &&
+            flatArray(plan.slots.at(op.args[0])));
+  };
   auto code = planned->kernels;
   std::vector<std::optional<FunctionId>> kernels;
   for (const auto &op : plan.code) {
-    if (op.code == C::Kernel &&
+    if (op.code == C::Kernel && !arrayOperation(op) &&
         !std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)) {
       kernels.push_back(op.target);
       continue;
     }
     kernels.push_back({});
-    if (op.code == C::Label || op.code == C::Copy || op.code == C::Branch || op.code == C::Jump ||
+    if (op.code == C::MapInit || op.code == C::MapCheck || op.code == C::MapLoad ||
+        op.code == C::MapStore || op.code == C::MapAdvance || arrayOperation(op) || op.code == C::CollectInit || op.code == C::CollectAppend ||
+        op.code == C::CollectFinish || op.code == C::Label || op.code == C::Copy || op.code == C::Branch || op.code == C::Jump ||
         op.code == C::Return || op.code == C::Field || op.code == C::Case ||
         (op.code == C::Kernel &&
          std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)))
@@ -1187,10 +1233,12 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     const auto &t = input.symbols.at(parameter).type;
     inputs.push_back(t.builtin == BuiltinValue::Bool ? NumericType::UInt8 : t.element);
   }
+  if (storage)
+    inputs.push_back(NumericType::UInt64);
   std::vector<NumericType> states(frames, NumericType::UInt64);
   auto name = numericKernelName(type, inputs, states);
-  if (!inputs.empty())
-    name += "_d_" + std::string(inputs.size(), 's');
+  if (!root.parameters.empty())
+    name += "_d_" + std::string(root.parameters.size(), 's') + (storage ? "t" : "");
   std::ostringstream source;
   const auto hasWidth = [&](unsigned width) {
     return bits == width || std::ranges::any_of(inputs, [&](auto type) {
@@ -1254,6 +1302,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     memref::StoreOp::create(b, loc, lo, params, ValueRange{at(1 + slot * 2)});
     memref::StoreOp::create(b, loc, hi, params, ValueRange{at(2 + slot * 2)});
   };
+  std::optional<DeviceHeapEmitter> heap;
+  if (storage)
+    heap.emplace(b, kernel.getArgument(inputs.size() - 1), params, 2 + 2 * frames, allocationRoots);
   auto yes = constant(1, 1);
   auto initial = scf::IfOp::create(
       b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, load(0), constant(0)), false);
@@ -1266,6 +1317,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
       store(offsets.at(plan.parameters[i]), value);
     }
+    if (heap)
+      heap->initialize();
     store(0, constant(1)); // Zero is uninitialized; instruction PCs are one-based.
   }
   auto loop = scf::WhileOp::create(b, loc, TypeRange{b.getI32Type()}, ValueRange{constant(0, 32)});
@@ -1280,11 +1333,13 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     b.setInsertionPointToStart(before);
     auto budget = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, before->getArgument(0),
                                         constant(256, 32));
-    auto running =
-        arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, load(0), constant(UINT64_MAX));
+    auto running = arith::CmpIOp::create(b, loc,
+        storage ? arith::CmpIPredicate::ult : arith::CmpIPredicate::ne,
+        load(0), constant(storage ? UINT64_MAX - 1 : UINT64_MAX));
     scf::ConditionOp::create(b, loc, arith::AndIOp::create(b, loc, budget, running),
                              before->getArguments());
     b.setInsertionPointToStart(after);
+    const auto sourceReady = heap ? heap->service() : yes;
     const auto pc = load(0);
     const NumericShaderOptions options{.arithmetic = arithmetic,
                                        .nativeFloat64Conversions = nativeFloat64Conversions};
@@ -1303,8 +1358,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     for (std::size_t i = 0; i < plan.code.size(); ++i) {
       const auto &op = plan.code[i];
       auto selected = scf::IfOp::create(
-          b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, pc, constant(i + 1)),
-          false);
+          b, loc, arith::AndIOp::create(b, loc, sourceReady,
+              arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, pc, constant(i + 1))), false);
       OpBuilder::InsertionGuard guard(b);
       b.setInsertionPointToStart(&selected.getThenRegion().front());
       Value next = constant(i + 2);
@@ -1327,7 +1382,284 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         for (std::size_t word = 0; word < count; ++word)
           store(destination + word, values[word]);
       };
-      if (op.code == C::Copy)
+      if (op.code == C::MapInit || op.code == C::MapCheck || op.code == C::MapLoad ||
+          op.code == C::MapStore || op.code == C::MapAdvance) {
+        const auto &map = std::get<ArrayMap>(input.expressions.at(op.source).operation);
+        const auto compare = [&](arith::CmpIPredicate pred, Value a, Value d) -> Value {
+          return arith::CmpIOp::create(b, loc, pred, a, d);
+        };
+        const auto condition = [&](Value predicate, auto body) {
+          auto branch = scf::IfOp::create(b, loc, predicate, false);
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          body();
+        };
+        if (op.code == C::MapAdvance) {
+          store(offsets.at(op.output), arith::AddIOp::create(b, loc,
+              load(offsets.at(op.args.at(0))), constant(1)));
+        } else if (op.code == C::MapStore) {
+          heap->write(load(offsets.at(op.args.at(0))),
+              arith::AddIOp::create(b, loc, constant(4), load(offsets.at(op.args.at(1)))),
+              load(offsets.at(op.args.at(2))));
+        } else {
+          const auto inputValue = load(offsets.at(op.args.at(0)));
+          Value count = inputValue;
+          if (!map.generate) {
+            auto length = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
+                compare(arith::CmpIPredicate::ne, inputValue, constant(0)), true);
+            {
+              OpBuilder::InsertionGuard restore(b);
+              b.setInsertionPointToStart(&length.getThenRegion().front());
+              const auto &type = plan.slots.at(op.args.at(0));
+              condition(compare(arith::CmpIPredicate::ne, heap->read(inputValue, constant(1)),
+                  constant(type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1)),
+                  [&] { heap->fault(99); });
+              scf::YieldOp::create(b, loc, ValueRange{heap->read(inputValue, constant(2))});
+              b.setInsertionPointToStart(&length.getElseRegion().front());
+              scf::YieldOp::create(b, loc, ValueRange{constant(0)});
+            }
+            count = length.getResult(0);
+          }
+          const auto index = load(offsets.at(op.args.at(1)));
+          if (op.code == C::MapCheck) {
+            store(offsets.at(op.output), arith::ExtUIOp::create(b, loc, b.getI64Type(),
+                compare(arith::CmpIPredicate::ult, index, count)));
+          } else if (op.code == C::MapLoad) {
+            Value item = index;
+            if (!map.generate)
+              item = heap->read(inputValue, arith::AddIOp::create(b, loc, constant(4), index));
+            store(offsets.at(op.output), item);
+          } else {
+            store(offsets.at(op.args.at(1)), constant(0));
+            if (map.generate)
+              condition(compare(arith::CmpIPredicate::slt, count, constant(0)), [&] { heap->fault(1); });
+            const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
+            const auto ready = heap->ready(), cursor = heap->cursor();
+            const Value complete = arith::AndIOp::create(b, loc, ready,
+                compare(arith::CmpIPredicate::eq, cursor, count));
+            condition(empty, [&] { store(offsets.at(op.output), constant(0)); });
+            condition(arith::AndIOp::create(b, loc,
+                compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)),
+                compare(arith::CmpIPredicate::sgt, count, constant(0))), [&] {
+              const auto &type = plan.slots.at(op.output);
+              heap->begin(count, type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1);
+            });
+            condition(ready, [&] {
+              condition(compare(arith::CmpIPredicate::ult, cursor, count), [&] {
+                heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), constant(0));
+                heap->advance();
+              });
+              condition(complete, [&] {
+                store(offsets.at(op.output), heap->handle());
+                heap->finish();
+              });
+            });
+            next = arith::SelectOp::create(b, loc, arith::OrIOp::create(b, loc, complete, empty),
+                                           next, constant(i + 1));
+          }
+        }
+      } else if (op.code == C::CollectInit) {
+        store(offsets.at(op.output), constant(0));
+      } else if (op.code == C::CollectFinish) {
+        // The builder already carries its logical length. Its spare capacity
+        // stays private; publication does not expose uninitialized cells.
+      } else if (op.code == C::CollectAppend) {
+        const auto condition = [&](Value predicate, auto body) {
+          auto branch = scf::IfOp::create(b, loc, predicate, false);
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          body();
+        };
+        const auto compare = [&](arith::CmpIPredicate pred, Value a, Value d) -> Value {
+          return arith::CmpIOp::create(b, loc, pred, a, d);
+        };
+        const auto old = load(offsets.at(op.output));
+        auto descriptor = scf::IfOp::create(b, loc, TypeRange{b.getI64Type(), b.getI64Type()},
+            compare(arith::CmpIPredicate::ne, old, constant(0)), true);
+        {
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&descriptor.getThenRegion().front());
+          auto length = heap->read(old, constant(2));
+          auto capacity = arith::SubIOp::create(b, loc, heap->read(old, constant(0)), constant(4));
+          scf::YieldOp::create(b, loc, ValueRange{length, capacity});
+          b.setInsertionPointToStart(&descriptor.getElseRegion().front());
+          scf::YieldOp::create(b, loc, ValueRange{constant(0), constant(0)});
+        }
+        const auto length = descriptor.getResult(0), capacity = descriptor.getResult(1);
+        const auto needsGrowth = compare(arith::CmpIPredicate::eq, length, capacity);
+        const auto ready = heap->ready();
+        const auto cursor = heap->cursor();
+        const auto complete = compare(arith::CmpIPredicate::eq, cursor, length);
+        const auto item = load(offsets.at(op.args.at(0)));
+        condition(arith::XOrIOp::create(b, loc, needsGrowth, yes), [&] {
+          heap->write(old, arith::AddIOp::create(b, loc, constant(4), length), item);
+          heap->write(old, constant(2), arith::AddIOp::create(b, loc, length, constant(1)));
+        });
+        condition(needsGrowth, [&] {
+          condition(compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)), [&] {
+            auto size = arith::MaxUIOp::create(b, loc, constant(4),
+                arith::AddIOp::create(b, loc, capacity, capacity));
+            const auto &type = plan.slots.at(op.output);
+            heap->begin(size, type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1);
+          });
+          condition(ready, [&] {
+            condition(compare(arith::CmpIPredicate::ult, cursor, length), [&] {
+              const Value offset = arith::AddIOp::create(b, loc, constant(4), cursor);
+              heap->write(heap->handle(), offset, heap->read(old, offset));
+              heap->advance();
+            });
+            condition(complete, [&] {
+              heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), length), item);
+              heap->write(heap->handle(), constant(2),
+                          arith::AddIOp::create(b, loc, length, constant(1)));
+              store(offsets.at(op.output), heap->handle());
+              heap->finish();
+            });
+          });
+        });
+        auto finished = arith::OrIOp::create(b, loc,
+            arith::XOrIOp::create(b, loc, needsGrowth, yes),
+            arith::AndIOp::create(b, loc, ready, complete));
+        next = arith::SelectOp::create(b, loc, finished, next, constant(i + 1));
+      } else if (arrayOperation(op)) {
+        const auto &node = input.expressions.at(op.source);
+        const auto condition = [&](Value predicate, auto body) {
+          auto branch = scf::IfOp::create(b, loc, predicate, false);
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          body();
+        };
+        const auto compare = [&](arith::CmpIPredicate pred, Value a, Value d) -> Value {
+          return arith::CmpIOp::create(b, loc, pred, a, d);
+        };
+        const auto lengthOf = [&](std::size_t slot) -> Value {
+          const auto h = load(offsets.at(slot));
+          auto branch = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
+              compare(arith::CmpIPredicate::ne, h, constant(0)), true);
+          {
+            OpBuilder::InsertionGuard restore(b);
+            b.setInsertionPointToStart(&branch.getThenRegion().front());
+            const auto layout = heap->read(h, constant(1));
+            const auto &type = plan.slots.at(slot);
+            condition(compare(arith::CmpIPredicate::ne, layout,
+                constant(type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1)),
+                [&] { heap->fault(99); });
+            scf::YieldOp::create(b, loc, ValueRange{heap->read(h, constant(2))});
+            b.setInsertionPointToStart(&branch.getElseRegion().front());
+            scf::YieldOp::create(b, loc, ValueRange{constant(0)});
+          }
+          return branch.getResult(0);
+        };
+        const auto indexOf = [&](std::size_t slot) -> Value {
+          Value index = load(offsets.at(slot));
+          const auto desc = describeNumeric(plan.slots.at(slot).element);
+          if (desc->family == NumericFamily::SignedInteger && desc->bits < 64)
+            index = arith::ExtSIOp::create(b, loc, b.getI64Type(),
+                arith::TruncIOp::create(b, loc, b.getIntegerType(desc->bits), index));
+          return index;
+        };
+        if (flatArray(node.type)) {
+          const bool literal = std::holds_alternative<TensorLiteral>(node.operation);
+          const bool slice = std::holds_alternative<ArraySlice>(node.operation);
+          const bool shape = std::holds_alternative<CollectionQuery>(node.operation);
+          Value count, leftLength, start, shapeLength;
+          if (literal) {
+            chargeAggregate(op.args.size());
+            count = constant(op.args.size());
+          } else if (shape) {
+            count = constant(1);
+            shapeLength = lengthOf(op.args.at(0));
+          } else if (slice) {
+            const auto length = lengthOf(op.args.at(0));
+            start = indexOf(op.args.at(1));
+            const auto end = indexOf(op.args.at(2));
+            auto valid = arith::AndIOp::create(b, loc,
+                compare(arith::CmpIPredicate::ule, start, end),
+                compare(arith::CmpIPredicate::ule, end, length));
+            condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(1); });
+            count = arith::SubIOp::create(b, loc, end, start);
+          } else {
+            leftLength = lengthOf(op.args.at(0));
+            count = arith::AddIOp::create(b, loc, leftLength, lengthOf(op.args.at(1)));
+          }
+          const auto ready = heap->ready();
+          const auto cursor = heap->cursor();
+          const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
+          const Value complete = arith::AndIOp::create(b, loc, ready,
+              compare(arith::CmpIPredicate::eq, cursor, count));
+          condition(empty, [&] { store(offsets.at(op.output), constant(0)); });
+          condition(arith::AndIOp::create(b, loc,
+              compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)),
+              arith::XOrIOp::create(b, loc, empty, yes)), [&] {
+            const auto &type = plan.slots.at(op.output);
+            heap->begin(count, type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1);
+          });
+          condition(ready, [&] {
+            condition(compare(arith::CmpIPredicate::ult, cursor, count), [&] {
+              if (literal) {
+                for (std::size_t j = 0; j < op.args.size(); ++j)
+                  condition(compare(arith::CmpIPredicate::eq, cursor, constant(j)), [&] {
+                    heap->write(heap->handle(), constant(4 + j), load(offsets.at(op.args[j])));
+                  });
+              } else {
+                Value item;
+                if (shape)
+                  item = shapeLength;
+                else if (slice)
+                  item = heap->read(load(offsets.at(op.args.at(0))),
+                      arith::AddIOp::create(b, loc, constant(4),
+                          arith::AddIOp::create(b, loc, start, cursor)));
+                else {
+                  auto choose = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
+                      compare(arith::CmpIPredicate::ult, cursor, leftLength), true);
+                  {
+                    OpBuilder::InsertionGuard restore(b);
+                    b.setInsertionPointToStart(&choose.getThenRegion().front());
+                    scf::YieldOp::create(b, loc, ValueRange{heap->read(load(offsets.at(op.args.at(0))),
+                        arith::AddIOp::create(b, loc, constant(4), cursor))});
+                    b.setInsertionPointToStart(&choose.getElseRegion().front());
+                    scf::YieldOp::create(b, loc, ValueRange{heap->read(load(offsets.at(op.args.at(1))),
+                        arith::AddIOp::create(b, loc, constant(4),
+                            arith::SubIOp::create(b, loc, cursor, leftLength)))});
+                  }
+                  item = choose.getResult(0);
+                }
+                heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), item);
+              }
+              heap->advance();
+            });
+            condition(complete, [&] {
+              store(offsets.at(op.output), heap->handle());
+              heap->finish();
+            });
+          });
+          next = arith::SelectOp::create(b, loc, arith::OrIOp::create(b, loc, complete, empty),
+                                         next, constant(i + 1));
+        } else {
+          const auto h = load(offsets.at(op.args.at(0)));
+          const auto length = lengthOf(op.args.at(0));
+          if (std::holds_alternative<CollectionQuery>(node.operation)) {
+            if (std::get<CollectionQuery>(node.operation).kind != CollectionQueryKind::Length)
+              return reject("GPU device-array shape queries are not implemented");
+            store(offsets.at(op.output), length);
+          } else {
+            const Value index = indexOf(op.args.at(1));
+            const auto valid = compare(arith::CmpIPredicate::ult, index, length);
+            condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(1); });
+            condition(valid, [&] {
+              if (std::holds_alternative<ArrayBoundsCheck>(node.operation))
+                store(offsets.at(op.output), index);
+              else if (std::holds_alternative<ArrayStore>(node.operation)) {
+                heap->write(h, arith::AddIOp::create(b, loc, index, constant(4)),
+                            load(offsets.at(op.args.at(2))));
+                store(offsets.at(op.output), constant(0));
+              } else
+                store(offsets.at(op.output),
+                      heap->read(h, arith::AddIOp::create(b, loc, index, constant(4))));
+            });
+          }
+        }
+      } else if (op.code == C::Copy)
         copyWords(offsets.at(op.output), offsets.at(op.args.at(0)),
                   width(plan.slots.at(op.output)));
       else if (op.code == C::Field) {
@@ -1390,6 +1722,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         }
         next = arith::SelectOp::create(b, loc, bad, constant(UINT64_MAX), next);
       }
+      if (storage) {
+        auto flag = memref::LoadOp::create(b, loc, params, ValueRange{at(1 + 2 * frames)});
+        auto valid = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, flag, constant(UINT32_MAX, 32));
+        next = arith::SelectOp::create(b, loc, valid, next, constant(UINT64_MAX));
+      }
       store(0, next);
     }
     scf::YieldOp::create(
@@ -1409,7 +1746,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   std::vector<std::uint32_t> reads(inputs.size());
   for (std::size_t i = 0; i < reads.size(); ++i)
     reads[i] = i;
-  return NumericShader{type,
+  auto resultShader = NumericShader{type,
                        std::move(ir),
                        std::move(reads),
                        {},
@@ -1418,5 +1755,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                        std::move(inputs),
                        std::move(states),
                        std::vector<std::uint8_t>(root.parameters.size(), 1)};
+  if (storage)
+    resultShader.scalarBuffers.push_back(0);
+  resultShader.deviceStorage = storage;
+  return resultShader;
 }
 } // namespace kalandra

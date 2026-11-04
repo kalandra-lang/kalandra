@@ -428,7 +428,7 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
       const auto &schema = *op.kernel;
       if (op.kind == K::DeviceControl && (!controlArena_.buffer() || controlArena_.growing())) {
         if (!controlArena_.growing()) {
-          auto requested = controlArena_.request(32);
+          auto requested = controlArena_.request(detail::ControlArenaABI::InitialWords);
           if (!requested)
             return fail(requested.error());
         }

@@ -121,7 +121,8 @@ public:
   std::vector<std::vector<SymbolId>> localCells;
   explicit Builder(const TypedModule &input, Options options)
       : ModulePlan(input), options(options), resumable(resumableFunctions(input)),
-        coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
+        coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)),
+        invocationFlow(functionInvocationFlow(input)) {
     if (options.preserveCalls)
       for (FunctionId id = 0; id < input.functions.size(); ++id)
         if (loopControl[id] && !coordinating[id] && !input.functions[id].resultType.fallible)
@@ -373,11 +374,15 @@ private:
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
             op.condition = importValue(op.condition);
             for (auto *body : {&op.initial, &op.iteration, &op.body, &op.whenDone})
-              for (auto &statement : *body) statement = importStatement(statement);
-            if (op.normalResult) op.normalResult = importValue(*op.normalResult);
-            for (auto &value : op.exitValues) value = importValue(value);
+              for (auto &statement : *body)
+                statement = importStatement(statement);
+            if (op.normalResult)
+              op.normalResult = importValue(*op.normalResult);
+            for (auto &value : op.exitValues)
+              value = importValue(value);
           } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
-            if (op.value) op.value = importValue(*op.value);
+            if (op.value)
+              op.value = importValue(*op.value);
           } else if constexpr (std::is_same_v<T, YieldOperation>) {
             op.operand = importValue(op.operand);
           } else if constexpr (std::is_same_v<T, IntegerRangeOperation>) {
@@ -597,6 +602,38 @@ private:
     kernels.functions.push_back(std::move(fn));
     kernelIds[id] = fnId;
     return fnId;
+  }
+  // Device maps remain ordered source evaluation. The output is allocated before
+  // callbacks, and every loop edge/callback uses the same checkpointed frame.
+  void deviceMap(Plan &plan, ValueId id, Slot output, const ArrayMap &map, Environment &env,
+                 std::set<FunctionId> &stack) {
+    const auto inputSlot = expression(plan, map.input, env, stack);
+    std::vector<Slot> captures;
+    for (auto capture : map.captures)
+      captures.push_back(expression(plan, capture, env, stack));
+    ValueType integer;
+    integer.element = NumericType::Int64;
+    ValueType boolean;
+    boolean.builtin = BuiltinValue::Bool;
+    const auto index = slot(plan, integer), active = slot(plan, boolean);
+    plan.code.push_back({Code::MapInit, output, {inputSlot, index}, 0, 0, 0, id});
+    const auto loop = plan.code.size();
+    plan.code.push_back({Code::MapCheck, active, {inputSlot, index}, 0, 0, 0, id});
+    const auto done = plan.code.size();
+    plan.code.push_back({Code::Branch, 0, {active}});
+    const auto element =
+        slot(plan, map.generate ? integer : recordArrayElement(input.expressions[map.input].type));
+    plan.code.push_back({Code::MapLoad, element, {inputSlot, index}, 0, 0, 0, id});
+    std::vector<Slot> arguments{element};
+    arguments.insert(arguments.end(), captures.begin(), captures.end());
+    const auto value = function(plan, map.function, arguments, stack, env.group);
+    // Explicit output operand retains the allocated destination across callback
+    // allocations and makes the use/definition visible to device root analysis.
+    plan.code.push_back({Code::MapStore, output, {output, index, value}, 0, 0, 0, id});
+    plan.code.push_back({Code::MapAdvance, index, {index}, 1, 0, 0, id});
+    plan.code.push_back({Code::Jump, 0, {}, 0, 0, loop});
+    plan.code[done].jump = plan.code.size();
+    plan.code.push_back({Code::Label, 0, {}});
   }
   void parallelMap(Plan &plan, ValueId id, Slot output, const ArrayMap &map, Environment &env,
                    std::set<FunctionId> &stack) {
@@ -856,7 +893,10 @@ private:
       return value;
     }
     auto output = slot(plan, node.type);
-    if (const auto *map = std::get_if<ArrayMap>(&node.operation); map && map->parallel) {
+    if (const auto *map = std::get_if<ArrayMap>(&node.operation);
+        map && !map->parallel && options.deviceValues && !options.preserveCalls) {
+      deviceMap(plan, id, output, *map, env, stack);
+    } else if (const auto *map = std::get_if<ArrayMap>(&node.operation); map && map->parallel) {
       parallelMap(plan, id, output, *map, env, stack);
     } else if (const auto *reference = std::get_if<kalandra::FunctionReference>(&node.operation);
                reference && resumable.at(reference->function)) {
@@ -1195,7 +1235,8 @@ private:
           args.push_back(expression(plan, arg, env, stack));
       plan.code.push_back(
           {Code::Kernel, output, args,
-           !options.preserveCalls || std::holds_alternative<IntegerRangeOperation>(node.operation) ||
+           !options.preserveCalls ||
+                   std::holds_alternative<IntegerRangeOperation>(node.operation) ||
                    (options.valueScopes &&
                     (node.type.array ||
                      std::ranges::any_of(

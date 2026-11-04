@@ -93,6 +93,9 @@ run([sys.executable, repo/'native/gpu-source/HostArrayTests.py', '--compiler', c
 run([sys.executable, repo/'native/gpu-source/ScalarControlTests.py', '--compiler', compiler,
      '--backend', a.backend, '--variant', 'optimized', '--compile-only',
      '--root', root/'scalar-control'])
+run([sys.executable, repo/'native/gpu-source/DeviceArrayTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-arrays'])
 for application in root.rglob('program.exe'):
     # Real GPU programs must not statically depend on either driver or an SDK DLL.
     dependencies = [name.lower() for name in imports(application)]

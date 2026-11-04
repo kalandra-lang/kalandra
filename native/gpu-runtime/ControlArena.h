@@ -9,6 +9,7 @@
 
 namespace kalandra::runtime::detail {
 struct ControlArenaABI {
+  static constexpr std::uint64_t MaxWords = UINT32_MAX, InitialWords = 32;
   static constexpr std::uint64_t Done = UINT64_MAX, Grow = UINT64_MAX - 1;
   static constexpr std::size_t PC = 0, Capacity = 1, Requested = 2, Resume = 3, Cells = 4;
 };
@@ -20,7 +21,7 @@ template <class Buffer, class Error> class ControlArena final {
 public:
   static constexpr std::uint64_t WordBytes = 8;
   static constexpr std::uint64_t CopyBytes = 64 * 1024;
-  static constexpr std::uint64_t MaxWords = UINT32_MAX;
+  static constexpr std::uint64_t MaxWords = ControlArenaABI::MaxWords;
   struct Page {
     Buffer source, target;
     std::uint64_t offset = 0, bytes = 0;
