@@ -1356,16 +1356,13 @@ private:
     auto *source = builder.CreateAlloca(wrapper);
     auto *destination = builder.CreateAlloca(wrapper);
     builder.CreateStore(llvm::Constant::getNullValue(wrapper), source);
-    builder.CreateStore(builder.CreateLoad(payloadType, fn->getArg(3)),
-                        builder.CreateStructGEP(wrapper, source, 1));
+    copy(builder.CreateStructGEP(wrapper, source, 1), fn->getArg(3), payloadType);
     auto *ok = builder.CreateCall(wrappedCopy, {fn->getArg(0), destination, fn->getArg(2), source});
     auto *ready = Block::Create(context, "ready", fn);
     auto *failed = Block::Create(context, "failed", fn);
     builder.CreateCondBr(ok, ready, failed);
     builder.SetInsertPoint(ready);
-    builder.CreateStore(
-        builder.CreateLoad(payloadType, builder.CreateStructGEP(wrapper, destination, 1)),
-        fn->getArg(1));
+    copy(fn->getArg(1), builder.CreateStructGEP(wrapper, destination, 1), payloadType);
     builder.CreateRet(builder.getTrue());
     builder.SetInsertPoint(failed);
     builder.CreateRet(builder.getFalse());
@@ -1375,6 +1372,10 @@ private:
                                                c64(size(payloadType)), c64(alignment(payloadType)),
                                                fn, destroy}),
         "collection.payload.layout." + name);
+    // Like other private copy adapters, this callback must fit the checked
+    // native headroom. Keep wide aggregates in memory instead of SSA packets.
+    if (auto error = nativeStackBudgetError(*fn, module.getDataLayout()))
+      throw std::runtime_error(*error);
     payloadLayouts.emplace(name, result);
     return result;
   }

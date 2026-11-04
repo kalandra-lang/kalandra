@@ -1,5 +1,11 @@
 #include "kalandra/Backend.h"
 #include "kalandra/Continuation.h"
+#ifndef KALANDRA_REBIND_FRONTEND_ONLY
+#include "../lib/NativeStack.h"
+#include "llvm/AsmParser/Parser.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/SourceMgr.h"
+#endif
 #include <iostream>
 #include <stdexcept>
 using namespace kalandra;
@@ -50,6 +56,32 @@ int main() {
       require(bool(lowered), "mutable native lowering failed: " + (lowered ? "" : lowered.error()));
 #endif
     }
+#ifndef KALANDRA_REBIND_FRONTEND_ONLY
+    // A wide record parameter can reach a collector without an intervening
+    // literal/index kernel. Audit the copy adapter's actual conservative frame
+    // budget instead of relying on those unrelated kernels to reject it.
+    std::string wide = "type Wide:\n";
+    for (unsigned field = 0; field < 600; ++field)
+      wide += "  field" + std::to_string(field) + ":int\n";
+    wide += "fn collect(value:Wide)->[Wide]:\n  for index in range(1):\n    yield value\nfn "
+            "main()->int:\n  0\n";
+    auto wideTyped = analyze(wide);
+    require(wideTyped.ok(), "wide collector parameter rejected by the frontend");
+    auto wideIr = lowerNative(*wideTyped.module);
+    require(bool(wideIr), "wide collector lost native admission");
+    llvm::LLVMContext wideContext;
+    llvm::SMDiagnostic diagnostic;
+    auto wideModule = llvm::parseAssemblyString(wideIr->llvm, diagnostic, wideContext);
+    require(bool(wideModule), "cannot read wide collector LLVM");
+    bool sawElement = false;
+    for (const auto &function : *wideModule)
+      if (function.getName().starts_with("collection.payload.copy.")) {
+        require(!nativeStackBudgetError(function, wideModule->getDataLayout()),
+                "collection copy adapter bypassed the native stack budget");
+        sawElement |= function.getName() == "collection.payload.copy.record.0";
+      }
+    require(sawElement, "wide collector element adapter was not emitted");
+#endif
     for (auto source :
          {"fn main()->int:\n  break\n  0\n",
           "fn main()->int:\n  continue\n  0\n",
