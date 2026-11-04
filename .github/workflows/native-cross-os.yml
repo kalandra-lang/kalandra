@@ -344,7 +344,9 @@ jobs:
 
   execute:
     name: Native execution ${{ matrix.source }} to ${{ matrix.target }}
-    if: always() && !cancelled()
+    # A skipped/failed producer has no cross-products to execute. Preserve its
+    # original failure instead of creating unrelated artifact-download failures.
+    if: ${{ !cancelled() && needs.cross-build.result == 'success' }}
     needs: cross-build
     strategy:
       fail-fast: false
