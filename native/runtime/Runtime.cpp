@@ -629,6 +629,22 @@ void *Invocation::allocateEnvironment(std::uint64_t bytes, const void *key) noex
     owners().head_->backing->environmentKey = key;
   return result;
 }
+const void *Invocation::readEnvironment(const void *environment, std::uint64_t bytes,
+                                        std::uint64_t alignment, const void *key) noexcept {
+  if (poll() || !usable())
+    return nullptr;
+  if (!key || !bytes || !alignment || alignment > alignof(std::max_align_t) ||
+      (alignment & (alignment - 1)) || reinterpret_cast<std::uintptr_t>(environment) % alignment) {
+    fault(3);
+    return nullptr;
+  }
+  auto retained = lease(environment);
+  if (!retained || retained->bytes().size() != bytes || retained->backing_->environmentKey != key) {
+    fault(3);
+    return nullptr;
+  }
+  return environment;
+}
 void *Invocation::allocateTransportStorage(std::uint64_t bytes, const void *key) noexcept {
   auto &ledgerState = ledger();
   if (poll())

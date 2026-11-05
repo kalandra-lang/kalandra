@@ -1,6 +1,7 @@
 #include "../gpu-source/AggregateNativeLayout.h"
 #include "../gpu-source/AggregateEntry.h"
 #include "../gpu-source/AggregateGraphSchema.h"
+#include "../gpu-source/ClosureNativeLayout.h"
 #include "../runtime/DeviceGraphPack.h"
 #include "../lib/RecordLLVMTypes.h"
 #include "kalandra/Continuation.h"
@@ -92,6 +93,64 @@ int main() {
               "array descriptor mistaken for wire payload");
       require(abi->at(0).fields[0].nativeBytes == 1 && abi->at(0).fields[0].deviceWords == 1,
               "Bool native width confused with canonical cell width");
+
+      auto closureModule = input;
+      ValueType callback;
+      callback.builtin = BuiltinValue::Function;
+      auto signature = std::make_shared<FunctionSignature>();
+      signature->parameters = {number()};
+      signature->result = number();
+      callback.callable = signature;
+      const std::vector<ValueType> captures{boolean, number(NumericType::Int8), nominal(1), callback};
+      TypedFunction closure;
+      closure.name = "capturing";
+      closure.captureCount = captures.size();
+      TypedRecord expectedEnvironment;
+      expectedEnvironment.name = "Environment";
+      for (std::size_t i = 0; i < captures.size(); ++i) {
+        closure.parameters.push_back(i);
+        closureModule.symbols.push_back({"capture", captures[i], {}, 0, true});
+        expectedEnvironment.fields.push_back({"capture", captures[i], {}});
+      }
+      closureModule.functions.push_back(closure);
+      closureModule.functions.push_back(TypedFunction{});
+      ClosureTransferPlan transfer;
+      transfer.environments = {{0, closure.parameters}, {1, {}}};
+      const auto nativeClosure = planNativeClosureLayouts(closureModule, transfer, llvm, layout);
+      require(nativeClosure && nativeClosure->carrierBytes == 16 &&
+                  nativeClosure->codeOffset == 0 && nativeClosure->environmentOffset == 8 &&
+                  nativeClosure->environments.size() == 2 &&
+                  nativeClosure->environments[1].bytes == 0 &&
+                  nativeClosure->environments[1].captures.empty(),
+              "native closure carrier or empty environment layout changed");
+      // Independent synchronous CPU record lowering reproduces the literal
+      // struct used by Backend::closureEnvironment, including descriptor fields.
+      closureModule.records.push_back(expectedEnvironment);
+      auto closureRecords = lowerRecordTypes(closureModule, mlir);
+      require(bool(closureRecords), "independent closure environment type rejected");
+      auto *expected = llvm::cast<llvm::StructType>(
+          translator.translateType(closureRecords->back()));
+      const auto &actualEnvironment = nativeClosure->environments[0];
+      require(actualEnvironment.bytes == layout.getTypeAllocSize(expected).getFixedValue() &&
+                  actualEnvironment.alignment == layout.getABITypeAlign(expected).value(),
+              "closure environment native size/alignment disagrees with CPU lowering");
+      for (std::size_t i = 0; i < captures.size(); ++i) {
+        const auto &field = actualEnvironment.captures[i];
+        require(field.symbol == i &&
+                    field.offset == layout.getStructLayout(expected)->getElementOffset(i) &&
+                    field.bytes == layout.getTypeAllocSize(expected->getElementType(i)).getFixedValue() &&
+                    field.alignment == layout.getABITypeAlign(expected->getElementType(i)).value(),
+                "closure capture field offset/size/alignment disagrees with CPU lowering");
+      }
+      auto malformed = transfer;
+      std::swap(malformed.environments[0].captures[0], malformed.environments[0].captures[1]);
+      require(!planNativeClosureLayouts(closureModule, malformed, llvm, layout) &&
+                  !planNativeClosureLayouts(closureModule, transfer, llvm, layout, 1),
+              "closure layout accepted reordered captures or ignored its work budget");
+      malformed = transfer;
+      malformed.environments.push_back(transfer.environments[0]);
+      require(!planNativeClosureLayouts(closureModule, malformed, llvm, layout),
+              "duplicate closure environment target accepted");
     }
     // Payload activity is scoped to its containing enum; a nested enum adds its
     // own tag check rather than replacing the parent's guard.

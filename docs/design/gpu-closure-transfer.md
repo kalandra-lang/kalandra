@@ -56,6 +56,28 @@ deadlines and faults retain their existing precedence. Device call frames and
 the collector trace imported environments as they do device-created closures.
 Concurrent invocations must not share mutable environment storage.
 
+### Native capture extraction
+
+The CPU carrier contains a native code identity and an environment address.
+`ClosureNativeLayout.h` computes carrier offsets and the target-specific capture
+struct using the target data layout and the same value representations as CPU
+lowering. Tensor captures use descriptors; nested function captures remain
+two-pointer CPU carriers until recursively translated. Empty capture sets need
+no environment allocation. This metadata is not itself a device representation
+or an admission proof.
+
+Before reading capture bytes, resolve the carrier's code identity against the
+compiler-generated target table, then use the invocation's checked environment
+reader with the selected size, alignment and identity. The reader requires an
+existing owner in that invocation and supports ordinary and recursive
+environments. It borrows storage without allocating, retaining or extending its
+lifetime; the enclosing task capture scope must remain alive through packing.
+Cancellation and an existing fault take precedence over malformed metadata.
+
+Native layout and checked reads are implemented as prerequisites. Generated
+target tables, capture graph extraction and device entry construction remain
+required before any host/device closure boundary is admitted.
+
 ## Implementation sequence
 
 1. Expose value-level target provenance and test unused values, factories,

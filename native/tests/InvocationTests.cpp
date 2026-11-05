@@ -15,6 +15,51 @@ static void require(bool condition, int line) {
   }
 }
 #define CHECK(condition) require(condition, __LINE__)
+static void closureCaptureReads() {
+  static const char code = 0, other = 0, nominal = 0;
+  const std::uint64_t value = 42;
+  for (bool recursive : {false, true}) {
+    Invocation producer, consumer;
+    const void *environment = nullptr;
+    if (recursive) {
+      environment = producer.makeRecursiveValue(std::as_bytes(std::span{&value, 1}), &nominal);
+      CHECK(environment && producer.bindRecursiveEnvironment(environment, &code));
+    } else {
+      auto *storage = producer.allocateEnvironment(sizeof(value), &code);
+      CHECK(storage);
+      std::memcpy(storage, &value, sizeof(value));
+      environment = storage;
+    }
+    CHECK(producer.readEnvironment(environment, sizeof(value), alignof(decltype(value)), &code) == environment);
+    CHECK(consumer.retainFrom(producer, const_cast<void *>(environment)));
+    producer.settle();
+    const auto live = consumer.live(), allocations = consumer.allocations();
+    const auto *data = consumer.readEnvironment(environment, sizeof(value), alignof(decltype(value)), &code);
+    CHECK(data && *static_cast<const std::uint64_t *>(data) == value);
+    CHECK(consumer.live() == live && consumer.allocations() == allocations);
+    for (unsigned mode = 0; mode < 7; ++mode) {
+      Invocation invalid;
+      if (mode != 0)
+        CHECK(invalid.retainFrom(consumer, const_cast<void *>(environment)));
+      const auto bytes = mode == 2 ? sizeof(value) - 1 : mode == 3 ? 0 : sizeof(value);
+      const auto alignment = mode == 4 ? 0 : mode == 5 ? 3 : mode == 6 ? 1024 : alignof(decltype(value));
+      CHECK(!invalid.readEnvironment(environment, bytes, alignment, mode == 1 ? &other : &code));
+      CHECK(invalid.status() == 3 && consumer.status() == 0);
+      invalid.settle();
+      CHECK(!invalid.live() && invalid.allocations() == invalid.releases());
+    }
+    std::atomic<bool> stop{true};
+    consumer.bindCancellation(&stop);
+    CHECK(!consumer.readEnvironment(environment, sizeof(value), alignof(decltype(value)), &other));
+    CHECK(consumer.status() == 0);
+    stop.store(false);
+    consumer.fault(1, 23, 9);
+    CHECK(!consumer.readEnvironment(environment, sizeof(value), alignof(decltype(value)), &other));
+    CHECK(consumer.status() == 1 && consumer.line() == 23 && consumer.column() == 9);
+    consumer.settle();
+    CHECK(!consumer.live() && consumer.allocations() == consumer.releases());
+  }
+}
 static void coldLifecycle() {
   using kalandra::runtime::InvocationABI;
   // Reuse poisoned storage so accidentally reading the inactive ledger or
@@ -62,7 +107,10 @@ static void coldLifecycle() {
   }
 }
 int main(int argc, char **) {
-  if (argc != 2) coldLifecycle();
+  if (argc != 2) {
+    coldLifecycle();
+    closureCaptureReads();
+  }
   if (argc == 2) {
     // CTest supplies FAIL_ALLOC_AT=2 in a fresh process. Scalar work does not
     // consume an allocation attempt; explicit zero disables the process hook.
