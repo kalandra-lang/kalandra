@@ -24,7 +24,7 @@ DeviceHeapEmitter::DeviceHeapEmitter(OpBuilder &builder, Value heap, Value frame
   std::size_t steps = 0;
   for (const auto &layout : layouts) {
     if (layout.identity <= 11 || !identities.insert(layout.identity).second || !layout.stride ||
-        layout.stride > runtime::detail::ControlArenaABI::MaxWords || layout.references.empty())
+        layout.stride > runtime::detail::ControlArenaABI::MaxWords)
       throw std::invalid_argument("invalid device reference traversal layout");
     for (const auto &field : layout.references) {
       if (steps == maxSteps || field.guards.size() > maxSteps - steps - 1)
@@ -247,9 +247,12 @@ void DeviceHeapEmitter::markArena(Value h) {
       b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, layout, c(1)),
       arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, layout, c(11)));
   Value owned = arith::ConstantIntOp::create(b, loc, 0, 1);
-  for (const auto &descriptor : layouts)
-    owned = arith::OrIOp::create(b, loc, owned, eq(layout, c(descriptor.identity)));
-  known = arith::OrIOp::create(b, loc, known, owned);
+  for (const auto &descriptor : layouts) {
+    auto matches = eq(layout, c(descriptor.identity));
+    known = arith::OrIOp::create(b, loc, known, matches);
+    if (!descriptor.references.empty())
+      owned = arith::OrIOp::create(b, loc, owned, matches);
+  }
   auto span = read(h, c(0));
   auto bounded = arith::AndIOp::create(
       b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, span, c(4)),

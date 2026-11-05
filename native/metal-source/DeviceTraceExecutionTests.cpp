@@ -175,6 +175,12 @@ int main() {
     }
     {
       Heap h;
+      auto leaf = h.block(15, {UINT64_MAX});
+      h.collect(leaf);
+      require(h.data[leaf + 1] == 15, "reference-free nominal payload was not retained");
+    }
+    {
+      Heap h;
       auto empty = h.block(13, {});
       h.collect(empty);
       require(h.data[empty + 1] == 13, "empty owned array was lost");

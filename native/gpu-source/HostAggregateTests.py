@@ -239,8 +239,10 @@ fn main()->int ! TaskError:
   try parallel:
     try await spawn device(pair,batch.values,7) on devices.gpu()
 ''',17)
-record_result = Path(__file__).resolve().parent.parent / 'tests/fixtures/mixed-host-aggregates/record-result.k'
-cases['result-enum-owned-aliases'] = (record_result.read_text(), 983)
+fixtures = Path(__file__).resolve().parent.parent / 'tests/fixtures/mixed-host-aggregates'
+cases['result-enum-owned-aliases'] = ((fixtures/'record-result.k').read_text(), 983)
+cases['local-recursive-list'] = ((fixtures/'list-local.k').read_text(), 18)
+cases['local-recursive-tree'] = ((fixtures/'tree-local.k').read_text(), 50275)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
 fn collect(batch:Batch)->Batch:
@@ -296,8 +298,11 @@ for name,(source,expected) in cases.items():
     policy = ['--arithmetic','hardware-with-software-fallback'] if name == 'entry-float64' else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
-    assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name
-    assert 'HostArrayScopes' in host and 'HostArrayWork' in host, name
+    if name.startswith('local-recursive-'):
+        assert 'NumericInstructionKind::DeviceControl' in host, name
+    else:
+        assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name
+        assert 'HostArrayScopes' in host and 'HostArrayWork' in host, name
     assert any('gpu.func' in f.read_text() for f in bundle.glob('*.mlir')), name
     outputs = []
     if not a.compile_only:

@@ -1084,10 +1084,76 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return reject("GPU checkpointed entry requires scalar or flat array inputs and "
                   "scalar, flat array or inline aggregate results");
   auto aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots);
+  std::optional<RecordStoragePlan> nominalStorage;
+  if (!aggregateLayouts) {
+    auto nominal = planRecordStorage(input);
+    if (nominal) {
+      nominalStorage.emplace(std::move(*nominal));
+      aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots, 300000, &*nominalStorage);
+    }
+  }
   if (!aggregateLayouts)
     return reject(aggregateLayouts.error());
   const auto &layouts = *aggregateLayouts;
   const auto plainRecord = deviceInlineRecordValue;
+  const auto boxIdentity = [](std::size_t id) { return static_cast<unsigned>(id) + 12; };
+  std::set<std::size_t> boxTypes;
+  if (std::ranges::any_of(plan.slots, deviceRecordArrayValue))
+    return reject("GPU record array operations require typed element storage");
+  for (const auto &[id, layout] : layouts) {
+    const auto &fields = input.records.at(id).fields;
+    for (std::size_t field = 0; field < fields.size(); ++field) {
+      if (deviceRecordArrayValue(fields[field].type))
+        return reject("GPU record array fields require typed element storage");
+      if (layout.boxed[field])
+        boxTypes.insert(*fields[field].type.record);
+    }
+  }
+  std::vector<DeviceTraceLayout> traceLayouts;
+  std::size_t traceBudget = 100000;
+  for (auto id : boxTypes) {
+    DeviceTraceLayout trace{boxIdentity(id), static_cast<unsigned>(layouts.at(id).words), {}};
+    struct Walk {
+      std::size_t id, offset, next;
+      bool guarded;
+    };
+    std::vector<Walk> stack{{id, 0, 0, false}};
+    std::vector<DeviceReferenceGuard> guards;
+    while (!stack.empty()) {
+      auto &path = stack.back();
+      const auto &record = input.records.at(path.id);
+      const auto &layout = layouts.at(path.id);
+      if (path.next == record.fields.size()) {
+        if (path.guarded)
+          guards.pop_back();
+        stack.pop_back();
+        continue;
+      }
+      if (!traceBudget)
+        return reject("GPU device trace schema exceeds configured work budget");
+      --traceBudget;
+      const auto field = path.next++;
+      const auto &type = record.fields[field].type;
+      const bool handle = layout.boxed[field] || flatArray(type);
+      if (!handle && (!plainRecord(type) || layouts.at(*type.record).owned.empty()))
+        continue;
+      const auto offset = path.offset + layout.fields[field];
+      const auto tag = layout.fieldTags[field];
+      if (tag)
+        guards.push_back({static_cast<unsigned>(path.offset), tag});
+      if (handle) {
+        if (guards.size() > traceBudget)
+          return reject("GPU device trace schema exceeds configured work budget");
+        traceBudget -= guards.size();
+        trace.references.push_back({static_cast<unsigned>(offset), guards});
+        if (tag)
+          guards.pop_back();
+      } else
+        stack.push_back({*type.record, offset, 0, tag != 0});
+    }
+    traceLayouts.push_back(std::move(trace));
+  }
+  storage |= !boxTypes.empty();
   for (const auto &[id, layout] : layouts) {
     (void)id;
     storage |= !layout.owned.empty();
@@ -1106,6 +1172,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     if (frameWords > 300000)
       return reject("GPU aggregate control frame exceeds configured compilation work budget");
   }
+  const auto boxStep = frameWords;
+  if (!boxTypes.empty())
+    frameWords += 2; // Record construction field, then boxed field read word.
   DeviceAggregateProjection resultProjection;
   DeviceAggregateReturnFrame resultFrame{static_cast<unsigned>(frameWords), resultProjection};
   if (aggregateResult) {
@@ -1161,12 +1230,31 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     }
   }
   std::vector<DeviceRootMap> allocationRoots;
+  std::size_t boxRootBudget = 64 * 1024 * 1024 / sizeof(std::size_t);
   if (storage)
     for (std::size_t i = 0; i < plan.code.size(); ++i) {
       const auto &op = plan.code[i];
       if ((op.code == C::Kernel || op.code == C::CollectAppend || op.code == C::MapInit) &&
           flatArray(plan.slots.at(op.output)))
         allocationRoots.push_back({i + 1, liveRoots[i]});
+      if (op.code == C::Kernel) {
+        const auto *record = std::get_if<RecordValue>(&input.expressions.at(op.source).operation);
+        if (record) {
+          const auto &layout = layouts.at(*plan.slots.at(op.output).record);
+          if (std::ranges::any_of(record->fields, [&](const auto &field) {
+                return layout.boxed.at(field.field);
+              })) {
+            if (liveRoots[i].size() > boxRootBudget ||
+                layout.owned.size() > boxRootBudget - liveRoots[i].size())
+              return reject("GPU boxed record roots exceed configured memory budget");
+            boxRootBudget -= liveRoots[i].size() + layout.owned.size();
+            auto roots = liveRoots[i];
+            for (auto leaf : layout.owned)
+              roots.push_back(offsets.at(op.output) + leaf);
+            allocationRoots.push_back({i + 1, std::move(roots)});
+          }
+        }
+      }
       if (aggregateResult && op.code == C::Return) {
         std::vector<std::size_t> resultRoots;
         for (auto leaf : layouts.at(*root.resultType.record).owned)
@@ -1329,7 +1417,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   std::optional<DeviceHeapEmitter> heap;
   if (storage)
     heap.emplace(b, kernel.getArgument(inputs.size() - 1), params, 2 + 2 * frames, allocationRoots,
-                 std::span<const DeviceTraceLayout>{}, captures);
+                 traceLayouts, captures);
   auto yes = constant(1, 1);
   auto initial = scf::IfOp::create(
       b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, load(0), constant(0)), false);
@@ -1744,8 +1832,33 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       else if (op.code == C::Field) {
         const auto source = op.args.at(0);
         const auto &layout = layouts.at(*plan.slots.at(source).record);
-        copyWords(offsets.at(op.output), offsets.at(source) + layout.fields.at(op.target),
-                  width(plan.slots.at(op.output)));
+        const auto field = offsets.at(source) + layout.fields.at(op.target);
+        const auto count = width(plan.slots.at(op.output));
+        if (!layout.boxed.at(op.target)) {
+          copyWords(offsets.at(op.output), field, count);
+        } else {
+          const auto handle = load(field);
+          const auto word = load(boxStep + 1);
+          const auto equal = [&](Value a, Value d) -> Value {
+            return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, a, d);
+          };
+          auto valid = arith::AndIOp::create(b, loc,
+              equal(heap->read(handle, constant(1)), constant(boxIdentity(*plan.slots.at(op.output).record))),
+              equal(heap->read(handle, constant(2)), constant(count)));
+          auto check = scf::IfOp::create(b, loc, valid, true);
+          {
+            OpBuilder::InsertionGuard restore(b);
+            b.setInsertionPointToStart(&check.getThenRegion().front());
+            heap->storeAt(arith::AddIOp::create(b, loc, constant(offsets.at(op.output)), word),
+                          heap->read(handle, arith::AddIOp::create(b, loc, constant(4), word)));
+            b.setInsertionPointToStart(&check.getElseRegion().front());
+            heap->fault(99);
+          }
+          const Value advanced = arith::AddIOp::create(b, loc, word, constant(1));
+          const auto done = equal(advanced, constant(count));
+          store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
+          next = arith::SelectOp::create(b, loc, done, next, pc);
+        }
       } else if (op.code == C::Case) {
         auto tag = load(offsets.at(op.args.at(0)));
         auto matches =
@@ -1764,20 +1877,77 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         const auto &record = std::get<RecordValue>(input.expressions.at(op.source).operation);
         const auto destination = offsets.at(op.output);
         const auto &layout = layouts.at(*plan.slots.at(op.output).record);
-        std::size_t argument = 0;
-        if (record.base) {
-          copyWords(destination, offsets.at(op.args.at(argument++)), layout.words);
+        const bool boxes = std::ranges::any_of(record.fields, [&](const auto &field) {
+          return layout.boxed.at(field.field);
+        });
+        const auto initialize = [&] {
+          std::size_t argument = 0;
+          if (record.base) {
+            copyWords(destination, offsets.at(op.args.at(argument++)), layout.words);
+          } else {
+            chargeAggregate(layout.words);
+            for (std::size_t word = 0; word < layout.words; ++word)
+              store(destination + word, constant(0));
+            if (record.variant)
+              store(destination, constant(*record.variant + 1));
+          }
+          for (const auto &field : record.fields) {
+            const auto source = op.args.at(argument++);
+            if (!layout.boxed.at(field.field))
+              copyWords(destination + layout.fields.at(field.field), offsets.at(source),
+                        width(plan.slots.at(source)));
+          }
+        };
+        if (!boxes) {
+          initialize();
         } else {
-          chargeAggregate(layout.words);
-          for (std::size_t word = 0; word < layout.words; ++word)
-            store(destination + word, constant(0));
-          if (record.variant)
-            store(destination, constant(*record.variant + 1));
-        }
-        for (const auto &field : record.fields) {
-          const auto source = op.args.at(argument++);
-          copyWords(destination + layout.fields.at(field.field), offsets.at(source),
-                    width(plan.slots.at(source)));
+          const auto equal = [&](Value a, Value d) -> Value {
+            return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, a, d);
+          };
+          const auto when = [&](Value condition, auto emit) {
+            auto branch = scf::IfOp::create(b, loc, condition, false);
+            OpBuilder::InsertionGuard restore(b);
+            b.setInsertionPointToStart(&branch.getThenRegion().front());
+            emit();
+          };
+          const auto step = load(boxStep);
+          when(equal(step, constant(0)), [&] {
+            initialize();
+            store(boxStep, constant(1));
+          });
+          std::size_t stepNumber = 0;
+          std::size_t argument = record.base ? 1 : 0;
+          for (const auto &field : record.fields) {
+            const auto source = op.args.at(argument++);
+            if (!layout.boxed.at(field.field))
+              continue;
+            chargeAggregate(1);
+            const auto stepId = ++stepNumber;
+            const auto count = width(plan.slots.at(source));
+            when(equal(step, constant(stepId)), [&] {
+              const auto phase = heap->load(DeviceHeapEmitter::Phase);
+              when(equal(phase, constant(0)), [&] {
+                heap->begin(constant(count), boxIdentity(*plan.slots.at(source).record));
+              });
+              when(heap->ready(), [&] {
+                const auto word = heap->cursor();
+                const auto done = equal(word, constant(count));
+                when(arith::XOrIOp::create(b, loc, done, yes), [&] {
+                  heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), word),
+                              heap->loadAt(arith::AddIOp::create(b, loc, constant(offsets.at(source)), word)));
+                  heap->advance();
+                });
+                when(done, [&] {
+                  store(destination + layout.fields.at(field.field), heap->handle());
+                  heap->finish();
+                  store(boxStep, constant(stepId + 1));
+                });
+              });
+            });
+          }
+          const auto done = equal(step, constant(stepNumber + 1));
+          when(done, [&] { store(boxStep, constant(0)); });
+          next = arith::SelectOp::create(b, loc, done, next, pc);
         }
       } else if (op.code == C::Branch)
         next =

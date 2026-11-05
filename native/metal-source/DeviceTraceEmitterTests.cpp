@@ -56,7 +56,8 @@ int main(int argc, char **) {
     // second field; variant 2 owns both. Inactive bits must not be traversed.
     std::vector<DeviceTraceLayout> layouts{{12, 3, {{1, {{0, 1}}}, {1, {{0, 2}}}, {2, {{0, 2}}}}},
                                            {13, 1, {{0, {}}}},
-                                           {14, 3, {{2, {{0, 1}, {1, 2}}}}}};
+                                           {14, 3, {{2, {{0, 1}, {1, 2}}}}},
+                                           {15, 1, {}}};
     for (auto invalid : std::vector<DeviceTraceLayout>{
              {11, 1, {{0, {}}}}, {12, 0, {{0, {}}}}, {12, 1, {{1, {}}}},
              {12, 1, {{0, {{0, 1}, {1, 1}}}}}}) {
