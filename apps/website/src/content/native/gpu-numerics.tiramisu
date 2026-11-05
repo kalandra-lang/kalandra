@@ -85,7 +85,7 @@ fn main() -> float32 ! TaskError:
 
 This returns 21, displayed as 41a80000. The GPU doubles the original [1, 2, 3] snapshot; the CPU adds the edited first array element, 9. array(tensor) also copies, so editing that array cannot change the tensor.
 
-This example prepares arrays on the host and transfers an immutable tensor snapshot. GPU helpers can also construct and modify their own numeric/Bool arrays, as described below. Arrays cannot yet be passed across a CPU/device entry boundary. Arrays of Strings, records, enums or function values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
+This example prepares arrays on the host and transfers an immutable tensor snapshot. GPU helpers can also construct and modify their own numeric/Bool arrays, as described below. Flat numeric and Bool arrays can also cross the task boundary as read-only inputs or as results. Arrays of Strings, records, enums or function values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
 
 h2 { "Types and ranks" }
 
@@ -204,7 +204,7 @@ fn main() -> float32 ! TaskError:
     try await spawn adjusted(float32(40)) on gpu
 """ }
 
-This computes 42; the executable prints 42280000. Records are copied by value within the private device frame. Inactive enum payloads are zeroed, and fields retain their declared numeric types. Record array fields preserve their backing aliases. Use copy on an array field when you need independent element storage. These are local device values: records cannot cross the host/device entry boundary. Strings, tensors, function values and recursive records are not supported as their device fields. Scalar entry parameters and results can be numeric or Bool.
+This computes 42; the executable prints 42280000. Records are copied by value within the private device frame. Inactive enum payloads are zeroed, and fields retain their declared numeric types. Record array fields preserve their backing aliases. Use copy on an array field when you need independent element storage. Eligible records can also cross the task boundary as described below. Device record fields support numeric and Bool scalars, flat numeric and Bool arrays, and nested records or enums of those types.
 
 codeblock { language = kalandra, """type Batch:
   values: [int]
@@ -287,7 +287,7 @@ h2 { "Records in mixed CPU and GPU code" }
 
 CPU helpers and CPU tasks can receive and return records and enums while the program also runs GPU work. Their arrays keep normal alias identity, including when returned through a CPU task. Recursive links, String fields and record-array fields can remain in these CPU values. Writes through an array field or its alias are rejected while a task is reading it; an independent copy remains writable.
 
-GPU tasks can capture a whole record or enum when its fields are numeric or Bool scalars, flat numeric or Bool arrays, or nested records and enums of those types. Only the selected enum payload is used. Captured arrays remain read-only and preserve their aliases. These helpers accept additional scalar or flat-array parameters and return a scalar or flat array, including an array field from a captured record.
+GPU tasks can capture a whole record or enum when its fields are numeric or Bool scalars, flat numeric or Bool arrays, or nested records and enums of those types. Only the selected enum payload is used. Captured arrays remain read-only and preserve their aliases. These helpers accept additional scalar or flat-array parameters. They can return a scalar, a flat array, or a whole record or enum of the same supported field types. After await, returned arrays are native CPU arrays. Fields sharing fresh backing remain aliases, and returned captured arrays still alias their original backing.
 
 codeblock { language = kalandra, """type Batch:
   values: [int]
@@ -328,7 +328,27 @@ fn main() -> int ! TaskError:
     summarize(result)
 """ }
 
-This computes 13 and prints 000000000000000d. squares executes on the GPU; the records and summarize execute on the CPU. GPU tasks cannot return whole records or enums.
+This computes 13 and prints 000000000000000d. squares executes on the GPU, while the record construction and summarize execute on the CPU.
+
+This helper returns two fields sharing one fresh array. After await, a write through left is visible through right.
+
+codeblock { language = kalandra, """type Pair:
+  left: [int]
+  right: [int]
+
+fn duplicate(values: [int]) -> Pair:
+  fresh = copy(values)
+  Pair {left: fresh, right: fresh}
+
+fn main() -> int ! TaskError:
+  original = [2, 3]
+  try parallel:
+    result = try await spawn duplicate(original) on devices.gpu()
+    result.left[0] = 9
+    result.right[0]
+""" }
+
+This prints 0000000000000009. The fresh array is independent of original.
 
 h2 { "CPU and device language coverage" }
 
@@ -341,7 +361,7 @@ table {
   row = ["Numeric and Bool local reassignment", "Supported", "Supported in scalar helpers"],
   row = ["Integer-range for, while, break and continue", "Supported", "Supported in scalar helpers; sequential iterations"],
   row = ["Single-result loop expressions", "Supported", "Supported for numeric/Bool scalar results"],
-  row = ["Records, enums and match", "Supported", "Local values, internal helpers and eligible read-only captures; whole-record results are not supported"],
+  row = ["Records, enums and match", "Supported", "Local values, internal helpers, eligible read-only captures and whole-record results after await"],
   row = ["Numeric and Bool array parameters", "Supported", "Read-only task captures with packing/upload costs"],
   row = ["Numeric and Bool array task results", "Supported", "Native CPU arrays after await; transfer/decoding costs; captured aliases preserved"],
   row = ["Array iteration, indexing and element mutation", "Supported with access rules", "Local numeric/Bool arrays; bounds checked; existing access rules apply"],

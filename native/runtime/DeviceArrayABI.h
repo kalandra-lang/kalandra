@@ -9,6 +9,12 @@ struct DeviceArrayExportABI {
   static constexpr std::size_t Root = 24, Data = 25, Length = 26, Origin = 27, Layout = 28,
                                Cells = 29;
 };
+// Payload carried as a fresh UInt64 array by the existing export protocol.
+struct DeviceAggregateEnvelopeABI {
+  static constexpr std::uint64_t Magic = UINT64_C(0x4b414c4147470001);
+  static constexpr unsigned HeaderWords = 2, LeafWords = 3;
+  static constexpr unsigned Scalar = 0, Length = 0, Origin = 1, Offset = 2;
+};
 struct DeviceArrayResultMetadata {
   std::uint64_t layout = 0, length = 0, origin = 0;
   bool operator==(const DeviceArrayResultMetadata &) const = default;

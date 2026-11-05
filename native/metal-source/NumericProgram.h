@@ -18,5 +18,5 @@ struct NumericProgram {
 };
 std::expected<NumericProgram, Diagnostic>
 emitNumericProgram(const TypedModule &, FunctionId, ArithmeticMode = ArithmeticMode::Hardware,
-                   bool nativeFloat64Conversions = false);
+                   bool nativeFloat64Conversions = false, bool aggregateEnvelope = false);
 } // namespace kalandra

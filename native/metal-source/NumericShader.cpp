@@ -1051,7 +1051,8 @@ bool usesScalarControl(const TypedModule &input, FunctionId function) {
 std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModule &input,
                                                                  FunctionId function,
                                                                  ArithmeticMode arithmetic,
-                                                                 bool nativeFloat64Conversions) {
+                                                                 bool nativeFloat64Conversions,
+                                                                 bool aggregateEnvelope) {
   const auto &root = input.functions.at(function);
   const auto reject = [&](const std::string &message) -> std::expected<NumericShader, Diagnostic> {
     return std::unexpected(Diagnostic{"G001", message, root.declaration});
@@ -1072,11 +1073,16 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   };
   bool storage = std::ranges::any_of(plan.slots, flatArray);
   const bool arrayResult = flatArray(root.resultType);
-  if ((!scalar(root.resultType) && !arrayResult) || std::ranges::any_of(root.parameters, [&](auto symbol) {
+  const bool aggregateResult = deviceInlineRecordValue(root.resultType);
+  if (aggregateResult && !aggregateEnvelope)
+    return reject("GPU aggregate outputs need typed transport");
+  const bool exportResult = arrayResult || aggregateResult;
+  storage |= aggregateResult;
+  if ((!scalar(root.resultType) && !exportResult) || std::ranges::any_of(root.parameters, [&](auto symbol) {
         return !scalar(input.symbols.at(symbol).type) && !flatArray(input.symbols.at(symbol).type);
       }))
-    return reject("GPU checkpointed entry requires numeric/Bool scalar or flat array results and inputs; "
-                  "aggregate outputs need typed transport");
+    return reject("GPU checkpointed entry requires scalar or flat array inputs and "
+                  "scalar, flat array or inline aggregate results");
   auto aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots);
   if (!aggregateLayouts)
     return reject(aggregateLayouts.error());
@@ -1090,7 +1096,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return scalar(type) || flatArray(type) ? 1 : layouts.at(*type.record).words;
   };
   std::vector<std::size_t> offsets;
-  std::size_t frameWords = arrayResult ? runtime::detail::ControlArrayExportABI::Cells :
+  std::size_t frameWords = exportResult ? runtime::detail::ControlArrayExportABI::Cells :
                            storage ? unsigned(DeviceHeapEmitter::Cells) : 1;
   for (const auto &type : plan.slots) {
     offsets.push_back(frameWords);
@@ -1099,6 +1105,18 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     frameWords += width(type);
     if (frameWords > 300000)
       return reject("GPU aggregate control frame exceeds configured compilation work budget");
+  }
+  DeviceAggregateProjection resultProjection;
+  DeviceAggregateReturnFrame resultFrame{static_cast<unsigned>(frameWords), resultProjection};
+  if (aggregateResult) {
+    std::size_t budget = 300000;
+    auto projected = projectDeviceAggregates(input, std::span(&root.resultType, 1), budget);
+    if (!projected)
+      return reject(projected.error());
+    resultProjection = std::move(*projected);
+    frameWords = resultFrame.end();
+    if (frameWords > 300000)
+      return reject("GPU aggregate result frame exceeds configured compilation work budget");
   }
   const auto arrayInputs = std::count_if(root.parameters.begin(), root.parameters.end(),
       [&](auto parameter) { return flatArray(input.symbols.at(parameter).type); });
@@ -1149,6 +1167,12 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       if ((op.code == C::Kernel || op.code == C::CollectAppend || op.code == C::MapInit) &&
           flatArray(plan.slots.at(op.output)))
         allocationRoots.push_back({i + 1, liveRoots[i]});
+      if (aggregateResult && op.code == C::Return) {
+        std::vector<std::size_t> resultRoots;
+        for (auto leaf : layouts.at(*root.resultType.record).owned)
+          resultRoots.push_back(offsets.at(plan.result) + leaf);
+        allocationRoots.push_back({i + 1, std::move(resultRoots)});
+      }
     }
   const auto arrayOperation = [&](const auto &op) {
     if (!storage || op.code != C::Kernel)
@@ -1208,7 +1232,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     kernels.back() = code.functions.size();
     code.functions.push_back(std::move(fn));
   }
-  const auto type = arrayResult ? NumericType::UInt64 :
+  const auto type = exportResult ? NumericType::UInt64 :
       root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element;
   const auto bits = describeNumeric(type)->bits;
   const auto frames = std::uint32_t(frameWords);
@@ -1226,8 +1250,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   for (auto parameter : root.parameters)
     roles.push_back(flatArray(input.symbols.at(parameter).type) ? 2 : 1);
   if (storage)
-    roles.push_back(arrayResult ? runtime::DeviceArrayWireABI::ExportRole : 0);
-  if (!root.parameters.empty() || arrayResult) {
+    roles.push_back(exportResult ? runtime::DeviceArrayWireABI::ExportRole : 0);
+  if (!root.parameters.empty() || exportResult) {
     name += "_d_";
     for (auto role : roles)
       name += role == 3 ? 'x' : role == 2 ? 'a' : role ? 's' : 't';
@@ -1765,7 +1789,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           emitDeviceArrayReturn(*heap, b, load(offsets.at(plan.result)),
               root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element,
               root.resultType.builtin == BuiltinValue::Bool);
-        next = constant(UINT64_MAX);
+        if (aggregateResult) {
+          const auto done = emitDeviceAggregateReturn(*heap, b, input, resultFrame, offsets.at(plan.result));
+          next = arith::SelectOp::create(b, loc, done, constant(UINT64_MAX), pc);
+        } else
+          next = constant(UINT64_MAX);
       }
       else if (op.code != C::Label) {
         std::vector<ShaderValue> arguments;

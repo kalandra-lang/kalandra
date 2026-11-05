@@ -1835,6 +1835,57 @@ class Compiler {
       result.push_back(values.at(leaf));
     return result;
   }
+  std::set<std::size_t> aggregateResultPolicies;
+  std::string aggregateResultPolicy(const ValueType &type, SourceSpan span) {
+    const auto id = *type.record;
+    const auto name = "GpuAggregateResult" + std::to_string(id);
+    if (!aggregateResultPolicies.insert(id).second)
+      return name;
+    validateRecordSchema(cpu, id);
+    const auto native = recordType(id);
+    std::size_t budget = 300000;
+    auto projection = projectDeviceAggregates(cpu, std::span(&type, 1), budget);
+    if (!projection)
+      reject(span, projection.error());
+    std::vector<std::uint64_t> offsets(projection->nodes.size());
+    std::string fields;
+    const auto rootBytes = nativeAggregateLayouts->at(id).nativeBytes;
+    for (std::size_t i = 0; i < projection->nodes.size(); ++i) {
+      const auto &node = projection->nodes[i];
+      const bool record = deviceInlineRecordValue(node.type);
+      const bool boolean = node.type.builtin == BuiltinValue::Bool;
+      const auto element = boolean || record ? NumericType::UInt8 : node.type.element;
+      auto parent = std::string("DeviceAggregateResultField::None");
+      auto guard = parent;
+      std::size_t variants = 0;
+      if (node.parent != DeviceAggregateOccurrence::none) {
+        const auto &p = projection->nodes.at(node.parent);
+        const auto &member = nativeAggregateLayouts->at(*p.type.record).fields.at(node.field);
+        if (member.storage == RecordFieldStorage::ManagedReference ||
+            member.nativeOffset > rootBytes - offsets[node.parent])
+          reject(span, "GPU aggregate result requires inline native storage");
+        offsets[i] = offsets[node.parent] + member.nativeOffset;
+        if (!record && (member.nativeBytes != (node.type.array ? 40 : describeNumeric(element)->bytes()) ||
+                        member.nativeBytes > rootBytes - offsets[i]))
+          reject(span, "GPU aggregate result field does not match the native ABI");
+        parent = std::to_string(node.parent);
+        if (node.activeTag)
+          guard = std::to_string(p.children.at(0));
+        if (node.discriminator)
+          variants = cpu.records.at(*p.type.record).variants.size();
+      }
+      fields += "{DeviceAggregateResultField::" +
+                std::string(record ? "Record" : node.type.array ? "Array" : "Scalar") + "," +
+                parent + "," + guard + "," + std::to_string(offsets[i]) + "," +
+                std::to_string(node.activeTag) + "," + std::to_string(variants) + "," +
+                elementName(element) + "," + (boolean ? "true" : "false") + "},\n";
+    }
+    aggregateDeclarations += "struct " + name + "{using Result=" + native +
+        ";static const ValueLayout &layout(){return " + recordLayoutName(id) +
+        ";}inline static constexpr std::array<DeviceAggregateResultField," +
+        std::to_string(projection->nodes.size()) + "> fields{{\n" + fields + "}};};\n";
+    return name;
+  }
   Value spawnNumericProgram(FunctionId function, const std::vector<Value> &sourceInputs, Value target,
                             SourceSpan span) {
     admitGpuTypes(function);
@@ -1842,7 +1893,8 @@ class Compiler {
     auto inputs = sourceInputs;
     auto found = numericPrograms.find(function);
     const auto emit = [&](const TypedModule &module, FunctionId entry) {
-      auto program = emitNumericProgram(module, entry, arithmetic_, backend_ != GpuBackend::Metal);
+      auto program = emitNumericProgram(module, entry, arithmetic_, backend_ != GpuBackend::Metal,
+                                        deviceInlineRecordValue(fn.resultType));
       if (!program)
         throw Rejected{program.error()};
       return numericPrograms.emplace(function, std::move(*program)).first;
@@ -1939,9 +1991,10 @@ class Compiler {
     auto out = field("TaskHandle");
     Value result{Value::Task, next - 1, true, target.device};
     result.array = program.type.array;
+    result.record = program.type.record;
     result.booleanArray = isBoolArray(program.type);
-    result.gpu = !result.array;
-    result.scalarTask = !program.type.tensor && !result.array;
+    result.gpu = !result.array && !result.record;
+    result.scalarTask = !program.type.tensor && !result.array && !result.record;
     result.booleanTask = program.type.builtin == BuiltinValue::Bool && !program.type.tensor;
     result.element = result.booleanTask || result.booleanArray ? NumericType::UInt8 : program.type.element;
     result.rank = program.type.shape.size();
@@ -2047,23 +2100,29 @@ class Compiler {
     }
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
             "u,code," + std::to_string(program.result) + "u," +
-            elementName(result.array ? NumericType::UInt64 : result.element) + "," +
+            elementName(result.array || result.record ? NumericType::UInt64 : result.element) + "," +
             (result.scalarTask ? "true" : "false") + (result.booleanTask ? ",true" : "") +
             (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\n";
     const bool arrayInputs =
         std::ranges::any_of(tensors, [](const auto &v) { return v.kind == Value::Array; });
-    if (arrayInputs || result.array) {
+    if (arrayInputs || result.array || result.record) {
       if (std::ranges::any_of(tensors, [](const auto &v) { return v.kind != Value::Array; }))
         reject(span, "GPU array entry cannot yet combine host arrays and resident tensors");
       std::string arguments;
       for (const auto &value : tensors)
         arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
                      (value.booleanArray ? "true" : "false") + ">";
-      code += "using ArrayJob=" + std::string(result.array ? "DeviceArrayResultJob" : "DeviceArrayInputJob") +
+      code += "using ArrayJob=" + std::string(result.record ? "DeviceAggregateResultJob" :
+                                             result.array ? "DeviceArrayResultJob" : "DeviceArrayInputJob") +
               "<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
-              std::to_string(0x4b414c4441520000ULL + function) + "ull," +
-              elementName(result.element) + "," + ((result.array ? result.booleanArray : result.booleanTask) ? "true" : "false") + "," +
+              std::to_string(0x4b414c4441520000ULL + function) + "ull,";
+      if (result.record)
+        code += aggregateResultPolicy(program.type, span) + ",";
+      else
+        code += elementName(result.element) + "," +
+                ((result.array ? result.booleanArray : result.booleanTask) ? "true" : "false") + ",";
+      code +=
               std::to_string(captureCount) + arguments + ">;\n";
       code += "ArrayJob::PacketData packet{&r,f." + executable + ",*target," +
               "std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
@@ -2230,7 +2289,7 @@ class Compiler {
               SourceSpan span) {
     if (!target.gpu)
       return cpuCall(function, inputs, span, false, true);
-    if (backend_ != GpuBackend::Metal)
+    if (backend_ != GpuBackend::Metal || cpu.functions.at(function).resultType.record)
       return spawnNumericProgram(function, inputs, target, span);
     bool mixed = false;
     bool conditional = false, primitive = false, transform = false, control = false;

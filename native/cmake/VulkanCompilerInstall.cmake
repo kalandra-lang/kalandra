@@ -64,7 +64,7 @@ install(FILES vulkan/Language.h vulkan/Async.h vulkan/Program.h vulkan/Vulkan.h
 install(FILES gpu-runtime/ControlExport.h gpu-runtime/ControlArena.h gpu-runtime/ProgramDecl.inc gpu-runtime/TensorBridgeDecl.inc
               gpu-runtime/AsyncDecl.inc gpu-runtime/LanguageDecl.inc gpu-runtime/ExecutablePath.inc
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/gpu-runtime" COMPONENT NativeVulkanCompiler)
-install(FILES runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h runtime/ValueScopes.h runtime/HostArrays.h runtime/DeviceArrayABI.h runtime/DeviceArrayWire.h runtime/DeviceArrayInputJob.h runtime/DeviceArrayResultWire.h
+install(FILES runtime/Runtime.h runtime/Tasks.h runtime/Tensor.h runtime/NumericStorage.h runtime/ValueScopes.h runtime/HostArrays.h runtime/DeviceArrayABI.h runtime/DeviceArrayWire.h runtime/DeviceArrayInputJob.h runtime/DeviceArrayResultWire.h runtime/DeviceAggregateResult.h
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/kalandra/native/headers/runtime" COMPONENT NativeVulkanCompiler)
 install(FILES include/kalandra/NumericType.h include/kalandra/TensorTransform.h
               include/kalandra/GpuProgram.h include/kalandra/GpuTransform.h

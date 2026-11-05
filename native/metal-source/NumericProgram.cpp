@@ -1,4 +1,5 @@
 #include "NumericProgram.h"
+#include "../gpu-source/AggregateLayout.h"
 #include "TensorTransformShader.h"
 #include <algorithm>
 #include <functional>
@@ -18,6 +19,7 @@ struct Ref {
 class Builder {
   ArithmeticMode arithmetic_;
   bool nativeFloat64Conversions_;
+  bool aggregateEnvelope_;
   const TypedModule &input;
   const TypedFunction &root;
   TypedModule normalized;
@@ -340,12 +342,14 @@ class Builder {
       reject(fn.declaration, "recursive GPU numerical helper expansion");
     if (arguments.size() != fn.parameters.size())
       reject(fn.declaration, "numerical helper capture count mismatch");
-    if (fn.resultType.array || usesScalarControl(input, function)) {
+    const bool aggregate = aggregateEnvelope_ && &fn == &root &&
+                           deviceInlineRecordValue(fn.resultType);
+    if (fn.resultType.array || aggregate || usesScalarControl(input, function)) {
       if (fn.resultType.tensor && !fn.resultType.array)
         reject(fn.declaration, "device scalar control requires a numeric/Bool scalar helper; "
                                "tensor loop state is not implemented");
       auto shader =
-          emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_);
+          emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate);
       if (!shader)
         throw Rejected{shader.error()};
       NumericProgramInstruction op{shader->deviceStorage ? NumericProgramKind::DeviceControl
@@ -526,15 +530,17 @@ class Builder {
 
 public:
   Builder(const TypedModule &module, FunctionId id, ArithmeticMode arithmetic,
-          bool nativeFloat64Conversions)
-      : arithmetic_(arithmetic), nativeFloat64Conversions_(nativeFloat64Conversions), input(module),
+          bool nativeFloat64Conversions, bool aggregateEnvelope)
+      : arithmetic_(arithmetic), nativeFloat64Conversions_(nativeFloat64Conversions),
+        aggregateEnvelope_(aggregateEnvelope), input(module),
         root(module.functions.at(id)) {
     normalized.source = input.source;
   }
   NumericProgram run(FunctionId id) {
-    if ((root.resultType.builtin != BuiltinValue::Numeric &&
+    if (!(aggregateEnvelope_ && deviceInlineRecordValue(root.resultType)) &&
+        ((root.resultType.builtin != BuiltinValue::Numeric &&
          !(root.resultType.builtin == BuiltinValue::Bool && (!root.resultType.tensor || root.resultType.array))) ||
-        (root.resultType.array && root.resultType.shape.size() != 1) || root.resultType.task || root.resultType.fallible)
+        (root.resultType.array && root.resultType.shape.size() != 1) || root.resultType.task || root.resultType.fallible))
       reject(root.declaration,
              "GPU numerical program requires a numeric/Bool scalar or numeric tensor result");
     std::vector<Ref> args;
@@ -565,9 +571,10 @@ public:
 std::expected<NumericProgram, Diagnostic> emitNumericProgram(const TypedModule &input,
                                                              FunctionId function,
                                                              ArithmeticMode arithmetic,
-                                                             bool nativeFloat64Conversions) {
+                                                             bool nativeFloat64Conversions,
+                                                             bool aggregateEnvelope) {
   try {
-    return Builder(input, function, arithmetic, nativeFloat64Conversions).run(function);
+    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope).run(function);
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }

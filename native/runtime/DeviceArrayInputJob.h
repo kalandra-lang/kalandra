@@ -1,10 +1,13 @@
 #pragma once
 #include "DeviceArrayResultWire.h"
+#include "DeviceAggregateResult.h"
 #include "DeviceArrayWire.h"
 #include "HostArrays.h"
 #include <tuple>
 namespace kalandra::runtime {
 template <NumericType Element, bool Boolean = false> struct DeviceArrayArgument {
+  static constexpr auto element = Element;
+  static constexpr bool boolean = Boolean;
   using Descriptor = CpuTensor<Element, 1>;
   using Capture = DeviceArrayCapture<Element, Boolean>;
   static const ValueLayout &layout() noexcept { return hostArrayLayout<Element, Boolean>(); }
@@ -14,12 +17,16 @@ template <NumericType Element, bool Boolean = false> struct DeviceArrayArgument 
 // Runtime/Buffer/Device/Executable are the existing backend facade types.
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
           NumericType ResultElement, bool BooleanResult, bool ArrayResult, std::size_t ScalarCount,
+          class AggregatePolicy,
           class... Arguments>
 class DeviceArrayTask final {
   static constexpr std::size_t Count = sizeof...(Arguments);
+  static constexpr bool Aggregate = !std::is_void_v<AggregatePolicy>;
   static_assert(Count > 0 || ArrayResult);
+  using Decoder = std::conditional_t<Aggregate, DeviceAggregateResultDecode<AggregatePolicy>,
+                                     DeviceArrayResultDecode<ResultElement, BooleanResult>>;
   using Result =
-      std::conditional_t<ArrayResult, CpuTensor<ResultElement, 1>,
+      std::conditional_t<ArrayResult, typename Decoder::Result,
                          std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>>;
   using Descriptors = std::tuple<typename Arguments::Descriptor...>;
   using Captures = std::tuple<typename Arguments::Capture...>;
@@ -55,7 +62,7 @@ private:
     TaskHandle download{};
     std::optional<DeviceArrayResultMetadata> metadata;
     std::optional<Invocation::OwnershipScope> resultScope;
-    DeviceArrayResultDecode<ResultElement, BooleanResult> decoder;
+    Decoder decoder;
     CpuTensor<NumericType::UInt64, 1> wire{};
     std::uint64_t cursor = 0, pageWords = 0;
     explicit Frame(const PacketData &packet)
@@ -69,7 +76,9 @@ private:
     each(std::forward<F>(function), std::make_index_sequence<Count>{});
   }
   static const ValueLayout &resultLayout() noexcept {
-    if constexpr (ArrayResult)
+    if constexpr (Aggregate)
+      return AggregatePolicy::layout();
+    else if constexpr (ArrayResult)
       return hostArrayLayout<ResultElement, BooleanResult>();
     else if constexpr (BooleanResult)
       return boolScalarLayout();
@@ -253,7 +262,7 @@ private:
         frame.metadata = Runtime::arrayResult(frame.output);
         if (!frame.metadata ||
             frame.metadata->layout != DeviceArrayWireABI::layout(ResultElement, BooleanResult) ||
-            frame.metadata->origin > Count ||
+            frame.metadata->origin > (Aggregate ? 0 : Count) ||
             frame.metadata->length >
                 DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords) {
           task.fault(3);
@@ -301,20 +310,27 @@ private:
                                                      frame.pageWords);
           frame.phase = 7;
         } else {
-          const auto resolve = [&](std::uint64_t origin) {
-            std::optional<CpuTensor<ResultElement, 1>> descriptor;
-            each([&]<std::size_t I>() {
-              if constexpr (std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
-                                           DeviceArrayArgument<ResultElement, BooleanResult>>) {
-                if (frame.origins[I] == origin)
-                  descriptor = std::get<I>(frame.arguments);
-              }
-            });
-            return descriptor;
-          };
-          if (!frame.decoder.initialize(task.context(), frame.wire, resolve)) {
-            hostArrayFailure(task);
-            return;
+          if constexpr (Aggregate) {
+            if (!frame.decoder.initialize(task.context(), frame.wire)) {
+              hostArrayFailure(task);
+              return;
+            }
+          } else {
+            const auto resolve = [&](std::uint64_t origin) {
+              std::optional<CpuTensor<ResultElement, 1>> descriptor;
+              each([&]<std::size_t I>() {
+                if constexpr (std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
+                                             DeviceArrayArgument<ResultElement, BooleanResult>>) {
+                  if (frame.origins[I] == origin)
+                    descriptor = std::get<I>(frame.arguments);
+                }
+              });
+              return descriptor;
+            };
+            if (!frame.decoder.initialize(task.context(), frame.wire, resolve)) {
+              hostArrayFailure(task);
+              return;
+            }
           }
           frame.output = {};
           frame.phase = 9;
@@ -358,14 +374,35 @@ private:
         return;
       }
       if (frame.phase == 9) {
-        if (!frame.decoder.advance()) {
+        bool complete;
+        if constexpr (Aggregate) {
+          Invocation::OwnershipSelection selection(*frame.resultScope);
+          const auto resolve = [&](std::uint64_t origin, NumericType element, bool boolean,
+                                   std::uint64_t length, std::byte *out) {
+            bool resolved = false;
+            each([&]<std::size_t I>() {
+              using Argument = std::tuple_element_t<I, std::tuple<Arguments...>>;
+              const auto &source = std::get<I>(frame.arguments);
+              if (!resolved && frame.origins[I] == origin && Argument::element == element &&
+                  Argument::boolean == boolean && std::uint64_t(source.sizes[0]) == length) {
+                std::memcpy(out, &source, sizeof(source));
+                resolved = true;
+              }
+            });
+            return resolved;
+          };
+          complete = frame.decoder.advance(task.context(), frame.value, resolve);
+        } else
+          complete = frame.decoder.advance();
+        if (!complete) {
           if (task.context().poll())
             hostArrayFailure(task);
           else
             task.yield();
           return;
         }
-        frame.value = *frame.decoder.result();
+        if constexpr (!Aggregate)
+          frame.value = *frame.decoder.result();
         task.complete(&frame.value);
       }
     }
@@ -391,11 +428,16 @@ template <class Runtime, class Buffer, class Device, class Executable, std::uint
           class... Arguments>
 using DeviceArrayInputJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
-                    false, ScalarCount, Arguments...>;
+                    false, ScalarCount, void, Arguments...>;
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
           NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
           class... Arguments>
 using DeviceArrayResultJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
-                    true, ScalarCount, Arguments...>;
+                    true, ScalarCount, void, Arguments...>;
+template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
+          class Policy, std::size_t ScalarCount, class... Arguments>
+using DeviceAggregateResultJob =
+    DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, NumericType::UInt64, false,
+                    true, ScalarCount, Policy, Arguments...>;
 } // namespace kalandra::runtime

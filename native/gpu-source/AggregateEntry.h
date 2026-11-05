@@ -18,7 +18,8 @@ normalizeDeviceAggregateEntry(const TypedModule &input, FunctionId function,
   if (function >= input.functions.size())
     return reject("GPU aggregate entry requires a checked function identity");
   const auto &original = input.functions[function];
-  if (!deviceScalarValue(original.resultType) && !deviceFlatArrayValue(original.resultType))
+  if (!deviceScalarValue(original.resultType) && !deviceFlatArrayValue(original.resultType) &&
+      !deviceInlineRecordValue(original.resultType))
     return reject("GPU aggregate results require owned graph transport");
   std::vector<ValueType> types;
   for (auto parameter : original.parameters) {

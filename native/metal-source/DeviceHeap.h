@@ -67,6 +67,9 @@ public:
                     std::span<const DeviceArrayInput> inputs = {});
   mlir::Value load(unsigned cell);
   void store(unsigned cell, mlir::Value);
+  // Dynamic indices into compiler-reserved frame tables.
+  mlir::Value loadAt(mlir::Value cell);
+  void storeAt(mlir::Value cell, mlir::Value value);
   void initialize();
   // Execute one bounded service step. True means the source instruction may run
   // (normal execution, or initialization of a newly allocated result).
@@ -100,6 +103,5 @@ private:
   mlir::Value c(std::uint64_t);
   mlir::Value add(mlir::Value, mlir::Value);
   mlir::Value eq(mlir::Value, mlir::Value);
-  mlir::Value loadAt(mlir::Value);
 };
 } // namespace kalandra

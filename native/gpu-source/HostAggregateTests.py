@@ -239,9 +239,44 @@ fn main()->int ! TaskError:
   try parallel:
     try await spawn device(pair,batch.values,7) on devices.gpu()
 ''',17)
+record_result = Path(__file__).resolve().parent.parent / 'tests/fixtures/mixed-host-aggregates/record-result.k'
+cases['result-enum-owned-aliases'] = (record_result.read_text(), 983)
+cases['result-record-input-and-fresh-bool'] = ('''type Batch:
+  values:[Bool]
+fn collect(batch:Batch)->Batch:
+  Batch {values:copy(batch.values)}
+fn main()->int ! TaskError:
+  input=Batch {values:[true,false]}
+  try parallel:
+    result=try await spawn collect(input) on devices.gpu()
+    result.values[1]=true
+    if result.values[0] and result.values[1] and not input.values[1]:42
+    else:0
+''',42)
+cases['result-no-capture-paged-and-scalar'] = ('''type Batch:
+  values:[int]
+  count:int
+fn collect(n:int)->Batch:
+  Batch {values:generate(n,fn(i):i+2),count:n}
+fn main()->int ! TaskError:
+  try parallel:
+    result=try await spawn collect(9000) on devices.gpu()
+    result.values[8999]+result.count
+''',18001)
+cases['result-scalar-only'] = ('''type Pair:
+  first:int8
+  second:Bool
+fn collect()->Pair:
+  Pair {first:-128,second:true}
+fn main()->int ! TaskError:
+  try parallel:
+    pair=try await spawn collect() on devices.gpu()
+    if pair.second:int(pair.first)+128
+    else:1
+''',0)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
-known |= {'reject-device-string-body','reject-device-record-result'}
+known |= {'reject-device-string-body','reject-device-host-only-record-result'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
 results = []
@@ -289,7 +324,15 @@ for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-recor
     print('reject-'+name,'rejected S077',flush=True)
 for name,source in {
     'device-string-body':'fn work(n:int)->int:\n  message="text"\n  length(message)+n\nfn main()->int ! TaskError:\n  try parallel:\n    try await spawn work(1) on devices.gpu()\n',
-    'device-record-result':common+'fn device(n:int)->Batch:\n  make(n)\nfn main()->int ! TaskError:\n  try parallel:\n    batch=try await spawn device(1) on devices.gpu()\n    score(batch)\n',
+    'device-host-only-record-result':'''type Message:
+  text:String
+fn device()->Message:
+  Message {text:"hello"}
+fn main()->int ! TaskError:
+  try parallel:
+    value=try await spawn device() on devices.gpu()
+    length(value.text)
+''',
 }.items():
     if a.case and 'reject-'+name not in a.case:
         continue
@@ -302,5 +345,5 @@ for name,source in {
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'G001'})
     print('reject-'+name,'rejected G001',flush=True)
 (a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case),'selectedCases':a.case,'gpuExecution':not a.compile_only,
-    'backend':a.backend,'variant':a.variant,'scope':'native host aggregates and normalized whole-record GPU inputs',
+    'backend':a.backend,'variant':a.variant,'scope':'native host aggregates and typed whole-record GPU inputs and results',
     'results':results},indent=2)+'\n')

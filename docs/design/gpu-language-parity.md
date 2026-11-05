@@ -194,12 +194,11 @@ the flat input job keeps its origin deduplication, readonly and acknowledgement
 contracts. A returned captured array therefore retains its original CPU alias.
 No native pointers or padding become device wire values.
 
-Whole-record results still require bounded graph and owned-region publication.
 Recursive graphs, Strings, general function values, recursive calls and tensor
-state remain separate qualification work. The normalized entry currently accepts
-only scalar/flat-array peers and results alongside its aggregate inputs.
+state remain separate qualification work. The normalized entry accepts scalar
+and flat-array peers alongside eligible aggregate inputs and results.
 
-### Whole-record result transport design
+### Whole-record result transport
 
 The result schema comes from the checked nominal type. Its device projection
 identifies the scalar cells, enum tags and array handles. Its native projection
@@ -214,7 +213,7 @@ and equal contents from separate allocations remain independent. Region
 references carry the checked view range. The result frame keeps the active
 owners rooted while the heap services allocation or growth requests.
 
-The terminal export can reuse the flat-array transport as an opaque word
+The terminal export reuses the flat-array transport as an opaque word
 envelope. The device constructs its fixed-schema cells and copies fresh regions
 in bounded checkpoint steps. The existing export service transfers that envelope
 in acknowledged pages. The host validates tags, layouts, origins and ranges

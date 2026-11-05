@@ -93,6 +93,12 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     run([compiler, aggregate_source, "--target", "metal", "-O2", "-o", aggregate_app], cwd)
     assert run([aggregate_app / "program"], cwd).stdout.strip() == "00000000000009ea"
     applications.append((aggregate_app, "00000000000009ea"))
+    record_result = cwd / "record result.k"
+    record_result.write_bytes((fixtures.parent / "tests/fixtures/mixed-host-aggregates/record-result.k").read_bytes())
+    record_app = cwd / "record result application"
+    run([compiler, record_result, "--target", "metal", "-O2", "-o", record_app], cwd)
+    assert run([record_app / "program"], cwd).stdout.strip() == "00000000000003d7"
+    applications.append((record_app, "00000000000003d7"))
     result_source = cwd / "device array results.k"
     result_source.write_text("""fn ordered(values:[int])->[int]:
   sorted(values)

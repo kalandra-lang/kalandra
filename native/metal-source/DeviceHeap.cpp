@@ -60,6 +60,17 @@ void DeviceHeapEmitter::store(unsigned cell, Value v) {
   memref::StoreOp::create(b, loc, lo, params, ValueRange{at(1 + 2 * cell)});
   memref::StoreOp::create(b, loc, hi, params, ValueRange{at(2 + 2 * cell)});
 }
+void DeviceHeapEmitter::storeAt(Value cell, Value value) {
+  auto word = arith::MulIOp::create(b, loc, cell, c(2));
+  auto index = [&](unsigned part) {
+    return arith::IndexCastOp::create(b, loc, b.getIndexType(), add(word, c(part)));
+  };
+  auto low = arith::TruncIOp::create(b, loc, b.getI32Type(), value);
+  auto high = arith::TruncIOp::create(b, loc, b.getI32Type(),
+                                      arith::ShRUIOp::create(b, loc, value, c(32)));
+  memref::StoreOp::create(b, loc, low, params, ValueRange{index(1)});
+  memref::StoreOp::create(b, loc, high, params, ValueRange{index(2)});
+}
 void DeviceHeapEmitter::fault(unsigned code) {
   auto at = arith::ConstantIndexOp::create(b, loc, parameterWords - 1);
   auto flag = memref::LoadOp::create(b, loc, params, ValueRange{at});

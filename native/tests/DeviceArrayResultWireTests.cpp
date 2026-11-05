@@ -1,4 +1,5 @@
 #include "../runtime/DeviceArrayResultWire.h"
+#include "../runtime/DeviceAggregateResult.h"
 #include "../runtime/HostArrays.h"
 #include <atomic>
 #include <iostream>
@@ -297,6 +298,72 @@ void envelopeRegion() {
     context.release(wire.allocated);
   }
 }
+struct AggregateResultTestPolicy {
+  struct alignas(8) Result { std::array<std::byte, 88> data{}; };
+  using F = DeviceAggregateResultField;
+  inline static constexpr std::array<F, 4> fields{{
+      {F::Record, F::None, F::None, 0, 0, 0, NumericType::UInt8, false},
+      {F::Scalar, 0, F::None, 0, 0, 2, NumericType::Int64, false},
+      {F::Array, 0, 1, 8, 2, 0, NumericType::Int8, false},
+      {F::Array, 0, 1, 48, 2, 0, NumericType::Int8, false},
+  }};
+};
+void aggregateEnvelope() {
+  using A = DeviceAggregateEnvelopeABI;
+  using W = DeviceArrayWireABI;
+  constexpr std::array<std::uint64_t, 13> valid{
+      A::Magic, 3, 2, 0, 0, 2, 0, 11, 2, 0, 11, 17, 29};
+  enum Mutation { None, Tag, Inactive, Overlap, DifferentLength, Origin, Narrow, Trailing, Cancel };
+  for (auto mutation : {None, Tag, Inactive, Overlap, DifferentLength, Origin, Narrow, Trailing, Cancel}) {
+    Invocation context;
+    std::atomic<bool> cancel{false};
+    context.bindCancellation(&cancel);
+    auto wire = makeWire(context, W::layout(NumericType::UInt64, false),
+                         valid.size() + (mutation == Trailing));
+    auto *data = wire.aligned + W::HeaderWords;
+    std::copy(valid.begin(), valid.end(), data);
+    switch (mutation) {
+    case Tag: data[2] = 3; break;
+    case Inactive: data[2] = 1; break;
+    case Overlap: data[10] = 12; break;
+    case DifferentLength: data[8] = 1; break;
+    case Origin: data[6] = 1; data[7] = 0; break;
+    case Narrow: data[12] = 256; break;
+    case Trailing: data[13] = 0; break;
+    default: break;
+    }
+    {
+      Invocation::OwnershipScope scope(context);
+      Invocation::OwnershipSelection select(scope);
+      DeviceAggregateResultDecode<AggregateResultTestPolicy> decode;
+      AggregateResultTestPolicy::Result result;
+      check(decode.initialize(context, wire), "aggregate envelope setup");
+      auto resolve = [](auto...) { return false; };
+      bool complete = false;
+      for (unsigned step = 0; step < 16 && !context.poll(); ++step) {
+        if (step == 3 && mutation == Cancel)
+          cancel = true;
+        if (decode.advance(context, result, resolve)) {
+          complete = true;
+          break;
+        }
+      }
+      if (mutation == None) {
+        check(complete && !context.poll(), "valid aggregate result not published");
+        CpuTensor<NumericType::Int8, 1> left, right;
+        std::memcpy(&left, result.data.data() + 8, sizeof(left));
+        std::memcpy(&right, result.data.data() + 48, sizeof(right));
+        check(left.allocated == right.allocated && left.sizes[0] == 2 && right.sizes[0] == 2 &&
+                  left.aligned[0] == 17 && right.aligned[1] == 29,
+              "fresh aggregate regions lost alias identity or content");
+      } else
+        check(!complete && context.status() == (mutation == Cancel ? 0 : 3),
+              "malformed or cancelled envelope published or changed fault");
+    }
+    context.release(wire.allocated);
+    check(!context.live(), "aggregate envelope leaked an owner");
+  }
+}
 } // namespace
 int main() {
   try {
@@ -313,6 +380,7 @@ int main() {
     malformed();
     emptyAndView();
     envelopeRegion();
+    aggregateEnvelope();
     cancellationAndAllocation();
     std::cout << "PASS: eleven typed result decoders, exact bits, retained aliases, bounded pages, "
                  "faults, cancellation and owner retirement\n";

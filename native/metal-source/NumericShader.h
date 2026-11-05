@@ -30,7 +30,8 @@ struct NumericShaderOptions {
 bool usesScalarControl(const TypedModule &, FunctionId);
 std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModule &, FunctionId,
                                                                  ArithmeticMode,
-                                                                 bool nativeFloat64Conversions);
+                                                                 bool nativeFloat64Conversions,
+                                                                 bool aggregateEnvelope = false);
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});
 } // namespace kalandra

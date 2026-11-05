@@ -14,6 +14,7 @@ template <NumericType Element, bool Boolean = false> class DeviceArrayResultDeco
 public:
   static_assert(!Boolean || Element == NumericType::UInt8);
   using Descriptor = CpuTensor<Element, 1>;
+  using Result = Descriptor;
   using Wire = CpuTensor<NumericType::UInt64, 1>;
   DeviceArrayResultDecode() = default;
   DeviceArrayResultDecode(const DeviceArrayResultDecode &) = delete;
