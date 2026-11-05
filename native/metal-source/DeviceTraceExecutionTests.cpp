@@ -265,6 +265,65 @@ int main() {
       require(h.data[2] == 0 && h.data[1] == h.data.size() - 1,
               "collector retained dead relocated backing");
     }
+    { // Terminal traversal exposes live marks without reclaiming or copying.
+      using kalandra::runtime::DeviceHeapBlockABI;
+      Heap h;
+      auto live = h.block(1, {42});
+      auto dead = h.block(1, {99});
+      auto root = h.block(13, {live, live});
+      h.data[live + 3] |= DeviceHeapBlockABI::ReadOnly;
+      h.cell(DeviceHeapEmitter::Capacity, h.data.size());
+      h.cell(DeviceHeapEmitter::PC, 2);
+      h.cell(DeviceHeapEmitter::Cells, root);
+      for (unsigned i = 0; i < 100 && h.cell(DeviceHeapEmitter::Phase) != 9; ++i)
+        h.step();
+      require(h.cell(DeviceHeapEmitter::Phase) == 9 && h.frame.back() == UINT32_MAX,
+              "terminal trace did not reach its quiescent state");
+      require(h.data[live + 3] == (DeviceHeapBlockABI::ReadOnly | 1) &&
+                  h.data[root + 3] == 1 && h.data[dead + 3] == 0 &&
+                  h.data[dead + 1] == 1 && h.data[dead + 4] == 99,
+              "terminal trace lost reachable nodes or swept unrelated backing");
+      const auto frozen = h.data;
+      h.step();
+      require(h.data == frozen && h.cell(DeviceHeapEmitter::Phase) == 9,
+              "terminal trace mutated the arena after acknowledgement");
+      h.cell(DeviceHeapEmitter::PC, 3);
+      for (unsigned i = 0; i < 5 && h.cell(DeviceHeapEmitter::PC) == 3; ++i)
+        h.step();
+      require(h.cell(DeviceHeapEmitter::PC) == 4 && h.cell(9) == 2 && h.cell(23) == 3 &&
+                  h.data[live + 3] == (DeviceHeapBlockABI::ReadOnly | 1) &&
+                  h.data[root + 3] == 2 && h.data[dead + 3] == 0,
+              "terminal scan did not number just the reachable blocks and size payload");
+      h.cell(22, 0); // Compiler-reserved terminal envelope base cell.
+      h.cell(DeviceHeapEmitter::PC, 5);
+      const auto prefix = h.data;
+      h.step();
+      require(h.cell(DeviceHeapEmitter::PC) == UINT64_MAX - 1 &&
+                  h.cell(2) == prefix.size() + 14 && h.cell(3) == 5 && h.data == prefix,
+              "terminal reserve did not request growth without touching numbered nodes");
+      h.data.resize(h.cell(2), UINT64_MAX);
+      h.cell(DeviceHeapEmitter::Capacity, h.data.size());
+      h.cell(DeviceHeapEmitter::PC, h.cell(3));
+      h.cell(2, 0);
+      h.cell(3, 0);
+      h.step();
+      const auto base = prefix.size();
+      require(h.cell(DeviceHeapEmitter::PC) == 6 &&
+                  std::equal(prefix.begin(), prefix.end(), h.data.begin()) &&
+                  h.data[base] == 14 && h.data[base + 1] == kalandra::runtime::DeviceArrayWireABI::layout(
+                      kalandra::NumericType::UInt64, false) &&
+                  h.data[base + 2] == 10 && h.data[base + 3] == 1,
+              "terminal reserve corrupted graph IDs or initialized the wrong block");
+      h.data[live + 3] = 1; // This prototype exports fresh nodes only.
+      h.cell(DeviceHeapEmitter::PC, 7);
+      for (unsigned i = 0; i < 12 && h.cell(DeviceHeapEmitter::PC) == 7; ++i)
+        h.step();
+      const std::vector<std::uint64_t> expected{kalandra::runtime::DeviceGraphWireABI::Magic, 2, 2,
+                                                2, 1, 1, 2, 42, 1, 1};
+      require(h.cell(DeviceHeapEmitter::PC) == 8 && h.frame.back() == UINT32_MAX &&
+                  std::equal(expected.begin(), expected.end(), h.data.begin() + base + 4),
+              "device result writer lost the root, alias or scalar words");
+    }
     {
       Heap h;
       auto empty = h.block(13, {});

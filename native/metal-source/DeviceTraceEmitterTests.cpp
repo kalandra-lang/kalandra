@@ -9,6 +9,7 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
 #include "llvm/Support/raw_ostream.h"
+#include <array>
 #include <iostream>
 #include <stdexcept>
 using namespace kalandra;
@@ -62,7 +63,7 @@ int main(int argc, char **argv) {
       body = &function.front();
     }
     auto builder = mlir::OpBuilder::atBlockTerminator(body);
-    std::vector<DeviceRootMap> roots{{1, {DeviceHeapEmitter::Cells}}};
+    std::vector<DeviceRootMap> roots{{1, {DeviceHeapEmitter::Cells}}, {2, {DeviceHeapEmitter::Cells}}};
     // Repeated records: tag, first child, second child. Variant 1 owns the
     // second field; variant 2 owns both. Inactive bits must not be traversed.
     std::vector<DeviceTraceLayout> layouts{{12, 3, {{1, {{0, 1}}}, {1, {{0, 2}}}, {2, {{0, 2}}}}},
@@ -100,9 +101,66 @@ int main(int argc, char **argv) {
       builder.setInsertionPointToStart(&entry.getThenRegion().front());
       emitSeed(heap, builder, staging, heap.load(DeviceHeapEmitter::Cells));
       builder.setInsertionPointToStart(&entry.getElseRegion().front());
-      heap.service();
+      heap.service(true);
     } else
-      heap.service();
+      heap.service(true);
+    {
+      const auto loc = builder.getUnknownLoc();
+      const mlir::Value start = mlir::arith::ConstantIntOp::create(builder, loc, 2, 64);
+      const mlir::Value idle = mlir::arith::ConstantIntOp::create(builder, loc, 0, 64);
+      const mlir::Value atResult = mlir::arith::CmpIOp::create(builder, loc,
+          mlir::arith::CmpIPredicate::eq, heap.load(DeviceHeapEmitter::PC), start);
+      const mlir::Value isIdle = mlir::arith::CmpIOp::create(builder, loc,
+          mlir::arith::CmpIPredicate::eq, heap.load(DeviceHeapEmitter::Phase), idle);
+      auto condition = mlir::arith::AndIOp::create(builder, loc, atResult, isIdle);
+      auto begin = mlir::scf::IfOp::create(builder, loc, condition, false);
+      mlir::OpBuilder::InsertionGuard guard(builder);
+      builder.setInsertionPointToStart(&begin.getThenRegion().front());
+      heap.beginResultTrace();
+    }
+    {
+      const auto loc = builder.getUnknownLoc();
+      const mlir::Value pc = mlir::arith::ConstantIntOp::create(builder, loc, 3, 64);
+      const mlir::Value number = mlir::arith::CmpIOp::create(builder, loc,
+          mlir::arith::CmpIPredicate::eq, heap.load(DeviceHeapEmitter::PC), pc);
+      auto scan = mlir::scf::IfOp::create(builder, loc, number, false);
+      mlir::OpBuilder::InsertionGuard guard(builder);
+      builder.setInsertionPointToStart(&scan.getThenRegion().front());
+      auto done = mlir::scf::IfOp::create(builder, loc, heap.numberResultBlocks(), false);
+      builder.setInsertionPointToStart(&done.getThenRegion().front());
+      heap.store(DeviceHeapEmitter::PC, mlir::arith::ConstantIntOp::create(builder, loc, 4, 64));
+    }
+    {
+      const auto loc = builder.getUnknownLoc();
+      const mlir::Value pc = mlir::arith::ConstantIntOp::create(builder, loc, 5, 64);
+      const mlir::Value reserve = mlir::arith::CmpIOp::create(builder, loc,
+          mlir::arith::CmpIPredicate::eq, heap.load(DeviceHeapEmitter::PC), pc);
+      auto selected = mlir::scf::IfOp::create(builder, loc, reserve, false);
+      mlir::OpBuilder::InsertionGuard guard(builder);
+      builder.setInsertionPointToStart(&selected.getThenRegion().front());
+      const mlir::Value words = mlir::arith::ConstantIntOp::create(builder, loc, 10, 64);
+      auto ready = mlir::scf::IfOp::create(builder, loc,
+          heap.reserveResultEnvelope(words, DeviceHeapEmitter::TraceElement), false);
+      builder.setInsertionPointToStart(&ready.getThenRegion().front());
+      heap.store(DeviceHeapEmitter::PC, mlir::arith::ConstantIntOp::create(builder, loc, 6, 64));
+    }
+    {
+      const auto loc = builder.getUnknownLoc();
+      const mlir::Value pc = mlir::arith::ConstantIntOp::create(builder, loc, 7, 64);
+      const mlir::Value emit = mlir::arith::CmpIOp::create(builder, loc,
+          mlir::arith::CmpIPredicate::eq, heap.load(DeviceHeapEmitter::PC), pc);
+      auto selected = mlir::scf::IfOp::create(builder, loc, emit, false);
+      mlir::OpBuilder::InsertionGuard guard(builder);
+      builder.setInsertionPointToStart(&selected.getThenRegion().front());
+      const std::array schemas{DeviceGraphExportLayout{13, 1, 1, {0}},
+                               DeviceGraphExportLayout{1, 2, 1, {}}};
+      auto done = mlir::scf::IfOp::create(builder, loc,
+          heap.writeResultEnvelope(heap.load(DeviceHeapEmitter::Cells), DeviceHeapEmitter::TraceElement,
+                                   DeviceHeapEmitter::Need, DeviceHeapEmitter::Layout,
+                                   DeviceHeapEmitter::Length, schemas), false);
+      builder.setInsertionPointToStart(&done.getThenRegion().front());
+      heap.store(DeviceHeapEmitter::PC, mlir::arith::ConstantIntOp::create(builder, loc, 8, 64));
+    }
     if (gpu) {
       auto zero = mlir::arith::ConstantIntOp::create(builder, builder.getUnknownLoc(), 0, 64);
       auto index = mlir::arith::ConstantIndexOp::create(builder, builder.getUnknownLoc(), 0);

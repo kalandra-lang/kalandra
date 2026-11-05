@@ -1,6 +1,7 @@
 #include "DeviceArrayReturn.h"
 #include "../gpu-source/AggregateLayout.h"
 #include "../gpu-runtime/ControlExport.h"
+#include "../runtime/DeviceGraphWire.h"
 #include "NumericShader.h"
 #include "DeviceHeap.h"
 #include "DeviceLiveness.h"
@@ -1053,7 +1054,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                                                                  ArithmeticMode arithmetic,
                                                                  bool nativeFloat64Conversions,
                                                                  bool aggregateEnvelope,
-                                                                 std::optional<std::size_t> graphParameter) {
+                                                                 std::optional<std::size_t> graphParameter,
+                                                                 std::span<const DeviceGraphExportLayout> graphResultLayouts) {
   const auto &root = input.functions.at(function);
   const auto reject = [&](const std::string &message) -> std::expected<NumericShader, Diagnostic> {
     return std::unexpected(Diagnostic{"G001", message, root.declaration});
@@ -1075,6 +1077,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   bool storage = std::ranges::any_of(plan.slots, flatArray);
   const bool arrayResult = flatArray(root.resultType);
   const bool aggregateResult = deviceInlineRecordValue(root.resultType);
+  const bool graphResult = aggregateResult && !graphResultLayouts.empty();
   if (aggregateResult && !aggregateEnvelope)
     return reject("GPU aggregate outputs need typed transport");
   const bool exportResult = arrayResult || aggregateResult;
@@ -1103,34 +1106,38 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return reject(aggregateLayouts.error());
   const auto &layouts = *aggregateLayouts;
   const auto plainRecord = deviceInlineRecordValue;
-  const auto boxIdentity = [](std::size_t id) { return static_cast<unsigned>(id) + 12; };
-  std::set<std::size_t> boxTypes;
+  const auto boxIdentity = [](std::size_t id) {
+    return runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(id), false);
+  };
+  std::set<std::size_t> boxTypes, arrayTypes;
   const auto localArray = [&](const ValueType &type) {
     return flatArray(type) || deviceRecordArrayValue(type);
   };
   const auto arrayIdentity = [&](const ValueType &type) -> unsigned {
     if (deviceRecordArrayValue(type))
-      return boxIdentity(*type.record);
+      return runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*type.record), true);
     return type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1;
   };
   const auto arrayStride = [&](const ValueType &type) -> std::size_t {
     return deviceRecordArrayValue(type) ? layouts.at(*type.record).words : 1;
   };
-  std::set<std::size_t> traceTypes;
   if (graphSymbol)
-    traceTypes.insert(*input.symbols.at(*graphSymbol).type.record);
+    boxTypes.insert(*input.symbols.at(*graphSymbol).type.record);
+  if (graphResult)
+    boxTypes.insert(*root.resultType.record);
   for (const auto &type : plan.slots)
     if (deviceRecordArrayValue(type))
-      traceTypes.insert(*type.record);
+      arrayTypes.insert(*type.record);
   for (const auto &[id, layout] : layouts) {
     const auto &fields = input.records.at(id).fields;
     for (std::size_t field = 0; field < fields.size(); ++field) {
       if (deviceRecordArrayValue(fields[field].type))
-        traceTypes.insert(*fields[field].type.record);
+        arrayTypes.insert(*fields[field].type.record);
       if (layout.boxed[field])
         boxTypes.insert(*fields[field].type.record);
     }
   }
+  auto traceTypes = arrayTypes;
   traceTypes.insert(boxTypes.begin(), boxTypes.end());
   std::vector<DeviceTraceLayout> traceLayouts;
   std::size_t traceBudget = 100000;
@@ -1174,6 +1181,10 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       } else
         stack.push_back({*type.record, offset, 0, tag != 0});
     }
+    if (boxTypes.contains(id) && arrayTypes.contains(id))
+      traceLayouts.push_back(trace);
+    if (arrayTypes.contains(id))
+      trace.identity = runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(id), true);
     traceLayouts.push_back(std::move(trace));
   }
   storage |= !traceTypes.empty();
@@ -1201,9 +1212,14 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   const auto graphCursor = frameWords;
   if (graphParameter)
     ++frameWords;
+  const auto graphReturn = frameWords;
+  enum GraphReturnCell { ReturnPhase, ReturnRoot, EnvelopeBase, EnvelopeBlock,
+                         EnvelopeWord, EnvelopeOutput, GraphReturnCells };
+  if (graphResult)
+    frameWords += GraphReturnCells;
   DeviceAggregateProjection resultProjection;
   DeviceAggregateReturnFrame resultFrame{static_cast<unsigned>(frameWords), resultProjection};
-  if (aggregateResult) {
+  if (aggregateResult && !graphResult) {
     std::size_t budget = 300000;
     auto projected = projectDeviceAggregates(input, std::span(&root.resultType, 1), budget);
     if (!projected)
@@ -1287,6 +1303,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         std::vector<std::size_t> resultRoots;
         for (auto leaf : layouts.at(*root.resultType.record).owned)
           resultRoots.push_back(offsets.at(plan.result) + leaf);
+        if (graphResult)
+          resultRoots.push_back(graphReturn + ReturnRoot);
         allocationRoots.push_back({i + 1, std::move(resultRoots)});
       }
     }
@@ -1553,7 +1571,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       b.setInsertionPointToStart(&bound.getElseRegion().front());
       heap->fault(99);
     }
-    const auto sourceReady = heap ? heap->service() : yes;
+    Value sourceReady = heap ? heap->service(graphResult) : yes;
+    if (graphResult)
+      sourceReady = arith::OrIOp::create(b, loc, sourceReady, heap->resultTraceReady());
     const auto pc = load(0);
     const NumericShaderOptions options{.arithmetic = arithmetic,
                                        .nativeFloat64Conversions = nativeFloat64Conversions};
@@ -2160,7 +2180,66 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           emitDeviceArrayReturn(*heap, b, load(offsets.at(plan.result)),
               root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element,
               root.resultType.builtin == BuiltinValue::Bool);
-        if (aggregateResult) {
+        if (graphResult) {
+          using A = runtime::detail::ControlArenaABI;
+          using G = runtime::DeviceGraphWireABI;
+          const auto phase = load(graphReturn + ReturnPhase);
+          const auto equal = [&](Value left, Value right) -> Value {
+            return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, left, right);
+          };
+          const auto when = [&](Value predicate, auto emit) {
+            auto branch = scf::IfOp::create(b, loc, predicate, false);
+            OpBuilder::InsertionGuard guard(b);
+            b.setInsertionPointToStart(&branch.getThenRegion().front());
+            emit();
+          };
+          const auto count = width(root.resultType);
+          when(equal(phase, constant(0)), [&] {
+            when(equal(heap->load(DeviceHeapEmitter::Phase), constant(0)), [&] {
+              heap->begin(constant(count), boxIdentity(*root.resultType.record));
+            });
+            when(heap->ready(), [&] {
+              const auto word = heap->cursor();
+              const auto copied = equal(word, constant(count));
+              when(arith::XOrIOp::create(b, loc, copied, yes), [&] {
+                heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), word),
+                    heap->loadAt(arith::AddIOp::create(b, loc, constant(offsets.at(plan.result)), word)));
+                heap->advance();
+              });
+              when(copied, [&] {
+                store(graphReturn + ReturnRoot, heap->handle());
+                heap->finish();
+                store(graphReturn + ReturnPhase, constant(1));
+              });
+            });
+          });
+          when(equal(phase, constant(1)), [&] {
+            heap->beginResultTrace();
+            store(graphReturn + ReturnPhase, constant(2));
+          });
+          when(equal(phase, constant(2)), [&] {
+            when(heap->numberResultBlocks(), [&] { store(graphReturn + ReturnPhase, constant(3)); });
+          });
+          when(equal(phase, constant(3)), [&] {
+            const Value directory = arith::MulIOp::create(b, loc, heap->resultNodeCount(),
+                                                          constant(G::DirectoryWords));
+            const Value words = arith::AddIOp::create(b, loc, heap->resultPayloadWords(),
+                arith::AddIOp::create(b, loc, directory, constant(G::HeaderWords)));
+            when(heap->reserveResultEnvelope(words, graphReturn + EnvelopeBase), [&] {
+              store(graphReturn + ReturnPhase, constant(4));
+            });
+          });
+          when(equal(phase, constant(4)), [&] {
+            when(heap->writeResultEnvelope(load(graphReturn + ReturnRoot), graphReturn + EnvelopeBase,
+                    graphReturn + EnvelopeBlock, graphReturn + EnvelopeWord,
+                    graphReturn + EnvelopeOutput, graphResultLayouts), [&] {
+              emitDeviceArrayReturn(*heap, b, load(graphReturn + EnvelopeBase), NumericType::UInt64, false);
+              store(graphReturn + ReturnPhase, constant(5));
+            });
+          });
+          next = arith::SelectOp::create(b, loc, equal(load(graphReturn + ReturnPhase), constant(5)),
+              constant(A::Done), load(0));
+        } else if (aggregateResult) {
           const auto done = emitDeviceAggregateReturn(*heap, b, input, resultFrame, offsets.at(plan.result));
           next = arith::SelectOp::create(b, loc, done, constant(UINT64_MAX), pc);
         } else

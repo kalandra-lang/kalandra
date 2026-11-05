@@ -21,6 +21,7 @@ class Builder {
   bool nativeFloat64Conversions_;
   bool aggregateEnvelope_;
   std::optional<std::size_t> graphParameter_;
+  std::span<const DeviceGraphExportLayout> graphResultLayouts_;
   const TypedModule &input;
   const TypedFunction &root;
   TypedModule normalized;
@@ -351,7 +352,8 @@ class Builder {
         reject(fn.declaration, "device scalar control requires a numeric/Bool scalar helper; "
                                "tensor loop state is not implemented");
       auto shader =
-          emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph);
+          emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph,
+                                  &fn == &root ? graphResultLayouts_ : std::span<const DeviceGraphExportLayout>{});
       if (!shader)
         throw Rejected{shader.error()};
       NumericProgramInstruction op{shader->deviceStorage ? NumericProgramKind::DeviceControl
@@ -533,9 +535,10 @@ class Builder {
 public:
   Builder(const TypedModule &module, FunctionId id, ArithmeticMode arithmetic,
           bool nativeFloat64Conversions, bool aggregateEnvelope,
-          std::optional<std::size_t> graphParameter)
+          std::optional<std::size_t> graphParameter,
+          std::span<const DeviceGraphExportLayout> graphResultLayouts)
       : arithmetic_(arithmetic), nativeFloat64Conversions_(nativeFloat64Conversions),
-        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter), input(module),
+        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter), graphResultLayouts_(graphResultLayouts), input(module),
         root(module.functions.at(id)) {
     normalized.source = input.source;
   }
@@ -586,9 +589,10 @@ std::expected<NumericProgram, Diagnostic> emitNumericProgram(const TypedModule &
                                                              ArithmeticMode arithmetic,
                                                              bool nativeFloat64Conversions,
                                                              bool aggregateEnvelope,
-                                                             std::optional<std::size_t> graphParameter) {
+                                                             std::optional<std::size_t> graphParameter,
+                                                             std::span<const DeviceGraphExportLayout> graphResultLayouts) {
   try {
-    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope, graphParameter).run(function);
+    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope, graphParameter, graphResultLayouts).run(function);
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }

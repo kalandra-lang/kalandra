@@ -7,6 +7,7 @@
 #include "../lib/TaskValueCopy.h"
 #include "../metal/ElementwiseLayout.h"
 #include "MatmulShader.h"
+#include "DeviceHeap.h"
 #include "MatmulTiles.h"
 #include "NumericProgram.h"
 #include "NumericShader.h"
@@ -1848,6 +1849,7 @@ class Compiler {
     return result;
   }
   std::set<std::size_t> graphCapturePolicies, graphNominalKeys;
+  std::map<std::size_t, std::vector<DeviceGraphExportLayout>> graphExportLayouts;
   std::string graphCapturePolicy(const ValueType &type, SourceSpan span) {
     const auto id = *type.record;
     const auto name = "GpuGraphCapture" + std::to_string(id);
@@ -1899,7 +1901,7 @@ class Compiler {
               "{{" + wire + "}};\ninline static constexpr std::array<DeviceGraphNativeCell," +
               count + "> native" + suffix + "{{" + native + "}};\n";
     }
-    std::string wire, native, capture, arena;
+    std::string wire, native, capture, arena, keys;
     for (std::size_t l = 0; l < schema->layouts.size(); ++l) {
       const auto &layout = schema->layouts[l];
       const auto suffix = std::to_string(l);
@@ -1907,21 +1909,33 @@ class Compiler {
       wire += "{cells" + suffix + "," + singleton + "},";
       native += "{native" + suffix + "," + number(layout.nativeStride) + "," + singleton + "},";
       capture += "{" + number(layout.nativeStride) + "," + number(layout.nativeAlignment) + ",";
-      if (deviceInlineRecordValue(layout.type))
-        capture += "&kalandra_recursive_type_" + std::to_string(*layout.type.record);
-      else
+      if (deviceInlineRecordValue(layout.type)) {
+        const auto key = "&kalandra_recursive_type_" + std::to_string(*layout.type.record);
+        capture += key;
+        keys += key + ",";
+      } else {
         capture += "nullptr";
+        keys += "&cells" + suffix + ",";
+      }
       capture += "},";
-      const auto layoutId = layout.type.record ? *layout.type.record + 12 :
+      const auto layoutId = layout.type.record ?
+          runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*layout.type.record), layout.type.array) :
           runtime::DeviceArrayWireABI::layout(layout.type.element, layout.type.builtin == BuiltinValue::Bool);
       arena += std::to_string(layoutId) + "u,";
+      DeviceGraphExportLayout exportLayout{static_cast<unsigned>(layoutId), static_cast<unsigned>(l + 1),
+                                           static_cast<unsigned>(layout.cells.size()), {}};
+      for (std::size_t word = 0; word < layout.cells.size(); ++word)
+        if (layout.cells[word].rule.target)
+          exportLayout.references.push_back(static_cast<unsigned>(word));
+      graphExportLayouts[id].push_back(std::move(exportLayout));
     }
     const auto count = std::to_string(schema->layouts.size());
     code += "inline static constexpr std::array<DeviceGraphLayout," + count + "> wireLayouts{{" +
             wire + "}};\ninline static constexpr std::array<DeviceGraphNativeLayout," + count +
             "> nativeLayouts{{" + native + "}};\ninline static constexpr std::array<DeviceGraphCaptureLayout," +
             count + "> captureLayouts{{" + capture + "}};\ninline static constexpr std::array<unsigned," +
-            count + "> arenaLayouts{{" + arena + "}};\nstatic constexpr auto root=" +
+            count + "> arenaLayouts{{" + arena + "}};\ninline static constexpr std::array<const void*," +
+            count + "> keys{{" + keys + "}};\nstatic constexpr bool graphResult=true;\nstatic constexpr auto root=" +
             number(schema->roots.at(0)) + ";};\n";
     aggregateDeclarations += std::move(code);
     return name;
@@ -1984,10 +1998,20 @@ class Compiler {
     auto inputs = sourceInputs;
     auto found = numericPrograms.find(function);
     std::optional<std::size_t> graphParameter;
-    std::string graphPolicy;
+    std::string graphPolicy, graphResultPolicy;
+    std::span<const DeviceGraphExportLayout> resultLayouts;
+    if (deviceInlineRecordValue(fn.resultType) &&
+        !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1))) {
+      if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
+            return !deviceScalarValue(cpu.symbols.at(symbol).type);
+          }))
+        reject(span, "GPU recursive results with captured backing require graph origins");
+      graphResultPolicy = graphCapturePolicy(fn.resultType, span);
+      resultLayouts = graphExportLayouts.at(*fn.resultType.record);
+    }
     const auto emit = [&](const TypedModule &module, FunctionId entry) {
       auto program = emitNumericProgram(module, entry, arithmetic_, backend_ != GpuBackend::Metal,
-                                        deviceInlineRecordValue(fn.resultType), graphParameter);
+                                        deviceInlineRecordValue(fn.resultType), graphParameter, resultLayouts);
       if (!program)
         throw Rejected{program.error()};
       return numericPrograms.emplace(function, std::move(*program)).first;
@@ -2245,7 +2269,8 @@ class Compiler {
               "<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
               std::to_string(0x4b414c4441520000ULL + function) + "ull,";
       if (result.record)
-        code += aggregateResultPolicy(program.type, span) + ",";
+        code += (graphResultPolicy.empty() ? aggregateResultPolicy(program.type, span)
+                                           : graphResultPolicy) + ",";
       else
         code += elementName(result.element) + "," +
                 ((result.array ? result.booleanArray : result.booleanTask) ? "true" : "false") + ",";

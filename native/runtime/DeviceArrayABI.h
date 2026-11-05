@@ -7,6 +7,9 @@ namespace kalandra::runtime {
 struct DeviceHeapBlockABI {
   // Mark state uses the low bits and grey links fit within 34 bits.
   static constexpr std::uint64_t ReadOnly = UINT64_C(1) << 63;
+  static constexpr unsigned nominalLayout(unsigned id, bool array) {
+    return 12 + 2 * id + unsigned(array);
+  }
 };
 // Reserved only in frames whose terminal arena binding has ExportRole.
 struct DeviceArrayExportABI {

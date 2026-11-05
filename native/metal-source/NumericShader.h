@@ -27,12 +27,14 @@ struct NumericShaderOptions {
   ArithmeticMode arithmetic = ArithmeticMode::Hardware;
   bool nativeFloat64Conversions = false;
 };
+struct DeviceGraphExportLayout;
 bool usesScalarControl(const TypedModule &, FunctionId);
 std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModule &, FunctionId,
                                                                  ArithmeticMode,
                                                                  bool nativeFloat64Conversions,
                                                                  bool aggregateEnvelope = false,
-                                                                 std::optional<std::size_t> graphParameter = {});
+                                                                 std::optional<std::size_t> graphParameter = {},
+                                                                 std::span<const DeviceGraphExportLayout> graphResultLayouts = {});
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});
 } // namespace kalandra

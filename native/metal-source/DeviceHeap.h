@@ -25,6 +25,10 @@ struct DeviceTraceLayout {
   unsigned identity, stride;
   std::vector<DeviceReferenceField> references;
 };
+struct DeviceGraphExportLayout {
+  unsigned arenaIdentity, wireIdentity, stride;
+  std::vector<unsigned> references;
+};
 struct DeviceArrayInput {
   mlir::Value buffer, words;
   unsigned layout;
@@ -79,7 +83,23 @@ public:
   mlir::Value seed(mlir::Value image, mlir::Value sealedWords, unsigned offset);
   // Execute one bounded service step. True means the source instruction may run
   // (normal execution, or initialization of a newly allocated result).
-  mlir::Value service();
+  mlir::Value service(bool terminalTrace = false);
+  // Trace result roots without sweeping. The terminal exporter consumes the
+  // marked graph while the arena remains quiescent.
+  void beginResultTrace();
+  mlir::Value resultTraceReady();
+  // Number one marked block per step and measure the canonical payload.
+  mlir::Value numberResultBlocks();
+  mlir::Value resultNodeCount();
+  mlir::Value resultPayloadWords();
+  mlir::Value resultNodeId(mlir::Value handle);
+  // Append a terminal UInt64 transfer block without invoking collection again.
+  mlir::Value reserveResultEnvelope(mlir::Value words, unsigned baseCell);
+  // One block header or one payload word per checkpoint, up to the original
+  // arena boundary. Return true only after the whole graph has been written.
+  mlir::Value writeResultEnvelope(mlir::Value root, unsigned baseCell, unsigned blockCell,
+                                 unsigned wordCell, unsigned outputCell,
+                                 std::span<const DeviceGraphExportLayout>);
   void begin(mlir::Value length, unsigned layout);
   mlir::Value ready();
   mlir::Value handle();

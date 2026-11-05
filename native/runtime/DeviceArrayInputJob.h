@@ -1,6 +1,7 @@
 #pragma once
 #include "DeviceArrayResultWire.h"
 #include "DeviceAggregateResult.h"
+#include "DeviceGraphResult.h"
 #include "DeviceArrayWire.h"
 #include "HostArrays.h"
 #include <tuple>
@@ -24,8 +25,10 @@ class DeviceArrayTask final {
   static constexpr std::size_t Count = sizeof...(Arguments);
   static constexpr bool Aggregate = !std::is_void_v<AggregatePolicy>;
   static_assert(Count > 0 || ArrayResult);
-  using Decoder = std::conditional_t<Aggregate, DeviceAggregateResultDecode<AggregatePolicy>,
-                                     DeviceArrayResultDecode<ResultElement, BooleanResult>>;
+  static constexpr bool GraphResult = requires { AggregatePolicy::graphResult; };
+  using Decoder = std::conditional_t<GraphResult, DeviceGraphResultDecode<AggregatePolicy>,
+      std::conditional_t<Aggregate, DeviceAggregateResultDecode<AggregatePolicy>,
+                         DeviceArrayResultDecode<ResultElement, BooleanResult>>>;
   using Result =
       std::conditional_t<ArrayResult, typename Decoder::Result,
                          std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>>;
@@ -384,7 +387,10 @@ private:
       }
       if (frame.phase == 9) {
         bool complete;
-        if constexpr (Aggregate) {
+        if constexpr (GraphResult) {
+          Invocation::OwnershipSelection selection(*frame.resultScope);
+          complete = frame.decoder.advance(task.context(), frame.value);
+        } else if constexpr (Aggregate) {
           Invocation::OwnershipSelection selection(*frame.resultScope);
           const auto resolve = [&](std::uint64_t origin, NumericType element, bool boolean,
                                    std::uint64_t length, std::byte *out) {

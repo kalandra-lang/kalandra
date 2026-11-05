@@ -249,6 +249,8 @@ cases['local-recursive-array-bounds'] = ((fixtures/'array-bounds.k').read_text()
 cases['graph-entry-list'] = ((fixtures/'list-entry.k').read_text(), 18)
 cases['graph-entry-record-array'] = ((fixtures/'array-graph-entry.k').read_text(), 27)
 cases['graph-entry-copy'] = ((fixtures/'graph-entry-copy.k').read_text(), 10)
+cases['graph-result-list'] = ((fixtures/'graph-result.k').read_text(), 18)
+cases['graph-result-shared-alias'] = ((fixtures/'graph-result-alias.k').read_text(), 1000)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
 fn collect(batch:Batch)->Batch:
@@ -311,6 +313,8 @@ for name,(source,expected) in cases.items():
         assert 'HostArrayScopes' in host and 'HostArrayWork' in host, name
     if name.startswith('graph-entry-'):
         assert 'DeviceGraphArgument<' in host and 'NumericInstructionKind::DeviceControl' in host, name
+    if name.startswith('graph-result-'):
+        assert 'GpuGraphCapture' in host and 'DeviceAggregateResultJob<' in host, name
     assert any('gpu.func' in f.read_text() for f in bundle.glob('*.mlir')), name
     outputs = []
     if not a.compile_only:

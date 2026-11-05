@@ -253,8 +253,11 @@ the duration of packing. A generated scalar-result task can capture one
 recursive record or enum alongside scalar arguments. The child retains its
 native input, packs an arena image and uploads it through the existing array
 channel. Packing currently checks a one-million-word image limit and a
-separate work budget before publishing a device value. Graph results still
-need capture origins for alias recovery and a native publication protocol.
+separate work budget before publishing a device value. Fresh recursive results use a terminal device trace. The exporter numbers
+reachable allocations, writes their canonical graph into the paged result
+channel, and the native decoder builds dependency-owned storage before
+publishing the root. Results that refer to captured backing still need
+origin metadata to recover their CPU aliases.
 
 A validated graph can be relocated into a private arena image before upload.
 This step converts directory references to device handles and writes allocator

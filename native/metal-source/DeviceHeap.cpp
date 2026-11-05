@@ -1,5 +1,6 @@
 #include "DeviceHeap.h"
 #include "../runtime/DeviceArrayABI.h"
+#include "../runtime/DeviceGraphWire.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -396,7 +397,173 @@ Value DeviceHeapEmitter::handle() { return load(Allocation); }
 Value DeviceHeapEmitter::cursor() { return load(Cursor); }
 void DeviceHeapEmitter::advance() { store(Cursor, add(load(Cursor), c(1))); }
 void DeviceHeapEmitter::finish() { store(Phase, c(0)); }
-Value DeviceHeapEmitter::service() {
+void DeviceHeapEmitter::beginResultTrace() {
+  store(Collected, c(2)); // Distinct from an allocator-triggered collection.
+  store(Cursor, c(1));
+  store(Phase, c(2));
+}
+Value DeviceHeapEmitter::resultTraceReady() { return eq(load(Phase), c(9)); }
+Value DeviceHeapEmitter::resultNodeCount() { return load(RootCursor); }
+Value DeviceHeapEmitter::resultPayloadWords() { return load(TraceField); }
+Value DeviceHeapEmitter::resultNodeId(Value handle) { return markState(read(handle, c(3))); }
+
+Value DeviceHeapEmitter::numberResultBlocks() {
+  const auto cursor = load(Cursor), capacity = load(Capacity);
+  const auto done = eq(cursor, capacity);
+  auto scan = scf::IfOp::create(b, loc,
+      arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, cursor, capacity), false);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(&scan.getThenRegion().front());
+  const auto span = read(cursor, c(0));
+  const Value available = arith::SubIOp::create(b, loc, capacity, cursor);
+  const Value valid = arith::AndIOp::create(b, loc,
+      arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, span, c(4)),
+      arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, span, available));
+  auto block = scf::IfOp::create(b, loc, valid, true);
+  b.setInsertionPointToStart(&block.getThenRegion().front());
+  const auto state = read(cursor, c(3));
+  auto marked = scf::IfOp::create(b, loc, eq(markState(state), c(1)), false);
+  {
+    OpBuilder::InsertionGuard entry(b);
+    b.setInsertionPointToStart(&marked.getThenRegion().front());
+    const auto count = add(resultNodeCount(), c(1));
+    const auto words = read(cursor, c(2));
+    store(RootCursor, count);
+    store(TraceField, add(resultPayloadWords(), words));
+    Value number = count;
+    if (readOnlyBlocks)
+      number = arith::OrIOp::create(b, loc, count, readOnlyFlag(state));
+    write(cursor, c(3), number);
+  }
+  store(Cursor, add(cursor, span));
+  b.setInsertionPointToStart(&block.getElseRegion().front());
+  fault(99);
+  return done;
+}
+Value DeviceHeapEmitter::reserveResultEnvelope(Value words, unsigned baseCell) {
+  using A = runtime::detail::ControlArenaABI;
+  using W = runtime::DeviceArrayWireABI;
+  const auto base = load(baseCell);
+  const auto capacity = load(Capacity);
+  const Value unset = eq(base, c(0));
+  const Value start = arith::SelectOp::create(b, loc, unset, capacity, base);
+  const Value available = arith::SubIOp::create(b, loc, c(A::MaxWords), start);
+  const auto fits = [&](Value amount, Value limit) -> Value {
+    return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, amount, limit);
+  };
+  const Value lengthOK = arith::AndIOp::create(
+      b, loc, fits(c(4), available),
+      fits(words, arith::SubIOp::create(b, loc, available, c(4))));
+  const Value required = add(start, add(words, c(4)));
+  const Value ready = arith::AndIOp::create(b, loc, lengthOK, fits(required, capacity));
+  auto check = scf::IfOp::create(b, loc, lengthOK, true);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(&check.getThenRegion().front());
+  auto reserve = scf::IfOp::create(b, loc, ready, true);
+  b.setInsertionPointToStart(&reserve.getThenRegion().front());
+  write(start, c(0), add(words, c(4)));
+  write(start, c(1), c(W::layout(NumericType::UInt64, false)));
+  write(start, c(2), words);
+  write(start, c(3), c(1));
+  b.setInsertionPointToStart(&reserve.getElseRegion().front());
+  store(baseCell, start);
+  store(Requested, required);
+  store(Resume, load(PC));
+  store(PC, c(A::Grow));
+  b.setInsertionPointToStart(&check.getElseRegion().front());
+  fault(3);
+  return ready;
+}
+Value DeviceHeapEmitter::writeResultEnvelope(
+    Value root, unsigned baseCell, unsigned blockCell, unsigned wordCell, unsigned outputCell,
+    std::span<const DeviceGraphExportLayout> schemas) {
+  using A = runtime::DeviceGraphWireABI;
+  const auto base = load(baseCell), block = load(blockCell), word = load(wordCell);
+  const auto output = load(outputCell);
+  const auto nodeCount = resultNodeCount();
+  const auto payloadStart = add(c(A::HeaderWords),
+      arith::MulIOp::create(b, loc, nodeCount, c(A::DirectoryWords)));
+  const auto compare = [&](arith::CmpIPredicate predicate, Value left, Value right) -> Value {
+    return arith::CmpIOp::create(b, loc, predicate, left, right);
+  };
+  const auto branch = [&](Value condition, auto yes, auto no) {
+    auto op = scf::IfOp::create(b, loc, condition, true);
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(&op.getThenRegion().front());
+    yes();
+    b.setInsertionPointToStart(&op.getElseRegion().front());
+    no();
+  };
+  const auto when = [&](Value condition, auto emit) {
+    auto op = scf::IfOp::create(b, loc, condition, false);
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(&op.getThenRegion().front());
+    emit();
+  };
+  const auto put = [&](Value index, Value value) { write(base, add(c(4), index), value); };
+  branch(eq(block, c(0)), [&] {
+    put(c(0), c(A::Magic));
+    put(c(1), nodeCount);
+    put(c(2), resultNodeId(root));
+    store(blockCell, c(1));
+    store(outputCell, payloadStart);
+  }, [&] {
+    when(compare(arith::CmpIPredicate::ult, block, base), [&] {
+      const auto span = read(block, c(0));
+      const auto id = resultNodeId(block);
+      const auto next = add(block, span);
+      branch(eq(id, c(0)), [&] { store(blockCell, next); }, [&] {
+        const auto identity = read(block, c(1));
+        const auto length = read(block, c(2));
+        Value found = arith::ConstantIntOp::create(b, loc, 0, 1);
+        for (const auto &schema : schemas) {
+          const auto selected = eq(identity, c(schema.arenaIdentity));
+          found = arith::OrIOp::create(b, loc, found, selected);
+          when(selected, [&] {
+            const Value writable = eq(readOnlyFlag(read(block, c(3))), c(0));
+            branch(writable, [&] {
+              branch(eq(word, c(0)), [&] {
+                const Value index = add(c(A::HeaderWords),
+                    arith::MulIOp::create(b, loc,
+                        arith::SubIOp::create(b, loc, id, c(1)), c(A::DirectoryWords)));
+                put(index, c(schema.wireIdentity));
+                put(add(index, c(1)), arith::DivUIOp::create(b, loc, length, c(schema.stride)));
+                store(wordCell, c(1));
+              }, [&] {
+                const Value at = arith::SubIOp::create(b, loc, word, c(1));
+                const auto value = read(block, add(c(4), at));
+                const Value field = arith::RemUIOp::create(b, loc, at, c(schema.stride));
+                Value reference = arith::ConstantIntOp::create(b, loc, 0, 1);
+                for (auto offset : schema.references)
+                  reference = arith::OrIOp::create(b, loc, reference, eq(field, c(offset)));
+                const Value edge = arith::AndIOp::create(b, loc, reference,
+                    compare(arith::CmpIPredicate::ne, value, c(0)));
+                branch(edge, [&] {
+                  const auto target = resultNodeId(value);
+                  when(eq(target, c(0)), [&] { fault(99); });
+                  put(output, target);
+                }, [&] { put(output, value); });
+                store(outputCell, add(output, c(1)));
+                branch(eq(word, length), [&] {
+                  store(blockCell, next);
+                  store(wordCell, c(0));
+                }, [&] { store(wordCell, add(word, c(1))); });
+              });
+            }, [&] { fault(99); }); // Captured results need an origin mapping.
+          });
+        }
+        when(eq(found, arith::ConstantIntOp::create(b, loc, 0, 1)), [&] { fault(99); });
+      });
+    });
+  });
+  const auto done = eq(block, base);
+  const auto sizeMatches = eq(output, add(payloadStart, resultPayloadWords()));
+  when(done, [&] {
+    when(eq(sizeMatches, arith::ConstantIntOp::create(b, loc, 0, 1)), [&] { fault(99); });
+  });
+  return done;
+}
+Value DeviceHeapEmitter::service(bool terminalTrace) {
   auto phase = load(Phase);
   auto compare = [&](arith::CmpIPredicate pred, Value a, Value d) -> Value {
     return arith::CmpIOp::create(b, loc, pred, a, d);
@@ -415,9 +582,24 @@ Value DeviceHeapEmitter::service() {
     b.setInsertionPointToStart(&branch.getThenRegion().front());
     body();
   };
+  const auto finishMarking = [&] {
+    if (terminalTrace) {
+      const auto terminal = eq(load(Collected), c(2));
+      store(Phase, arith::SelectOp::create(b, loc, terminal, c(9), c(5)));
+      when(terminal, [&] {
+        store(RootCursor, c(0));
+        store(TraceField, c(0));
+      });
+    } else
+      store(Phase, c(5));
+    store(Cursor, c(1));
+    store(PreviousFree, c(0));
+  };
   Value validPhase = arith::ConstantIntOp::create(b, loc, 0, 1);
   for (unsigned state : {0u, 1u, 2u, 3u, 4u, 5u, 6u, 8u})
     validPhase = arith::OrIOp::create(b, loc, validPhase, eq(phase, c(state)));
+  if (terminalTrace)
+    validPhase = arith::OrIOp::create(b, loc, validPhase, eq(phase, c(9)));
   when(arith::XOrIOp::create(b, loc, validPhase, arith::ConstantIntOp::create(b, loc, 1, 1)),
        [&] { fault(99); });
   // One physical block per scan step. Never read or skip a malformed span.
@@ -529,9 +711,10 @@ Value DeviceHeapEmitter::service() {
               store(RootCursor, add(root, c(1)));
             },
             [&] {
-              store(Phase, c(layouts.empty() ? 5 : 4));
-              store(Cursor, c(1));
-              store(PreviousFree, c(0));
+              if (layouts.empty())
+                finishMarking();
+              else
+                store(Phase, c(4));
             });
       });
     }
@@ -548,9 +731,7 @@ Value DeviceHeapEmitter::service() {
           conditional(
               eq(h, c(0)),
               [&] {
-                store(Phase, c(5));
-                store(Cursor, c(1));
-                store(PreviousFree, c(0));
+                finishMarking();
               },
               [&] {
                 auto header = read(h, c(3));
