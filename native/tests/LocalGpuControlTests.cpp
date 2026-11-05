@@ -36,23 +36,23 @@ int main() {
       auto mutation = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                            "  scale:float32=1\n  scale=2\n  x*scale\n" +
                            host);
-      require(!mutation && mutation.error().message.find("scalar helper") != std::string::npos,
-              "GPU kernel admitted mutable scalar state");
+      require(bool(mutation), "device scalar mutation rejected");
       auto loop = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                        "  while false: 0\n  x+x\n" +
                        host);
-      require(!loop && loop.error().message.find("scalar helper") != std::string::npos,
-              "GPU kernel admitted statement loops");
+      require(bool(loop), "device statement loop rejected");
       auto arrayWrite = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                              "  local=[1,2]\n  local[0]=3\n  x+x\n" +
                              host);
-      require(!arrayWrite && arrayWrite.error().message.find("scalar helper") != std::string::npos,
-              "array control admitted an unsupported tensor entry result");
+      require(bool(arrayWrite), "device local array write with tensor result rejected");
       auto arraySort = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                             "  local=sorted([2,1])\n  x+x\n" +
                             host);
-      require(!arraySort && arraySort.error().message.find("CPU") != std::string::npos,
-              "GPU kernel admitted CPU array sorting");
+      require(bool(arraySort), "device array sorting rejected");
+      for (const auto *program : {&mutation, &loop, &arrayWrite, &arraySort})
+        require((*program)->at("host.cpp").find("NumericInstructionKind::DeviceControl") !=
+                    std::string::npos,
+                "tensor control was routed through host computation");
       auto hostArray =
           emit(kernel + std::string("fn main()->Tensor[float32,3] ! TaskError:\n"
                                     "  local:[float32]=[1,2,3]\n  local[0]=float32(3)\n"
@@ -108,16 +108,15 @@ int main() {
       auto ownedRecord = emit("type Row:\n  values:[int]\n"
                               "fn work(n:int)->int:\n  row=Row {values:[n]}\n  row.values[0]\n" +
                               recordEntry);
-      require(!ownedRecord, "device record admitted host array pointers without storage");
+      require(bool(ownedRecord), "device owned record rejected");
+      require(ownedRecord->at("host.cpp").find("NumericInstructionKind::DeviceControl") !=
+                  std::string::npos,
+              "owned record bypassed device storage");
       auto transportedRecord =
           emit("type Row:\n  value:int\nfn work(n:int)->Row:\n  Row {value:n}\n"
                "fn main()->int ! TaskError:\n  try parallel:\n"
                "    gpu=devices.gpu()\n    row=try await spawn work(42) on gpu\n    row.value\n");
-      require(!transportedRecord && transportedRecord.error().message.find("aggregate transport") !=
-                                        std::string::npos,
-              "host bridge record-result gate: " + (transportedRecord
-                                                        ? std::string("unexpectedly admitted")
-                                                        : transportedRecord.error().message));
+      require(bool(transportedRecord), "device record result transport rejected");
       auto readOnly =
           emit(kernel + std::string("fn write(values:[int])->int:\n  values[0]=3\n  values[0]\n") +
                host);
@@ -136,7 +135,7 @@ int main() {
       require(!shared && shared.error().message.find("may still read") != std::string::npos,
               "mixed host admitted an alias write while a task reads its backing");
     }
-    std::cout << "Metal/Vulkan/CUDA: host loops, group release and kernel rejection gates passed\n";
+    std::cout << "Metal/Vulkan/CUDA: host/device loops, owned values, group release and read-only gates passed\n";
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
     return 1;

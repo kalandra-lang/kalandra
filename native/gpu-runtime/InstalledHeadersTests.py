@@ -16,7 +16,9 @@ with tempfile.TemporaryDirectory(prefix='kalandra GPU headers λ ') as folder:
             shutil.copyfile(native/backend/(name+'.h'),root/backend/(name+'.h'))
         for source in (native/'runtime').glob('*.h'):shutil.copyfile(source,root/'runtime'/source.name)
         for source in (native/'include/kalandra').glob('*.h'):shutil.copyfile(source,root/'include/kalandra'/source.name)
-        resources=[*(native/'gpu-runtime').glob('*Decl.inc'),native/'gpu-runtime/ExecutablePath.inc',native/'gpu-runtime/ControlArena.h',native/'gpu-runtime/ControlExport.h']
+        resources=[*(native/'gpu-runtime').glob('*Decl.inc'),native/'gpu-runtime/ExecutablePath.inc',
+                   *(native/'gpu-runtime'/name for name in (
+                       'ControlArena.h','ControlExport.h','ControlTensorInputs.h','ControlTensorExport.h'))]
         for source in resources:shutil.copyfile(source,root/'gpu-runtime'/source.name)
         source=root/'consumer.cpp';source.write_text('#include "Language.h"\n#include "ExecutablePath.h"\nint main(){return 0;}\n')
         command=[a.compiler,'-std=c++23','-fsyntax-only','-I'+str(root/backend),'-I'+str(root/'include'),str(source)]
