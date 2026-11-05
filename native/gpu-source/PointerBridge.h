@@ -3,8 +3,59 @@
 #include "llvm/IR/Module.h"
 #include <stdexcept>
 #include <vector>
+#include <span>
+#include <set>
 
 namespace kalandra {
+struct CpuClosureTarget {
+  llvm::Function *code;
+  std::uint64_t tag;
+  bool captures;
+};
+// Map an owned native closure carrier to a compiler-local device target tag.
+// The environment remains a borrowed host pointer for checked capture reading;
+// neither native pointer is serialized. Emit before CPU projection renaming so
+// identity comparisons follow LLVM symbol references through linking.
+inline llvm::Function *emitCpuClosureBridge(llvm::Module &module, llvm::StringRef name,
+                                           std::span<const CpuClosureTarget> targets) {
+  if (targets.empty() || targets.size() > 300000 || module.getNamedValue(name))
+    throw std::invalid_argument("CPU closure bridge requires a bounded target set and unique name");
+  std::set<llvm::Function *> codes;
+  std::set<std::uint64_t> tags;
+  for (const auto &target : targets)
+    if (!target.code || target.code->getParent() != &module || target.code->isDeclaration() ||
+        !target.tag || !codes.insert(target.code).second || !tags.insert(target.tag).second)
+      throw std::invalid_argument("CPU closure bridge has an invalid or repeated target identity");
+  auto &context = module.getContext();
+  auto *pointer = llvm::PointerType::getUnqual(context);
+  auto *tagType = llvm::Type::getInt64Ty(context);
+  auto *carrier = llvm::StructType::get(context, {pointer, pointer});
+  auto *bridge = llvm::Function::Create(
+      llvm::FunctionType::get(tagType, {pointer, pointer}, false),
+      llvm::GlobalValue::ExternalLinkage, name, module);
+  llvm::IRBuilder<> builder(llvm::BasicBlock::Create(context, "entry", bridge));
+  auto *null = llvm::ConstantPointerNull::get(pointer);
+  builder.CreateStore(null, bridge->getArg(1));
+  auto *value = builder.CreateLoad(carrier, bridge->getArg(0));
+  auto *code = builder.CreateExtractValue(value, 0);
+  auto *environment = builder.CreateExtractValue(value, 1);
+  for (const auto &target : targets) {
+    // Pointer identity is observable at this private boundary.
+    target.code->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);
+    auto *matched = llvm::BasicBlock::Create(context, "matched", bridge);
+    auto *next = llvm::BasicBlock::Create(context, "next", bridge);
+    auto *validEnvironment = target.captures ? builder.CreateICmpNE(environment, null)
+                                              : builder.CreateICmpEQ(environment, null);
+    builder.CreateCondBr(builder.CreateAnd(builder.CreateICmpEQ(code, target.code), validEnvironment),
+                          matched, next);
+    builder.SetInsertPoint(matched);
+    builder.CreateStore(environment, bridge->getArg(1));
+    builder.CreateRet(llvm::ConstantInt::get(tagType, target.tag));
+    builder.SetInsertPoint(next);
+  }
+  builder.CreateRet(llvm::ConstantInt::get(tagType, 0));
+  return bridge;
+}
 // Private native bridge for generated host code. Aggregate parameters are
 // addresses of exact LLVM-native slots; aggregate returns use an explicit first
 // output pointer. This avoids relying on platform C++ struct argument/return
