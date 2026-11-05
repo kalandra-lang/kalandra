@@ -125,6 +125,13 @@ int main() {
     require(device && device->at(0).words == 2 && device->at(0).boxed[1] &&
                 device->at(0).owned == std::vector<std::size_t>{1},
             "recursive enum edge did not terminate at an owned handle");
+    const llvm::DataLayout graphLayout("e-p:64:64-i64:64");
+    auto graphABI = planAggregateABI(input, llvm, graphLayout, roots, 300000, &*storage);
+    require(graphABI && graphABI->at(0).fields[1].deviceWords == 1 &&
+                graphABI->at(0).fields[1].deviceOffset == 1 &&
+                graphABI->at(0).fields[1].nativeBytes == 8 &&
+                graphABI->at(0).fields[1].storage == RecordFieldStorage::ManagedReference,
+            "paired graph ABI expanded a managed recursive link");
     auto recordArray = nominal(1);
     recordArray.array = recordArray.tensor = true;
     recordArray.shape = {{std::nullopt, 1}};
@@ -137,6 +144,12 @@ int main() {
                 device->at(1).words == 2 && device->at(1).owned == std::vector<std::size_t>{0} &&
                 !device->at(0).boxed[0] && !device->at(1).boxed[0],
             "record array handle did not break inline expansion");
+    graphABI = planAggregateABI(input, llvm, graphLayout, roots, 300000, &*storage);
+    require(graphABI && graphABI->at(0).fields[0].deviceWords == 1 &&
+                graphABI->at(0).fields[0].nativeBytes > 8 &&
+                graphABI->at(0).fields[0].storage == RecordFieldStorage::CollectionDescriptor &&
+                graphABI->at(1).fields[0].storage == RecordFieldStorage::Inline,
+            "paired graph ABI confused native record array backing and canonical handles");
     require(!planDeviceAggregateLayouts(input, roots),
             "flat boundary accepted recursive record array");
     roots = {nominal(100)};

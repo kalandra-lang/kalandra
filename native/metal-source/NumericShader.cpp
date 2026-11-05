@@ -1098,20 +1098,34 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   const auto plainRecord = deviceInlineRecordValue;
   const auto boxIdentity = [](std::size_t id) { return static_cast<unsigned>(id) + 12; };
   std::set<std::size_t> boxTypes;
-  if (std::ranges::any_of(plan.slots, deviceRecordArrayValue))
-    return reject("GPU record array operations require typed element storage");
+  const auto localArray = [&](const ValueType &type) {
+    return flatArray(type) || deviceRecordArrayValue(type);
+  };
+  const auto arrayIdentity = [&](const ValueType &type) -> unsigned {
+    if (deviceRecordArrayValue(type))
+      return boxIdentity(*type.record);
+    return type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1;
+  };
+  const auto arrayStride = [&](const ValueType &type) -> std::size_t {
+    return deviceRecordArrayValue(type) ? layouts.at(*type.record).words : 1;
+  };
+  std::set<std::size_t> traceTypes;
+  for (const auto &type : plan.slots)
+    if (deviceRecordArrayValue(type))
+      traceTypes.insert(*type.record);
   for (const auto &[id, layout] : layouts) {
     const auto &fields = input.records.at(id).fields;
     for (std::size_t field = 0; field < fields.size(); ++field) {
       if (deviceRecordArrayValue(fields[field].type))
-        return reject("GPU record array fields require typed element storage");
+        traceTypes.insert(*fields[field].type.record);
       if (layout.boxed[field])
         boxTypes.insert(*fields[field].type.record);
     }
   }
+  traceTypes.insert(boxTypes.begin(), boxTypes.end());
   std::vector<DeviceTraceLayout> traceLayouts;
   std::size_t traceBudget = 100000;
-  for (auto id : boxTypes) {
+  for (auto id : traceTypes) {
     DeviceTraceLayout trace{boxIdentity(id), static_cast<unsigned>(layouts.at(id).words), {}};
     struct Walk {
       std::size_t id, offset, next;
@@ -1134,7 +1148,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       --traceBudget;
       const auto field = path.next++;
       const auto &type = record.fields[field].type;
-      const bool handle = layout.boxed[field] || flatArray(type);
+      const bool handle = layout.boxed[field] || localArray(type);
       if (!handle && (!plainRecord(type) || layouts.at(*type.record).owned.empty()))
         continue;
       const auto offset = path.offset + layout.fields[field];
@@ -1153,13 +1167,13 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     }
     traceLayouts.push_back(std::move(trace));
   }
-  storage |= !boxTypes.empty();
+  storage |= !traceTypes.empty();
   for (const auto &[id, layout] : layouts) {
     (void)id;
     storage |= !layout.owned.empty();
   }
   const auto width = [&](const ValueType &type) -> std::size_t {
-    return scalar(type) || flatArray(type) ? 1 : layouts.at(*type.record).words;
+    return scalar(type) || localArray(type) ? 1 : layouts.at(*type.record).words;
   };
   std::vector<std::size_t> offsets;
   std::size_t frameWords = exportResult ? runtime::detail::ControlArrayExportABI::Cells :
@@ -1173,8 +1187,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       return reject("GPU aggregate control frame exceeds configured compilation work budget");
   }
   const auto boxStep = frameWords;
-  if (!boxTypes.empty())
-    frameWords += 2; // Record construction field, then boxed field read word.
+  if (!traceTypes.empty())
+    frameWords += 2; // Record construction field and multiword read cursor.
   DeviceAggregateProjection resultProjection;
   DeviceAggregateReturnFrame resultFrame{static_cast<unsigned>(frameWords), resultProjection};
   if (aggregateResult) {
@@ -1200,7 +1214,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     std::vector<continuation::Slot> ownedSlots;
     for (std::size_t i = 0; i < plan.slots.size(); ++i) {
       const auto &type = plan.slots[i];
-      if (flatArray(type) || (plainRecord(type) && !layouts.at(*type.record).owned.empty()))
+      if (localArray(type) || (plainRecord(type) && !layouts.at(*type.record).owned.empty()))
         ownedSlots.push_back(i);
     }
     auto roots = deviceLiveRoots(plan, ownedSlots);
@@ -1216,11 +1230,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       std::vector<std::size_t> expanded;
       for (auto slot : row) {
         const auto &type = plan.slots.at(slot);
-        const auto count = flatArray(type) ? 1 : layouts.at(*type.record).owned.size();
+        const auto count = localArray(type) ? 1 : layouts.at(*type.record).owned.size();
         if (count > rootBudget)
           return reject("GPU aggregate root expansion exceeds configured memory budget");
         rootBudget -= count;
-        if (flatArray(type))
+        if (localArray(type))
           expanded.push_back(offsets.at(slot));
         else
           for (auto leaf : layouts.at(*type.record).owned)
@@ -1235,7 +1249,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     for (std::size_t i = 0; i < plan.code.size(); ++i) {
       const auto &op = plan.code[i];
       if ((op.code == C::Kernel || op.code == C::CollectAppend || op.code == C::MapInit) &&
-          flatArray(plan.slots.at(op.output)))
+          localArray(plan.slots.at(op.output)))
         allocationRoots.push_back({i + 1, liveRoots[i]});
       if (op.code == C::Kernel) {
         const auto *record = std::get_if<RecordValue>(&input.expressions.at(op.source).operation);
@@ -1266,7 +1280,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     if (!storage || op.code != C::Kernel)
       return false;
     const auto &node = input.expressions.at(op.source);
-    return (flatArray(node.type) && (std::holds_alternative<TensorLiteral>(node.operation) ||
+    return (localArray(node.type) && (std::holds_alternative<TensorLiteral>(node.operation) ||
                                    std::holds_alternative<ArraySlice>(node.operation) ||
                                    std::holds_alternative<ArrayConcat>(node.operation) ||
                                    std::holds_alternative<ArraySort>(node.operation))) ||
@@ -1274,11 +1288,15 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
            std::holds_alternative<ArrayBoundsCheck>(node.operation) ||
            std::holds_alternative<ArrayStore>(node.operation) ||
            (std::holds_alternative<CollectionQuery>(node.operation) && !op.args.empty() &&
-            flatArray(plan.slots.at(op.args[0])));
+            localArray(plan.slots.at(op.args[0])));
   };
   auto code = planned->kernels;
   std::vector<std::optional<FunctionId>> kernels;
   for (const auto &op : plan.code) {
+    if (op.code == C::Kernel &&
+        std::holds_alternative<ArrayStore>(input.expressions.at(op.source).operation) &&
+        deviceRecordArrayValue(plan.slots.at(op.args.at(0))))
+      return reject("GPU record array element assignment requires an exclusive typed store");
     if (op.code == C::Kernel && !arrayOperation(op) &&
         !std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)) {
       kernels.push_back(op.target);
@@ -1503,6 +1521,24 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         for (std::size_t word = 0; word < count; ++word)
           store(destination + word, values[word]);
       };
+      const auto stepElement = [&](std::size_t stride, auto emit) -> Value {
+        if (stride == 1) {
+          emit(constant(0));
+          return yes;
+        }
+        const auto word = load(boxStep + 1);
+        emit(word);
+        const Value advanced = arith::AddIOp::create(b, loc, word, constant(1));
+        const Value done = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                advanced, constant(stride));
+        store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
+        return done;
+      };
+      const auto wordOffset = [&](Value index, std::size_t stride) -> Value {
+        if (stride == 1)
+          return index;
+        return arith::MulIOp::create(b, loc, index, constant(stride));
+      };
       if (op.code == C::MapInit || op.code == C::MapCheck || op.code == C::MapLoad ||
           op.code == C::MapStore || op.code == C::MapAdvance) {
         const auto &map = std::get<ArrayMap>(input.expressions.at(op.source).operation);
@@ -1519,9 +1555,18 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           store(offsets.at(op.output), arith::AddIOp::create(b, loc,
               load(offsets.at(op.args.at(0))), constant(1)));
         } else if (op.code == C::MapStore) {
-          heap->write(load(offsets.at(op.args.at(0))),
-              arith::AddIOp::create(b, loc, constant(4), load(offsets.at(op.args.at(1)))),
-              load(offsets.at(op.args.at(2))));
+          const auto handle = load(offsets.at(op.args.at(0)));
+          const auto stride = arrayStride(plan.slots.at(op.args.at(0)));
+          const auto base = wordOffset(load(offsets.at(op.args.at(1))), stride);
+          const auto source = offsets.at(op.args.at(2));
+          const auto done = stepElement(stride, [&](Value word) {
+            const Value address = arith::AddIOp::create(b, loc, base, word);
+            heap->write(handle, arith::AddIOp::create(b, loc, constant(4), address),
+                        stride == 1 ? load(source) :
+                            heap->loadAt(arith::AddIOp::create(b, loc, constant(source), word)));
+          });
+          if (stride != 1)
+            next = arith::SelectOp::create(b, loc, done, next, pc);
         } else {
           const auto inputValue = load(offsets.at(op.args.at(0)));
           Value count = inputValue;
@@ -1533,9 +1578,16 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
               b.setInsertionPointToStart(&length.getThenRegion().front());
               const auto &type = plan.slots.at(op.args.at(0));
               condition(compare(arith::CmpIPredicate::ne, heap->read(inputValue, constant(1)),
-                  constant(type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1)),
-                  [&] { heap->fault(99); });
-              scf::YieldOp::create(b, loc, ValueRange{heap->read(inputValue, constant(2))});
+                                constant(arrayIdentity(type))), [&] { heap->fault(99); });
+              Value countWords = heap->read(inputValue, constant(2));
+              const auto stride = arrayStride(type);
+              if (stride != 1) {
+                const Value remainder = arith::RemUIOp::create(b, loc, countWords, constant(stride));
+                condition(compare(arith::CmpIPredicate::ne, remainder, constant(0)),
+                          [&] { heap->fault(99); });
+                countWords = arith::DivUIOp::create(b, loc, countWords, constant(stride));
+              }
+              scf::YieldOp::create(b, loc, ValueRange{countWords});
               b.setInsertionPointToStart(&length.getElseRegion().front());
               scf::YieldOp::create(b, loc, ValueRange{constant(0)});
             }
@@ -1546,27 +1598,47 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             store(offsets.at(op.output), arith::ExtUIOp::create(b, loc, b.getI64Type(),
                 compare(arith::CmpIPredicate::ult, index, count)));
           } else if (op.code == C::MapLoad) {
-            Value item = index;
-            if (!map.generate)
-              item = heap->read(inputValue, arith::AddIOp::create(b, loc, constant(4), index));
-            store(offsets.at(op.output), item);
+            if (map.generate) {
+              store(offsets.at(op.output), index);
+            } else {
+              const auto stride = arrayStride(plan.slots.at(op.args.at(0)));
+              const auto base = wordOffset(index, stride);
+              const auto destination = offsets.at(op.output);
+              const auto done = stepElement(stride, [&](Value word) {
+                const Value address = arith::AddIOp::create(b, loc, base, word);
+                auto value = heap->read(inputValue, arith::AddIOp::create(b, loc, constant(4), address));
+                if (stride == 1)
+                  store(destination, value);
+                else
+                  heap->storeAt(arith::AddIOp::create(b, loc, constant(destination), word), value);
+              });
+              if (stride != 1)
+                next = arith::SelectOp::create(b, loc, done, next, pc);
+            }
           } else {
             store(offsets.at(op.args.at(1)), constant(0));
             if (map.generate)
               condition(compare(arith::CmpIPredicate::slt, count, constant(0)), [&] { heap->fault(1); });
+            const auto &type = plan.slots.at(op.output);
+            const auto stride = arrayStride(type);
+            Value words = count;
+            if (stride != 1) {
+              constexpr auto limit = runtime::detail::ControlArenaABI::MaxWords;
+              const auto fits = compare(arith::CmpIPredicate::ule, count, constant(limit / stride));
+              words = arith::SelectOp::create(b, loc, fits, wordOffset(count, stride), constant(limit));
+            }
             const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
             const auto ready = heap->ready(), cursor = heap->cursor();
             const Value complete = arith::AndIOp::create(b, loc, ready,
-                compare(arith::CmpIPredicate::eq, cursor, count));
+                compare(arith::CmpIPredicate::eq, cursor, words));
             condition(empty, [&] { store(offsets.at(op.output), constant(0)); });
             condition(arith::AndIOp::create(b, loc,
                 compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)),
                 compare(arith::CmpIPredicate::sgt, count, constant(0))), [&] {
-              const auto &type = plan.slots.at(op.output);
-              heap->begin(count, type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1);
+              heap->begin(words, arrayIdentity(type));
             });
             condition(ready, [&] {
-              condition(compare(arith::CmpIPredicate::ult, cursor, count), [&] {
+              condition(compare(arith::CmpIPredicate::ult, cursor, words), [&] {
                 heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), constant(0));
                 heap->advance();
               });
@@ -1607,41 +1679,51 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           scf::YieldOp::create(b, loc, ValueRange{constant(0), constant(0)});
         }
         const auto length = descriptor.getResult(0), capacity = descriptor.getResult(1);
-        const auto needsGrowth = compare(arith::CmpIPredicate::eq, length, capacity);
+        const auto &type = plan.slots.at(op.output);
+        const auto stride = arrayStride(type);
+        const Value remaining = arith::SubIOp::create(b, loc, capacity, length);
+        const auto needsGrowth = compare(arith::CmpIPredicate::ult, remaining, constant(stride));
         const auto ready = heap->ready();
         const auto cursor = heap->cursor();
-        const auto complete = compare(arith::CmpIPredicate::eq, cursor, length);
-        const auto item = load(offsets.at(op.args.at(0)));
-        condition(arith::XOrIOp::create(b, loc, needsGrowth, yes), [&] {
-          heap->write(old, arith::AddIOp::create(b, loc, constant(4), length), item);
-          heap->write(old, constant(2), arith::AddIOp::create(b, loc, length, constant(1)));
-        });
+        const auto copied = compare(arith::CmpIPredicate::eq, cursor, length);
+        const Value copyDone = arith::AndIOp::create(b, loc, ready, copied);
+        const Value appendReady = arith::OrIOp::create(b, loc, copyDone,
+            arith::XOrIOp::create(b, loc, needsGrowth, yes));
         condition(needsGrowth, [&] {
           condition(compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)), [&] {
-            auto size = arith::MaxUIOp::create(b, loc, constant(4),
+            auto size = arith::MaxUIOp::create(b, loc, constant(std::max<std::size_t>(4, stride)),
                 arith::AddIOp::create(b, loc, capacity, capacity));
-            const auto &type = plan.slots.at(op.output);
-            heap->begin(size, type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1);
+            heap->begin(size, arrayIdentity(type));
           });
-          condition(ready, [&] {
-            condition(compare(arith::CmpIPredicate::ult, cursor, length), [&] {
-              const Value offset = arith::AddIOp::create(b, loc, constant(4), cursor);
-              heap->write(heap->handle(), offset, heap->read(old, offset));
-              heap->advance();
-            });
-            condition(complete, [&] {
-              heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), length), item);
-              heap->write(heap->handle(), constant(2),
-                          arith::AddIOp::create(b, loc, length, constant(1)));
-              store(offsets.at(op.output), heap->handle());
+          const Value copying = arith::AndIOp::create(b, loc, ready,
+              compare(arith::CmpIPredicate::ult, cursor, length));
+          condition(copying, [&] {
+            const Value offset = arith::AddIOp::create(b, loc, constant(4), cursor);
+            heap->write(heap->handle(), offset, heap->read(old, offset));
+            heap->advance();
+          });
+        });
+        const Value last = stride == 1 ? yes :
+            compare(arith::CmpIPredicate::eq, load(boxStep + 1), constant(stride - 1));
+        condition(appendReady, [&] {
+          const Value handle = arith::SelectOp::create(b, loc, needsGrowth, heap->handle(), old);
+          const auto source = offsets.at(op.args.at(0));
+          const auto done = stepElement(stride, [&](Value word) {
+            const Value offset = arith::AddIOp::create(b, loc, length, word);
+            heap->write(handle, arith::AddIOp::create(b, loc, constant(4), offset),
+                        stride == 1 ? load(source) :
+                            heap->loadAt(arith::AddIOp::create(b, loc, constant(source), word)));
+          });
+          condition(done, [&] {
+            heap->write(handle, constant(2), arith::AddIOp::create(b, loc, length, constant(stride)));
+            condition(needsGrowth, [&] {
+              store(offsets.at(op.output), handle);
               heap->finish();
             });
           });
         });
-        auto finished = arith::OrIOp::create(b, loc,
-            arith::XOrIOp::create(b, loc, needsGrowth, yes),
-            arith::AndIOp::create(b, loc, ready, complete));
-        next = arith::SelectOp::create(b, loc, finished, next, constant(i + 1));
+        const Value finished = arith::AndIOp::create(b, loc, appendReady, last);
+        next = arith::SelectOp::create(b, loc, finished, next, pc);
       } else if (arrayOperation(op)) {
         const auto &node = input.expressions.at(op.source);
         const auto condition = [&](Value predicate, auto body) {
@@ -1653,6 +1735,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         const auto compare = [&](arith::CmpIPredicate pred, Value a, Value d) -> Value {
           return arith::CmpIOp::create(b, loc, pred, a, d);
         };
+        const auto wordsFor = [&](Value elements, const ValueType &type) -> Value {
+          const auto stride = arrayStride(type);
+          return stride == 1 ? elements :
+              Value(arith::MulIOp::create(b, loc, elements, constant(stride)));
+        };
         const auto lengthOf = [&](std::size_t slot) -> Value {
           const auto h = load(offsets.at(slot));
           auto branch = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
@@ -1662,10 +1749,17 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             b.setInsertionPointToStart(&branch.getThenRegion().front());
             const auto layout = heap->read(h, constant(1));
             const auto &type = plan.slots.at(slot);
-            condition(compare(arith::CmpIPredicate::ne, layout,
-                constant(type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1)),
-                [&] { heap->fault(99); });
-            scf::YieldOp::create(b, loc, ValueRange{heap->read(h, constant(2))});
+            condition(compare(arith::CmpIPredicate::ne, layout, constant(arrayIdentity(type))),
+                      [&] { heap->fault(99); });
+            Value length = heap->read(h, constant(2));
+            const auto stride = arrayStride(type);
+            if (stride != 1) {
+              const Value remainder = arith::RemUIOp::create(b, loc, length, constant(stride));
+              condition(compare(arith::CmpIPredicate::ne, remainder, constant(0)),
+                        [&] { heap->fault(99); });
+              length = arith::DivUIOp::create(b, loc, length, constant(stride));
+            }
+            scf::YieldOp::create(b, loc, ValueRange{length});
             b.setInsertionPointToStart(&branch.getElseRegion().front());
             scf::YieldOp::create(b, loc, ValueRange{constant(0)});
           }
@@ -1725,7 +1819,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
               compare(arith::CmpIPredicate::ne, phase, constant(0)),
               compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::SortPhase), constant(0)));
           next = arith::SelectOp::create(b, loc, done, constant(i + 2), constant(i + 1));
-        } else if (flatArray(node.type)) {
+        } else if (localArray(node.type)) {
+          const auto stride = arrayStride(node.type);
           const bool literal = std::holds_alternative<TensorLiteral>(node.operation);
           const bool slice = std::holds_alternative<ArraySlice>(node.operation);
           const bool shape = std::holds_alternative<CollectionQuery>(node.operation);
@@ -1744,11 +1839,15 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                 compare(arith::CmpIPredicate::ule, start, end),
                 compare(arith::CmpIPredicate::ule, end, length));
             condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(1); });
-            count = arith::SubIOp::create(b, loc, end, start);
+            const Value distance = arith::SubIOp::create(b, loc, end, start);
+            count = arith::SelectOp::create(b, loc, valid, distance, constant(0));
+            start = wordsFor(start, node.type);
           } else {
             leftLength = lengthOf(op.args.at(0));
             count = arith::AddIOp::create(b, loc, leftLength, lengthOf(op.args.at(1)));
+            leftLength = wordsFor(leftLength, node.type);
           }
+          count = wordsFor(count, node.type);
           const auto ready = heap->ready();
           const auto cursor = heap->cursor();
           const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
@@ -1758,15 +1857,21 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           condition(arith::AndIOp::create(b, loc,
               compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)),
               arith::XOrIOp::create(b, loc, empty, yes)), [&] {
-            const auto &type = plan.slots.at(op.output);
-            heap->begin(count, type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1);
+            heap->begin(count, arrayIdentity(node.type));
           });
           condition(ready, [&] {
             condition(compare(arith::CmpIPredicate::ult, cursor, count), [&] {
               if (literal) {
+                Value element = cursor, word = constant(0);
+                if (stride != 1) {
+                  element = arith::DivUIOp::create(b, loc, cursor, constant(stride));
+                  word = arith::RemUIOp::create(b, loc, cursor, constant(stride));
+                }
                 for (std::size_t j = 0; j < op.args.size(); ++j)
-                  condition(compare(arith::CmpIPredicate::eq, cursor, constant(j)), [&] {
-                    heap->write(heap->handle(), constant(4 + j), load(offsets.at(op.args[j])));
+                  condition(compare(arith::CmpIPredicate::eq, element, constant(j)), [&] {
+                    const auto value = stride == 1 ? load(offsets.at(op.args[j])) :
+                        heap->loadAt(arith::AddIOp::create(b, loc, constant(offsets.at(op.args[j])), word));
+                    heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), value);
                   });
               } else {
                 Value item;
@@ -1813,6 +1918,16 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             const Value index = indexOf(op.args.at(1));
             const auto valid = compare(arith::CmpIPredicate::ult, index, length);
             condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(1); });
+            const auto &type = plan.slots.at(op.args.at(0));
+            const auto stride = arrayStride(type);
+            const bool paged = std::holds_alternative<ArrayIndex>(node.operation) && stride != 1;
+            Value word, advanced, done;
+            if (paged) {
+              word = load(boxStep + 1);
+              advanced = arith::AddIOp::create(b, loc, word, constant(1));
+              done = compare(arith::CmpIPredicate::eq, advanced, constant(stride));
+              next = arith::SelectOp::create(b, loc, done, next, pc);
+            }
             condition(valid, [&] {
               if (std::holds_alternative<ArrayBoundsCheck>(node.operation))
                 store(offsets.at(op.output), index);
@@ -1820,9 +1935,18 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                 heap->write(h, arith::AddIOp::create(b, loc, index, constant(4)),
                             load(offsets.at(op.args.at(2))));
                 store(offsets.at(op.output), constant(0));
-              } else
-                store(offsets.at(op.output),
-                      heap->read(h, arith::AddIOp::create(b, loc, index, constant(4))));
+              } else {
+                const auto offset = wordsFor(index, type);
+                if (!paged) {
+                  store(offsets.at(op.output),
+                        heap->read(h, arith::AddIOp::create(b, loc, offset, constant(4))));
+                } else {
+                  const Value location = arith::AddIOp::create(b, loc, offset, word);
+                  heap->storeAt(arith::AddIOp::create(b, loc, constant(offsets.at(op.output)), word),
+                                heap->read(h, arith::AddIOp::create(b, loc, location, constant(4))));
+                  store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
+                }
+              }
             });
           }
         }

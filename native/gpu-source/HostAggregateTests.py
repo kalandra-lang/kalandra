@@ -243,6 +243,9 @@ fixtures = Path(__file__).resolve().parent.parent / 'tests/fixtures/mixed-host-a
 cases['result-enum-owned-aliases'] = ((fixtures/'record-result.k').read_text(), 983)
 cases['local-recursive-list'] = ((fixtures/'list-local.k').read_text(), 18)
 cases['local-recursive-tree'] = ((fixtures/'tree-local.k').read_text(), 50275)
+cases['local-recursive-record-array'] = ((fixtures/'array-local.k').read_text(), 46369)
+cases['local-recursive-array-composition'] = ((fixtures/'array-composition.k').read_text(), 455)
+cases['local-recursive-array-bounds'] = ((fixtures/'array-bounds.k').read_text(), 342)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
 fn collect(batch:Batch)->Batch:

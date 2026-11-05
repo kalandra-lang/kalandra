@@ -54,8 +54,8 @@ planNativeAggregateLayouts(const TypedModule &input, llvm::LLVMContext &context,
 inline std::expected<std::map<std::size_t, AggregateABI>, std::string>
 planAggregateABI(const TypedModule &input, llvm::LLVMContext &context,
                  const llvm::DataLayout &nativeLayout, std::span<const ValueType> roots,
-                 std::size_t budget = 300000) {
-  auto device = planDeviceAggregateLayouts(input, roots, budget);
+                 std::size_t budget = 300000, const RecordStoragePlan *storage = nullptr) {
+  auto device = planDeviceAggregateLayouts(input, roots, budget, storage);
   if (!device)
     return std::unexpected(device.error());
   SemanticLimits limits;
@@ -70,7 +70,8 @@ planAggregateABI(const TypedModule &input, llvm::LLVMContext &context,
     for (std::size_t field = 0; field < cells.fields.size(); ++field) {
       const auto &nativeField = sourceABI.fields[field];
       const auto &source = input.records[id].fields[field].type;
-      const auto width = deviceInlineRecordValue(source) ? device->at(*source.record).words : 1;
+      const auto width = deviceInlineRecordValue(source) && !cells.boxed[field]
+                             ? device->at(*source.record).words : 1;
       record.fields.push_back({nativeField.nativeOffset, nativeField.nativeBytes,
                                nativeField.nativeAlignment, cells.fields[field], width,
                                nativeField.activeTag, nativeField.storage});
