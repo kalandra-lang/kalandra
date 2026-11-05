@@ -127,6 +127,13 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     run([compiler, closure_source, "--target", "metal", "-O2", "-o", closure_app], cwd)
     assert run([closure_app / "program"], cwd).stdout.strip() == "00000000000000ef"
     applications.append((closure_app, "00000000000000ef"))
+    tensor_source = cwd / "checkpointed tensor.k"
+    tensor_source.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/device-tensor-arithmetic.k").read_bytes())
+    tensor_app = cwd / "checkpointed tensor application"
+    run([compiler, tensor_source, "--target", "metal", "-O2", "-o", tensor_app], cwd)
+    assert run([tensor_app / "program"], cwd).stdout.strip() == "0000000000000546"
+    applications.append((tensor_app, "0000000000000546"))
     result_source = cwd / "device array results.k"
     result_source.write_text("""fn ordered(values:[int])->[int]:
   sorted(values)

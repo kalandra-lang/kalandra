@@ -745,6 +745,7 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
     case 1: return fail(Error::Bounds);
     case 2: return fail(Error::Allocation);
     case 3: return fail(Error::Budget);
+    case 4: return fail(Error::Shape);
     default: return fail(Error::Invalid);
     }
   }

@@ -3003,7 +3003,7 @@ struct Bridge {
                 const bool arena = program.code[program.pc].kind ==
                                    NumericInstructionKind::DeviceControl;
                 fail(task, f, arena ? (flag == 0 ? 4 : flag == 1 ? 5 : flag == 2 ? 2 :
-                                      flag == 3 ? 6 : 3) : 4);
+                                      flag == 3 ? 6 : flag == 4 ? 1 : 3) : 4);
                 return;
               }
               if (f.numericFused && f.fusedParameters &&

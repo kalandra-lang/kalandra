@@ -286,8 +286,7 @@ private arena through the existing task retirement path.
 Recursive calls can carry supported local arrays, records and enums across
 activations. The collector traces the active frame's live slots and the
 suspended callers' live values. The outer entry publishes array and graph
-results through the usual device result transfer. Tensor state requires
-separate qualification.
+results through the usual device result transfer.
 
 ### Device-local function values
 
@@ -301,3 +300,15 @@ applies inside direct calls and closures.
 
 Function values at the host/device boundary require a separate transport
 contract.
+
+### Checkpointed local tensors
+
+Device control code can retain numeric tensors in the invocation arena.
+Each tensor stores its runtime extents followed by row-major elements.
+Indexing checks each axis, and shape changes check the element count
+before allocating. Reshape and explicit array conversions copy one word
+per checkpoint. Elementwise operations use the scalar arithmetic policy
+on each element. Rank-zero tensors carry one element, and empty tensors
+retain their dimensions.
+
+Resident input and output bindings require separate qualification.

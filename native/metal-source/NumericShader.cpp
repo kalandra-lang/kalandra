@@ -1,3 +1,4 @@
+#include "DeviceTensorDynamic.h"
 #include "DeviceCallTrace.h"
 #include "DeviceCallEnter.h"
 #include "DeviceCallReturn.h"
@@ -1034,7 +1035,9 @@ bool usesScalarControl(const TypedModule &input, FunctionId function) {
   return deviceNeedsCallFrames(input, function) || std::ranges::any_of(fn.expressions,
                              [&](auto id) {
                                const auto &op = input.expressions.at(id).operation;
-                               if (input.expressions.at(id).type.array)
+                               if (input.expressions.at(id).type.array ||
+                                   (!fn.resultType.tensor &&
+                                    std::holds_alternative<TensorIndex>(op)))
                                  return true;
                                if (std::holds_alternative<WhileOperation>(op))
                                  return true;
@@ -1089,16 +1092,23 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
   };
+  const auto localTensor = [](const ValueType &type) {
+    return type.tensor && !type.array && !type.task && !type.fallible &&
+           type.builtin == BuiltinValue::Numeric &&
+           type.shape.size() <= 8;
+  };
   const auto callable = [](const ValueType &type) {
     return type.builtin == BuiltinValue::Function && !type.array && !type.tensor &&
            !type.task && !type.fallible;
   };
   if (callFrames && !std::ranges::all_of(plan.slots, [&](const auto &type) {
-                       return scalar(type) || callable(type) || flatArray(type) || deviceInlineRecordValue(type) ||
+                       return scalar(type) || callable(type) || flatArray(type) || localTensor(type) || deviceInlineRecordValue(type) ||
                               deviceRecordArrayValue(type);
                      }))
     return reject("GPU recursive calls require supported device frame values");
-  bool storage = callFrames || std::ranges::any_of(plan.slots, flatArray);
+  bool storage = callFrames || std::ranges::any_of(plan.slots, [&](const auto &type) {
+    return flatArray(type) || localTensor(type);
+  });
   const bool arrayResult = flatArray(root.resultType);
   const bool aggregateResult = deviceInlineRecordValue(root.resultType);
   const bool graphResult = aggregateResult && !graphResultLayouts.empty();
@@ -1130,13 +1140,19 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       }))
     return reject("GPU checkpointed entry requires scalar or flat array inputs and "
                   "scalar, flat array or inline aggregate results");
-  auto aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots, 300000, nullptr, callFrames);
+  auto layoutTypes = plan.slots;
+  for (auto &type : layoutTypes)
+    if (localTensor(type)) {
+      type.array = true;
+      type.shape = {{std::nullopt, 1}};
+    }
+  auto aggregateLayouts = planDeviceAggregateLayouts(input, layoutTypes, 300000, nullptr, callFrames);
   std::optional<RecordStoragePlan> nominalStorage;
   if (!aggregateLayouts) {
     auto nominal = planRecordStorage(input);
     if (nominal) {
       nominalStorage.emplace(std::move(*nominal));
-      aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots, 300000, &*nominalStorage, callFrames);
+      aggregateLayouts = planDeviceAggregateLayouts(input, layoutTypes, 300000, &*nominalStorage, callFrames);
     }
   }
   if (!aggregateLayouts)
@@ -1148,7 +1164,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   };
   std::set<std::size_t> boxTypes, arrayTypes;
   const auto localArray = [&](const ValueType &type) {
-    return flatArray(type) || deviceRecordArrayValue(type);
+    return flatArray(type) || deviceRecordArrayValue(type) || localTensor(type);
   };
   const auto arrayIdentity = [&](const ValueType &type) -> unsigned {
     if (deviceRecordArrayValue(type))
@@ -1419,15 +1435,27 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         allocationRoots.push_back({i + 1, std::move(resultRoots)});
       }
     }
+  const auto tensorArithmetic = [&](const auto &op) {
+    if (op.code != C::Kernel)
+      return false;
+    const auto &node = input.expressions.at(op.source);
+    return localTensor(node.type) &&
+           (std::holds_alternative<TensorBinary>(node.operation) ||
+            std::holds_alternative<TensorUnary>(node.operation));
+  };
   const auto arrayOperation = [&](const auto &op) {
     if (!storage || op.code != C::Kernel)
       return false;
     const auto &node = input.expressions.at(op.source);
-    return (localArray(node.type) && (std::holds_alternative<TensorLiteral>(node.operation) ||
+    return tensorArithmetic(op) || (localArray(node.type) && (std::holds_alternative<TensorLiteral>(node.operation) ||
                                    std::holds_alternative<ArraySlice>(node.operation) ||
                                    std::holds_alternative<ArrayConcat>(node.operation) ||
                                    std::holds_alternative<ArraySort>(node.operation))) ||
            std::holds_alternative<ArrayIndex>(node.operation) ||
+           std::holds_alternative<TensorIndex>(node.operation) ||
+           std::holds_alternative<TensorReshape>(node.operation) ||
+           std::holds_alternative<ArrayToTensor>(node.operation) ||
+           std::holds_alternative<TensorToArray>(node.operation) ||
            std::holds_alternative<ArrayBoundsCheck>(node.operation) ||
            std::holds_alternative<ArrayStore>(node.operation) ||
            (std::holds_alternative<CollectionQuery>(node.operation) && !op.args.empty() &&
@@ -1488,6 +1516,40 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   auto code = planned->kernels;
   std::vector<std::optional<FunctionId>> kernels;
   for (const auto &op : plan.code) {
+    if (tensorArithmetic(op)) {
+      auto node = input.expressions.at(op.source);
+      auto laneType = node.type;
+      laneType.tensor = false;
+      laneType.shape.clear();
+      TypedFunction fn{};
+      fn.name = "control_tensor_cell" + std::to_string(kernels.size());
+      fn.declaration = node.span;
+      fn.resultType = laneType;
+      std::vector<ValueId> lanes;
+      for (auto slot : op.args) {
+        auto argument = plan.slots.at(slot);
+        if (!localTensor(argument) && !scalar(argument))
+          return reject("GPU tensor arithmetic operand requires numeric storage");
+        argument.tensor = false;
+        argument.shape.clear();
+        const auto symbol = code.symbols.size();
+        code.symbols.push_back({"lane", argument, node.span, code.functions.size(), true});
+        fn.parameters.push_back(symbol);
+        lanes.push_back(code.expressions.size());
+        code.expressions.push_back({node.span, argument, SymbolRead{symbol}});
+      }
+      if (const auto *unary = std::get_if<TensorUnary>(&node.operation))
+        node.operation = ScalarUnary{unary->operation, lanes.at(0)};
+      else
+        node.operation = ScalarBinary{std::get<TensorBinary>(node.operation).operation,
+                                      lanes.at(0), lanes.at(1)};
+      node.type = laneType;
+      fn.result = code.expressions.size();
+      code.expressions.push_back(std::move(node));
+      kernels.push_back(code.functions.size());
+      code.functions.push_back(std::move(fn));
+      continue;
+    }
     if (op.code == C::Kernel &&
         std::holds_alternative<ArrayStore>(input.expressions.at(op.source).operation) &&
         deviceRecordArrayValue(plan.slots.at(op.args.at(0))))
@@ -2277,6 +2339,13 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             condition(compare(arith::CmpIPredicate::ne, layout, constant(arrayIdentity(type))),
                       [&] { heap->fault(99); });
             Value length = heap->read(h, constant(2));
+            if (localTensor(type)) {
+              const auto rank = constant(type.shape.size());
+              const Value enough = compare(arith::CmpIPredicate::uge, length, rank);
+              condition(arith::XOrIOp::create(b, loc, enough, yes), [&] { heap->fault(99); });
+              length = arith::SelectOp::create(b, loc, enough,
+                  arith::SubIOp::create(b, loc, length, rank), constant(0));
+            }
             const auto stride = arrayStride(type);
             if (stride != 1) {
               const Value remainder = arith::RemUIOp::create(b, loc, length, constant(stride));
@@ -2298,7 +2367,50 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                 arith::TruncIOp::create(b, loc, b.getIntegerType(desc->bits), index));
           return index;
         };
-        if (const auto *sort = std::get_if<ArraySort>(&node.operation)) {
+        constexpr auto tensorWordLimit = runtime::detail::ControlArenaABI::MaxWords - 4;
+        const auto extentsOf = [&](std::size_t slot) {
+          const auto &tensor = plan.slots.at(slot);
+          const auto handle = load(offsets.at(slot));
+          std::vector<Value> extents;
+          for (std::size_t axis = 0; axis < tensor.shape.size(); ++axis)
+            extents.push_back(heap->read(handle, constant(4 + axis)));
+          return extents;
+        };
+        const auto checkedShape = [&](const ValueType &type, std::span<const Value> extents) {
+          std::vector<Value> shapeOperands(extents.begin(), extents.end());
+          Value matches = yes;
+          for (std::size_t axis = 0; axis < extents.size(); ++axis)
+            if (const auto known = type.shape.at(axis).constant) {
+              shapeOperands[axis] = constant(*known);
+              matches = arith::AndIOp::create(b, loc, matches,
+                  compare(arith::CmpIPredicate::eq, extents[axis], shapeOperands[axis]));
+            }
+          auto shape = emitDeviceTensorShape(b, shapeOperands, tensorWordLimit - type.shape.size());
+          shape.valid = arith::AndIOp::create(b, loc, shape.valid, matches);
+          return shape;
+        };
+        if (std::holds_alternative<TensorIndex>(node.operation)) {
+          const auto slot = op.args.at(0);
+          const auto &tensor = plan.slots.at(slot);
+          if (!localTensor(tensor))
+            throw Rejected{{"G001", "GPU checkpointed indexing requires a local tensor", node.span}};
+          const auto extents = extentsOf(slot);
+          const auto shape = checkedShape(tensor, extents);
+          const Value metadata = arith::AndIOp::create(b, loc, shape.valid,
+              compare(arith::CmpIPredicate::eq, lengthOf(slot), shape.elements));
+          condition(arith::XOrIOp::create(b, loc, metadata, yes), [&] { heap->fault(99); });
+          std::vector<Value> indices;
+          for (auto arg : std::span(op.args).subspan(1))
+            indices.push_back(indexOf(arg));
+          const auto index = emitDynamicDeviceTensorIndex(b, extents, indices, metadata);
+          auto checked = scf::IfOp::create(b, loc, index.valid, true);
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&checked.getThenRegion().front());
+          store(offsets.at(op.output), heap->read(load(offsets.at(slot)),
+              arith::AddIOp::create(b, loc, constant(4 + extents.size()), index.offset)));
+          b.setInsertionPointToStart(&checked.getElseRegion().front());
+          heap->fault(1);
+        } else if (const auto *sort = std::get_if<ArraySort>(&node.operation)) {
           const auto count = lengthOf(op.args.at(0));
           const auto phase = heap->load(DeviceHeapEmitter::SortPhase);
           next = constant(i + 1);
@@ -2351,13 +2463,85 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           const bool literal = std::holds_alternative<TensorLiteral>(node.operation);
           const bool slice = std::holds_alternative<ArraySlice>(node.operation);
           const bool shape = std::holds_alternative<CollectionQuery>(node.operation);
-          Value count, leftLength, start, shapeLength;
+          const bool tensorCopy = std::holds_alternative<TensorReshape>(node.operation) ||
+                                  std::holds_alternative<ArrayToTensor>(node.operation) ||
+                                  std::holds_alternative<TensorToArray>(node.operation);
+          Value count, leftLength, start;
+          Value validPayload = yes;
+          std::vector<Value> outputExtents, shapeWords;
+          const auto outputRank = localTensor(node.type) ? node.type.shape.size() : 0;
+          std::size_t sourceRank = 0;
           if (literal) {
             chargeAggregate(op.args.size());
             count = constant(op.args.size());
-          } else if (shape) {
-            count = constant(1);
-            shapeLength = lengthOf(op.args.at(0));
+            if (localTensor(node.type))
+              for (const auto &extent : node.type.shape) {
+                if (!extent.constant)
+                  throw Rejected{{"G001", "GPU tensor literal requires known dimensions", node.span}};
+                outputExtents.push_back(constant(*extent.constant));
+              }
+          } else if (tensorArithmetic(op)) {
+            const auto first = std::ranges::find_if(op.args, [&](auto slot) {
+              return localTensor(plan.slots.at(slot));
+            });
+            if (first == op.args.end())
+              throw Rejected{{"G001", "GPU tensor arithmetic needs a tensor operand", node.span}};
+            outputExtents = extentsOf(*first);
+            const auto resultShape = checkedShape(node.type, outputExtents);
+            validPayload = resultShape.valid;
+            count = resultShape.elements;
+            for (auto slot : op.args) {
+              const auto &type = plan.slots.at(slot);
+              if (!localTensor(type))
+                continue;
+              const auto extents = extentsOf(slot);
+              if (extents.size() != outputExtents.size())
+                throw Rejected{{"G001", "GPU tensor arithmetic requires equal tensor ranks", node.span}};
+              const auto operandShape = checkedShape(type, extents);
+              const Value valid = arith::AndIOp::create(b, loc, operandShape.valid,
+                  compare(arith::CmpIPredicate::eq, lengthOf(slot), operandShape.elements));
+              condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(99); });
+              validPayload = arith::AndIOp::create(b, loc, validPayload, valid);
+              for (std::size_t axis = 0; axis < extents.size(); ++axis)
+                validPayload = arith::AndIOp::create(b, loc, validPayload,
+                    compare(arith::CmpIPredicate::eq, extents[axis], outputExtents[axis]));
+            }
+            condition(arith::XOrIOp::create(b, loc, validPayload, yes), [&] { heap->fault(4); });
+          } else if (tensorCopy || shape) {
+            const auto slot = op.args.at(0);
+            const auto &source = plan.slots.at(slot);
+            const auto length = lengthOf(slot);
+            if (localTensor(source)) {
+              sourceRank = source.shape.size();
+              shapeWords = extentsOf(slot);
+              const auto sourceShape = checkedShape(source, shapeWords);
+              validPayload = arith::AndIOp::create(b, loc, sourceShape.valid,
+                  compare(arith::CmpIPredicate::eq, sourceShape.elements, length));
+              condition(arith::XOrIOp::create(b, loc, validPayload, yes), [&] { heap->fault(99); });
+            }
+            if (shape) {
+              if (!localTensor(source))
+                throw Rejected{{"G001", "GPU shape requires a local tensor", node.span}};
+              count = constant(sourceRank);
+            } else {
+              count = length;
+              if (localTensor(node.type)) {
+                if (const auto *convert = std::get_if<ArrayToTensor>(&node.operation);
+                    convert && !convert->dimensions) {
+                  outputExtents.push_back(length);
+                } else {
+                  for (auto slot : std::span(op.args).subspan(1))
+                    outputExtents.push_back(indexOf(slot));
+                }
+                if (outputExtents.size() != outputRank)
+                  throw Rejected{{"G001", "GPU tensor conversion rank mismatch", node.span}};
+                const auto target = checkedShape(node.type, outputExtents);
+                const Value valid = arith::AndIOp::create(b, loc, target.valid,
+                    compare(arith::CmpIPredicate::eq, target.elements, length));
+                condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(4); });
+                validPayload = arith::AndIOp::create(b, loc, validPayload, valid);
+              }
+            }
           } else if (slice) {
             const auto length = lengthOf(op.args.at(0));
             start = indexOf(op.args.at(1));
@@ -2375,6 +2559,13 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             leftLength = wordsFor(leftLength, node.type);
           }
           count = wordsFor(count, node.type);
+          count = arith::SelectOp::create(b, loc, validPayload,
+              arith::AddIOp::create(b, loc, count, constant(outputRank)), constant(0));
+          if (localTensor(node.type)) {
+            // checkedShape bounds payload and prefix to the arena's uint32 range.
+            const Value wordCount = arith::TruncIOp::create(b, loc, b.getI32Type(), count);
+            count = arith::ExtUIOp::create(b, loc, b.getI64Type(), wordCount);
+          }
           const auto ready = heap->ready();
           const auto cursor = heap->cursor();
           const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
@@ -2388,43 +2579,76 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           });
           condition(ready, [&] {
             condition(compare(arith::CmpIPredicate::ult, cursor, count), [&] {
-              if (literal) {
-                Value element = cursor, word = constant(0);
-                if (stride != 1) {
-                  element = arith::DivUIOp::create(b, loc, cursor, constant(stride));
-                  word = arith::RemUIOp::create(b, loc, cursor, constant(stride));
-                }
-                for (std::size_t j = 0; j < op.args.size(); ++j)
-                  condition(compare(arith::CmpIPredicate::eq, element, constant(j)), [&] {
-                    const auto value = stride == 1 ? load(offsets.at(op.args[j])) :
-                        readFrame(offsets.at(op.args[j]), word);
-                    heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), value);
-                  });
-              } else {
-                Value item;
-                if (shape)
-                  item = shapeLength;
-                else if (slice)
-                  item = heap->read(load(offsets.at(op.args.at(0))),
-                      arith::AddIOp::create(b, loc, constant(4),
-                          arith::AddIOp::create(b, loc, start, cursor)));
-                else {
-                  auto choose = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
-                      compare(arith::CmpIPredicate::ult, cursor, leftLength), true);
-                  {
-                    OpBuilder::InsertionGuard restore(b);
-                    b.setInsertionPointToStart(&choose.getThenRegion().front());
-                    scf::YieldOp::create(b, loc, ValueRange{heap->read(load(offsets.at(op.args.at(0))),
-                        arith::AddIOp::create(b, loc, constant(4), cursor))});
-                    b.setInsertionPointToStart(&choose.getElseRegion().front());
-                    scf::YieldOp::create(b, loc, ValueRange{heap->read(load(offsets.at(op.args.at(1))),
-                        arith::AddIOp::create(b, loc, constant(4),
-                            arith::SubIOp::create(b, loc, cursor, leftLength)))});
-                  }
-                  item = choose.getResult(0);
-                }
-                heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), item);
+              if (!outputExtents.empty()) {
+                Value extent = outputExtents.back();
+                for (std::size_t axis = outputExtents.size() - 1; axis-- != 0;)
+                  extent = arith::SelectOp::create(b, loc,
+                      compare(arith::CmpIPredicate::eq, cursor, constant(axis)), outputExtents[axis], extent);
+                condition(compare(arith::CmpIPredicate::ult, cursor, constant(outputRank)), [&] {
+                  heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), extent);
+                });
               }
+              condition(compare(arith::CmpIPredicate::uge, cursor, constant(outputRank)), [&] {
+                const Value dataCursor = arith::SubIOp::create(b, loc, cursor, constant(outputRank));
+                if (literal) {
+                  Value element = dataCursor, word = constant(0);
+                  if (stride != 1) {
+                    element = arith::DivUIOp::create(b, loc, dataCursor, constant(stride));
+                    word = arith::RemUIOp::create(b, loc, dataCursor, constant(stride));
+                  }
+                  for (std::size_t j = 0; j < op.args.size(); ++j)
+                    condition(compare(arith::CmpIPredicate::eq, element, constant(j)), [&] {
+                      const auto value = stride == 1 ? load(offsets.at(op.args[j])) :
+                          readFrame(offsets.at(op.args[j]), word);
+                      heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), value);
+                    });
+                } else {
+                  Value item;
+                  if (shape) {
+                    item = constant(0);
+                    for (std::size_t axis = 0; axis < shapeWords.size(); ++axis)
+                      item = arith::SelectOp::create(b, loc,
+                          compare(arith::CmpIPredicate::eq, cursor, constant(axis)),
+                          shapeWords[axis], item);
+                  } else if (tensorArithmetic(op)) {
+                    std::vector<ShaderValue> arguments;
+                    for (auto slot : op.args) {
+                      auto argument = read(slot);
+                      const auto &type = plan.slots.at(slot);
+                      if (localTensor(type))
+                        argument.value = heap->read(argument.value,
+                            arith::AddIOp::create(b, loc, constant(4 + type.shape.size()), dataCursor));
+                      arguments.push_back(argument);
+                    }
+                    const auto result = emitter.invoke(*kernels[i], arguments);
+                    const Value invalid = arith::XOrIOp::create(b, loc, result.valid, yes);
+                    condition(invalid, [&] { heap->fault(0); });
+                    item = result.value;
+                  } else if (tensorCopy)
+                    item = heap->read(load(offsets.at(op.args.at(0))),
+                        arith::AddIOp::create(b, loc, constant(4 + sourceRank), dataCursor));
+                  else if (slice)
+                    item = heap->read(load(offsets.at(op.args.at(0))),
+                        arith::AddIOp::create(b, loc, constant(4),
+                            arith::AddIOp::create(b, loc, start, cursor)));
+                  else {
+                    auto choose = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
+                        compare(arith::CmpIPredicate::ult, cursor, leftLength), true);
+                    {
+                      OpBuilder::InsertionGuard restore(b);
+                      b.setInsertionPointToStart(&choose.getThenRegion().front());
+                      scf::YieldOp::create(b, loc, ValueRange{heap->read(load(offsets.at(op.args.at(0))),
+                          arith::AddIOp::create(b, loc, constant(4), cursor))});
+                      b.setInsertionPointToStart(&choose.getElseRegion().front());
+                      scf::YieldOp::create(b, loc, ValueRange{heap->read(load(offsets.at(op.args.at(1))),
+                          arith::AddIOp::create(b, loc, constant(4),
+                              arith::SubIOp::create(b, loc, cursor, leftLength)))});
+                    }
+                    item = choose.getResult(0);
+                  }
+                  heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), item);
+                }
+              });
               heap->advance();
             });
             condition(complete, [&] {
