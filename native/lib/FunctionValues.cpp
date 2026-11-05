@@ -94,6 +94,23 @@ public:
     return id >= targets.size() || targets[id].contains(module_.functions.size());
   }
 
+  std::optional<FunctionValueTargets> summarize(ValueId id) {
+    if (id >= targets.size() || !step() ||
+        !containsFunctionStorage(module_, module_.expressions[id].type))
+      return {};
+    FunctionValueTargets result{{}, unknown(id)};
+    const auto &type = module_.expressions[id].type;
+    const bool direct = type.builtin == BuiltinValue::Function && !type.array;
+    for (auto target : targets[id]) {
+      if (!step())
+        return {};
+      if (target < module_.functions.size() && (!direct || compatible(target, id)))
+        result.targets.push_back(target);
+    }
+    std::ranges::sort(result.targets);
+    return result;
+  }
+
   bool build() {
     // Join possible application-error producers, including early guard failures.
     // This is deliberately conservative across locally handled channels too.
@@ -514,6 +531,16 @@ bool workerValueProvenance(const TypedModule &module, ValueId root) {
   return found;
 }
 } // namespace
+std::optional<FunctionValueTargets> functionValueTargets(const TypedModule &module,
+                                                         ValueId root, std::size_t budget) {
+  if (root >= module.expressions.size() || !budget)
+    return {};
+  const auto bindings = valueBindings(module);
+  WorkerValueFlow flow(module, bindings, budget);
+  if (!flow.build())
+    return {};
+  return flow.summarize(root);
+}
 std::optional<FunctionInvocationFlow> functionInvocationFlow(const TypedModule &module,
                                                              std::size_t budget) {
   const auto bindings = valueBindings(module);
