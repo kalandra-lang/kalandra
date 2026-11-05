@@ -151,6 +151,54 @@
     {
       "kind": "gpu",
       "expected": "41a80000"
+    },
+    {
+      "kind": "gpu",
+      "expected": "true"
+    },
+    {
+      "kind": "gpu",
+      "expected": "447a0000"
+    },
+    {
+      "kind": "gpu",
+      "expected": "00000000000001f9"
+    },
+    {
+      "kind": "gpu",
+      "expected": "42280000"
+    },
+    {
+      "kind": "gpu",
+      "expected": "000000000000000a"
+    },
+    {
+      "kind": "gpu",
+      "expected": "0000000000000006"
+    },
+    {
+      "kind": "gpu",
+      "expected": "0000000000000010"
+    },
+    {
+      "kind": "gpu",
+      "expected": "[0000000000000000,0000000000000001,0000000000000004,0000000000000009]"
+    },
+    {
+      "kind": "gpu",
+      "expected": "000000000000000c"
+    },
+    {
+      "kind": "gpu",
+      "expected": "000000000000000d"
+    },
+    {
+      "kind": "gpu",
+      "expected": "0000000000000009"
+    },
+    {
+      "kind": "gpu",
+      "expected": "0000000000000007"
     }
   ],
   "index": [

@@ -9,6 +9,9 @@ struct TensorValue {
   std::uint8_t rank = 0;
   bool scalar = false;
   std::shared_ptr<const HostTensorStorage> host{};
+  // Private array transport: dimensions describe payload words, not source length.
+  // It is never a numerical tensor operand or an ordinary tensor transfer.
+  std::optional<DeviceArrayResultMetadata> arrayResult{};
   explicit operator bool() const noexcept { return bool(data) || bool(host); }
   bool onDevice() const noexcept { return bool(data) && !host; }
   NumericType format() const noexcept { return type; }
@@ -40,6 +43,7 @@ struct ProgramInstruction {
 };
 struct ProgramLimits {
   std::uint64_t maxMetadataBytes = 1024 * 1024;
+  bool booleanResult = false;
 };
 struct ProgramDispatch {
   Kernel kernel;
@@ -62,6 +66,7 @@ public:
                                                std::span<const std::uint64_t>) const;
   std::expected<std::uint64_t, Error> invocationBytes(std::size_t scalarCount) const;
   std::optional<NumericType> scalarType() const noexcept;
+  bool booleanResult() const noexcept;
   explicit operator bool() const { return bool(definition_); }
 
 private:
@@ -89,6 +94,11 @@ private:
   bool matrixTransposing_ = false, matrixReady_ = false;
   bool pending_ = false, reducing_ = false, finished_ = false;
   std::size_t parameterWords_ = 0;
+  std::vector<std::uint32_t> controlParameters_;
+  detail::ControlArena<Buffer, Error> controlArena_;
+  detail::ControlExport<Buffer, Error> controlExport_;
+  std::optional<DeviceArrayResultMetadata> exportMetadata_;
+  std::optional<detail::ControlTensorExportRange> exportTensor_;
   std::optional<Error> error_;
   void release(std::uint32_t);
   void skip(std::size_t, std::size_t);

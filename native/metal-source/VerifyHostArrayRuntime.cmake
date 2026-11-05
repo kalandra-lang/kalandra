@@ -19,7 +19,10 @@ function(RUN_OK)
   endif()
   message(STATUS "${OUT}")
 endfunction()
-RUN_OK("${COMPILER}" --target metal "${SOURCE_DIR}/tests/fixtures/mixed-host-arrays/tasks.k"
+if(NOT DEFINED SOURCE_FIXTURE)
+  set(SOURCE_FIXTURE "tests/fixtures/mixed-host-arrays/tasks.k")
+endif()
+RUN_OK("${COMPILER}" --target metal "${SOURCE_DIR}/${SOURCE_FIXTURE}"
   -o "${OUTPUT_DIR}/program" --build ${EXTRA})
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module -ffp-contract=off
   "-mmacosx-version-min=${MACOS_MINIMUM}" -isysroot "${SDK}" ${FLAGS}

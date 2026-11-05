@@ -160,3 +160,7 @@ list {
   link { url = "/docs/records-enums", "Declare records and enums" },
   link { url = "/docs/errors", "Handle expected errors" }
 }
+
+list {
+  link { url = "/docs/gpu-numerics#scalar-loops-on-the-gpu", "Execute scalar loops on the GPU" }
+}

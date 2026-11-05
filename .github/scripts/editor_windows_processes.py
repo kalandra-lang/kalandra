@@ -74,7 +74,12 @@ class EditorProcessScope:
                 image = ctypes.create_unicode_buffer(32768)
                 length = wintypes.DWORD(len(image))
                 if not self.kernel.QueryFullProcessImageNameW(handle, 0, image, ctypes.byref(length)):
-                    raise ctypes.WinError(ctypes.get_last_error())
+                    error = ctypes.get_last_error()
+                    # An exiting child can lose its queryable image before its
+                    # process handle signals. Only accept a confirmed exit.
+                    if error == 5 and self.kernel.WaitForSingleObject(handle, 5000) == 0:
+                        continue
+                    raise ctypes.WinError(error)
                 executable = Path(image.value).resolve()
                 if executable.parent != system or executable.name.lower() not in ('wsl.exe', 'conhost.exe'):
                     raise RuntimeError(f'Unexpected surviving editor child {pid}: {executable}')

@@ -92,15 +92,32 @@ fn remote(values:[{numeric}])->[{numeric}] ! TaskError:
         source = source.replace('+length(values)', '+length(values)+int(checkpoint[0])')
         cases['element-' + numeric] = source, 813
 
+cases['kernel-local-mutation'] = ('''fn edit(values:Tensor[int,?])->Tensor[int,?]:
+  items=array(values)
+  items[0]=7
+  tensor(items)
+fn main()->int ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    resident=try await transfer(tensor([1,2,3]),gpu)
+    work=spawn edit(resident) on gpu
+    changed=try await transfer(try await work,devices.cpu())
+    original=try await transfer(resident,devices.cpu())
+    reduceSum(original)*100+reduceSum(changed)
+''', 612)
+
 results = []
 for name, (source, expected) in cases.items():
     path, destination = args.root / (name + '.k'), args.root / name
     path.write_text(source)
     run(compile_command(path, destination))
     host = (destination / 'host.cpp').read_text()
-    assert 'HostArrayScopes arrayScopes' in host and 'HostArrayWork work' in host
-    llvm = (destination / 'cpu.ll').read_text()
-    assert 'kalandra_gpu_step_' in llvm and (destination / 'cpu-steps.mlir').is_file()
+    if name == 'kernel-local-mutation':
+        assert 'NumericInstructionKind::DeviceControl' in host, 'local mutation must execute on device'
+    else:
+        assert 'HostArrayScopes arrayScopes' in host and 'HostArrayWork work' in host
+        llvm = (destination / 'cpu.ll').read_text()
+        assert 'kalandra_gpu_step_' in llvm and (destination / 'cpu-steps.mlir').is_file()
     if args.variant and not args.compile_only:
         for workers in (1, 2, 4):
             run([destination / 'program'], output=f'{expected:016x}\n',
@@ -128,17 +145,6 @@ for name, source, diagnostic in (
 fn main()->int ! TaskError:
   edit([1])
 ''', 'S077'),
-    ('kernel-mutation', '''fn edit(values:Tensor[int,?])->Tensor[int,?]:
-  items=array(values)
-  items[0]=7
-  tensor(items)
-fn main()->Tensor[int,?] ! TaskError:
-  try parallel:
-    gpu=devices.gpu()
-    resident=try await transfer(tensor([1,2,3]),gpu)
-    work=spawn edit(resident) on gpu
-    try await transfer(try await work,devices.cpu())
-''', 'G001'),
 ):
     path, destination = args.root / (name + '.k'), args.root / name
     path.write_text(source)

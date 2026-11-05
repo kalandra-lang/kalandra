@@ -617,9 +617,9 @@ std::optional<std::string> functionValueTransportError(const TypedModule &module
 }
 
 std::optional<std::string> functionValueCapabilityError(const TypedModule &module,
-                                                        NumericTarget target) {
+                                                        NumericTarget target, bool mixedPlacement) {
   bool present = false;
-  const bool placed = hasPlacement(module);
+  const bool unsupportedPlacement = hasPlacement(module) && !mixedPlacement;
   std::size_t visited = 0;
   const auto valid = [&](auto &&self, const ValueType &type, std::size_t depth) -> bool {
     if (type.builtin != BuiltinValue::Function)
@@ -628,7 +628,7 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
       return false;
     present = true;
     const bool array = isFunctionArray(type);
-    if (target != NumericTarget::Cpu || placed || !type.callable ||
+    if (target != NumericTarget::Cpu || unsupportedPlacement || !type.callable ||
         (array
              ? (!type.tensor || type.shape.size() != 1 ||
                 (type.shape[0].constant && *type.shape[0].constant > std::uint64_t(INT64_MAX) / 16))

@@ -16,7 +16,7 @@ std::uint64_t TensorValue::bytes() const noexcept {
 }
 namespace {
 std::expected<std::uint64_t, Error> geometry(const TensorValue &value) {
-  if (value.scalar || value.rank > 8)
+  if (value.arrayResult || value.scalar || value.rank > 8)
     return std::unexpected(Error::Invalid);
   std::array<std::int64_t, 8> shape{};
   for (std::size_t i = 0; i < value.rank; ++i) {
@@ -140,6 +140,42 @@ std::expected<TensorValue, Error> transferTensor(Runtime &runtime, const TensorV
       value.data = {};
       value.host = std::move(*storage);
     }
+    return value;
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
+
+std::expected<void, Error> validateArrayPage(Runtime &runtime, const TensorValue &value,
+                                            std::uint64_t offset, std::uint64_t words) {
+  if (!value.arrayResult || value.host || !runtime.owns(value.data) ||
+      value.type != NumericType::UInt64 || value.scalar || value.rank != 1 ||
+      !value.arrayResult->layout || value.arrayResult->layout > 11 ||
+      value.arrayResult->length > DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords ||
+      value.arrayResult->origin > UINT32_MAX ||
+      value.dimensions[0] != (value.arrayResult->origin ? 0 : value.arrayResult->length) ||
+      value.dimensions[0] > SIZE_MAX / 8 || value.data.bytes() != value.dimensions[0] * 8 ||
+      offset > value.dimensions[0] || words > value.dimensions[0] - offset ||
+      words > DeviceArrayWireABI::PageWords)
+    return std::unexpected(Error::Invalid);
+  return {};
+}
+std::expected<TensorValue, Error> downloadArrayPagePayload(Runtime &runtime, const TensorValue &input,
+                                                   std::uint64_t offset, std::uint64_t words) {
+  auto valid = validateArrayPage(runtime, input, offset, words);
+  if (!valid)
+    return std::unexpected(valid.error());
+  try {
+    const std::int64_t size = words;
+    auto value = metadata(NumericType::UInt64, std::span(&size, 1));
+    auto storage = backing(runtime, value, words * 8);
+    if (!storage)
+      return std::unexpected(storage.error());
+    (*storage)->owned.resize(words * 8);
+    auto copied = runtime.readArrayPage(input.data, (*storage)->owned, offset * 8);
+    if (!copied)
+      return std::unexpected(copied.error());
+    value.host = std::move(*storage);
     return value;
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);

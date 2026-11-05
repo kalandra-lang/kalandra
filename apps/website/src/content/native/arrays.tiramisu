@@ -39,7 +39,7 @@ copy(values) returns an independent array of numeric, Bool or String elements. I
 
 h2 { "Replace an array binding" }
 
-A numeric or Bool array name can be reassigned in CPU functions, including functions with task suspension or expected-error handling. The new array may have a different length, but its element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
+A numeric or Bool array name can be reassigned. CPU functions support this across task suspension and expected-error handling; GPU helpers support reassignment of arrays constructed inside the helper. The new array may have a different length, but its element type stays fixed. Reassignment updates that local name; previous aliases still refer to their original storage. This differs from sort(values), which writes the existing array.
 
 codeblock { language = kalandra, """fn main() -> [int]:
   values = [3, 1, 2]
@@ -136,11 +136,11 @@ fn main() -> int ! TaskError:
 
 This returns 4. The write is allowed because pending has been awaited. If the write appeared before await, the checker would reject it even through an alias.
 
-Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Numeric and Bool array operations run on the CPU, including the host side of Metal, Vulkan and CUDA programs. Convert an array to a tensor before transferring data to a GPU; device functions do not support array element writes.
+Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Numeric and Bool array operations also run inside GPU helpers on arrays constructed there, including element writes and sorting under the same access rules. A GPU task can capture existing numeric and Bool arrays as read-only parameters. The task packs and uploads those arrays before executing its device helper. Await its readers before modifying the originals or their aliases. GPU helpers can return numeric/Bool scalars or flat numeric/Bool arrays. Awaiting an array result produces a native CPU array and includes transfer/decoding costs. Returning a captured array preserves its original backing; copy and sorted create independent backing. Use explicit tensor transfers for resident tensor calculations.
 
 list {
   link { url = "/docs/tensors", "Shapes and tensor arithmetic" },
-  link { url = "/docs/gpu-numerics#prepare-inputs-with-arrays", "Prepare GPU inputs with host arrays" },
+  link { url = "/docs/gpu-numerics#capture-host-arrays", "Capture arrays in GPU tasks" },
   link { url = "/docs/parallelism", "Parallel array mapping" },
   link { url = "/docs/collection-functions", "Collection function reference" }
 }

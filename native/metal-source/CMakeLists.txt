@@ -74,7 +74,7 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-metal-source-lowering-sanitized SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-metal-source-lowering-sanitized PRIVATE -Wall -Wextra -Werror
     -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
-  add_executable(kalandra-metal-source-compiler-sanitized main.cpp Compiler.cpp Command.cpp NumericShader.cpp NumericProgram.cpp ../lib/GpuInteger.cpp ../lib/GpuConversion.cpp Build.cpp)
+  add_executable(kalandra-metal-source-compiler-sanitized main.cpp Compiler.cpp Command.cpp NumericShader.cpp NumericProgram.cpp DeviceHeap.cpp DeviceSort.cpp DeviceLiveness.cpp DeviceArrayReturn.cpp ../lib/GpuInteger.cpp ../lib/GpuConversion.cpp Build.cpp)
   target_link_libraries(kalandra-metal-source-compiler-sanitized PRIVATE kalandra-semantics-sanitized kalandra-packages-sanitized kalandra-metal-source-lowering-sanitized MLIR LLVM)
   target_include_directories(kalandra-metal-source-compiler-sanitized SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-metal-source-compiler-sanitized PRIVATE -Wall -Wextra -Werror -O1 -g
@@ -1219,6 +1219,133 @@ if(BUILD_TESTING)
       "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/host-array-runtime-${VARIANT}"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyHostArrayRuntime.cmake")
     set_tests_properties(native-metal-host-array-runtime-${VARIANT} PROPERTIES TIMEOUT 600
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-host-aggregate-runtime-${VARIANT} COMMAND "${CMAKE_COMMAND}"
+      "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}/native" "-DVARIANT=${VARIANT}"
+      "-DSOURCE_FIXTURE=tests/fixtures/mixed-host-aggregates/tasks.k"
+      "-DSDK=${KALANDRA_METAL_SDK}" "-DMACOS_MINIMUM=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+      "-DMETAL_RUNTIME=$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+      "-DRUNTIME=$<TARGET_FILE:${HOST_ARRAY_RUNTIME}>"
+      "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/host-aggregate-runtime-${VARIANT}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyHostArrayRuntime.cmake")
+    set_tests_properties(native-metal-host-aggregate-runtime-${VARIANT} PROPERTIES TIMEOUT 600
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-host-aggregates-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/HostAggregateTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/host-aggregates-${VARIANT}")
+    set_tests_properties(native-metal-host-aggregates-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug optimized)
+    add_test(NAME native-metal-device-loops-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/ScalarControlTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/scalar-control-${VARIANT}")
+    set_tests_properties(native-metal-device-loops-${VARIANT} PROPERTIES TIMEOUT 900
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
+    if(VARIANT STREQUAL "optimized")
+      set(CONTROL_RUNTIME kalandra-task-core-optimized)
+    else()
+      set(CONTROL_RUNTIME kalandra-native-runtime-${VARIANT})
+    endif()
+    add_test(NAME native-metal-scalar-control-safety-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/ScalarControlSafetyTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --metal-runtime "$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+        --runtime "$<TARGET_FILE:${CONTROL_RUNTIME}>" --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/scalar-control-safety-${VARIANT}")
+    set_tests_properties(native-metal-scalar-control-safety-${VARIANT} PROPERTIES TIMEOUT 900
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  foreach(VARIANT IN ITEMS debug optimized)
+    add_test(NAME native-metal-device-arrays-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceArrayTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-arrays-${VARIANT}")
+    set_tests_properties(native-metal-device-arrays-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-array-main-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceArrayMainTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-array-main-${VARIANT}")
+    set_tests_properties(native-metal-device-array-main-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-array-results-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceArrayResultTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-array-results-${VARIANT}")
+    set_tests_properties(native-metal-device-array-results-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-array-entry-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceArrayEntryTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-array-entry-${VARIANT}")
+    set_tests_properties(native-metal-device-array-entry-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-bool-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceBoolTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-bool-${VARIANT}")
+    set_tests_properties(native-metal-device-bool-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+  foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
+    if(VARIANT STREQUAL "optimized")
+      set(ARRAY_CONTROL_RUNTIME kalandra-task-core-optimized)
+    else()
+      set(ARRAY_CONTROL_RUNTIME kalandra-native-runtime-${VARIANT})
+    endif()
+    add_test(NAME native-metal-device-array-result-safety-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/DeviceArraySafetyTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --metal-runtime "$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+        --runtime "$<TARGET_FILE:${ARRAY_CONTROL_RUNTIME}>" --variant "${VARIANT}" --results-only
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-array-result-safety-${VARIANT}")
+    set_tests_properties(native-metal-device-array-result-safety-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-array-safety-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/DeviceArraySafetyTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --clang "${CMAKE_CXX_COMPILER}"
+        --metal-runtime "$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+        --runtime "$<TARGET_FILE:${ARRAY_CONTROL_RUNTIME}>" --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-array-safety-${VARIANT}")
+    set_tests_properties(native-metal-device-array-safety-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-device-bool-safety-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceBoolSafetyTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --clang "${CMAKE_CXX_COMPILER}"
+        --metal-runtime "$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+        --runtime "$<TARGET_FILE:${ARRAY_CONTROL_RUNTIME}>" --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-bool-safety-${VARIANT}")
+    set_tests_properties(native-metal-device-bool-safety-${VARIANT} PROPERTIES TIMEOUT 1200
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    if(NOT VARIANT STREQUAL "optimized")
+      add_test(NAME native-metal-device-bool-${VARIANT}
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceBoolTests.py"
+          --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
+          --root "${CMAKE_CURRENT_BINARY_DIR}/device-bool-${VARIANT}")
+      set_tests_properties(native-metal-device-bool-${VARIANT} PROPERTIES TIMEOUT 1200
+        RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    endif()
+    add_test(NAME native-metal-device-sort-bits-${VARIANT}
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/DeviceSortBitsTests.py"
+        --compiler "$<TARGET_FILE:kalandra>" --backend metal --clang "${CMAKE_CXX_COMPILER}"
+        --metal-runtime "$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+        --runtime "$<TARGET_FILE:${ARRAY_CONTROL_RUNTIME}>" --variant "${VARIANT}"
+        --root "${CMAKE_CURRENT_BINARY_DIR}/device-sort-bits-${VARIANT}")
+    set_tests_properties(native-metal-device-sort-bits-${VARIANT} PROPERTIES TIMEOUT 1200
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endforeach()
 endif()

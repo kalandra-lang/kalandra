@@ -36,23 +36,23 @@ int main() {
       auto mutation = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                            "  scale:float32=1\n  scale=2\n  x*scale\n" +
                            host);
-      require(!mutation && mutation.error().message.find("CPU execution") != std::string::npos,
-              "GPU kernel admitted mutable scalar state");
+      require(bool(mutation), "device scalar mutation rejected");
       auto loop = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                        "  while false: 0\n  x+x\n" +
                        host);
-      require(!loop && loop.error().message.find("CPU execution") != std::string::npos,
-              "GPU kernel admitted statement loops");
+      require(bool(loop), "device statement loop rejected");
       auto arrayWrite = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                              "  local=[1,2]\n  local[0]=3\n  x+x\n" +
                              host);
-      require(!arrayWrite && arrayWrite.error().message.find("CPU execution") != std::string::npos,
-              "GPU kernel admitted array element assignment");
+      require(bool(arrayWrite), "device local array write with tensor result rejected");
       auto arraySort = emit("fn twice(x:Tensor[float32,?])->Tensor[float32,?]:\n"
                             "  local=sorted([2,1])\n  x+x\n" +
                             host);
-      require(!arraySort && arraySort.error().message.find("CPU") != std::string::npos,
-              "GPU kernel admitted CPU array sorting");
+      require(bool(arraySort), "device array sorting rejected");
+      for (const auto *program : {&mutation, &loop, &arrayWrite, &arraySort})
+        require((*program)->at("host.cpp").find("NumericInstructionKind::DeviceControl") !=
+                    std::string::npos,
+                "tensor control was routed through host computation");
       auto hostArray =
           emit(kernel + std::string("fn main()->Tensor[float32,3] ! TaskError:\n"
                                     "  local:[float32]=[1,2,3]\n  local[0]=float32(3)\n"
@@ -66,6 +66,57 @@ int main() {
       require(hostArray->at("host.cpp").find("HostArrayScopes arrayScopes") != std::string::npos &&
                   hostArray->contains("cpu-steps.mlir"),
               "mixed host array bypassed native ownership lowering");
+      const std::string scalar =
+          "fn work(n:int)->int:\n  total=0\n  for i in range(n):\n"
+          "    if i==5:\n      continue\n    if i>20:\n      break\n"
+          "    total=total+i\n  total\n"
+          "fn main()->int ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n"
+          "    try await spawn work(100) on gpu\n";
+      auto deviceLoop = emit(scalar);
+      require(bool(deviceLoop), "checkpointed scalar loop rejected: " +
+                                    (deviceLoop ? "" : deviceLoop.error().message));
+      require(deviceLoop->at("host.cpp").find("NumericInstructionKind::ScalarControl") !=
+                  std::string::npos,
+              "device loop was routed through a host continuation");
+      bool checkpoint = false;
+      for (const auto &[name, artifact] : *deviceLoop)
+        if (name.ends_with(".mlir"))
+          checkpoint |= artifact.find("scf.while") != std::string::npos &&
+                        artifact.find("memref.store") != std::string::npos;
+      require(checkpoint, "device loop has no bounded resumable shader");
+      const std::string recordEntry =
+          "fn main()->int ! TaskError:\n  try parallel:\n"
+          "    gpu=devices.gpu()\n    try await spawn work(42) on gpu\n";
+      auto arrays = emit("fn work(n:int)->int:\n  values=[1,2,3]\n"
+                         "  alias=values\n  alias[0]=n\n  copied=copy(values)\n"
+                         "  total=0\n  for value in copied:\n    total=total+value\n  total\n" +
+                         recordEntry);
+      require(bool(arrays), "device-local array lowering rejected: " +
+                                (arrays ? "" : arrays.error().message));
+      require(arrays->at("host.cpp").find("NumericInstructionKind::DeviceControl") !=
+                  std::string::npos,
+              "device arrays were routed through host computation");
+      auto record = emit("type Row:\n  value:int\n  enabled:Bool\n"
+                         "fn work(n:int)->int:\n  row=Row {value:n,enabled:true}\n"
+                         "  if row.enabled:row.value\n  else:0\n" +
+                         recordEntry);
+      require(bool(record),
+              "plain device record rejected: " + (record ? "" : record.error().message));
+      require(record->at("host.cpp").find("NumericInstructionKind::ScalarControl") !=
+                  std::string::npos,
+              "device record was routed through host evaluation");
+      auto ownedRecord = emit("type Row:\n  values:[int]\n"
+                              "fn work(n:int)->int:\n  row=Row {values:[n]}\n  row.values[0]\n" +
+                              recordEntry);
+      require(bool(ownedRecord), "device owned record rejected");
+      require(ownedRecord->at("host.cpp").find("NumericInstructionKind::DeviceControl") !=
+                  std::string::npos,
+              "owned record bypassed device storage");
+      auto transportedRecord =
+          emit("type Row:\n  value:int\nfn work(n:int)->Row:\n  Row {value:n}\n"
+               "fn main()->int ! TaskError:\n  try parallel:\n"
+               "    gpu=devices.gpu()\n    row=try await spawn work(42) on gpu\n    row.value\n");
+      require(bool(transportedRecord), "device record result transport rejected");
       auto readOnly =
           emit(kernel + std::string("fn write(values:[int])->int:\n  values[0]=3\n  values[0]\n") +
                host);
@@ -84,7 +135,7 @@ int main() {
       require(!shared && shared.error().message.find("may still read") != std::string::npos,
               "mixed host admitted an alias write while a task reads its backing");
     }
-    std::cout << "Metal/Vulkan/CUDA: host loops, group release and kernel rejection gates passed\n";
+    std::cout << "Metal/Vulkan/CUDA: host/device loops, owned values, group release and read-only gates passed\n";
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';
     return 1;

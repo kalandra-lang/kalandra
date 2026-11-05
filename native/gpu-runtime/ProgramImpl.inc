@@ -11,7 +11,7 @@ struct ProgramDefinition {
 namespace {
 using K = NumericProgramKind;
 std::expected<std::uint32_t, Error> cells(const TensorValue &value) {
-  if (value.rank > value.dimensions.size() || (value.scalar && value.rank))
+  if (value.arrayResult || value.rank > value.dimensions.size() || (value.scalar && value.rank))
     return std::unexpected(Error::Invalid);
   for (auto extent : value.shape())
     if (extent > INT64_MAX)
@@ -30,7 +30,8 @@ bool sameShape(const TensorValue &a, const TensorValue &b) {
   return a.scalar == b.scalar && a.rank == b.rank &&
          std::equal(a.shape().begin(), a.shape().end(), b.shape().begin());
 }
-bool computes(K kind) { return kind == K::Map || kind == K::Reduce || kind == K::Matmul; }
+bool maps(K kind) { return kind == K::Map || isGpuControlKind(kind); }
+bool computes(K kind) { return maps(kind) || kind == K::Reduce || kind == K::Matmul; }
 bool produces(K kind) { return computes(kind) || kind == K::Alias; }
 std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
   const auto &kernel = *op.kernel;
@@ -80,19 +81,21 @@ std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
       return std::unexpected(Error::Allocation);
     }
   }
-  const auto physical = op.kind == K::Map && kernel.reads ? kernel.reads->size() : op.inputs.size();
+  const auto physical = maps(op.kind) && kernel.reads
+                            ? kernel.reads->size()
+                            : op.inputs.size() + unsigned(op.kind == K::DeviceControl);
   if (kernel.kernel.inputCount() != physical)
     return std::unexpected(Error::Invalid);
   if (kernel.reads) {
     std::uint32_t previous = 0;
     for (std::size_t i = 0; i < kernel.reads->size(); ++i) {
       const auto input = (*kernel.reads)[i];
-      if (input >= op.inputs.size() || (i && input <= previous) ||
-          (op.kind != K::Map && input != i))
+      const auto count = op.inputs.size() + unsigned(op.kind == K::DeviceControl);
+      if (input >= count || (i && input <= previous) || (!maps(op.kind) && input != i))
         return std::unexpected(Error::Invalid);
       previous = input;
     }
-    if (op.kind != K::Map && kernel.reads->size() != op.inputs.size())
+    if (!maps(op.kind) && kernel.reads->size() != op.inputs.size())
       return std::unexpected(Error::Invalid);
   }
   auto contract = kernelContract(kernel, op.kind);
@@ -108,9 +111,44 @@ std::expected<void, Error> validateKernel(const ProgramInstruction &op) try {
 
 bool validInstruction(const ProgramInstruction &op) {
   const auto n = op.inputs.size();
-  if (op.kind != K::Map && !op.scalarSources.empty())
+  if (!maps(op.kind) && !op.scalarSources.empty())
     return false;
   switch (op.kind) {
+  case K::DeviceControl:
+    if (!op.kernel || !op.kernel->scalar || op.target ||
+        op.kernel->scalarTypes.size() < detail::ControlArenaABI::Cells ||
+        op.kernel->tensorTypes.size() != n + 1 ||
+        op.kernel->tensorTypes.back() != NumericType::UInt64 ||
+        op.kernel->scalarBuffers.size() != n + 1 ||
+        !detail::validControlInputRoles(op.kernel->scalarBuffers, op.kernel->scalarTypes.size()) ||
+        (detail::ControlTensorInputs::resultRank(op.kernel->scalarBuffers.back()) &&
+         op.kernel->type != NumericType::UInt64) ||
+        !std::all_of(op.constants.begin(), op.constants.end(), [](auto x) { return x == 0; }) ||
+        !std::all_of(op.kernel->scalarTypes.begin(), op.kernel->scalarTypes.end(),
+                     [](auto type) { return type == NumericType::UInt64; }) ||
+        op.kernel->scalarTypes.size() != op.scalarSources.size() + op.constants.size())
+      return false;
+    for (std::size_t i = 0; i < n; ++i)
+      if (op.kernel->scalarBuffers[i] == DeviceArrayWireABI::InputRole &&
+          op.kernel->tensorTypes[i] != NumericType::UInt64)
+        return false;
+    if (op.kernel->reads) {
+      if (op.kernel->reads->size() != n + 1)
+        return false;
+      for (std::size_t i = 0; i <= n; ++i)
+        if ((*op.kernel->reads)[i] != i)
+          return false;
+    }
+    return true;
+  case K::ScalarControl:
+    if (!op.kernel || !op.kernel->scalar || op.target || op.kernel->scalarTypes.empty() ||
+        !std::all_of(op.constants.begin(), op.constants.end(), [](auto x) { return x == 0; }) ||
+        !std::all_of(op.kernel->scalarTypes.begin(), op.kernel->scalarTypes.end(),
+                     [](auto t) { return t == NumericType::UInt64; }) ||
+        !std::all_of(op.kernel->scalarBuffers.begin(), op.kernel->scalarBuffers.end(),
+                     [](auto role) { return role == 1; }))
+      return false;
+    [[fallthrough]];
   case K::Map:
     return op.kernel && op.kernel->tensorTypes.size() == n &&
            op.kernel->scalarTypes.size() == op.scalarSources.size() + op.constants.size() &&
@@ -157,15 +195,18 @@ std::expected<KernelContract, Error> kernelContract(const ProgramKernel &kernel,
   result.inputs = kind == K::Matmul ? 2 : kind == K::Reduce ? 1 :
                   kernel.reads ? kernel.reads->size() : kernel.tensorTypes.size();
   result.parameterWords = kind == K::Matmul ? 4 : 2;
-  if (kind == K::Map)
+  if (maps(kind))
     for (auto type : kernel.scalarTypes)
       result.parameterWords += describeNumeric(type)->bits == 64 ? 2 : 1;
-  result.entry = kind == K::Map ? numericKernelName(kernel.type, kernel.tensorTypes, kernel.scalarTypes)
-      : "kalandra_numeric_v1_" + std::string(kind == K::Reduce ? "reduce_" : "matmul_") +
-        std::string(describeNumeric(kernel.type)->name);
-  if (kind == K::Map && std::any_of(kernel.scalarBuffers.begin(), kernel.scalarBuffers.end(), [](auto role) { return role != 0; })) {
+  result.entry = maps(kind) ? numericKernelName(kernel.type, kernel.tensorTypes, kernel.scalarTypes)
+                            : "kalandra_numeric_v1_" +
+                                  std::string(kind == K::Reduce ? "reduce_" : "matmul_") +
+                                  std::string(describeNumeric(kernel.type)->name);
+  if (maps(kind) && std::any_of(kernel.scalarBuffers.begin(), kernel.scalarBuffers.end(),
+                                [](auto role) { return role != 0; })) {
     result.entry += "_d_";
-    for (auto role : kernel.scalarBuffers) result.entry += role ? 's' : 't';
+    for (auto role : kernel.scalarBuffers)
+      result.entry += detail::ControlTensorInputs::encode(role);
   }
   result.entry += backendKernelSuffix;
   return result;
@@ -174,7 +215,8 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
                                                std::span<const ProgramInstruction> code,
                                                std::uint32_t result, NumericType resultType,
                                                bool scalar, ProgramLimits limits) {
-  if (!describeNumeric(resultType) || !limits.maxMetadataBytes)
+  if (!describeNumeric(resultType) || !limits.maxMetadataBytes ||
+      (limits.booleanResult && (!scalar || resultType != NumericType::UInt8)))
     return std::unexpected(Error::Invalid);
   std::uint64_t slots = inputCount, bytes = sizeof(ProgramDefinition), peakDispatch = 0;
   const auto charge = [&](std::uint64_t count, std::uint64_t unit) {
@@ -191,6 +233,15 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
         (produces(op.kind) && op.output < inputCount) ||
         ((op.kind == K::Branch || op.kind == K::Jump) &&
          (op.target <= pc || op.target > code.size())))
+      return std::unexpected(Error::Invalid);
+    // Export descriptors are a terminal private transport, never intermediate
+    // numerical values. Require an explicit UInt64 carrier and array result.
+    if (op.kernel && std::find(op.kernel->scalarBuffers.begin(),
+                              op.kernel->scalarBuffers.end(), DeviceArrayWireABI::ExportRole) !=
+                         op.kernel->scalarBuffers.end() &&
+        (op.kind != K::DeviceControl || op.kernel->scalarBuffers.back() != DeviceArrayWireABI::ExportRole ||
+         pc + 1 != code.size() || op.output != result || scalar ||
+         resultType != NumericType::UInt64 || op.kernel->type != NumericType::UInt64))
       return std::unexpected(Error::Invalid);
     if (produces(op.kind))
       slots = std::max(slots, std::uint64_t(op.output) + 1);
@@ -217,7 +268,8 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
         return std::unexpected(Error::Budget);
       const std::uint64_t words = kernel.kernel.parameterWords();
       peakDispatch = std::max(peakDispatch, kernel.kernel.inputCount() * sizeof(Buffer) +
-                                                words * 8 + sizeof(ProgramDispatch));
+                                                words * (isGpuControlKind(op.kind) ? 12 : 8) +
+                                                sizeof(ProgramDispatch));
     }
   }
   // Charge invocation slots too: a small code array must not authorize an
@@ -266,6 +318,9 @@ std::optional<NumericType> Program::scalarType() const noexcept {
   if (!definition_ || !definition_->scalar)
     return {};
   return definition_->resultType;
+}
+bool Program::booleanResult() const noexcept {
+  return definition_ && definition_->limits.booleanResult;
 }
 std::expected<ProgramExecution, Error>
 Program::start(Runtime &runtime, std::span<const TensorValue> inputs,
@@ -320,6 +375,50 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
   if (!definition_ || pending_)
     return fail(Error::Invalid);
   try {
+    if (exportMetadata_ || exportTensor_) {
+      // One fence-complete page per service step. Cancellation is checked by
+      // the outer service before every next(), including the final copy page.
+      Buffer payload;
+      if (controlExport_.active()) {
+        auto copied = controlExport_.advance(
+            [&](auto bytes) { return runtime.blankBytes(bytes); },
+            [&](const auto &from, const auto &to, auto source, auto target, auto bytes) {
+              return runtime.copyPrivateBytes(from, to, source, target, bytes);
+            });
+        if (!copied)
+          return fail(copied.error());
+        if (!*copied)
+          return std::optional<ProgramDispatch>{};
+        payload = *controlExport_.result();
+      } else {
+        // Alias and empty results still have a real, zero-sized private owner.
+        auto empty = runtime.blankBytes(0);
+        if (!empty)
+          return fail(empty.error());
+        payload = std::move(*empty);
+      }
+      output_ = {};
+      output_.type = NumericType::UInt64;
+      output_.data = std::move(payload);
+      if (exportTensor_) {
+        output_.rank = exportTensor_->rank;
+        output_.dimensions = exportTensor_->extents;
+      } else {
+        output_.rank = 1;
+        output_.dimensions[0] = output_.data.bytes() / 8;
+        output_.arrayResult = *exportMetadata_;
+      }
+      const auto &op = definition_->code[pc_];
+      values_[op.output] = std::move(output_);
+      for (auto input : op.inputs)
+        release(input);
+      controlExport_ = {};
+      controlArena_ = {};
+      exportMetadata_.reset();
+      exportTensor_.reset();
+      ++pc_;
+      return std::optional<ProgramDispatch>{};
+    }
     if (pc_ < definition_->code.size()) {
       const auto &op = definition_->code[pc_];
       for (auto input : op.inputs)
@@ -390,6 +489,36 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
       if (values_[op.output].data)
         return fail(Error::Invalid);
       const auto &schema = *op.kernel;
+      if (op.kind == K::DeviceControl && (!controlArena_.buffer() || controlArena_.growing())) {
+        if (!controlArena_.growing()) {
+          auto requested = controlArena_.request(detail::ControlArenaABI::InitialWords);
+          if (!requested)
+            return fail(requested.error());
+        }
+        auto advanced = controlArena_.advance(
+            [&](auto bytes) { return runtime.blankBytes(bytes); },
+            [&](const auto &from, const auto &to, auto offset, auto bytes) {
+              return runtime.copyPrivateBytes(from, to, offset, bytes);
+            });
+        if (!advanced)
+          return fail(advanced.error());
+        if (*advanced && !controlParameters_.empty()) {
+          using ABI = detail::ControlArenaABI;
+          const auto set = [&](std::size_t cell, std::uint64_t value) {
+            controlParameters_[1 + cell * 2] = std::uint32_t(value);
+            controlParameters_[2 + cell * 2] = std::uint32_t(value >> 32);
+          };
+          const auto resume = std::uint64_t(controlParameters_[1 + ABI::Resume * 2]) |
+                              (std::uint64_t(controlParameters_[2 + ABI::Resume * 2]) << 32);
+          set(ABI::PC, resume);
+          set(ABI::Capacity, controlArena_.words());
+          set(ABI::Requested, 0);
+          set(ABI::Resume, 0);
+        }
+        // Growth is one completion-service step, even on the final copy page.
+        // The caller checks cancellation before requesting the next dispatch.
+        return std::optional<ProgramDispatch>{};
+      }
       ProgramDispatch dispatch{schema.kernel, {}, {}, 0, 0};
       output_ = {};
       output_.type = schema.type;
@@ -458,13 +587,19 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
         parameterWords_ = 6;
         pending_ = true;
         return std::optional<ProgramDispatch>(std::move(dispatch));
-      } else if (op.kind == K::Map) {
+      } else if (maps(op.kind)) {
         std::optional<std::size_t> domain;
         for (std::size_t i = 0; i < op.inputs.size(); ++i) {
           const auto &value = values_[op.inputs[i]];
-          if (value.type != schema.tensorTypes[i] || value.scalar != bool(schema.scalarBuffers[i]))
+          if (value.type != schema.tensorTypes[i] || value.scalar != (schema.scalarBuffers[i] == 1))
             return fail(Error::Invalid);
-          if (!schema.scalarBuffers[i]) {
+          if (schema.scalarBuffers[i] == DeviceArrayWireABI::InputRole) {
+            if (op.kind != K::DeviceControl || value.rank != 1 || value.type != NumericType::UInt64)
+              return fail(Error::Invalid);
+          } else if (auto rank = detail::ControlTensorInputs::rank(schema.scalarBuffers[i])) {
+            if (op.kind != K::DeviceControl || value.rank != *rank)
+              return fail(Error::Invalid);
+          } else if (!schema.scalarBuffers[i]) {
             if (domain && !sameShape(value, values_[op.inputs[*domain]]))
               return fail(Error::Shape);
             domain = i;
@@ -472,10 +607,14 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
         }
         if (schema.reads)
           for (auto input : *schema.reads)
-            dispatch.inputs.push_back(values_[op.inputs[input]].data);
+            dispatch.inputs.push_back(op.kind == K::DeviceControl && input == op.inputs.size()
+                                          ? controlArena_.buffer()
+                                          : values_[op.inputs[input]].data);
         else
           for (auto input : op.inputs)
             dispatch.inputs.push_back(values_[input].data);
+        if (op.kind == K::DeviceControl && !schema.reads)
+          dispatch.inputs.push_back(controlArena_.buffer());
         if (schema.scalar == domain.has_value())
           return fail(Error::Invalid);
         if (domain) {
@@ -497,7 +636,8 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
           } else
             value = op.constants[i - op.scalarSources.size()];
           const auto width = describeNumeric(schema.scalarTypes[i])->bits;
-          if (width < 64 && value >> width)
+          if ((width < 64 && value >> width) ||
+              (isGpuControlKind(op.kind) && controlParameters_.empty() && value))
             return fail(Error::Invalid);
           dispatch.parameters.push_back(std::uint32_t(value));
           if (width == 64)
@@ -557,6 +697,33 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
                                std::uint32_t(b.dimensions[1])};
       } else
         return fail(Error::Invalid);
+      if (isGpuControlKind(op.kind) && !controlParameters_.empty())
+        dispatch.parameters = controlParameters_;
+      if (op.kind == K::DeviceControl && controlParameters_.empty()) {
+        using ABI = detail::ControlArenaABI;
+        dispatch.parameters[1 + ABI::Capacity * 2] = std::uint32_t(controlArena_.words());
+        dispatch.parameters[2 + ABI::Capacity * 2] = std::uint32_t(controlArena_.words() >> 32);
+      }
+      if (op.kind == K::DeviceControl) {
+        const auto read = [&](std::size_t cell) {
+          return std::uint64_t(dispatch.parameters[1 + 2 * cell]) |
+                 (std::uint64_t(dispatch.parameters[2 + 2 * cell]) << 32);
+        };
+        const auto write = [&](std::size_t cell, std::uint64_t value) {
+          dispatch.parameters[1 + 2 * cell] = value;
+          dispatch.parameters[2 + 2 * cell] = value >> 32;
+        };
+        if (!detail::controlInputMetadata(schema.scalarBuffers, schema.scalarTypes.size(),
+                controlParameters_.empty(),
+                [&](std::size_t i) {
+                  const auto &value = values_[op.inputs[i]];
+                  return std::span(value.dimensions).first(value.rank);
+                },
+                [&](std::size_t i) { return values_[op.inputs[i]].data.bytes(); },
+                [&](std::size_t i) { return describeNumeric(values_[op.inputs[i]].type)->bytes(); },
+                read, write))
+          return fail(Error::Invalid);
+      }
       dispatch.parameters.push_back(UINT32_MAX);
       dispatch.outputBytes = std::uint64_t(count) * describeNumeric(schema.type)->bytes();
       const auto width = schema.kernel.localSize();
@@ -586,14 +753,117 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
     return fail(Error::Invalid);
   if (!runtime.owns(definition_->code[pc_].kernel->kernel) || !runtime.owns(result.output))
     return fail(Error::Residency);
-  if (result.parameters.back() != UINT32_MAX)
-    return fail(Error::Arithmetic);
+  if (result.parameters.back() != UINT32_MAX) {
+    if (definition_->code[pc_].kind != K::DeviceControl)
+      return fail(Error::Arithmetic);
+    switch (result.parameters.back()) {
+    case 0: return fail(Error::Arithmetic);
+    case 1: return fail(Error::Bounds);
+    case 2: return fail(Error::Allocation);
+    case 3: return fail(Error::Budget);
+    case 4: return fail(Error::Shape);
+    default: return fail(Error::Invalid);
+    }
+  }
   auto size = cells(output_);
   if (!size || !result.output ||
       result.output.bytes() != std::uint64_t(*size) * describeNumeric(output_.type)->bytes())
     return fail(Error::Invalid);
   output_.data = std::move(result.output);
   pending_ = false;
+  if (isGpuControlKind(definition_->code[pc_].kind)) {
+    if (result.parameters.size() < 4 || result.parameters[0] != 1)
+      return fail(Error::Invalid);
+    const auto next =
+        std::uint64_t(result.parameters[1]) | (std::uint64_t(result.parameters[2]) << 32);
+    if (!next)
+      return fail(Error::Invalid);
+    if (definition_->code[pc_].kind == K::DeviceControl) {
+      using ABI = detail::ControlArenaABI;
+      if (result.parameters.size() < 2 + 2 * ABI::Cells)
+        return fail(Error::Invalid);
+      const auto cell = [&](std::size_t index) {
+        return std::uint64_t(result.parameters[1 + index * 2]) |
+               (std::uint64_t(result.parameters[2 + index * 2]) << 32);
+      };
+      const auto &instruction = definition_->code[pc_];
+      if (cell(ABI::Capacity) != controlArena_.words() ||
+          !detail::controlInputMetadata(instruction.kernel->scalarBuffers,
+              instruction.kernel->scalarTypes.size(), false,
+              [&](std::size_t i) {
+                const auto &value = values_[instruction.inputs[i]];
+                return std::span(value.dimensions).first(value.rank);
+              },
+              [&](std::size_t i) { return values_[instruction.inputs[i]].data.bytes(); },
+              [&](std::size_t i) { return describeNumeric(values_[instruction.inputs[i]].type)->bytes(); },
+              cell, [](std::size_t, std::uint64_t) {}))
+        return fail(Error::Invalid);
+      const auto terminal = instruction.kernel->scalarBuffers.back();
+      if (const auto rank = detail::ControlTensorInputs::resultRank(terminal)) {
+        using T = detail::ControlTensorExportABI;
+        if (next == ABI::Done) {
+          auto range = detail::controlTensorExportRange(cell, controlArena_.words(), *rank);
+          if (!range || cell(ABI::Requested) || cell(ABI::Resume))
+            return fail(Error::Invalid);
+          if (range->length) {
+            auto started = controlExport_.start(controlArena_.buffer(), range->offsetWords, range->length);
+            if (!started)
+              return fail(started.error());
+          }
+          exportTensor_ = *range;
+          controlParameters_.clear();
+          output_ = {};
+          return {};
+        }
+        for (std::size_t i = T::Root; i < T::Cells; ++i)
+          if (cell(i))
+            return fail(Error::Invalid);
+      }
+      if (instruction.kernel->scalarBuffers.back() == DeviceArrayWireABI::ExportRole) {
+        if (next == ABI::Done) {
+          const auto captures = std::count(instruction.kernel->scalarBuffers.begin(),
+                                          instruction.kernel->scalarBuffers.end(),
+                                          DeviceArrayWireABI::InputRole);
+          auto range = detail::controlArrayExportRange(cell, controlArena_.words(), captures);
+          if (!range || cell(ABI::Requested) || cell(ABI::Resume))
+            return fail(Error::Invalid);
+          if (!range->metadata.origin && range->metadata.length) {
+            auto started = controlExport_.start(controlArena_.buffer(), range->offsetWords,
+                                                range->metadata.length);
+            if (!started)
+              return fail(started.error());
+          }
+          exportMetadata_ = range->metadata;
+          controlParameters_.clear();
+          output_ = {};
+          return {};
+        }
+        for (std::size_t i = DeviceArrayExportABI::Root; i < DeviceArrayExportABI::Cells; ++i)
+          if (cell(i))
+            return fail(Error::Invalid);
+      }
+      if (next == ABI::Grow) {
+        if (!cell(ABI::Resume) || cell(ABI::Resume) >= ABI::Grow)
+          return fail(Error::Invalid);
+        auto request = controlArena_.request(cell(ABI::Requested));
+        if (!request)
+          return fail(request.error());
+      } else if (cell(ABI::Requested) || cell(ABI::Resume))
+        return fail(Error::Invalid);
+    }
+    if (next != UINT64_MAX) {
+      try {
+        controlParameters_.assign(result.parameters.begin(), result.parameters.end() - 1);
+      } catch (const std::bad_alloc &) {
+        return fail(Error::Allocation);
+      }
+      output_ = {};
+      return {};
+    }
+    controlParameters_.clear();
+    controlArena_ = {};
+  }
+
   if (matrixTransposing_) {
     matrixRight_ = std::move(output_);
     matrixTransposing_ = false;

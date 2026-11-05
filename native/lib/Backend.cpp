@@ -3947,8 +3947,6 @@ static std::expected<BackendOutput, std::string> lowerNativeImpl(const TypedModu
     return std::unexpected(*error);
   const auto storage = planRecordStorage(input);
   const bool recursive = storage && hasRecursiveStorage(*storage);
-  if (recursive && !exports.empty())
-    return std::unexpected("recursive programs do not yet support CPU bridge exports");
   if (hasPlacement(input))
     return std::unexpected("placement-aware IR requires a placement-capable execution backend");
   if (std::ranges::any_of(input.functions, [](const auto &f) { return f.resultType.fallible; }) ||

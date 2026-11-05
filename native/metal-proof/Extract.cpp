@@ -10,14 +10,50 @@
 #include "mlir/Parser/Parser.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/SmallVector.h"
 #include <string_view>
+
+namespace {
+void outlineWideSubtraction(mlir::spirv::ModuleOp module) {
+  using namespace mlir;
+  llvm::SmallVector<spirv::ISubOp> sites;
+  module.walk([&](spirv::ISubOp op) {
+    if (op.getResult().getType().isSignlessInteger(64))
+      sites.push_back(op);
+  });
+  if (sites.empty())
+    return;
+  // Keep the subtraction outside the checkpoint shader's optimizer region.
+  // NVIDIA 595.112.07 can fail to compile the equivalent inline form.
+  OpBuilder builder(module.getContext());
+  builder.setInsertionPointToEnd(&module->getRegion(0).front());
+  const auto loc = module.getLoc();
+  const auto i64 = builder.getI64Type();
+  auto helper = spirv::FuncOp::create(builder, loc, "__kalandra_checkpoint_sub_i64",
+      builder.getFunctionType({i64, i64}, {i64}), spirv::FunctionControl::DontInline);
+  auto *entry = helper.addEntryBlock();
+  builder.setInsertionPointToStart(entry);
+  auto difference = spirv::ISubOp::create(builder, loc, i64, entry->getArgument(0), entry->getArgument(1));
+  spirv::ReturnValueOp::create(builder, loc, difference.getResult());
+  for (auto op : sites) {
+    builder.setInsertionPoint(op);
+    auto call = spirv::FunctionCallOp::create(builder, op.getLoc(), i64,
+        FlatSymbolRefAttr::get(helper.getSymNameAttr()), op->getOperands());
+    op.getResult().replaceAllUsesWith(call.getResult(0));
+    op.erase();
+  }
+}
+} // namespace
 
 // GPUToSPIRV retains the original gpu.module alongside its converted clone.
 // Extract via the IR API, and make separate rounding explicit before serialization.
 int main(int argc, char **argv) {
-  if (argc != 3 && !(argc == 4 && std::string_view(argv[3]) == "--metal-compiler-rounding")) {
+  const auto mode = argc == 4 ? std::string_view(argv[3]) : std::string_view{};
+  const bool metalRounding = mode == "--metal-compiler-rounding";
+  const bool outline = mode == "--vulkan-outline-i64-sub";
+  if (argc != 3 && !(metalRounding || outline)) {
     llvm::errs() << "usage: kalandra-metal-extract <converted.mlir> <kernel.mlir> "
-                    "[--metal-compiler-rounding]\n";
+                    "[--metal-compiler-rounding|--vulkan-outline-i64-sub]\n";
     return 2;
   }
   mlir::DialectRegistry registry;
@@ -38,12 +74,12 @@ int main(int argc, char **argv) {
     return 1;
   }
   selected.walk<mlir::WalkOrder::PostOrder>([&](mlir::Operation *op) {
-    if (argc == 3 && mlir::isa<mlir::spirv::FMulOp, mlir::spirv::FAddOp>(op))
+    if (!metalRounding && mlir::isa<mlir::spirv::FMulOp, mlir::spirv::FAddOp>(op))
       op->setAttr("no_contraction", mlir::UnitAttr::get(&context));
     // LLVM 23 canonicalizes integer compare/select into min/max. MSL 2.2
     // has no signed/unsigned 64-bit min/max overloads; preserve exact integer
     // semantics using comparisons and selects after the last canonicalizer.
-    if (argc != 4 ||
+    if (!metalRounding ||
         !mlir::isa<mlir::spirv::GLSMaxOp, mlir::spirv::GLSMinOp, mlir::spirv::GLUMaxOp,
                    mlir::spirv::GLUMinOp>(op) ||
         !op->getResult(0).getType().isInteger(64))
@@ -68,6 +104,8 @@ int main(int argc, char **argv) {
     op->getResult(0).replaceAllUsesWith(selectedValue.getResult());
     op->erase();
   });
+  if (outline)
+    outlineWideSubtraction(selected);
   if (mlir::failed(mlir::verify(selected)))
     return 1;
   std::error_code error;

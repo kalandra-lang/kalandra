@@ -126,16 +126,22 @@ std::string describeType(const ValueType &type) {
     out << (type.errorRecord ? " ! error#" + std::to_string(*type.errorRecord) : " ! TaskError");
   return out.str();
 }
-std::optional<std::string> numericCapabilityError(const TypedModule &module, NumericTarget target) {
-  if (auto error = recursiveProgramError(module))
+std::optional<std::string> numericCapabilityError(const TypedModule &module, NumericTarget target,
+                                                  bool mixedPlacement) {
+  if (mixedPlacement && target != NumericTarget::Cpu)
+    return "mixed placement validation requires CPU host types";
+  if (auto error = recursiveProgramError(module, mixedPlacement))
     return error;
-  if (auto error = functionValueCapabilityError(module, target))
+  if (auto error = functionValueCapabilityError(module, target, mixedPlacement))
     return error;
   if (hasOrdinaryStrings(module)) {
-    if (target != NumericTarget::Cpu || hasPlacement(module))
+    if (target != NumericTarget::Cpu || (hasPlacement(module) && !mixedPlacement))
       return "ordinary Strings currently require CPU execution without placement";
   }
-  if (!module.records.empty() && (target != NumericTarget::Cpu || hasPlacement(module)))
+  // Placement is checked by the device compiler at each placed entry. Plain
+  // records in a CPU-typed module are also used by checkpointed device helpers;
+  // their mere presence must not reject the whole mixed CPU/GPU program.
+  if (!module.records.empty() && target != NumericTarget::Cpu)
     return "record values currently require CPU execution";
   const auto error = [&](const ValueType &type) -> std::optional<std::string> {
     if (type.errorRecord && (!type.fallible || *type.errorRecord >= module.records.size() ||

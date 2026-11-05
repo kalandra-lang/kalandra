@@ -53,8 +53,15 @@ int main(int argc, char **argv) {
             "valid recursive source rejected");
     auto planned = continuation::plan(*valid.module);
     require(bool(planned), "checked recursive continuation plan rejected");
-    require(!continuation::plan(*valid.module, {true}),
-            "unqualified recursive preserved-call plan admitted");
+    auto preserved = continuation::plan(*valid.module, {.preserveCalls = true});
+    require(preserved &&
+                std::ranges::any_of(preserved->plans,
+                                    [](const auto &plan) {
+                                      return std::ranges::any_of(plan->code, [](const auto &op) {
+                                        return op.code == continuation::Code::Call;
+                                      });
+                                    }),
+            "recursive native helper was expanded instead of preserving its checked call");
     require(
         std::ranges::any_of(planned->plans,
                             [](const auto &plan) {
@@ -70,7 +77,10 @@ int main(int argc, char **argv) {
     require(lowered && lowered->mlir.find("scf.index_switch") != std::string::npos &&
                 lowered->llvm.find("kalandra_recursive_make_v1") != std::string::npos,
             "recursive source did not use ordinary checked switch/boxing lowering");
-    require(!lowerNative(*valid.module, {}, {"sum"}), "recursive bridge exports admitted");
+    auto exported = lowerNative(*valid.module, {}, {"sum"});
+    require(exported && exported->llvm.find("_mlir_ciface_kalandra_cpu_0") != std::string::npos &&
+                exported->llvm.find("kalandra_recursive_read_v1") != std::string::npos,
+            "recursive native bridge lost its checked nominal reads");
 #endif
     auto text = analyze(
         "enum Text:\n  Empty\n  More:\n    text:String\n    next:Text\nfn main()->int:\n  0\n");

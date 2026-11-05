@@ -1,4 +1,5 @@
 #pragma once
+#include "../gpu-runtime/ControlExport.h"
 #include "Vulkan.h"
 #include "kalandra/GpuProgram.h"
 #include "kalandra/GpuTransform.h"

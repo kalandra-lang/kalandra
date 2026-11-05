@@ -87,6 +87,97 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
          "-O2", "-o", array_app], cwd)
     assert run([array_app / "program"], cwd).stdout.strip() == "00000000000000ef"
     applications.append((array_app, "00000000000000ef"))
+    aggregate_source = cwd / "host aggregates.k"
+    aggregate_source.write_bytes((fixtures.parent / "tests/fixtures/mixed-host-aggregates/tasks.k").read_bytes())
+    aggregate_app = cwd / "host aggregates application"
+    run([compiler, aggregate_source, "--target", "metal", "-O2", "-o", aggregate_app], cwd)
+    assert run([aggregate_app / "program"], cwd).stdout.strip() == "00000000000009ea"
+    applications.append((aggregate_app, "00000000000009ea"))
+    record_result = cwd / "record result.k"
+    record_result.write_bytes((fixtures.parent / "tests/fixtures/mixed-host-aggregates/record-result.k").read_bytes())
+    record_app = cwd / "record result application"
+    run([compiler, record_result, "--target", "metal", "-O2", "-o", record_app], cwd)
+    assert run([record_app / "program"], cwd).stdout.strip() == "00000000000003d7"
+    applications.append((record_app, "00000000000003d7"))
+    graph_source = cwd / "recursive graph capture.k"
+    graph_source.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/array-graph-entry.k").read_bytes())
+    graph_app = cwd / "recursive graph capture application"
+    run([compiler, graph_source, "--target", "metal", "-O2", "-o", graph_app], cwd)
+    assert run([graph_app / "program"], cwd).stdout.strip() == "000000000000001b"
+    applications.append((graph_app, "000000000000001b"))
+    graph_result = cwd / "recursive graph result.k"
+    graph_result.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/graph-result-captured.k").read_bytes())
+    graph_result_app = cwd / "recursive graph result application"
+    run([compiler, graph_result, "--target", "metal", "-O2", "-o", graph_result_app], cwd)
+    assert run([graph_result_app / "program"], cwd).stdout.strip() == "00000000000003a0"
+    applications.append((graph_result_app, "00000000000003a0"))
+    recursive_source = cwd / "recursive call graph result.k"
+    recursive_source.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/graph-result-recursive-capture.k").read_bytes())
+    recursive_app = cwd / "recursive call graph result application"
+    run([compiler, recursive_source, "--target", "metal", "-O2", "-o", recursive_app], cwd)
+    assert run([recursive_app / "program"], cwd).stdout.strip() == "00000000000013c3"
+    applications.append((recursive_app, "00000000000013c3"))
+    closure_source = cwd / "device closure.k"
+    closure_source.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/device-array-closure.k").read_bytes())
+    closure_app = cwd / "device closure application"
+    run([compiler, closure_source, "--target", "metal", "-O2", "-o", closure_app], cwd)
+    assert run([closure_app / "program"], cwd).stdout.strip() == "00000000000000ef"
+    applications.append((closure_app, "00000000000000ef"))
+    tensor_source = cwd / "checkpointed tensor.k"
+    tensor_source.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/device-tensor-arithmetic.k").read_bytes())
+    tensor_app = cwd / "checkpointed tensor application"
+    run([compiler, tensor_source, "--target", "metal", "-O2", "-o", tensor_app], cwd)
+    assert run([tensor_app / "program"], cwd).stdout.strip() == "0000000000000546"
+    applications.append((tensor_app, "0000000000000546"))
+    tensor_return_source = cwd / "resident tensor return.k"
+    tensor_return_source.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/device-tensor-return-edge.k").read_bytes())
+    tensor_return_app = cwd / "resident tensor return application"
+    run([compiler, tensor_return_source, "--target", "metal", "-O2", "-o", tensor_return_app], cwd)
+    assert run([tensor_return_app / "program"], cwd).stdout.strip() == "000000000000000a"
+    applications.append((tensor_return_app, "000000000000000a"))
+    result_source = cwd / "device array results.k"
+    result_source.write_text("""fn ordered(values:[int])->[int]:
+  sorted(values)
+fn identity(flags:[Bool])->[Bool]:
+  flags
+fn main()->int ! TaskError:
+  values:[int]=[9,2,5]
+  flags:[Bool]=[true,false]
+  try parallel:
+    gpu=devices.gpu()
+    result=try await spawn ordered(values) on gpu
+    result[0]=7
+    alias=try await spawn identity(flags) on gpu
+    alias[0]=false
+    if not flags[0]:
+      result[0]+values[0]
+    else:
+      0
+""")
+    result_app = cwd / "device array results application"
+    run([compiler, result_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", result_app], cwd)
+    assert run([result_app / "program"], cwd).stdout.strip() == "0000000000000010"
+    applications.append((result_app, "0000000000000010"))
+    collection_source = cwd / "array main.k"
+    collection_source.write_text("""fn work(values:[int])->[int]:
+  sorted(values)
+fn main()->[int] ! TaskError:
+  values:[int]=[9,2,5]
+  try parallel:
+    gpu=devices.gpu()
+    try await spawn work(values) on gpu
+""")
+    collection_app = cwd / "array main application"
+    run([compiler, collection_source, "--target", "metal", "-O2", "-o", collection_app], cwd)
+    collection_expected = "[0000000000000002,0000000000000005,0000000000000009]"
+    assert run([collection_app / "program"], cwd).stdout.strip() == collection_expected
+    applications.append((collection_app, collection_expected))
     for name, flags in (("debug", []), ("optimized", ["-O2"]),
                         ("sanitized", ["--sanitize"]), ("thread-sanitized", ["--thread-sanitize"])):
         app = cwd / ("application " + name)

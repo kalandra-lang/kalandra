@@ -70,6 +70,53 @@ arrays = [sys.executable, repo/'native/gpu-source/HostArrayTests.py',
 if not a.execute:
     arrays.append('--compile-only')
 subprocess.run(arrays, check=True, timeout=1200)
+control = [sys.executable, repo/'native/gpu-source/ScalarControlTests.py',
+           '--compiler', compiler, '--backend', 'cuda', '--variant', 'optimized',
+           '--root', a.root/'scalar-control']
+if not a.execute:
+    control.append('--compile-only')
+subprocess.run(control, check=True, timeout=1200)
+# Exercise invocation-local allocation and collection through relocated resources.
+device_arrays = [sys.executable, repo/'native/gpu-source/DeviceArrayTests.py',
+                 '--compiler', compiler, '--backend', 'cuda',
+                 '--variant', 'optimized', '--root', a.root/'device-arrays']
+if not a.execute:
+    device_arrays.append('--compile-only')
+subprocess.run(device_arrays, check=True, timeout=1200)
+array_entries = [sys.executable, repo/'native/gpu-source/DeviceArrayEntryTests.py',
+                 '--compiler', compiler, '--backend', 'cuda',
+                 '--variant', 'optimized', '--root', a.root/'device-array-entry']
+if not a.execute:
+    array_entries.append('--compile-only')
+subprocess.run(array_entries, check=True, timeout=1200)
+array_results = [sys.executable, repo/'native/gpu-source/DeviceArrayResultTests.py',
+                 '--compiler', compiler, '--backend', 'cuda',
+                 '--variant', 'optimized', '--root', a.root/'device-array-results']
+if not a.execute:
+    array_results.append('--compile-only')
+subprocess.run(array_results, check=True, timeout=1200)
+array_main = [sys.executable, repo/'native/gpu-source/DeviceArrayMainTests.py',
+              '--compiler', compiler, '--backend', 'cuda',
+              '--variant', 'optimized', '--root', a.root/'device-array-main']
+if not a.execute:
+    array_main.append('--compile-only')
+subprocess.run(array_main, check=True, timeout=1200)
+host_aggregates = [sys.executable, repo/'native/gpu-source/HostAggregateTests.py',
+                   '--compiler', compiler, '--backend', 'cuda',
+                   '--variant', 'optimized', '--root', a.root/'host-aggregates']
+if not a.execute:
+    host_aggregates.append('--compile-only')
+subprocess.run(host_aggregates, check=True, timeout=1200)
+
+
+
+booleans = [sys.executable, repo/'native/gpu-source/DeviceBoolTests.py',
+            '--compiler', compiler, '--backend', 'cuda',
+            '--variant', 'optimized', '--root', a.root/'device-bool']
+if not a.execute:
+    booleans.append('--compile-only')
+subprocess.run(booleans, check=True, timeout=1200)
+
 # Use different source constructs to require the precise missing resource.
 transform=a.root/'transpose.k'
 transform.write_text('''fn work(v:Tensor[float32,?,?])->Tensor[float32,?,?]:

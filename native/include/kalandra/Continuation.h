@@ -79,6 +79,14 @@ struct Options {
   // Ownership scopes for mutable owned values in continuation frames. Placed
   // supervisors use the shared native descriptor scopes for host arrays.
   bool valueScopes = false;
+  // Device checkpoint lowering expands non-recursive synchronous loop helpers.
+  bool inlineLoopCalls = false;
+  // Placement-aware consumers validate their own device value layouts. This is
+  // planning admission only, not permission to transport arbitrary host objects.
+  bool deviceValues = false;
+  // Emit separately resumable plans for direct device calls. The device
+  // backend implements their frame storage and return dispatch.
+  bool deviceCallFrames = false;
 };
 struct ModulePlan {
   // The source typed module must outlive its plan and target emission.

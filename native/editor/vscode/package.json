@@ -86,7 +86,7 @@
           "type": "boolean",
           "default": false,
           "scope": "window",
-          "description": "Enable CPU/Metal placement checking. Does not run code or guarantee GPU lowering."
+          "description": "Check CPU and GPU task placement and access rules. Does not run code or guarantee backend lowering."
         }
       }
     }

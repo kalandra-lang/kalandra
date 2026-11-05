@@ -1,6 +1,13 @@
+#include "../gpu-source/AggregateNativeLayout.h"
+#include "../gpu-source/AggregateEntry.h"
+#include "../gpu-source/AggregateGraphSchema.h"
+#include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/Supervisor.h"
+#include "../lib/NativeLayout.h"
+#include "../lib/TaskValueCopy.h"
 #include "../metal/ElementwiseLayout.h"
 #include "MatmulShader.h"
+#include "DeviceHeap.h"
 #include "MatmulTiles.h"
 #include "NumericProgram.h"
 #include "NumericShader.h"
@@ -43,7 +50,18 @@ struct Rejected {
   Diagnostic diagnostic;
 };
 struct Value {
-  enum Kind { Tensor, Target, Task, Scalar, Boolean, Error, FaultKind, Text, Array } kind;
+  enum Kind {
+    Tensor,
+    Target,
+    Task,
+    Scalar,
+    Boolean,
+    Error,
+    FaultKind,
+    Text,
+    Array,
+    Aggregate
+  } kind;
   std::size_t slot = 0;
   bool gpu = false;
   std::uint32_t device = 0;
@@ -54,7 +72,8 @@ struct Value {
   std::optional<std::size_t> failure = {};
   std::array<std::optional<std::uint64_t>, 6> higherExtents{};
   NumericType element = NumericType::Float32;
-  bool array = false, booleanArray = false;
+  bool array = false, booleanArray = false, booleanTask = false;
+  std::optional<std::size_t> record = {};
 };
 class Compiler {
   ArithmeticMode arithmetic_;
@@ -69,7 +88,11 @@ class Compiler {
   const TypedModule *continuationCpu = nullptr;
   std::map<ValueId, FunctionId> continuationKernels;
   std::map<std::size_t, Value> arrayFields;
-  std::string declarations, cpuEntries;
+  std::string declarations, cpuEntries, aggregateDeclarations;
+  std::map<std::size_t, NativeAggregateABI> aggregateTypes;
+  std::optional<std::vector<NativeAggregateABI>> nativeAggregateLayouts;
+  std::set<std::pair<bool, FunctionId>> declaredAggregateFunctions;
+  std::set<std::pair<const TypedModule *, std::size_t>> checkedAggregateSchemas;
   std::size_t cpuEntryCount = 0;
   std::string activeGroup;
   std::optional<std::size_t> admissionExit;
@@ -108,16 +131,7 @@ class Compiler {
       if (!visited.insert(function).second)
         continue;
       const auto &fn = cpu.functions[function];
-      for (auto symbol : fn.parameters)
-        if (cpu.symbols[symbol].reassignable)
-          reject(fn.declaration, "local reassignment currently requires CPU execution");
-      for (const auto &statement : fn.body)
-        if (statement.binding && cpu.symbols[*statement.binding].reassignable)
-          reject(fn.declaration, "local reassignment currently requires CPU execution");
       const auto supported = [&](const ValueType &type) {
-        if (type.array)
-          reject(fn.declaration,
-                 "GPU kernel parameters and results require tensors rather than host arrays");
         if (type.builtin == BuiltinValue::Numeric &&
             !numericArithmeticAvailable(type.element, NumericTarget::AppleGpu))
           reject(fn.declaration, "GPU kernel numeric type is not implemented");
@@ -128,15 +142,12 @@ class Compiler {
       for (auto value : fn.expressions) {
         const auto &expression = cpu.expressions[value];
         const auto &op = expression.operation;
-        if (std::holds_alternative<WhileOperation>(op))
-          reject(expression.span, "statement loops currently require CPU execution");
-        if (std::holds_alternative<ArrayStore>(op) || std::holds_alternative<ArraySort>(op))
-          reject(expression.span, "array element assignment currently requires CPU execution");
-        if (const auto *read = std::get_if<SymbolRead>(&op);
-            read && cpu.symbols[read->symbol].reassignable)
-          reject(expression.span, "local reassignment currently requires CPU execution");
         if (auto *call = std::get_if<FunctionCall>(&op))
           pending.push_back(call->function);
+        if (auto *map = std::get_if<ArrayMap>(&op))
+          pending.push_back(map->function);
+        if (auto *reference = std::get_if<FunctionReference>(&op))
+          pending.push_back(reference->function);
         if (arithmetic_ != ArithmeticMode::Hardware)
           continue;
         bool requiresDouble =
@@ -162,6 +173,8 @@ class Compiler {
   std::map<std::size_t, std::size_t> entries;
   std::map<FunctionId, NumericShader> numericShaders;
   std::map<FunctionId, NumericProgram> numericPrograms;
+  std::map<FunctionId, DeviceAggregateProjection> aggregateEntries;
+  std::size_t aggregateEntryWorkRemaining = 300000;
   std::vector<std::string> steps, fields;
   std::size_t next = 0;
   struct Depth {
@@ -199,38 +212,112 @@ class Compiler {
   static std::string tensorDescriptor(NumericType element, unsigned rank) {
     return "CpuTensor<" + elementName(element) + "," + std::to_string(rank) + ">";
   }
+  static std::string recordName(std::size_t id) { return "NativeRecord" + std::to_string(id); }
+  static std::string recordLayoutName(std::size_t id) {
+    return "kalandra_gpu_record_layout_" + std::to_string(id);
+  }
+  void validateRecordSchema(const TypedModule &source, std::size_t root) {
+    std::vector<std::size_t> pending{root};
+    std::size_t work = 0;
+    while (!pending.empty()) {
+      const auto id = pending.back();
+      pending.pop_back();
+      if (checkedAggregateSchemas.contains({&source, id}))
+        continue;
+      if (++work > 300000 || id >= source.records.size() || id >= placement.records.size())
+        reject({}, "native aggregate projections require checked common nominal identities");
+      const auto &a = source.records[id], &b = placement.records[id];
+      bool same = a.name == b.name && a.fields.size() == b.fields.size() &&
+                  a.variants.size() == b.variants.size() && a.error == b.error &&
+                  a.taskErrorFamily == b.taskErrorFamily && a.errorMembers == b.errorMembers;
+      for (std::size_t n = 0; same && n < a.fields.size(); ++n) {
+        const auto &x = a.fields[n].type, &y = b.fields[n].type;
+        same = a.fields[n].name == b.fields[n].name && x.builtin == y.builtin &&
+               x.record == y.record && x.errorRecord == y.errorRecord && x.tensor == y.tensor &&
+               x.array == y.array && x.task == y.task && x.fallible == y.fallible &&
+               x.device == y.device && x.shape.size() == y.shape.size() &&
+               (x.builtin != BuiltinValue::Numeric || x.element == y.element) &&
+               (x.builtin != BuiltinValue::Function || sameFunctionValueType(x, y));
+        for (std::size_t axis = 0; same && axis < x.shape.size(); ++axis)
+          same = x.shape[axis].constant == y.shape[axis].constant;
+        if (x.record)
+          pending.push_back(*x.record);
+      }
+      for (std::size_t n = 0; same && n < a.variants.size(); ++n)
+        same = a.variants[n].name == b.variants[n].name &&
+               a.variants[n].fields == b.variants[n].fields;
+      if (!same)
+        reject({}, "native aggregate projections disagree on nominal field or enum schema");
+      checkedAggregateSchemas.emplace(&source, id);
+    }
+  }
+  std::string recordType(std::size_t id) {
+    if (!aggregateTypes.contains(id)) {
+      ValueType root;
+      root.builtin = BuiltinValue::Record;
+      root.record = id;
+      if (containsFunctionStorage(placement, root))
+        reject({}, "native host aggregate callable fields require callable environment transport");
+      if (!nativeAggregateLayouts) {
+        llvm::LLVMContext context;
+        auto plan =
+            planNativeAggregateLayouts(placement, context, llvm::DataLayout(nativeCpuDataLayout));
+        if (!plan)
+          reject({}, "native aggregate host boundary: " + plan.error());
+        nativeAggregateLayouts = std::move(*plan);
+      }
+      const auto &abi = nativeAggregateLayouts->at(id);
+      aggregateDeclarations += "struct alignas(" + std::to_string(abi.nativeAlignment) + ") " +
+                               recordName(id) + " {std::array<std::byte," +
+                               std::to_string(abi.nativeBytes) +
+                               "> data{};};\nstatic_assert(sizeof(" + recordName(id) +
+                               ")==" + std::to_string(abi.nativeBytes) +
+                               ");\nextern \"C\" const ValueLayout " + recordLayoutName(id) + ";\n";
+      aggregateTypes.emplace(id, abi);
+    }
+    return recordName(id);
+  }
   static std::string valueStorage(const Value &value) {
-    return value.array && value.kind != Value::Task ? tensorDescriptor(value.element, 1)
-           : value.kind == Value::Tensor            ? "m::Buffer"
-           : value.kind == Value::Boolean           ? "bool"
-                                                    : scalarType(value.element);
+    return value.record && value.kind != Value::Task  ? recordName(*value.record)
+           : value.array && value.kind != Value::Task ? tensorDescriptor(value.element, 1)
+           : value.kind == Value::Tensor              ? "m::Buffer"
+           : value.kind == Value::Boolean             ? "bool"
+                                                      : scalarType(value.element);
   }
   static std::string arrayLayout(const Value &value) {
+    if (value.record)
+      return recordLayoutName(*value.record);
     return "hostArrayLayout<" + elementName(value.element) + "," +
            (value.booleanArray ? "true" : "false") + ">()";
   }
   static std::string arrayLayout(const ValueType &type) {
     Value value{Value::Array};
+    value.record = type.record;
     value.booleanArray = isBoolArray(type);
     value.element = value.booleanArray ? NumericType::UInt8 : type.element;
     return arrayLayout(value);
   }
   void trackArray(const Value &value) {
-    if (value.kind == Value::Array)
+    if (value.kind == Value::Array || value.kind == Value::Aggregate)
       arrayFields.emplace(value.slot, value);
   }
   std::string commitArray(const Value &value) const {
-    if (value.kind != Value::Array)
+    if (value.kind != Value::Array && value.kind != Value::Aggregate)
       return {};
     const auto found = arrayFields.find(value.slot);
     if (found == arrayFields.end())
       reject({}, "missing host array ownership slot");
+    const auto index = std::to_string(std::distance(arrayFields.begin(), found));
+    const auto commit = "if(!f.arrayScopes.commit(" + index + ",&" + ref(value) +
+                        ")){hostArrayFailure(task);return;}\n";
+    if (value.record && value.failure)
+      return "if(" + failureRef(value) + ".kind!=TaskFailure::None){" + ref(value) +
+             "={};if(!f.arrayScopes.discard(" + index + ")){hostArrayFailure(task);return;}}else{" +
+             commit + "}\n";
     std::string code;
     if (value.failure)
       code += "if(" + failureRef(value) + ".kind!=TaskFailure::None) " + ref(value) + "={};\n";
-    return code + "if(!f.arrayScopes.commit(" +
-           std::to_string(std::distance(arrayFields.begin(), found)) + ",&" + ref(value) +
-           ")){hostArrayFailure(task);return;}\n";
+    return code + commit;
   }
   std::string arrayScopeDeclaration() const {
     if (arrayFields.empty())
@@ -1025,32 +1112,55 @@ class Compiler {
     for (const auto &extent : type.shape)
       hostExtent = std::max(hostExtent, extent.identity);
   }
-  static bool arrayCpuABI(const TypedModule &module, FunctionId id) {
+  static bool pointerCpuABI(const TypedModule &module, FunctionId id) {
     const auto &fn = module.functions.at(id);
-    return fn.resultType.array || std::ranges::any_of(fn.parameters, [&](auto parameter) {
-             return module.symbols.at(parameter).type.array;
+    return fn.resultType.array || fn.resultType.record ||
+           std::ranges::any_of(fn.parameters, [&](auto parameter) {
+             const auto &type = module.symbols.at(parameter).type;
+             return type.array || type.record;
            });
   }
-  void declareCpuFunction(FunctionId id, const TypedModule *source = nullptr) {
+  void declareCpuFunction(FunctionId id, const TypedModule *source = nullptr,
+                          bool aggregates = false) {
     const auto &module = source ? *source : cpu;
     const auto &fn = module.functions.at(id);
+    const bool recordABI =
+        fn.resultType.record || std::ranges::any_of(fn.parameters, [&](auto parameter) {
+          return module.symbols.at(parameter).type.record.has_value();
+        });
+    if (recordABI) {
+      if (!aggregates || !declaredAggregateFunctions.emplace(source != nullptr, id).second)
+        return;
+      if (fn.resultType.record) {
+        validateRecordSchema(module, *fn.resultType.record);
+        recordType(*fn.resultType.record);
+      }
+      for (auto parameter : fn.parameters)
+        if (auto record = module.symbols.at(parameter).type.record) {
+          validateRecordSchema(module, *record);
+          recordType(*record);
+        }
+    }
     declarations +=
         "extern \"C\" " +
-        (fn.resultType.tensor                          ? std::string("void")
+        (fn.resultType.tensor || fn.resultType.record  ? std::string("void")
          : fn.resultType.builtin == BuiltinValue::Bool ? std::string("bool")
                                                        : scalarType(fn.resultType.element)) +
-        (source                    ? " kalandra_gpu_step_"
-         : arrayCpuABI(module, id) ? " kalandra_gpu_cpu_"
-                                   : " _mlir_ciface_kalandra_cpu_") +
+        (source                      ? " kalandra_gpu_step_"
+         : pointerCpuABI(module, id) ? " kalandra_gpu_cpu_"
+                                     : " _mlir_ciface_kalandra_cpu_") +
         std::to_string(id) + "(";
-    if (fn.resultType.tensor)
+    if (fn.resultType.record)
+      declarations += recordName(*fn.resultType.record) + "*,";
+    else if (fn.resultType.tensor)
       declarations +=
           tensorDescriptor(isBoolArray(fn.resultType) ? NumericType::UInt8 : fn.resultType.element,
                            fn.resultType.shape.size()) +
           "*,";
     for (auto parameter : fn.parameters) {
       const auto &type = module.symbols.at(parameter).type;
-      declarations += type.tensor
+      declarations += type.record ? recordName(*type.record) + "*,"
+                      : type.tensor
                           ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element,
                                              type.shape.size()) +
                                 "*,"
@@ -1062,6 +1172,7 @@ class Compiler {
   void lowerCpuModules(std::map<std::string, std::string> &outputs, SourceSpan span) {
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> linked;
+    std::set<std::string> sharedNominalKeys;
     auto append = [&](const TypedModule &source, std::vector<std::string> exports,
                       const std::string &prefix, bool stepsModule) {
       auto lowered = lowerNative(source, {}, exports, arithmetic_);
@@ -1074,42 +1185,13 @@ class Compiler {
         reject(span, "native CPU bridge LLVM could not be parsed");
       std::set<llvm::Function *> bridges;
       for (std::size_t i = 0; i < exports.size(); ++i) {
-        if (exports[i].empty() || (!stepsModule && !arrayCpuABI(source, i)))
+        if (exports[i].empty() || (!stepsModule && !pointerCpuABI(source, i)))
           continue;
         auto *target = module->getFunction("_mlir_ciface_kalandra_cpu_" + std::to_string(i));
         if (!target)
           reject(span, "native CPU bridge entry is missing");
-        std::vector<llvm::Type *> parameters;
-        for (auto *type : target->getFunctionType()->params())
-          parameters.push_back(type->isStructTy() ? llvm::PointerType::getUnqual(context) : type);
-        auto *bridge = llvm::Function::Create(
-            llvm::FunctionType::get(target->getReturnType(), parameters, false),
-            llvm::GlobalValue::ExternalLinkage, prefix + std::to_string(i), *module);
+        auto *bridge = emitCpuPointerBridge(*target, prefix + std::to_string(i));
         bridges.insert(bridge);
-        // Only carry ABI extension attributes. Aggregate-to-pointer adaptation
-        // adds descriptor loads, so copying the callee's memory/capture effects
-        // onto this wrapper would make an unsound optimization promise.
-        for (auto attribute : {llvm::Attribute::ZExt, llvm::Attribute::SExt}) {
-          if (target->hasRetAttribute(attribute))
-            bridge->addRetAttr(attribute);
-          for (unsigned n = 0; n < bridge->arg_size(); ++n)
-            if (!target->getFunctionType()->getParamType(n)->isStructTy() &&
-                target->hasParamAttribute(n, attribute))
-              bridge->addParamAttr(n, attribute);
-        }
-        llvm::IRBuilder<> builder(llvm::BasicBlock::Create(context, "entry", bridge));
-        std::vector<llvm::Value *> args;
-        for (unsigned n = 0; n < bridge->arg_size(); ++n) {
-          auto *type = target->getFunctionType()->getParamType(n);
-          args.push_back(type->isStructTy() ? builder.CreateLoad(type, bridge->getArg(n))
-                                            : static_cast<llvm::Value *>(bridge->getArg(n)));
-        }
-        auto *result = builder.CreateCall(target, args);
-        result->setAttributes(target->getAttributes());
-        if (target->getReturnType()->isVoidTy())
-          builder.CreateRetVoid();
-        else
-          builder.CreateRet(result);
       }
       // Separate typed modules have their own private callable and function IDs.
       // Only the pointer-based bridges are shared with generated C++.
@@ -1120,6 +1202,31 @@ class Compiler {
         for (auto &global : module->globals())
           if (!global.isDeclaration() && !global.hasAppendingLinkage())
             global.setLinkage(llvm::GlobalValue::PrivateLinkage);
+      }
+      // Both projections preserve the source nominal IDs. A boxed record made
+      // in an ordinary helper and consumed by a continuation kernel must carry
+      // the same address-significant type token. Closure environment IDs are
+      // private to each projection and deliberately excluded from this join.
+      for (auto &global : module->globals()) {
+        auto suffix = global.getName();
+        std::size_t id = 0;
+        if (suffix.consume_front("kalandra_recursive_type_") && !suffix.getAsInteger(10, id) &&
+            id >= source.records.size())
+          global.setName(prefix + "environment_type_" + std::to_string(id));
+      }
+      for (std::size_t id = 0; id < source.records.size(); ++id) {
+        const auto name = "kalandra_recursive_type_" + std::to_string(id);
+        if (auto *token = module->getNamedGlobal(name)) {
+          validateRecordSchema(source, id);
+          if (!token->isConstant() || !token->hasInitializer() ||
+              !token->getValueType()->isIntegerTy(8) ||
+              token->getUnnamedAddr() != llvm::GlobalValue::UnnamedAddr::None)
+            reject(span, "native aggregate bridge has an invalid nominal token");
+          sharedNominalKeys.insert(name);
+          token->setLinkage(llvm::GlobalValue::ExternalLinkage);
+          if (linked && linked->getNamedGlobal(name))
+            token->setInitializer(nullptr);
+        }
       }
       if (llvm::verifyModule(*module))
         reject(span, "native CPU bridge ABI failed verification");
@@ -1141,6 +1248,48 @@ class Compiler {
         exports[id] = continuationCpu->functions[id].name;
       append(*continuationCpu, std::move(exports), "kalandra_gpu_step_", true);
     }
+    if (linked)
+      for (const auto &name : sharedNominalKeys)
+        linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
+    if (!aggregateTypes.empty()) {
+      if (!linked)
+        reject(span, "native aggregate slots require a linked CPU module");
+      TypedModule schema;
+      schema.source = placement.source;
+      schema.records = placement.records;
+      std::vector<ValueType> types;
+      for (const auto &[id, abi] : aggregateTypes) {
+        (void)abi;
+        ValueType type;
+        type.builtin = BuiltinValue::Record;
+        type.record = id;
+        types.push_back(type);
+      }
+      const auto layouts = emitTaskPayloadValueLayouts(schema, *linked, types);
+      for (std::size_t n = 0; n < types.size(); ++n) {
+        auto *layout = layouts.at(n);
+        auto fields = std::vector<llvm::Constant *>();
+        for (const auto &operand : layout->getInitializer()->operands())
+          fields.push_back(llvm::cast<llvm::Constant>(operand.get()));
+        fields[0] = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context),
+                                           UINT64_C(0x4b414c4147470000) + *types[n].record);
+        layout->setInitializer(llvm::ConstantStruct::get(
+            llvm::cast<llvm::StructType>(layout->getValueType()), fields));
+        layout->setName(recordLayoutName(*types[n].record));
+        layout->setLinkage(llvm::GlobalValue::ExternalLinkage);
+      }
+    }
+    if (linked)
+      for (auto id : graphNominalKeys) {
+        const auto name = "kalandra_recursive_type_" + std::to_string(id);
+        if (auto *token = linked->getNamedGlobal(name))
+          token->setLinkage(llvm::GlobalValue::ExternalLinkage);
+        else {
+          auto *byte = llvm::Type::getInt8Ty(linked->getContext());
+          new llvm::GlobalVariable(*linked, byte, true, llvm::GlobalValue::ExternalLinkage,
+                                   llvm::ConstantInt::get(byte, 0), name);
+        }
+      }
     if (linked) {
       if (llvm::verifyModule(*linked))
         reject(span, "linked CPU bridge LLVM failed verification");
@@ -1319,27 +1468,43 @@ class Compiler {
     const auto &fn = module.functions[function];
     if (inputs.size() != fn.parameters.size())
       reject(span, "CPU function argument count mismatch");
+    const auto supported = [](const ValueType &type) {
+      return type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool ||
+             type.builtin == BuiltinValue::Record;
+    };
+    if (!supported(fn.resultType) || std::ranges::any_of(fn.parameters, [&](auto parameter) {
+          return !supported(module.symbols.at(parameter).type);
+        }))
+      reject(span, "native host function requires typed transport for this value category");
+    if (fn.resultType.record || std::ranges::any_of(fn.parameters, [&](auto parameter) {
+          return module.symbols.at(parameter).type.record.has_value();
+        }))
+      declareCpuFunction(function, source, true);
+    const bool recordResult = fn.resultType.record.has_value();
     const bool tensorResult = fn.resultType.tensor;
     const bool booleanResult = !tensorResult && fn.resultType.builtin == BuiltinValue::Bool;
     const bool arrayResult = fn.resultType.array;
-    if (spawned && booleanResult)
-      reject(span, "Boolean CPU task results are not implemented by the Metal bridge");
     auto out = spawned ? std::string("value")
-                       : field(arrayResult     ? tensorDescriptor(isBoolArray(fn.resultType)
-                                                                      ? NumericType::UInt8
-                                                                      : fn.resultType.element,
-                                                                  1)
+                       : field(recordResult  ? recordType(*fn.resultType.record)
+                               : arrayResult ? tensorDescriptor(isBoolArray(fn.resultType)
+                                                                    ? NumericType::UInt8
+                                                                    : fn.resultType.element,
+                                                                1)
                                : tensorResult  ? "m::Buffer"
                                : booleanResult ? "bool"
                                                : scalarType(fn.resultType.element));
-    Value value{arrayResult     ? Value::Array
+    Value value{recordResult    ? Value::Aggregate
+                : arrayResult   ? Value::Array
                 : tensorResult  ? Value::Tensor
                 : booleanResult ? Value::Boolean
                                 : Value::Scalar,
                 spawned ? 0 : next - 1};
+    value.record = fn.resultType.record;
     value.array = arrayResult;
     value.booleanArray = isBoolArray(fn.resultType);
-    value.element = value.booleanArray ? NumericType::UInt8 : fn.resultType.element;
+    value.element =
+        (value.booleanArray || booleanResult) ? NumericType::UInt8 : fn.resultType.element;
+    value.booleanTask = booleanResult;
     if (!spawned)
       trackArray(value);
     if (tensorResult) {
@@ -1354,7 +1519,11 @@ class Compiler {
       auto input = inputs[i];
       completed(input, span);
       const auto &type = module.symbols[fn.parameters[i]].type;
-      if (type.array) {
+      if (type.record) {
+        if (input.kind != Value::Aggregate || input.record != type.record || input.gpu)
+          reject(span, "CPU aggregate argument requires its declared nominal type");
+        arguments += "&" + ref(input) + ",";
+      } else if (type.array) {
         if (input.kind != Value::Array || input.gpu || input.booleanArray != isBoolArray(type) ||
             input.element != (isBoolArray(type) ? NumericType::UInt8 : type.element))
           reject(span, "CPU array argument element type mismatch");
@@ -1422,14 +1591,16 @@ class Compiler {
       }
     }
     step = guards + step;
-    if (tensorResult)
+    if (recordResult)
+      step += recordName(*value.record) + " result{};\n";
+    else if (tensorResult)
       step += tensorDescriptor(value.element, value.rank) + " result{};\n";
-    step += (tensorResult ? "" : "f." + out + " = ") +
-            std::string(source                          ? "kalandra_gpu_step_"
-                        : arrayCpuABI(module, function) ? "kalandra_gpu_cpu_"
-                                                        : "_mlir_ciface_kalandra_cpu_") +
-            std::to_string(function) + "(" + (tensorResult ? "&result," : "") + arguments +
-            "&task.context());\n";
+    step += (tensorResult || recordResult ? "" : "f." + out + " = ") +
+            std::string(source                            ? "kalandra_gpu_step_"
+                        : pointerCpuABI(module, function) ? "kalandra_gpu_cpu_"
+                                                          : "_mlir_ciface_kalandra_cpu_") +
+            std::to_string(function) + "(" + (tensorResult || recordResult ? "&result," : "") +
+            arguments + "&task.context());\n";
     auto [line, column] = syntax.source->location(span.begin);
     const auto location = inlineOperation ? std::to_string(line) + "," + std::to_string(column)
                                           : "task.context().line(),task.context().column()";
@@ -1437,7 +1608,7 @@ class Compiler {
             "); return; }\n";
     if (spawned)
       step += "if(task.cancelled()) return;\n";
-    if (arrayResult) {
+    if (arrayResult || recordResult) {
       step += "f." + out + "=result;\n";
     } else if (tensorResult) {
       // Acquire the immutable backing lease before releasing the returned
@@ -1466,7 +1637,7 @@ class Compiler {
         continue;
       const auto name = "v" + std::to_string(input.slot);
       members += valueStorage(input) + " " + name + ";";
-      if (input.kind == Value::Array)
+      if (input.kind == Value::Array || input.kind == Value::Aggregate)
         capturedArrays.push_back(input);
       captures += "," + ref(input);
       owned += ",data." + name;
@@ -1475,16 +1646,16 @@ class Compiler {
                       ".format()!=*m::storageFormat(" + elementName(input.element) + ") || data." +
                       name + ".shape().size()!=" + std::to_string(input.rank);
     }
-    const bool scopedJob = arrayResult || !capturedArrays.empty();
+    const bool scopedJob = arrayResult || recordResult || !capturedArrays.empty();
     std::string layouts;
     for (const auto &input : capturedArrays)
       layouts += "&" + arrayLayout(input) + ",";
-    if (arrayResult)
+    if (arrayResult || recordResult)
       layouts += "&" + arrayLayout(value) + ",";
     if (scopedJob)
       cpuEntries += "inline const std::array<const ValueLayout*," +
-                    std::to_string(capturedArrays.size() + (arrayResult ? 1 : 0)) + "> " + prefix +
-                    "Layouts{{" + layouts + "}};\n";
+                    std::to_string(capturedArrays.size() + (arrayResult || recordResult ? 1 : 0)) +
+                    "> " + prefix + "Layouts{{" + layouts + "}};\n";
     cpuEntries += "struct " + prefix + "Packet{" + members + "};\nstruct " + prefix + "Frame{" +
                   members + valueStorage(value) + " value{};" +
                   (scopedJob ? "HostArrayScopes arrayScopes{};" : "") + "};\n";
@@ -1516,7 +1687,7 @@ class Compiler {
     if (scopedJob)
       cpuEntries += "HostArrayWork work(f.arrayScopes);if(!work){hostArrayFailure(task);return;}\n";
     cpuEntries += step;
-    if (arrayResult)
+    if (arrayResult || recordResult)
       cpuEntries += "if(!f.arrayScopes.commit(" + std::to_string(capturedArrays.size()) +
                     ",&f.value)){hostArrayFailure(task);return;}\n";
     cpuEntries += "task.complete(&f.value); }\n";
@@ -1525,9 +1696,10 @@ class Compiler {
                   "Packet),alignof(" + prefix + "Packet),sizeof(" + prefix + "Frame),alignof(" +
                   prefix + "Frame)," + prefix + "Construct," + prefix + "Destroy," + prefix +
                   "Resume," +
-                  (arrayResult    ? "&" + arrayLayout(value)
-                   : tensorResult ? "&m::Runtime::bufferLayout()"
-                                  : "numericScalarLayout(" + elementName(value.element) + ")") +
+                  (arrayResult || recordResult ? "&" + arrayLayout(value)
+                   : tensorResult              ? "&m::Runtime::bufferLayout()"
+                   : booleanResult             ? "&boolScalarLayout()"
+                                   : "numericScalarLayout(" + elementName(value.element) + ")") +
                   "};\n";
     auto taskField = field("TaskHandle");
     steps.push_back(prefix + "Packet packet{" + captures + "};\nf." + taskField + "=task.spawn(" +
@@ -1535,7 +1707,7 @@ class Compiler {
                     "Entry.packetLayout,&packet,sizeof(packet),&task.context()});\n" +
                     admitted("f." + taskField));
     value.kind = Value::Task;
-    value.scalarTask = !tensorResult;
+    value.scalarTask = !tensorResult && !recordResult;
     value.slot = next - 1;
     return value;
   }
@@ -1553,7 +1725,8 @@ class Compiler {
     for (const auto &input : inputs) {
       completed(input, span);
       if ((input.kind != Value::Tensor && input.kind != Value::Array &&
-           input.kind != Value::Scalar && input.kind != Value::Boolean) ||
+           input.kind != Value::Scalar && input.kind != Value::Boolean &&
+           input.kind != Value::Aggregate) ||
           input.gpu)
         reject(span, "resumable helper captures require completed host values");
       captures += "," + ref(input);
@@ -1566,10 +1739,12 @@ class Compiler {
                     admitted("f." + out));
     Value value{Value::Task, next - 1};
     const auto type = fn.declaredResult.value_or(fn.resultType);
+    value.record = type.record;
     value.array = type.array;
     value.booleanArray = isBoolArray(type);
-    value.element = value.booleanArray ? NumericType::UInt8 : type.element;
-    value.scalarTask = !type.tensor;
+    value.booleanTask = !type.tensor && type.builtin == BuiltinValue::Bool;
+    value.element = (value.booleanArray || value.booleanTask) ? NumericType::UInt8 : type.element;
+    value.scalarTask = !type.tensor && !type.record;
     if (type.tensor) {
       value.rank = type.shape.size();
       for (unsigned axis = 0; axis < value.rank; ++axis)
@@ -1598,27 +1773,370 @@ class Compiler {
     steps.push_back(step + admitted("f." + out));
     return result;
   }
-  Value spawnNumericProgram(FunctionId function, const std::vector<Value> &inputs, Value target,
+  std::vector<Value> aggregateEntryInputs(const DeviceAggregateProjection &entry,
+                                           const std::vector<Value> &inputs, SourceSpan span) {
+    if (inputs.size() != entry.roots.size())
+      reject(span, "GPU aggregate entry argument count mismatch");
+    const auto activity = field("std::array<bool," + std::to_string(entry.nodes.size()) + ">");
+    std::vector<std::uint64_t> offsets(entry.nodes.size());
+    std::vector<Value> values(entry.nodes.size());
+    for (auto root : entry.roots) {
+      const auto &node = entry.nodes[root];
+      const auto &value = inputs.at(node.root);
+      completed(value, span);
+      if (node.type.record) {
+        if (value.kind != Value::Aggregate || value.record != node.type.record || value.gpu)
+          reject(span, "GPU aggregate capture requires its completed native nominal value");
+        validateRecordSchema(cpu, *node.type.record);
+        recordType(*node.type.record);
+      }
+      steps.push_back("f." + activity + "[" + std::to_string(root) + "]=true;\n");
+    }
+    for (std::size_t i = 0; i < entry.nodes.size(); ++i) {
+      const auto &node = entry.nodes[i];
+      if (node.parent == DeviceAggregateOccurrence::none) {
+        if (!node.type.record)
+          values[i] = inputs.at(node.root);
+        continue;
+      }
+      const auto &parent = entry.nodes.at(node.parent);
+      const auto &abi = nativeAggregateLayouts->at(*parent.type.record);
+      const auto &member = abi.fields.at(node.field);
+      if (member.storage == RecordFieldStorage::ManagedReference)
+        reject(span, "GPU aggregate references require owned device graph transport");
+      if (member.nativeOffset > UINT64_MAX - offsets[node.parent])
+        reject(span, "GPU aggregate native offset exceeds the ABI");
+      offsets[i] = offsets[node.parent] + member.nativeOffset;
+      const auto active = "f." + activity + "[" + std::to_string(i) + "]";
+      std::string code = active + "=f." + activity + "[" + std::to_string(node.parent) + "]";
+      if (node.activeTag)
+        code += "&&" + ref(values.at(parent.children.at(0))) + "==" +
+                std::to_string(node.activeTag);
+      code += ";\n";
+      if (node.type.record) {
+        steps.push_back(std::move(code));
+        continue;
+      }
+      const bool boolean = node.type.builtin == BuiltinValue::Bool;
+      const auto element = boolean ? NumericType::UInt8 : node.type.element;
+      Value value{node.type.array ? Value::Array : boolean ? Value::Boolean : Value::Scalar};
+      value.element = element;
+      value.array = node.type.array;
+      value.booleanArray = boolean && node.type.array;
+      value.rank = node.type.shape.size();
+      for (unsigned axis = 0; axis < value.rank; ++axis)
+        setExtent(value, axis, node.type.shape[axis].constant);
+      field(node.type.array ? tensorDescriptor(element, 1)
+            : boolean       ? "bool"
+                            : scalarType(element));
+      value.slot = next - 1;
+      values[i] = value;
+      trackArray(value);
+      const auto base = ref(inputs.at(node.root)) + ".data.data()";
+      code += "static_assert(sizeof(" + ref(value) + ")==" +
+              std::to_string(member.nativeBytes) + ");\n" + ref(value) +
+              (node.discriminator ? "=1;\n" : "={};\n") + "if(" + active + "){std::memcpy(&" +
+              ref(value) + "," + base + "+" + std::to_string(offsets[i]) + ",sizeof(" +
+              ref(value) + "));";
+      if (node.discriminator)
+        code += "if(" + ref(value) + "<1||" + ref(value) + ">" +
+                std::to_string(cpu.records.at(*parent.type.record).variants.size()) +
+                "){task.fault(3);return;}";
+      code += "}\n" + commitArray(value);
+      steps.push_back(std::move(code));
+    }
+    std::vector<Value> result;
+    for (auto leaf : entry.leaves)
+      result.push_back(values.at(leaf));
+    return result;
+  }
+  std::set<std::size_t> graphCapturePolicies, graphNominalKeys;
+  std::map<std::size_t, std::vector<DeviceGraphExportLayout>> graphExportLayouts;
+  std::set<FunctionId> joinedGraphPolicies;
+  std::string graphCapturePolicy(const ValueType &type, SourceSpan span,
+                                 std::span<const ValueType> joined = {}, FunctionId function = {}) {
+    const auto id = *type.record;
+    const auto name = joined.empty() ? "GpuGraphCapture" + std::to_string(id)
+                                     : "GpuJoinedGraphCapture" + std::to_string(function);
+    if (joined.empty() ? !graphCapturePolicies.insert(id).second
+                       : !joinedGraphPolicies.insert(function).second)
+      return name;
+    const auto record = recordType(id);
+    const auto roots = joined.empty() ? std::span(&type, 1) : joined;
+    auto schema = planAggregateGraphSchema(cpu, roots, *nativeAggregateLayouts,
+                                           aggregateEntryWorkRemaining);
+    if (!schema)
+      reject(span, schema.error());
+    if (!joined.empty() && !appendAggregateCaptureJoin(*schema, aggregateEntryWorkRemaining))
+      reject(span, "GPU joined graph schema exceeds configured work budget");
+    for (const auto &layout : schema->layouts) {
+      if (!consumeAggregateProjectionWork(aggregateEntryWorkRemaining, layout.cells.size()))
+        reject(span, "GPU graph capture schema exceeds configured work budget");
+      for (const auto &cell : layout.cells)
+        if (!consumeAggregateProjectionWork(aggregateEntryWorkRemaining, cell.guards.size()))
+          reject(span, "GPU graph capture schema exceeds configured work budget");
+    }
+    std::string code;
+    for (const auto &layout : schema->layouts)
+      if (deviceInlineRecordValue(layout.type)) {
+        graphNominalKeys.insert(*layout.type.record);
+        code += "extern \"C\" const unsigned char kalandra_recursive_type_" +
+                std::to_string(*layout.type.record) + ";\n";
+      }
+    if (joined.empty()) {
+      code += "struct " + name + " {using Record=" + record +
+              ";static const ValueLayout &layout(){return " + recordLayoutName(id) + ";}\n";
+    } else {
+      std::string memberTypes, memberPolicies, views;
+      for (std::size_t i = 0; i < joined.size(); ++i) {
+        if (i) {
+          memberTypes += ",";
+          memberPolicies += ",";
+        }
+        memberTypes += recordType(*joined[i].record);
+        memberPolicies += graphCapturePolicy(joined[i], span);
+        views += "{" + std::to_string(schema->roots[i]) +
+                 "u,1,std::as_bytes(std::span(&std::get<" + std::to_string(i) +
+                 ">(value),1))},";
+      }
+      const auto count = std::to_string(joined.size());
+      code += "struct " + name + " {using Record=std::tuple<" + memberTypes + ">;\n"
+              "static const ValueLayout &layout(){return deviceGraphCaptureTupleLayout<" +
+              std::to_string(0x4b414c474a000000ULL + function) + "ull," + memberPolicies +
+              ">();}\nstatic auto captureViews(const Record &value){return std::array<DeviceGraphNativeView," +
+              count + ">{{" + views + "}};}\n";
+    }
+    const auto number = [](std::uint64_t value) { return std::to_string(value) + "ull"; };
+    for (std::size_t l = 0; l < schema->layouts.size(); ++l) {
+      const auto &layout = schema->layouts[l];
+      const auto suffix = std::to_string(l);
+      std::string wire, native;
+      for (std::size_t c = 0; c < layout.cells.size(); ++c) {
+        const auto &cell = layout.cells[c];
+        const auto guard = "guards" + suffix + "_" + std::to_string(c);
+        code += "inline static constexpr std::array<DeviceGraphGuard," +
+                std::to_string(cell.guards.size()) + "> " + guard + "{{";
+        for (const auto &g : cell.guards)
+          code += "{" + number(g.word) + "," + number(g.tag) + "},";
+        code += "}};\n";
+        const auto rule = "DeviceGraphCell{" + number(cell.rule.maximum) + "," +
+                          number(cell.rule.target) + "," + (cell.rule.nullable ? "true" : "false") +
+                          "," + number(cell.rule.minimum) + "," + guard + "}";
+        wire += rule + ",";
+        native += "{" + rule + "," + number(cell.nativeOffset) + "," +
+                  number(cell.nativeBytes) + "},";
+      }
+      const auto count = std::to_string(layout.cells.size());
+      code += "inline static constexpr std::array<DeviceGraphCell," + count + "> cells" + suffix +
+              "{{" + wire + "}};\ninline static constexpr std::array<DeviceGraphNativeCell," +
+              count + "> native" + suffix + "{{" + native + "}};\n";
+    }
+    std::string wire, native, capture, arena, keys;
+    for (std::size_t l = 0; l < schema->layouts.size(); ++l) {
+      const auto &layout = schema->layouts[l];
+      const auto suffix = std::to_string(l);
+      const std::string singleton = layout.type.array ? "false" : "true";
+      wire += "{cells" + suffix + "," + singleton + "},";
+      native += "{native" + suffix + "," + number(layout.nativeStride) + "," + singleton + "},";
+      capture += "{" + number(layout.nativeStride) + "," + number(layout.nativeAlignment) + ",";
+      if (deviceInlineRecordValue(layout.type)) {
+        const auto key = "&kalandra_recursive_type_" + std::to_string(*layout.type.record);
+        capture += key;
+        keys += key + ",";
+      } else {
+        capture += "nullptr";
+        keys += "&cells" + suffix + ",";
+      }
+      capture += "},";
+      const auto layoutId = schema->captureJoin == l + 1 ? 0 : layout.type.record ?
+          runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*layout.type.record), layout.type.array) :
+          runtime::DeviceArrayWireABI::layout(layout.type.element, layout.type.builtin == BuiltinValue::Bool);
+      arena += std::to_string(layoutId) + "u,";
+      DeviceGraphExportLayout exportLayout{static_cast<unsigned>(layoutId), static_cast<unsigned>(l + 1),
+                                           static_cast<unsigned>(layout.cells.size()), {}};
+      for (std::size_t word = 0; word < layout.cells.size(); ++word)
+        if (layout.cells[word].rule.target)
+          exportLayout.references.push_back(static_cast<unsigned>(word));
+      if (joined.empty())
+        graphExportLayouts[id].push_back(std::move(exportLayout));
+    }
+    const auto count = std::to_string(schema->layouts.size());
+    code += "inline static constexpr std::array<DeviceGraphLayout," + count + "> wireLayouts{{" +
+            wire + "}};\ninline static constexpr std::array<DeviceGraphNativeLayout," + count +
+            "> nativeLayouts{{" + native + "}};\ninline static constexpr std::array<DeviceGraphCaptureLayout," +
+            count + "> captureLayouts{{" + capture + "}};\ninline static constexpr std::array<unsigned," +
+            count + "> arenaLayouts{{" + arena + "}};\ninline static constexpr std::array<const void*," +
+            count + "> keys{{" + keys + "}};\nstatic constexpr bool graphResult=true;\nstatic constexpr auto root=" +
+            number(schema->captureJoin.value_or(schema->roots.at(0))) + ";};\n";
+    aggregateDeclarations += std::move(code);
+    return name;
+  }
+  std::set<std::size_t> aggregateResultPolicies;
+  std::string aggregateResultPolicy(const ValueType &type, SourceSpan span) {
+    const auto id = *type.record;
+    const auto name = "GpuAggregateResult" + std::to_string(id);
+    if (!aggregateResultPolicies.insert(id).second)
+      return name;
+    validateRecordSchema(cpu, id);
+    const auto native = recordType(id);
+    std::size_t budget = 300000;
+    auto projection = projectDeviceAggregates(cpu, std::span(&type, 1), budget);
+    if (!projection)
+      reject(span, projection.error());
+    std::vector<std::uint64_t> offsets(projection->nodes.size());
+    std::string fields;
+    const auto rootBytes = nativeAggregateLayouts->at(id).nativeBytes;
+    for (std::size_t i = 0; i < projection->nodes.size(); ++i) {
+      const auto &node = projection->nodes[i];
+      const bool record = deviceInlineRecordValue(node.type);
+      const bool boolean = node.type.builtin == BuiltinValue::Bool;
+      const auto element = boolean || record ? NumericType::UInt8 : node.type.element;
+      auto parent = std::string("DeviceAggregateResultField::None");
+      auto guard = parent;
+      std::size_t variants = 0;
+      if (node.parent != DeviceAggregateOccurrence::none) {
+        const auto &p = projection->nodes.at(node.parent);
+        const auto &member = nativeAggregateLayouts->at(*p.type.record).fields.at(node.field);
+        if (member.storage == RecordFieldStorage::ManagedReference ||
+            member.nativeOffset > rootBytes - offsets[node.parent])
+          reject(span, "GPU aggregate result requires inline native storage");
+        offsets[i] = offsets[node.parent] + member.nativeOffset;
+        if (!record && (member.nativeBytes != (node.type.array ? 40 : describeNumeric(element)->bytes()) ||
+                        member.nativeBytes > rootBytes - offsets[i]))
+          reject(span, "GPU aggregate result field does not match the native ABI");
+        parent = std::to_string(node.parent);
+        if (node.activeTag)
+          guard = std::to_string(p.children.at(0));
+        if (node.discriminator)
+          variants = cpu.records.at(*p.type.record).variants.size();
+      }
+      fields += "{DeviceAggregateResultField::" +
+                std::string(record ? "Record" : node.type.array ? "Array" : "Scalar") + "," +
+                parent + "," + guard + "," + std::to_string(offsets[i]) + "," +
+                std::to_string(node.activeTag) + "," + std::to_string(variants) + "," +
+                elementName(element) + "," + (boolean ? "true" : "false") + "},\n";
+    }
+    aggregateDeclarations += "struct " + name + "{using Result=" + native +
+        ";static const ValueLayout &layout(){return " + recordLayoutName(id) +
+        ";}inline static constexpr std::array<DeviceAggregateResultField," +
+        std::to_string(projection->nodes.size()) + "> fields{{\n" + fields + "}};};\n";
+    return name;
+  }
+  Value spawnNumericProgram(FunctionId function, const std::vector<Value> &sourceInputs, Value target,
                             SourceSpan span) {
     admitGpuTypes(function);
     const auto &fn = cpu.functions.at(function);
+    const auto residentTensor = [](const ValueType &type) {
+      return type.tensor && !type.array && type.builtin == BuiltinValue::Numeric;
+    };
+    auto inputs = sourceInputs;
     auto found = numericPrograms.find(function);
-    if (found == numericPrograms.end()) {
-      auto program = emitNumericProgram(cpu, function, arithmetic_, backend_ != GpuBackend::Metal);
+    std::optional<std::size_t> graphParameter;
+    std::vector<std::size_t> graphPeers;
+    std::string graphPolicy, graphResultPolicy;
+    std::span<const DeviceGraphExportLayout> resultLayouts;
+    if (deviceInlineRecordValue(fn.resultType) &&
+        !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1))) {
+      if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
+            const auto &type = cpu.symbols.at(symbol).type;
+            return !deviceScalarValue(type) && !deviceInlineRecordValue(type) && !residentTensor(type);
+          }))
+        reject(span, "GPU recursive results require scalar, nominal graph or resident tensor inputs");
+      graphResultPolicy = graphCapturePolicy(fn.resultType, span);
+      resultLayouts = graphExportLayouts.at(*fn.resultType.record);
+    }
+    const auto emit = [&](const TypedModule &module, FunctionId entry) {
+      auto program = emitNumericProgram(module, entry, arithmetic_, backend_ != GpuBackend::Metal,
+                                        deviceInlineRecordValue(fn.resultType), graphParameter, resultLayouts, graphPeers);
       if (!program)
         throw Rejected{program.error()};
-      found = numericPrograms.emplace(function, std::move(*program)).first;
+      return numericPrograms.emplace(function, std::move(*program)).first;
+    };
+    std::vector<const ValueType *> parameterTypes;
+    if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
+          return cpu.symbols.at(symbol).type.record.has_value();
+        })) {
+      auto normalized = aggregateEntries.find(function);
+      if (normalized == aggregateEntries.end()) {
+        auto entry = graphResultPolicy.empty()
+            ? normalizeDeviceAggregateEntry(cpu, function, aggregateEntryWorkRemaining)
+            : std::expected<NormalizedDeviceEntry, std::string>(
+                  std::unexpected("GPU recursive result requires nominal graph inputs"));
+        if (entry) {
+          found = emit(entry->module, entry->function);
+          normalized = aggregateEntries.emplace(function, std::move(entry->plan)).first;
+        } else {
+          for (std::size_t i = 0; i < fn.parameters.size(); ++i) {
+            const auto &parameter = cpu.symbols.at(fn.parameters[i]);
+            const auto &type = parameter.type;
+            if (parameter.mutableAccess)
+              reject(span, "GPU captured aggregate inputs are read-only");
+            if (deviceInlineRecordValue(type)) {
+              if (graphParameter)
+                graphPeers.push_back(i);
+              else
+                graphParameter = i;
+            } else if (!deviceScalarValue(type) && !residentTensor(type))
+              reject(span, entry.error());
+          }
+          if (!graphParameter || (graphResultPolicy.empty() && !deviceScalarValue(fn.resultType)))
+            reject(span, entry.error());
+          const auto &type = cpu.symbols.at(fn.parameters[*graphParameter]).type;
+          std::vector<ValueType> joined;
+          if (!graphPeers.empty()) {
+            joined.push_back(type);
+            for (auto peer : graphPeers)
+              joined.push_back(cpu.symbols.at(fn.parameters[peer]).type);
+          }
+          const auto roots = joined.empty() ? std::span(&type, 1) : std::span<const ValueType>(joined);
+          if (graphResultPolicy.empty() && planDeviceAggregateLayouts(cpu, roots))
+            reject(span, entry.error());
+          graphPolicy = graphCapturePolicy(type, span, joined, function);
+          if (found == numericPrograms.end())
+            found = emit(cpu, function);
+        }
+      }
+      if (graphParameter) {
+        for (auto symbol : fn.parameters)
+          parameterTypes.push_back(&cpu.symbols.at(symbol).type);
+      } else {
+        const auto &plan = normalized->second;
+        if (plan.nodes.size() > aggregateEntryWorkRemaining)
+          reject(span, "GPU aggregate host extraction exceeds configured work budget");
+        aggregateEntryWorkRemaining -= plan.nodes.size();
+        inputs = aggregateEntryInputs(plan, sourceInputs, span);
+        for (auto leaf : plan.leaves)
+          parameterTypes.push_back(&plan.nodes.at(leaf).type);
+      }
+    } else {
+      if (found == numericPrograms.end())
+        found = emit(cpu, function);
+      for (auto symbol : fn.parameters)
+        parameterTypes.push_back(&cpu.symbols.at(symbol).type);
     }
     const auto &program = found->second;
     std::vector<Value> tensors, scalars;
     for (std::size_t i = 0; i < inputs.size(); ++i) {
-      const auto &type = cpu.symbols.at(fn.parameters.at(i)).type;
+      const auto &type = *parameterTypes.at(i);
       const auto &value = inputs[i];
       completed(value, span);
-      if (type.builtin != BuiltinValue::Numeric || value.element != type.element ||
-          value.kind != (type.tensor ? Value::Tensor : Value::Scalar))
+      if (i == graphParameter || std::ranges::find(graphPeers, i) != graphPeers.end()) {
+        if (value.kind != Value::Aggregate || value.record != type.record || value.gpu)
+          reject(span, "GPU graph capture requires a completed native nominal value");
+        if (i == graphParameter)
+          tensors.push_back(value);
+        continue;
+      }
+      const bool boolean = type.builtin == BuiltinValue::Bool && !type.tensor && !type.array;
+      if ((!boolean && !isBoolArray(type) &&
+           (type.builtin != BuiltinValue::Numeric || value.element != type.element)) ||
+          value.kind != (type.array    ? Value::Array
+                         : boolean     ? Value::Boolean
+                         : type.tensor ? Value::Tensor
+                                       : Value::Scalar) ||
+          (type.array && (value.gpu || value.booleanArray != isBoolArray(type))))
         reject(span, "typed numerical program argument mismatch");
-      if (type.tensor) {
+      if (type.tensor && !type.array) {
         if (!value.gpu || value.device != target.device || value.rank != type.shape.size())
           reject(span,
                  "typed numerical program requires explicit matching device tensor transfers");
@@ -1626,12 +2144,16 @@ class Compiler {
           if (type.shape[axis].constant)
             requireLength(value, *type.shape[axis].constant, span, axis);
       }
-      (type.tensor ? tensors : scalars).push_back(value);
+      ((type.tensor || type.array) ? tensors : scalars).push_back(value);
     }
     auto locate = [&](const Extent &extent) -> std::pair<std::size_t, unsigned> {
       std::size_t tensor = 0;
-      for (auto parameter : fn.parameters) {
-        const auto &type = cpu.symbols.at(parameter).type;
+      for (std::size_t i = 0; i < parameterTypes.size(); ++i) {
+        if (i == graphParameter) {
+          ++tensor;
+          continue;
+        }
+        const auto &type = *parameterTypes[i];
         if (!type.tensor)
           continue;
         for (unsigned axis = 0; axis < type.shape.size(); ++axis)
@@ -1669,8 +2191,13 @@ class Compiler {
     const auto base = "kernel" + std::to_string(entry->second);
     auto out = field("TaskHandle");
     Value result{Value::Task, next - 1, true, target.device};
-    result.scalarTask = !program.type.tensor;
-    result.element = program.type.element;
+    result.array = program.type.array;
+    result.record = program.type.record;
+    result.booleanArray = isBoolArray(program.type);
+    result.gpu = !result.array && !result.record;
+    result.scalarTask = !program.type.tensor && !result.array && !result.record;
+    result.booleanTask = program.type.builtin == BuiltinValue::Bool && !program.type.tensor;
+    result.element = result.booleanTask || result.booleanArray ? NumericType::UInt8 : program.type.element;
     result.rank = program.type.shape.size();
     for (unsigned axis = 0; axis < result.rank; ++axis)
       setExtent(result, axis, program.type.shape[axis].constant);
@@ -1687,6 +2214,8 @@ class Compiler {
       return text + "}";
     };
     auto capture = [&](const Value &value) {
+      if (value.kind == Value::Boolean)
+        return "std::uint64_t(" + ref(value) + " ? 1 : 0)";
       return "std::uint64_t(std::bit_cast<std::uint" +
              std::to_string(describeNumeric(value.element)->bits) + "_t>(" + ref(value) + "))";
     };
@@ -1703,7 +2232,7 @@ class Compiler {
       for (auto value : op.constants)
         bindings += std::to_string(value) + "ull,";
       bindings += "};\n";
-      if (op.kind == NumericProgramKind::Map)
+      if (op.kind == NumericProgramKind::Map || isGpuControlKind(op.kind))
         for (std::size_t j = 0; j < op.scalarSources.size() + op.constants.size(); ++j) {
           captureList += "scalars" + suffix + "[" + std::to_string(j) + "],";
           ++captureCount;
@@ -1715,7 +2244,9 @@ class Compiler {
       const auto &kernel = program.kernels[i];
       const auto name = "kernel" + std::to_string(i);
       const auto path = base + (i ? "-stage" + std::to_string(i) : "") +
-                        (backend_ == GpuBackend::Vulkan ? ".spv" : backend_ == GpuBackend::Cuda ? ".ptx" : ".metallib");
+                        (backend_ == GpuBackend::Vulkan ? ".spv"
+                         : backend_ == GpuBackend::Cuda ? ".ptx"
+                                                        : ".metallib");
       auto instruction = std::find_if(program.code.begin(), program.code.end(),
                                       [i](const auto &op) { return op.kernel == i; });
       if (instruction == program.code.end())
@@ -1737,7 +2268,7 @@ class Compiler {
                : kind == NumericProgramKind::Matmul ? "loadNumericMatmulKernel"
                                                     : "loadNumericGraphKernel") +
               "(f.directory+\"/" + path + "\",*target," + elementName(kernel.element);
-      if (kind == NumericProgramKind::Map)
+      if (kind == NumericProgramKind::Map || isGpuControlKind(kind))
         code += ",m::ElementwiseSignature{" + std::to_string(kernel.tensorTypes.size()) + "," +
                 std::to_string(kernel.scalarTypes.size()) +
                 (kernel.indirect ? ",m::ElementwiseBinding::ArgumentBuffer}," : "},") +
@@ -1746,8 +2277,9 @@ class Compiler {
                 indices(kernel.scalarBuffers, "std::uint8_t");
       code += ");if(!" + name + "){" + error(name + ".error()") + "}\n";
     }
-    constexpr std::array names{"Map",   "Reduce",     "Matmul", "Branch",      "Jump",
-                               "Alias", "EqualShape", "Extent", "MatrixShape", "ShapeFault"};
+    constexpr std::array names{"Map",         "Reduce",     "Matmul",        "Branch",
+                               "Jump",        "Alias",      "EqualShape",    "Extent",
+                               "MatrixShape", "ShapeFault", "ScalarControl", "DeviceControl"};
     for (std::size_t i = 0; i < program.code.size(); ++i) {
       const auto &op = program.code[i];
       const auto suffix = std::to_string(i);
@@ -1768,16 +2300,62 @@ class Compiler {
           "u" + (op.workPerElement ? "," + std::to_string(op.workPerElement) + "u" : "") + "},";
     }
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
-            "u,code," + std::to_string(program.result) + "u," + elementName(program.type.element) +
-            "," + (result.scalarTask ? "true" : "false") +
+            "u,code," + std::to_string(program.result) + "u," +
+            elementName(result.array || result.record ? NumericType::UInt64 : result.element) + "," +
+            (result.scalarTask ? "true" : "false") + (result.booleanTask ? ",true" : "") +
             (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
-            error("prepared.error()") + "}f." + executable + "=*prepared;\n}\nf." + out +
-            "=r.executeNumericProgram(task," + activeGroup + ",f." + executable +
-            ",std::array<m::Buffer," + std::to_string(tensors.size()) + ">{";
-    for (const auto &value : tensors)
-      code += ref(value) + ",";
-    code += "},std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
-            "});\n" + admitted("f." + out);
+            error("prepared.error()") + "}f." + executable + "=*prepared;\n}\n";
+    const bool arrayInputs =
+        std::ranges::any_of(tensors, [](const auto &v) { return v.kind == Value::Array; });
+    if (arrayInputs || graphParameter || result.array || result.record) {
+      std::string arguments;
+      for (const auto &value : tensors) {
+        if (value.kind == Value::Aggregate)
+          arguments += ",DeviceGraphArgument<" + graphPolicy + ">";
+        else if (value.kind == Value::Tensor)
+          arguments += ",DeviceResidentArgument<m::Runtime,m::Buffer>";
+        else
+          arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
+                       (value.booleanArray ? "true" : "false") + ">";
+      }
+      code += "using ArrayJob=" + std::string(result.record ? "DeviceAggregateResultJob" :
+                                             result.array ? "DeviceArrayResultJob" : "DeviceArrayInputJob") +
+              "<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
+              std::to_string(0x4b414c4441520000ULL + function) + "ull,";
+      if (result.record)
+        code += (graphResultPolicy.empty() ? aggregateResultPolicy(program.type, span)
+                                           : graphResultPolicy) + ",";
+      else
+        code += elementName(result.element) + "," +
+                ((result.array ? result.booleanArray : result.booleanTask) ? "true" : "false") + ",";
+      code +=
+              std::to_string(captureCount) + arguments + ">;\n";
+      code += "ArrayJob::PacketData packet{&r,f." + executable + ",*target," +
+              "std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
+              "},";
+      code += "std::tuple{";
+      for (const auto &value : tensors) {
+        if (value.kind == Value::Aggregate && !graphPeers.empty()) {
+          code += "std::tuple{" + ref(value);
+          for (auto peer : graphPeers)
+            code += "," + ref(inputs.at(peer));
+          code += "},";
+        } else
+          code += ref(value) + ",";
+      }
+      code += "}";
+      code += "};\nf." + out + "=task.spawn(" + activeGroup +
+              ",ArrayJob::entry,{ArrayJob::entry.packetLayout,&packet,sizeof(packet),&task.context("
+              ")});\n";
+    } else {
+      code += "f." + out + "=r.executeNumericProgram(task," + activeGroup + ",f." + executable +
+              ",std::array<m::Buffer," + std::to_string(tensors.size()) + ">{";
+      for (const auto &value : tensors)
+        code += ref(value) + ",";
+      code += "},std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
+              "});\n";
+    }
+    code += admitted("f." + out);
     steps.push_back(std::move(code));
     return result;
   }
@@ -1785,7 +2363,12 @@ class Compiler {
                      SourceSpan span) {
     admitGpuTypes(function);
     const auto &fn = cpu.functions.at(function);
-    if (backend_ != GpuBackend::Metal || numericPrograms.contains(function))
+    if (backend_ != GpuBackend::Metal || numericPrograms.contains(function) ||
+        fn.resultType.builtin == BuiltinValue::Bool ||
+        std::ranges::any_of(fn.parameters, [&](auto id) {
+          return cpu.symbols.at(id).type.builtin == BuiltinValue::Bool ||
+                 cpu.symbols.at(id).type.array || cpu.symbols.at(id).type.record;
+        }))
       return spawnNumericProgram(function, inputs, target, span);
     auto found = numericShaders.find(function);
     if (found == numericShaders.end()) {
@@ -1921,10 +2504,10 @@ class Compiler {
               SourceSpan span) {
     if (!target.gpu)
       return cpuCall(function, inputs, span, false, true);
-    if (backend_ != GpuBackend::Metal)
+    if (backend_ != GpuBackend::Metal || cpu.functions.at(function).resultType.record)
       return spawnNumericProgram(function, inputs, target, span);
     bool mixed = false;
-    bool conditional = false, primitive = false, transform = false;
+    bool conditional = false, primitive = false, transform = false, control = false;
     std::set<FunctionId> inspected;
     std::vector<FunctionId> pending{function};
     while (!pending.empty()) {
@@ -1932,6 +2515,7 @@ class Compiler {
       pending.pop_back();
       if (!inspected.insert(id).second)
         continue;
+      control |= usesScalarControl(cpu, id);
       for (auto value : cpu.functions.at(id).expressions) {
         const auto &node = cpu.expressions.at(value);
         conditional |= std::holds_alternative<ConditionalOperation>(node.operation);
@@ -1946,7 +2530,7 @@ class Compiler {
           pending.push_back(call->function);
       }
     }
-    bool selectedProgram = transform;
+    bool selectedProgram = transform || control;
     if ((conditional || primitive) && !matrixGraph(function) && !primitiveEntry(function))
       selectedProgram |=
           primitive || !emitNumericShader(cpu, function, {.arithmetic = arithmetic_}).has_value();
@@ -2534,7 +3118,8 @@ class Compiler {
       if ((type.array && type.builtin != BuiltinValue::Numeric && !isBoolArray(type)) ||
           type.errorRecord)
         reject({}, "mixed GPU host continuations support numeric/Bool arrays, tensors and "
-                   "TaskError; owned array and application-error carriers require CPU execution");
+                   "TaskError; owned arrays and application-error carriers require "
+                   "aggregate transport");
     std::map<Slot, Value> values;
     std::map<Slot, unsigned> payloadWrites;
     std::map<std::size_t, std::size_t> joins;
@@ -2547,6 +3132,7 @@ class Compiler {
     auto shape = [](Value &value, const ValueType &type) {
       if (type.builtin == BuiltinValue::Numeric)
         value.element = type.element;
+      value.record = type.record;
       value.array = type.array;
       value.booleanArray = isBoolArray(type);
       if (value.booleanArray)
@@ -2564,11 +3150,13 @@ class Compiler {
       Value value{type.task     ? Value::Task
                   : type.array  ? Value::Array
                   : type.tensor ? Value::Tensor
+                  : type.record ? Value::Aggregate
                                 : Value::Scalar};
       shape(value, type);
       std::string storage = type.task     ? "TaskHandle"
                             : type.array  ? tensorDescriptor(value.element, 1)
                             : type.tensor ? "m::Buffer"
+                            : type.record ? recordType(*type.record)
                                           : scalarType(type.element);
       if (type.builtin == BuiltinValue::Device) {
         value.kind = Value::Target;
@@ -2593,7 +3181,10 @@ class Compiler {
         value.slot = next - 1;
       }
       trackArray(value);
-      value.scalarTask = type.task && !type.tensor;
+      value.scalarTask = type.task && !type.tensor && !type.record;
+      value.booleanTask = value.scalarTask && type.builtin == BuiltinValue::Bool;
+      if (value.booleanTask)
+        value.element = NumericType::UInt8;
       if (type.fallible) {
         field("Failure");
         value.failure = next - 1;
@@ -2786,12 +3377,13 @@ class Compiler {
         if (auto found = gpuCalls.find(op.args[0]); found != gpuCalls.end())
           gpuAwaitSites.push_back({i, found->second});
         std::string read;
-        if (input.array)
+        if (input.array || input.record)
           read = "if(!task.read(" + ref(input) + "," + arrayLayout(input) + ",&" + ref(output) +
                  ")) return;\n";
         else
-          read = (input.scalarTask ? "if(!readScalar<" + elementName(input.element) + ">(task,"
-                                   : "if(!readBuffer(task,") +
+          read = (input.booleanTask  ? "if(!readBool(task,"
+                  : input.scalarTask ? "if(!readScalar<" + elementName(input.element) + ">(task,"
+                                     : "if(!readBuffer(task,") +
                  ref(input) + "," + ref(output) + ")) return;\n";
         steps.push_back("if(!task.await(" + ref(input) + ")) return;\n" + failureRef(output) +
                         "=task.failure(" + ref(input) + ");\nif(" + failureRef(output) +
@@ -2840,10 +3432,23 @@ class Compiler {
         break;
       case Code::Case: {
         const auto subject = args.at(0);
-        const auto tag =
-            subject.kind == Value::Error ? "unsigned(" + ref(subject) + ".kind)" : ref(subject);
-        steps.push_back("if(" + tag + "!=" + std::to_string(op.target) + "){\n" +
-                        (op.jump == SIZE_MAX ? error("m::Error::Invalid") : jump(op.jump)) + "}\n");
+        std::string tag;
+        if (subject.record) {
+          const auto &record = placement.records.at(*subject.record);
+          if (record.variants.empty())
+            reject(span, "host match requires an enum discriminator");
+          const auto offset = aggregateTypes.at(*subject.record).fields.at(0).nativeOffset;
+          tag = "([&](){std::int64_t tag=0;std::memcpy(&tag," + ref(subject) + ".data.data()+" +
+                std::to_string(offset) + ",sizeof(tag));if(tag<1 || tag>" +
+                std::to_string(record.variants.size()) +
+                "){task.context().fault(3);return std::int64_t(0);}return tag;}())";
+        } else
+          tag = subject.kind == Value::Error ? "unsigned(" + ref(subject) + ".kind)" : ref(subject);
+        steps.push_back(
+            "auto caseTag=" + tag +
+            ";if(task.context().status()){hostArrayFailure(task);return;}\nif(caseTag!=" +
+            std::to_string(op.target) + "){\n" +
+            (op.jump == SIZE_MAX ? error("m::Error::Invalid") : jump(op.jump)) + "}\n");
         break;
       }
       case Code::Jump:
@@ -2957,7 +3562,8 @@ class Compiler {
     for (std::size_t n = 0; n < fn.parameters.size(); ++n) {
       const auto &type = placement.symbols.at(fn.parameters[n]).type;
       code +=
-          (type.array ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element, 1)
+          (type.record  ? recordName(*type.record)
+           : type.array ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element, 1)
            : type.tensor                        ? "m::Buffer"
            : type.builtin == BuiltinValue::Bool ? "bool"
                                                 : scalarType(type.element)) +
@@ -2967,9 +3573,6 @@ class Compiler {
   }
   std::string helperBody(FunctionId id) const {
     const auto &fn = placement.functions.at(id);
-    if (!fn.resultType.tensor && fn.resultType.builtin == BuiltinValue::Bool)
-      reject(fn.declaration, "Boolean coordinating task results are not "
-                             "implemented by the Metal bridge");
     std::ostringstream out;
     out << "namespace " << helperName(id) << " {\n"
         << arrayScopeDeclaration()
@@ -2992,8 +3595,9 @@ class Compiler {
             << ".shape().size()!=" << type.shape.size();
       }
     }
-    const bool arrayParameters = std::ranges::any_of(
-        plannedParameters, [](const auto &v) { return v.kind == Value::Array; });
+    const bool arrayParameters = std::ranges::any_of(plannedParameters, [](const auto &v) {
+      return v.kind == Value::Array || v.kind == Value::Aggregate;
+    });
     if (arrayParameters)
       out << " || !packet.source";
     out << "){context.fault(3);return false;}\n"
@@ -3002,7 +3606,7 @@ class Compiler {
       out << "if(!f.arrayScopes.initialize(context,arrayLayouts)){f.~Frame();return false;}\n";
     for (std::size_t n = 0; n < plannedParameters.size(); ++n) {
       const auto &value = plannedParameters[n];
-      if (value.kind == Value::Array)
+      if (value.kind == Value::Array || value.kind == Value::Aggregate)
         out << "if(!f.arrayScopes.capture(context,"
             << std::distance(arrayFields.begin(), arrayFields.find(value.slot)) << ","
             << arrayLayout(value) << ",&" << ref(value) << ",*packet.source,&data.arg" << n
@@ -3027,9 +3631,10 @@ class Compiler {
         << 0x4b414c52534d0000ULL + id
         << "ull,sizeof(PacketData),alignof(PacketData),"
            "sizeof(Frame),alignof(Frame),construct,destroy,resume,"
-        << (fn.resultType.array ? "&" + arrayLayout(fn.resultType)
-            : fn.resultType.tensor
-                ? "&m::Runtime::bufferLayout()"
+        << (fn.resultType.array || fn.resultType.record ? "&" + arrayLayout(fn.resultType)
+            : fn.resultType.tensor                      ? "&m::Runtime::bufferLayout()"
+            : fn.resultType.builtin == BuiltinValue::Bool
+                ? "&boolScalarLayout()"
                 : "numericScalarLayout(" + elementName(fn.resultType.element) + ")")
         << "};\n}\n";
     return out.str();
@@ -3662,10 +4267,9 @@ public:
       expression.type.shape = std::move(shape);
     }
     resumable = continuation::resumableFunctions(placement);
-    const auto loopControl = continuation::loopControlFunctions(placement);
     const auto coordinating = continuation::coordinatingFunctions(placement);
     for (FunctionId id = 0; id < placement.functions.size(); ++id)
-      if (loopControl[id] && !coordinating[id] && !placement.functions[id].resultType.fallible)
+      if (!coordinating[id] && !placement.functions[id].resultType.fallible)
         resumable[id] = false;
     Module hostModule = syntax;
     hostModule.functions.clear();
@@ -3683,11 +4287,17 @@ public:
         reject(fn.span, "mixed source functions require an explicit result");
       if (fn.result->tensor && !fn.result->array)
         tensorType(*fn.result);
-      else if (!resolveNumeric(text(fn.result->name)) && text(fn.result->name) != "Bool")
+      else if (!placement.functions.at(i).resultType.record &&
+               placement.functions.at(i).resultType.builtin != BuiltinValue::Function &&
+               !resolveNumeric(text(fn.result->name)) && text(fn.result->name) != "Bool")
         reject(fn.result->span,
                "mixed source results require numeric scalars, Bool, numeric/Bool arrays "
                "or rank-zero through rank-eight numeric tensors");
-      for (const auto &p : fn.parameters) {
+      for (std::size_t parameter = 0; parameter < fn.parameters.size(); ++parameter) {
+        const auto &p = fn.parameters[parameter];
+        const auto &type = placement.symbols.at(placement.functions.at(i).parameters.at(parameter)).type;
+        if (type.record || type.builtin == BuiltinValue::Function)
+          continue; // Internal helpers do not imply a host transport ABI.
         if (p.type.tensor && !p.type.array)
           tensorType(p.type);
         else if (!resolveNumeric(text(p.type.name)) && text(p.type.name) != "Bool")
@@ -3764,16 +4374,26 @@ public:
     if (!fn.parameters.empty() || !fn.result || !fn.taskError)
       reject(fn.span, "Metal main requires no parameters, a float32 or tensor "
                       "result, and ! TaskError");
-    bool scalarResult = !fn.result->tensor;
-    if (scalarResult && !resolveNumeric(text(fn.result->name)))
+    const auto &mainType = placement.functions.at(*main).resultType;
+    if (mainType.record)
+      reject(fn.span, "GPU main aggregate output requires a native aggregate CLI result adapter");
+    const bool mainArray = mainType.array;
+    const bool mainBoolArray = isBoolArray(mainType);
+    if (mainArray && mainType.builtin != BuiltinValue::Numeric && !mainBoolArray)
+      reject(fn.span, "GPU main array results require numeric or Bool elements");
+    bool scalarResult = !mainArray && !fn.result->tensor;
+    const bool booleanResult = scalarResult && text(fn.result->name) == "Bool";
+    if (scalarResult && !booleanResult && !resolveNumeric(text(fn.result->name)))
       reject(fn.span, "Metal main requires float32 or a rank-one through "
                       "rank-eight float32 tensor");
-    if (!scalarResult)
+    if (!scalarResult && !mainArray)
       tensorType(*fn.result);
-    const auto mainElement = placement.functions.at(*main).resultType.element;
+    const auto mainElement =
+        booleanResult || mainBoolArray ? NumericType::UInt8 : mainType.element;
     const auto mainWidth = describeNumeric(mainElement)->bytes();
-    auto planned =
-        continuation::plan(placement, {.preserveCalls = true, .entry = *main, .valueScopes = true});
+    auto planned = continuation::plan(
+        placement,
+        {.preserveCalls = true, .entry = *main, .valueScopes = true, .deviceValues = true});
     if (!planned)
       reject(fn.span, planned.error());
     continuationCpu = &planned->kernels;
@@ -3831,25 +4451,33 @@ public:
           const auto &shader = found->second.kernels[stage];
           auto name = base + (stage ? "-stage" + std::to_string(stage) : "");
           if (backend_ != GpuBackend::Metal && shader.element == NumericType::Float32 &&
-              std::any_of(found->second.code.begin(), found->second.code.end(), [&](const auto &op) {
-                return op.kernel == stage && op.kind == NumericProgramKind::Matmul;
-              }))
+              std::any_of(found->second.code.begin(), found->second.code.end(),
+                          [&](const auto &op) {
+                            return op.kernel == stage && op.kind == NumericProgramKind::Matmul;
+                          }))
             outputs[name + (backend_ == GpuBackend::Cuda ? ".cuda-matmul" : ".vulkan-matmul")] =
-                backend_ == GpuBackend::Cuda ? "kalandra-cuda-matmul-v1\ntype=float32\n" : "kalandra-vulkan-matmul-v1\ntype=float32\n";
+                backend_ == GpuBackend::Cuda ? "kalandra-cuda-matmul-v1\ntype=float32\n"
+                                             : "kalandra-vulkan-matmul-v1\ntype=float32\n";
           if (backend_ != GpuBackend::Metal && shader.transform) {
-            outputs[name + (backend_ == GpuBackend::Cuda ? ".cuda-transform" : ".vulkan-transform")] =
-                std::string(backend_ == GpuBackend::Cuda ? "kalandra-cuda-transform-v1\nkind=" : "kalandra-vulkan-transform-v1\nkind=") +
+            outputs[name +
+                    (backend_ == GpuBackend::Cuda ? ".cuda-transform" : ".vulkan-transform")] =
+                std::string(backend_ == GpuBackend::Cuda ? "kalandra-cuda-transform-v1\nkind="
+                                                         : "kalandra-vulkan-transform-v1\nkind=") +
                 std::string(tensorTransformName(*shader.transform)) +
                 "\ntype=" + std::string(describeNumeric(shader.element)->name) + "\n";
             continue;
           }
           outputs[name + (shader.nativeMetal.empty() ? ".mlir" : ".native.metal")] =
               shader.nativeMetal.empty() ? shader.mlir : shader.nativeMetal;
+          if (backend_ == GpuBackend::Vulkan && shader.checkpointedTensorArithmetic)
+            outputs[name + ".vulkan-outline-i64-sub"] = "";
         }
         continue;
       }
       if (auto found = numericShaders.find(function); found != numericShaders.end()) {
         outputs[base + ".mlir"] = found->second.mlir;
+        if (backend_ == GpuBackend::Vulkan && found->second.checkpointedTensorArithmetic)
+          outputs[base + ".vulkan-outline-i64-sub"] = "";
         if (!found->second.reduction.empty())
           outputs[base + "-reduce.mlir"] = found->second.reduction;
         continue;
@@ -3923,6 +4551,8 @@ public:
     std::ostringstream host;
     host << (backend_ != GpuBackend::Metal ? "#include \"Language.h\"\n" : "#include \"Metal.h\"\n")
          << R"(#include "../runtime/HostArrays.h"
+#include "../runtime/DeviceArrayInputJob.h"
+#include "../runtime/DeviceGraphCapture.h"
 #include <array>
 #include <bit>
 #include <charconv>
@@ -3939,10 +4569,14 @@ using namespace kalandra::runtime;
                         ? "namespace m = kalandra::runtime::cuda::language;\n"
                         : "namespace m = kalandra::runtime::vulkan::language;\n")
                  : "namespace m = kalandra::runtime::metal;\n")
-         << " " << declarations << helperDeclarations << cpuEntries;
+         << " " << aggregateDeclarations << declarations << helperDeclarations << cpuEntries;
+    if (mainArray)
+      host << "const ValueLayout &mainArrayLayout=hostArrayLayout<" << elementName(mainElement)
+           << "," << (mainBoolArray ? "true" : "false") << ">();\n";
     if (scalarResult)
-      host << "const ValueLayout &scalarLayout=*numericScalarLayout(" + elementName(mainElement) +
-                  ");\n";
+      host << (booleanResult ? "const ValueLayout &scalarLayout=boolScalarLayout();\n"
+                             : "const ValueLayout &scalarLayout=*numericScalarLayout(" +
+                                   elementName(mainElement) + ");\n");
     host << arrayScopeDeclaration();
     host << R"(struct PacketData { m::Runtime *runtime; const char *directory; };
 struct Frame { m::Runtime *runtime; std::string directory; unsigned pc=1;
@@ -3981,6 +4615,11 @@ bool readScalar(Task &task,TaskHandle child,NumericValue<Element> &output) {
   if(failure.kind!=TaskFailure::None) {task.fault(failure.code ? failure.code : std::int64_t(m::Error::Device)); return false;}
   return task.read(child,*numericScalarLayout(Element),&output);
 }
+bool readBool(Task &task,TaskHandle child,bool &output) {
+  auto failure=task.failure(child);
+  if(failure.kind!=TaskFailure::None){task.fault(failure.code ? failure.code : std::int64_t(m::Error::Device));return false;}
+  return task.read(child,boolScalarLayout(),&output);
+}
 void resume(Task &task) {
   auto &f=*static_cast<Frame *>(task.frame()); [[maybe_unused]] auto &r=*f.runtime;
   for (;;) { switch(f.pc) {
@@ -3995,7 +4634,7 @@ void resume(Task &task) {
     host << "default: task.fault(3); return;\n} }\n}\n";
     host
         << R"(const TaskEntry entry{1,0x4b414c47505501,sizeof(PacketData),alignof(PacketData),sizeof(Frame),alignof(Frame),construct,destroy,resume,)"
-        << (scalarResult ? "&scalarLayout" : "&m::Runtime::bufferLayout()") << "};\n"
+        << (mainArray ? "&mainArrayLayout" : scalarResult ? "&scalarLayout" : "&m::Runtime::bufferLayout()") << "};\n"
         << helperBodies << R"(int main(int argc,char **argv) {
   if (argc!=1 && argc!=2) { std::fprintf(stderr,"expected optional shader directory\n"); return 2; }
   const auto directory=argc==2 ? std::string(argv[1]) : std::filesystem::absolute(argv[0]).parent_path().string();
@@ -4012,8 +4651,12 @@ void resume(Task &task) {
   PacketData packet{runtime.get(),directory.c_str()};
   Invocation context;
 )";
-    if (scalarResult)
-      host << scalarType(mainElement)
+    if (mainArray)
+      host << tensorDescriptor(mainElement, 1) << " value{};\n"
+              "auto failure=runner->run(entry,{entry.packetLayout,&packet,sizeof(packet)},"
+              "mainArrayLayout,context,&value);\n";
+    else if (scalarResult)
+      host << (booleanResult ? "bool" : scalarType(mainElement))
            << " value{};\n"
               "auto "
               "failure=runner->run(entry,{entry.packetLayout,&packet,sizeof(packet)},scalarLayout,"
@@ -4028,7 +4671,20 @@ void resume(Task &task) {
   if (failure.kind!=TaskFailure::None) { std::fprintf(stderr,"Metal task failed: %d/%lld\n",int(failure.kind),(long long)failure.code); status=1; }
   else {
 )";
-    if (scalarResult) {
+    if (mainArray) {
+      host << "{auto retained=retainCpuTensor(context,value.view());if(!retained)status=1;else{\n"
+              "std::printf(\"[\");for(std::uint64_t i=0;i<std::uint64_t(value.sizes[0]);++i){\n"
+              "std::uint64_t bits=0;std::memcpy(&bits,retained->data().data()+i*"
+           << mainWidth << "," << mainWidth << ");\n";
+      if (mainBoolArray)
+        host << "if(i)std::printf(\",\");std::printf(\"%s\",bits ? \"true\" : \"false\");\n";
+      else
+        host << "std::printf(i ? \",%0*llx\" : \"%0*llx\"," << mainWidth * 2
+             << ",static_cast<unsigned long long>(bits));\n";
+      host << "}std::puts(\"]\");}}context.settle();if(context.status()||context.live())status=1;\n";
+    } else if (booleanResult) {
+      host << "std::puts(value ? \"true\" : \"false\");\n";
+    } else if (scalarResult) {
       host << "std::printf(\"%0*llx\\n\"," << mainWidth * 2
            << ",static_cast<unsigned long long>(std::bit_cast<std::uint" << mainWidth * 8
            << "_t>(value)));\n";
@@ -4080,9 +4736,11 @@ void resume(Task &task) {
       for (std::size_t at = 0; (at = hostText.find(destruction, at)) != std::string::npos;)
         hostText.replace(at, destruction.size(), "std::destroy_at(value)");
       for (std::size_t at = 0; (at = hostText.find("Metal unavailable", at)) != std::string::npos;)
-        hostText.replace(at, 17, backend_ == GpuBackend::Cuda ? "CUDA unavailable" : "Vulkan unavailable");
+        hostText.replace(at, 17,
+                         backend_ == GpuBackend::Cuda ? "CUDA unavailable" : "Vulkan unavailable");
       for (std::size_t at = 0; (at = hostText.find("Metal task failed", at)) != std::string::npos;)
-        hostText.replace(at, 17, backend_ == GpuBackend::Cuda ? "CUDA task failed" : "Vulkan task failed");
+        hostText.replace(at, 17,
+                         backend_ == GpuBackend::Cuda ? "CUDA task failed" : "Vulkan task failed");
       const std::string metalCleanup =
           "s.bytes || s.metalBuffers || s.hostBackings || s.deviceBackings || s.inFlight || "
           "s.stagingBuffers || s.argumentBytes || s.argumentPacks";
@@ -4099,12 +4757,16 @@ void resume(Task &task) {
     for (auto [function, index] : entries) {
       if (auto found = numericPrograms.find(function); found != numericPrograms.end()) {
         const auto prefix = "kernel" + std::to_string(index) + ".";
-        manifest +=
-            prefix + "numeric_program_instructions=" + std::to_string(found->second.code.size()) +
-            "\n" + prefix +
-            "numeric_program_stages=" + std::to_string(found->second.kernels.size()) + "\n" +
-            prefix +
-            "numeric_type=" + std::string(describeNumeric(found->second.type.element)->name) + "\n";
+        manifest += prefix +
+                    "numeric_program_instructions=" + std::to_string(found->second.code.size()) +
+                    "\n" + prefix +
+                    "numeric_program_stages=" + std::to_string(found->second.kernels.size()) +
+                    "\n" + prefix + "numeric_type=" +
+                    std::string(describeNumeric(found->second.type.builtin == BuiltinValue::Bool
+                                                    ? NumericType::UInt8
+                                                    : found->second.type.element)
+                                    ->name) +
+                    "\n";
         continue;
       }
       if (auto found = numericShaders.find(function); found != numericShaders.end()) {

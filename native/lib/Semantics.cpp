@@ -165,7 +165,8 @@ public:
                   functionValueTransportError(output_, output_.expressions[task->operand]))
             error("S074", *unsupported, value.span);
     if (diagnostics_.empty())
-      if (auto unsupported = numericCapabilityError(output_, NumericTarget::Cpu))
+      if (auto unsupported =
+              numericCapabilityError(output_, NumericTarget::Cpu, options_.placement))
         error("S054", *unsupported,
               syntax_.functions.empty() ? SourceSpan{} : syntax_.functions[0].name);
     if (!syntax_.editorOnly && diagnostics_.empty())
@@ -578,8 +579,8 @@ private:
     auto success = result;
     success.fallible = false;
     success.errorRecord.reset();
-    if (!supported(success) || !std::ranges::all_of(parameters, supported) || options_.placement) {
-      error("S074", "function values require completed CPU parameters and synchronous CPU results",
+    if (!supported(success) || !std::ranges::all_of(parameters, supported)) {
+      error("S074", "function values require completed parameters and synchronous results",
             span);
       return {};
     }
@@ -5202,7 +5203,10 @@ private:
     }
     for (auto operand : operands) {
       const auto type = node(operand).type;
-      if (type.tensor && type.device != device) {
+      // Host arrays are read-borrowed task captures. The selected GPU entry
+      // packs/uploads them in its own admitted child; resident tensors still
+      // require an explicit transfer to the selected execution device.
+      if (type.tensor && !type.array && type.device != device) {
         error("S047",
               "tensor arguments require an explicit transfer to the selected execution device",
               span);
@@ -5237,7 +5241,7 @@ private:
       }
     }
     auto resultType = callResult(id, operands, options_.placement && !device);
-    if (resultType.tensor)
+    if (resultType.tensor && !resultType.array)
       resultType.device = device;
     resultType.fallible = syntax_.functions[id].taskError;
     if (resultType.fallible)

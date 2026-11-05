@@ -1,5 +1,7 @@
 #pragma once
 #include "kalandra/Semantics.h"
+#include <span>
+#include <vector>
 namespace llvm {
 class GlobalVariable;
 class Module;
@@ -20,4 +22,9 @@ llvm::GlobalVariable *emitTaskKernelValueLayout(const TypedModule &, const Typed
 // This layout skips absent success payloads without weakening packet validation.
 llvm::GlobalVariable *emitTaskFrameValueLayout(const TypedModule &, const TypedModule &kernels,
                                                llvm::Module &, const ValueType &);
+// Completed native payloads (without the task Failure wrapper), for opaque
+// compiler-owned host slots. The schema is nominal metadata only; callable
+// storage requires linked callable entries and is rejected by this component.
+std::vector<llvm::GlobalVariable *> emitTaskPayloadValueLayouts(const TypedModule &, llvm::Module &,
+                                                                std::span<const ValueType>);
 } // namespace kalandra

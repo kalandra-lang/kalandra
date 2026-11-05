@@ -11,7 +11,7 @@ std::expected<TensorValue, Error> transferTensor(Runtime &, const TensorValue &,
 template <NumericType Element, std::size_t Rank>
 std::expected<CpuTensor<Element, Rank>, Error> toCpuTyped(Invocation &context,
                                                           const TensorValue &value) {
-  if (value.type != Element || value.rank != Rank || value.scalar)
+  if (value.arrayResult || value.type != Element || value.rank != Rank || value.scalar)
     return std::unexpected(Error::Invalid);
   auto bytes = hostBytes(value);
   if (!bytes)
@@ -27,3 +27,7 @@ std::expected<CpuTensor<Element, Rank>, Error> toCpuTyped(Invocation &context,
     return std::unexpected(static_cast<Error>(copied.error()));
   return *copied;
 }
+
+// Explicit bounded private transport; ordinary tensor transfers reject envelopes.
+std::expected<void, Error> validateArrayPage(Runtime &, const TensorValue &, std::uint64_t, std::uint64_t);
+std::expected<TensorValue, Error> downloadArrayPagePayload(Runtime &, const TensorValue &, std::uint64_t, std::uint64_t);

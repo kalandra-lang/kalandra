@@ -1,5 +1,20 @@
+#include "DeviceTensorDynamic.h"
+#include "DeviceResidentTensorImport.h"
+#include "DeviceTensorReturn.h"
+#include "DeviceCallTrace.h"
+#include "DeviceCallEnter.h"
+#include "DeviceCallReturn.h"
+#include "DeviceCallSchedule.h"
+#include "DeviceCallReachability.h"
+#include "DeviceArrayReturn.h"
+#include "../gpu-source/AggregateLayout.h"
+#include "../gpu-runtime/ControlExport.h"
+#include "../runtime/DeviceGraphWire.h"
 #include "NumericShader.h"
+#include "DeviceHeap.h"
+#include "DeviceLiveness.h"
 #include "MatmulShader.h"
+#include "kalandra/Continuation.h"
 #include "kalandra/GpuConversion.h"
 #include "kalandra/GpuInteger.h"
 #include "kalandra/NumericKernelName.h"
@@ -26,7 +41,7 @@ namespace {
 struct Rejected {
   Diagnostic diagnostic;
 };
-struct Expr {
+struct ShaderValue {
   Value value, valid, uniform;
   bool tensor = false, boolean = false;
   std::optional<std::uint32_t> parameter{};
@@ -93,7 +108,7 @@ class Emitter {
                      "independent domains "
                      "require separate stages");
   }
-  Value materialize(Expr &expr) {
+  Value materialize(ShaderValue &expr) {
     if (expr.value)
       return expr.value;
     if (!expr.parameter)
@@ -112,10 +127,10 @@ class Emitter {
     tensorValues.emplace(p, expr.value);
     return expr.value;
   }
-  Expr literal(std::uint64_t value, bool boolean = false) {
+  ShaderValue literal(std::uint64_t value, bool boolean = false) {
     return {c(header, value, boolean ? 1 : 64), yes, yes, false, boolean};
   }
-  Expr binary(Expr a, Expr d, TokenKind op, SourceSpan span) {
+  ShaderValue binary(ShaderValue a, ShaderValue d, TokenKind op, SourceSpan span) {
     const auto element = a.element;
     const auto bits = describeNumeric(element)->bits;
     if (a.element != d.element)
@@ -177,7 +192,7 @@ class Emitter {
       domains.push_back(shape);
     return {result, checked, uniform, tensor, false, {}, std::move(shape)};
   }
-  Expr comparison(Expr a, Expr d, ComparisonKind op, SourceSpan span) {
+  ShaderValue comparison(ShaderValue a, ShaderValue d, ComparisonKind op, SourceSpan span) {
     const auto element = a.element;
     const auto bits = describeNumeric(element)->bits;
     if (!a.boolean && a.element != d.element)
@@ -267,15 +282,17 @@ public:
     }
     return result;
   }
-  Expr invoke(FunctionId function, const std::vector<Expr> &args) {
+  ShaderValue invoke(FunctionId function, const std::vector<ShaderValue> &args) {
     const auto &fn = input.functions.at(function);
+    if (usesScalarControl(input, function))
+      reject(fn.declaration, "device local control requires checkpointed scalar execution");
     if (++work > 300000 || active.size() >= 128 || !active.insert(function).second)
       reject(fn.declaration, "recursive or oversized typed GPU helper expansion");
-    std::map<SymbolId, Expr> symbols;
-    std::map<ValueId, Expr> values;
+    std::map<SymbolId, ShaderValue> symbols;
+    std::map<ValueId, ShaderValue> values;
     for (std::size_t i = 0; i < args.size(); ++i)
       symbols.emplace(fn.parameters.at(i), args[i]);
-    std::function<Expr(ValueId)> emit = [&](ValueId id) -> Expr {
+    std::function<ShaderValue(ValueId)> emit = [&](ValueId id) -> ShaderValue {
       if (++work > 300000)
         reject(fn.declaration, "typed GPU expression budget exceeded");
       if (auto found = values.find(id); found != values.end())
@@ -286,7 +303,7 @@ public:
            (node.type.builtin != BuiltinValue::Numeric || !describeNumeric(node.type.element))))
         reject(node.span, "typed GPU maps require homogeneous numerical values "
                           "and internal Bool conditions");
-      Expr out;
+      ShaderValue out;
       if (auto read = std::get_if<SymbolRead>(&node.operation))
         out = symbols.at(read->symbol);
       else if (auto value = std::get_if<BoolLiteral>(&node.operation))
@@ -346,6 +363,28 @@ public:
         }
         if (out.tensor)
           domains.push_back(out.shape);
+      } else if (auto range = std::get_if<IntegerRangeOperation>(&node.operation)) {
+        auto a = emit(range->current), stop = emit(range->stop), step = emit(range->step);
+        auto x = materialize(a), end = materialize(stop), stride = materialize(step);
+        auto nonzero = cmp(header, arith::CmpIPredicate::ne, stride, c(header, 0));
+        auto positive = cmp(header, arith::CmpIPredicate::sgt, stride, c(header, 0));
+        out = a;
+        out.valid = both(lane, both(lane, a.valid, stop.valid), step.valid);
+        out.uniform = both(header, both(header, a.uniform, stop.uniform), step.uniform);
+        if (range->kind == IntegerRangeOperation::Kind::Validate) {
+          out.value = x;
+          out.valid = both(lane, out.valid, nonzero);
+          out.uniform = both(header, out.uniform, nonzero);
+        } else if (range->kind == IntegerRangeOperation::Kind::Test) {
+          out.value = choose(header, positive, cmp(header, arith::CmpIPredicate::slt, x, end),
+                             cmp(header, arith::CmpIPredicate::sgt, x, end));
+          out.boolean = true;
+        } else {
+          auto sum = *emitCheckedGpuInteger(header, loc(), NumericType::Int64,
+                                            GpuIntegerOperation::Add, x, stride);
+          out.value = choose(header, sum.valid, sum.bits, end);
+        }
+        out.parameter.reset();
       } else if (auto choice = std::get_if<ConditionalOperation>(&node.operation)) {
         auto condition = emit(choice->condition);
         if (!condition.boolean)
@@ -383,7 +422,7 @@ public:
             {},
             a.shape};
       } else if (auto call = std::get_if<FunctionCall>(&node.operation)) {
-        std::vector<Expr> inputs;
+        std::vector<ShaderValue> inputs;
         for (auto argument : call->arguments)
           inputs.push_back(emit(argument));
         out = invoke(call->function, inputs);
@@ -443,8 +482,8 @@ public:
     active.erase(function);
     return result;
   }
-  Expr rootCall(FunctionId id, unsigned tensorCount) {
-    std::vector<Expr> args;
+  ShaderValue rootCall(FunctionId id, unsigned tensorCount) {
+    std::vector<ShaderValue> args;
     unsigned tensors = 0, scalarWords = 0, position = 0, realTensors = 0;
     auto parameters = kernel.getArgument(tensorCount + 1);
     for (auto parameter : root.parameters) {
@@ -453,7 +492,7 @@ public:
           !options.deviceScalarParameters.empty() && options.deviceScalarParameters[position];
       ++position;
       if ((type.builtin != BuiltinValue::Numeric &&
-           !(type.builtin == BuiltinValue::Bool && deviceScalar)) ||
+           !(type.builtin == BuiltinValue::Bool && !type.tensor)) ||
           type.array || !describeNumeric(type.element))
         reject(root.declaration, "typed GPU captures require one exact numerical type");
       if (type.tensor) {
@@ -462,7 +501,8 @@ public:
       } else if (deviceScalar) {
         args.push_back({{}, yes, yes, false, type.builtin == BuiltinValue::Bool, tensors++, {}});
       } else {
-        const auto bits = describeNumeric(type.element)->bits;
+        const auto numeric = type.builtin == BuiltinValue::Bool ? NumericType::UInt8 : type.element;
+        const auto bits = describeNumeric(numeric)->bits;
         const auto offset = 1 + scalarWords;
         scalarWords += bits == 64 ? 2 : 1;
         auto load = [&](unsigned i) -> Value {
@@ -475,7 +515,10 @@ public:
           value = arith::OrIOp::create(
               header, loc(), value,
               arith::ShLIOp::create(header, loc(), load(offset + 1), c(header, 32)));
-        args.push_back({value, yes, yes});
+        const bool boolean = type.builtin == BuiltinValue::Bool;
+        if (boolean)
+          value = cmp(header, arith::CmpIPredicate::ne, value, c(header, 0));
+        args.push_back({value, yes, yes, false, boolean});
       }
       args.back().element = type.builtin == BuiltinValue::Bool ? NumericType::UInt8 : type.element;
     }
@@ -498,7 +541,8 @@ public:
       sameShape(shape, result.shape, root.declaration);
     return result;
   }
-  static const Expr &argsForTensor(const std::vector<Expr> &args, unsigned parameter) {
+  static const ShaderValue &argsForTensor(const std::vector<ShaderValue> &args,
+                                          unsigned parameter) {
     for (const auto &arg : args)
       if (arg.parameter && *arg.parameter == parameter)
         return arg;
@@ -796,7 +840,7 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
         !options.deviceScalarParameters.empty() && options.deviceScalarParameters[position];
     ++position;
     if ((type.builtin != BuiltinValue::Numeric &&
-         !(type.builtin == BuiltinValue::Bool && deviceScalar)) ||
+         !(type.builtin == BuiltinValue::Bool && !type.tensor)) ||
         type.array || !desc)
       return std::unexpected(
           Diagnostic{"G001", "typed GPU captures require numeric values", root.declaration});
@@ -807,7 +851,7 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
       narrow8 |= desc->bits == 8;
       narrow16 |= desc->bits == 16;
     } else {
-      scalarTypes.push_back(type.element);
+      scalarTypes.push_back(numeric);
       scalarWords += desc->bits == 64 ? 2 : 1;
     }
   }
@@ -986,5 +1030,2009 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }
+}
+
+bool usesScalarControl(const TypedModule &input, FunctionId function) {
+  const auto &fn = input.functions.at(function);
+  return deviceNeedsCallFrames(input, function) || std::ranges::any_of(fn.expressions,
+                             [&](auto id) {
+                               const auto &op = input.expressions.at(id).operation;
+                               if (input.expressions.at(id).type.array ||
+                                   (!fn.resultType.tensor &&
+                                    std::holds_alternative<TensorIndex>(op)))
+                                 return true;
+                               if (std::holds_alternative<WhileOperation>(op))
+                                 return true;
+                               if (std::holds_alternative<RecordValue>(op) ||
+                                   std::holds_alternative<RecordFieldRead>(op) ||
+                                   std::holds_alternative<MatchOperation>(op))
+                                 return true;
+                               const auto *read = std::get_if<SymbolRead>(&op);
+                               return read && input.symbols.at(read->symbol).reassignable;
+                             }) ||
+         std::ranges::any_of(fn.body,
+                             [&](const auto &statement) {
+                               return statement.binding &&
+                                      input.symbols.at(*statement.binding).reassignable;
+                             }) ||
+         std::ranges::any_of(fn.parameters,
+                             [&](auto symbol) { return input.symbols.at(symbol).reassignable; });
+}
+
+std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModule &input,
+                                                                 FunctionId function,
+                                                                 ArithmeticMode arithmetic,
+                                                                 bool nativeFloat64Conversions,
+                                                                 bool aggregateEnvelope,
+                                                                 std::optional<std::size_t> graphParameter,
+                                                                 std::span<const DeviceGraphExportLayout> graphResultLayouts,
+                                                                 std::span<const std::size_t> graphPeers) {
+  const auto &root = input.functions.at(function);
+  const auto reject = [&](const std::string &message) -> std::expected<NumericShader, Diagnostic> {
+    return std::unexpected(Diagnostic{"G001", message, root.declaration});
+  };
+  const bool callFrames = deviceNeedsCallFrames(input, function);
+  auto planned = continuation::plan(
+      input,
+      {.entry = function, .nativeSubgraphs = false, .valueScopes = true, .inlineLoopCalls = true, .deviceValues = true, .deviceCallFrames = callFrames});
+  if (!planned)
+    return reject("GPU scalar control planning: " + planned.error());
+  std::optional<DeviceCallSchedule> schedule;
+  if (callFrames) {
+    auto merged = scheduleDeviceCalls(*planned, function,
+        runtime::detail::ControlArenaABI::Grow - 1, 300000);
+    if (!merged)
+      return reject(merged.error());
+    schedule.emplace(std::move(*merged));
+  }
+  const auto &plan = schedule ? schedule->plan : *planned->plans.at(function);
+  const auto scalar = [](const ValueType &type) {
+    return !type.tensor && !type.array && !type.task && !type.fallible &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+  };
+  const auto flatArray = [](const ValueType &type) {
+    return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
+           (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
+  };
+  const auto localTensor = [](const ValueType &type) {
+    return type.tensor && !type.array && !type.task && !type.fallible &&
+           type.builtin == BuiltinValue::Numeric &&
+           type.shape.size() <= 8;
+  };
+  const auto callable = [](const ValueType &type) {
+    return type.builtin == BuiltinValue::Function && !type.array && !type.tensor &&
+           !type.task && !type.fallible;
+  };
+  if (callFrames && !std::ranges::all_of(plan.slots, [&](const auto &type) {
+                       return scalar(type) || callable(type) || flatArray(type) || localTensor(type) || deviceInlineRecordValue(type) ||
+                              deviceRecordArrayValue(type);
+                     }))
+    return reject("GPU recursive calls require supported device frame values");
+  bool storage = callFrames || std::ranges::any_of(plan.slots, [&](const auto &type) {
+    return flatArray(type) || localTensor(type);
+  });
+  const bool arrayResult = flatArray(root.resultType);
+  const bool aggregateResult = deviceInlineRecordValue(root.resultType);
+  const bool graphResult = aggregateResult && !graphResultLayouts.empty();
+  if (aggregateResult && !aggregateEnvelope)
+    return reject("GPU aggregate outputs need typed transport");
+  const bool tensorResult = localTensor(root.resultType);
+  const bool exportResult = arrayResult || aggregateResult || tensorResult;
+  storage |= aggregateResult;
+  std::vector<std::size_t> graphParameters;
+  if (graphParameter)
+    graphParameters.push_back(*graphParameter);
+  graphParameters.insert(graphParameters.end(), graphPeers.begin(), graphPeers.end());
+  if ((!graphPeers.empty() && !graphParameter) ||
+      (graphParameter && !scalar(root.resultType) && !graphResult) ||
+      !std::ranges::is_sorted(graphParameters) ||
+      std::ranges::adjacent_find(graphParameters) != graphParameters.end() ||
+      std::ranges::any_of(graphParameters, [&](auto i) {
+        return i >= root.parameters.size() ||
+               !deviceInlineRecordValue(input.symbols.at(root.parameters[i]).type);
+      }))
+    return reject("GPU graph capture requires ordered inline record inputs and a scalar or graph result");
+  std::set<SymbolId> graphSymbols;
+  for (auto i : graphParameters)
+    graphSymbols.insert(root.parameters[i]);
+  const auto graphSymbol = graphParameter ? std::optional{root.parameters[*graphParameter]}
+                                          : std::optional<SymbolId>{};
+  if ((!scalar(root.resultType) && !exportResult) || std::ranges::any_of(root.parameters, [&](auto symbol) {
+        return !graphSymbols.contains(symbol) && !scalar(input.symbols.at(symbol).type) &&
+               !flatArray(input.symbols.at(symbol).type) && !localTensor(input.symbols.at(symbol).type);
+      }))
+    return reject("GPU checkpointed entry requires scalar, flat array or resident tensor inputs and "
+                  "scalar, flat array or inline aggregate results");
+  auto layoutTypes = plan.slots;
+  for (auto &type : layoutTypes)
+    if (localTensor(type)) {
+      type.array = true;
+      type.shape = {{std::nullopt, 1}};
+    }
+  auto aggregateLayouts = planDeviceAggregateLayouts(input, layoutTypes, 300000, nullptr, callFrames);
+  std::optional<RecordStoragePlan> nominalStorage;
+  if (!aggregateLayouts) {
+    auto nominal = planRecordStorage(input);
+    if (nominal) {
+      nominalStorage.emplace(std::move(*nominal));
+      aggregateLayouts = planDeviceAggregateLayouts(input, layoutTypes, 300000, &*nominalStorage, callFrames);
+    }
+  }
+  if (!aggregateLayouts)
+    return reject(aggregateLayouts.error());
+  const auto &layouts = *aggregateLayouts;
+  const auto plainRecord = deviceInlineRecordValue;
+  const auto boxIdentity = [](std::size_t id) {
+    return runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(id), false);
+  };
+  std::set<std::size_t> boxTypes, arrayTypes;
+  const auto localArray = [&](const ValueType &type) {
+    return flatArray(type) || deviceRecordArrayValue(type) || localTensor(type);
+  };
+  const auto arrayIdentity = [&](const ValueType &type) -> unsigned {
+    if (deviceRecordArrayValue(type))
+      return runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*type.record), true);
+    return type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1;
+  };
+  const auto arrayStride = [&](const ValueType &type) -> std::size_t {
+    return deviceRecordArrayValue(type) ? layouts.at(*type.record).words : 1;
+  };
+  for (auto symbol : graphSymbols)
+    boxTypes.insert(*input.symbols.at(symbol).type.record);
+  if (graphResult)
+    boxTypes.insert(*root.resultType.record);
+  for (const auto &type : plan.slots)
+    if (deviceRecordArrayValue(type))
+      arrayTypes.insert(*type.record);
+  for (const auto &[id, layout] : layouts) {
+    const auto &fields = input.records.at(id).fields;
+    for (std::size_t field = 0; field < fields.size(); ++field) {
+      if (deviceRecordArrayValue(fields[field].type))
+        arrayTypes.insert(*fields[field].type.record);
+      if (layout.boxed[field])
+        boxTypes.insert(*fields[field].type.record);
+    }
+  }
+  auto traceTypes = arrayTypes;
+  traceTypes.insert(boxTypes.begin(), boxTypes.end());
+  std::vector<DeviceTraceLayout> traceLayouts;
+  std::size_t traceBudget = 100000;
+  for (auto id : traceTypes) {
+    DeviceTraceLayout trace{boxIdentity(id), static_cast<unsigned>(layouts.at(id).words), {}};
+    struct Walk {
+      std::size_t id, offset, next;
+      bool guarded;
+    };
+    std::vector<Walk> stack{{id, 0, 0, false}};
+    std::vector<DeviceReferenceGuard> guards;
+    while (!stack.empty()) {
+      auto &path = stack.back();
+      const auto &record = input.records.at(path.id);
+      const auto &layout = layouts.at(path.id);
+      if (path.next == record.fields.size()) {
+        if (path.guarded)
+          guards.pop_back();
+        stack.pop_back();
+        continue;
+      }
+      if (!traceBudget)
+        return reject("GPU device trace schema exceeds configured work budget");
+      --traceBudget;
+      const auto field = path.next++;
+      const auto &type = record.fields[field].type;
+      const bool handle = layout.boxed[field] || localArray(type) || callable(type);
+      if (!handle && (!plainRecord(type) || layouts.at(*type.record).owned.empty()))
+        continue;
+      const auto offset = path.offset + layout.fields[field];
+      const auto tag = layout.fieldTags[field];
+      if (tag)
+        guards.push_back({static_cast<unsigned>(path.offset), tag});
+      if (handle) {
+        if (guards.size() > traceBudget)
+          return reject("GPU device trace schema exceeds configured work budget");
+        traceBudget -= guards.size();
+        trace.references.push_back({static_cast<unsigned>(offset), guards});
+        if (tag)
+          guards.pop_back();
+      } else
+        stack.push_back({*type.record, offset, 0, tag != 0});
+    }
+    if (boxTypes.contains(id) && arrayTypes.contains(id))
+      traceLayouts.push_back(trace);
+    if (arrayTypes.contains(id))
+      trace.identity = runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(id), true);
+    traceLayouts.push_back(std::move(trace));
+  }
+  storage |= !traceTypes.empty();
+  for (const auto &[id, layout] : layouts) {
+    (void)id;
+    storage |= !layout.owned.empty();
+  }
+  const auto width = [&](const ValueType &type) -> std::size_t {
+    return scalar(type) || callable(type) || localArray(type) ? 1 : layouts.at(*type.record).words;
+  };
+  struct ClosureLayout {
+    unsigned identity;
+    std::size_t words = 1;
+    std::vector<std::size_t> offsets;
+  };
+  std::map<FunctionId, ClosureLayout> closures;
+  if (callFrames)
+    for (const auto &op : plan.code) {
+      if (op.code != continuation::Code::FunctionReference || closures.contains(op.target))
+        continue;
+      const auto identity = static_cast<unsigned>(12 + 2 * input.records.size() +
+                                                   input.functions.size() + op.target);
+      ClosureLayout closure{identity, 1, {}};
+      DeviceTraceLayout trace{identity, 0, {}};
+      for (auto slot : op.args) {
+        const auto &type = plan.slots.at(slot);
+        if (!scalar(type) && !callable(type) && !localArray(type) && !plainRecord(type))
+          return reject("GPU closure capture requires a device value layout");
+        const auto words = width(type);
+        if (words > 256 - closure.words)
+          return reject("GPU closure environment exceeds its compilation word budget");
+        closure.offsets.push_back(closure.words);
+        if (callable(type) || localArray(type))
+          trace.references.push_back({static_cast<unsigned>(closure.words), {}});
+        else if (plainRecord(type))
+          for (auto leaf : layouts.at(*type.record).owned)
+            trace.references.push_back({static_cast<unsigned>(closure.words + leaf), {}});
+        closure.words += words;
+      }
+      trace.stride = closure.words;
+      traceLayouts.push_back(std::move(trace));
+      closures.emplace(op.target, std::move(closure));
+    }
+  std::vector<std::size_t> offsets;
+  std::size_t frameWords = tensorResult ? runtime::detail::ControlTensorExportABI::Cells :
+      exportResult ? runtime::detail::ControlArrayExportABI::Cells :
+                           storage ? unsigned(DeviceHeapEmitter::Cells) : 1;
+  for (const auto &type : plan.slots) {
+    offsets.push_back(frameWords);
+    if (width(type) > (UINT32_MAX - 4) / 2 - frameWords)
+      return reject("GPU aggregate control frame exceeds the device ABI");
+    frameWords += width(type);
+    if (frameWords > 300000)
+      return reject("GPU aggregate control frame exceeds configured compilation work budget");
+  }
+  const auto slotEnd = frameWords;
+  const auto activeFrame = frameWords;
+  const auto callCursor = activeFrame + 1;
+  const auto outerSuspension = activeFrame + 2;
+  const auto callLayout = [&](FunctionId fn) {
+    return static_cast<unsigned>(12 + 2 * input.records.size() + fn);
+  };
+  std::vector<DeviceCallFrame> callFramesByFunction;
+  const auto callSlot = [&](FunctionId fn, continuation::Slot slot) {
+    return static_cast<unsigned>(callFramesByFunction.at(fn).offsets.at(
+        slot - schedule->slotBases.at(fn)));
+  };
+  const auto frameCell = [&](FunctionId fn, std::size_t cell) {
+    return DeviceCallFrame::HeaderWords + cell - offsets.at(schedule->slotBases.at(fn));
+  };
+  std::vector<DeviceRootMap> outerCallRoots;
+  std::vector<std::vector<std::size_t>> callSites;
+  if (callFrames) {
+    frameWords += 3;
+    callFramesByFunction.resize(input.functions.size());
+    for (FunctionId fn = 0; fn < input.functions.size(); ++fn) {
+      if (!schedule->dispatch.entries.at(fn))
+        continue;
+      auto frame = planDeviceCallFrame(*planned->plans.at(fn), 300000,
+          [&](const auto &type) -> std::optional<std::size_t> { return width(type); });
+      if (!frame)
+        return reject(frame.error());
+      callFramesByFunction[fn] = std::move(*frame);
+    }
+    callSites.resize(input.functions.size());
+    for (std::size_t i = 0; i < plan.code.size(); ++i) {
+      const auto &op = plan.code[i];
+      if (op.code != continuation::Code::SynchronousCall)
+        continue;
+      callSites.at(op.target).push_back(i);
+
+    }
+
+  }
+  const auto boxStep = frameWords;
+  if (!traceTypes.empty())
+    frameWords += 2; // Record construction field and multiword read cursor.
+  const auto graphCursor = frameWords;
+  if (graphParameter)
+    ++frameWords;
+  const auto graphReturn = frameWords;
+  enum GraphReturnCell { ReturnPhase, ReturnRoot, EnvelopeBase, EnvelopeBlock,
+                         EnvelopeWord, EnvelopeOutput, GraphReturnCells };
+  if (graphResult)
+    frameWords += GraphReturnCells;
+  DeviceAggregateProjection resultProjection;
+  DeviceAggregateReturnFrame resultFrame{static_cast<unsigned>(frameWords), resultProjection};
+  if (aggregateResult && !graphResult) {
+    std::size_t budget = 300000;
+    auto projected = projectDeviceAggregates(input, std::span(&root.resultType, 1), budget);
+    if (!projected)
+      return reject(projected.error());
+    resultProjection = std::move(*projected);
+    frameWords = resultFrame.end();
+    if (frameWords > 300000)
+      return reject("GPU aggregate result frame exceeds configured compilation work budget");
+  }
+  using InputABI = runtime::detail::ControlTensorInputs;
+  std::vector<std::size_t> residentParameters;
+  std::size_t footerWords = 0;
+  for (std::size_t i = 0; i < root.parameters.size(); ++i) {
+    const auto parameter = root.parameters[i];
+    const auto &type = input.symbols.at(parameter).type;
+    if (parameter == graphSymbol || flatArray(type))
+      ++footerWords;
+    else if (localTensor(type)) {
+      residentParameters.push_back(i);
+      footerWords += 1 + type.shape.size();
+    }
+  }
+  if (footerWords > (UINT32_MAX - 4) / 2 - frameWords)
+    return reject("GPU input metadata exceeds the device ABI");
+  frameWords += footerWords;
+  const auto residentPC = plan.code.size() + 1;
+  // A resident parameter used only by read-only tensor operations can be
+  // read in place. Escaping values and call frames still need an arena handle.
+  std::map<continuation::Slot, std::size_t> directResident;
+  if (!graphParameter && !callFrames) {
+    for (auto parameter : residentParameters) {
+      const auto slot = plan.parameters.at(parameter);
+      const auto direct = std::ranges::all_of(plan.code, [&](const auto &op) {
+        if (op.code == continuation::Code::Copy && op.output == slot)
+          return false;
+        if (std::ranges::find(op.args, slot) == op.args.end())
+          return true;
+        if (op.code != continuation::Code::Kernel)
+          return false;
+        const auto &operation = input.expressions.at(op.source).operation;
+        return std::holds_alternative<TensorBinary>(operation) ||
+               std::holds_alternative<TensorUnary>(operation) ||
+               (op.args.front() == slot &&
+                (std::holds_alternative<TensorIndex>(operation) ||
+                 std::holds_alternative<CollectionQuery>(operation) ||
+                 std::holds_alternative<TensorToArray>(operation) ||
+                 std::holds_alternative<TensorReshape>(operation)));
+      });
+      if (direct)
+        directResident.emplace(slot, parameter);
+    }
+  }
+  residentParameters.erase(std::remove_if(residentParameters.begin(), residentParameters.end(),
+      [&](auto i) { return directResident.contains(plan.parameters.at(i)); }), residentParameters.end());
+  if (frameWords > (UINT32_MAX - 4) / 2)
+    return reject("GPU scalar control parameter layout exceeds the device ABI");
+  using C = continuation::Code;
+  std::vector<std::vector<std::size_t>> liveRoots;
+  if (storage) {
+    std::vector<continuation::Slot> ownedSlots;
+    for (std::size_t i = 0; i < plan.slots.size(); ++i) {
+      const auto &type = plan.slots[i];
+      if (localArray(type) || callable(type) ||
+          (plainRecord(type) && !layouts.at(*type.record).owned.empty()))
+        ownedSlots.push_back(i);
+    }
+    auto roots = deviceLiveRoots(plan, ownedSlots, 64 * 1024 * 1024, 30000000, callFrames);
+    if (!roots)
+      return reject(roots.error());
+    liveRoots = std::move(*roots);
+    // Liveness is solved for logical slots. Expand a live aggregate into all
+    // its owned leaves; stale dead slots and overwritten values stay unrooted.
+    // Inactive enum payload cells are zeroed at construction, including nested
+    // records. This inline representation never imports host pointers.
+    std::size_t rootBudget = 64 * 1024 * 1024 / sizeof(std::size_t);
+    for (auto &row : liveRoots) {
+      std::vector<std::size_t> expanded;
+      for (auto slot : row) {
+        const auto &type = plan.slots.at(slot);
+        const auto count = localArray(type) || callable(type) ? 1 : layouts.at(*type.record).owned.size();
+        if (count > rootBudget)
+          return reject("GPU aggregate root expansion exceeds configured memory budget");
+        rootBudget -= count;
+        if (localArray(type) || callable(type))
+          expanded.push_back(offsets.at(slot));
+        else
+          for (auto leaf : layouts.at(*type.record).owned)
+            expanded.push_back(offsets.at(slot) + leaf);
+      }
+      row = std::move(expanded);
+    }
+  }
+  std::vector<DeviceRootMap> allocationRoots;
+  std::size_t boxRootBudget = 64 * 1024 * 1024 / sizeof(std::size_t);
+  if (storage)
+    for (std::size_t i = 0; i < plan.code.size(); ++i) {
+      const auto &op = plan.code[i];
+      if ((op.code == C::Kernel || op.code == C::CollectAppend || op.code == C::MapInit) &&
+          localArray(plan.slots.at(op.output)))
+        allocationRoots.push_back({i + 1, liveRoots[i]});
+      if (op.code == C::Kernel) {
+        const auto *record = std::get_if<RecordValue>(&input.expressions.at(op.source).operation);
+        if (record) {
+          const auto &layout = layouts.at(*plan.slots.at(op.output).record);
+          if (std::ranges::any_of(record->fields, [&](const auto &field) {
+                return layout.boxed.at(field.field);
+              })) {
+            if (liveRoots[i].size() > boxRootBudget ||
+                layout.owned.size() > boxRootBudget - liveRoots[i].size())
+              return reject("GPU boxed record roots exceed configured memory budget");
+            boxRootBudget -= liveRoots[i].size() + layout.owned.size();
+            auto roots = liveRoots[i];
+            for (auto leaf : layout.owned)
+              roots.push_back(offsets.at(op.output) + leaf);
+            allocationRoots.push_back({i + 1, std::move(roots)});
+          }
+        }
+      }
+      if (aggregateResult && op.code == C::Return &&
+          (!schedule || schedule->owners[i] == function)) {
+        std::vector<std::size_t> resultRoots;
+        for (auto leaf : layouts.at(*root.resultType.record).owned)
+          resultRoots.push_back(offsets.at(plan.result) + leaf);
+        if (graphResult)
+          resultRoots.push_back(graphReturn + ReturnRoot);
+        allocationRoots.push_back({i + 1, std::move(resultRoots)});
+      }
+    }
+  const auto tensorArithmetic = [&](const auto &op) {
+    if (op.code != C::Kernel)
+      return false;
+    const auto &node = input.expressions.at(op.source);
+    return localTensor(node.type) &&
+           (std::holds_alternative<TensorBinary>(node.operation) ||
+            std::holds_alternative<TensorUnary>(node.operation));
+  };
+  const auto arrayOperation = [&](const auto &op) {
+    if (!storage || op.code != C::Kernel)
+      return false;
+    const auto &node = input.expressions.at(op.source);
+    return tensorArithmetic(op) || (localArray(node.type) && (std::holds_alternative<TensorLiteral>(node.operation) ||
+                                   std::holds_alternative<ArraySlice>(node.operation) ||
+                                   std::holds_alternative<ArrayConcat>(node.operation) ||
+                                   std::holds_alternative<ArraySort>(node.operation))) ||
+           std::holds_alternative<ArrayIndex>(node.operation) ||
+           std::holds_alternative<TensorIndex>(node.operation) ||
+           std::holds_alternative<TensorReshape>(node.operation) ||
+           std::holds_alternative<ArrayToTensor>(node.operation) ||
+           std::holds_alternative<TensorToArray>(node.operation) ||
+           std::holds_alternative<ArrayBoundsCheck>(node.operation) ||
+           std::holds_alternative<ArrayStore>(node.operation) ||
+           (std::holds_alternative<CollectionQuery>(node.operation) && !op.args.empty() &&
+            localArray(plan.slots.at(op.args[0])));
+  };
+  if (callFrames) {
+    const auto compact = [&](FunctionId fn, std::size_t cell) {
+      return static_cast<unsigned>(frameCell(fn, cell));
+    };
+    std::vector<std::vector<std::vector<unsigned>>> wordsByFunction(input.functions.size());
+    std::vector<std::vector<DeviceCallSuspension>> sitesByFunction(input.functions.size());
+    std::size_t rootWork = 300000;
+    for (std::size_t i = 0; i < plan.code.size(); ++i) {
+      const auto &op = plan.code[i];
+      if (op.code == C::FunctionReference)
+        allocationRoots.push_back({i + 1, liveRoots[i]});
+      if (op.code != C::SynchronousCall)
+        continue;
+      const auto fn = schedule->owners[i];
+      allocationRoots.push_back({i + 1, liveRoots[i]});
+      const auto output = offsets.at(op.output);
+      std::vector<std::size_t> outer;
+      std::vector<unsigned> frame;
+      for (auto root : liveRoots[i + 1]) {
+        if (root >= output && root - output < width(plan.slots.at(op.output)))
+          continue;
+        if (!rootWork)
+          return reject("GPU suspended call roots exceed compilation work budget");
+        --rootWork;
+        if (fn == function)
+          outer.push_back(root);
+        frame.push_back(compact(fn, root));
+      }
+      if (fn == function)
+        outerCallRoots.push_back({i + 2, std::move(outer)});
+      wordsByFunction[fn].push_back(std::move(frame));
+      sitesByFunction[fn].push_back({i + 2, wordsByFunction[fn].back()});
+    }
+    for (auto &map : allocationRoots) {
+      if (plan.code.at(map.pc - 1).code == C::Return)
+        continue; // Only the outer activation can allocate a terminal export.
+      const auto fn = schedule->owners.at(map.pc - 1);
+      map.activeFrameCell = activeFrame;
+      for (auto cell : map.cells)
+        map.frameCells.push_back(compact(fn, cell));
+    }
+    for (FunctionId fn = 0; fn < input.functions.size(); ++fn) {
+      if (!schedule->dispatch.entries.at(fn))
+        continue;
+      auto trace = planDeviceCallTrace(callLayout(fn), callFramesByFunction[fn].words,
+          DeviceCallFrame::Parent, DeviceCallFrame::SuspendedAt, DeviceCallFrame::HeaderWords,
+          sitesByFunction[fn], 300000);
+      if (!trace)
+        return reject(trace.error());
+      traceLayouts.push_back(std::move(*trace));
+    }
+  }
+  // Imports run in the outer invocation before any source activation. Keep
+  // seeded graph values and previously published tensor handles rooted.
+  std::vector<std::size_t> importedRoots;
+  for (auto i : graphParameters) {
+    const auto slot = plan.parameters.at(i);
+    const auto &type = plan.slots.at(slot);
+    for (auto leaf : layouts.at(*type.record).owned)
+      importedRoots.push_back(offsets.at(slot) + leaf);
+  }
+  for (std::size_t i = 0; i < residentParameters.size(); ++i) {
+    allocationRoots.push_back({residentPC + i, importedRoots});
+    importedRoots.push_back(offsets.at(plan.parameters.at(residentParameters[i])));
+  }
+  auto code = planned->kernels;
+  std::vector<std::optional<FunctionId>> kernels;
+  for (const auto &op : plan.code) {
+    if (tensorArithmetic(op)) {
+      auto node = input.expressions.at(op.source);
+      auto laneType = node.type;
+      laneType.tensor = false;
+      laneType.shape.clear();
+      TypedFunction fn{};
+      fn.name = "control_tensor_cell" + std::to_string(kernels.size());
+      fn.declaration = node.span;
+      fn.resultType = laneType;
+      std::vector<ValueId> lanes;
+      for (auto slot : op.args) {
+        auto argument = plan.slots.at(slot);
+        if (!localTensor(argument) && !scalar(argument))
+          return reject("GPU tensor arithmetic operand requires numeric storage");
+        argument.tensor = false;
+        argument.shape.clear();
+        const auto symbol = code.symbols.size();
+        code.symbols.push_back({"lane", argument, node.span, code.functions.size(), true});
+        fn.parameters.push_back(symbol);
+        lanes.push_back(code.expressions.size());
+        code.expressions.push_back({node.span, argument, SymbolRead{symbol}});
+      }
+      if (const auto *unary = std::get_if<TensorUnary>(&node.operation))
+        node.operation = ScalarUnary{unary->operation, lanes.at(0)};
+      else
+        node.operation = ScalarBinary{std::get<TensorBinary>(node.operation).operation,
+                                      lanes.at(0), lanes.at(1)};
+      node.type = laneType;
+      fn.result = code.expressions.size();
+      code.expressions.push_back(std::move(node));
+      kernels.push_back(code.functions.size());
+      code.functions.push_back(std::move(fn));
+      continue;
+    }
+    if (op.code == C::Kernel &&
+        std::holds_alternative<ArrayStore>(input.expressions.at(op.source).operation) &&
+        deviceRecordArrayValue(plan.slots.at(op.args.at(0))))
+      return reject("GPU record array element assignment requires an exclusive typed store");
+    if (op.code == C::Kernel && !arrayOperation(op) &&
+        !std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)) {
+      kernels.push_back(op.target);
+      continue;
+    }
+    kernels.push_back({});
+    if (op.code == C::MapInit || op.code == C::MapCheck || op.code == C::MapLoad ||
+        op.code == C::MapStore || op.code == C::MapAdvance || arrayOperation(op) || op.code == C::CollectInit || op.code == C::CollectAppend ||
+        op.code == C::CollectFinish || op.code == C::Label || op.code == C::Copy || op.code == C::Branch || op.code == C::Jump ||
+        op.code == C::Return || (callFrames && (op.code == C::SynchronousCall ||
+        op.code == C::FunctionReference || op.code == C::CallableTarget || op.code == C::CallableCaptures ||
+        op.code == C::InvalidCallable)) || op.code == C::Field || op.code == C::Case ||
+        (op.code == C::Kernel &&
+         std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)))
+      continue;
+    if (op.code != C::Literal && op.code != C::Unary && op.code != C::Binary)
+      return reject(
+          "GPU scalar control does not support task effects, recursive calls or owned values");
+    TypedFunction fn{};
+    fn.name = "control_cell" + std::to_string(kernels.size());
+    fn.declaration = root.declaration;
+    fn.resultType = plan.slots.at(op.output);
+    auto node = input.expressions.at(op.source);
+    std::vector<ValueId> args;
+    for (auto slot : op.args) {
+      const auto symbol = code.symbols.size();
+      code.symbols.push_back({"cell" + std::to_string(symbol), plan.slots.at(slot),
+                              root.declaration, code.functions.size(), true});
+      fn.parameters.push_back(symbol);
+      args.push_back(code.expressions.size());
+      code.expressions.push_back({root.declaration, plan.slots.at(slot), SymbolRead{symbol}});
+    }
+    if (auto unary = std::get_if<ScalarUnary>(&node.operation))
+      unary->operand = args.at(0);
+    else if (auto binary = std::get_if<ScalarBinary>(&node.operation)) {
+      binary->left = args.at(0);
+      binary->right = args.at(1);
+    }
+    fn.result = code.expressions.size();
+    code.expressions.push_back(std::move(node));
+    kernels.back() = code.functions.size();
+    code.functions.push_back(std::move(fn));
+  }
+  const auto type = exportResult ? NumericType::UInt64 :
+      root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element;
+  const auto bits = describeNumeric(type)->bits;
+  const auto frames = std::uint32_t(frameWords);
+  std::vector<NumericType> inputs;
+  std::vector<std::uint8_t> roles;
+  std::vector<unsigned> kernelArguments(root.parameters.size());
+  for (std::size_t i = 0; i < root.parameters.size(); ++i) {
+    const auto parameter = root.parameters[i];
+    if (graphSymbols.contains(parameter) && parameter != graphSymbol)
+      continue;
+    kernelArguments[i] = inputs.size();
+    const auto &t = input.symbols.at(parameter).type;
+    inputs.push_back(t.array || parameter == graphSymbol ? NumericType::UInt64 :
+                     t.builtin == BuiltinValue::Bool ? NumericType::UInt8 : t.element);
+    roles.push_back(parameter == graphSymbol || flatArray(t) ? 2 :
+        localTensor(t) ? InputABI::FirstRole + t.shape.size() : 1);
+  }
+  if (storage)
+    inputs.push_back(NumericType::UInt64);
+  std::vector<NumericType> states(frames, NumericType::UInt64);
+  auto name = numericKernelName(type, inputs, states);
+  if (storage)
+    roles.push_back(tensorResult ? InputABI::FirstResultRole + root.resultType.shape.size() :
+        exportResult ? runtime::DeviceArrayWireABI::ExportRole : 0);
+  if (!root.parameters.empty() || exportResult || callFrames) {
+    name += "_d_";
+    for (auto role : roles)
+      name += InputABI::encode(role);
+  }
+  std::ostringstream source;
+  const auto hasWidth = [&](unsigned width) {
+    return bits == width || std::ranges::any_of(inputs, [&](auto type) {
+             return describeNumeric(type)->bits == width;
+           });
+  };
+  source << "module attributes {gpu.container_module, spirv.target_env = "
+            "#spirv.target_env<#spirv.vce<v1.0, [Shader, Int64";
+  if (hasWidth(8))
+    source << ", Int8, StorageBuffer8BitAccess";
+  if (hasWidth(16))
+    source << ", Int16, StorageBuffer16BitAccess";
+  source << "], [SPV_KHR_storage_buffer_storage_class";
+  if (hasWidth(8))
+    source << ", SPV_KHR_8bit_storage";
+  if (hasWidth(16))
+    source << ", SPV_KHR_16bit_storage";
+  source << "]>, #spirv.resource_limits<>>} { gpu.module @kernels { gpu.func @" << name << "(";
+  for (std::size_t i = 0; i < inputs.size(); ++i)
+    source << "%a" << i << ":memref<?xi" << describeNumeric(inputs[i])->bits << ">,";
+  source << "%out:memref<?xi" << bits << ">,%params:memref<" << 2 + 2 * frames
+         << "xi32>) kernel attributes {"
+            "spirv.entry_point_abi=#spirv.entry_point_abi<workgroup_size=[64,1,1]>} {"
+            "%thread=gpu.thread_id x\n%zero=arith.constant 0:index\n"
+            "%active=arith.cmpi eq,%thread,%zero:index\nscf.if %active {}\ngpu.return\n}}}";
+  DialectRegistry registry;
+  registerAllDialects(registry);
+  MLIRContext context(registry);
+  context.getOrLoadDialect<memref::MemRefDialect>();
+  auto module = parseSourceString<ModuleOp>(source.str(), &context);
+  if (!module)
+    return reject("GPU scalar control shader skeleton failed verification");
+  gpu::GPUFuncOp kernel;
+  scf::IfOp body;
+  module->walk([&](gpu::GPUFuncOp op) { kernel = op; });
+  module->walk([&](scf::IfOp op) { body = op; });
+  OpBuilder b = OpBuilder::atBlockTerminator(&body.getThenRegion().front());
+  const auto loc = b.getUnknownLoc();
+  const auto constant = [&](std::uint64_t value, unsigned width = 64) -> Value {
+    return arith::ConstantOp::create(
+        b, loc, b.getIntegerType(width),
+        b.getIntegerAttr(b.getIntegerType(width), llvm::APInt(width, value)));
+  };
+  const auto at = [&](std::uint64_t value) -> Value {
+    return arith::ConstantIndexOp::create(b, loc, value);
+  };
+  const auto params = kernel.getArgument(inputs.size() + 1);
+  const auto load = [&](std::size_t slot) -> Value {
+    auto lo = memref::LoadOp::create(b, loc, params, ValueRange{at(1 + slot * 2)});
+    auto hi = memref::LoadOp::create(b, loc, params, ValueRange{at(2 + slot * 2)});
+    auto low = arith::ExtUIOp::create(b, loc, b.getI64Type(), lo);
+    auto high = arith::ExtUIOp::create(b, loc, b.getI64Type(), hi);
+    return arith::OrIOp::create(b, loc, low, arith::ShLIOp::create(b, loc, high, constant(32)));
+  };
+  const auto store = [&](std::size_t slot, Value value) {
+    if (value.getType().isInteger(1))
+      value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
+    auto lo = arith::TruncIOp::create(b, loc, b.getI32Type(), value);
+    auto hi = arith::TruncIOp::create(b, loc, b.getI32Type(),
+                                      arith::ShRUIOp::create(b, loc, value, constant(32)));
+    memref::StoreOp::create(b, loc, lo, params, ValueRange{at(1 + slot * 2)});
+    memref::StoreOp::create(b, loc, hi, params, ValueRange{at(2 + slot * 2)});
+  };
+  std::vector<DeviceArrayInput> captures;
+  std::optional<std::size_t> graphLengthSlot;
+  std::vector<std::size_t> residentMetadata(root.parameters.size());
+  auto footer = frames - footerWords;
+  for (std::size_t i = 0; i < root.parameters.size(); ++i) {
+    const auto &type = input.symbols.at(root.parameters[i]).type;
+    if (i == graphParameter)
+      graphLengthSlot = footer++;
+    else if (flatArray(type))
+      captures.push_back({kernel.getArgument(kernelArguments[i]), load(footer++),
+          type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1});
+    else if (localTensor(type)) {
+      residentMetadata[i] = footer;
+      footer += 1 + type.shape.size();
+    }
+  }
+  std::optional<DeviceHeapEmitter> heap;
+  if (storage)
+    heap.emplace(b, kernel.getArgument(inputs.size() - 1), params, 2 + 2 * frames, allocationRoots,
+                 traceLayouts, captures, graphParameter.has_value(),
+                 callFrames ? std::optional<unsigned>(outerSuspension) : std::nullopt,
+                 outerCallRoots);
+  auto yes = constant(1, 1);
+  const auto entryPC = schedule ? schedule->dispatch.entries[function] : 1;
+  const auto initializeParameters = [&] {
+    std::size_t capture = 0;
+    for (std::size_t i = 0; i < plan.parameters.size(); ++i) {
+      if (graphSymbols.contains(root.parameters[i]) ||
+          localTensor(input.symbols.at(root.parameters[i]).type))
+        continue;
+      if (flatArray(input.symbols.at(root.parameters[i]).type)) {
+        store(offsets.at(plan.parameters[i]),
+              constant(runtime::DeviceArrayWireABI::ExternalHandle | ++capture));
+        continue;
+      }
+      Value value = memref::LoadOp::create(b, loc, kernel.getArgument(kernelArguments[i]), ValueRange{at(0)});
+      if (describeNumeric(inputs[kernelArguments[i]])->bits != 64)
+        value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
+      store(offsets.at(plan.parameters[i]), value);
+    }
+    store(0, constant(residentParameters.empty() ? entryPC : residentPC));
+    for (const auto &[slot, parameter] : directResident) {
+      const auto &type = plan.slots.at(slot);
+      for (std::size_t axis = 0; axis < type.shape.size(); ++axis) {
+        const auto expected = type.shape[axis].constant;
+        if (!expected)
+          continue;
+        const Value mismatch = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne,
+            load(residentMetadata[parameter] + 1 + axis), constant(*expected));
+        auto checked = scf::IfOp::create(b, loc, mismatch, false);
+        OpBuilder::InsertionGuard guard(b);
+        b.setInsertionPointToStart(&checked.getThenRegion().front());
+        heap->fault(4);
+      }
+    }
+    for (std::size_t i = 0; i < captures.size(); ++i)
+      heap->read(constant(runtime::DeviceArrayWireABI::ExternalHandle | (i + 1)), constant(1));
+  };
+  constexpr auto graphInit = runtime::detail::ControlArenaABI::Grow - 1;
+  {
+    auto initial = scf::IfOp::create(
+        b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, load(0), constant(0)), false);
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(&initial.getThenRegion().front());
+    if (graphParameter) {
+      // Zero is reserved for the backend's first dispatch. Subsequent chunks
+      // and growth acknowledgements must use a nonzero continuation PC.
+      store(0, constant(graphInit));
+    } else {
+      if (heap)
+        heap->initialize();
+      initializeParameters();
+    }
+  }
+  auto loop = scf::WhileOp::create(b, loc, TypeRange{b.getI32Type()}, ValueRange{constant(0, 32)});
+  auto *before = new Block;
+  loop.getBefore().push_back(before);
+  before->addArgument(b.getI32Type(), loc);
+  auto *after = new Block;
+  loop.getAfter().push_back(after);
+  after->addArgument(b.getI32Type(), loc);
+  try {
+    OpBuilder::InsertionGuard restore(b);
+    b.setInsertionPointToStart(before);
+    auto budget = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, before->getArgument(0),
+                                        constant(256, 32));
+    auto running = arith::CmpIOp::create(b, loc,
+        storage ? arith::CmpIPredicate::ult : arith::CmpIPredicate::ne,
+        load(0), constant(storage ? UINT64_MAX - 1 : UINT64_MAX));
+    scf::ConditionOp::create(b, loc, arith::AndIOp::create(b, loc, budget, running),
+                             before->getArguments());
+    b.setInsertionPointToStart(after);
+    if (graphParameter) {
+      using W = runtime::DeviceArrayWireABI;
+      const auto imageOffset = W::HeaderWords + graphParameters.size();
+      const auto equal = [&](Value left, Value right) -> Value {
+        return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, left, right);
+      };
+      auto initial = scf::IfOp::create(b, loc, equal(load(0), constant(graphInit)), false);
+      OpBuilder::InsertionGuard initialGuard(b);
+      b.setInsertionPointToStart(&initial.getThenRegion().front());
+      const auto cursor = load(graphCursor);
+      const auto image = kernel.getArgument(kernelArguments[*graphParameter]);
+      auto phase = scf::IfOp::create(b, loc, equal(cursor, constant(0)), true);
+      b.setInsertionPointToStart(&phase.getThenRegion().front());
+      auto ready = scf::IfOp::create(b, loc, heap->seed(image, load(*graphLengthSlot), imageOffset), false);
+      b.setInsertionPointToStart(&ready.getThenRegion().front());
+      store(graphCursor, constant(1));
+      b.setInsertionPointToStart(&phase.getElseRegion().front());
+      std::size_t start = 1;
+      for (std::size_t index = 0; index < graphParameters.size(); ++index) {
+        const auto parameter = plan.parameters.at(graphParameters[index]);
+        const auto &type = plan.slots.at(parameter);
+        const auto count = width(type);
+        const auto end = start + count;
+        const Value inSlot = arith::AndIOp::create(b, loc,
+            arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, cursor, constant(start)),
+            arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, cursor, constant(end)));
+        OpBuilder::InsertionGuard slotGuard(b);
+        auto slot = scf::IfOp::create(b, loc, inSlot, false);
+        b.setInsertionPointToStart(&slot.getThenRegion().front());
+        const Value handle = memref::LoadOp::create(b, loc, image, ValueRange{at(W::HeaderWords + index)});
+        const Value imageWords = arith::SubIOp::create(b, loc, load(*graphLengthSlot), constant(imageOffset));
+        const Value remaining = arith::SubIOp::create(b, loc, imageWords, handle);
+        const Value inRange = arith::AndIOp::create(b, loc,
+            arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, handle, imageWords),
+            arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, remaining, constant(count + 4)));
+        auto bound = scf::IfOp::create(b, loc, inRange, true);
+        b.setInsertionPointToStart(&bound.getThenRegion().front());
+        const Value valid = arith::AndIOp::create(b, loc,
+            equal(heap->read(handle, constant(1)), constant(boxIdentity(*type.record))),
+            equal(heap->read(handle, constant(2)), constant(count)));
+        auto checked = scf::IfOp::create(b, loc, valid, true);
+        b.setInsertionPointToStart(&checked.getThenRegion().front());
+        const Value word = arith::SubIOp::create(b, loc, cursor, constant(start));
+        heap->storeAt(arith::AddIOp::create(b, loc, constant(offsets.at(parameter)), word),
+                      heap->read(handle, arith::AddIOp::create(b, loc, constant(4), word)));
+        store(graphCursor, arith::AddIOp::create(b, loc, cursor, constant(1)));
+        if (index + 1 == graphParameters.size()) {
+          auto done = scf::IfOp::create(b, loc, equal(cursor, constant(end - 1)), false);
+          b.setInsertionPointToStart(&done.getThenRegion().front());
+          initializeParameters();
+        }
+        b.setInsertionPointToStart(&checked.getElseRegion().front());
+        heap->fault(99);
+        b.setInsertionPointToStart(&bound.getElseRegion().front());
+        heap->fault(99);
+        start = end;
+      }
+    }
+    Value sourceReady = heap ? heap->service(graphResult) : yes;
+    if (graphResult)
+      sourceReady = arith::OrIOp::create(b, loc, sourceReady, heap->resultTraceReady());
+    if (!residentParameters.empty()) {
+      const auto current = load(0);
+      for (std::size_t i = 0; i < residentParameters.size(); ++i) {
+        const auto parameter = residentParameters[i];
+        const auto slot = plan.parameters.at(parameter);
+        const auto &type = plan.slots.at(slot);
+        const Value active = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                  current, constant(residentPC + i));
+        auto stage = scf::IfOp::create(b, loc,
+            arith::AndIOp::create(b, loc, sourceReady, active), false);
+        OpBuilder::InsertionGuard guard(b);
+        b.setInsertionPointToStart(&stage.getThenRegion().front());
+        const auto base = residentMetadata[parameter];
+        std::vector<Value> extents;
+        Value fixed = yes;
+        for (std::size_t axis = 0; axis < type.shape.size(); ++axis) {
+          extents.push_back(load(base + 1 + axis));
+          if (auto expected = type.shape[axis].constant)
+            fixed = arith::AndIOp::create(b, loc, fixed, arith::CmpIOp::create(
+                b, loc, arith::CmpIPredicate::eq, extents.back(), constant(*expected)));
+        }
+        auto checked = scf::IfOp::create(b, loc, fixed, true);
+        b.setInsertionPointToStart(&checked.getThenRegion().front());
+        auto complete = emitResidentTensorImport(b, *heap, kernel.getArgument(kernelArguments[parameter]),
+            load(base), extents, offsets.at(slot), arrayIdentity(type));
+        auto advance = scf::IfOp::create(b, loc, complete, false);
+        b.setInsertionPointToStart(&advance.getThenRegion().front());
+        store(0, constant(i + 1 == residentParameters.size() ? entryPC : residentPC + i + 1));
+        b.setInsertionPointToStart(&checked.getElseRegion().front());
+        heap->fault(4);
+      }
+    }
+    const auto pc = load(0);
+    const NumericShaderOptions options{.arithmetic = arithmetic,
+                                       .nativeFloat64Conversions = nativeFloat64Conversions};
+    TypedFunction contextFunction{};
+    contextFunction.declaration = root.declaration;
+    const auto contextId = code.functions.size();
+    code.functions.push_back(std::move(contextFunction));
+    Emitter emitter(code, contextId, b, b, kernel, at(0), options);
+    std::size_t aggregateWork = 300000;
+    const auto chargeAggregate = [&](std::size_t words) {
+      if (words > aggregateWork)
+        throw Rejected{{"G001", "GPU aggregate copies exceed configured compilation work budget",
+                        root.declaration}};
+      aggregateWork -= words;
+    };
+    const auto emitEntryReturn = [&]() -> Value {
+      Value next = constant(UINT64_MAX);
+      if (tensorResult)
+        emitDeviceTensorReturn(*heap, b, load(offsets.at(plan.result)), root.resultType);
+      if (arrayResult)
+        emitDeviceArrayReturn(*heap, b, load(offsets.at(plan.result)),
+            root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element,
+            root.resultType.builtin == BuiltinValue::Bool);
+      if (graphResult) {
+        using A = runtime::detail::ControlArenaABI;
+        using G = runtime::DeviceGraphWireABI;
+        const auto phase = load(graphReturn + ReturnPhase);
+        const auto equal = [&](Value left, Value right) -> Value {
+          return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, left, right);
+        };
+        const auto when = [&](Value predicate, auto emit) {
+          auto branch = scf::IfOp::create(b, loc, predicate, false);
+          OpBuilder::InsertionGuard guard(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          emit();
+        };
+        const auto count = width(root.resultType);
+        when(equal(phase, constant(0)), [&] {
+          when(equal(heap->load(DeviceHeapEmitter::Phase), constant(0)), [&] {
+            heap->begin(constant(count), boxIdentity(*root.resultType.record));
+          });
+          when(heap->ready(), [&] {
+            const auto word = heap->cursor();
+            const auto copied = equal(word, constant(count));
+            when(arith::XOrIOp::create(b, loc, copied, yes), [&] {
+              heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), word),
+                  heap->loadAt(arith::AddIOp::create(b, loc, constant(offsets.at(plan.result)), word)));
+              heap->advance();
+            });
+            when(copied, [&] {
+              store(graphReturn + ReturnRoot, heap->handle());
+              heap->finish();
+              store(graphReturn + ReturnPhase, constant(1));
+            });
+          });
+        });
+        when(equal(phase, constant(1)), [&] {
+          heap->beginResultTrace();
+          store(graphReturn + ReturnPhase, constant(2));
+        });
+        when(equal(phase, constant(2)), [&] {
+          when(heap->numberResultBlocks(), [&] { store(graphReturn + ReturnPhase, constant(3)); });
+        });
+        when(equal(phase, constant(3)), [&] {
+          const Value directory = arith::MulIOp::create(b, loc, heap->resultNodeCount(),
+                                                        constant(G::DirectoryWords));
+          Value words = arith::AddIOp::create(b, loc, heap->resultPayloadWords(),
+              arith::AddIOp::create(b, loc, directory, constant(G::HeaderWords)));
+          if (graphParameter)
+            words = arith::AddIOp::create(b, loc, words,
+                arith::AddIOp::create(b, loc, constant(2), heap->resultNodeCount()));
+          when(heap->reserveResultEnvelope(words, graphReturn + EnvelopeBase), [&] {
+            store(graphReturn + ReturnPhase, constant(4));
+          });
+        });
+        when(equal(phase, constant(4)), [&] {
+          when(heap->writeResultEnvelope(load(graphReturn + ReturnRoot), graphReturn + EnvelopeBase,
+                  graphReturn + EnvelopeBlock, graphReturn + EnvelopeWord,
+                  graphReturn + EnvelopeOutput, graphResultLayouts, graphParameter.has_value()), [&] {
+            emitDeviceArrayReturn(*heap, b, load(graphReturn + EnvelopeBase), NumericType::UInt64, false);
+            store(graphReturn + ReturnPhase, constant(5));
+          });
+        });
+        next = arith::SelectOp::create(b, loc, equal(load(graphReturn + ReturnPhase), constant(5)),
+            constant(A::Done), load(0));
+      } else if (aggregateResult) {
+        const auto done = emitDeviceAggregateReturn(*heap, b, input, resultFrame, offsets.at(plan.result));
+        next = arith::SelectOp::create(b, loc, done, constant(UINT64_MAX), pc);
+      } else
+        next = constant(UINT64_MAX);
+      return next;
+    };
+    for (std::size_t i = 0; i < plan.code.size(); ++i) {
+      const auto &op = plan.code[i];
+      auto selected = scf::IfOp::create(
+          b, loc, arith::AndIOp::create(b, loc, sourceReady,
+              arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, pc, constant(i + 1))), false);
+      OpBuilder::InsertionGuard guard(b);
+      b.setInsertionPointToStart(&selected.getThenRegion().front());
+      const auto outerLoad = load;
+      const auto outerStore = store;
+      const auto frame = callFrames ? heap->load(activeFrame) : Value{};
+      const auto owner = schedule ? schedule->owners[i] : function;
+      const auto atRoot = [&]() -> Value {
+        return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, frame, constant(0));
+      };
+      const auto plus = [&](std::size_t cell, Value word) -> Value {
+        if (!word)
+          return constant(cell);
+        return arith::AddIOp::create(b, loc, constant(cell), word);
+      };
+      const auto readFrame = [&](std::size_t cell, Value word) -> Value {
+        if (!callFrames || cell < offsets.front() || cell >= slotEnd)
+          return word ? heap->loadAt(plus(cell, word)) : outerLoad(cell);
+        auto select = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()}, atRoot(), true);
+        OpBuilder::InsertionGuard nested(b);
+        b.setInsertionPointToStart(&select.getThenRegion().front());
+        scf::YieldOp::create(b, loc, heap->loadAt(plus(cell, word)));
+        b.setInsertionPointToStart(&select.getElseRegion().front());
+        scf::YieldOp::create(b, loc, heap->read(frame, plus(frameCell(owner, cell) + 4, word)));
+        return select.getResult(0);
+      };
+      const auto writeFrame = [&](std::size_t cell, Value word, Value value) {
+        if (!callFrames || cell < offsets.front() || cell >= slotEnd) {
+          if (word)
+            heap->storeAt(plus(cell, word), value);
+          else
+            outerStore(cell, value);
+          return;
+        }
+        if (value.getType().isInteger(1))
+          value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
+        auto select = scf::IfOp::create(b, loc, atRoot(), true);
+        OpBuilder::InsertionGuard nested(b);
+        b.setInsertionPointToStart(&select.getThenRegion().front());
+        heap->storeAt(plus(cell, word), value);
+        b.setInsertionPointToStart(&select.getElseRegion().front());
+        heap->write(frame, plus(frameCell(owner, cell) + 4, word), value);
+      };
+      const auto load = [&](std::size_t cell) { return readFrame(cell, {}); };
+      const auto store = [&](std::size_t cell, Value value) { writeFrame(cell, {}, value); };
+      if (callFrames && op.code == C::SynchronousCall) {
+        std::vector<DeviceCallMove> moves;
+        const auto &parameters = schedule->parameters.at(op.target);
+        for (std::size_t arg = 0; arg < op.args.size(); ++arg)
+          moves.push_back({callSlot(owner, op.args[arg]), callSlot(op.target, parameters[arg]),
+                           static_cast<unsigned>(width(plan.slots.at(op.args[arg]))),
+                           static_cast<unsigned>(offsets.at(op.args[arg]))});
+        emitDeviceCallEnter(b, *heap, {static_cast<unsigned>(activeFrame),
+            static_cast<unsigned>(callCursor), static_cast<unsigned>(outerSuspension), callLayout(op.target),
+            static_cast<unsigned>(callFramesByFunction.at(op.target).words),
+            schedule->dispatch.entries.at(op.target),
+            i + 2, callSlot(owner, op.output), moves});
+        continue;
+      }
+      if (callFrames && op.code == C::Return) {
+        auto returning = scf::IfOp::create(b, loc, atRoot(), true);
+        b.setInsertionPointToStart(&returning.getThenRegion().front());
+        if (owner == function) {
+          const auto next = emitEntryReturn();
+          const Value flag = memref::LoadOp::create(b, loc, params, ValueRange{at(1 + 2 * frames)});
+          const Value valid = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                      flag, constant(UINT32_MAX, 32));
+          outerStore(0, arith::SelectOp::create(b, loc, valid, next, constant(UINT64_MAX)));
+        } else {
+          heap->fault(99);
+        }
+        b.setInsertionPointToStart(&returning.getElseRegion().front());
+        const auto continuation = heap->read(frame, constant(5));
+        Value matched = constant(0, 1);
+        chargeAggregate(callSites.at(owner).size());
+        for (const auto call : callSites.at(owner)) {
+          const auto &site = plan.code[call];
+          const Value valid = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                     continuation, constant(call + 2));
+          matched = arith::OrIOp::create(b, loc, matched, valid);
+          auto branch = scf::IfOp::create(b, loc, valid, false);
+          OpBuilder::InsertionGuard nested(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          const auto caller = schedule->owners[call];
+          emitDeviceCallReturn(b, *heap, {static_cast<unsigned>(activeFrame),
+              static_cast<unsigned>(callCursor), static_cast<unsigned>(outerSuspension),
+              callLayout(owner), static_cast<unsigned>(callFramesByFunction.at(owner).words), call + 2,
+              {callSlot(owner, op.args.at(0)), callSlot(caller, site.output),
+               static_cast<unsigned>(width(plan.slots.at(site.output))), UINT32_MAX,
+               static_cast<unsigned>(offsets.at(site.output))},
+              caller == function ? static_cast<unsigned>(slotEnd) : 0,
+              callLayout(caller), static_cast<unsigned>(callFramesByFunction.at(caller).words)});
+        }
+        auto bad = scf::IfOp::create(b, loc, arith::XOrIOp::create(b, loc, matched, yes), false);
+        b.setInsertionPointToStart(&bad.getThenRegion().front());
+        heap->fault(99);
+        continue;
+      }
+      Value next = constant(i + 2);
+      const auto advanceCallable = [&] {
+        const auto current = outerLoad(0);
+        const Value good = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne,
+                                                  current, constant(UINT64_MAX));
+        outerStore(0, arith::SelectOp::create(b, loc, good, next, current));
+      };
+      if (callFrames && op.code == C::FunctionReference) {
+        const auto &closure = closures.at(op.target);
+        chargeAggregate(closure.words);
+        auto allocating = scf::IfOp::create(b, loc, heap->ready(), true);
+        {
+          OpBuilder::InsertionGuard nested(b);
+          b.setInsertionPointToStart(&allocating.getThenRegion().front());
+          const auto cursor = heap->cursor();
+          const auto handle = heap->handle();
+          const auto whenWord = [&](std::size_t index, auto work) {
+            const Value matches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                        cursor, constant(index));
+            auto branch = scf::IfOp::create(b, loc, matches, false);
+            OpBuilder::InsertionGuard wordGuard(b);
+            b.setInsertionPointToStart(&branch.getThenRegion().front());
+            work();
+          };
+          whenWord(0, [&] { heap->write(handle, constant(4), constant(op.target + 1)); });
+          for (std::size_t j = 0; j < op.args.size(); ++j)
+            for (std::size_t word = 0; word < width(plan.slots.at(op.args[j])); ++word) {
+              const auto field = closure.offsets.at(j) + word;
+              whenWord(field, [&] {
+                heap->write(handle, constant(4 + field), load(offsets.at(op.args[j]) + word));
+              });
+            }
+          whenWord(closure.words, [&] {
+            store(offsets.at(op.output), handle);
+            heap->finish();
+            advanceCallable();
+          });
+          heap->advance();
+          b.setInsertionPointToStart(&allocating.getElseRegion().front());
+          heap->begin(constant(closure.words), closure.identity);
+        }
+        continue;
+      }
+      if (callFrames && op.code == C::CallableCaptures) {
+        const auto target = closures.find(op.target);
+        if (target == closures.end() || op.group >= target->second.offsets.size())
+          throw Rejected{{"G001", "GPU closure capture layout mismatch", root.declaration}};
+        const auto words = width(plan.slots.at(op.output));
+        chargeAggregate(words);
+        const auto handle = load(offsets.at(op.args.at(0)));
+        for (std::size_t word = 0; word < words; ++word)
+          store(offsets.at(op.output) + word,
+                heap->read(handle, constant(4 + target->second.offsets.at(op.group) + word)));
+        advanceCallable();
+        continue;
+      }
+      if (callFrames && op.code == C::CallableTarget) {
+        const auto handle = load(offsets.at(op.args.at(0)));
+        const auto target = closures.find(op.target);
+        if (target == closures.end())
+          throw Rejected{{"G001", "GPU closure target has no device layout", root.declaration}};
+        const Value identityMatches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+            heap->read(handle, constant(1)), constant(target->second.identity));
+        const Value lengthMatches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+            heap->read(handle, constant(2)), constant(target->second.words));
+        const Value tagMatches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+            heap->read(handle, constant(4)), constant(op.target + 1));
+        const Value matches = arith::AndIOp::create(b, loc, identityMatches,
+            arith::AndIOp::create(b, loc, lengthMatches, tagMatches));
+        store(offsets.at(op.output), matches);
+        advanceCallable();
+        continue;
+      }
+      if (callFrames && op.code == C::InvalidCallable) {
+        heap->fault(99);
+        continue;
+      }
+      const auto read = [&](std::size_t slot) {
+        auto raw = load(offsets.at(slot));
+        const auto &t = plan.slots.at(slot);
+        Value value =
+            t.builtin == BuiltinValue::Bool
+                ? Value(arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, raw, constant(0)))
+                : raw;
+        ShaderValue result{value, yes, yes, false, t.builtin == BuiltinValue::Bool};
+        result.element = t.element;
+        return result;
+      };
+      const auto copyWords = [&](std::size_t destination, std::size_t source, std::size_t count) {
+        chargeAggregate(count);
+        std::vector<Value> values;
+        for (std::size_t word = 0; word < count; ++word)
+          values.push_back(load(source + word));
+        for (std::size_t word = 0; word < count; ++word)
+          store(destination + word, values[word]);
+      };
+      const auto stepElement = [&](std::size_t stride, auto emit) -> Value {
+        if (stride == 1) {
+          emit(constant(0));
+          return yes;
+        }
+        const auto word = load(boxStep + 1);
+        emit(word);
+        const Value advanced = arith::AddIOp::create(b, loc, word, constant(1));
+        const Value done = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                advanced, constant(stride));
+        store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
+        return done;
+      };
+      const auto wordOffset = [&](Value index, std::size_t stride) -> Value {
+        if (stride == 1)
+          return index;
+        return arith::MulIOp::create(b, loc, index, constant(stride));
+      };
+      if (op.code == C::MapInit || op.code == C::MapCheck || op.code == C::MapLoad ||
+          op.code == C::MapStore || op.code == C::MapAdvance) {
+        const auto &map = std::get<ArrayMap>(input.expressions.at(op.source).operation);
+        const auto compare = [&](arith::CmpIPredicate pred, Value a, Value d) -> Value {
+          return arith::CmpIOp::create(b, loc, pred, a, d);
+        };
+        const auto condition = [&](Value predicate, auto body) {
+          auto branch = scf::IfOp::create(b, loc, predicate, false);
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          body();
+        };
+        if (op.code == C::MapAdvance) {
+          store(offsets.at(op.output), arith::AddIOp::create(b, loc,
+              load(offsets.at(op.args.at(0))), constant(1)));
+        } else if (op.code == C::MapStore) {
+          const auto handle = load(offsets.at(op.args.at(0)));
+          const auto stride = arrayStride(plan.slots.at(op.args.at(0)));
+          const auto base = wordOffset(load(offsets.at(op.args.at(1))), stride);
+          const auto source = offsets.at(op.args.at(2));
+          const auto done = stepElement(stride, [&](Value word) {
+            const Value address = arith::AddIOp::create(b, loc, base, word);
+            heap->write(handle, arith::AddIOp::create(b, loc, constant(4), address),
+                        stride == 1 ? load(source) :
+                            readFrame(source, word));
+          });
+          if (stride != 1)
+            next = arith::SelectOp::create(b, loc, done, next, pc);
+        } else {
+          const auto inputValue = load(offsets.at(op.args.at(0)));
+          Value count = inputValue;
+          if (!map.generate) {
+            auto length = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
+                compare(arith::CmpIPredicate::ne, inputValue, constant(0)), true);
+            {
+              OpBuilder::InsertionGuard restore(b);
+              b.setInsertionPointToStart(&length.getThenRegion().front());
+              const auto &type = plan.slots.at(op.args.at(0));
+              condition(compare(arith::CmpIPredicate::ne, heap->read(inputValue, constant(1)),
+                                constant(arrayIdentity(type))), [&] { heap->fault(99); });
+              Value countWords = heap->read(inputValue, constant(2));
+              const auto stride = arrayStride(type);
+              if (stride != 1) {
+                const Value remainder = arith::RemUIOp::create(b, loc, countWords, constant(stride));
+                condition(compare(arith::CmpIPredicate::ne, remainder, constant(0)),
+                          [&] { heap->fault(99); });
+                countWords = arith::DivUIOp::create(b, loc, countWords, constant(stride));
+              }
+              scf::YieldOp::create(b, loc, ValueRange{countWords});
+              b.setInsertionPointToStart(&length.getElseRegion().front());
+              scf::YieldOp::create(b, loc, ValueRange{constant(0)});
+            }
+            count = length.getResult(0);
+          }
+          const auto index = load(offsets.at(op.args.at(1)));
+          if (op.code == C::MapCheck) {
+            store(offsets.at(op.output), arith::ExtUIOp::create(b, loc, b.getI64Type(),
+                compare(arith::CmpIPredicate::ult, index, count)));
+          } else if (op.code == C::MapLoad) {
+            if (map.generate) {
+              store(offsets.at(op.output), index);
+            } else {
+              const auto stride = arrayStride(plan.slots.at(op.args.at(0)));
+              const auto base = wordOffset(index, stride);
+              const auto destination = offsets.at(op.output);
+              const auto done = stepElement(stride, [&](Value word) {
+                const Value address = arith::AddIOp::create(b, loc, base, word);
+                auto value = heap->read(inputValue, arith::AddIOp::create(b, loc, constant(4), address));
+                if (stride == 1)
+                  store(destination, value);
+                else
+                  writeFrame(destination, word, value);
+              });
+              if (stride != 1)
+                next = arith::SelectOp::create(b, loc, done, next, pc);
+            }
+          } else {
+            store(offsets.at(op.args.at(1)), constant(0));
+            if (map.generate)
+              condition(compare(arith::CmpIPredicate::slt, count, constant(0)), [&] { heap->fault(1); });
+            const auto &type = plan.slots.at(op.output);
+            const auto stride = arrayStride(type);
+            Value words = count;
+            if (stride != 1) {
+              constexpr auto limit = runtime::detail::ControlArenaABI::MaxWords;
+              const auto fits = compare(arith::CmpIPredicate::ule, count, constant(limit / stride));
+              words = arith::SelectOp::create(b, loc, fits, wordOffset(count, stride), constant(limit));
+            }
+            const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
+            const auto ready = heap->ready(), cursor = heap->cursor();
+            const Value complete = arith::AndIOp::create(b, loc, ready,
+                compare(arith::CmpIPredicate::eq, cursor, words));
+            condition(empty, [&] { store(offsets.at(op.output), constant(0)); });
+            condition(arith::AndIOp::create(b, loc,
+                compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)),
+                compare(arith::CmpIPredicate::sgt, count, constant(0))), [&] {
+              heap->begin(words, arrayIdentity(type));
+            });
+            condition(ready, [&] {
+              condition(compare(arith::CmpIPredicate::ult, cursor, words), [&] {
+                heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), constant(0));
+                heap->advance();
+              });
+              condition(complete, [&] {
+                store(offsets.at(op.output), heap->handle());
+                heap->finish();
+              });
+            });
+            next = arith::SelectOp::create(b, loc, arith::OrIOp::create(b, loc, complete, empty),
+                                           next, constant(i + 1));
+          }
+        }
+      } else if (op.code == C::CollectInit) {
+        store(offsets.at(op.output), constant(0));
+      } else if (op.code == C::CollectFinish) {
+        // The builder already carries its logical length. Its spare capacity
+        // stays private; publication does not expose uninitialized cells.
+      } else if (op.code == C::CollectAppend) {
+        const auto condition = [&](Value predicate, auto body) {
+          auto branch = scf::IfOp::create(b, loc, predicate, false);
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          body();
+        };
+        const auto compare = [&](arith::CmpIPredicate pred, Value a, Value d) -> Value {
+          return arith::CmpIOp::create(b, loc, pred, a, d);
+        };
+        const auto old = load(offsets.at(op.output));
+        auto descriptor = scf::IfOp::create(b, loc, TypeRange{b.getI64Type(), b.getI64Type()},
+            compare(arith::CmpIPredicate::ne, old, constant(0)), true);
+        {
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&descriptor.getThenRegion().front());
+          auto length = heap->read(old, constant(2));
+          auto capacity = arith::SubIOp::create(b, loc, heap->read(old, constant(0)), constant(4));
+          scf::YieldOp::create(b, loc, ValueRange{length, capacity});
+          b.setInsertionPointToStart(&descriptor.getElseRegion().front());
+          scf::YieldOp::create(b, loc, ValueRange{constant(0), constant(0)});
+        }
+        const auto length = descriptor.getResult(0), capacity = descriptor.getResult(1);
+        const auto &type = plan.slots.at(op.output);
+        const auto stride = arrayStride(type);
+        const Value remaining = arith::SubIOp::create(b, loc, capacity, length);
+        const auto needsGrowth = compare(arith::CmpIPredicate::ult, remaining, constant(stride));
+        const auto ready = heap->ready();
+        const auto cursor = heap->cursor();
+        const auto copied = compare(arith::CmpIPredicate::eq, cursor, length);
+        const Value copyDone = arith::AndIOp::create(b, loc, ready, copied);
+        const Value appendReady = arith::OrIOp::create(b, loc, copyDone,
+            arith::XOrIOp::create(b, loc, needsGrowth, yes));
+        condition(needsGrowth, [&] {
+          condition(compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)), [&] {
+            auto size = arith::MaxUIOp::create(b, loc, constant(std::max<std::size_t>(4, stride)),
+                arith::AddIOp::create(b, loc, capacity, capacity));
+            heap->begin(size, arrayIdentity(type));
+          });
+          const Value copying = arith::AndIOp::create(b, loc, ready,
+              compare(arith::CmpIPredicate::ult, cursor, length));
+          condition(copying, [&] {
+            const Value offset = arith::AddIOp::create(b, loc, constant(4), cursor);
+            heap->write(heap->handle(), offset, heap->read(old, offset));
+            heap->advance();
+          });
+        });
+        const Value last = stride == 1 ? yes :
+            compare(arith::CmpIPredicate::eq, load(boxStep + 1), constant(stride - 1));
+        condition(appendReady, [&] {
+          const Value handle = arith::SelectOp::create(b, loc, needsGrowth, heap->handle(), old);
+          const auto source = offsets.at(op.args.at(0));
+          const auto done = stepElement(stride, [&](Value word) {
+            const Value offset = arith::AddIOp::create(b, loc, length, word);
+            heap->write(handle, arith::AddIOp::create(b, loc, constant(4), offset),
+                        stride == 1 ? load(source) :
+                            readFrame(source, word));
+          });
+          condition(done, [&] {
+            heap->write(handle, constant(2), arith::AddIOp::create(b, loc, length, constant(stride)));
+            condition(needsGrowth, [&] {
+              store(offsets.at(op.output), handle);
+              heap->finish();
+            });
+          });
+        });
+        const Value finished = arith::AndIOp::create(b, loc, appendReady, last);
+        next = arith::SelectOp::create(b, loc, finished, next, pc);
+      } else if (arrayOperation(op)) {
+        const auto &node = input.expressions.at(op.source);
+        const auto condition = [&](Value predicate, auto body) {
+          auto branch = scf::IfOp::create(b, loc, predicate, false);
+          OpBuilder::InsertionGuard restore(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          body();
+        };
+        const auto compare = [&](arith::CmpIPredicate pred, Value a, Value d) -> Value {
+          return arith::CmpIOp::create(b, loc, pred, a, d);
+        };
+        const auto wordsFor = [&](Value elements, const ValueType &type) -> Value {
+          const auto stride = arrayStride(type);
+          return stride == 1 ? elements :
+              Value(arith::MulIOp::create(b, loc, elements, constant(stride)));
+        };
+        const auto readResidentCell = [&](std::size_t parameter, Value linear) -> Value {
+          const Value index = arith::IndexCastOp::create(b, loc, b.getIndexType(), linear);
+          Value cell = memref::LoadOp::create(b, loc, kernel.getArgument(kernelArguments[parameter]),
+                                              ValueRange{index});
+          if (!cell.getType().isInteger(64))
+            cell = arith::ExtUIOp::create(b, loc, b.getI64Type(), cell);
+          return cell;
+        };
+        const auto lengthOf = [&](std::size_t slot) -> Value {
+          if (const auto binding = directResident.find(slot); binding != directResident.end())
+            return load(residentMetadata.at(binding->second));
+          const auto h = load(offsets.at(slot));
+          auto branch = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
+              compare(arith::CmpIPredicate::ne, h, constant(0)), true);
+          {
+            OpBuilder::InsertionGuard restore(b);
+            b.setInsertionPointToStart(&branch.getThenRegion().front());
+            const auto layout = heap->read(h, constant(1));
+            const auto &type = plan.slots.at(slot);
+            condition(compare(arith::CmpIPredicate::ne, layout, constant(arrayIdentity(type))),
+                      [&] { heap->fault(99); });
+            Value length = heap->read(h, constant(2));
+            if (localTensor(type)) {
+              const auto rank = constant(type.shape.size());
+              const Value enough = compare(arith::CmpIPredicate::uge, length, rank);
+              condition(arith::XOrIOp::create(b, loc, enough, yes), [&] { heap->fault(99); });
+              length = arith::SelectOp::create(b, loc, enough,
+                  arith::SubIOp::create(b, loc, length, rank), constant(0));
+            }
+            const auto stride = arrayStride(type);
+            if (stride != 1) {
+              const Value remainder = arith::RemUIOp::create(b, loc, length, constant(stride));
+              condition(compare(arith::CmpIPredicate::ne, remainder, constant(0)),
+                        [&] { heap->fault(99); });
+              length = arith::DivUIOp::create(b, loc, length, constant(stride));
+            }
+            scf::YieldOp::create(b, loc, ValueRange{length});
+            b.setInsertionPointToStart(&branch.getElseRegion().front());
+            scf::YieldOp::create(b, loc, ValueRange{constant(0)});
+          }
+          return branch.getResult(0);
+        };
+        const auto indexOf = [&](std::size_t slot) -> Value {
+          Value index = load(offsets.at(slot));
+          const auto desc = describeNumeric(plan.slots.at(slot).element);
+          if (desc->family == NumericFamily::SignedInteger && desc->bits < 64)
+            index = arith::ExtSIOp::create(b, loc, b.getI64Type(),
+                arith::TruncIOp::create(b, loc, b.getIntegerType(desc->bits), index));
+          return index;
+        };
+        constexpr auto tensorWordLimit = runtime::detail::ControlArenaABI::MaxWords - 4;
+        const auto extentsOf = [&](std::size_t slot) {
+          const auto &tensor = plan.slots.at(slot);
+          std::vector<Value> extents;
+          if (const auto binding = directResident.find(slot); binding != directResident.end()) {
+            for (std::size_t axis = 0; axis < tensor.shape.size(); ++axis)
+              extents.push_back(load(residentMetadata.at(binding->second) + 1 + axis));
+          } else {
+            const auto handle = load(offsets.at(slot));
+            for (std::size_t axis = 0; axis < tensor.shape.size(); ++axis)
+              extents.push_back(heap->read(handle, constant(4 + axis)));
+          }
+          return extents;
+        };
+        const auto checkedShape = [&](const ValueType &type, std::span<const Value> extents) {
+          std::vector<Value> shapeOperands(extents.begin(), extents.end());
+          Value matches = yes;
+          for (std::size_t axis = 0; axis < extents.size(); ++axis)
+            if (const auto known = type.shape.at(axis).constant) {
+              shapeOperands[axis] = constant(*known);
+              matches = arith::AndIOp::create(b, loc, matches,
+                  compare(arith::CmpIPredicate::eq, extents[axis], shapeOperands[axis]));
+            }
+          auto shape = emitDeviceTensorShape(b, shapeOperands, tensorWordLimit - type.shape.size());
+          shape.valid = arith::AndIOp::create(b, loc, shape.valid, matches);
+          return shape;
+        };
+        if (std::holds_alternative<TensorIndex>(node.operation)) {
+          const auto slot = op.args.at(0);
+          const auto &tensor = plan.slots.at(slot);
+          if (!localTensor(tensor))
+            throw Rejected{{"G001", "GPU checkpointed indexing requires a local tensor", node.span}};
+          if (const auto direct = directResident.find(slot); direct != directResident.end()) {
+            const auto parameter = direct->second;
+            const auto base = residentMetadata.at(parameter);
+            std::vector<Value> dimensions, indices;
+            for (std::size_t axis = 0; axis < tensor.shape.size(); ++axis)
+              dimensions.push_back(load(base + 1 + axis));
+            for (auto arg : std::span(op.args).subspan(1))
+              indices.push_back(indexOf(arg));
+            const auto index = emitDynamicDeviceTensorIndex(b, dimensions, indices, yes);
+            const Value bounded = arith::AndIOp::create(b, loc, index.valid,
+                compare(arith::CmpIPredicate::ult, index.offset, load(base)));
+            auto checked = scf::IfOp::create(b, loc, bounded, true);
+            OpBuilder::InsertionGuard guard(b);
+            b.setInsertionPointToStart(&checked.getThenRegion().front());
+            store(offsets.at(op.output), readResidentCell(parameter, index.offset));
+            b.setInsertionPointToStart(&checked.getElseRegion().front());
+            heap->fault(1);
+          } else {
+            const auto extents = extentsOf(slot);
+            const auto shape = checkedShape(tensor, extents);
+            const Value metadata = arith::AndIOp::create(b, loc, shape.valid,
+                compare(arith::CmpIPredicate::eq, lengthOf(slot), shape.elements));
+            condition(arith::XOrIOp::create(b, loc, metadata, yes), [&] { heap->fault(99); });
+            std::vector<Value> indices;
+            for (auto arg : std::span(op.args).subspan(1))
+              indices.push_back(indexOf(arg));
+            const auto index = emitDynamicDeviceTensorIndex(b, extents, indices, metadata);
+            auto checked = scf::IfOp::create(b, loc, index.valid, true);
+            OpBuilder::InsertionGuard restore(b);
+            b.setInsertionPointToStart(&checked.getThenRegion().front());
+            store(offsets.at(op.output), heap->read(load(offsets.at(slot)),
+                arith::AddIOp::create(b, loc, constant(4 + extents.size()), index.offset)));
+            b.setInsertionPointToStart(&checked.getElseRegion().front());
+            heap->fault(1);
+          }
+        } else if (const auto *sort = std::get_if<ArraySort>(&node.operation)) {
+          const auto count = lengthOf(op.args.at(0));
+          const auto phase = heap->load(DeviceHeapEmitter::SortPhase);
+          next = constant(i + 1);
+          condition(compare(arith::CmpIPredicate::ne, phase, constant(0)), [&] {
+            const auto &type = plan.slots.at(op.output);
+            auto done = heap->sortStep(type.element, type.builtin == BuiltinValue::Bool);
+            condition(done, [&] {
+              store(offsets.at(op.output), heap->load(DeviceHeapEmitter::SortHandle));
+            });
+          });
+          // The source PC remains here until sorting resets its phase. Starting
+          // a sort does not execute an unbounded native helper or host algorithm.
+          condition(compare(arith::CmpIPredicate::eq, phase, constant(0)), [&] {
+            if (!sort->copying) {
+              const auto handle = load(offsets.at(op.args.at(0)));
+              heap->requireWritable(handle);
+              heap->beginSort(handle, count);
+            } else {
+              const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
+              const auto ready = heap->ready(), cursor = heap->cursor();
+              const Value complete = arith::AndIOp::create(b, loc, ready,
+                  compare(arith::CmpIPredicate::eq, cursor, count));
+              condition(empty, [&] { heap->beginSort(constant(0), constant(0)); });
+              condition(arith::AndIOp::create(b, loc,
+                  compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)),
+                  arith::XOrIOp::create(b, loc, empty, yes)), [&] {
+                const auto &type = plan.slots.at(op.output);
+                heap->begin(count, type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1);
+              });
+              condition(ready, [&] {
+                condition(compare(arith::CmpIPredicate::ult, cursor, count), [&] {
+                  const Value offset = arith::AddIOp::create(b, loc, constant(4), cursor);
+                  heap->write(heap->handle(), offset,
+                      heap->read(load(offsets.at(op.args.at(0))), offset));
+                  heap->advance();
+                });
+                condition(complete, [&] {
+                  heap->beginSort(heap->handle(), count);
+                  heap->finish();
+                });
+              });
+            }
+          });
+          const Value done = arith::AndIOp::create(b, loc,
+              compare(arith::CmpIPredicate::ne, phase, constant(0)),
+              compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::SortPhase), constant(0)));
+          next = arith::SelectOp::create(b, loc, done, constant(i + 2), constant(i + 1));
+        } else if (localArray(node.type)) {
+          const auto stride = arrayStride(node.type);
+          const bool literal = std::holds_alternative<TensorLiteral>(node.operation);
+          const bool slice = std::holds_alternative<ArraySlice>(node.operation);
+          const bool shape = std::holds_alternative<CollectionQuery>(node.operation);
+          const bool tensorCopy = std::holds_alternative<TensorReshape>(node.operation) ||
+                                  std::holds_alternative<ArrayToTensor>(node.operation) ||
+                                  std::holds_alternative<TensorToArray>(node.operation);
+          Value count, leftLength, start;
+          Value validPayload = yes;
+          std::vector<Value> outputExtents, shapeWords;
+          const auto outputRank = localTensor(node.type) ? node.type.shape.size() : 0;
+          std::size_t sourceRank = 0;
+          if (literal) {
+            chargeAggregate(op.args.size());
+            count = constant(op.args.size());
+            if (localTensor(node.type))
+              for (const auto &extent : node.type.shape) {
+                if (!extent.constant)
+                  throw Rejected{{"G001", "GPU tensor literal requires known dimensions", node.span}};
+                outputExtents.push_back(constant(*extent.constant));
+              }
+          } else if (tensorArithmetic(op)) {
+            const auto first = std::ranges::find_if(op.args, [&](auto slot) {
+              return localTensor(plan.slots.at(slot));
+            });
+            if (first == op.args.end())
+              throw Rejected{{"G001", "GPU tensor arithmetic needs a tensor operand", node.span}};
+            outputExtents = extentsOf(*first);
+            const auto resultShape = checkedShape(node.type, outputExtents);
+            validPayload = resultShape.valid;
+            count = resultShape.elements;
+            for (auto slot : op.args) {
+              const auto &type = plan.slots.at(slot);
+              if (!localTensor(type))
+                continue;
+              const auto extents = extentsOf(slot);
+              if (extents.size() != outputExtents.size())
+                throw Rejected{{"G001", "GPU tensor arithmetic requires equal tensor ranks", node.span}};
+              const auto operandShape = checkedShape(type, extents);
+              const Value valid = arith::AndIOp::create(b, loc, operandShape.valid,
+                  compare(arith::CmpIPredicate::eq, lengthOf(slot), operandShape.elements));
+              condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(99); });
+              validPayload = arith::AndIOp::create(b, loc, validPayload, valid);
+              for (std::size_t axis = 0; axis < extents.size(); ++axis)
+                validPayload = arith::AndIOp::create(b, loc, validPayload,
+                    compare(arith::CmpIPredicate::eq, extents[axis], outputExtents[axis]));
+            }
+            condition(arith::XOrIOp::create(b, loc, validPayload, yes), [&] { heap->fault(4); });
+          } else if (tensorCopy || shape) {
+            const auto slot = op.args.at(0);
+            const auto &source = plan.slots.at(slot);
+            const auto length = lengthOf(slot);
+            if (localTensor(source)) {
+              sourceRank = source.shape.size();
+              shapeWords = extentsOf(slot);
+              const auto sourceShape = checkedShape(source, shapeWords);
+              validPayload = arith::AndIOp::create(b, loc, sourceShape.valid,
+                  compare(arith::CmpIPredicate::eq, sourceShape.elements, length));
+              condition(arith::XOrIOp::create(b, loc, validPayload, yes), [&] { heap->fault(99); });
+            }
+            if (shape) {
+              if (!localTensor(source))
+                throw Rejected{{"G001", "GPU shape requires a local tensor", node.span}};
+              count = constant(sourceRank);
+            } else {
+              count = length;
+              if (localTensor(node.type)) {
+                if (const auto *convert = std::get_if<ArrayToTensor>(&node.operation);
+                    convert && !convert->dimensions) {
+                  outputExtents.push_back(length);
+                } else {
+                  for (auto slot : std::span(op.args).subspan(1))
+                    outputExtents.push_back(indexOf(slot));
+                }
+                if (outputExtents.size() != outputRank)
+                  throw Rejected{{"G001", "GPU tensor conversion rank mismatch", node.span}};
+                const auto target = checkedShape(node.type, outputExtents);
+                const Value valid = arith::AndIOp::create(b, loc, target.valid,
+                    compare(arith::CmpIPredicate::eq, target.elements, length));
+                condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(4); });
+                validPayload = arith::AndIOp::create(b, loc, validPayload, valid);
+              }
+            }
+          } else if (slice) {
+            const auto length = lengthOf(op.args.at(0));
+            start = indexOf(op.args.at(1));
+            const auto end = indexOf(op.args.at(2));
+            auto valid = arith::AndIOp::create(b, loc,
+                compare(arith::CmpIPredicate::ule, start, end),
+                compare(arith::CmpIPredicate::ule, end, length));
+            condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(1); });
+            const Value distance = arith::SubIOp::create(b, loc, end, start);
+            count = arith::SelectOp::create(b, loc, valid, distance, constant(0));
+            start = wordsFor(start, node.type);
+          } else {
+            leftLength = lengthOf(op.args.at(0));
+            count = arith::AddIOp::create(b, loc, leftLength, lengthOf(op.args.at(1)));
+            leftLength = wordsFor(leftLength, node.type);
+          }
+          count = wordsFor(count, node.type);
+          count = arith::SelectOp::create(b, loc, validPayload,
+              arith::AddIOp::create(b, loc, count, constant(outputRank)), constant(0));
+          if (localTensor(node.type)) {
+            // checkedShape bounds payload and prefix to the arena's uint32 range.
+            const Value wordCount = arith::TruncIOp::create(b, loc, b.getI32Type(), count);
+            count = arith::ExtUIOp::create(b, loc, b.getI64Type(), wordCount);
+          }
+          const auto ready = heap->ready();
+          const auto cursor = heap->cursor();
+          const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
+          const Value complete = arith::AndIOp::create(b, loc, ready,
+              compare(arith::CmpIPredicate::eq, cursor, count));
+          condition(empty, [&] { store(offsets.at(op.output), constant(0)); });
+          condition(arith::AndIOp::create(b, loc,
+              compare(arith::CmpIPredicate::eq, heap->load(DeviceHeapEmitter::Phase), constant(0)),
+              arith::XOrIOp::create(b, loc, empty, yes)), [&] {
+            heap->begin(count, arrayIdentity(node.type));
+          });
+          condition(ready, [&] {
+            condition(compare(arith::CmpIPredicate::ult, cursor, count), [&] {
+              if (!outputExtents.empty()) {
+                Value extent = outputExtents.back();
+                for (std::size_t axis = outputExtents.size() - 1; axis-- != 0;)
+                  extent = arith::SelectOp::create(b, loc,
+                      compare(arith::CmpIPredicate::eq, cursor, constant(axis)), outputExtents[axis], extent);
+                condition(compare(arith::CmpIPredicate::ult, cursor, constant(outputRank)), [&] {
+                  heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), extent);
+                });
+              }
+              condition(compare(arith::CmpIPredicate::uge, cursor, constant(outputRank)), [&] {
+                const Value dataCursor = arith::SubIOp::create(b, loc, cursor, constant(outputRank));
+                if (literal) {
+                  Value element = dataCursor, word = constant(0);
+                  if (stride != 1) {
+                    element = arith::DivUIOp::create(b, loc, dataCursor, constant(stride));
+                    word = arith::RemUIOp::create(b, loc, dataCursor, constant(stride));
+                  }
+                  for (std::size_t j = 0; j < op.args.size(); ++j)
+                    condition(compare(arith::CmpIPredicate::eq, element, constant(j)), [&] {
+                      const auto value = stride == 1 ? load(offsets.at(op.args[j])) :
+                          readFrame(offsets.at(op.args[j]), word);
+                      heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), value);
+                    });
+                } else {
+                  Value item;
+                  if (shape) {
+                    item = constant(0);
+                    for (std::size_t axis = 0; axis < shapeWords.size(); ++axis)
+                      item = arith::SelectOp::create(b, loc,
+                          compare(arith::CmpIPredicate::eq, cursor, constant(axis)),
+                          shapeWords[axis], item);
+                  } else if (tensorArithmetic(op)) {
+                    std::vector<ShaderValue> arguments;
+                    for (auto slot : op.args) {
+                      auto argument = read(slot);
+                      const auto &type = plan.slots.at(slot);
+                      if (const auto binding = directResident.find(slot); binding != directResident.end())
+                        argument.value = readResidentCell(binding->second, dataCursor);
+                      else if (localTensor(type))
+                        argument.value = heap->read(argument.value,
+                            arith::AddIOp::create(b, loc, constant(4 + type.shape.size()), dataCursor));
+                      arguments.push_back(argument);
+                    }
+                    const auto result = emitter.invoke(*kernels[i], arguments);
+                    const Value invalid = arith::XOrIOp::create(b, loc, result.valid, yes);
+                    condition(invalid, [&] { heap->fault(0); });
+                    item = result.value;
+                  } else if (tensorCopy) {
+                    const auto slot = op.args.at(0);
+                    if (const auto binding = directResident.find(slot); binding != directResident.end())
+                      item = readResidentCell(binding->second, dataCursor);
+                    else
+                      item = heap->read(load(offsets.at(slot)),
+                          arith::AddIOp::create(b, loc, constant(4 + sourceRank), dataCursor));
+                  } else if (slice)
+                    item = heap->read(load(offsets.at(op.args.at(0))),
+                        arith::AddIOp::create(b, loc, constant(4),
+                            arith::AddIOp::create(b, loc, start, cursor)));
+                  else {
+                    auto choose = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()},
+                        compare(arith::CmpIPredicate::ult, cursor, leftLength), true);
+                    {
+                      OpBuilder::InsertionGuard restore(b);
+                      b.setInsertionPointToStart(&choose.getThenRegion().front());
+                      scf::YieldOp::create(b, loc, ValueRange{heap->read(load(offsets.at(op.args.at(0))),
+                          arith::AddIOp::create(b, loc, constant(4), cursor))});
+                      b.setInsertionPointToStart(&choose.getElseRegion().front());
+                      scf::YieldOp::create(b, loc, ValueRange{heap->read(load(offsets.at(op.args.at(1))),
+                          arith::AddIOp::create(b, loc, constant(4),
+                              arith::SubIOp::create(b, loc, cursor, leftLength)))});
+                    }
+                    item = choose.getResult(0);
+                  }
+                  heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), item);
+                }
+              });
+              heap->advance();
+            });
+            condition(complete, [&] {
+              store(offsets.at(op.output), heap->handle());
+              heap->finish();
+            });
+          });
+          next = arith::SelectOp::create(b, loc, arith::OrIOp::create(b, loc, complete, empty),
+                                         next, constant(i + 1));
+        } else {
+          const auto h = load(offsets.at(op.args.at(0)));
+          const auto length = lengthOf(op.args.at(0));
+          if (std::holds_alternative<CollectionQuery>(node.operation)) {
+            if (std::get<CollectionQuery>(node.operation).kind != CollectionQueryKind::Length)
+              return reject("GPU device-array shape queries are not implemented");
+            store(offsets.at(op.output), length);
+          } else {
+            const Value index = indexOf(op.args.at(1));
+            const auto valid = compare(arith::CmpIPredicate::ult, index, length);
+            condition(arith::XOrIOp::create(b, loc, valid, yes), [&] { heap->fault(1); });
+            const auto &type = plan.slots.at(op.args.at(0));
+            const auto stride = arrayStride(type);
+            const bool paged = std::holds_alternative<ArrayIndex>(node.operation) && stride != 1;
+            Value word, advanced, done;
+            if (paged) {
+              word = load(boxStep + 1);
+              advanced = arith::AddIOp::create(b, loc, word, constant(1));
+              done = compare(arith::CmpIPredicate::eq, advanced, constant(stride));
+              next = arith::SelectOp::create(b, loc, done, next, pc);
+            }
+            condition(valid, [&] {
+              if (std::holds_alternative<ArrayBoundsCheck>(node.operation))
+                store(offsets.at(op.output), index);
+              else if (std::holds_alternative<ArrayStore>(node.operation)) {
+                heap->writeSource(h, arith::AddIOp::create(b, loc, index, constant(4)),
+                            load(offsets.at(op.args.at(2))));
+                store(offsets.at(op.output), constant(0));
+              } else {
+                const auto offset = wordsFor(index, type);
+                if (!paged) {
+                  store(offsets.at(op.output),
+                        heap->read(h, arith::AddIOp::create(b, loc, offset, constant(4))));
+                } else {
+                  const Value location = arith::AddIOp::create(b, loc, offset, word);
+                  writeFrame(offsets.at(op.output), word,
+                                heap->read(h, arith::AddIOp::create(b, loc, location, constant(4))));
+                  store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
+                }
+              }
+            });
+          }
+        }
+      } else if (op.code == C::Copy)
+        copyWords(offsets.at(op.output), offsets.at(op.args.at(0)),
+                  width(plan.slots.at(op.output)));
+      else if (op.code == C::Field) {
+        const auto source = op.args.at(0);
+        const auto &layout = layouts.at(*plan.slots.at(source).record);
+        const auto field = offsets.at(source) + layout.fields.at(op.target);
+        const auto count = width(plan.slots.at(op.output));
+        if (!layout.boxed.at(op.target)) {
+          copyWords(offsets.at(op.output), field, count);
+        } else {
+          const auto handle = load(field);
+          const auto word = load(boxStep + 1);
+          const auto equal = [&](Value a, Value d) -> Value {
+            return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, a, d);
+          };
+          auto valid = arith::AndIOp::create(b, loc,
+              equal(heap->read(handle, constant(1)), constant(boxIdentity(*plan.slots.at(op.output).record))),
+              equal(heap->read(handle, constant(2)), constant(count)));
+          auto check = scf::IfOp::create(b, loc, valid, true);
+          {
+            OpBuilder::InsertionGuard restore(b);
+            b.setInsertionPointToStart(&check.getThenRegion().front());
+            writeFrame(offsets.at(op.output), word,
+                          heap->read(handle, arith::AddIOp::create(b, loc, constant(4), word)));
+            b.setInsertionPointToStart(&check.getElseRegion().front());
+            heap->fault(99);
+          }
+          const Value advanced = arith::AddIOp::create(b, loc, word, constant(1));
+          const auto done = equal(advanced, constant(count));
+          store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
+          next = arith::SelectOp::create(b, loc, done, next, pc);
+        }
+      } else if (op.code == C::Case) {
+        auto tag = load(offsets.at(op.args.at(0)));
+        auto matches =
+            arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, tag, constant(op.target));
+        if (op.jump == SIZE_MAX) {
+          auto failed =
+              scf::IfOp::create(b, loc, arith::XOrIOp::create(b, loc, matches, yes), false);
+          OpBuilder::InsertionGuard failedGuard(b);
+          b.setInsertionPointToStart(&failed.getThenRegion().front());
+          memref::StoreOp::create(b, loc, constant(0, 32), params, ValueRange{at(1 + 2 * frames)});
+        }
+        next = arith::SelectOp::create(b, loc, matches, next,
+                                       constant(op.jump == SIZE_MAX ? UINT64_MAX : op.jump + 1));
+      } else if (op.code == C::Kernel &&
+                 std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)) {
+        const auto &record = std::get<RecordValue>(input.expressions.at(op.source).operation);
+        const auto destination = offsets.at(op.output);
+        const auto &layout = layouts.at(*plan.slots.at(op.output).record);
+        const bool boxes = std::ranges::any_of(record.fields, [&](const auto &field) {
+          return layout.boxed.at(field.field);
+        });
+        const auto initialize = [&] {
+          std::size_t argument = 0;
+          if (record.base) {
+            copyWords(destination, offsets.at(op.args.at(argument++)), layout.words);
+          } else {
+            chargeAggregate(layout.words);
+            for (std::size_t word = 0; word < layout.words; ++word)
+              store(destination + word, constant(0));
+            if (record.variant)
+              store(destination, constant(*record.variant + 1));
+          }
+          for (const auto &field : record.fields) {
+            const auto source = op.args.at(argument++);
+            if (!layout.boxed.at(field.field))
+              copyWords(destination + layout.fields.at(field.field), offsets.at(source),
+                        width(plan.slots.at(source)));
+          }
+        };
+        if (!boxes) {
+          initialize();
+        } else {
+          const auto equal = [&](Value a, Value d) -> Value {
+            return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, a, d);
+          };
+          const auto when = [&](Value condition, auto emit) {
+            auto branch = scf::IfOp::create(b, loc, condition, false);
+            OpBuilder::InsertionGuard restore(b);
+            b.setInsertionPointToStart(&branch.getThenRegion().front());
+            emit();
+          };
+          const auto step = load(boxStep);
+          when(equal(step, constant(0)), [&] {
+            initialize();
+            store(boxStep, constant(1));
+          });
+          std::size_t stepNumber = 0;
+          std::size_t argument = record.base ? 1 : 0;
+          for (const auto &field : record.fields) {
+            const auto source = op.args.at(argument++);
+            if (!layout.boxed.at(field.field))
+              continue;
+            chargeAggregate(1);
+            const auto stepId = ++stepNumber;
+            const auto count = width(plan.slots.at(source));
+            when(equal(step, constant(stepId)), [&] {
+              const auto phase = heap->load(DeviceHeapEmitter::Phase);
+              when(equal(phase, constant(0)), [&] {
+                heap->begin(constant(count), boxIdentity(*plan.slots.at(source).record));
+              });
+              when(heap->ready(), [&] {
+                const auto word = heap->cursor();
+                const auto done = equal(word, constant(count));
+                when(arith::XOrIOp::create(b, loc, done, yes), [&] {
+                  heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), word),
+                              readFrame(offsets.at(source), word));
+                  heap->advance();
+                });
+                when(done, [&] {
+                  store(destination + layout.fields.at(field.field), heap->handle());
+                  heap->finish();
+                  store(boxStep, constant(stepId + 1));
+                });
+              });
+            });
+          }
+          const auto done = equal(step, constant(stepNumber + 1));
+          when(done, [&] { store(boxStep, constant(0)); });
+          next = arith::SelectOp::create(b, loc, done, next, pc);
+        }
+      } else if (op.code == C::Branch)
+        next =
+            arith::SelectOp::create(b, loc, read(op.args.at(0)).value, next, constant(op.jump + 1));
+      else if (op.code == C::Jump)
+        next = constant(op.jump + 1);
+      else if (op.code == C::Return)
+        next = emitEntryReturn();
+      else if (op.code != C::Label) {
+        std::vector<ShaderValue> arguments;
+        for (auto arg : op.args)
+          arguments.push_back(read(arg));
+        auto value = emitter.invoke(*kernels[i], arguments);
+        store(offsets.at(op.output), value.value);
+        auto bad = arith::XOrIOp::create(b, loc, value.valid, yes);
+        auto failure = scf::IfOp::create(b, loc, bad, false);
+        {
+          OpBuilder::InsertionGuard failed(b);
+          b.setInsertionPointToStart(&failure.getThenRegion().front());
+          memref::StoreOp::create(b, loc, constant(0, 32), params, ValueRange{at(1 + 2 * frames)});
+        }
+        next = arith::SelectOp::create(b, loc, bad, constant(UINT64_MAX), next);
+      }
+      if (storage) {
+        auto flag = memref::LoadOp::create(b, loc, params, ValueRange{at(1 + 2 * frames)});
+        auto valid = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, flag, constant(UINT32_MAX, 32));
+        next = arith::SelectOp::create(b, loc, valid, next, constant(UINT64_MAX));
+      }
+      store(0, next);
+    }
+    scf::YieldOp::create(
+        b, loc, ValueRange{arith::AddIOp::create(b, loc, after->getArgument(0), constant(1, 32))});
+  } catch (const Rejected &error) {
+    return std::unexpected(error.diagnostic);
+  }
+  Value result = load(offsets.at(plan.result));
+  if (bits != 64)
+    result = arith::TruncIOp::create(b, loc, b.getIntegerType(bits), result);
+  memref::StoreOp::create(b, loc, result, kernel.getArgument(inputs.size()), ValueRange{at(0)});
+  if (failed(verify(*module)))
+    return reject("GPU scalar control shader failed verification");
+  std::string ir;
+  llvm::raw_string_ostream stream(ir);
+  module->print(stream);
+  std::vector<std::uint32_t> reads(inputs.size());
+  for (std::size_t i = 0; i < reads.size(); ++i)
+    reads[i] = i;
+  auto resultShader = NumericShader{type,
+                       std::move(ir),
+                       std::move(reads),
+                       {},
+                       false,
+                       true,
+                       std::move(inputs),
+                       std::move(states),
+                       std::move(roles)};
+  resultShader.deviceStorage = storage;
+  resultShader.checkpointedTensorArithmetic = std::ranges::any_of(plan.code, tensorArithmetic);
+  return resultShader;
 }
 } // namespace kalandra

@@ -155,6 +155,69 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         assert bool(publications(client.barrier())[main.as_uri()]["diagnostics"]) == expected_error
         client.finish()
 
+    # Local device records use the same typed admission and nominal hover data.
+    device_record = ("type Row:\n  value:int\n  enabled:Bool\n"
+                     "fn work(n:int)->int:\n  row=Row {value:n,enabled:true}\n"
+                     "  if row.enabled:row.value\n  else:0\n"
+                     "fn main()->int ! TaskError:\n  try parallel:\n"
+                     "    try await spawn work(42) on devices.gpu()\n")
+    client = Client("--placement")
+    client.init()
+    client.open(main, device_record)
+    assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
+    assert client.hover(main, 5, 6)["result"]["contents"]["value"] == "row: Row"
+    client.finish()
+
+    # CPU-owned data may coexist with device work; that does not make the
+    # recursive/String storage a device value. Checking never probes hardware.
+    for owned_record in (
+        'type Message:\n  text:String\nfn make()->Message:\n  Message {text:"Kalandra"}\n'
+        'fn size(message:Message)->int:\n  length(message.text)\n'
+        'fn work(n:int)->int:\n  n\nfn main()->int ! TaskError:\n  value=make()\n'
+        '  try parallel:\n    try await spawn work(size(value)) on devices.gpu()\n',
+        'enum Link:\n  End\n  Next:\n    value:int\n    tail:Link\n'
+        'fn size(link:Link)->int:\n  match link:\n    Link.End:0\n'
+        '    Link.Next {value,tail}:value+size(tail)\n'
+        'fn work(n:int)->int:\n  n\nfn main()->int ! TaskError:\n'
+        '  value=Link.Next {value:42,tail:Link.End}\n  try parallel:\n'
+        '    try await spawn work(size(value)) on devices.gpu()\n',
+    ):
+        client = Client("--placement")
+        client.init()
+        client.open(main, owned_record)
+        assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
+        at = owned_record.rindex('value)')
+        line = owned_record[:at].count('\n')
+        column = len(owned_record[:at].rsplit('\n',1)[-1])
+        expected = 'value: Message' if 'type Message' in owned_record else 'value: Link'
+        assert client.hover(main,line,column+1)["result"]["contents"]["value"] == expected
+        client.finish()
+
+    # Device-local arrays and ordered collectors share the ordinary array type
+    # and access diagnostics. Editor checking never initializes a GPU driver.
+    device_arrays = ("fn work(n:int)->int:\n"
+                     "  values=for i in range(n):\n    if i%2==1:\n      yield i\n"
+                     "  snapshot=copy(values)\n"
+                     "  if length(values)>0:\n    values[0]=99\n  length(snapshot)\n"
+                     "fn main()->int ! TaskError:\n  try parallel:\n"
+                     "    try await spawn work(10) on devices.gpu()\n")
+    client = Client("--placement")
+    client.init()
+    client.open(main, device_arrays)
+    assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
+    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "snapshot: [int64]"
+    client.finish()
+
+    device_boolean = ("fn predicate(flag:Bool)->Bool:\n  flag\n"
+                      "fn main()->Bool ! TaskError:\n  try parallel:\n"
+                      "    result=try await spawn predicate(true) on devices.gpu()\n    result\n")
+    client = Client("--placement")
+    client.init()
+    client.open(main, device_boolean)
+    assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
+    assert client.hover(main, 4, 6)["result"]["contents"]["value"] == "result: Bool"
+    client.finish()
+
     # Explicit project package mappings and no startup source execution.
     lib.write_text("export fn value()->int:\n  42\n")
     manifest = root / "kalandra.toml"

@@ -255,6 +255,14 @@ std::expected<NumericExecutable, Error>
 Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInstruction> code,
                                std::uint32_t result, NumericType type, bool scalar,
                                Device selected) noexcept {
+  return prepareNumericProgram(inputs, code, result, type, scalar, false, selected);
+}
+std::expected<NumericExecutable, Error>
+Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInstruction> code,
+                               std::uint32_t result, NumericType type, bool scalar,
+                               bool booleanResult, Device selected) noexcept {
+  if (booleanResult && (!scalar || type != NumericType::UInt8))
+    return std::unexpected(Error::Invalid);
   try {
     std::uint64_t bytes = sizeof(Prepared) + sizeof(ProgramExecution), slots = inputs;
     const auto maximum = state_->options.maxArgumentBytes;
@@ -282,7 +290,8 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
         if (!selected)
           selected = op.kernel.device_;
         if (op.kernel.device_.owner_ != state_ || op.kernel.device_.index_ != selected.index_ ||
-            op.kernel.kind_ != op.kind)
+            (op.kernel.kind_ != op.kind && !(isGpuControlKind(op.kind) &&
+                                             op.kernel.kind_ == NumericInstructionKind::Map)))
           return std::unexpected(Error::Residency);
       }
     }
@@ -303,7 +312,8 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
     owned.reserve(code.size());
     std::size_t captureCount = 0;
     for (const auto &op : code)
-      if (op.kind == NumericInstructionKind::Map)
+      if (op.kind == NumericInstructionKind::Map ||
+          isGpuControlKind(op.kind))
         captureCount += op.scalars.size();
     plan->captures.reserve(captureCount);
     for (const auto &op : code) {
@@ -313,7 +323,10 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
       instruction.target = op.target;
       if (op.kernel)
         instruction.kernel = op.kernel.schema_;
-      if (op.kind == NumericInstructionKind::Map) {
+      if (op.kind == NumericInstructionKind::DeviceControl && instruction.kernel)
+        instruction.kernel->scalar = true; // Final binding is private storage, not a source domain.
+      if (op.kind == NumericInstructionKind::Map ||
+          isGpuControlKind(op.kind)) {
         for (auto word : op.scalars) {
           instruction.scalarSources.push_back(plan->captures.size());
           plan->captures.push_back(word);
@@ -322,8 +335,9 @@ Runtime::prepareNumericProgram(std::uint32_t inputs, std::span<const NumericInst
         instruction.constants.assign(op.scalars.begin(), op.scalars.end());
       owned.push_back(std::move(instruction));
     }
-    auto program = Program::prepare(*state_->contexts[plan->device].driver, inputs, owned, result,
-                                    type, scalar, {.maxMetadataBytes = maximum});
+    auto program =
+        Program::prepare(*state_->contexts[plan->device].driver, inputs, owned, result, type,
+                         scalar, {.maxMetadataBytes = maximum, .booleanResult = booleanResult});
     if (!program)
       return std::unexpected(program.error());
     plan->program = std::move(*program);
@@ -376,4 +390,13 @@ void Runtime::holdCompletions(bool hold) noexcept {
   for (auto &context : state_->contexts)
     if (context.async)
       context.async->holdCompletions(hold);
+}
+
+TaskHandle Runtime::downloadArrayPage(Task &task, GroupHandle group, const Buffer &value,
+                                      std::uint64_t offset, std::uint64_t words) noexcept {
+  std::lock_guard lock(state_->contextMutex);
+  for (auto &context : state_->contexts)
+    if (context.driver && context.driver->owns(value.data))
+      return context.async->downloadArrayPage(task, group, value, offset, words);
+  return state_->contexts[state_->options.defaultDevice].async->reject(task, group, Error::Residency);
 }

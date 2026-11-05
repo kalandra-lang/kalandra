@@ -85,7 +85,7 @@ fn main() -> float32 ! TaskError:
 
 This returns 21, displayed as 41a80000. The GPU doubles the original [1, 2, 3] snapshot; the CPU adds the edited first array element, 9. array(tensor) also copies, so editing that array cannot change the tensor.
 
-These are host-side array operations. Device functions still operate on immutable numerical tensors; array element writes inside a GPU function are not supported. String, record and function-array values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
+This example prepares arrays on the host and transfers an immutable tensor snapshot. GPU helpers can also construct and modify their own numeric/Bool arrays, as described below. Flat numeric and Bool arrays can also cross the task boundary as read-only inputs or as results. Arrays of Strings, records, enums or function values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
 
 h2 { "Types and ranks" }
 
@@ -93,7 +93,7 @@ The supported numerical types are int8, uint8, int16, uint16, int32, uint32, int
 
 h2 { "Hardware arithmetic and explicit fallback" }
 
-Float32 uses hardware arithmetic on CPU, Metal and the experimental Vulkan/CUDA backends by default. CUDA also uses native float64 on supported hardware. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling a float64 GPU operation requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
+Float32 uses hardware arithmetic on CPU, Metal and the experimental Vulkan/CUDA backends by default. CUDA also uses native float64 on supported hardware. Integer arithmetic retains overflow checks. Apple Metal has no native float64 arithmetic on the supported target; compiling float64 GPU arithmetic requires the explicit option --arithmetic hardware-with-software-fallback. Under that policy, CPU float64 and GPU float32 stay on hardware, while GPU float64 uses integer-based software arithmetic on the GPU.
 
 Use --arithmetic software for the strict software implementation on both CPU and GPU. This selects software arithmetic with gradual underflow and its defined numerical contract. Default hardware mode follows device behavior, so Metal float32 subnormals may flush to zero. reduceSum keeps its balanced adjacent-pair tree, and scalar arithmetic retains its separately rounded operations. -O2 does not enable generic fast math.
 
@@ -115,9 +115,289 @@ h2 { "Conditions in GPU functions" }
 
 Eligible GPU functions can use numeric comparisons, Boolean expressions and conditions to choose work. Only a selected branch runs, including its shape checks. Boolean conditions do not make Bool tensors, Strings or arbitrary host objects valid device data. Device and task resource limits still apply.
 
+GPU functions can accept Bool scalars and return Bool results. Awaiting a Bool task produces a Bool, not a numeric byte; numeric and Bool arguments are not interchangeable. A Bool main prints true or false, while numerical GPU results keep their hexadecimal bit display.
+
+codeblock { language = kalandra, """fn oddAndEnabled(enabled: Bool, value: int) -> Bool:
+  enabled and value % 2 == 1
+
+fn main() -> Bool ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    result = spawn oddAndEnabled(true, 7) on gpu
+    first = try await result
+    second = try await result
+    first and second
+""" }
+
+This prints true. Repeated awaits observe the same completed value. The same Bool result type works for CPU tasks and for coordinating helpers that await GPU work. Bounds/arithmetic failures and cancellation remain task failures; they are not converted into false.
+
+h2 { "Scalar loops on the GPU" }
+
+Numeric and Bool scalar helpers can use local numeric and Bool state, while loops, for loops over range(...), break and continue on the GPU. Both single-result loop expressions and statement loops are supported. Call these helpers from numerical GPU functions or place a numeric or Bool scalar entry directly on the device.
+
+codeblock { language = kalandra, """fn countSteps(count: int) -> float32:
+  total: float32 = 0
+  for index in range(count):
+    total = total + float32(1)
+  total
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn countSteps(1000) on gpu
+""" }
+
+This computes 1000 on the GPU. The executable prints its float32 bits as 447a0000. Loop arithmetic and branch decisions execute on the device. Each scalar helper runs sequentially in one GPU thread; placing it on a GPU does not parallelize its iterations. The runtime saves private scalar state between bounded chunks and checks cancellation before submitting more work. There is no total iteration limit; execution remains subject to ordinary device, task and memory limits. A cancellation request cannot reclaim buffers until submitted work has finished.
+
+GPU helpers can carry numeric and Bool values, supported arrays, records, enums and numeric tensors across iterations. Direct and mutually recursive calls can carry supported values across calls. Each active call uses invocation-owned device storage subject to the task memory budget. Numeric policies still apply; Metal float64 arithmetic requires explicit software arithmetic or hardware-with-software-fallback.
+
+h2 { "Local arrays and collecting loops" }
+
+A GPU helper can construct numeric and Bool arrays, index and iterate them, and modify local elements. Assignment keeps the same backing; copy creates independent element storage. slice and concat also construct independent arrays. A synchronous helper with a mut parameter can modify an array created by the calling GPU helper. GPU tasks can capture existing numeric and Bool arrays as read-only parameters. Helpers can return flat numeric or Bool arrays as native CPU arrays after await.
+
+codeblock { language = kalandra, """fn selected(n: int) -> int:
+  indices = generate(n, fn(i): i)
+  values = for i in indices:
+    if i % 2 == 1:
+      for offset in range(2):
+        yield i * 10 + offset
+  snapshot = copy(values)
+  values[0] = 999
+  total = 0
+  ordered = sorted(map(snapshot, fn(value): value))
+  for value in ordered:
+    total = total + value
+  total
+
+fn main() -> int ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn selected(10) on gpu
+""" }
+
+This computes 505 and prints its int64 bits as 00000000000001f9. yield appends in lexical order; filtering, nested loops, break, continue and empty results keep their ordinary CPU semantics. Array operations and collection run on the GPU, sequentially within the helper invocation. These arrays do not become shared append buffers or implicitly parallel loops.
+
+generate calls a callback with each index; array map calls it with each input element. Both visit indices in increasing order and allocate independent output storage before callbacks run. Named nonrecursive helpers and callback literals with supported captured values run on-device, including callbacks that use loops and local arrays. An empty input makes no callback calls; a negative generate count produces a checked bounds fault.
+
+Local arrays use invocation-owned device memory. Their backing can grow as needed, subject to device and task memory budgets. Unreachable numeric/Bool arrays are reclaimed during execution, so repeatedly constructing temporary arrays does not retain every earlier allocation. Allocation, copying and collection have cancellation checkpoints. Checked bounds errors discard partial results, and submitted work settles before its storage is released.
+
+The numeric and Bool array representation uses a 64-bit cell per element plus private allocation metadata. Memory costs can therefore exceed the corresponding CPU array payload. Eligible record arrays and device-local closure arrays can also live in the invocation arena. Strings remain host-only. sort orders a local numeric/Bool array in place, so aliases observe the changes. sorted allocates independent backing first. Both use the same deterministic order as CPU arrays, including NaNs and signed zero, and compare floating values by integer keys without floating-point arithmetic. Sorting has cancellation checkpoints between bounded comparison/swap steps.
+
+h2 { "Records and enums in GPU helpers" }
+
+A device helper can construct records and enum variants containing numeric scalars, Bool, numeric/Bool arrays and nested records. Field access, record updates, value copies and match execute on the device, including inside loops. Internal nonrecursive helpers can accept and return those values.
+
+codeblock { language = kalandra, """type Sample:
+  value: float32
+  enabled: Bool
+
+fn adjusted(value: float32) -> float32:
+  sample = Sample {value: value, enabled: true}
+  if sample.enabled:
+    sample.value + float32(2)
+  else:
+    float32(0)
+
+fn main() -> float32 ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn adjusted(float32(40)) on gpu
+""" }
+
+This computes 42; the executable prints 42280000. Records are copied by value within the private device frame. Inactive enum payloads are zeroed, and fields retain their declared numeric types. Record array fields preserve their backing aliases. Use copy on an array field when you need independent element storage. Eligible records can also cross the task boundary as described below. Device record fields support numeric and Bool scalars, flat numeric and Bool arrays, and nested records or enums of those types.
+
+codeblock { language = kalandra, """type Batch:
+  values: [int]
+
+fn sumBatch(count: int) -> int:
+  batch = Batch {values: generate(count, fn(index): index + 1)}
+  total = 0
+  for value in batch.values:
+    total = total + value
+  total
+
+fn main() -> int ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn sumBatch(4) on gpu
+""" }
+
+This computes 10 and prints 000000000000000a. The array is constructed and read on the GPU. Its backing remains alive while batch refers to it, including across helper calls and allocation checkpoints.
+
+h2 { "Capture host arrays" }
+
+Pass a numeric or Bool array directly to a GPU-placed helper. The task captures the array as read-only, packs and uploads its elements, then executes the helper on the GPU. Packing belongs to the spawned task; spawn does not wait for it. The original array and its aliases stay read-locked until the task settles. An empty array is valid.
+
+codeblock { language = kalandra, """fn firstAndOriginal(values: [int]) -> int:
+  ordered = sorted(values)
+  ordered[0] + values[0]
+
+fn main() -> int ! TaskError:
+  values: [int] = [5, 3, 1]
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn firstAndOriginal(values) on gpu
+""" }
+
+This computes 6 and prints 0000000000000006. sorted creates independent device storage; values remains unchanged. Captured arrays follow the same read-only rules as ordinary function parameters. Use copy or sorted before modifying elements inside the GPU helper. Writing through a host alias while the task is pending is a compile-time error.
+
+Array capture supports all ten numeric types and Bool, subject to the selected arithmetic policy. Packing and upload costs count toward end-to-end latency, and their storage counts toward task and device budgets. The private wire representation uses a 64-bit cell per element, so it can use more memory than the corresponding CPU array. A GPU entry can accept captured host arrays alongside tensors already resident on the selected device. GPU tasks can return supported scalars, arrays, records, enums and tensors. Array and record results materialize on the CPU. Tensor results remain on the GPU.
+
+h2 { "Return arrays from GPU tasks" }
+
+A GPU helper can return a numeric or Bool array. Awaiting it gives the caller a native CPU array. The helper's computation runs on the GPU; returning its array includes device-to-host transfer and decoding costs. Empty results are valid, and their element type comes from the function's result type.
+
+codeblock { language = kalandra, """fn ordered(values: [int]) -> [int]:
+  sorted(values)
+
+fn main() -> int ! TaskError:
+  values: [int] = [9, 2, 5]
+  try parallel:
+    gpu = devices.gpu()
+    result = try await spawn ordered(values) on gpu
+    result[0] = 7
+    result[0] + values[0]
+""" }
+
+This computes 16 and prints 0000000000000010. The GPU sorts into independent storage, so editing result leaves values unchanged. A helper returning a captured array directly preserves its original CPU backing instead: assignment and helper calls do not imply a copy. Other pending readers still prevent writes through any alias. Use copy or sorted when you need independent backing.
+
+Generators do not need an input array: a GPU helper can return the array produced by a for/while expression or generate. Result order follows the corresponding CPU operation. A returned array can be read, modified under the normal access rules, or captured by another GPU task. For repeated calculations on resident tensors, use explicit tensor transfers instead of moving an array back after each task.
+
+main can return the array directly:
+
+codeblock { language = kalandra, """fn squares(n: int) -> [int]:
+  generate(n, fn(i): i * i)
+
+fn main() -> [int] ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn squares(4) on gpu
+""" }
+
+The values are [0, 1, 4, 9]. Like other numerical output from a GPU-targeted executable, numeric array cells print as fixed-width hexadecimal bit patterns: [0000000000000000,0000000000000001,0000000000000004,0000000000000009]. Bool array cells print as true or false.
+
+
+Input packing, temporary device storage, result transfer and native result storage count toward their respective resource budgets. Transfers and decoding proceed in bounded pages with cancellation checks. A bounds fault, allocation failure or cancellation discards partial results; submitted copies settle before their backing is released.
+
 h2 { "AI and LLM foundations" }
 
 Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. Kalandra does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
+
+h2 { "Records in mixed CPU and GPU code" }
+
+CPU helpers and CPU tasks can receive and return records and enums while the program also runs GPU work. Their arrays keep normal alias identity, including when returned through a CPU task. Recursive links, String fields and record-array fields can remain in these CPU values. Writes through an array field or its alias are rejected while a task is reading it; an independent copy remains writable.
+
+GPU tasks can capture a whole record or enum when its fields are numeric or Bool scalars, flat numeric or Bool arrays, or nested records and enums of those types. Only the selected enum payload is used. Captured arrays remain read-only and preserve their aliases. These helpers accept additional scalar or flat-array parameters. They can return a scalar, a flat array, or a whole record or enum of the same supported field types. After await, returned arrays are native CPU arrays. Fields sharing fresh backing remain aliases, and returned captured arrays still alias their original backing.
+
+codeblock { language = kalandra, """type Batch:
+  values: [int]
+  bias: int
+
+fn sumBatch(batch: Batch) -> int:
+  total = 0
+  for value in batch.values:
+    total = total + value
+  total + batch.bias
+
+fn main() -> int ! TaskError:
+  batch = Batch {values: [2, 3], bias: 7}
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn sumBatch(batch) on gpu
+""" }
+
+The loop runs on the GPU. This computes 12 and prints 000000000000000c.
+
+Supported recursive records and enums can cross the GPU boundary. Records with unsupported fields such as Strings stay on the CPU. You can pass a supported field to a GPU helper, then wrap the returned array in a CPU record:
+
+codeblock { language = kalandra, """type Batch:
+  values: [int]
+
+fn squares(values: [int]) -> [int]:
+  generate(length(values), fn(i): values[i] * values[i])
+
+fn summarize(batch: Batch) -> int:
+  batch.values[0] + batch.values[1]
+
+fn main() -> int ! TaskError:
+  original = Batch {values: [2, 3]}
+  try parallel:
+    gpu = devices.gpu()
+    values = try await spawn squares(original.values) on gpu
+    result = Batch {values: values}
+    summarize(result)
+""" }
+
+This computes 13 and prints 000000000000000d. squares executes on the GPU, while the record construction and summarize execute on the CPU.
+
+This helper returns two fields sharing one fresh array. After await, a write through left is visible through right.
+
+codeblock { language = kalandra, """type Pair:
+  left: [int]
+  right: [int]
+
+fn duplicate(values: [int]) -> Pair:
+  fresh = copy(values)
+  Pair {left: fresh, right: fresh}
+
+fn main() -> int ! TaskError:
+  original = [2, 3]
+  try parallel:
+    result = try await spawn duplicate(original) on devices.gpu()
+    result.left[0] = 9
+    result.right[0]
+""" }
+
+This prints 0000000000000009. The fresh array is independent of original.
+
+h2 { "Pass resident tensors between GPU tasks" }
+
+Transfer a CPU tensor explicitly before passing it to a GPU task. A tensor returned by a GPU task is already resident on that device. Pass it directly to another task on the same device, or transfer it to the CPU when you need a host value.
+
+codeblock { language = kalandra, """fn make(n: int) -> Tensor[int]:
+  cells = [n]
+  tensor(cells, [])
+
+fn readCell(cell: Tensor[int]) -> int:
+  cell[]
+
+fn main() -> int ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    cell = try await spawn make(7) on gpu
+    try await spawn readCell(cell) on gpu
+""" }
+
+This prints 0000000000000007. A rank-zero tensor contains one element and uses empty index brackets. A tensor with a zero extent keeps its rank and dimensions with no elements. Checkpointed helpers can also index, reshape and do elementwise arithmetic on numeric tensors. Their private copies and result materialization use device memory and count toward the task budget.
+
+h2 { "CPU and device language coverage" }
+
+Device support means the operation executes on the selected GPU. A host continuation may schedule GPU work between CPU operations. The portable device column applies to Metal, Vulkan and CUDA, subject to the numerical policies and backend limits above. Windows GPU execution remains experimental and physically unqualified.
+
+table {
+  row = ["Feature", "CPU", "Inside a GPU function"],
+  row = ["Numeric arithmetic and conditions", "Supported", "Supported; select a supported arithmetic policy"],
+  row = ["Bool parameters and task results", "Supported", "Supported; Bool and uint8 remain distinct types"],
+  row = ["Numeric and Bool local reassignment", "Supported", "Supported in checkpointed device helpers"],
+  row = ["Integer-range for, while, break and continue", "Supported", "Supported in checkpointed device helpers; sequential iterations"],
+  row = ["Single-result loop expressions", "Supported", "Supported for numeric/Bool scalar results"],
+  row = ["Records, enums and match", "Supported", "Local values, internal helpers, eligible read-only captures and whole-record results after await"],
+  row = ["Numeric and Bool array parameters", "Supported", "Read-only task captures with packing/upload costs"],
+  row = ["Numeric and Bool array task results", "Supported", "Native CPU arrays after await; transfer/decoding costs; captured aliases preserved"],
+  row = ["Array iteration and indexing", "Supported", "Local arrays of supported numeric, Bool and record/enum values; bounds checked"],
+  row = ["Array element mutation", "Numeric/Bool arrays with access rules", "Local numeric/Bool arrays; captured backing remains read-only"],
+  row = ["Collecting loops with yield", "Supported", "Supported numeric, Bool and record/enum elements; ordered, nested and filtered collection"],
+  row = ["Array copy, slice and concat", "Supported for their documented element types", "Local arrays of supported numeric, Bool and record/enum values"],
+  row = ["Array generate and map", "Supported for their documented element types", "Local arrays of supported numeric, Bool and record/enum values; ordered callbacks with supported device captures"],
+  row = ["Array sorted and sort", "Supported for their documented element types", "Local numeric/Bool arrays; deterministic ordering and checkpointed sorting"],
+  row = ["Record/enum numeric and Bool array fields", "Supported", "Supported in local values, eligible recursive and nonrecursive helpers, and read-only captures"],
+  row = ["Recursive records and enums", "Supported", "Supported for eligible captured and returned graphs; Strings and host resources stay on the CPU"],
+  row = ["Function values and captures", "Supported", "Device-local functions with a closed set of targets and supported captures. Host/device function-value transfer is unsupported"],
+  row = ["Recursive calls", "Supported", "Direct and mutual calls with supported frame values, subject to task allocation and cancellation limits"],
+  row = ["Tensor calculations", "Supported", "Numerical graphs and checkpointed tensor construction, indexing, reshape, conversion and elementwise operations"],
+  row = ["Resident tensor arguments and task results", "Explicit transfers", "Same-device resident inputs and outputs. Host inspection requires transfer"],
+  row = ["Task scheduling and device transfers", "Supported", "Host orchestration; not device instructions"]
+}
 
 list {
   link { url = "/docs/tensors", "Tensor construction and shape rules" },

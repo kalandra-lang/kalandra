@@ -121,10 +121,14 @@ public:
   std::vector<std::vector<SymbolId>> localCells;
   explicit Builder(const TypedModule &input, Options options)
       : ModulePlan(input), options(options), resumable(resumableFunctions(input)),
-        coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)), invocationFlow(functionInvocationFlow(input)) {
+        coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)),
+        invocationFlow(functionInvocationFlow(input)) {
+    if (options.deviceCallFrames &&
+        (!options.entry || !options.deviceValues || options.nativeSubgraphs || options.preserveCalls))
+      throw std::runtime_error("device call frames require a selected device continuation entry");
     if (options.preserveCalls)
       for (FunctionId id = 0; id < input.functions.size(); ++id)
-        if (loopControl[id] && !coordinating[id] && !input.functions[id].resultType.fallible)
+        if (!coordinating[id] && !input.functions[id].resultType.fallible)
           resumable[id] = false;
     if (options.entry && *options.entry >= input.functions.size())
       throw std::runtime_error("continuation entry function is out of range");
@@ -373,11 +377,15 @@ private:
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
             op.condition = importValue(op.condition);
             for (auto *body : {&op.initial, &op.iteration, &op.body, &op.whenDone})
-              for (auto &statement : *body) statement = importStatement(statement);
-            if (op.normalResult) op.normalResult = importValue(*op.normalResult);
-            for (auto &value : op.exitValues) value = importValue(value);
+              for (auto &statement : *body)
+                statement = importStatement(statement);
+            if (op.normalResult)
+              op.normalResult = importValue(*op.normalResult);
+            for (auto &value : op.exitValues)
+              value = importValue(value);
           } else if constexpr (std::is_same_v<T, LoopTransferOperation>) {
-            if (op.value) op.value = importValue(*op.value);
+            if (op.value)
+              op.value = importValue(*op.value);
           } else if constexpr (std::is_same_v<T, YieldOperation>) {
             op.operand = importValue(op.operand);
           } else if constexpr (std::is_same_v<T, IntegerRangeOperation>) {
@@ -598,6 +606,38 @@ private:
     kernelIds[id] = fnId;
     return fnId;
   }
+  // Device maps remain ordered source evaluation. The output is allocated before
+  // callbacks, and every loop edge/callback uses the same checkpointed frame.
+  void deviceMap(Plan &plan, ValueId id, Slot output, const ArrayMap &map, Environment &env,
+                 std::set<FunctionId> &stack) {
+    const auto inputSlot = expression(plan, map.input, env, stack);
+    std::vector<Slot> captures;
+    for (auto capture : map.captures)
+      captures.push_back(expression(plan, capture, env, stack));
+    ValueType integer;
+    integer.element = NumericType::Int64;
+    ValueType boolean;
+    boolean.builtin = BuiltinValue::Bool;
+    const auto index = slot(plan, integer), active = slot(plan, boolean);
+    plan.code.push_back({Code::MapInit, output, {inputSlot, index}, 0, 0, 0, id});
+    const auto loop = plan.code.size();
+    plan.code.push_back({Code::MapCheck, active, {inputSlot, index}, 0, 0, 0, id});
+    const auto done = plan.code.size();
+    plan.code.push_back({Code::Branch, 0, {active}});
+    const auto element =
+        slot(plan, map.generate ? integer : recordArrayElement(input.expressions[map.input].type));
+    plan.code.push_back({Code::MapLoad, element, {inputSlot, index}, 0, 0, 0, id});
+    std::vector<Slot> arguments{element};
+    arguments.insert(arguments.end(), captures.begin(), captures.end());
+    const auto value = function(plan, map.function, arguments, stack, env.group);
+    // Explicit output operand retains the allocated destination across callback
+    // allocations and makes the use/definition visible to device root analysis.
+    plan.code.push_back({Code::MapStore, output, {output, index, value}, 0, 0, 0, id});
+    plan.code.push_back({Code::MapAdvance, index, {index}, 1, 0, 0, id});
+    plan.code.push_back({Code::Jump, 0, {}, 0, 0, loop});
+    plan.code[done].jump = plan.code.size();
+    plan.code.push_back({Code::Label, 0, {}});
+  }
   void parallelMap(Plan &plan, ValueId id, Slot output, const ArrayMap &map, Environment &env,
                    std::set<FunctionId> &stack) {
     if (options.preserveCalls)
@@ -802,6 +842,48 @@ private:
     plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group});
     return output;
   }
+  void deviceIndirectCall(Plan &plan, ValueId id, Slot output,
+                          const kalandra::FunctionInvoke &call, Environment &env,
+                          std::set<FunctionId> &stack) {
+    if (!invocationFlow || invocationFlow->unknown.at(id) ||
+        invocationFlow->targets.at(id).empty())
+      throw std::runtime_error("GPU function invocation needs a closed target set");
+    const auto callee = expression(plan, call.callee, env, stack);
+    std::vector<Slot> args;
+    for (auto argument : call.arguments)
+      args.push_back(expression(plan, argument, env, stack));
+    std::vector<std::size_t> exits;
+    ValueType boolean;
+    boolean.builtin = BuiltinValue::Bool;
+    for (auto target : invocationFlow->targets.at(id)) {
+      const auto &fn = input.functions.at(target);
+      if (coordinating.at(target) || fn.parameters.size() != args.size() + fn.captureCount)
+        throw std::runtime_error("GPU function invocation target requires unsupported transport");
+      if (!scheduled.at(target)) {
+        scheduled[target] = true;
+        pending.push_back(target);
+      }
+      const auto selected = slot(plan, boolean);
+      plan.code.push_back({Code::CallableTarget, selected, {callee}, target, 0, 0, id});
+      const auto skip = plan.code.size();
+      plan.code.push_back({Code::Branch, 0, {selected}});
+      auto parameters = args;
+      for (std::size_t capture = 0; capture < fn.captureCount; ++capture) {
+        const auto type = input.symbols.at(fn.parameters.at(args.size() + capture)).type;
+        const auto value = slot(plan, type);
+        plan.code.push_back({Code::CallableCaptures, value, {callee}, target, capture, 0, id});
+        parameters.push_back(value);
+      }
+      plan.code.push_back({Code::SynchronousCall, output, std::move(parameters), target, 0, 0, id});
+      exits.push_back(plan.code.size());
+      plan.code.push_back({Code::Jump, 0, {}});
+      plan.code[skip].jump = plan.code.size();
+    }
+    plan.code.push_back({Code::InvalidCallable, 0, {}, 0, 0, 0, id});
+    for (auto exit : exits)
+      plan.code[exit].jump = plan.code.size();
+    plan.code.push_back({Code::Label, 0, {}});
+  }
   Slot expression(Plan &plan, ValueId id, Environment &env, std::set<FunctionId> &stack) {
     if (auto found = env.values.find(id); found != env.values.end())
       return found->second;
@@ -821,6 +903,21 @@ private:
       std::vector<Slot> args;
       for (auto arg : call->arguments)
         args.push_back(expression(plan, arg, env, stack));
+      if (options.deviceCallFrames) {
+        const auto target = call->function;
+        const auto &callee = input.functions.at(target);
+        if (coordinating.at(target) || callee.captureCount ||
+            callee.parameters.size() != args.size())
+          throw std::runtime_error("device call frame requires a synchronous named function");
+        if (!scheduled.at(target)) {
+          scheduled[target] = true;
+          pending.push_back(target);
+        }
+        const auto value = slot(plan, node.type);
+        plan.code.push_back({Code::SynchronousCall, value, args, target, 0, 0, id});
+        env.values[id] = value;
+        return value;
+      }
       // Synchronous native subgraphs share the ordinary checked call ABI,
       // including recursive/function-value calls and their cancellation boundary.
       // A task owns only the outer continuation; it must not impose a heap
@@ -838,7 +935,8 @@ private:
         return value;
       }
       if (!options.preserveCalls && !coordinating.at(call->function) &&
-          (stack.contains(call->function) || loopControl.at(call->function))) {
+          (stack.contains(call->function) ||
+           (!options.inlineLoopCalls && loopControl.at(call->function)))) {
         if (input.functions.at(call->function).captureCount)
           throw std::runtime_error("direct recursive calls require a named function entry");
         auto value = slot(plan, node.type);
@@ -855,8 +953,23 @@ private:
       return value;
     }
     auto output = slot(plan, node.type);
-    if (const auto *map = std::get_if<ArrayMap>(&node.operation); map && map->parallel) {
+    if (const auto *map = std::get_if<ArrayMap>(&node.operation);
+        map && !map->parallel && options.deviceValues && !options.preserveCalls) {
+      deviceMap(plan, id, output, *map, env, stack);
+    } else if (const auto *map = std::get_if<ArrayMap>(&node.operation); map && map->parallel) {
       parallelMap(plan, id, output, *map, env, stack);
+    } else if (const auto *reference = std::get_if<kalandra::FunctionReference>(&node.operation);
+               reference && options.deviceCallFrames) {
+      if (coordinating.at(reference->function))
+        throw std::runtime_error("GPU function reference requires a synchronous target");
+      std::vector<Slot> captures;
+      for (auto capture : reference->captures)
+        captures.push_back(expression(plan, capture, env, stack));
+      plan.code.push_back(
+          {Code::FunctionReference, output, std::move(captures), reference->function, 0, 0, id});
+    } else if (const auto *call = std::get_if<kalandra::FunctionInvoke>(&node.operation);
+               call && options.deviceCallFrames) {
+      deviceIndirectCall(plan, id, output, *call, env, stack);
     } else if (const auto *reference = std::get_if<kalandra::FunctionReference>(&node.operation);
                reference && resumable.at(reference->function)) {
       std::vector<Slot> captures;
@@ -1194,12 +1307,15 @@ private:
           args.push_back(expression(plan, arg, env, stack));
       plan.code.push_back(
           {Code::Kernel, output, args,
-           !options.preserveCalls || std::holds_alternative<IntegerRangeOperation>(node.operation) ||
-                   (options.valueScopes &&
-                    (node.type.array ||
-                     std::ranges::any_of(
-                         operands(node),
-                         [&](auto value) { return input.expressions[value].type.array; })))
+           !options.preserveCalls ||
+                   std::holds_alternative<IntegerRangeOperation>(node.operation) ||
+                   (options.valueScopes && (node.type.array || node.type.record ||
+                                            std::ranges::any_of(operands(node),
+                                                                [&](auto value) {
+                                                                  const auto &type =
+                                                                      input.expressions[value].type;
+                                                                  return type.array || type.record;
+                                                                })))
                ? kernel(id)
                : 0,
            0, 0, id});
@@ -1347,9 +1463,9 @@ std::expected<ModulePlan, std::string> plan(const TypedModule &input, Options op
     auto storage = planRecordStorage(input);
     if (!storage)
       return std::unexpected(storage.error().message);
-    if (hasPlacement(input))
+    if (hasPlacement(input) && !options.deviceValues)
       return std::unexpected("records are not implemented in placement-aware continuations");
-    if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
+    if (auto error = numericCapabilityError(input, NumericTarget::Cpu, options.deviceValues))
       return std::unexpected(*error);
   }
   try {

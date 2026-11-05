@@ -90,6 +90,27 @@ else:
 run([sys.executable, repo/'native/gpu-source/HostArrayTests.py', '--compiler', compiler,
      '--backend', a.backend, '--variant', 'optimized', '--compile-only',
      '--root', root/'host-arrays'])
+run([sys.executable, repo/'native/gpu-source/ScalarControlTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'scalar-control'])
+run([sys.executable, repo/'native/gpu-source/DeviceArrayTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-arrays'])
+run([sys.executable, repo/'native/gpu-source/DeviceArrayEntryTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-array-entry'])
+run([sys.executable, repo/'native/gpu-source/DeviceArrayResultTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-array-results'])
+run([sys.executable, repo/'native/gpu-source/DeviceArrayMainTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-array-main'])
+run([sys.executable, repo/'native/gpu-source/HostAggregateTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'host-aggregates'])
+run([sys.executable, repo/'native/gpu-source/DeviceBoolTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-bool'])
 for application in root.rglob('program.exe'):
     # Real GPU programs must not statically depend on either driver or an SDK DLL.
     dependencies = [name.lower() for name in imports(application)]

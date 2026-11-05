@@ -17,6 +17,8 @@ struct NumericShader {
   std::optional<TensorTransformKind> transform = {};
   std::string nativeMetal = {};
   bool noArithmeticFault = false;
+  bool deviceStorage = false;
+  bool checkpointedTensorArithmetic = false;
 };
 // Typed map and primitive shaders use integer bit carriers at the task boundary.
 std::string numericReductionShader(NumericType);
@@ -26,6 +28,15 @@ struct NumericShaderOptions {
   ArithmeticMode arithmetic = ArithmeticMode::Hardware;
   bool nativeFloat64Conversions = false;
 };
+struct DeviceGraphExportLayout;
+bool usesScalarControl(const TypedModule &, FunctionId);
+std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModule &, FunctionId,
+                                                                 ArithmeticMode,
+                                                                 bool nativeFloat64Conversions,
+                                                                 bool aggregateEnvelope = false,
+                                                                 std::optional<std::size_t> graphParameter = {},
+                                                                 std::span<const DeviceGraphExportLayout> graphResultLayouts = {},
+                                                               std::span<const std::size_t> graphPeers = {});
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});
 } // namespace kalandra

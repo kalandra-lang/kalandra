@@ -58,7 +58,7 @@ functionInvocationFlow(const struct TypedModule &, std::size_t budget = 300000);
 [[nodiscard]] bool sameFunctionValueType(const ValueType &, const ValueType &,
                                          std::size_t depth = 0);
 [[nodiscard]] std::optional<std::string> functionValueCapabilityError(const struct TypedModule &,
-                                                                      NumericTarget);
+                                                                      NumericTarget, bool mixedPlacement = false);
 [[nodiscard]] bool containsFunctionStorage(const struct TypedModule &, const ValueType &);
 // CPU data captures supported by the first worker closure-environment copy.
 [[nodiscard]] bool workerClosureCaptureTypeSupported(const struct TypedModule &, const ValueType &);
@@ -523,6 +523,9 @@ struct CheckOptions {
 [[nodiscard]] std::string describeType(const ValueType &type);
 [[nodiscard]] std::string dumpTypedIR(const TypedModule &module);
 // Reject unsupported numeric IR before a backend can apply float32-specific lowering.
+// Mixed placement keeps CPU-owned data separate from unrelated device selectors;
+// each placed-entry consumer must still enforce its own device capability rules.
 [[nodiscard]] std::optional<std::string> numericCapabilityError(const TypedModule &module,
-                                                                NumericTarget target);
+                                                                NumericTarget target,
+                                                                bool mixedPlacement = false);
 } // namespace kalandra
