@@ -1,7 +1,7 @@
 """Owned native records/enums around GPU work, with equivalent CPU source oracles.
 
-These are host-continuation aggregate boundaries, not device aggregate captures.
-Actual GPU work is compiled/executed separately from the native field operations.
+CPU coordination retains native aggregates. Eligible whole-record captures are
+reconstructed on the GPU; their source arithmetic/traversal executes there.
 """
 import argparse
 import json
@@ -41,6 +41,16 @@ for typ in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','f
     for child in (False, True):
         setup = '    batch=try await spawn make() on devices.cpu()\n' if child else '    batch=make()\n'
         cases[('child-' if child else 'direct-')+typ] = (helper+work+'fn main()->int ! TaskError:\n  try parallel:\n'+setup+'    try await spawn work(score(batch)) on devices.gpu()\n',15)
+    cases['entry-'+typ] = (helper+'''fn device(batch:Batch)->int:
+  total=0
+  for i in range(score(batch)):
+    total=total+i
+  total
+fn main()->int ! TaskError:
+  batch=make()
+  try parallel:
+    try await spawn device(batch) on devices.gpu()
+''',15)
 common = 'type Batch:\n  values:[int]\n  enabled:Bool\nfn make(n:int)->Batch:\n  Batch {values:[n,n+1],enabled:true}\nfn score(batch:Batch)->int:\n  if batch.enabled:batch.values[0]+batch.values[1]\n  else:0\n'
 cases['retained-through-replacement'] = (common+work+'''fn main()->int ! TaskError:
   saved=make(7)
@@ -78,6 +88,14 @@ fn scoreChoice(value:Choice)->int:
     Choice.Empty:4
     Choice.Some {batch}:score(batch)
 '''
+cases['repeated-record-entry'] = (common+'''fn main()->int ! TaskError:
+  try parallel:
+    first=spawn score(make(2)) on devices.gpu()
+    second=spawn score(make(9)) on devices.gpu()
+    left=try await first
+    right=try await second
+    left*100+right
+''',519)
 for n, score in [(0,4),(3,7)]:
     cases['enum-child-'+str(n)] = (common+enum+work+f'''fn main()->int ! TaskError:
   try parallel:
@@ -174,8 +192,56 @@ cases['independent-copy-mutation-while-record-read-locked'] = (common+work+'''fn
     n=try await pending
     try await spawn work(n+fresh[0]) on devices.gpu()
 ''',66)
-known = set(cases) | {'reject-record-field','reject-record-field-alias','reject-record-field-sort',
-                       'reject-device-string-body','reject-device-record-capture'}
+cases['entry-returned-field-retains-original-alias'] = (common+'''fn device(batch:Batch)->[int]:
+  batch.values
+fn main()->int ! TaskError:
+  original=make(2)
+  try parallel:
+    alias=try await spawn device(original) on devices.gpu()
+    original.values[0]=9
+    alias[0]+alias[1]
+''',12)
+nested = '''enum Inner:
+  Empty
+  Data:
+    values:[int]
+enum Outer:
+  Empty
+  Data:
+    inner:Inner
+fn device(value:Outer)->int:
+  match value:
+    Outer.Empty:7
+    Outer.Data {inner}:
+      match inner:
+        Inner.Empty:11
+        Inner.Data {values}:values[0]+values[1]
+'''
+for name,value,expected in [('outer-empty','Outer.Empty',7),
+                            ('inner-empty','Outer.Data {inner:Inner.Empty}',11),
+                            ('inner-data','Outer.Data {inner:Inner.Data {values:[2,3]}}',5)]:
+    cases['entry-'+name] = (nested+f'''fn main()->int ! TaskError:
+  original={value}
+  try parallel:
+    try await spawn device(original) on devices.gpu()
+''',expected)
+cases['entry-repeated-nested-alias-and-scalar'] = (common+'''type Pair:
+  left:Batch
+  right:Batch
+fn device(value:Pair,values:[int],scale:int)->int:
+  total=0
+  for n in value.left.values:
+    total=total+n
+  total+value.right.values[0]+values[1]+scale
+fn main()->int ! TaskError:
+  batch=make(2)
+  pair=Pair {left:batch,right:batch}
+  try parallel:
+    try await spawn device(pair,batch.values,7) on devices.gpu()
+''',17)
+known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
+                     for name in ('field','field-alias','field-sort')}
+known |= {'reject-device-string-body','reject-device-record-result'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
 results = []
@@ -192,7 +258,8 @@ for name,(source,expected) in cases.items():
     gpu = root/'gpu.k'
     gpu.write_text(source)
     bundle = root/'device'
-    run([a.compiler,gpu,'--target',a.backend,*flags,'-o',bundle])
+    policy = ['--arithmetic','hardware-with-software-fallback'] if name == 'entry-float64' else []
+    run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
     assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name
     assert 'HostArrayScopes' in host and 'HostArrayWork' in host, name
@@ -205,22 +272,24 @@ for name,(source,expected) in cases.items():
             outputs.append(out)
     results.append({'case':name,'expected':expected,'status':'compiled' if a.compile_only else 'executed','outputs':outputs})
     print(name,results[-1]['status'],flush=True)
-for name,mutation in [('record-field','batch.values[0]=9'),
-                      ('record-field-alias','alias[0]=9'),
-                      ('record-field-sort','sort(batch.values)')]:
+for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-record-')
+                      for name,mutation in [('field','batch.values[0]=9'),
+                                            ('field-alias','alias[0]=9'),
+                                            ('field-sort','sort(batch.values)')]]:
     if a.case and 'reject-'+name not in a.case:
         continue
     root=a.root/('reject-'+name)
     root.mkdir(exist_ok=True)
     source=root/'gpu.k'
-    source.write_text(common+work+'fn main()->int ! TaskError:\n  batch=make(1)\n  alias=batch.values\n  try parallel:\n    pending=spawn score(batch) on devices.cpu()\n    '+mutation+'\n    n=try await pending\n    try await spawn work(n) on devices.gpu()\n')
+    target = 'gpu' if name.startswith('gpu-') else 'cpu'
+    source.write_text(common+work+'fn main()->int ! TaskError:\n  batch=make(1)\n  alias=batch.values\n  try parallel:\n    pending=spawn score(batch) on devices.'+target+'()\n    '+mutation+'\n    n=try await pending\n    try await spawn work(n) on devices.gpu()\n')
     r=subprocess.run(list(map(str,[a.compiler,source,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
     assert r.returncode!=0 and 'S077' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'S077'})
     print('reject-'+name,'rejected S077',flush=True)
 for name,source in {
     'device-string-body':'fn work(n:int)->int:\n  message="text"\n  length(message)+n\nfn main()->int ! TaskError:\n  try parallel:\n    try await spawn work(1) on devices.gpu()\n',
-    'device-record-capture':common+'fn work(batch:Batch)->int:\n  score(batch)\nfn main()->int ! TaskError:\n  batch=make(1)\n  try parallel:\n    try await spawn work(batch) on devices.gpu()\n',
+    'device-record-result':common+'fn device(n:int)->Batch:\n  make(n)\nfn main()->int ! TaskError:\n  try parallel:\n    batch=try await spawn device(1) on devices.gpu()\n    score(batch)\n',
 }.items():
     if a.case and 'reject-'+name not in a.case:
         continue
@@ -233,5 +302,5 @@ for name,source in {
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'G001'})
     print('reject-'+name,'rejected G001',flush=True)
 (a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case),'selectedCases':a.case,'gpuExecution':not a.compile_only,
-    'backend':a.backend,'variant':a.variant,'scope':'native host aggregate slots around actual GPU work',
+    'backend':a.backend,'variant':a.variant,'scope':'native host aggregates and normalized whole-record GPU inputs',
     'results':results},indent=2)+'\n')

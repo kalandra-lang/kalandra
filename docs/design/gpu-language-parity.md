@@ -176,7 +176,25 @@ is discarded without traversing a zeroed enum discriminator or nonexistent
 pointers. Discard releases the previous value and preserves other rooted aliases;
 ordinary fault/cancellation precedence and final task settlement remain intact.
 
-This establishes native host coordination only. Whole-record GPU captures and
-results still require device graph encoding, active enum traversal and bounded
-owned-region publication. It does not establish device execution of recursive
-graphs, String operations, general function values or recursive calls.
+### Whole-record GPU inputs
+
+An eligible record/enum entry is normalized to a checked typed wrapper with
+numeric/Bool scalar and flat-array parameters. The wrapper reconstructs the
+source record on the device and calls the original function there. An iterative,
+budgeted occurrence tree keeps repeated fields distinct, including multiple
+occurrences of the same nominal type. The ordinary device program and checkpoint
+planner still execute the numerical body and track live owned leaves.
+
+Host extraction uses exact target-native field offsets and carries the enclosing
+activity condition down each path. It validates an active enum discriminator
+before testing its payloads; inactive nested discriminators and descriptors are
+never read. Inactive leaves supply neutral scalar/empty-array inputs. Selected
+array descriptors retain backing through the existing native value scopes, and
+the flat input job keeps its origin deduplication, readonly and acknowledgement
+contracts. A returned captured array therefore retains its original CPU alias.
+No native pointers or padding become device wire values.
+
+Whole-record results still require bounded graph and owned-region publication.
+Recursive graphs, Strings, general function values, recursive calls and tensor
+state remain separate qualification work. The normalized entry currently accepts
+only scalar/flat-array peers and results alongside its aggregate inputs.

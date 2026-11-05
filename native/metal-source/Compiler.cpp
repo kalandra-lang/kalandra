@@ -1,4 +1,5 @@
 #include "../gpu-source/AggregateNativeLayout.h"
+#include "../gpu-source/AggregateEntry.h"
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/Supervisor.h"
 #include "../lib/NativeLayout.h"
@@ -168,6 +169,8 @@ class Compiler {
   std::map<std::size_t, std::size_t> entries;
   std::map<FunctionId, NumericShader> numericShaders;
   std::map<FunctionId, NumericProgram> numericPrograms;
+  std::map<FunctionId, DeviceEntryPlan> aggregateEntries;
+  std::size_t aggregateEntryWorkRemaining = 300000;
   std::vector<std::string> steps, fields;
   std::size_t next = 0;
   struct Depth {
@@ -1755,21 +1758,124 @@ class Compiler {
     steps.push_back(step + admitted("f." + out));
     return result;
   }
-  Value spawnNumericProgram(FunctionId function, const std::vector<Value> &inputs, Value target,
+  std::vector<Value> aggregateEntryInputs(const DeviceEntryPlan &entry,
+                                           const std::vector<Value> &inputs, SourceSpan span) {
+    if (inputs.size() != entry.roots.size())
+      reject(span, "GPU aggregate entry argument count mismatch");
+    const auto activity = field("std::array<bool," + std::to_string(entry.nodes.size()) + ">");
+    std::vector<std::uint64_t> offsets(entry.nodes.size());
+    std::vector<Value> values(entry.nodes.size());
+    for (auto root : entry.roots) {
+      const auto &node = entry.nodes[root];
+      const auto &value = inputs.at(node.parameter);
+      completed(value, span);
+      if (node.type.record) {
+        if (value.kind != Value::Aggregate || value.record != node.type.record || value.gpu)
+          reject(span, "GPU aggregate capture requires its completed native nominal value");
+        validateRecordSchema(cpu, *node.type.record);
+        recordType(*node.type.record);
+      }
+      steps.push_back("f." + activity + "[" + std::to_string(root) + "]=true;\n");
+    }
+    for (std::size_t i = 0; i < entry.nodes.size(); ++i) {
+      const auto &node = entry.nodes[i];
+      if (node.parent == DeviceEntryNode::none) {
+        if (!node.type.record)
+          values[i] = inputs.at(node.parameter);
+        continue;
+      }
+      const auto &parent = entry.nodes.at(node.parent);
+      const auto &abi = nativeAggregateLayouts->at(*parent.type.record);
+      const auto &member = abi.fields.at(node.field);
+      if (member.storage == RecordFieldStorage::ManagedReference)
+        reject(span, "GPU aggregate references require owned device graph transport");
+      if (member.nativeOffset > UINT64_MAX - offsets[node.parent])
+        reject(span, "GPU aggregate native offset exceeds the ABI");
+      offsets[i] = offsets[node.parent] + member.nativeOffset;
+      const auto active = "f." + activity + "[" + std::to_string(i) + "]";
+      std::string code = active + "=f." + activity + "[" + std::to_string(node.parent) + "]";
+      if (node.activeTag)
+        code += "&&" + ref(values.at(parent.children.at(0))) + "==" +
+                std::to_string(node.activeTag);
+      code += ";\n";
+      if (node.type.record) {
+        steps.push_back(std::move(code));
+        continue;
+      }
+      const bool boolean = node.type.builtin == BuiltinValue::Bool;
+      const auto element = boolean ? NumericType::UInt8 : node.type.element;
+      Value value{node.type.array ? Value::Array : boolean ? Value::Boolean : Value::Scalar};
+      value.element = element;
+      value.array = node.type.array;
+      value.booleanArray = boolean && node.type.array;
+      value.rank = node.type.shape.size();
+      for (unsigned axis = 0; axis < value.rank; ++axis)
+        setExtent(value, axis, node.type.shape[axis].constant);
+      field(node.type.array ? tensorDescriptor(element, 1)
+            : boolean       ? "bool"
+                            : scalarType(element));
+      value.slot = next - 1;
+      values[i] = value;
+      trackArray(value);
+      const auto base = ref(inputs.at(node.parameter)) + ".data.data()";
+      code += "static_assert(sizeof(" + ref(value) + ")==" +
+              std::to_string(member.nativeBytes) + ");\n" + ref(value) +
+              (node.discriminator ? "=1;\n" : "={};\n") + "if(" + active + "){std::memcpy(&" +
+              ref(value) + "," + base + "+" + std::to_string(offsets[i]) + ",sizeof(" +
+              ref(value) + "));";
+      if (node.discriminator)
+        code += "if(" + ref(value) + "<1||" + ref(value) + ">" +
+                std::to_string(cpu.records.at(*parent.type.record).variants.size()) +
+                "){task.fault(3);return;}";
+      code += "}\n" + commitArray(value);
+      steps.push_back(std::move(code));
+    }
+    std::vector<Value> result;
+    for (auto leaf : entry.leaves)
+      result.push_back(values.at(leaf));
+    return result;
+  }
+  Value spawnNumericProgram(FunctionId function, const std::vector<Value> &sourceInputs, Value target,
                             SourceSpan span) {
     admitGpuTypes(function);
     const auto &fn = cpu.functions.at(function);
+    auto inputs = sourceInputs;
     auto found = numericPrograms.find(function);
-    if (found == numericPrograms.end()) {
-      auto program = emitNumericProgram(cpu, function, arithmetic_, backend_ != GpuBackend::Metal);
+    const auto emit = [&](const TypedModule &module, FunctionId entry) {
+      auto program = emitNumericProgram(module, entry, arithmetic_, backend_ != GpuBackend::Metal);
       if (!program)
         throw Rejected{program.error()};
-      found = numericPrograms.emplace(function, std::move(*program)).first;
+      return numericPrograms.emplace(function, std::move(*program)).first;
+    };
+    std::vector<const ValueType *> parameterTypes;
+    if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
+          return cpu.symbols.at(symbol).type.record.has_value();
+        })) {
+      auto normalized = aggregateEntries.find(function);
+      if (normalized == aggregateEntries.end()) {
+        auto entry = normalizeDeviceAggregateEntry(cpu, function, aggregateEntryWorkRemaining);
+        if (!entry)
+          reject(span, entry.error());
+        found = emit(entry->module, entry->function);
+        normalized = aggregateEntries.emplace(function, std::move(entry->plan)).first;
+      }
+      const auto &plan = normalized->second;
+      if (plan.nodes.size() > aggregateEntryWorkRemaining)
+        reject(span, "GPU aggregate host extraction exceeds configured work budget");
+      aggregateEntryWorkRemaining -= plan.nodes.size();
+      inputs = aggregateEntryInputs(plan, sourceInputs, span);
+      for (auto leaf : plan.leaves)
+        parameterTypes.push_back(&plan.nodes.at(leaf).type);
+    } else {
+      if (found == numericPrograms.end())
+        found = emit(cpu, function);
+      for (auto symbol : fn.parameters)
+        parameterTypes.push_back(&cpu.symbols.at(symbol).type);
     }
     const auto &program = found->second;
     std::vector<Value> tensors, scalars;
     for (std::size_t i = 0; i < inputs.size(); ++i) {
-      const auto &type = cpu.symbols.at(fn.parameters.at(i)).type;
+      const auto &type = *parameterTypes.at(i);
       const auto &value = inputs[i];
       completed(value, span);
       const bool boolean = type.builtin == BuiltinValue::Bool && !type.tensor && !type.array;
@@ -1793,8 +1899,8 @@ class Compiler {
     }
     auto locate = [&](const Extent &extent) -> std::pair<std::size_t, unsigned> {
       std::size_t tensor = 0;
-      for (auto parameter : fn.parameters) {
-        const auto &type = cpu.symbols.at(parameter).type;
+      for (const auto *parameter : parameterTypes) {
+        const auto &type = *parameter;
         if (!type.tensor)
           continue;
         for (unsigned axis = 0; axis < type.shape.size(); ++axis)
@@ -1987,7 +2093,7 @@ class Compiler {
         fn.resultType.builtin == BuiltinValue::Bool ||
         std::ranges::any_of(fn.parameters, [&](auto id) {
           return cpu.symbols.at(id).type.builtin == BuiltinValue::Bool ||
-                 cpu.symbols.at(id).type.array;
+                 cpu.symbols.at(id).type.array || cpu.symbols.at(id).type.record;
         }))
       return spawnNumericProgram(function, inputs, target, span);
     auto found = numericShaders.find(function);

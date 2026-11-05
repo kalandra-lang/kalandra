@@ -283,11 +283,32 @@ h2 { "AI and LLM foundations" }
 
 Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. Kalandra does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
 
-h2 { "Keep records in coordinating CPU code" }
+h2 { "Records in mixed CPU and GPU code" }
 
 CPU helpers and CPU tasks can receive and return records and enums while the program also runs GPU work. Their arrays keep normal alias identity, including when returned through a CPU task. Recursive links, String fields and record-array fields can remain in these CPU values. Writes through an array field or its alias are rejected while a task is reading it; an independent copy remains writable.
 
-Pass an individual supported array field to a GPU helper, then wrap the returned native array in a CPU record:
+GPU tasks can capture a whole record or enum when its fields are numeric or Bool scalars, flat numeric or Bool arrays, or nested records and enums of those types. Only the selected enum payload is used. Captured arrays remain read-only and preserve their aliases. These helpers accept additional scalar or flat-array parameters and return a scalar or flat array, including an array field from a captured record.
+
+codeblock { language = kalandra, """type Batch:
+  values: [int]
+  bias: int
+
+fn sumBatch(batch: Batch) -> int:
+  total = 0
+  for value in batch.values:
+    total = total + value
+  total + batch.bias
+
+fn main() -> int ! TaskError:
+  batch = Batch {values: [2, 3], bias: 7}
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn sumBatch(batch) on gpu
+""" }
+
+The loop runs on the GPU. This computes 12 and prints 000000000000000c.
+
+Keep records with recursive links, Strings or other unsupported fields on the CPU. You can pass an individual supported field to a GPU helper, then wrap the returned array in a CPU record:
 
 codeblock { language = kalandra, """type Batch:
   values: [int]
@@ -307,7 +328,7 @@ fn main() -> int ! TaskError:
     summarize(result)
 """ }
 
-This computes 13 and prints 000000000000000d. squares executes on the GPU; the records and summarize execute on the CPU. This passes an array across the boundary, not the enclosing record. Passing or returning an entire record through a GPU task still requires aggregate device transport and is rejected.
+This computes 13 and prints 000000000000000d. squares executes on the GPU; the records and summarize execute on the CPU. GPU tasks cannot return whole records or enums.
 
 h2 { "CPU and device language coverage" }
 
@@ -320,7 +341,7 @@ table {
   row = ["Numeric and Bool local reassignment", "Supported", "Supported in scalar helpers"],
   row = ["Integer-range for, while, break and continue", "Supported", "Supported in scalar helpers; sequential iterations"],
   row = ["Single-result loop expressions", "Supported", "Supported for numeric/Bool scalar results"],
-  row = ["Plain-data records, enums and match", "Supported", "Local values and internal helpers; no aggregate host/device transport"],
+  row = ["Records, enums and match", "Supported", "Local values, internal helpers and eligible read-only captures; whole-record results are not supported"],
   row = ["Numeric and Bool array parameters", "Supported", "Read-only task captures with packing/upload costs"],
   row = ["Numeric and Bool array task results", "Supported", "Native CPU arrays after await; transfer/decoding costs; captured aliases preserved"],
   row = ["Array iteration, indexing and element mutation", "Supported with access rules", "Local numeric/Bool arrays; bounds checked; existing access rules apply"],
@@ -328,7 +349,7 @@ table {
   row = ["Array copy, slice and concat", "Supported for their documented element types", "Local numeric/Bool arrays"],
   row = ["Array generate and map", "Supported for their documented element types", "Local numeric/Bool arrays; ordered nonrecursive callbacks with supported captures"],
   row = ["Array sorted and sort", "Supported for their documented element types", "Local numeric/Bool arrays; deterministic ordering and checkpointed sorting"],
-  row = ["Record/enum numeric and Bool array fields", "Supported", "Supported in local values and internal nonrecursive helpers"],
+  row = ["Record/enum numeric and Bool array fields", "Supported", "Supported in local values, internal nonrecursive helpers and read-only captures"],
   row = ["Recursive owned data and other owned fields", "Supported", "Not supported"],
   row = ["Function values, captures and recursive calls", "Supported", "Direct nonrecursive helpers and generate/map callback literals; general function values and recursive calls are not supported"],
   row = ["Tensor calculations", "Supported", "Supported numerical graphs; tensor loop state is not supported"],

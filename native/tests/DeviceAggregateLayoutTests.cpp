@@ -1,5 +1,7 @@
 #include "../gpu-source/AggregateNativeLayout.h"
+#include "../gpu-source/AggregateEntry.h"
 #include "../lib/RecordLLVMTypes.h"
+#include "kalandra/Continuation.h"
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
 #include "llvm/IR/LLVMContext.h"
 #include <iostream>
@@ -128,6 +130,66 @@ int main() {
     device = planDeviceAggregateLayouts(input, roots);
     require(device && device->size() == count && device->at(0).words == 1,
             "deep acyclic schema used compiler recursion");
+    input.symbols.push_back({"value", nominal(0), {}, 0, true});
+    input.expressions.push_back({{}, number(), Int64Literal{0}});
+    TypedFunction function;
+    function.name = "work";
+    function.parameters = {0};
+    function.resultType = number();
+    function.result = 0;
+    input.functions.push_back(function);
+    auto normalized = normalizeDeviceAggregateEntry(input, 0);
+    require(normalized && normalized->plan.nodes.size() == count + 1 &&
+                normalized->plan.leaves.size() == 1 && normalized->module.functions.size() == 2 &&
+                input.functions.size() == 1,
+            "deep entry normalization recursed or modified its source module");
+    require(!normalizeDeviceAggregateEntry(input, 0, 4), "entry work budget ignored");
+    auto checked = check(parse(std::make_shared<SourceFile>("aggregate-entry.k", R"(
+enum Inner:
+  Empty
+  Data:
+    values:[int]
+enum Outer:
+  Empty
+  Data:
+    inner:Inner
+fn work(value:Outer)->int:
+  match value:
+    Outer.Empty:0
+    Outer.Data {inner}:
+      match inner:
+        Inner.Empty:1
+        Inner.Data {values}:values[0]
+)")));
+    require(checked.ok(), "nested enum entry fixture rejected");
+    normalized = normalizeDeviceAggregateEntry(*checked.module, 0);
+    require(normalized && normalized->plan.leaves.size() == 3, "nested enum entry leaves lost");
+    const auto arrayNode = normalized->plan.leaves.back();
+    const auto &arrayLeaf = normalized->plan.nodes[arrayNode];
+    require(arrayLeaf.type.array && arrayLeaf.activeTag == 2 &&
+                arrayLeaf.parent != DeviceEntryNode::none &&
+                normalized->plan.nodes[arrayLeaf.parent].activeTag == 2 &&
+                normalized->plan.nodes[arrayLeaf.parent].parent == normalized->plan.roots[0],
+            "inner enum activity replaced the enclosing enum guard");
+    const auto &wrapper = normalized->module.functions.at(normalized->function);
+    const auto *call = std::get_if<FunctionCall>(&normalized->module.expressions[wrapper.result].operation);
+    require(call && call->function == 0 && call->arguments.size() == 1 &&
+                wrapper.parameters.size() == 3,
+            "entry wrapper replaced source computation instead of calling it");
+    auto planned = continuation::plan(normalized->module,
+                                     {.entry = normalized->function,
+                                      .nativeSubgraphs = false,
+                                      .valueScopes = true,
+                                      .inlineLoopCalls = true,
+                                      .deviceValues = true});
+    require(bool(planned), "normalized entry violates checked continuation invariants");
+    const auto &instructions = planned->plans.at(normalized->function)->code;
+    require(std::ranges::any_of(instructions, [&](const auto &op) {
+              return op.code == continuation::Code::Kernel &&
+                     op.source < checked.module->expressions.size() &&
+                     std::holds_alternative<ArrayIndex>(checked.module->expressions[op.source].operation);
+            }),
+            "normalized wrapper omitted the original enum computation");
     std::cout
         << "device/native aggregate schemas: padding, all numeric/Bool arrays, nested aliases, "
            "enum activity, budgets and iterative layout passed\n";
