@@ -1,0 +1,32 @@
+file(MAKE_DIRECTORY "${OUTPUT_DIR}")
+set(executable "${OUTPUT_DIR}/fixture")
+if(WIN32)
+  string(APPEND executable ".exe")
+endif()
+execute_process(COMMAND "${GENERATOR}" "${OUTPUT_DIR}/fixture.ll"
+  RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+if(NOT result EQUAL 0)
+  message(FATAL_ERROR "Closure source bridge generation failed: ${output}${error}")
+endif()
+set(flags -std=c++23 -O0)
+if(VARIANT STREQUAL "optimized")
+  set(flags -std=c++23 -O2)
+elseif(VARIANT STREQUAL "sanitized")
+  set(flags -std=c++23 -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+endif()
+if(NOT WIN32)
+  list(APPEND flags -pthread)
+endif()
+execute_process(COMMAND "${CLANGXX}" ${flags} "${OUTPUT_DIR}/fixture.ll"
+  "${SOURCE_DIR}/tests/ClosureSourceBridgeRuntime.cpp" "${RUNTIME}"
+  -o "${executable}"
+  RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+if(NOT result EQUAL 0)
+  message(FATAL_ERROR "Closure source bridge compilation failed: ${output}${error}")
+endif()
+execute_process(COMMAND "${executable}"
+  RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+if(NOT result EQUAL 0)
+  message(FATAL_ERROR "Closure source bridge execution failed: ${output}${error}")
+endif()
+message(STATUS "${output}")
