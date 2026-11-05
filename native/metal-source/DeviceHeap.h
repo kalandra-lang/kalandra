@@ -67,7 +67,7 @@ public:
   DeviceHeapEmitter(mlir::OpBuilder &, mlir::Value arena, mlir::Value params,
                     unsigned parameterWords, std::span<const DeviceRootMap> roots,
                     std::span<const DeviceTraceLayout> layouts = {},
-                    std::span<const DeviceArrayInput> inputs = {});
+                    std::span<const DeviceArrayInput> inputs = {}, bool readOnlyBlocks = false);
   mlir::Value load(unsigned cell);
   void store(unsigned cell, mlir::Value);
   // Dynamic indices into compiler-reserved frame tables.
@@ -88,6 +88,8 @@ public:
   void finish();
   mlir::Value read(mlir::Value handle, mlir::Value field);
   void write(mlir::Value handle, mlir::Value field, mlir::Value);
+  void writeSource(mlir::Value handle, mlir::Value field, mlir::Value);
+  void requireWritable(mlir::Value handle);
   void fault(unsigned code);
   // One bounded heapsort comparison/swap per control step, preserving raw bits.
   void beginSort(mlir::Value handle, mlir::Value count);
@@ -101,6 +103,9 @@ private:
   std::span<const DeviceRootMap> roots;
   std::span<const DeviceTraceLayout> layouts;
   std::span<const DeviceArrayInput> inputs;
+  bool readOnlyBlocks;
+  mlir::Value markState(mlir::Value);
+  mlir::Value readOnlyFlag(mlir::Value);
   mlir::Value readArena(mlir::Value, mlir::Value);
   void writeArena(mlir::Value, mlir::Value, mlir::Value);
   mlir::Value readInput(mlir::Value, mlir::Value);

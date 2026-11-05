@@ -4,6 +4,10 @@
 #include <cstddef>
 #include <cstdint>
 namespace kalandra::runtime {
+struct DeviceHeapBlockABI {
+  // Mark state uses the low bits and grey links fit within 34 bits.
+  static constexpr std::uint64_t ReadOnly = UINT64_C(1) << 63;
+};
 // Reserved only in frames whose terminal arena binding has ExportRole.
 struct DeviceArrayExportABI {
   static constexpr std::size_t Root = 24, Data = 25, Length = 26, Origin = 27, Layout = 28,

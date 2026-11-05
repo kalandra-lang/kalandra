@@ -20,6 +20,9 @@ template <class T> struct Memref {
   T *allocated, *aligned;
   std::int64_t offset, size, stride;
 };
+#ifndef KALANDRA_TRACE_PHYSICAL
+extern "C" void _mlir_ciface_mutate(Memref<std::uint64_t> *, Memref<std::uint32_t> *);
+#endif
 extern "C" void _mlir_ciface_step(Memref<std::uint64_t> *, Memref<std::uint32_t> *);
 #if !defined(KALANDRA_TRACE_PHYSICAL) || defined(KALANDRA_TRACE_SEED)
 extern "C" void _mlir_ciface_seed(Memref<std::uint64_t> *, Memref<std::uint32_t> *,
@@ -240,6 +243,24 @@ int main() {
       require(child != image->root && h.data[image->root + 5] == child &&
                   h.data[child + 1] == 13 && h.data[child + 4] == child,
               "relocated alias or cycle lost its identity under collection");
+      require((h.data[child + 3] & DeviceHeapBlockABI::ReadOnly) != 0,
+              "collection dropped the readonly protection");
+#ifndef KALANDRA_TRACE_PHYSICAL
+      {
+        Memref<std::uint64_t> heap{h.data.data(), h.data.data(), 0, std::int64_t(h.data.size()), 1};
+        Memref<std::uint32_t> state{h.frame.data(), h.frame.data(), 0, 52, 1};
+        h.cell(DeviceHeapEmitter::Cells, child);
+        _mlir_ciface_mutate(&heap, &state);
+        require(h.frame.back() == 99 && h.data[child + 4] == child,
+                "source write changed imported backing");
+        h.frame.back() = UINT32_MAX;
+        h.data[child + 3] = 1;
+        _mlir_ciface_mutate(&heap, &state);
+        require(h.frame.back() == UINT32_MAX && h.data[child + 4] == 42,
+                "ordinary local backing became readonly");
+        h.data[child + 4] = child;
+      }
+#endif
       h.collect(0);
       require(h.data[2] == 0 && h.data[1] == h.data.size() - 1,
               "collector retained dead relocated backing");

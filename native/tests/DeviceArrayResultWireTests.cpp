@@ -386,7 +386,8 @@ void graphWire() {
   constexpr std::array arenaLayouts{12u, 5u};
   const auto image = makeDeviceGraphArena(good, layouts, arenaLayouts, 1, 14, 100,
                                           [] { return false; });
-  const std::vector<std::uint64_t> relocated{0, 7, 12, 3, 1, 2, 8, 8, 6, 5, 2, 1, 10, 255};
+  constexpr auto mark = DeviceHeapBlockABI::ReadOnly | 1;
+  const std::vector<std::uint64_t> relocated{0, 7, 12, 3, mark, 2, 8, 8, 6, 5, 2, mark, 10, 255};
   check(image && image->root == 1 && image->words == relocated,
         "arena image did not relocate shared edges or preserve payload bits");
   const auto tooSmall = makeDeviceGraphArena(good, layouts, arenaLayouts, 1, 13, 100,

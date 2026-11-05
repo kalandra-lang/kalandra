@@ -1453,7 +1453,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   std::optional<DeviceHeapEmitter> heap;
   if (storage)
     heap.emplace(b, kernel.getArgument(inputs.size() - 1), params, 2 + 2 * frames, allocationRoots,
-                 traceLayouts, captures);
+                 traceLayouts, captures, graphParameter.has_value());
   auto yes = constant(1, 1);
   const auto initializeParameters = [&] {
     std::size_t capture = 0;
@@ -1863,7 +1863,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           // a sort does not execute an unbounded native helper or host algorithm.
           condition(compare(arith::CmpIPredicate::eq, phase, constant(0)), [&] {
             if (!sort->copying) {
-              heap->beginSort(load(offsets.at(op.args.at(0))), count);
+              const auto handle = load(offsets.at(op.args.at(0)));
+              heap->requireWritable(handle);
+              heap->beginSort(handle, count);
             } else {
               const auto empty = compare(arith::CmpIPredicate::eq, count, constant(0));
               const auto ready = heap->ready(), cursor = heap->cursor();
@@ -2007,7 +2009,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
               if (std::holds_alternative<ArrayBoundsCheck>(node.operation))
                 store(offsets.at(op.output), index);
               else if (std::holds_alternative<ArrayStore>(node.operation)) {
-                heap->write(h, arith::AddIOp::create(b, loc, index, constant(4)),
+                heap->writeSource(h, arith::AddIOp::create(b, loc, index, constant(4)),
                             load(offsets.at(op.args.at(2))));
                 store(offsets.at(op.output), constant(0));
               } else {

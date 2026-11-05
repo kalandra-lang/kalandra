@@ -10,9 +10,10 @@ namespace kalandra {
 DeviceHeapEmitter::DeviceHeapEmitter(OpBuilder &builder, Value heap, Value frame, unsigned words,
                                      std::span<const DeviceRootMap> maps,
                                      std::span<const DeviceTraceLayout> traceLayouts,
-                                     std::span<const DeviceArrayInput> arrayInputs)
+                                     std::span<const DeviceArrayInput> arrayInputs,
+                                     bool hasReadOnlyBlocks)
     : b(builder), loc(b.getUnknownLoc()), arena(heap), params(frame), parameterWords(words),
-      roots(maps), layouts(traceLayouts), inputs(arrayInputs) {
+      roots(maps), layouts(traceLayouts), inputs(arrayInputs), readOnlyBlocks(hasReadOnlyBlocks) {
   for (const auto &input : inputs) {
     const auto buffer = mlir::dyn_cast<mlir::MemRefType>(input.buffer.getType());
     if (!buffer || buffer.getRank() != 1 || !buffer.getElementType().isInteger(64) ||
@@ -147,6 +148,38 @@ void DeviceHeapEmitter::write(Value h, Value field, Value value) {
   b.setInsertionPointToStart(&branch.getElseRegion().front());
   fault(99); // Read-only input backing, including a forged write path.
 }
+Value DeviceHeapEmitter::markState(Value header) {
+  if (!readOnlyBlocks)
+    return header;
+  return arith::AndIOp::create(b, loc, header, c(~runtime::DeviceHeapBlockABI::ReadOnly));
+}
+Value DeviceHeapEmitter::readOnlyFlag(Value header) {
+  if (!readOnlyBlocks)
+    return c(0);
+  return arith::AndIOp::create(b, loc, header, c(runtime::DeviceHeapBlockABI::ReadOnly));
+}
+void DeviceHeapEmitter::requireWritable(Value h) {
+  if (!readOnlyBlocks)
+    return;
+  auto fail = scf::IfOp::create(
+      b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne,
+                                   readOnlyFlag(read(h, c(3))), c(0)), false);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(&fail.getThenRegion().front());
+  fault(99);
+}
+void DeviceHeapEmitter::writeSource(Value h, Value field, Value value) {
+  if (!readOnlyBlocks) {
+    write(h, field, value);
+    return;
+  }
+  auto writable = scf::IfOp::create(b, loc, eq(readOnlyFlag(read(h, c(3))), c(0)), true);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(&writable.getThenRegion().front());
+  write(h, field, value);
+  b.setInsertionPointToStart(&writable.getElseRegion().front());
+  fault(99);
+}
 void DeviceHeapEmitter::mark(Value h) {
   if (inputs.empty()) {
     markArena(h);
@@ -264,13 +297,17 @@ void DeviceHeapEmitter::markArena(Value h) {
       arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, read(h, c(2)), payload));
   auto valid = scf::IfOp::create(b, loc, arith::AndIOp::create(b, loc, known, bounded), true);
   b.setInsertionPointToStart(&valid.getThenRegion().front());
-  auto white = scf::IfOp::create(b, loc, eq(read(h, c(3)), c(0)), false);
+  const auto header = read(h, c(3));
+  auto white = scf::IfOp::create(b, loc, eq(markState(header), c(0)), false);
   {
     OpBuilder::InsertionGuard marking(b);
     b.setInsertionPointToStart(&white.getThenRegion().front());
     auto next =
         arith::OrIOp::create(b, loc, arith::ShLIOp::create(b, loc, load(GreyHead), c(2)), c(2));
-    write(h, c(3), arith::SelectOp::create(b, loc, owned, next, c(1)));
+    Value state = arith::SelectOp::create(b, loc, owned, next, c(1));
+    if (readOnlyBlocks)
+      state = arith::OrIOp::create(b, loc, state, readOnlyFlag(header));
+    write(h, c(3), state);
     store(GreyHead, arith::SelectOp::create(b, loc, owned, h, load(GreyHead)));
   }
   b.setInsertionPointToStart(&valid.getElseRegion().front());
@@ -461,7 +498,7 @@ Value DeviceHeapEmitter::service() {
         compare(arith::CmpIPredicate::ult, load(Cursor), load(Capacity)),
         [&] {
           block([&](Value h, Value span) {
-            write(h, c(3), c(0));
+            write(h, c(3), readOnlyBlocks ? readOnlyFlag(read(h, c(3))) : c(0));
             store(Cursor, add(h, span));
           });
         },
@@ -516,12 +553,15 @@ Value DeviceHeapEmitter::service() {
                 store(PreviousFree, c(0));
               },
               [&] {
-                auto state = read(h, c(3));
+                auto header = read(h, c(3));
+                auto state = markState(header);
                 conditional(
                     eq(arith::AndIOp::create(b, loc, state, c(3)), c(2)),
                     [&] {
                       store(GreyHead, arith::ShRUIOp::create(b, loc, state, c(2)));
-                      write(h, c(3), c(1)); // Black before visiting self/cyclic edges.
+                      const Value black = readOnlyBlocks
+                          ? Value(arith::OrIOp::create(b, loc, c(1), readOnlyFlag(header))) : c(1);
+                      write(h, c(3), black); // Black before visiting self/cyclic edges.
                       store(TraceHandle, h);
                       store(TraceElement, c(0));
                       store(TraceField, c(0));
@@ -600,8 +640,12 @@ Value DeviceHeapEmitter::service() {
         compare(arith::CmpIPredicate::ult, load(Cursor), load(Capacity)),
         [&] {
           block([&](Value h, Value span) {
-            auto unmarked = eq(read(h, c(3)), c(0));
-            when(unmarked, [&] { write(h, c(1), c(0)); });
+            auto unmarked = eq(markState(read(h, c(3))), c(0));
+            when(unmarked, [&] {
+              write(h, c(1), c(0));
+              if (readOnlyBlocks)
+                write(h, c(3), c(0));
+            });
             conditional(
                 eq(read(h, c(1)), c(0)),
                 [&] {

@@ -63,7 +63,7 @@ makeDeviceGraphArena(std::span<const std::uint64_t> wire,
     const auto elements = wire[directory + 1];
     const auto cells = layouts[layout].cells;
     const auto payload = elements * cells.size();
-    image.words.insert(image.words.end(), {header + payload, arenaLayouts[layout], payload, 1});
+    image.words.insert(image.words.end(), {header + payload, arenaLayouts[layout], payload, DeviceHeapBlockABI::ReadOnly | 1});
     for (std::uint64_t element = 0; element < elements; ++element) {
       for (const auto &cell : cells) {
         if (cancelled())

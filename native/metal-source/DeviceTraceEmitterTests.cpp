@@ -34,6 +34,8 @@ int main(int argc, char **argv) {
             : "module { func.func @step(%heap:memref<?xi64>,%frame:memref<52xi32>) attributes "
               "{llvm.emit_c_interface} { return } "
               "func.func @seed(%heap:memref<?xi64>,%frame:memref<52xi32>,%image:memref<?xi64>) "
+              "attributes {llvm.emit_c_interface} { return } "
+              "func.func @mutate(%heap:memref<?xi64>,%frame:memref<52xi32>) "
               "attributes {llvm.emit_c_interface} { return } }";
     if (gpuSeed) {
       const auto signatureEnd = source.find("52xi32>)");
@@ -79,7 +81,7 @@ int main(int argc, char **argv) {
       if (!rejected)
         throw std::runtime_error("malformed traversal descriptor accepted");
     }
-    DeviceHeapEmitter heap(builder, arena, frame, 52, roots, layouts);
+    DeviceHeapEmitter heap(builder, arena, frame, 52, roots, layouts, {}, true);
     const auto emitSeed = [&](DeviceHeapEmitter &target, mlir::OpBuilder &at,
                               mlir::Value image, mlir::Value words) {
       auto loc = at.getUnknownLoc();
@@ -117,6 +119,16 @@ int main(int argc, char **argv) {
       auto words = mlir::arith::IndexCastOp::create(seedBuilder, loc, seedBuilder.getI64Type(), size);
       DeviceHeapEmitter seeded(seedBuilder, function.getArgument(0), function.getArgument(1), 52, roots);
       emitSeed(seeded, seedBuilder, image, words);
+    }
+    if (!gpu) {
+      auto function = module->lookupSymbol<mlir::func::FuncOp>("mutate");
+      auto at = mlir::OpBuilder::atBlockTerminator(&function.front());
+      auto loc = at.getUnknownLoc();
+      DeviceHeapEmitter checked(at, function.getArgument(0), function.getArgument(1), 52,
+                                roots, layouts, {}, true);
+      const mlir::Value payload = mlir::arith::ConstantIntOp::create(at, loc, 4, 64);
+      const mlir::Value value = mlir::arith::ConstantIntOp::create(at, loc, 42, 64);
+      checked.writeSource(checked.load(DeviceHeapEmitter::Cells), payload, value);
     }
     if (mlir::failed(mlir::verify(*module)))
       throw std::runtime_error("trace emitter verification failed");

@@ -248,6 +248,7 @@ cases['local-recursive-array-composition'] = ((fixtures/'array-composition.k').r
 cases['local-recursive-array-bounds'] = ((fixtures/'array-bounds.k').read_text(), 342)
 cases['graph-entry-list'] = ((fixtures/'list-entry.k').read_text(), 18)
 cases['graph-entry-record-array'] = ((fixtures/'array-graph-entry.k').read_text(), 27)
+cases['graph-entry-copy'] = ((fixtures/'graph-entry-copy.k').read_text(), 10)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
 fn collect(batch:Batch)->Batch:
