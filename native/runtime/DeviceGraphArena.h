@@ -10,6 +10,7 @@ struct DeviceGraphArenaImage {
   static constexpr std::size_t BlockHeader = 4;
   std::vector<std::uint64_t> words;
   std::uint64_t root;
+  std::vector<std::uint64_t> captureRoots{};
 };
 
 // Prepare a private arena image. A caller can upload it without exposing any
@@ -21,7 +22,7 @@ makeDeviceGraphArena(std::span<const std::uint64_t> wire,
                      std::span<const DeviceGraphLayout> layouts,
                      std::span<const unsigned> arenaLayouts, std::size_t rootLayout,
                      std::size_t wordLimit, std::size_t work, Cancelled cancelled,
-                     std::vector<std::uint64_t> *origins = nullptr) {
+                     std::vector<std::uint64_t> *origins = nullptr, bool joinedCaptures = false) {
   using A = DeviceGraphWireABI;
   using V = DeviceGraphValidation;
   constexpr auto header = DeviceGraphArenaImage::BlockHeader;
@@ -35,6 +36,17 @@ makeDeviceGraphArena(std::span<const std::uint64_t> wire,
   if (!wordLimit)
     return std::unexpected(V::Budget);
   const auto count = static_cast<std::size_t>(wire[1]);
+  const auto join = static_cast<std::size_t>(wire[2] - 1);
+  if (joinedCaptures) {
+    const auto directory = A::HeaderWords + A::DirectoryWords * join;
+    const auto cells = layouts[rootLayout - 1].cells;
+    if (!layouts[rootLayout - 1].singleton || wire[directory + 1] != 1 ||
+        arenaLayouts[rootLayout - 1] ||
+        std::ranges::any_of(cells, [=](const auto &cell) {
+          return !cell.target || cell.target == rootLayout || !cell.guards.empty();
+        }))
+      return std::unexpected(V::Invalid);
+  }
   std::vector<std::uint64_t> handles;
   handles.reserve(count);
   std::size_t size = 1;
@@ -44,6 +56,10 @@ makeDeviceGraphArena(std::span<const std::uint64_t> wire,
     const auto directory = A::HeaderWords + A::DirectoryWords * i;
     const auto layout = wire[directory] - 1;
     const auto payload = wire[directory + 1] * layouts[layout].cells.size();
+    if (joinedCaptures && i == join) {
+      handles.push_back(0);
+      continue;
+    }
     if (!arenaLayouts[layout])
       return std::unexpected(V::Invalid);
     if (wordLimit - size < header || payload > wordLimit - size - header)
@@ -64,6 +80,16 @@ makeDeviceGraphArena(std::span<const std::uint64_t> wire,
     const auto elements = wire[directory + 1];
     const auto cells = layouts[layout].cells;
     const auto payload = elements * cells.size();
+    if (joinedCaptures && i == join) {
+      image.captureRoots.reserve(cells.size());
+      for (std::size_t word = 0; word < cells.size(); ++word) {
+        if (cancelled())
+          return std::unexpected(V::Cancelled);
+        const auto value = wire[source++];
+        image.captureRoots.push_back(value ? handles[value - 1] : 0);
+      }
+      continue;
+    }
     image.words.insert(image.words.end(), {header + payload, arenaLayouts[layout], payload, DeviceHeapBlockABI::ReadOnly | 1});
     for (std::uint64_t element = 0; element < elements; ++element) {
       for (const auto &cell : cells) {

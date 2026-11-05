@@ -6,6 +6,8 @@
 #include "Tasks.h"
 #include <functional>
 #include <new>
+#include <tuple>
+#include <type_traits>
 
 namespace kalandra::runtime {
 struct DeviceGraphCaptureLayout {
@@ -88,6 +90,28 @@ private:
   std::span<const DeviceGraphCaptureLayout> layouts_;
   std::map<const void *, AllocationLease> leases_;
 };
+// All generated native capture descriptors are trivially destructible.
+// The invocation scope owns the dependencies copied by the member layouts.
+template <std::uint64_t Identity, class... Captures>
+const ValueLayout &deviceGraphCaptureTupleLayout() noexcept {
+  using Tuple = std::tuple<typename Captures::Record...>;
+  static_assert(std::is_trivially_destructible_v<Tuple>);
+  static const ValueLayout layout{
+      Identity, sizeof(Tuple), alignof(Tuple),
+      [](Invocation &destination, void *output, const Invocation &source,
+         const void *input) noexcept {
+        const auto &values = *static_cast<const Tuple *>(input);
+        auto *copy = new (output) Tuple{};
+        const auto retain = [&]<std::size_t... I>(std::index_sequence<I...>) {
+          return (Captures::layout().copy(destination, &std::get<I>(*copy), source,
+                                          &std::get<I>(values)) && ...);
+        };
+        return retain(std::index_sequence_for<Captures...>{});
+      },
+      [](void *) noexcept {}};
+  return layout;
+}
+
 template <class Policy> struct DeviceGraphArgument {
   static constexpr bool graph = true;
   using Descriptor = typename Policy::Record;
@@ -116,32 +140,46 @@ template <class Policy> struct DeviceGraphArgument {
       const auto cancelled = [&] { return context.poll() != 0; };
       DeviceGraphCapture resolver(context, Policy::captureLayouts);
       std::vector<DeviceGraphNativeView> views;
-      auto wire = packDeviceGraph({Policy::root, 1, std::as_bytes(std::span(&value, 1))},
-                                  Policy::nativeLayouts, limit, work, std::ref(resolver), cancelled,
-                                  preserveOrigins ? &views : nullptr);
+      constexpr bool joined = requires { Policy::captureViews(value); };
+      auto *originViews = preserveOrigins ? &views : nullptr;
+      auto wire = [&] {
+        if constexpr (joined) {
+          const auto roots = Policy::captureViews(value);
+          return packDeviceGraphCaptures(roots, Policy::nativeLayouts, Policy::root, limit,
+                                         work, std::ref(resolver), cancelled, originViews);
+        } else {
+          return packDeviceGraph({Policy::root, 1, std::as_bytes(std::span(&value, 1))},
+                                 Policy::nativeLayouts, limit, work, std::ref(resolver),
+                                 cancelled, originViews);
+        }
+      }();
       if (!wire)
         return fail(wire.error());
       std::vector<std::uint64_t> handles;
       auto image = makeDeviceGraphArena(*wire, Policy::wireLayouts, Policy::arenaLayouts,
                                         Policy::root, limit, work, cancelled,
-                                        preserveOrigins ? &handles : nullptr);
+                                        preserveOrigins ? &handles : nullptr, joined);
       if (!image)
         return fail(image.error());
       auto origins = makeDeviceGraphOrigins(views, handles, Policy::arenaLayouts);
       if (!origins)
         return fail(origins.error());
-      const auto count = image->words.size() + 1;
+      const auto roots = joined ? std::span<const std::uint64_t>(image->captureRoots)
+                                : std::span<const std::uint64_t>(&image->root, 1);
+      if (joined && roots.size() > limit - image->words.size())
+        return fail(V::Budget);
+      const auto count = image->words.size() + roots.size();
       auto *data = static_cast<std::uint64_t *>(context.allocate(count * sizeof(std::uint64_t)));
       if (!data)
         return false;
-      data[0] = image->root;
+      std::ranges::copy(roots, data);
       for (std::size_t at = 0; at < image->words.size();) {
         if (cancelled()) {
           context.release(data);
           return false;
         }
         const auto words = std::min(W::PageWords, image->words.size() - at);
-        std::memcpy(data + 1 + at, image->words.data() + at, words * sizeof(std::uint64_t));
+        std::memcpy(data + roots.size() + at, image->words.data() + at, words * sizeof(std::uint64_t));
         at += words;
       }
       const bool ready = capture.transfer.initialize(context,

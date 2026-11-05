@@ -246,14 +246,18 @@ interrupt it. The structural validator can walk cycles without revisiting an
 allocation. The boundary must separately establish which cycles the source
 ownership model permits before materializing a native graph.
 
-The prototype validates self-contained graphs and packs retained native
+The transport validates self-contained graphs and packs retained native
 backing. The capture resolver checks nominal box identity and descriptor ranges
 against the invocation ledger before reading fields. It retains leases for
-the duration of packing. A generated scalar-result task can capture one
-recursive record or enum alongside scalar arguments. The child retains its
-native input, packs an arena image and uploads it through the existing array
-channel. Packing currently checks a one-million-word image limit and a
-separate work budget before publishing a device value. Fresh recursive results use a terminal device trace. The exporter numbers
+the duration of packing. GPU tasks can capture multiple recursive records
+and enums alongside scalar arguments. The child retains the native inputs
+and packs them into one arena image so references from different arguments
+can share backing. The transfer carries each root handle in argument order.
+Device initialization restores the arguments in checkpointed steps before
+running the function body. Packing checks a one-million-word image limit and
+a separate work budget before publishing a device value.
+
+Fresh recursive results use a terminal device trace. The exporter numbers
 reachable allocations, writes their canonical graph into the paged result
 channel, and the native decoder builds dependency-owned storage before
 publishing the root. A result that refers to captured backing carries an origin for each reused

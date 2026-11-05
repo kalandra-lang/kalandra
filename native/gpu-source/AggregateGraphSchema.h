@@ -19,7 +19,30 @@ struct AggregateGraphSchema {
   };
   std::vector<Layout> layouts;
   std::vector<std::size_t> roots;
+  std::optional<std::size_t> captureJoin;
 };
+
+// Append a transport-only layout to the shared graph schema. Root order is
+// argument order, including repeated nominal types and nullable arrays.
+inline bool appendAggregateCaptureJoin(AggregateGraphSchema &schema, std::size_t &budget) {
+  if (schema.captureJoin || schema.roots.size() < 2 ||
+      std::ranges::any_of(schema.roots, [&](auto root) {
+        return !root || root > schema.layouts.size();
+      }) ||
+      !consumeAggregateProjectionWork(budget, schema.roots.size()))
+    return false;
+  AggregateGraphSchema::Layout join;
+  join.nativeStride = schema.roots.size();
+  join.nativeAlignment = 1;
+  join.cells.reserve(schema.roots.size());
+  for (std::size_t i = 0; i < schema.roots.size(); ++i) {
+    const auto target = schema.roots[i];
+    join.cells.push_back({{0, target, schema.layouts[target - 1].type.array}, {}, i, 1});
+  }
+  schema.layouts.push_back(std::move(join));
+  schema.captureJoin = schema.layouts.size();
+  return true;
+}
 
 inline std::expected<AggregateGraphSchema, std::string>
 planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> roots,

@@ -34,7 +34,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                                                                  bool nativeFloat64Conversions,
                                                                  bool aggregateEnvelope = false,
                                                                  std::optional<std::size_t> graphParameter = {},
-                                                                 std::span<const DeviceGraphExportLayout> graphResultLayouts = {});
+                                                                 std::span<const DeviceGraphExportLayout> graphResultLayouts = {},
+                                                               std::span<const std::size_t> graphPeers = {});
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});
 } // namespace kalandra

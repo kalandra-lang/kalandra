@@ -1850,16 +1850,23 @@ class Compiler {
   }
   std::set<std::size_t> graphCapturePolicies, graphNominalKeys;
   std::map<std::size_t, std::vector<DeviceGraphExportLayout>> graphExportLayouts;
-  std::string graphCapturePolicy(const ValueType &type, SourceSpan span) {
+  std::set<FunctionId> joinedGraphPolicies;
+  std::string graphCapturePolicy(const ValueType &type, SourceSpan span,
+                                 std::span<const ValueType> joined = {}, FunctionId function = {}) {
     const auto id = *type.record;
-    const auto name = "GpuGraphCapture" + std::to_string(id);
-    if (!graphCapturePolicies.insert(id).second)
+    const auto name = joined.empty() ? "GpuGraphCapture" + std::to_string(id)
+                                     : "GpuJoinedGraphCapture" + std::to_string(function);
+    if (joined.empty() ? !graphCapturePolicies.insert(id).second
+                       : !joinedGraphPolicies.insert(function).second)
       return name;
     const auto record = recordType(id);
-    auto schema = planAggregateGraphSchema(cpu, std::span(&type, 1), *nativeAggregateLayouts,
+    const auto roots = joined.empty() ? std::span(&type, 1) : joined;
+    auto schema = planAggregateGraphSchema(cpu, roots, *nativeAggregateLayouts,
                                            aggregateEntryWorkRemaining);
     if (!schema)
       reject(span, schema.error());
+    if (!joined.empty() && !appendAggregateCaptureJoin(*schema, aggregateEntryWorkRemaining))
+      reject(span, "GPU joined graph schema exceeds configured work budget");
     for (const auto &layout : schema->layouts) {
       if (!consumeAggregateProjectionWork(aggregateEntryWorkRemaining, layout.cells.size()))
         reject(span, "GPU graph capture schema exceeds configured work budget");
@@ -1874,8 +1881,29 @@ class Compiler {
         code += "extern \"C\" const unsigned char kalandra_recursive_type_" +
                 std::to_string(*layout.type.record) + ";\n";
       }
-    code += "struct " + name + " {using Record=" + record +
-            ";static const ValueLayout &layout(){return " + recordLayoutName(id) + ";}\n";
+    if (joined.empty()) {
+      code += "struct " + name + " {using Record=" + record +
+              ";static const ValueLayout &layout(){return " + recordLayoutName(id) + ";}\n";
+    } else {
+      std::string memberTypes, memberPolicies, views;
+      for (std::size_t i = 0; i < joined.size(); ++i) {
+        if (i) {
+          memberTypes += ",";
+          memberPolicies += ",";
+        }
+        memberTypes += recordType(*joined[i].record);
+        memberPolicies += graphCapturePolicy(joined[i], span);
+        views += "{" + std::to_string(schema->roots[i]) +
+                 "u,1,std::as_bytes(std::span(&std::get<" + std::to_string(i) +
+                 ">(value),1))},";
+      }
+      const auto count = std::to_string(joined.size());
+      code += "struct " + name + " {using Record=std::tuple<" + memberTypes + ">;\n"
+              "static const ValueLayout &layout(){return deviceGraphCaptureTupleLayout<" +
+              std::to_string(0x4b414c474a000000ULL + function) + "ull," + memberPolicies +
+              ">();}\nstatic auto captureViews(const Record &value){return std::array<DeviceGraphNativeView," +
+              count + ">{{" + views + "}};}\n";
+    }
     const auto number = [](std::uint64_t value) { return std::to_string(value) + "ull"; };
     for (std::size_t l = 0; l < schema->layouts.size(); ++l) {
       const auto &layout = schema->layouts[l];
@@ -1918,7 +1946,7 @@ class Compiler {
         keys += "&cells" + suffix + ",";
       }
       capture += "},";
-      const auto layoutId = layout.type.record ?
+      const auto layoutId = schema->captureJoin == l + 1 ? 0 : layout.type.record ?
           runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*layout.type.record), layout.type.array) :
           runtime::DeviceArrayWireABI::layout(layout.type.element, layout.type.builtin == BuiltinValue::Bool);
       arena += std::to_string(layoutId) + "u,";
@@ -1927,7 +1955,8 @@ class Compiler {
       for (std::size_t word = 0; word < layout.cells.size(); ++word)
         if (layout.cells[word].rule.target)
           exportLayout.references.push_back(static_cast<unsigned>(word));
-      graphExportLayouts[id].push_back(std::move(exportLayout));
+      if (joined.empty())
+        graphExportLayouts[id].push_back(std::move(exportLayout));
     }
     const auto count = std::to_string(schema->layouts.size());
     code += "inline static constexpr std::array<DeviceGraphLayout," + count + "> wireLayouts{{" +
@@ -1936,7 +1965,7 @@ class Compiler {
             count + "> captureLayouts{{" + capture + "}};\ninline static constexpr std::array<unsigned," +
             count + "> arenaLayouts{{" + arena + "}};\ninline static constexpr std::array<const void*," +
             count + "> keys{{" + keys + "}};\nstatic constexpr bool graphResult=true;\nstatic constexpr auto root=" +
-            number(schema->roots.at(0)) + ";};\n";
+            number(schema->captureJoin.value_or(schema->roots.at(0))) + ";};\n";
     aggregateDeclarations += std::move(code);
     return name;
   }
@@ -1998,6 +2027,7 @@ class Compiler {
     auto inputs = sourceInputs;
     auto found = numericPrograms.find(function);
     std::optional<std::size_t> graphParameter;
+    std::vector<std::size_t> graphPeers;
     std::string graphPolicy, graphResultPolicy;
     std::span<const DeviceGraphExportLayout> resultLayouts;
     if (deviceInlineRecordValue(fn.resultType) &&
@@ -2012,7 +2042,7 @@ class Compiler {
     }
     const auto emit = [&](const TypedModule &module, FunctionId entry) {
       auto program = emitNumericProgram(module, entry, arithmetic_, backend_ != GpuBackend::Metal,
-                                        deviceInlineRecordValue(fn.resultType), graphParameter, resultLayouts);
+                                        deviceInlineRecordValue(fn.resultType), graphParameter, resultLayouts, graphPeers);
       if (!program)
         throw Rejected{program.error()};
       return numericPrograms.emplace(function, std::move(*program)).first;
@@ -2026,7 +2056,7 @@ class Compiler {
         auto entry = graphResultPolicy.empty()
             ? normalizeDeviceAggregateEntry(cpu, function, aggregateEntryWorkRemaining)
             : std::expected<NormalizedDeviceEntry, std::string>(
-                  std::unexpected("GPU recursive result requires one nominal graph input"));
+                  std::unexpected("GPU recursive result requires nominal graph inputs"));
         if (entry) {
           found = emit(entry->module, entry->function);
           normalized = aggregateEntries.emplace(function, std::move(entry->plan)).first;
@@ -2036,17 +2066,27 @@ class Compiler {
             const auto &type = parameter.type;
             if (parameter.mutableAccess)
               reject(span, "GPU captured aggregate inputs are read-only");
-            if (deviceInlineRecordValue(type) && !graphParameter)
-              graphParameter = i;
-            else if (!deviceScalarValue(type))
+            if (deviceInlineRecordValue(type)) {
+              if (graphParameter)
+                graphPeers.push_back(i);
+              else
+                graphParameter = i;
+            } else if (!deviceScalarValue(type))
               reject(span, entry.error());
           }
           if (!graphParameter || (graphResultPolicy.empty() && !deviceScalarValue(fn.resultType)))
             reject(span, entry.error());
           const auto &type = cpu.symbols.at(fn.parameters[*graphParameter]).type;
-          if (graphResultPolicy.empty() && planDeviceAggregateLayouts(cpu, std::span(&type, 1)))
+          std::vector<ValueType> joined;
+          if (!graphPeers.empty()) {
+            joined.push_back(type);
+            for (auto peer : graphPeers)
+              joined.push_back(cpu.symbols.at(fn.parameters[peer]).type);
+          }
+          const auto roots = joined.empty() ? std::span(&type, 1) : std::span<const ValueType>(joined);
+          if (graphResultPolicy.empty() && planDeviceAggregateLayouts(cpu, roots))
             reject(span, entry.error());
-          graphPolicy = graphCapturePolicy(type, span);
+          graphPolicy = graphCapturePolicy(type, span, joined, function);
           if (found == numericPrograms.end())
             found = emit(cpu, function);
         }
@@ -2075,10 +2115,11 @@ class Compiler {
       const auto &type = *parameterTypes.at(i);
       const auto &value = inputs[i];
       completed(value, span);
-      if (i == graphParameter) {
+      if (i == graphParameter || std::ranges::find(graphPeers, i) != graphPeers.end()) {
         if (value.kind != Value::Aggregate || value.record != type.record || value.gpu)
           reject(span, "GPU graph capture requires a completed native nominal value");
-        tensors.push_back(value);
+        if (i == graphParameter)
+          tensors.push_back(value);
         continue;
       }
       const bool boolean = type.builtin == BuiltinValue::Bool && !type.tensor && !type.array;
@@ -2282,10 +2323,19 @@ class Compiler {
               std::to_string(captureCount) + arguments + ">;\n";
       code += "ArrayJob::PacketData packet{&r,f." + executable + ",*target," +
               "std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
-              "},std::tuple{";
-      for (const auto &value : tensors)
-        code += ref(value) + ",";
-      code += "}};\nf." + out + "=task.spawn(" + activeGroup +
+              "},";
+      if (!graphPeers.empty()) {
+        code += "std::make_tuple(std::tuple{" + ref(inputs.at(*graphParameter));
+        for (auto peer : graphPeers)
+          code += "," + ref(inputs.at(peer));
+        code += "})";
+      } else {
+        code += "std::tuple{";
+        for (const auto &value : tensors)
+          code += ref(value) + ",";
+        code += "}";
+      }
+      code += "};\nf." + out + "=task.spawn(" + activeGroup +
               ",ArrayJob::entry,{ArrayJob::entry.packetLayout,&packet,sizeof(packet),&task.context("
               ")});\n";
     } else {

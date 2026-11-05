@@ -21,6 +21,7 @@ class Builder {
   bool nativeFloat64Conversions_;
   bool aggregateEnvelope_;
   std::optional<std::size_t> graphParameter_;
+  std::span<const std::size_t> graphPeers_;
   std::span<const DeviceGraphExportLayout> graphResultLayouts_;
   const TypedModule &input;
   const TypedFunction &root;
@@ -353,13 +354,15 @@ class Builder {
                                "tensor loop state is not implemented");
       auto shader =
           emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph,
-                                  &fn == &root ? graphResultLayouts_ : std::span<const DeviceGraphExportLayout>{});
+                                  &fn == &root ? graphResultLayouts_ : std::span<const DeviceGraphExportLayout>{},
+                                  graph ? graphPeers_ : std::span<const std::size_t>{});
       if (!shader)
         throw Rejected{shader.error()};
       NumericProgramInstruction op{shader->deviceStorage ? NumericProgramKind::DeviceControl
                                                           : NumericProgramKind::ScalarControl};
-      for (auto argument : arguments)
-        op.inputs.push_back(*force(argument).buffer);
+      for (std::size_t i = 0; i < arguments.size(); ++i)
+        if (!graph || std::ranges::find(graphPeers_, i) == graphPeers_.end())
+          op.inputs.push_back(*force(arguments[i]).buffer);
       op.constants.resize(shader->scalarTypes.size(), 0);
       op.kernel = kernel(std::move(*shader));
       op.output = value();
@@ -536,9 +539,10 @@ public:
   Builder(const TypedModule &module, FunctionId id, ArithmeticMode arithmetic,
           bool nativeFloat64Conversions, bool aggregateEnvelope,
           std::optional<std::size_t> graphParameter,
-          std::span<const DeviceGraphExportLayout> graphResultLayouts)
+          std::span<const DeviceGraphExportLayout> graphResultLayouts,
+          std::span<const std::size_t> graphPeers)
       : arithmetic_(arithmetic), nativeFloat64Conversions_(nativeFloat64Conversions),
-        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter), graphResultLayouts_(graphResultLayouts), input(module),
+        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter), graphPeers_(graphPeers), graphResultLayouts_(graphResultLayouts), input(module),
         root(module.functions.at(id)) {
     normalized.source = input.source;
   }
@@ -553,6 +557,10 @@ public:
     std::uint32_t scalar = 0;
     for (std::size_t i = 0; i < root.parameters.size(); ++i) {
       const auto &type = input.symbols.at(root.parameters[i]).type;
+      if (std::ranges::find(graphPeers_, i) != graphPeers_.end()) {
+        args.emplace_back();
+        continue;
+      }
       if (i == graphParameter_) {
         auto wire = type;
         wire.builtin = BuiltinValue::Numeric;
@@ -590,9 +598,10 @@ std::expected<NumericProgram, Diagnostic> emitNumericProgram(const TypedModule &
                                                              bool nativeFloat64Conversions,
                                                              bool aggregateEnvelope,
                                                              std::optional<std::size_t> graphParameter,
-                                                             std::span<const DeviceGraphExportLayout> graphResultLayouts) {
+                                                             std::span<const DeviceGraphExportLayout> graphResultLayouts,
+          std::span<const std::size_t> graphPeers) {
   try {
-    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope, graphParameter, graphResultLayouts).run(function);
+    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope, graphParameter, graphResultLayouts, graphPeers).run(function);
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }

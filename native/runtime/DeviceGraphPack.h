@@ -149,4 +149,49 @@ packDeviceGraph(DeviceGraphNativeView root, std::span<const DeviceGraphNativeLay
     *origins = std::move(nodes);
   return wire;
 }
+// A compiler-generated singleton layout joins all entry captures into a
+// single traversal. Its reference slots have no native backing of their own.
+template <class Resolve, class Cancelled>
+std::expected<std::vector<std::uint64_t>, DeviceGraphValidation>
+packDeviceGraphCaptures(std::span<const DeviceGraphNativeView> captures,
+                        std::span<const DeviceGraphNativeLayout> layouts, std::size_t joinLayout,
+                        std::size_t wordLimit, std::size_t work, Resolve resolve, Cancelled cancelled,
+                        std::vector<DeviceGraphNativeView> *origins = nullptr) {
+  using V = DeviceGraphValidation;
+  if (cancelled())
+    return std::unexpected(V::Cancelled);
+  if (!joinLayout || joinLayout > layouts.size() || captures.empty())
+    return std::unexpected(V::Invalid);
+  const auto &join = layouts[joinLayout - 1];
+  if (!join.singleton || join.stride != captures.size() || join.cells.size() != captures.size())
+    return std::unexpected(V::Invalid);
+  if (captures.size() > std::min<std::size_t>(wordLimit, DeviceArrayWireABI::MaxWords) ||
+      captures.size() > work)
+    return std::unexpected(V::Budget);
+  for (std::size_t i = 0; i < captures.size(); ++i) {
+    if (cancelled())
+      return std::unexpected(V::Cancelled);
+    const auto &cell = join.cells[i];
+    if (cell.bytes != 1 || cell.offset != i || !cell.wire.guards.empty() ||
+        !cell.wire.target || cell.wire.target != captures[i].layout ||
+        cell.wire.target == joinLayout)
+      return std::unexpected(V::Invalid);
+  }
+  const std::vector<std::byte> slots(captures.size());
+  const auto begin = reinterpret_cast<std::uintptr_t>(slots.data());
+  const auto resolveCapture = [&](std::size_t layout, std::span<const std::byte> field)
+      -> std::expected<DeviceGraphNativeView, V> {
+    const auto address = reinterpret_cast<std::uintptr_t>(field.data());
+    if (address >= begin && address - begin < slots.size())
+      return captures[address - begin];
+    if (layout == joinLayout)
+      return std::unexpected(V::Invalid);
+    return resolve(layout, field);
+  };
+  auto wire = packDeviceGraph({joinLayout, 1, slots}, layouts, wordLimit, work - captures.size(),
+                              resolveCapture, cancelled, origins);
+  if (wire && origins)
+    (*origins)[0] = {joinLayout, 1, {}};
+  return wire;
+}
 } // namespace kalandra::runtime
