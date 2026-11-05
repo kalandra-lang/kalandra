@@ -1,26 +1,11 @@
 #pragma once
-#include "AggregateLayout.h"
-#include <limits>
+#include "AggregateProjection.h"
 
 namespace kalandra {
-// A node is an occurrence, not a nominal type: two fields of the same type
-// remain distinct captures. Parents precede children, so consumers can compute
-// native offsets and activity without recursive traversal or copied field paths.
-struct DeviceEntryNode {
-  static constexpr auto none = std::numeric_limits<std::size_t>::max();
-  ValueType type;
-  std::size_t parameter, parent = none, field = none, activeTag = 0;
-  std::vector<std::size_t> children;
-  bool discriminator = false;
-};
-struct DeviceEntryPlan {
-  std::vector<DeviceEntryNode> nodes;
-  std::vector<std::size_t> roots, leaves;
-};
 struct NormalizedDeviceEntry {
   TypedModule module;
   FunctionId function;
-  DeviceEntryPlan plan;
+  DeviceAggregateProjection plan;
 };
 // Flatten only the entry ABI. The original helper, including its arithmetic and
 // control flow, is called by the generated device wrapper. No source computation
@@ -43,48 +28,14 @@ normalizeDeviceAggregateEntry(const TypedModule &input, FunctionId function,
       return reject("GPU captured aggregate inputs are read-only");
     types.push_back(input.symbols[parameter].type);
   }
-  auto layouts = planDeviceAggregateLayouts(input, types, budget);
-  if (!layouts)
-    return reject(layouts.error());
-  NormalizedDeviceEntry result{input, input.functions.size(), {}};
-  auto &plan = result.plan;
+  auto projection = projectDeviceAggregates(input, types, budget);
+  if (!projection)
+    return reject(projection.error());
+  NormalizedDeviceEntry result{input, input.functions.size(), std::move(*projection)};
+  const auto &plan = result.plan;
   const auto consume = [&](std::size_t amount) {
-    if (amount > budget)
-      return false;
-    budget -= amount;
-    return true;
+    return consumeAggregateProjectionWork(budget, amount);
   };
-  for (std::size_t parameter = 0; parameter < types.size(); ++parameter) {
-    if (!consume(1))
-      return reject("GPU aggregate entry exceeds configured work budget");
-    plan.roots.push_back(plan.nodes.size());
-    plan.nodes.push_back({types[parameter], parameter, DeviceEntryNode::none,
-                            DeviceEntryNode::none, 0, {}, false});
-  }
-  for (std::size_t i = 0; i < plan.nodes.size(); ++i) {
-    const auto type = plan.nodes[i].type;
-    if (!deviceInlineRecordValue(type)) {
-      plan.leaves.push_back(i);
-      continue;
-    }
-    const auto &record = input.records.at(*type.record);
-    const auto &layout = layouts->at(*type.record);
-    if (!consume(record.fields.size()))
-      return reject("GPU aggregate entry exceeds configured work budget");
-    if (!record.variants.empty() &&
-        (record.fields.empty() || record.fields[0].type.builtin != BuiltinValue::Numeric ||
-         record.fields[0].type.element != NumericType::Int64 ||
-         !deviceScalarValue(record.fields[0].type)))
-      return reject("GPU enum entry requires a checked native discriminator");
-    for (std::size_t field = 0; field < record.fields.size(); ++field) {
-      const auto child = plan.nodes.size();
-      const auto parameter = plan.nodes[i].parameter;
-      plan.nodes[i].children.push_back(child);
-      plan.nodes.push_back({record.fields[field].type, parameter, i, field,
-                              layout.fieldTags[field], {},
-                              !record.variants.empty() && field == 0});
-    }
-  }
   TypedFunction wrapper;
   wrapper.name = "$gpu.aggregate.entry." + std::to_string(function);
   wrapper.declaration = original.declaration;

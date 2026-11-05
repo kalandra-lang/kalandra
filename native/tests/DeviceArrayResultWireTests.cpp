@@ -265,6 +265,38 @@ void cancellationAndAllocation() {
   context.release(wire.allocated);
   check(!context.live(), "cancelled decode leaked");
 }
+void envelopeRegion() {
+  using Decode = DeviceArrayResultDecode<NumericType::Int64>;
+  const auto noCapture = [](auto) -> std::optional<Decode::Descriptor> { return {}; };
+  {
+    Invocation context;
+    auto wire = makeWire(context, 4, 8);
+    wire.aligned[6] = 17;
+    wire.aligned[7] = 29;
+    {
+      Decode decode;
+      check(decode.initializeRegion(context, wire, 6, 2, 0, noCapture),
+            "embedded region rejected");
+      context.release(wire.allocated);
+      check(!decode.advance() && !decode.result(), "partial region published");
+      check(decode.advance(), "embedded region copy did not settle");
+      auto result = decode.result();
+      check(result && result->sizes[0] == 2 &&
+                result->aligned[0] == 17 && result->aligned[1] == 29,
+            "embedded region decoded from wrong offset");
+    }
+    check(!context.live(), "embedded region leaked its owners");
+  }
+  for (const auto offset : {UINT64_C(11), UINT64_MAX}) {
+    Invocation context;
+    auto wire = makeWire(context, 4, 8);
+    Decode decode;
+    check(!decode.initializeRegion(context, wire, offset, 2, 0, noCapture) &&
+              context.status() == 3 && !decode.result(),
+          "out-of-bounds embedded region accepted");
+    context.release(wire.allocated);
+  }
+}
 } // namespace
 int main() {
   try {
@@ -280,6 +312,7 @@ int main() {
     alias<NumericType::UInt8, true>();
     malformed();
     emptyAndView();
+    envelopeRegion();
     cancellationAndAllocation();
     std::cout << "PASS: eleven typed result decoders, exact bits, retained aliases, bounded pages, "
                  "faults, cancellation and owner retirement\n";

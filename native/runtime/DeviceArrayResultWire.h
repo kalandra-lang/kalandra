@@ -20,53 +20,30 @@ public:
   DeviceArrayResultDecode &operator=(const DeviceArrayResultDecode &) = delete;
   ~DeviceArrayResultDecode() = default;
   template <class Resolve> bool initialize(Invocation &context, const Wire &wire, Resolve resolve) {
-    if (context_ || context.poll()) {
-      if (context_)
-        context.fault(3);
+    auto retained = retainWire(context, wire, DeviceArrayWireABI::HeaderWords);
+    if (!retained)
       return false;
-    }
-    if (wire.sizes[0] < std::int64_t(DeviceArrayWireABI::HeaderWords) ||
-        std::uint64_t(wire.sizes[0]) > DeviceArrayWireABI::MaxWords || wire.strides[0] != 1) {
-      context.fault(3);
-      return false;
-    }
-    auto retained = retainCpuTensor(context, wire.view());
-    if (!retained) {
-      context.fault(3);
-      return false;
-    }
     const auto *words = reinterpret_cast<const std::uint64_t *>(retained->data().data());
     const auto length = words[DeviceArrayWireABI::Length];
     const auto origin = words[DeviceArrayWireABI::Origin];
     if (words[DeviceArrayWireABI::Version] != DeviceArrayWireABI::ResultMagic ||
         words[DeviceArrayWireABI::Layout] != DeviceArrayWireABI::layout(Element, Boolean) ||
         length > DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords ||
-        length > SIZE_MAX / sizeof(NumericValue<Element>) || origin > UINT32_MAX ||
         std::uint64_t(wire.sizes[0]) != DeviceArrayWireABI::HeaderWords + (origin ? 0 : length)) {
       context.fault(3);
       return false;
     }
-    if (origin) {
-      auto original = resolve(origin);
-      if (!original || original->sizes[0] != std::int64_t(length) ||
-          (length && original->strides[0] != 1)) {
-        context.fault(3);
-        return false;
-      }
-      auto lease = retainCpuTensor(context, original->view());
-      if (!lease) {
-        context.fault(3);
-        return false;
-      }
-      alias_.emplace(std::move(*lease));
-      result_ = *original;
-    }
-    context_ = &context;
-    wire_.emplace(std::move(*retained));
-    origin_ = origin;
-    length_ = length;
-    complete_ = !length || (origin && !Boolean);
-    return true;
+    return beginRegion(context, std::move(*retained),
+                       origin ? 0 : DeviceArrayWireABI::HeaderWords, length, origin, resolve);
+  }
+  // Decode one typed region from a larger, separately validated word envelope.
+  // The region remains private and holds its backing through every copy page.
+  template <class Resolve>
+  bool initializeRegion(Invocation &context, const Wire &wire, std::uint64_t offset,
+                        std::uint64_t length, std::uint64_t origin, Resolve resolve) {
+    auto retained = retainWire(context, wire, 0);
+    return retained &&
+           beginRegion(context, std::move(*retained), offset, length, origin, resolve);
   }
   bool advance() noexcept {
     if (!context_ || context_->poll())
@@ -92,7 +69,7 @@ public:
       if (context_->poll())
         return false;
       const auto word = origin_ ? std::uint64_t(std::to_integer<unsigned>(alias_->data()[cursor_]))
-                                : words[DeviceArrayWireABI::HeaderWords + cursor_];
+                                : words[payloadOffset_ + cursor_];
       if constexpr (Boolean) {
         if (word > 1) {
           context_->fault(3);
@@ -120,11 +97,60 @@ public:
   std::uint64_t origin() const noexcept { return origin_; }
 
 private:
+  std::optional<RetainedCpuTensor> retainWire(Invocation &context, const Wire &wire,
+                                           std::size_t minimum) const noexcept {
+    if (context_ || context.poll()) {
+      if (context_)
+        context.fault(3);
+      return {};
+    }
+    if (wire.sizes[0] < std::int64_t(minimum) ||
+        std::uint64_t(wire.sizes[0]) > DeviceArrayWireABI::MaxWords || wire.strides[0] != 1) {
+      context.fault(3);
+      return {};
+    }
+    auto retained = retainCpuTensor(context, wire.view());
+    if (!retained)
+      context.fault(3);
+    return retained;
+  }
+  template <class Resolve>
+  bool beginRegion(Invocation &context, RetainedCpuTensor retained, std::uint64_t offset,
+                   std::uint64_t length, std::uint64_t origin, Resolve &resolve) {
+    const auto words = retained.bytes() / sizeof(std::uint64_t);
+    if (length > DeviceArrayWireABI::MaxWords || length > SIZE_MAX / sizeof(NumericValue<Element>) ||
+        origin > UINT32_MAX || (origin ? offset != 0 : offset > words || length > words - offset)) {
+      context.fault(3);
+      return false;
+    }
+    if (origin) {
+      auto original = resolve(origin);
+      if (!original || original->sizes[0] != std::int64_t(length) ||
+          (length && original->strides[0] != 1)) {
+        context.fault(3);
+        return false;
+      }
+      auto lease = retainCpuTensor(context, original->view());
+      if (!lease) {
+        context.fault(3);
+        return false;
+      }
+      alias_.emplace(std::move(*lease));
+      result_ = *original;
+    }
+    context_ = &context;
+    wire_.emplace(std::move(retained));
+    payloadOffset_ = offset;
+    origin_ = origin;
+    length_ = length;
+    complete_ = !length || (origin && !Boolean);
+    return true;
+  }
   Invocation *context_ = nullptr;
   std::optional<RetainedCpuTensor> wire_, alias_;
   std::optional<Invocation::OwnershipScope> scope_;
   Descriptor result_{};
-  std::uint64_t length_ = 0, origin_ = 0, cursor_ = 0;
+  std::uint64_t length_ = 0, origin_ = 0, cursor_ = 0, payloadOffset_ = 0;
   bool complete_ = false;
 };
 } // namespace kalandra::runtime

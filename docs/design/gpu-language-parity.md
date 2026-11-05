@@ -198,3 +198,34 @@ Whole-record results still require bounded graph and owned-region publication.
 Recursive graphs, Strings, general function values, recursive calls and tensor
 state remain separate qualification work. The normalized entry currently accepts
 only scalar/flat-array peers and results alongside its aggregate inputs.
+
+### Whole-record result transport design
+
+The result schema comes from the checked nominal type. Its device projection
+identifies the scalar cells, enum tags and array handles. Its native projection
+identifies where decoded fields belong in the result slot. The transport uses
+the declared schema to validate numeric widths, Bool values and active enum
+payloads. Inactive branches have no region references.
+
+The device enumerates active array leaves before exporting the result. An
+external handle names the original captured array. Each distinct fresh backing
+gets one result region, so two leaves that name the same backing remain aliases
+and equal contents from separate allocations remain independent. Region
+references carry the checked view range. The result frame keeps the active
+owners rooted while the heap services allocation or growth requests.
+
+The terminal export can reuse the flat-array transport as an opaque word
+envelope. The device constructs its fixed-schema cells and copies fresh regions
+in bounded checkpoint steps. The existing export service transfers that envelope
+in acknowledged pages. The host validates tags, layouts, origins and ranges
+before filling an owned native result slot. Fresh allocations stay private until
+all active fields have decoded and the task publishes the result. Faults,
+cancellation and partial decoding discard the private result using the existing
+task settlement rules.
+
+The initial acceptance case returns an enum containing one captured array, two
+fields sharing a fresh copy and a separate fresh copy. After awaiting the task,
+the caller changes the original array and one shared field. The native result
+must observe both changes through the corresponding aliases and preserve the
+independent copy. The same program exercises a second return with the inactive
+enum branch and has a CPU oracle of 983 with one and four workers.

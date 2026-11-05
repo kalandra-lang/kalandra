@@ -160,6 +160,8 @@ fn work(value:Outer)->int:
       match inner:
         Inner.Empty:1
         Inner.Data {values}:values[0]
+fn produce()->Outer:
+  Outer.Data {inner:Inner.Data {values:[1,2]}}
 )")));
     require(checked.ok(), "nested enum entry fixture rejected");
     normalized = normalizeDeviceAggregateEntry(*checked.module, 0);
@@ -167,10 +169,25 @@ fn work(value:Outer)->int:
     const auto arrayNode = normalized->plan.leaves.back();
     const auto &arrayLeaf = normalized->plan.nodes[arrayNode];
     require(arrayLeaf.type.array && arrayLeaf.activeTag == 2 &&
-                arrayLeaf.parent != DeviceEntryNode::none &&
+                arrayLeaf.parent != DeviceAggregateOccurrence::none &&
                 normalized->plan.nodes[arrayLeaf.parent].activeTag == 2 &&
                 normalized->plan.nodes[arrayLeaf.parent].parent == normalized->plan.roots[0],
             "inner enum activity replaced the enclosing enum guard");
+    std::size_t resultBudget = 16;
+    const auto &resultType = checked.module->functions.at(1).resultType;
+    auto result = projectDeviceAggregates(*checked.module, std::span(&resultType, 1), resultBudget);
+    require(result && result->leaves.size() == 3, "result projection lost nested fields");
+    const auto &outerTag = result->nodes[result->leaves[0]];
+    const auto &innerTag = result->nodes[result->leaves[1]];
+    const auto &arrayResult = result->nodes[result->leaves[2]];
+    require(outerTag.discriminator && outerTag.deviceWord == 0 &&
+                innerTag.discriminator && innerTag.deviceWord == 1 &&
+                arrayResult.type.array && arrayResult.deviceWord == 2 &&
+                result->nodes[innerTag.parent].activeTag == 2 && arrayResult.activeTag == 2,
+            "result projection lost device offsets or enum activity");
+    resultBudget = 4;
+    require(!projectDeviceAggregates(*checked.module, std::span(&resultType, 1), resultBudget),
+            "result projection work budget ignored");
     const auto &wrapper = normalized->module.functions.at(normalized->function);
     const auto *call = std::get_if<FunctionCall>(&normalized->module.expressions[wrapper.result].operation);
     require(call && call->function == 0 && call->arguments.size() == 1 &&

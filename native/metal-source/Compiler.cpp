@@ -169,7 +169,7 @@ class Compiler {
   std::map<std::size_t, std::size_t> entries;
   std::map<FunctionId, NumericShader> numericShaders;
   std::map<FunctionId, NumericProgram> numericPrograms;
-  std::map<FunctionId, DeviceEntryPlan> aggregateEntries;
+  std::map<FunctionId, DeviceAggregateProjection> aggregateEntries;
   std::size_t aggregateEntryWorkRemaining = 300000;
   std::vector<std::string> steps, fields;
   std::size_t next = 0;
@@ -1758,7 +1758,7 @@ class Compiler {
     steps.push_back(step + admitted("f." + out));
     return result;
   }
-  std::vector<Value> aggregateEntryInputs(const DeviceEntryPlan &entry,
+  std::vector<Value> aggregateEntryInputs(const DeviceAggregateProjection &entry,
                                            const std::vector<Value> &inputs, SourceSpan span) {
     if (inputs.size() != entry.roots.size())
       reject(span, "GPU aggregate entry argument count mismatch");
@@ -1767,7 +1767,7 @@ class Compiler {
     std::vector<Value> values(entry.nodes.size());
     for (auto root : entry.roots) {
       const auto &node = entry.nodes[root];
-      const auto &value = inputs.at(node.parameter);
+      const auto &value = inputs.at(node.root);
       completed(value, span);
       if (node.type.record) {
         if (value.kind != Value::Aggregate || value.record != node.type.record || value.gpu)
@@ -1779,9 +1779,9 @@ class Compiler {
     }
     for (std::size_t i = 0; i < entry.nodes.size(); ++i) {
       const auto &node = entry.nodes[i];
-      if (node.parent == DeviceEntryNode::none) {
+      if (node.parent == DeviceAggregateOccurrence::none) {
         if (!node.type.record)
-          values[i] = inputs.at(node.parameter);
+          values[i] = inputs.at(node.root);
         continue;
       }
       const auto &parent = entry.nodes.at(node.parent);
@@ -1817,7 +1817,7 @@ class Compiler {
       value.slot = next - 1;
       values[i] = value;
       trackArray(value);
-      const auto base = ref(inputs.at(node.parameter)) + ".data.data()";
+      const auto base = ref(inputs.at(node.root)) + ".data.data()";
       code += "static_assert(sizeof(" + ref(value) + ")==" +
               std::to_string(member.nativeBytes) + ");\n" + ref(value) +
               (node.discriminator ? "=1;\n" : "={};\n") + "if(" + active + "){std::memcpy(&" +
