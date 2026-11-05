@@ -119,6 +119,26 @@ int main() {
     require(nativeRecursive && nativeRecursive->at(0).fields[1].nativeBytes == 8 &&
                 nativeRecursive->at(0).fields[1].storage == RecordFieldStorage::ManagedReference,
             "native recursive slot incorrectly depends on device inline admission");
+    auto storage = planRecordStorage(input);
+    require(bool(storage), "recursive record storage planning failed");
+    device = planDeviceAggregateLayouts(input, roots, 300000, &*storage);
+    require(device && device->at(0).words == 2 && device->at(0).boxed[1] &&
+                device->at(0).owned == std::vector<std::size_t>{1},
+            "recursive enum edge did not terminate at an owned handle");
+    auto recordArray = nominal(1);
+    recordArray.array = recordArray.tensor = true;
+    recordArray.shape = {{std::nullopt, 1}};
+    input.records = {record({recordArray}), record({nominal(0), number()})};
+    storage = planRecordStorage(input);
+    require(bool(storage), "recursive array storage planning failed");
+    device = planDeviceAggregateLayouts(input, roots, 300000, &*storage);
+    require(device && device->size() == 2 && device->at(0).words == 1 &&
+                device->at(0).owned == std::vector<std::size_t>{0} &&
+                device->at(1).words == 2 && device->at(1).owned == std::vector<std::size_t>{0} &&
+                !device->at(0).boxed[0] && !device->at(1).boxed[0],
+            "record array handle did not break inline expansion");
+    require(!planDeviceAggregateLayouts(input, roots),
+            "flat boundary accepted recursive record array");
     roots = {nominal(100)};
     require(!planDeviceAggregateLayouts(input, roots), "invalid nominal identity admitted");
     // An iterative deep layout, bounded by work rather than C++ recursion.

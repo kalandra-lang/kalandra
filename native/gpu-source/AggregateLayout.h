@@ -1,4 +1,5 @@
 #pragma once
+#include "../lib/RecordStorage.h"
 #include "kalandra/Semantics.h"
 #include <algorithm>
 #include <expected>
@@ -15,6 +16,7 @@ struct DeviceAggregateLayout {
   std::vector<std::size_t> owned;
   // Zero means unconditional; enum payloads use their one-based variant tag.
   std::vector<std::size_t> fieldTags;
+  std::vector<bool> boxed;
 };
 using DeviceAggregateLayouts = std::map<std::size_t, DeviceAggregateLayout>;
 inline bool deviceScalarValue(const ValueType &type) {
@@ -29,22 +31,38 @@ inline bool deviceInlineRecordValue(const ValueType &type) {
   return type.record && type.builtin == BuiltinValue::Record && !type.tensor && !type.array &&
          !type.task && !type.fallible;
 }
-// The same projection serves device frame layout and aggregate transport. This
-// inline planner deliberately rejects recursive graphs: those need reference
-// nodes and tracing, rather than infinite flattening or an accidental pointer ABI.
+inline bool deviceRecordArrayValue(const ValueType &type) {
+  return isRecordArray(type) && type.record && type.tensor && type.shape.size() == 1 &&
+         !type.task && !type.fallible;
+}
+// Frame planning can use nominal storage decisions to terminate expansion at
+// arena handles. Flat boundary projections omit the storage plan.
 inline std::expected<DeviceAggregateLayouts, std::string>
 planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> values,
-                           std::size_t budget = 300000) {
+                           std::size_t budget = 300000,
+                           const RecordStoragePlan *storage = nullptr) {
   DeviceAggregateLayouts layouts;
   const auto reject = [](std::string message) { return std::unexpected(std::move(message)); };
+  const auto recordArray = [&](const ValueType &type) {
+    return storage && deviceRecordArrayValue(type);
+  };
+  std::vector<std::size_t> roots;
+  std::set<std::size_t> scheduled;
+  const auto schedule = [&](std::size_t id) {
+    if (scheduled.insert(id).second)
+      roots.push_back(id);
+  };
   for (const auto &type : values) {
     if (deviceScalarValue(type) || deviceFlatArrayValue(type))
       continue;
-    if (!deviceInlineRecordValue(type))
+    if (!deviceInlineRecordValue(type) && !recordArray(type))
       return reject(
           "GPU checkpointed values support numeric/Bool scalars, local numeric/Bool arrays and "
           "plain-data records/enums; owned aggregates and tensor loop state need device layouts");
-    std::vector<std::pair<std::size_t, std::size_t>> pending{{*type.record, 0}};
+    schedule(*type.record);
+  }
+  for (std::size_t root = 0; root < roots.size(); ++root) {
+    std::vector<std::pair<std::size_t, std::size_t>> pending{{roots[root], 0}};
     std::set<std::size_t> active;
     while (!pending.empty()) {
       auto &[id, field] = pending.back();
@@ -57,13 +75,21 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
       if (field == 0 && !active.insert(id).second)
         return reject("recursive owned device records require device storage");
       const auto &record = input.records[id];
+      const auto boxed = [&](std::size_t index) {
+        return storage && storage->fields.at(id).at(index) == RecordFieldStorage::ManagedReference;
+      };
       if (field < record.fields.size()) {
         if (!budget)
           return reject("GPU aggregate layout exceeds configured work budget");
         --budget;
-        const auto &child = record.fields[field++].type;
+        const auto &child = record.fields[field].type;
+        const bool indirect = boxed(field++) || recordArray(child);
         if (deviceScalarValue(child) || deviceFlatArrayValue(child))
           continue;
+        if (indirect) {
+          schedule(*child.record);
+          continue;
+        }
         if (!deviceInlineRecordValue(child))
           return reject("GPU plain-data records cannot contain owned or host-only fields");
         if (active.contains(*child.record))
@@ -87,19 +113,23 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
           layout.fieldTags[slot] = variant + 1;
         }
       }
-      for (const auto &member : record.fields) {
+      for (std::size_t index = 0; index < record.fields.size(); ++index) {
+        const auto &member = record.fields[index];
         layout.fields.push_back(layout.words);
-        const auto size = deviceScalarValue(member.type) || deviceFlatArrayValue(member.type)
+        layout.boxed.push_back(boxed(index));
+        const bool handle = deviceFlatArrayValue(member.type) || recordArray(member.type) ||
+                            layout.boxed.back();
+        const auto size = deviceScalarValue(member.type) || handle
                               ? 1
                               : layouts.at(*member.type.record).words;
-        const auto owned = deviceFlatArrayValue(member.type) ? 1
+        const auto owned = handle ? 1
                            : deviceInlineRecordValue(member.type)
                                ? layouts.at(*member.type.record).owned.size()
                                : 0;
         if (owned > budget)
           return reject("GPU aggregate owned layout exceeds configured work budget");
         budget -= owned;
-        if (deviceFlatArrayValue(member.type))
+        if (handle)
           layout.owned.push_back(layout.words);
         else if (deviceInlineRecordValue(member.type))
           for (auto offset : layouts.at(*member.type.record).owned)
