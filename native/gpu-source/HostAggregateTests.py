@@ -255,6 +255,9 @@ cases['graph-result-captured-alias'] = ((fixtures/'graph-result-captured.k').rea
 cases['graph-result-captured-box'] = ((fixtures/'graph-result-captured-box.k').read_text(), 1008)
 cases['graph-entry-multiple-captures'] = ((fixtures/'graph-entry-multiple-captures.k').read_text(), 84)
 cases['graph-result-multiple-captures'] = ((fixtures/'graph-result-multiple-captures.k').read_text(), 1000)
+cases['device-recursive-owned-array'] = ((fixtures/'device-recursive-owned-array.k').read_text(), 5057)
+cases['device-recursive-bounds'] = ((fixtures/'device-recursive-bounds.k').read_text(), 2142)
+cases['graph-result-recursive-capture'] = ((fixtures/'graph-result-recursive-capture.k').read_text(), 5059)
 cases['device-mutual-recursion'] = ((fixtures/'device-mutual-recursion.k').read_text(), 1501)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
@@ -315,7 +318,7 @@ for name,(source,expected) in cases.items():
     policy = ['--arithmetic','hardware-with-software-fallback'] if name == 'entry-float64' else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
-    if name.startswith(('local-recursive-', 'device-mutual-recursion')):
+    if name.startswith(('local-recursive-', 'device-mutual-recursion', 'device-recursive-')):
         assert 'NumericInstructionKind::DeviceControl' in host, name
     else:
         assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name

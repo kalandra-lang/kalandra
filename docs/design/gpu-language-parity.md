@@ -283,5 +283,8 @@ the existing host acknowledgement, so call depth is bounded by the
 invocation's allocation budget. Device faults and cancellation discard the
 private arena through the existing task retirement path.
 
-Recursive frames with owned values, recursive function values and tensor
-state require separate qualification.
+Recursive calls can carry supported local arrays, records and enums across
+activations. The collector traces the active frame's live slots and the
+suspended callers' live values. The outer entry publishes array and graph
+results through the usual device result transfer. Function values and
+tensor state require separate qualification.

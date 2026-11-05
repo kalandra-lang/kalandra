@@ -1,3 +1,4 @@
+#include "DeviceCallTrace.h"
 #include "DeviceCallEnter.h"
 #include "DeviceCallReturn.h"
 #include "DeviceCallSchedule.h"
@@ -1088,8 +1089,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
   };
-  if (callFrames && (!scalar(root.resultType) || !std::ranges::all_of(plan.slots, scalar)))
-    return reject("GPU recursive call frames currently require numeric or Bool values");
+  if (callFrames && !std::ranges::all_of(plan.slots, [&](const auto &type) {
+                       return scalar(type) || flatArray(type) || deviceInlineRecordValue(type) ||
+                              deviceRecordArrayValue(type);
+                     }))
+    return reject("GPU recursive calls require supported device frame values");
   bool storage = callFrames || std::ranges::any_of(plan.slots, flatArray);
   const bool arrayResult = flatArray(root.resultType);
   const bool aggregateResult = deviceInlineRecordValue(root.resultType);
@@ -1239,11 +1243,16 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   const auto activeFrame = frameWords;
   const auto callCursor = activeFrame + 1;
   const auto outerSuspension = activeFrame + 2;
-  const auto callLayout = [](FunctionId fn) { return 12u + static_cast<unsigned>(fn); };
+  const auto callLayout = [&](FunctionId fn) {
+    return static_cast<unsigned>(12 + 2 * input.records.size() + fn);
+  };
   std::vector<DeviceCallFrame> callFramesByFunction;
   const auto callSlot = [&](FunctionId fn, continuation::Slot slot) {
     return static_cast<unsigned>(callFramesByFunction.at(fn).offsets.at(
         slot - schedule->slotBases.at(fn)));
+  };
+  const auto frameCell = [&](FunctionId fn, std::size_t cell) {
+    return DeviceCallFrame::HeaderWords + cell - offsets.at(schedule->slotBases.at(fn));
   };
   std::vector<DeviceRootMap> outerCallRoots;
   std::vector<std::vector<std::size_t>> callSites;
@@ -1257,7 +1266,6 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           [&](const auto &type) -> std::optional<std::size_t> { return width(type); });
       if (!frame)
         return reject(frame.error());
-      traceLayouts.push_back({callLayout(fn), static_cast<unsigned>(frame->words), {{0, {}}}});
       callFramesByFunction[fn] = std::move(*frame);
     }
     callSites.resize(input.functions.size());
@@ -1266,8 +1274,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       if (op.code != continuation::Code::SynchronousCall)
         continue;
       callSites.at(op.target).push_back(i);
-      if (schedule->owners[i] == function)
-        outerCallRoots.push_back({i + 2, {}});
+
     }
 
   }
@@ -1364,7 +1371,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           }
         }
       }
-      if (aggregateResult && op.code == C::Return) {
+      if (aggregateResult && op.code == C::Return &&
+          (!schedule || schedule->owners[i] == function)) {
         std::vector<std::size_t> resultRoots;
         for (auto leaf : layouts.at(*root.resultType.record).owned)
           resultRoots.push_back(offsets.at(plan.result) + leaf);
@@ -1387,10 +1395,56 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
            (std::holds_alternative<CollectionQuery>(node.operation) && !op.args.empty() &&
             localArray(plan.slots.at(op.args[0])));
   };
-  if (callFrames)
-    for (std::size_t i = 0; i < plan.code.size(); ++i)
-      if (plan.code[i].code == C::SynchronousCall)
-        allocationRoots.push_back({i + 1, {}, static_cast<unsigned>(activeFrame), {}});
+  if (callFrames) {
+    const auto compact = [&](FunctionId fn, std::size_t cell) {
+      return static_cast<unsigned>(frameCell(fn, cell));
+    };
+    std::vector<std::vector<std::vector<unsigned>>> wordsByFunction(input.functions.size());
+    std::vector<std::vector<DeviceCallSuspension>> sitesByFunction(input.functions.size());
+    std::size_t rootWork = 300000;
+    for (std::size_t i = 0; i < plan.code.size(); ++i) {
+      const auto &op = plan.code[i];
+      if (op.code != C::SynchronousCall)
+        continue;
+      const auto fn = schedule->owners[i];
+      allocationRoots.push_back({i + 1, liveRoots[i]});
+      const auto output = offsets.at(op.output);
+      std::vector<std::size_t> outer;
+      std::vector<unsigned> frame;
+      for (auto root : liveRoots[i + 1]) {
+        if (root >= output && root - output < width(plan.slots.at(op.output)))
+          continue;
+        if (!rootWork)
+          return reject("GPU suspended call roots exceed compilation work budget");
+        --rootWork;
+        if (fn == function)
+          outer.push_back(root);
+        frame.push_back(compact(fn, root));
+      }
+      if (fn == function)
+        outerCallRoots.push_back({i + 2, std::move(outer)});
+      wordsByFunction[fn].push_back(std::move(frame));
+      sitesByFunction[fn].push_back({i + 2, wordsByFunction[fn].back()});
+    }
+    for (auto &map : allocationRoots) {
+      if (plan.code.at(map.pc - 1).code == C::Return)
+        continue; // Only the outer activation can allocate a terminal export.
+      const auto fn = schedule->owners.at(map.pc - 1);
+      map.activeFrameCell = activeFrame;
+      for (auto cell : map.cells)
+        map.frameCells.push_back(compact(fn, cell));
+    }
+    for (FunctionId fn = 0; fn < input.functions.size(); ++fn) {
+      if (!schedule->dispatch.entries.at(fn))
+        continue;
+      auto trace = planDeviceCallTrace(callLayout(fn), callFramesByFunction[fn].words,
+          DeviceCallFrame::Parent, DeviceCallFrame::SuspendedAt, DeviceCallFrame::HeaderWords,
+          sitesByFunction[fn], 300000);
+      if (!trace)
+        return reject(trace.error());
+      traceLayouts.push_back(std::move(*trace));
+    }
+  }
   auto code = planned->kernels;
   std::vector<std::optional<FunctionId>> kernels;
   for (const auto &op : plan.code) {
@@ -1677,6 +1731,81 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                         root.declaration}};
       aggregateWork -= words;
     };
+    const auto emitEntryReturn = [&]() -> Value {
+      Value next = constant(UINT64_MAX);
+      if (arrayResult)
+        emitDeviceArrayReturn(*heap, b, load(offsets.at(plan.result)),
+            root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element,
+            root.resultType.builtin == BuiltinValue::Bool);
+      if (graphResult) {
+        using A = runtime::detail::ControlArenaABI;
+        using G = runtime::DeviceGraphWireABI;
+        const auto phase = load(graphReturn + ReturnPhase);
+        const auto equal = [&](Value left, Value right) -> Value {
+          return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, left, right);
+        };
+        const auto when = [&](Value predicate, auto emit) {
+          auto branch = scf::IfOp::create(b, loc, predicate, false);
+          OpBuilder::InsertionGuard guard(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          emit();
+        };
+        const auto count = width(root.resultType);
+        when(equal(phase, constant(0)), [&] {
+          when(equal(heap->load(DeviceHeapEmitter::Phase), constant(0)), [&] {
+            heap->begin(constant(count), boxIdentity(*root.resultType.record));
+          });
+          when(heap->ready(), [&] {
+            const auto word = heap->cursor();
+            const auto copied = equal(word, constant(count));
+            when(arith::XOrIOp::create(b, loc, copied, yes), [&] {
+              heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), word),
+                  heap->loadAt(arith::AddIOp::create(b, loc, constant(offsets.at(plan.result)), word)));
+              heap->advance();
+            });
+            when(copied, [&] {
+              store(graphReturn + ReturnRoot, heap->handle());
+              heap->finish();
+              store(graphReturn + ReturnPhase, constant(1));
+            });
+          });
+        });
+        when(equal(phase, constant(1)), [&] {
+          heap->beginResultTrace();
+          store(graphReturn + ReturnPhase, constant(2));
+        });
+        when(equal(phase, constant(2)), [&] {
+          when(heap->numberResultBlocks(), [&] { store(graphReturn + ReturnPhase, constant(3)); });
+        });
+        when(equal(phase, constant(3)), [&] {
+          const Value directory = arith::MulIOp::create(b, loc, heap->resultNodeCount(),
+                                                        constant(G::DirectoryWords));
+          Value words = arith::AddIOp::create(b, loc, heap->resultPayloadWords(),
+              arith::AddIOp::create(b, loc, directory, constant(G::HeaderWords)));
+          if (graphParameter)
+            words = arith::AddIOp::create(b, loc, words,
+                arith::AddIOp::create(b, loc, constant(2), heap->resultNodeCount()));
+          when(heap->reserveResultEnvelope(words, graphReturn + EnvelopeBase), [&] {
+            store(graphReturn + ReturnPhase, constant(4));
+          });
+        });
+        when(equal(phase, constant(4)), [&] {
+          when(heap->writeResultEnvelope(load(graphReturn + ReturnRoot), graphReturn + EnvelopeBase,
+                  graphReturn + EnvelopeBlock, graphReturn + EnvelopeWord,
+                  graphReturn + EnvelopeOutput, graphResultLayouts, graphParameter.has_value()), [&] {
+            emitDeviceArrayReturn(*heap, b, load(graphReturn + EnvelopeBase), NumericType::UInt64, false);
+            store(graphReturn + ReturnPhase, constant(5));
+          });
+        });
+        next = arith::SelectOp::create(b, loc, equal(load(graphReturn + ReturnPhase), constant(5)),
+            constant(A::Done), load(0));
+      } else if (aggregateResult) {
+        const auto done = emitDeviceAggregateReturn(*heap, b, input, resultFrame, offsets.at(plan.result));
+        next = arith::SelectOp::create(b, loc, done, constant(UINT64_MAX), pc);
+      } else
+        next = constant(UINT64_MAX);
+      return next;
+    };
     for (std::size_t i = 0; i < plan.code.size(); ++i) {
       const auto &op = plan.code[i];
       auto selected = scf::IfOp::create(
@@ -1688,44 +1817,50 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       const auto outerStore = store;
       const auto frame = callFrames ? heap->load(activeFrame) : Value{};
       const auto owner = schedule ? schedule->owners[i] : function;
-      const auto frameOffset = [&](std::size_t cell) {
-        // This admission uses single-word values. Owned multiword values need
-        // an explicit logical word-to-slot mapping before enabling them here.
-        return callSlot(owner, cell - offsets.front());
-      };
       const auto atRoot = [&]() -> Value {
         return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, frame, constant(0));
       };
-      const auto load = [&](std::size_t cell) -> Value {
+      const auto plus = [&](std::size_t cell, Value word) -> Value {
+        if (!word)
+          return constant(cell);
+        return arith::AddIOp::create(b, loc, constant(cell), word);
+      };
+      const auto readFrame = [&](std::size_t cell, Value word) -> Value {
         if (!callFrames || cell < offsets.front() || cell >= slotEnd)
-          return outerLoad(cell);
+          return word ? heap->loadAt(plus(cell, word)) : outerLoad(cell);
         auto select = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()}, atRoot(), true);
         OpBuilder::InsertionGuard nested(b);
         b.setInsertionPointToStart(&select.getThenRegion().front());
-        scf::YieldOp::create(b, loc, outerLoad(cell));
+        scf::YieldOp::create(b, loc, heap->loadAt(plus(cell, word)));
         b.setInsertionPointToStart(&select.getElseRegion().front());
-        scf::YieldOp::create(b, loc, heap->read(frame, constant(frameOffset(cell) + 4)));
+        scf::YieldOp::create(b, loc, heap->read(frame, plus(frameCell(owner, cell) + 4, word)));
         return select.getResult(0);
       };
-      const auto store = [&](std::size_t cell, Value value) {
+      const auto writeFrame = [&](std::size_t cell, Value word, Value value) {
         if (!callFrames || cell < offsets.front() || cell >= slotEnd) {
-          outerStore(cell, value);
+          if (word)
+            heap->storeAt(plus(cell, word), value);
+          else
+            outerStore(cell, value);
           return;
         }
+        if (value.getType().isInteger(1))
+          value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
         auto select = scf::IfOp::create(b, loc, atRoot(), true);
         OpBuilder::InsertionGuard nested(b);
         b.setInsertionPointToStart(&select.getThenRegion().front());
-        outerStore(cell, value);
+        heap->storeAt(plus(cell, word), value);
         b.setInsertionPointToStart(&select.getElseRegion().front());
-        if (value.getType().isInteger(1))
-          value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
-        heap->write(frame, constant(frameOffset(cell) + 4), value);
+        heap->write(frame, plus(frameCell(owner, cell) + 4, word), value);
       };
+      const auto load = [&](std::size_t cell) { return readFrame(cell, {}); };
+      const auto store = [&](std::size_t cell, Value value) { writeFrame(cell, {}, value); };
       if (callFrames && op.code == C::SynchronousCall) {
         std::vector<DeviceCallMove> moves;
         const auto &parameters = schedule->parameters.at(op.target);
         for (std::size_t arg = 0; arg < op.args.size(); ++arg)
-          moves.push_back({callSlot(owner, op.args[arg]), callSlot(op.target, parameters[arg]), 1,
+          moves.push_back({callSlot(owner, op.args[arg]), callSlot(op.target, parameters[arg]),
+                           static_cast<unsigned>(width(plan.slots.at(op.args[arg]))),
                            static_cast<unsigned>(offsets.at(op.args[arg]))});
         emitDeviceCallEnter(b, *heap, {static_cast<unsigned>(activeFrame),
             static_cast<unsigned>(callCursor), static_cast<unsigned>(outerSuspension), callLayout(op.target),
@@ -1737,10 +1872,15 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       if (callFrames && op.code == C::Return) {
         auto returning = scf::IfOp::create(b, loc, atRoot(), true);
         b.setInsertionPointToStart(&returning.getThenRegion().front());
-        if (owner == function)
-          outerStore(0, constant(UINT64_MAX));
-        else
+        if (owner == function) {
+          const auto next = emitEntryReturn();
+          const Value flag = memref::LoadOp::create(b, loc, params, ValueRange{at(1 + 2 * frames)});
+          const Value valid = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                      flag, constant(UINT32_MAX, 32));
+          outerStore(0, arith::SelectOp::create(b, loc, valid, next, constant(UINT64_MAX)));
+        } else {
           heap->fault(99);
+        }
         b.setInsertionPointToStart(&returning.getElseRegion().front());
         const auto continuation = heap->read(frame, constant(5));
         Value matched = constant(0, 1);
@@ -1757,7 +1897,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           emitDeviceCallReturn(b, *heap, {static_cast<unsigned>(activeFrame),
               static_cast<unsigned>(callCursor), static_cast<unsigned>(outerSuspension),
               callLayout(owner), static_cast<unsigned>(callFramesByFunction.at(owner).words), call + 2,
-              {callSlot(owner, op.args.at(0)), callSlot(caller, site.output), 1, UINT32_MAX,
+              {callSlot(owner, op.args.at(0)), callSlot(caller, site.output),
+               static_cast<unsigned>(width(plan.slots.at(site.output))), UINT32_MAX,
                static_cast<unsigned>(offsets.at(site.output))},
               caller == function ? static_cast<unsigned>(slotEnd) : 0,
               callLayout(caller), static_cast<unsigned>(callFramesByFunction.at(caller).words)});
@@ -1829,7 +1970,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             const Value address = arith::AddIOp::create(b, loc, base, word);
             heap->write(handle, arith::AddIOp::create(b, loc, constant(4), address),
                         stride == 1 ? load(source) :
-                            heap->loadAt(arith::AddIOp::create(b, loc, constant(source), word)));
+                            readFrame(source, word));
           });
           if (stride != 1)
             next = arith::SelectOp::create(b, loc, done, next, pc);
@@ -1876,7 +2017,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                 if (stride == 1)
                   store(destination, value);
                 else
-                  heap->storeAt(arith::AddIOp::create(b, loc, constant(destination), word), value);
+                  writeFrame(destination, word, value);
               });
               if (stride != 1)
                 next = arith::SelectOp::create(b, loc, done, next, pc);
@@ -1978,7 +2119,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             const Value offset = arith::AddIOp::create(b, loc, length, word);
             heap->write(handle, arith::AddIOp::create(b, loc, constant(4), offset),
                         stride == 1 ? load(source) :
-                            heap->loadAt(arith::AddIOp::create(b, loc, constant(source), word)));
+                            readFrame(source, word));
           });
           condition(done, [&] {
             heap->write(handle, constant(2), arith::AddIOp::create(b, loc, length, constant(stride)));
@@ -2138,7 +2279,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                 for (std::size_t j = 0; j < op.args.size(); ++j)
                   condition(compare(arith::CmpIPredicate::eq, element, constant(j)), [&] {
                     const auto value = stride == 1 ? load(offsets.at(op.args[j])) :
-                        heap->loadAt(arith::AddIOp::create(b, loc, constant(offsets.at(op.args[j])), word));
+                        readFrame(offsets.at(op.args[j]), word);
                     heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), cursor), value);
                   });
               } else {
@@ -2210,7 +2351,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                         heap->read(h, arith::AddIOp::create(b, loc, offset, constant(4))));
                 } else {
                   const Value location = arith::AddIOp::create(b, loc, offset, word);
-                  heap->storeAt(arith::AddIOp::create(b, loc, constant(offsets.at(op.output)), word),
+                  writeFrame(offsets.at(op.output), word,
                                 heap->read(h, arith::AddIOp::create(b, loc, location, constant(4))));
                   store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
                 }
@@ -2241,7 +2382,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           {
             OpBuilder::InsertionGuard restore(b);
             b.setInsertionPointToStart(&check.getThenRegion().front());
-            heap->storeAt(arith::AddIOp::create(b, loc, constant(offsets.at(op.output)), word),
+            writeFrame(offsets.at(op.output), word,
                           heap->read(handle, arith::AddIOp::create(b, loc, constant(4), word)));
             b.setInsertionPointToStart(&check.getElseRegion().front());
             heap->fault(99);
@@ -2326,7 +2467,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                 const auto done = equal(word, constant(count));
                 when(arith::XOrIOp::create(b, loc, done, yes), [&] {
                   heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), word),
-                              heap->loadAt(arith::AddIOp::create(b, loc, constant(offsets.at(source)), word)));
+                              readFrame(offsets.at(source), word));
                   heap->advance();
                 });
                 when(done, [&] {
@@ -2346,79 +2487,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             arith::SelectOp::create(b, loc, read(op.args.at(0)).value, next, constant(op.jump + 1));
       else if (op.code == C::Jump)
         next = constant(op.jump + 1);
-      else if (op.code == C::Return) {
-        if (arrayResult)
-          emitDeviceArrayReturn(*heap, b, load(offsets.at(plan.result)),
-              root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element,
-              root.resultType.builtin == BuiltinValue::Bool);
-        if (graphResult) {
-          using A = runtime::detail::ControlArenaABI;
-          using G = runtime::DeviceGraphWireABI;
-          const auto phase = load(graphReturn + ReturnPhase);
-          const auto equal = [&](Value left, Value right) -> Value {
-            return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, left, right);
-          };
-          const auto when = [&](Value predicate, auto emit) {
-            auto branch = scf::IfOp::create(b, loc, predicate, false);
-            OpBuilder::InsertionGuard guard(b);
-            b.setInsertionPointToStart(&branch.getThenRegion().front());
-            emit();
-          };
-          const auto count = width(root.resultType);
-          when(equal(phase, constant(0)), [&] {
-            when(equal(heap->load(DeviceHeapEmitter::Phase), constant(0)), [&] {
-              heap->begin(constant(count), boxIdentity(*root.resultType.record));
-            });
-            when(heap->ready(), [&] {
-              const auto word = heap->cursor();
-              const auto copied = equal(word, constant(count));
-              when(arith::XOrIOp::create(b, loc, copied, yes), [&] {
-                heap->write(heap->handle(), arith::AddIOp::create(b, loc, constant(4), word),
-                    heap->loadAt(arith::AddIOp::create(b, loc, constant(offsets.at(plan.result)), word)));
-                heap->advance();
-              });
-              when(copied, [&] {
-                store(graphReturn + ReturnRoot, heap->handle());
-                heap->finish();
-                store(graphReturn + ReturnPhase, constant(1));
-              });
-            });
-          });
-          when(equal(phase, constant(1)), [&] {
-            heap->beginResultTrace();
-            store(graphReturn + ReturnPhase, constant(2));
-          });
-          when(equal(phase, constant(2)), [&] {
-            when(heap->numberResultBlocks(), [&] { store(graphReturn + ReturnPhase, constant(3)); });
-          });
-          when(equal(phase, constant(3)), [&] {
-            const Value directory = arith::MulIOp::create(b, loc, heap->resultNodeCount(),
-                                                          constant(G::DirectoryWords));
-            Value words = arith::AddIOp::create(b, loc, heap->resultPayloadWords(),
-                arith::AddIOp::create(b, loc, directory, constant(G::HeaderWords)));
-            if (graphParameter)
-              words = arith::AddIOp::create(b, loc, words,
-                  arith::AddIOp::create(b, loc, constant(2), heap->resultNodeCount()));
-            when(heap->reserveResultEnvelope(words, graphReturn + EnvelopeBase), [&] {
-              store(graphReturn + ReturnPhase, constant(4));
-            });
-          });
-          when(equal(phase, constant(4)), [&] {
-            when(heap->writeResultEnvelope(load(graphReturn + ReturnRoot), graphReturn + EnvelopeBase,
-                    graphReturn + EnvelopeBlock, graphReturn + EnvelopeWord,
-                    graphReturn + EnvelopeOutput, graphResultLayouts, graphParameter.has_value()), [&] {
-              emitDeviceArrayReturn(*heap, b, load(graphReturn + EnvelopeBase), NumericType::UInt64, false);
-              store(graphReturn + ReturnPhase, constant(5));
-            });
-          });
-          next = arith::SelectOp::create(b, loc, equal(load(graphReturn + ReturnPhase), constant(5)),
-              constant(A::Done), load(0));
-        } else if (aggregateResult) {
-          const auto done = emitDeviceAggregateReturn(*heap, b, input, resultFrame, offsets.at(plan.result));
-          next = arith::SelectOp::create(b, loc, done, constant(UINT64_MAX), pc);
-        } else
-          next = constant(UINT64_MAX);
-      }
+      else if (op.code == C::Return)
+        next = emitEntryReturn();
       else if (op.code != C::Label) {
         std::vector<ShaderValue> arguments;
         for (auto arg : op.args)
