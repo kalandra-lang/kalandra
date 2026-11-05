@@ -228,3 +228,38 @@ the caller changes the original array and one shared field. The native result
 must observe both changes through the corresponding aliases and preserve the
 independent copy. The same program exercises a second return with the inactive
 enum branch and has a CPU oracle of 983 with one and four workers.
+
+### Recursive graph transport design
+
+The graph directory identifies allocations independently of their contents.
+References use one-based indices into the directory, with zero reserved for a
+nullable edge. A layout describes either a single boxed value or repeated
+array elements. The directory gives the layout and element count, and the
+reader derives contiguous payload offsets from the schema. Each reference
+names an expected target layout. Shared references retain their identity
+because every edge refers to the same directory entry.
+
+Validation walks active fields in parent-to-child guard order. It checks
+canonical scalar widths, valid enum tags, reference targets, exact payload
+length and reachability. A work budget bounds the walk and cancellation can
+interrupt it. The structural validator can walk cycles without revisiting an
+allocation. The boundary must separately establish which cycles the source
+ownership model permits before materializing a native graph.
+
+The prototype validates self-contained graphs and packs retained native
+backing. The capture resolver checks nominal box identity and descriptor ranges
+against the invocation ledger before reading fields. It retains leases for
+the duration of packing. A generated scalar-result task can capture one
+recursive record or enum alongside scalar arguments. The child retains its
+native input, packs an arena image and uploads it through the existing array
+channel. Packing currently checks a one-million-word image limit and a
+separate work budget before publishing a device value. Graph results still
+need capture origins for alias recovery and a native publication protocol.
+
+A validated graph can be relocated into a private arena image before upload.
+This step converts directory references to device handles and writes allocator
+headers. It copies canonical values without evaluating the source program.
+The collector can follow relocated aliases and reclaim the graph after its
+roots retire. The initialization continuation requests arena capacity, copies
+one word per checkpoint, and publishes the checked root to the device frame
+after staging completes. It resumes through the existing growth handshake.

@@ -8,6 +8,7 @@ namespace kalandra::runtime {
 template <NumericType Element, bool Boolean = false> struct DeviceArrayArgument {
   static constexpr auto element = Element;
   static constexpr bool boolean = Boolean;
+  static constexpr bool graph = false;
   using Descriptor = CpuTensor<Element, 1>;
   using Capture = DeviceArrayCapture<Element, Boolean>;
   static const ValueLayout &layout() noexcept { return hostArrayLayout<Element, Boolean>(); }
@@ -107,17 +108,19 @@ private:
     });
     // Distinct capture slots can name the same native array. Canonicalize their
     // origin IDs without allocating an uncharged hash table.
-    each([&]<std::size_t I>() {
-      each([&]<std::size_t J>() {
-        if constexpr (J < I && std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
-                                              std::tuple_element_t<J, std::tuple<Arguments...>>>) {
-          const auto &a = std::get<I>(frame.arguments), &b = std::get<J>(frame.arguments);
-          if (a.allocated == b.allocated && a.aligned == b.aligned && a.offset == b.offset &&
-              a.sizes == b.sizes && a.strides == b.strides)
-            frame.origins[I] = frame.origins[J];
-        }
+    if constexpr (!(Arguments::graph || ...)) {
+      each([&]<std::size_t I>() {
+        each([&]<std::size_t J>() {
+          if constexpr (J < I && std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
+                                                std::tuple_element_t<J, std::tuple<Arguments...>>>) {
+            const auto &a = std::get<I>(frame.arguments), &b = std::get<J>(frame.arguments);
+            if (a.allocated == b.allocated && a.aligned == b.aligned && a.offset == b.offset &&
+                a.sizes == b.sizes && a.strides == b.strides)
+              frame.origins[I] = frame.origins[J];
+          }
+        });
       });
-    });
+    }
     if (!valid || context.poll()) {
       frame.~Frame();
       return false;
@@ -146,10 +149,16 @@ private:
         if (selected != I)
           return;
         auto &capture = std::get<I>(frame.captures);
-        if (!capture.original().allocated && capture.origin() == 0 &&
-            !capture.initialize(task.context(), std::get<I>(frame.arguments), frame.origins[I])) {
-          valid = false;
-          return;
+        if (!capture.origin()) {
+          using Argument = std::tuple_element_t<I, std::tuple<Arguments...>>;
+          const auto &descriptor = std::get<I>(frame.arguments);
+          if constexpr (requires { Argument::prepare(task.context(), capture, descriptor,
+                                                       frame.origins[I]); })
+            valid = Argument::prepare(task.context(), capture, descriptor, frame.origins[I]);
+          else
+            valid = capture.initialize(task.context(), descriptor, frame.origins[I]);
+          if (!valid)
+            return;
         }
         if (capture.advance()) {
           auto snapshot = runtime.fromCpu(task.context(), capture.wire()->view());

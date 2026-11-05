@@ -12,6 +12,7 @@ struct DeviceAggregateOccurrence {
   std::size_t root, parent = none, field = none, activeTag = 0, deviceWord = 0;
   std::vector<std::size_t> children;
   bool discriminator = false;
+  bool boxed = false;
 };
 struct DeviceAggregateProjection {
   std::vector<DeviceAggregateOccurrence> nodes;
@@ -27,12 +28,9 @@ inline bool consumeAggregateProjectionWork(std::size_t &budget, std::size_t amou
 // Shared capture/result schema. Device words are relative to their root,
 // while each native consumer computes its own target-specific byte offsets.
 inline std::expected<DeviceAggregateProjection, std::string>
-projectDeviceAggregates(const TypedModule &input, std::span<const ValueType> types,
-                        std::size_t &budget) {
+projectDeviceAggregateOccurrences(const TypedModule &input, std::span<const ValueType> types,
+                                  const DeviceAggregateLayouts &layouts, std::size_t &budget) {
   const auto reject = [](std::string message) { return std::unexpected(std::move(message)); };
-  auto layouts = planDeviceAggregateLayouts(input, types, budget);
-  if (!layouts)
-    return reject(layouts.error());
   DeviceAggregateProjection plan;
   for (std::size_t root = 0; root < types.size(); ++root) {
     if (!consumeAggregateProjectionWork(budget, 1))
@@ -43,12 +41,14 @@ projectDeviceAggregates(const TypedModule &input, std::span<const ValueType> typ
   }
   for (std::size_t i = 0; i < plan.nodes.size(); ++i) {
     const auto type = plan.nodes[i].type;
-    if (!deviceInlineRecordValue(type)) {
+    // Managed references terminate this occurrence tree. Their target layout
+    // is projected independently and can be reused by every graph node.
+    if (plan.nodes[i].boxed || !deviceInlineRecordValue(type)) {
       plan.leaves.push_back(i);
       continue;
     }
     const auto &record = input.records.at(*type.record);
-    const auto &layout = layouts->at(*type.record);
+    const auto &layout = layouts.at(*type.record);
     if (!consumeAggregateProjectionWork(budget, record.fields.size()))
       return reject("GPU aggregate projection exceeds configured work budget");
     if (!record.variants.empty() &&
@@ -62,9 +62,18 @@ projectDeviceAggregates(const TypedModule &input, std::span<const ValueType> typ
       plan.nodes[i].children.push_back(child);
       plan.nodes.push_back({record.fields[field].type, root, i, field, layout.fieldTags[field],
                             plan.nodes[i].deviceWord + layout.fields[field], {},
-                            !record.variants.empty() && field == 0});
+                            !record.variants.empty() && field == 0, layout.boxed[field]});
     }
   }
   return plan;
+}
+
+inline std::expected<DeviceAggregateProjection, std::string>
+projectDeviceAggregates(const TypedModule &input, std::span<const ValueType> types,
+                        std::size_t &budget, const RecordStoragePlan *storage = nullptr) {
+  auto layouts = planDeviceAggregateLayouts(input, types, budget, storage);
+  if (!layouts)
+    return std::unexpected(layouts.error());
+  return projectDeviceAggregateOccurrences(input, types, *layouts, budget);
 }
 } // namespace kalandra

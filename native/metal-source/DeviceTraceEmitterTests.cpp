@@ -12,7 +12,7 @@
 #include <iostream>
 #include <stdexcept>
 using namespace kalandra;
-int main(int argc, char **) {
+int main(int argc, char **argv) {
   static_assert(DeviceHeapEmitter::Cells == 24, "update isolated trace execution ABI");
   try {
     mlir::DialectRegistry registry;
@@ -20,7 +20,8 @@ int main(int argc, char **) {
     mlir::MLIRContext context(registry);
     context.loadAllAvailableDialects();
     const bool gpu = argc == 2;
-    const std::string source =
+    const bool gpuSeed = gpu && std::string_view(argv[1]) == "seed";
+    std::string source =
         gpu ? "module attributes "
               "{gpu.container_module,spirv.target_env=#spirv.target_env<#spirv.vce<v1.0,[Shader,"
               "Int64],[SPV_KHR_storage_buffer_storage_class]>,#spirv.resource_limits<>>} { "
@@ -31,17 +32,25 @@ int main(int argc, char **) {
               "%thread=gpu.thread_id x %zero=arith.constant 0:index %active=arith.cmpi "
               "eq,%thread,%zero:index scf.if %active {} gpu.return } } }"
             : "module { func.func @step(%heap:memref<?xi64>,%frame:memref<52xi32>) attributes "
-              "{llvm.emit_c_interface} { return } }";
+              "{llvm.emit_c_interface} { return } "
+              "func.func @seed(%heap:memref<?xi64>,%frame:memref<52xi32>,%image:memref<?xi64>) "
+              "attributes {llvm.emit_c_interface} { return } }";
+    if (gpuSeed) {
+      const auto signatureEnd = source.find("52xi32>)");
+      source.insert(signatureEnd + 7, ",%image:memref<?xi64>");
+    }
     auto module = mlir::parseSourceString<mlir::ModuleOp>(source, &context);
     if (!module)
       throw std::runtime_error("trace test skeleton failed");
     mlir::Block *body = nullptr;
-    mlir::Value arena, frame, output;
+    mlir::Value arena, frame, output, staging;
     if (gpu) {
       module->walk([&](mlir::gpu::GPUFuncOp function) {
         arena = function.getArgument(0);
         output = function.getArgument(1);
         frame = function.getArgument(2);
+        if (gpuSeed)
+          staging = function.getArgument(3);
       });
       module->walk([&](mlir::scf::IfOp condition) { body = &condition.getThenRegion().front(); });
     } else {
@@ -71,12 +80,43 @@ int main(int argc, char **) {
         throw std::runtime_error("malformed traversal descriptor accepted");
     }
     DeviceHeapEmitter heap(builder, arena, frame, 52, roots, layouts);
-    heap.service();
+    const auto emitSeed = [&](DeviceHeapEmitter &target, mlir::OpBuilder &at,
+                              mlir::Value image, mlir::Value words) {
+      auto loc = at.getUnknownLoc();
+      auto done = mlir::scf::IfOp::create(at, loc, target.seed(image, words, 2), false);
+      mlir::OpBuilder::InsertionGuard guard(at);
+      at.setInsertionPointToStart(&done.getThenRegion().front());
+      target.store(DeviceHeapEmitter::PC, mlir::arith::ConstantIntOp::create(at, loc, 1, 64));
+    };
+    if (gpuSeed) {
+      auto loc = builder.getUnknownLoc();
+      auto zero = mlir::arith::ConstantIntOp::create(builder, loc, 0, 64);
+      auto initializing = mlir::arith::CmpIOp::create(builder, loc, mlir::arith::CmpIPredicate::eq,
+                                                       heap.load(DeviceHeapEmitter::PC), zero);
+      auto entry = mlir::scf::IfOp::create(builder, loc, initializing, true);
+      mlir::OpBuilder::InsertionGuard guard(builder);
+      builder.setInsertionPointToStart(&entry.getThenRegion().front());
+      emitSeed(heap, builder, staging, heap.load(DeviceHeapEmitter::Cells));
+      builder.setInsertionPointToStart(&entry.getElseRegion().front());
+      heap.service();
+    } else
+      heap.service();
     if (gpu) {
       auto zero = mlir::arith::ConstantIntOp::create(builder, builder.getUnknownLoc(), 0, 64);
       auto index = mlir::arith::ConstantIndexOp::create(builder, builder.getUnknownLoc(), 0);
       mlir::memref::StoreOp::create(builder, builder.getUnknownLoc(), zero, output,
                                     mlir::ValueRange{index});
+    }
+    if (!gpu) {
+      auto function = module->lookupSymbol<mlir::func::FuncOp>("seed");
+      auto seedBuilder = mlir::OpBuilder::atBlockTerminator(&function.front());
+      const auto loc = seedBuilder.getUnknownLoc();
+      auto image = function.getArgument(2);
+      auto zero = mlir::arith::ConstantIndexOp::create(seedBuilder, loc, 0);
+      auto size = mlir::memref::DimOp::create(seedBuilder, loc, image, zero);
+      auto words = mlir::arith::IndexCastOp::create(seedBuilder, loc, seedBuilder.getI64Type(), size);
+      DeviceHeapEmitter seeded(seedBuilder, function.getArgument(0), function.getArgument(1), 52, roots);
+      emitSeed(seeded, seedBuilder, image, words);
     }
     if (mlir::failed(mlir::verify(*module)))
       throw std::runtime_error("trace emitter verification failed");

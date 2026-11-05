@@ -282,6 +282,63 @@ void DeviceHeapEmitter::initialize() {
   write(c(1), c(2), c(0));
   write(c(1), c(3), c(0));
 }
+Value DeviceHeapEmitter::seed(Value image, Value sealedWords, unsigned offset) {
+  using A = runtime::detail::ControlArenaABI;
+  const Value yes = arith::ConstantIntOp::create(b, loc, 1, 1);
+  const Value no = arith::ConstantIntOp::create(b, loc, 0, 1);
+  const auto compare = [&](arith::CmpIPredicate predicate, Value left, Value right) -> Value {
+    return arith::CmpIOp::create(b, loc, predicate, left, right);
+  };
+  const auto choose = [&](Value condition, auto accept, auto reject) -> Value {
+    auto branch = scf::IfOp::create(b, loc, TypeRange{b.getI1Type()}, condition, true);
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(&branch.getThenRegion().front());
+    const Value accepted = accept();
+    scf::YieldOp::create(b, loc, ValueRange{accepted});
+    b.setInsertionPointToStart(&branch.getElseRegion().front());
+    const Value rejected = reject();
+    scf::YieldOp::create(b, loc, ValueRange{rejected});
+    return branch.getResult(0);
+  };
+  const Value valid = arith::AndIOp::create(
+      b, loc, compare(arith::CmpIPredicate::uge, sealedWords, c(std::uint64_t(offset) + 6)),
+      compare(arith::CmpIPredicate::ule, sealedWords, c(A::MaxWords)));
+  return choose(valid, [&]() -> Value {
+    const Value words = arith::SubIOp::create(b, loc, sealedWords, c(offset));
+    const auto required = add(words, c(4));
+    return choose(compare(arith::CmpIPredicate::ule, required, c(A::MaxWords)), [&]() -> Value {
+      const auto capacity = load(Capacity);
+      return choose(compare(arith::CmpIPredicate::ule, required, capacity), [&]() -> Value {
+        const auto cursor = load(Cursor);
+        return choose(compare(arith::CmpIPredicate::ult, cursor, words), [&]() -> Value {
+          const Value index = arith::IndexCastOp::create(b, loc, b.getIndexType(),
+                                                       add(cursor, c(offset)));
+          const Value value = memref::LoadOp::create(b, loc, image, ValueRange{index});
+          writeArena(cursor, c(0), value);
+          advance();
+          return no;
+        }, [&]() -> Value {
+          writeArena(words, c(0), arith::SubIOp::create(b, loc, capacity, words));
+          for (unsigned field = 1; field < 4; ++field)
+            writeArena(words, c(field), c(0));
+          store(Cursor, c(0));
+          return yes;
+        });
+      }, [&]() -> Value {
+        store(Requested, required);
+        store(Resume, load(PC));
+        store(PC, c(A::Grow));
+        return no;
+      });
+    }, [&]() -> Value {
+      fault(3);
+      return no;
+    });
+  }, [&]() -> Value {
+    fault(99);
+    return no;
+  });
+}
 void DeviceHeapEmitter::begin(Value length, unsigned layout) {
   auto valid = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, length,
                                      c(runtime::detail::ControlArenaABI::MaxWords - 4));

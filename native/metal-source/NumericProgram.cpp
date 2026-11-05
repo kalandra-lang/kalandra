@@ -20,6 +20,7 @@ class Builder {
   ArithmeticMode arithmetic_;
   bool nativeFloat64Conversions_;
   bool aggregateEnvelope_;
+  std::optional<std::size_t> graphParameter_;
   const TypedModule &input;
   const TypedFunction &root;
   TypedModule normalized;
@@ -344,12 +345,13 @@ class Builder {
       reject(fn.declaration, "numerical helper capture count mismatch");
     const bool aggregate = aggregateEnvelope_ && &fn == &root &&
                            deviceInlineRecordValue(fn.resultType);
-    if (fn.resultType.array || aggregate || usesScalarControl(input, function)) {
+    const auto graph = &fn == &root ? graphParameter_ : std::nullopt;
+    if (fn.resultType.array || aggregate || graph || usesScalarControl(input, function)) {
       if (fn.resultType.tensor && !fn.resultType.array)
         reject(fn.declaration, "device scalar control requires a numeric/Bool scalar helper; "
                                "tensor loop state is not implemented");
       auto shader =
-          emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate);
+          emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph);
       if (!shader)
         throw Rejected{shader.error()};
       NumericProgramInstruction op{shader->deviceStorage ? NumericProgramKind::DeviceControl
@@ -530,9 +532,10 @@ class Builder {
 
 public:
   Builder(const TypedModule &module, FunctionId id, ArithmeticMode arithmetic,
-          bool nativeFloat64Conversions, bool aggregateEnvelope)
+          bool nativeFloat64Conversions, bool aggregateEnvelope,
+          std::optional<std::size_t> graphParameter)
       : arithmetic_(arithmetic), nativeFloat64Conversions_(nativeFloat64Conversions),
-        aggregateEnvelope_(aggregateEnvelope), input(module),
+        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter), input(module),
         root(module.functions.at(id)) {
     normalized.source = input.source;
   }
@@ -545,8 +548,18 @@ public:
              "GPU numerical program requires a numeric/Bool scalar or numeric tensor result");
     std::vector<Ref> args;
     std::uint32_t scalar = 0;
-    for (auto parameter : root.parameters) {
-      const auto &type = input.symbols.at(parameter).type;
+    for (std::size_t i = 0; i < root.parameters.size(); ++i) {
+      const auto &type = input.symbols.at(root.parameters[i]).type;
+      if (i == graphParameter_) {
+        auto wire = type;
+        wire.builtin = BuiltinValue::Numeric;
+        wire.element = NumericType::UInt64;
+        wire.record.reset();
+        wire.array = wire.tensor = true;
+        wire.shape = {{std::nullopt, 1}};
+        args.push_back(resident(wire, value()));
+        continue;
+      }
       if ((type.builtin != BuiltinValue::Numeric &&
            !(type.builtin == BuiltinValue::Bool && (!type.tensor || type.array))) ||
           (type.array && type.shape.size() != 1) || type.task || type.fallible)
@@ -572,9 +585,10 @@ std::expected<NumericProgram, Diagnostic> emitNumericProgram(const TypedModule &
                                                              FunctionId function,
                                                              ArithmeticMode arithmetic,
                                                              bool nativeFloat64Conversions,
-                                                             bool aggregateEnvelope) {
+                                                             bool aggregateEnvelope,
+                                                             std::optional<std::size_t> graphParameter) {
   try {
-    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope).run(function);
+    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope, graphParameter).run(function);
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }

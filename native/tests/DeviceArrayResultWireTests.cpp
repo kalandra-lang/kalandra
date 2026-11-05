@@ -1,5 +1,8 @@
 #include "../runtime/DeviceArrayResultWire.h"
 #include "../runtime/DeviceAggregateResult.h"
+#include "../runtime/DeviceGraphCapture.h"
+#include "../runtime/DeviceGraphArena.h"
+#include <functional>
 #include "../runtime/HostArrays.h"
 #include <atomic>
 #include <iostream>
@@ -364,6 +367,140 @@ void aggregateEnvelope() {
     check(!context.live(), "aggregate envelope leaked an owner");
   }
 }
+void graphWire() {
+  using V = DeviceGraphValidation;
+  constexpr std::array guards{DeviceGraphGuard{0, 2}};
+  const std::array node{
+      DeviceGraphCell{2, 0, false, 1},
+      DeviceGraphCell{0, 2, false, 0, guards},
+      DeviceGraphCell{0, 2, false, 0, guards},
+  };
+  constexpr std::array numbers{DeviceGraphCell{255}};
+  const std::array layouts{DeviceGraphLayout{node, true}, DeviceGraphLayout{numbers, false}};
+  const std::vector<std::uint64_t> good{DeviceGraphWireABI::Magic, 2, 1, 1, 1, 2, 2,
+                                        2, 2, 2, 10, 255};
+  const auto validate = [&](const auto &wire, std::size_t work = 100) {
+    return validateDeviceGraph(wire, layouts, 1, work, [] { return false; });
+  };
+  check(validate(good) == V::Valid, "valid graph with shared edge rejected");
+  constexpr std::array arenaLayouts{12u, 5u};
+  const auto image = makeDeviceGraphArena(good, layouts, arenaLayouts, 1, 14, 100,
+                                          [] { return false; });
+  const std::vector<std::uint64_t> relocated{0, 7, 12, 3, 1, 2, 8, 8, 6, 5, 2, 1, 10, 255};
+  check(image && image->root == 1 && image->words == relocated,
+        "arena image did not relocate shared edges or preserve payload bits");
+  const auto tooSmall = makeDeviceGraphArena(good, layouts, arenaLayouts, 1, 13, 100,
+                                             [] { return false; });
+  check(!tooSmall && tooSmall.error() == V::Budget, "arena image ignored header budget");
+  for (auto [index, value] : std::array<std::pair<std::size_t, std::uint64_t>, 9>{
+           {{0, 0}, {1, UINT64_MAX}, {2, 2}, {4, 2}, {6, UINT64_MAX}, {7, 0},
+            {8, 1}, {9, 3}, {11, 256}}}) {
+    auto bad = good;
+    bad[index] = value;
+    check(validate(bad) == V::Invalid, "malformed graph accepted");
+  }
+  const std::array nativeCells{DeviceGraphNativeCell{node[0], 0, 8},
+                               DeviceGraphNativeCell{node[1], 8, 8},
+                               DeviceGraphNativeCell{node[2], 16, 8}};
+  const std::array nativeBytes{DeviceGraphNativeCell{numbers[0], 0, 1}};
+  const std::array nativeLayouts{DeviceGraphNativeLayout{nativeCells, 24, true},
+                                 DeviceGraphNativeLayout{nativeBytes, 1, false}};
+  const std::array<std::uint8_t, 2> shared{10, 255}, independent{10, 255};
+  std::array<std::uint64_t, 3> record{2, 1, 1};
+  const auto resolve = [&](std::size_t layout, std::span<const std::byte> field)
+      -> std::expected<DeviceGraphNativeView, V> {
+    std::uint64_t key = 0;
+    std::memcpy(&key, field.data(), sizeof(key));
+    if (layout != 2 || (key != 1 && key != 2))
+      return std::unexpected(V::Invalid);
+    const auto &storage = key == 1 ? shared : independent;
+    return DeviceGraphNativeView{2, storage.size(), std::as_bytes(std::span(storage))};
+  };
+  const auto pack = [&] {
+    return packDeviceGraph(DeviceGraphNativeView{1, 1, std::as_bytes(std::span(record))},
+                           nativeLayouts, 100, 100, resolve, [] { return false; });
+  };
+  auto packed = pack();
+  check(packed && *packed == good, "native graph packing lost shared allocation identity");
+  record[2] = 2;
+  packed = pack();
+  check(packed && (*packed)[1] == 3 && validate(*packed) == V::Valid,
+        "native graph packing merged separate equal allocations");
+  auto inactive = good;
+  inactive[7] = 1;
+  check(validate(inactive) == V::Invalid, "inactive enum reference was read");
+  inactive[8] = inactive[9] = 0;
+  check(validate(inactive) == V::Invalid, "unreachable graph allocation accepted");
+  const std::array empty{DeviceGraphWireABI::Magic, UINT64_C(1), UINT64_C(1),
+                         UINT64_C(1), UINT64_C(1), UINT64_C(1), UINT64_C(0), UINT64_C(0)};
+  check(validate(empty) == V::Valid, "inactive enum with canonical payload rejected");
+  check(validate(good, 6) == V::Budget, "graph guard work escaped budget");
+  unsigned polls = 0;
+  check(validateDeviceGraph(good, layouts, 1, 100, [&] { return ++polls == 5; }) ==
+            V::Cancelled,
+        "graph validation ignored cancellation");
+  constexpr std::array self{DeviceGraphCell{0, 1, false}};
+  const std::array cyclicLayouts{DeviceGraphLayout{self, true}};
+  const std::array cycle{DeviceGraphWireABI::Magic, UINT64_C(1), UINT64_C(1),
+                         UINT64_C(1), UINT64_C(1), UINT64_C(1)};
+  check(validateDeviceGraph(cycle, cyclicLayouts, 1, 100, [] { return false; }) == V::Valid,
+        "typed cycle did not terminate in structural validation");
+  constexpr std::array cycleArenaLayouts{13u};
+  const auto loop = makeDeviceGraphArena(cycle, cyclicLayouts, cycleArenaLayouts, 1, 6, 100,
+                                         [] { return false; });
+  check(loop && loop->root == 1 && loop->words.back() == loop->root,
+        "arena image did not relocate a self reference");
+}
+void graphCapture() {
+  Invocation source;
+  const char key = 0, wrongKey = 0;
+  const std::uint64_t boxValue = 41;
+  auto *box = source.makeRecursiveValue(std::as_bytes(std::span(&boxValue, 1)), &key);
+  auto *array = static_cast<std::uint64_t *>(source.allocate(3 * sizeof(std::uint64_t)));
+  check(box && array, "graph capture allocation failed");
+  array[0] = 2;
+  array[1] = 3;
+  array[2] = 5;
+  CpuTensor<NumericType::UInt64, 1> descriptor{array, array, 1, {2}, {1}};
+  const std::array captureLayouts{DeviceGraphCaptureLayout{8, 8, &key},
+                                  DeviceGraphCaptureLayout{8, 8, nullptr},
+                                  DeviceGraphCaptureLayout{8, 8, &wrongKey}};
+  DeviceGraphCapture capture(source, captureLayouts);
+  const auto boxField = std::as_bytes(std::span(&box, 1));
+  const auto arrayField = std::as_bytes(std::span(&descriptor, 1));
+  auto retainedBox = capture(1, boxField);
+  auto retainedArray = capture(2, arrayField);
+  check(retainedBox && retainedArray && retainedArray->elements == 2,
+        "graph capture rejected valid backing");
+  check(!capture(3, boxField), "graph capture accepted an incorrect nominal key");
+  descriptor.sizes[0] = 3;
+  check(!capture(2, arrayField), "graph capture accepted an out-of-backing view");
+  descriptor.sizes[0] = 2;
+  descriptor.strides[0] = 2;
+  check(!capture(2, arrayField), "graph capture accepted a non-contiguous descriptor");
+  descriptor.strides[0] = 1;
+
+  struct Root {
+    const void *box;
+    CpuTensor<NumericType::UInt64, 1> array;
+  } root{box, descriptor};
+  const std::array rootCells{DeviceGraphNativeCell{{0, 1}, offsetof(Root, box), sizeof(root.box)},
+                              DeviceGraphNativeCell{{0, 2, true}, offsetof(Root, array), sizeof(root.array)}};
+  const std::array scalar{DeviceGraphNativeCell{{UINT64_MAX}, 0, 8}};
+  const std::array nativeLayouts{DeviceGraphNativeLayout{scalar, 8, true},
+                                 DeviceGraphNativeLayout{scalar, 8, false},
+                                 DeviceGraphNativeLayout{rootCells, sizeof(Root), true}};
+  auto packed = packDeviceGraph({3, 1, std::as_bytes(std::span(&root, 1))}, nativeLayouts,
+                                100, 100, std::ref(capture), [] { return false; });
+  const std::vector<std::uint64_t> expected{DeviceGraphWireABI::Magic, 3, 1,
+                                           3, 1, 1, 1, 2, 2, 2, 3, 41, 3, 5};
+  check(packed && *packed == expected, "real runtime backing did not pack to canonical graph");
+  source.release(array);
+  source.release(const_cast<void *>(box));
+  std::uint64_t retained = 0;
+  std::memcpy(&retained, retainedArray->data.data(), sizeof(retained));
+  check(retained == 3 && !source.live(), "graph capture lease did not survive source release");
+}
 } // namespace
 int main() {
   try {
@@ -381,6 +518,8 @@ int main() {
     emptyAndView();
     envelopeRegion();
     aggregateEnvelope();
+    graphWire();
+    graphCapture();
     cancellationAndAllocation();
     std::cout << "PASS: eleven typed result decoders, exact bits, retained aliases, bounded pages, "
                  "faults, cancellation and owner retirement\n";

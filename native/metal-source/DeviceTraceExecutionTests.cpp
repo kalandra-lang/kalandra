@@ -1,5 +1,6 @@
 // Executes exactly the emitted device collector IR, lowered to CPU for an
 // independent graph oracle. Physical GPU qualification is a separate gate.
+#include "../runtime/DeviceGraphArena.h"
 #include <cstdint>
 namespace kalandra {
 struct DeviceHeapEmitter {
@@ -20,6 +21,10 @@ template <class T> struct Memref {
   std::int64_t offset, size, stride;
 };
 extern "C" void _mlir_ciface_step(Memref<std::uint64_t> *, Memref<std::uint32_t> *);
+#if !defined(KALANDRA_TRACE_PHYSICAL) || defined(KALANDRA_TRACE_SEED)
+extern "C" void _mlir_ciface_seed(Memref<std::uint64_t> *, Memref<std::uint32_t> *,
+                                  Memref<std::uint64_t> *);
+#endif
 static void require(bool ok, const char *message) {
   if (!ok)
     throw std::runtime_error(message);
@@ -51,6 +56,14 @@ struct Heap {
     Memref<std::uint32_t> state{frame.data(), frame.data(), 0, 52, 1};
     _mlir_ciface_step(&heap, &state);
   }
+#if !defined(KALANDRA_TRACE_PHYSICAL) || defined(KALANDRA_TRACE_SEED)
+  void seedStep(std::vector<std::uint64_t> &source) {
+    Memref<std::uint64_t> heap{data.data(), data.data(), 0, std::int64_t(data.size()), 1};
+    Memref<std::uint32_t> state{frame.data(), frame.data(), 0, 52, 1};
+    Memref<std::uint64_t> image{source.data(), source.data(), 0, std::int64_t(source.size()), 1};
+    _mlir_ciface_seed(&heap, &state, &image);
+  }
+#endif
   void collect(std::uint64_t root, bool malformed = false) {
     cell(DeviceHeapEmitter::PC, 1);
     cell(DeviceHeapEmitter::Capacity, data.size());
@@ -178,6 +191,58 @@ int main() {
       auto leaf = h.block(15, {UINT64_MAX});
       h.collect(leaf);
       require(h.data[leaf + 1] == 15, "reference-free nominal payload was not retained");
+    }
+    { // Exercise the emitted collector on the actual graph relocation output.
+      using namespace kalandra::runtime;
+      constexpr std::array cells{DeviceGraphCell{0, 1, false}};
+      const std::array schemas{DeviceGraphLayout{cells, false}};
+      constexpr std::array ids{13u};
+      const std::array wire{DeviceGraphWireABI::Magic, UINT64_C(2), UINT64_C(1),
+                            UINT64_C(1), UINT64_C(2), UINT64_C(1), UINT64_C(1),
+                            UINT64_C(2), UINT64_C(2), UINT64_C(2)};
+      auto image = makeDeviceGraphArena(wire, schemas, ids, 1, 100, 100, [] { return false; });
+      require(bool(image), "typed graph image could not be prepared");
+      Heap h;
+#if defined(KALANDRA_TRACE_PHYSICAL) && !defined(KALANDRA_TRACE_SEED)
+      h.data = std::move(image->words);
+#else
+      std::vector<std::uint64_t> staging{UINT64_MAX, UINT64_MAX};
+      staging.insert(staging.end(), image->words.begin(), image->words.end());
+      h.data.resize(4, UINT64_MAX);
+      h.cell(DeviceHeapEmitter::Capacity, h.data.size());
+      h.seedStep(staging);
+      require(h.cell(DeviceHeapEmitter::PC) == UINT64_MAX - 1 &&
+                  h.cell(2) == image->words.size() + 4 && h.cell(3) == 0,
+              "graph staging did not request initial growth");
+      h.data.resize(h.cell(2), UINT64_MAX);
+      h.cell(DeviceHeapEmitter::Capacity, h.data.size());
+      h.cell(DeviceHeapEmitter::PC, h.cell(3)); // Runtime growth acknowledgement.
+      h.cell(2, 0);
+      for (std::size_t word = 0; word < image->words.size(); ++word) {
+        h.seedStep(staging);
+        require(h.data[word] == image->words[word] && h.cell(DeviceHeapEmitter::PC) == 0 &&
+                    h.data[word + 1] == UINT64_MAX && h.frame.back() == UINT32_MAX,
+                "graph staging exposed partial state or copied outside its checkpoint");
+      }
+      h.seedStep(staging);
+      require(h.cell(DeviceHeapEmitter::PC) == 1 &&
+                  h.data[image->words.size()] == 4 && h.data.back() == 0,
+              "graph staging did not initialize the trailing free block");
+      Heap malformed;
+      malformed.data.resize(32);
+      malformed.cell(DeviceHeapEmitter::Capacity, malformed.data.size());
+      staging.resize(4);
+      malformed.seedStep(staging);
+      require(malformed.frame.back() == 99, "graph staging accepted a truncated image");
+#endif
+      h.collect(image->root);
+      const auto child = h.data[image->root + 4];
+      require(child != image->root && h.data[image->root + 5] == child &&
+                  h.data[child + 1] == 13 && h.data[child + 4] == child,
+              "relocated alias or cycle lost its identity under collection");
+      h.collect(0);
+      require(h.data[2] == 0 && h.data[1] == h.data.size() - 1,
+              "collector retained dead relocated backing");
     }
     {
       Heap h;

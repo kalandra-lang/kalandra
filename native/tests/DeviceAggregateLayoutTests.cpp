@@ -1,9 +1,12 @@
 #include "../gpu-source/AggregateNativeLayout.h"
 #include "../gpu-source/AggregateEntry.h"
+#include "../gpu-source/AggregateGraphSchema.h"
+#include "../runtime/DeviceGraphPack.h"
 #include "../lib/RecordLLVMTypes.h"
 #include "kalandra/Continuation.h"
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
 #include "llvm/IR/LLVMContext.h"
+#include <array>
 #include <iostream>
 #include <stdexcept>
 using namespace kalandra;
@@ -132,6 +135,63 @@ int main() {
                 graphABI->at(0).fields[1].nativeBytes == 8 &&
                 graphABI->at(0).fields[1].storage == RecordFieldStorage::ManagedReference,
             "paired graph ABI expanded a managed recursive link");
+    std::size_t graphBudget = 300000;
+    auto graph = projectDeviceAggregates(input, roots, graphBudget, &*storage);
+    require(graph && graph->nodes.size() == 3 && graph->leaves.size() == 2 &&
+                graph->nodes[1].discriminator && graph->nodes[2].boxed &&
+                graph->nodes[2].activeTag == 2 && graph->nodes[2].deviceWord == 1 &&
+                graph->nodes[2].children.empty(),
+            "graph projection did not terminate at the guarded recursive box");
+    auto graphSchema = planAggregateGraphSchema(input, roots, *nativeRecursive);
+    require(graphSchema && graphSchema->layouts.size() == 1 &&
+                graphSchema->roots == std::vector<std::size_t>{1},
+            "recursive graph schema did not intern the boxed layout");
+    const auto &rule = graphSchema->layouts[0].cells;
+    require(rule.size() == 2 && rule[0].rule.minimum == 1 && rule[0].rule.maximum == 2 &&
+                rule[1].rule.target == 1 && !rule[1].rule.nullable &&
+                rule[1].guards.size() == 1 && rule[1].guards[0].tag == 2 &&
+                rule[1].nativeOffset == nativeRecursive->at(0).fields[1].nativeOffset &&
+                rule[1].nativeBytes == 8,
+            "recursive graph schema lost typed edge or active enum tag");
+    auto referenceRule = rule[1].rule;
+    referenceRule.guards = rule[1].guards;
+    const std::array graphCells{rule[0].rule, referenceRule};
+    const std::array wireLayouts{runtime::DeviceGraphLayout{graphCells, true}};
+    const std::vector<std::uint64_t> listWire{runtime::DeviceGraphWireABI::Magic, 2, 1,
+                                              1, 1, 1, 1, 2, 2, 1, 0};
+    require(runtime::validateDeviceGraph(listWire, wireLayouts, 1, 100, [] { return false; }) ==
+                runtime::DeviceGraphValidation::Valid,
+            "compiler-generated schema rejected a finite list");
+    const std::array nativeCells{
+        runtime::DeviceGraphNativeCell{rule[0].rule, rule[0].nativeOffset, rule[0].nativeBytes},
+        runtime::DeviceGraphNativeCell{referenceRule, rule[1].nativeOffset, rule[1].nativeBytes}};
+    const auto nativeStride = graphSchema->layouts[0].nativeStride;
+    const std::array nativeLayouts{runtime::DeviceGraphNativeLayout{nativeCells, nativeStride, true}};
+    std::vector<std::byte> first(nativeStride), last(nativeStride);
+    const std::uint64_t nextTag = 2, endTag = 1;
+    auto *tail = last.data();
+    std::memcpy(first.data() + rule[0].nativeOffset, &nextTag, sizeof(nextTag));
+    std::memcpy(last.data() + rule[0].nativeOffset, &endTag, sizeof(endTag));
+    std::memcpy(first.data() + rule[1].nativeOffset, &tail, sizeof(tail));
+    std::fill(last.begin() + rule[1].nativeOffset, last.end(), std::byte{255});
+    unsigned reads = 0;
+    const auto resolve = [&](std::size_t layout, std::span<const std::byte> field)
+        -> std::expected<runtime::DeviceGraphNativeView, runtime::DeviceGraphValidation> {
+      ++reads;
+      const std::byte *pointer = nullptr;
+      std::memcpy(&pointer, field.data(), sizeof(pointer));
+      if (layout != 1 || pointer != tail)
+        return std::unexpected(runtime::DeviceGraphValidation::Invalid);
+      return runtime::DeviceGraphNativeView{1, 1, last};
+    };
+    auto packed = runtime::packDeviceGraph({1, 1, first}, nativeLayouts, 100, 100, resolve,
+                                           [] { return false; });
+    require(packed && *packed == listWire && reads == 1,
+            "native list packing did not preserve its shape and skip the inactive reference");
+    packed = runtime::packDeviceGraph({1, 1, first}, nativeLayouts, 8, 100, resolve,
+                                      [] { return false; });
+    require(!packed && packed.error() == runtime::DeviceGraphValidation::Budget,
+            "native list packing exceeded its wire budget");
     auto recordArray = nominal(1);
     recordArray.array = recordArray.tensor = true;
     recordArray.shape = {{std::nullopt, 1}};
@@ -150,6 +210,25 @@ int main() {
                 graphABI->at(0).fields[0].storage == RecordFieldStorage::CollectionDescriptor &&
                 graphABI->at(1).fields[0].storage == RecordFieldStorage::Inline,
             "paired graph ABI confused native record array backing and canonical handles");
+    const std::array graphRoots{nominal(0), nominal(1)};
+    graph = projectDeviceAggregates(input, graphRoots, graphBudget, &*storage);
+    require(graph && graph->nodes.size() == 6 && graph->leaves.size() == 3 &&
+                deviceRecordArrayValue(graph->nodes[2].type) &&
+                deviceRecordArrayValue(graph->nodes[5].type) &&
+                graph->nodes[5].root == 1 && graph->nodes[5].deviceWord == 0,
+            "graph projection did not retain record array identity and inline offset");
+    nativeRecursive = planNativeAggregateLayouts(input, llvm, graphLayout);
+    require(bool(nativeRecursive), "native graph array layout failed");
+    graphSchema = planAggregateGraphSchema(input, roots, *nativeRecursive);
+    require(graphSchema && graphSchema->layouts.size() == 2 &&
+                graphSchema->layouts[0].cells[0].rule.target == 2 &&
+                graphSchema->layouts[0].cells[0].rule.nullable &&
+                graphSchema->layouts[0].cells[0].nativeBytes > 8 &&
+                graphSchema->layouts[1].type.array &&
+                graphSchema->layouts[1].cells[0].rule.target == 2 &&
+                graphSchema->layouts[1].cells[1].rule.maximum == UINT64_MAX,
+            "compiler graph schema lost the recursive array layout");
+    require(!planAggregateGraphSchema(input, roots, *nativeRecursive, 1), "graph schema ignored work budget");
     require(!planDeviceAggregateLayouts(input, roots),
             "flat boundary accepted recursive record array");
     roots = {nominal(100)};

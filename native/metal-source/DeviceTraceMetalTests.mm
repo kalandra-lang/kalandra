@@ -26,7 +26,8 @@ struct PhysicalTrace {
     std::cout << "Physical device: " << [[device name] UTF8String] << '\n';
   }
 };
-extern "C" void _mlir_ciface_step(Memref<std::uint64_t> *heap, Memref<std::uint32_t> *frame) {
+static void dispatchTrace(Memref<std::uint64_t> *heap, Memref<std::uint32_t> *frame,
+                          Memref<std::uint64_t> *image) {
   @autoreleasepool {
     static PhysicalTrace runtime;
     auto arena = [runtime.device newBufferWithBytes:heap->aligned
@@ -35,6 +36,15 @@ extern "C" void _mlir_ciface_step(Memref<std::uint64_t> *heap, Memref<std::uint3
     auto params = [runtime.device newBufferWithBytes:frame->aligned
                                               length:frame->size * sizeof(std::uint32_t)
                                              options:MTLResourceStorageModeShared];
+#ifdef KALANDRA_TRACE_SEED
+    const std::uint64_t empty = 0;
+    auto staging = [runtime.device newBufferWithBytes:image ? image->aligned : &empty
+                                               length:(image ? image->size : 1) * sizeof(std::uint64_t)
+                                              options:MTLResourceStorageModeShared];
+    require(staging != nil, "trace staging buffer allocation failed");
+#else
+    (void)image;
+#endif
     auto output = [runtime.device newBufferWithLength:8 options:MTLResourceStorageModeShared];
     require(arena && params && output, "trace test buffer allocation failed");
     auto command = [runtime.queue commandBuffer];
@@ -43,6 +53,9 @@ extern "C" void _mlir_ciface_step(Memref<std::uint64_t> *heap, Memref<std::uint3
     [encoder setBuffer:arena offset:0 atIndex:0];
     [encoder setBuffer:output offset:0 atIndex:1];
     [encoder setBuffer:params offset:0 atIndex:2];
+#ifdef KALANDRA_TRACE_SEED
+    [encoder setBuffer:staging offset:0 atIndex:3];
+#endif
     [encoder dispatchThreadgroups:MTLSizeMake(1, 1, 1) threadsPerThreadgroup:MTLSizeMake(64, 1, 1)];
     [encoder endEncoding];
     [command commit];
@@ -52,3 +65,14 @@ extern "C" void _mlir_ciface_step(Memref<std::uint64_t> *heap, Memref<std::uint3
     std::memcpy(frame->aligned, params.contents, frame->size * sizeof(std::uint32_t));
   }
 }
+extern "C" void _mlir_ciface_step(Memref<std::uint64_t> *heap, Memref<std::uint32_t> *frame) {
+  dispatchTrace(heap, frame, nullptr);
+}
+#ifdef KALANDRA_TRACE_SEED
+extern "C" void _mlir_ciface_seed(Memref<std::uint64_t> *heap, Memref<std::uint32_t> *frame,
+                                  Memref<std::uint64_t> *image) {
+  frame->aligned[49] = static_cast<std::uint32_t>(image->size);
+  frame->aligned[50] = std::uint64_t(image->size) >> 32;
+  dispatchTrace(heap, frame, image);
+}
+#endif

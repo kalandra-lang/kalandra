@@ -74,6 +74,9 @@ public:
   mlir::Value loadAt(mlir::Value cell);
   void storeAt(mlir::Value cell, mlir::Value value);
   void initialize();
+  // Copy one word from a host-validated, read-only arena image at entry.
+  // True permits the caller to publish the root and leave initialization.
+  mlir::Value seed(mlir::Value image, mlir::Value sealedWords, unsigned offset);
   // Execute one bounded service step. True means the source instruction may run
   // (normal execution, or initialization of a newly allocated result).
   mlir::Value service();

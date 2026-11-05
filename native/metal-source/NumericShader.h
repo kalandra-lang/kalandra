@@ -31,7 +31,8 @@ bool usesScalarControl(const TypedModule &, FunctionId);
 std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModule &, FunctionId,
                                                                  ArithmeticMode,
                                                                  bool nativeFloat64Conversions,
-                                                                 bool aggregateEnvelope = false);
+                                                                 bool aggregateEnvelope = false,
+                                                                 std::optional<std::size_t> graphParameter = {});
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});
 } // namespace kalandra

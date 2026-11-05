@@ -246,6 +246,8 @@ cases['local-recursive-tree'] = ((fixtures/'tree-local.k').read_text(), 50275)
 cases['local-recursive-record-array'] = ((fixtures/'array-local.k').read_text(), 46369)
 cases['local-recursive-array-composition'] = ((fixtures/'array-composition.k').read_text(), 455)
 cases['local-recursive-array-bounds'] = ((fixtures/'array-bounds.k').read_text(), 342)
+cases['graph-entry-list'] = ((fixtures/'list-entry.k').read_text(), 18)
+cases['graph-entry-record-array'] = ((fixtures/'array-graph-entry.k').read_text(), 27)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
 fn collect(batch:Batch)->Batch:
@@ -306,6 +308,8 @@ for name,(source,expected) in cases.items():
     else:
         assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name
         assert 'HostArrayScopes' in host and 'HostArrayWork' in host, name
+    if name.startswith('graph-entry-'):
+        assert 'DeviceGraphArgument<' in host and 'NumericInstructionKind::DeviceControl' in host, name
     assert any('gpu.func' in f.read_text() for f in bundle.glob('*.mlir')), name
     outputs = []
     if not a.compile_only:

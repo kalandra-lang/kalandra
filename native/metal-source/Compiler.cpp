@@ -1,5 +1,6 @@
 #include "../gpu-source/AggregateNativeLayout.h"
 #include "../gpu-source/AggregateEntry.h"
+#include "../gpu-source/AggregateGraphSchema.h"
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/Supervisor.h"
 #include "../lib/NativeLayout.h"
@@ -1275,6 +1276,17 @@ class Compiler {
         layout->setLinkage(llvm::GlobalValue::ExternalLinkage);
       }
     }
+    if (linked)
+      for (auto id : graphNominalKeys) {
+        const auto name = "kalandra_recursive_type_" + std::to_string(id);
+        if (auto *token = linked->getNamedGlobal(name))
+          token->setLinkage(llvm::GlobalValue::ExternalLinkage);
+        else {
+          auto *byte = llvm::Type::getInt8Ty(linked->getContext());
+          new llvm::GlobalVariable(*linked, byte, true, llvm::GlobalValue::ExternalLinkage,
+                                   llvm::ConstantInt::get(byte, 0), name);
+        }
+      }
     if (linked) {
       if (llvm::verifyModule(*linked))
         reject(span, "linked CPU bridge LLVM failed verification");
@@ -1835,6 +1847,85 @@ class Compiler {
       result.push_back(values.at(leaf));
     return result;
   }
+  std::set<std::size_t> graphCapturePolicies, graphNominalKeys;
+  std::string graphCapturePolicy(const ValueType &type, SourceSpan span) {
+    const auto id = *type.record;
+    const auto name = "GpuGraphCapture" + std::to_string(id);
+    if (!graphCapturePolicies.insert(id).second)
+      return name;
+    const auto record = recordType(id);
+    auto schema = planAggregateGraphSchema(cpu, std::span(&type, 1), *nativeAggregateLayouts,
+                                           aggregateEntryWorkRemaining);
+    if (!schema)
+      reject(span, schema.error());
+    for (const auto &layout : schema->layouts) {
+      if (!consumeAggregateProjectionWork(aggregateEntryWorkRemaining, layout.cells.size()))
+        reject(span, "GPU graph capture schema exceeds configured work budget");
+      for (const auto &cell : layout.cells)
+        if (!consumeAggregateProjectionWork(aggregateEntryWorkRemaining, cell.guards.size()))
+          reject(span, "GPU graph capture schema exceeds configured work budget");
+    }
+    std::string code;
+    for (const auto &layout : schema->layouts)
+      if (deviceInlineRecordValue(layout.type)) {
+        graphNominalKeys.insert(*layout.type.record);
+        code += "extern \"C\" const unsigned char kalandra_recursive_type_" +
+                std::to_string(*layout.type.record) + ";\n";
+      }
+    code += "struct " + name + " {using Record=" + record +
+            ";static const ValueLayout &layout(){return " + recordLayoutName(id) + ";}\n";
+    const auto number = [](std::uint64_t value) { return std::to_string(value) + "ull"; };
+    for (std::size_t l = 0; l < schema->layouts.size(); ++l) {
+      const auto &layout = schema->layouts[l];
+      const auto suffix = std::to_string(l);
+      std::string wire, native;
+      for (std::size_t c = 0; c < layout.cells.size(); ++c) {
+        const auto &cell = layout.cells[c];
+        const auto guard = "guards" + suffix + "_" + std::to_string(c);
+        code += "inline static constexpr std::array<DeviceGraphGuard," +
+                std::to_string(cell.guards.size()) + "> " + guard + "{{";
+        for (const auto &g : cell.guards)
+          code += "{" + number(g.word) + "," + number(g.tag) + "},";
+        code += "}};\n";
+        const auto rule = "DeviceGraphCell{" + number(cell.rule.maximum) + "," +
+                          number(cell.rule.target) + "," + (cell.rule.nullable ? "true" : "false") +
+                          "," + number(cell.rule.minimum) + "," + guard + "}";
+        wire += rule + ",";
+        native += "{" + rule + "," + number(cell.nativeOffset) + "," +
+                  number(cell.nativeBytes) + "},";
+      }
+      const auto count = std::to_string(layout.cells.size());
+      code += "inline static constexpr std::array<DeviceGraphCell," + count + "> cells" + suffix +
+              "{{" + wire + "}};\ninline static constexpr std::array<DeviceGraphNativeCell," +
+              count + "> native" + suffix + "{{" + native + "}};\n";
+    }
+    std::string wire, native, capture, arena;
+    for (std::size_t l = 0; l < schema->layouts.size(); ++l) {
+      const auto &layout = schema->layouts[l];
+      const auto suffix = std::to_string(l);
+      const std::string singleton = layout.type.array ? "false" : "true";
+      wire += "{cells" + suffix + "," + singleton + "},";
+      native += "{native" + suffix + "," + number(layout.nativeStride) + "," + singleton + "},";
+      capture += "{" + number(layout.nativeStride) + "," + number(layout.nativeAlignment) + ",";
+      if (deviceInlineRecordValue(layout.type))
+        capture += "&kalandra_recursive_type_" + std::to_string(*layout.type.record);
+      else
+        capture += "nullptr";
+      capture += "},";
+      const auto layoutId = layout.type.record ? *layout.type.record + 12 :
+          runtime::DeviceArrayWireABI::layout(layout.type.element, layout.type.builtin == BuiltinValue::Bool);
+      arena += std::to_string(layoutId) + "u,";
+    }
+    const auto count = std::to_string(schema->layouts.size());
+    code += "inline static constexpr std::array<DeviceGraphLayout," + count + "> wireLayouts{{" +
+            wire + "}};\ninline static constexpr std::array<DeviceGraphNativeLayout," + count +
+            "> nativeLayouts{{" + native + "}};\ninline static constexpr std::array<DeviceGraphCaptureLayout," +
+            count + "> captureLayouts{{" + capture + "}};\ninline static constexpr std::array<unsigned," +
+            count + "> arenaLayouts{{" + arena + "}};\nstatic constexpr auto root=" +
+            number(schema->roots.at(0)) + ";};\n";
+    aggregateDeclarations += std::move(code);
+    return name;
+  }
   std::set<std::size_t> aggregateResultPolicies;
   std::string aggregateResultPolicy(const ValueType &type, SourceSpan span) {
     const auto id = *type.record;
@@ -1892,9 +1983,11 @@ class Compiler {
     const auto &fn = cpu.functions.at(function);
     auto inputs = sourceInputs;
     auto found = numericPrograms.find(function);
+    std::optional<std::size_t> graphParameter;
+    std::string graphPolicy;
     const auto emit = [&](const TypedModule &module, FunctionId entry) {
       auto program = emitNumericProgram(module, entry, arithmetic_, backend_ != GpuBackend::Metal,
-                                        deviceInlineRecordValue(fn.resultType));
+                                        deviceInlineRecordValue(fn.resultType), graphParameter);
       if (!program)
         throw Rejected{program.error()};
       return numericPrograms.emplace(function, std::move(*program)).first;
@@ -1906,18 +1999,42 @@ class Compiler {
       auto normalized = aggregateEntries.find(function);
       if (normalized == aggregateEntries.end()) {
         auto entry = normalizeDeviceAggregateEntry(cpu, function, aggregateEntryWorkRemaining);
-        if (!entry)
-          reject(span, entry.error());
-        found = emit(entry->module, entry->function);
-        normalized = aggregateEntries.emplace(function, std::move(entry->plan)).first;
+        if (entry) {
+          found = emit(entry->module, entry->function);
+          normalized = aggregateEntries.emplace(function, std::move(entry->plan)).first;
+        } else {
+          for (std::size_t i = 0; i < fn.parameters.size(); ++i) {
+            const auto &parameter = cpu.symbols.at(fn.parameters[i]);
+            const auto &type = parameter.type;
+            if (parameter.mutableAccess)
+              reject(span, "GPU captured aggregate inputs are read-only");
+            if (deviceInlineRecordValue(type) && !graphParameter)
+              graphParameter = i;
+            else if (!deviceScalarValue(type))
+              reject(span, entry.error());
+          }
+          if (!graphParameter || !deviceScalarValue(fn.resultType))
+            reject(span, entry.error());
+          const auto &type = cpu.symbols.at(fn.parameters[*graphParameter]).type;
+          if (planDeviceAggregateLayouts(cpu, std::span(&type, 1)))
+            reject(span, entry.error());
+          graphPolicy = graphCapturePolicy(type, span);
+          if (found == numericPrograms.end())
+            found = emit(cpu, function);
+        }
       }
-      const auto &plan = normalized->second;
-      if (plan.nodes.size() > aggregateEntryWorkRemaining)
-        reject(span, "GPU aggregate host extraction exceeds configured work budget");
-      aggregateEntryWorkRemaining -= plan.nodes.size();
-      inputs = aggregateEntryInputs(plan, sourceInputs, span);
-      for (auto leaf : plan.leaves)
-        parameterTypes.push_back(&plan.nodes.at(leaf).type);
+      if (graphParameter) {
+        for (auto symbol : fn.parameters)
+          parameterTypes.push_back(&cpu.symbols.at(symbol).type);
+      } else {
+        const auto &plan = normalized->second;
+        if (plan.nodes.size() > aggregateEntryWorkRemaining)
+          reject(span, "GPU aggregate host extraction exceeds configured work budget");
+        aggregateEntryWorkRemaining -= plan.nodes.size();
+        inputs = aggregateEntryInputs(plan, sourceInputs, span);
+        for (auto leaf : plan.leaves)
+          parameterTypes.push_back(&plan.nodes.at(leaf).type);
+      }
     } else {
       if (found == numericPrograms.end())
         found = emit(cpu, function);
@@ -1930,6 +2047,12 @@ class Compiler {
       const auto &type = *parameterTypes.at(i);
       const auto &value = inputs[i];
       completed(value, span);
+      if (i == graphParameter) {
+        if (value.kind != Value::Aggregate || value.record != type.record || value.gpu)
+          reject(span, "GPU graph capture requires a completed native nominal value");
+        tensors.push_back(value);
+        continue;
+      }
       const bool boolean = type.builtin == BuiltinValue::Bool && !type.tensor && !type.array;
       if ((!boolean && !isBoolArray(type) &&
            (type.builtin != BuiltinValue::Numeric || value.element != type.element)) ||
@@ -2106,13 +2229,17 @@ class Compiler {
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\n";
     const bool arrayInputs =
         std::ranges::any_of(tensors, [](const auto &v) { return v.kind == Value::Array; });
-    if (arrayInputs || result.array || result.record) {
-      if (std::ranges::any_of(tensors, [](const auto &v) { return v.kind != Value::Array; }))
+    if (arrayInputs || graphParameter || result.array || result.record) {
+      if (!graphParameter &&
+          std::ranges::any_of(tensors, [](const auto &v) { return v.kind != Value::Array; }))
         reject(span, "GPU array entry cannot yet combine host arrays and resident tensors");
       std::string arguments;
       for (const auto &value : tensors)
-        arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
-                     (value.booleanArray ? "true" : "false") + ">";
+        if (graphParameter)
+          arguments += ",DeviceGraphArgument<" + graphPolicy + ">";
+        else
+          arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
+                       (value.booleanArray ? "true" : "false") + ">";
       code += "using ArrayJob=" + std::string(result.record ? "DeviceAggregateResultJob" :
                                              result.array ? "DeviceArrayResultJob" : "DeviceArrayInputJob") +
               "<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
@@ -4331,6 +4458,7 @@ public:
     host << (backend_ != GpuBackend::Metal ? "#include \"Language.h\"\n" : "#include \"Metal.h\"\n")
          << R"(#include "../runtime/HostArrays.h"
 #include "../runtime/DeviceArrayInputJob.h"
+#include "../runtime/DeviceGraphCapture.h"
 #include <array>
 #include <bit>
 #include <charconv>
