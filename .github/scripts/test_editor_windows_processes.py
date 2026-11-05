@@ -8,8 +8,9 @@ from unittest.mock import patch
 from editor_windows_processes import EditorProcessScope
 
 class Kernel:
-    def __init__(self, system, *, error=5, settles=True, image='wsl.exe'):
+    def __init__(self, system, *, error=5, settles=True, image='wsl.exe', query_fails=False):
         self.system=system;self.error=error;self.settles=settles;self.image=image
+        self.query_fails = query_fails
         self.exited=False;self.waits=[];self.terminated=[];self.closed=[]
     def OpenProcess(self, rights, inherit, pid):
         assert rights==0x1000|0x100000|1 and not inherit and pid==7
@@ -21,6 +22,8 @@ class Kernel:
         return 0 if self.exited else 258
     def QueryFullProcessImageNameW(self, handle, flags, image, length):
         assert handle==99 and flags==0
+        if self.query_fails:
+            return False
         image.value=str(self.system/self.image)
         return True
     def TerminateProcess(self, handle, code):
@@ -55,6 +58,15 @@ class ProcessScopeTests(unittest.TestCase):
     def test_still_live_access_denial_is_fatal(self):
         with self.assertRaises(OSError) as caught:self.execute(settles=False)
         self.assertEqual(caught.exception.errno,5)
+
+    def test_image_query_race_requires_exit_without_termination(self):
+        kernel = self.execute(query_fails=True)
+        self.assertTrue(kernel.exited)
+        self.assertEqual(kernel.terminated, [])
+        self.assertEqual(kernel.closed, [99])
+        with self.assertRaises(OSError) as caught:
+            self.execute(query_fails=True, settles=False)
+        self.assertEqual(caught.exception.errno, 5)
 
     def test_other_termination_errors_are_not_silenced(self):
         with self.assertRaises(OSError) as caught:self.execute(error=6)
