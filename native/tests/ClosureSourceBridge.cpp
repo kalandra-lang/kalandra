@@ -1,6 +1,7 @@
 #include "../gpu-source/ClosureNativeLayout.h"
 #include "../gpu-source/PointerBridge.h"
 #include "kalandra/Backend.h"
+#include "kalandra/Continuation.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/SourceMgr.h"
@@ -10,7 +11,7 @@
 using namespace kalandra;
 int main(int argc, char **argv) {
   try {
-    if (argc != 2)
+    if (argc != 2 && argc != 3)
       throw std::runtime_error("expected LLVM output path");
     auto checked = check(parse(std::make_shared<SourceFile>("closure-bridge.k", R"k(
 fn named(value:int)->int:
@@ -39,9 +40,18 @@ fn main()->int:
     const auto plan = planClosureTransfer(source, std::span(&root, 1));
     if (!plan || plan->environments.size() != 2)
       throw std::runtime_error("source closure target set was not preserved");
-    std::vector<std::string> exports(source.functions.size());
-    exports[factory] = "make";
-    const auto output = lowerNative(source, {}, exports);
+    auto projected = continuation::plan(source, {.preserveCalls = true, .valueScopes = true});
+    if (!projected)
+      throw std::runtime_error(projected.error());
+    const bool useProjection = argc == 3 && std::string_view(argv[2]) == "continuation";
+    const auto &loweredSource = useProjection ? projected->kernels : source;
+    const auto identity = [&](FunctionId id) {
+      return useProjection ? projected->importedFunctions.at(id) : id;
+    };
+    const auto exportedFactory = identity(factory);
+    std::vector<std::string> exports(loweredSource.functions.size());
+    exports[exportedFactory] = loweredSource.functions.at(exportedFactory).name;
+    const auto output = lowerNative(loweredSource, {}, exports);
     if (!output)
       throw std::runtime_error(output.error());
     llvm::LLVMContext context;
@@ -52,13 +62,13 @@ fn main()->int:
     const auto native = planNativeClosureLayouts(source, *plan, context, module->getDataLayout());
     if (!native)
       throw std::runtime_error(native.error());
-    auto *entry = module->getFunction("_mlir_ciface_kalandra_cpu_" + std::to_string(factory));
+    auto *entry = module->getFunction("_mlir_ciface_kalandra_cpu_" + std::to_string(exportedFactory));
     if (!entry)
       throw std::runtime_error("source factory export is missing");
     emitCpuPointerBridge(*entry, "fixture_factory");
     std::vector<CpuClosureTarget> targets;
     for (const auto &environment : native->environments) {
-      auto *code = module->getFunction("kalandra_callable_" + std::to_string(environment.target));
+      auto *code = module->getFunction("kalandra_callable_" + std::to_string(identity(environment.target)));
       if (!code)
         throw std::runtime_error("source callable identity is missing");
       const bool captures = !environment.captures.empty();

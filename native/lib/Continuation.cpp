@@ -258,7 +258,6 @@ private:
     stack.erase(id);
     return boundary.output;
   }
-  std::unordered_map<FunctionId, FunctionId> importedFunctions;
   std::unordered_map<ValueId, ValueId> importedValues;
   std::unordered_map<SymbolId, SymbolId> importedSymbols;
   bool nativeFunction(FunctionId id) const {

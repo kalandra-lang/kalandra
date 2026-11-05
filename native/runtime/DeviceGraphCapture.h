@@ -13,6 +13,7 @@ namespace kalandra::runtime {
 struct DeviceGraphCaptureLayout {
   std::size_t stride, alignment;
   const void *boxKey; // Null for array descriptors.
+  const void *environmentKey = nullptr; // Native closure code identity, never serialized.
 };
 
 // Holds every backing used by the packer. This runs while the source invocation
@@ -31,7 +32,9 @@ public:
     if (!layout.stride || !layout.alignment || (layout.alignment & (layout.alignment - 1)) ||
         layout.stride % layout.alignment)
       return std::unexpected(V::Invalid);
-    if (layout.boxKey) {
+    if (layout.boxKey || layout.environmentKey) {
+      if (layout.boxKey && layout.environmentKey)
+        return std::unexpected(V::Invalid);
       const void *pointer = nullptr;
       if (field.size() != sizeof(pointer))
         return std::unexpected(V::Invalid);
@@ -39,7 +42,10 @@ public:
       const auto *lease = retain(pointer);
       if (!lease)
         return std::unexpected(V::Invalid);
-      auto bytes = lease->recursiveBytes(layout.boxKey, layout.stride, layout.alignment);
+      auto bytes = layout.environmentKey
+                       ? lease->environmentBytes(layout.environmentKey, layout.stride,
+                                                 layout.alignment)
+                       : lease->recursiveBytes(layout.boxKey, layout.stride, layout.alignment);
       if (!bytes)
         return std::unexpected(V::Invalid);
       return DeviceGraphNativeView{id, 1, *bytes, pointer, pointer, 0};

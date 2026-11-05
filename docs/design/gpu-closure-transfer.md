@@ -74,9 +74,22 @@ environments. It borrows storage without allocating, retaining or extending its
 lifetime; the enclosing task capture scope must remain alive through packing.
 Cancellation and an existing fault take precedence over malformed metadata.
 
-Native layout and checked reads are implemented as prerequisites. Generated
-target tables, capture graph extraction and device entry construction remain
-required before any host/device closure boundary is admitted.
+The graph packer accepts compiler-owned scalar projections for native target
+identity. A projected tag still passes the canonical cell's range checks and
+work/cancellation gates. Reference cells cannot use a scalar projection.
+Environment references resolve through retained leases checked against the
+selected code identity, byte size and alignment. Flat and recursive environments
+use the same transport path; nominal-record keys remain distinct from closure
+code keys. Existing graph interning preserves repeated backing identities.
+
+Continuation imports expose an explicit original-to-imported function map.
+Bridge emission uses that map to resolve actual callable symbols; source IDs
+are not assumed to survive projection. Source-generated tests exercise both
+ordinary and continuation-projected factories through canonical graph packing.
+
+Native layout, checked reads and graph packing are prerequisites. Compiler
+capture-schema generation and device entry construction remain required before
+any host/device closure boundary is admitted.
 
 ## Implementation sequence
 

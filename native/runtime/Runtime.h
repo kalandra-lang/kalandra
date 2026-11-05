@@ -30,6 +30,9 @@ public:
   // lease, rather than the originating invocation, owns the returned view.
   std::optional<std::span<const std::byte>> recursiveBytes(const void *key, std::uint64_t bytes,
                                                            std::uint64_t alignment) const noexcept;
+  // Checked closure payload, for either flat or recursive owned environments.
+  std::optional<std::span<const std::byte>> environmentBytes(const void *code, std::uint64_t bytes,
+                                                             std::uint64_t alignment) const noexcept;
 
 private:
   Backing *backing_ = nullptr;

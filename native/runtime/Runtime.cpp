@@ -251,6 +251,16 @@ std::optional<AllocationLease> Invocation::lease(const void *allocated) const no
     return {};
   return AllocationLease(backing);
 }
+std::optional<std::span<const std::byte>>
+AllocationLease::environmentBytes(const void *code, std::uint64_t size,
+                                   std::uint64_t alignment) const noexcept {
+  if (!backing_ || !code || !size || backing_->environmentKey != code ||
+      backing_->bytes != size || !alignment || alignment > alignof(std::max_align_t) ||
+      (alignment & (alignment - 1)) ||
+      reinterpret_cast<std::uintptr_t>(backing_ + 1) % alignment)
+    return {};
+  return bytes();
+}
 constinit const Invocation::Ledger Invocation::emptyLedger_{};
 void Invocation::materializeLedger() noexcept {
   initializeControl();
@@ -639,7 +649,7 @@ const void *Invocation::readEnvironment(const void *environment, std::uint64_t b
     return nullptr;
   }
   auto retained = lease(environment);
-  if (!retained || retained->bytes().size() != bytes || retained->backing_->environmentKey != key) {
+  if (!retained || !retained->environmentBytes(key, bytes, alignment)) {
     fault(3);
     return nullptr;
   }

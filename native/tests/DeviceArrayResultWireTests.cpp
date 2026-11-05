@@ -453,6 +453,63 @@ void graphWire() {
   check(loop && loop->root == 1 && loop->words.back() == loop->root,
         "arena image did not relocate a self reference");
 }
+void closureGraphCapture() {
+  using V = DeviceGraphValidation;
+  Invocation source;
+  const char code = 0, other = 0, nominal = 0;
+  const std::uint64_t payload = 71;
+  auto *flat = source.allocateEnvironment(sizeof(payload), &code);
+  check(flat != nullptr, "allocate closure environment");
+  std::memcpy(flat, &payload, sizeof(payload));
+  const void *recursive = source.makeRecursiveValue(std::as_bytes(std::span(&payload, 1)), &nominal);
+  check(recursive && source.bindRecursiveEnvironment(recursive, &code), "bind recursive environment");
+  const std::array layouts{
+      DeviceGraphCaptureLayout{8, 8, nullptr, &code},
+      DeviceGraphCaptureLayout{8, 8, nullptr, &other},
+      DeviceGraphCaptureLayout{16, 8, nullptr, &code},
+      DeviceGraphCaptureLayout{8, 3, nullptr, &code},
+      DeviceGraphCaptureLayout{8, 8, &nominal, &code}};
+  DeviceGraphCapture resolver(source, layouts);
+  for (const void *pointer : {static_cast<const void *>(flat), recursive}) {
+    auto field = std::as_bytes(std::span(&pointer, 1));
+    auto retained = resolver(1, field);
+    check(retained && retained->data.size() == 8, "closure payload lease rejected");
+    for (std::size_t id = 2; id <= layouts.size(); ++id)
+      check(!resolver(id, field), "closure capture accepted wrong identity, size or alignment");
+  }
+  auto pointer = static_cast<const void *>(flat);
+  source.settle();
+  auto retained = resolver(1, std::as_bytes(std::span(&pointer, 1)));
+  check(retained && std::memcmp(retained->data.data(), &payload, sizeof(payload)) == 0,
+        "closure graph lease did not outlive the source");
+
+  std::array<std::uint64_t, 2> carrier{71, 99};
+  const auto project = +[](std::span<const std::byte> field) -> std::expected<std::uint64_t, V> {
+    return field.size() == 16 ? std::expected<std::uint64_t, V>(2) : std::unexpected(V::Invalid);
+  };
+  std::array cells{DeviceGraphNativeCell{{2, 0, false, 1}, 0, sizeof(carrier), project}};
+  const std::array native{DeviceGraphNativeLayout{cells, sizeof(carrier), true}};
+  bool stop = false;
+  const auto pack = [&](std::size_t budget = 10) {
+    return packDeviceGraph({1, 1, std::as_bytes(std::span(carrier))}, native, 100, budget,
+        [](auto, auto) -> std::expected<DeviceGraphNativeView, V> { return std::unexpected(V::Invalid); },
+        [&] { return stop; });
+  };
+  auto wire = pack();
+  check(wire && wire->back() == 2, "native identity projection copied pointer bytes");
+  cells[0].wire.maximum = 1;
+  check(!pack() && pack().error() == V::Invalid, "projected tag escaped canonical range check");
+  cells[0].wire.maximum = 2;
+  check(!pack(0) && pack(0).error() == V::Budget, "identity projection escaped work budget");
+  stop = true;
+  check(!pack() && pack().error() == V::Cancelled, "identity projection ignored cancellation");
+  stop = false;
+  cells[0].wire.target = 1;
+  check(!pack(), "scalar projector accepted on a reference cell");
+  cells[0].wire.target = 0;
+  cells[0].bytes = 0;
+  check(!pack(), "zero-byte projection accepted");
+}
 void graphCapture() {
   Invocation source;
   const char key = 0, wrongKey = 0;
@@ -558,6 +615,7 @@ int main() {
     aggregateEnvelope();
     graphWire();
     graphCapture();
+    closureGraphCapture();
     cancellationAndAllocation();
     std::cout << "PASS: eleven typed result decoders, exact bits, retained aliases, bounded pages, "
                  "faults, cancellation and owner retirement\n";
