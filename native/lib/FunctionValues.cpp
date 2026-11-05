@@ -533,13 +533,32 @@ bool workerValueProvenance(const TypedModule &module, ValueId root) {
 } // namespace
 std::optional<FunctionValueTargets> functionValueTargets(const TypedModule &module,
                                                          ValueId root, std::size_t budget) {
-  if (root >= module.expressions.size() || !budget)
+  auto result = functionValueTargets(module, std::span(&root, 1), budget);
+  if (!result)
     return {};
+  return std::move(result->front());
+}
+std::optional<std::vector<FunctionValueTargets>>
+functionValueTargets(const TypedModule &module, std::span<const ValueId> roots,
+                     std::size_t budget) {
+  if (!budget || roots.size() > budget ||
+      std::ranges::any_of(roots, [&](auto root) { return root >= module.expressions.size(); }))
+    return {};
+  if (roots.empty())
+    return std::vector<FunctionValueTargets>{};
   const auto bindings = valueBindings(module);
   WorkerValueFlow flow(module, bindings, budget);
   if (!flow.build())
     return {};
-  return flow.summarize(root);
+  std::vector<FunctionValueTargets> result;
+  result.reserve(roots.size());
+  for (auto root : roots) {
+    auto value = flow.summarize(root);
+    if (!value)
+      return {};
+    result.push_back(std::move(*value));
+  }
+  return result;
 }
 std::optional<FunctionInvocationFlow> functionInvocationFlow(const TypedModule &module,
                                                              std::size_t budget) {

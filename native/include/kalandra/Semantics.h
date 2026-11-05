@@ -2,6 +2,7 @@
 #include "kalandra/NumericType.h"
 #include "kalandra/Syntax.h"
 #include "kalandra/TensorTransform.h"
+#include <span>
 
 namespace kalandra {
 using ValueId = std::size_t;
@@ -64,6 +65,11 @@ struct FunctionValueTargets {
 };
 [[nodiscard]] std::optional<FunctionValueTargets>
 functionValueTargets(const struct TypedModule &, ValueId, std::size_t budget = 300000);
+// All requested roots share one analysis and work budget; no partial result is
+// returned when any root or its provenance cannot be analyzed.
+[[nodiscard]] std::optional<std::vector<FunctionValueTargets>>
+functionValueTargets(const struct TypedModule &, std::span<const ValueId>,
+                     std::size_t budget = 300000);
 // Structural signatures ignore dynamic shape identities, never nominal record identities.
 [[nodiscard]] bool sameFunctionValueType(const ValueType &, const ValueType &,
                                          std::size_t depth = 0);

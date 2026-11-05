@@ -1,4 +1,5 @@
 #include "kalandra/Continuation.h"
+#include "../gpu-source/ClosureTransferPlan.h"
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
@@ -56,6 +57,11 @@ static void transportTargets() {
     require(flow && !flow->unknown &&
                 flow->targets == std::vector<FunctionId>{function(module, "double")},
             "uncalled callback lost its exact compatible target");
+    const auto transfer = planClosureTransfer(module, std::span(&root, 1));
+    require(transfer && transfer->environments.size() == 1 &&
+                transfer->environments[0].target == function(module, "double") &&
+                transfer->environments[0].captures.empty(),
+            "named callback transport environment was not planned");
     require(!functionValueTargets(module, root, 0) &&
                 !functionValueTargets(module, root, 1) &&
                 !functionValueTargets(module, module.expressions.size()),
@@ -71,6 +77,14 @@ static void transportTargets() {
   std::ranges::sort(expected);
   require(flow && !flow->unknown && flow->targets == expected,
           "transport target set dropped a runtime alternative");
+  const auto choiceRoot = binding(choice, "callback");
+  const ValueId batchRoots[]{choiceRoot, choiceRoot};
+  const auto batch = functionValueTargets(choice, batchRoots);
+  require(batch && batch->size() == 2 && (*batch)[0].targets == expected &&
+              (*batch)[1].targets == expected,
+          "batch provenance changed duplicate-root ordering");
+  const ValueId badBatch[]{choiceRoot, choice.expressions.size()};
+  require(!functionValueTargets(choice, badBatch), "batch returned a partial provenance proof");
 
   auto nested = checked(foundation +
       "fn wrap(f:fn(int)->int,values:[int])->fn(int)->int:\n"
@@ -80,6 +94,15 @@ static void transportTargets() {
   require(flow && !flow->unknown && flow->targets.size() == 1 &&
               nested.functions[flow->targets[0]].captureCount == 2,
           "nested callable and owned captures lost their environment target");
+  const auto nestedRoot = binding(nested, "callback");
+  const auto transfer = planClosureTransfer(nested, std::span(&nestedRoot, 1));
+  require(transfer && transfer->environments.size() == 2 &&
+              std::ranges::any_of(transfer->environments, [](const auto &environment) {
+                return environment.captures.size() == 2;
+              }),
+          "nested callable transport omitted a target or owned capture");
+  require(!planClosureTransfer(nested, std::span(&nestedRoot, 1), 1),
+          "transport environment planning ignored its budget");
   auto forged = nested;
   for (auto &value : forged.expressions)
     if (auto *reference = std::get_if<FunctionReference>(&value.operation);
@@ -97,6 +120,34 @@ static void transportTargets() {
   require(flow && flow->unknown &&
               std::ranges::find(flow->targets, function(unknown, "double")) != flow->targets.end(),
           "known alternative erased an unknown transport source");
+  const auto unknownRoot = unknown.functions[function(unknown, "unused")].result;
+  require(!planClosureTransfer(unknown, std::span(&unknownRoot, 1)),
+          "unknown source was admitted as a transferable environment");
+  auto hostCapture = checked(foundation +
+      "fn make(text:String)->fn(int)->int:\n  fn(value:int):value+length(text)\n"
+      "fn main()->int:\n  callback=make(\"hello\")\n  0\n");
+  const auto hostRoot = binding(hostCapture, "callback");
+  require(!planClosureTransfer(hostCapture, std::span(&hostRoot, 1)),
+          "host-only lexical capture was admitted for device transport");
+  auto separate = checked(foundation +
+      "fn makeHost(text:String)->fn(int)->int:\n  fn(value:int):value+length(text)\n"
+      "fn main()->int:\n  host=makeHost(\"hello\")\n  callback=double\n  0\n");
+  const auto separateRoot = binding(separate, "callback");
+  const auto separatePlan = planClosureTransfer(separate, std::span(&separateRoot, 1));
+  require(separatePlan && separatePlan->environments.size() == 1 &&
+              separatePlan->environments[0].target == function(separate, "double"),
+          "unrelated same-signature host closure polluted the device target set");
+  bool completed = false;
+  for (std::size_t budget = 1; budget <= 4096; budget *= 2) {
+    const auto bounded = planClosureTransfer(nested, std::span(&nestedRoot, 1), budget);
+    if (bounded) {
+      require(bounded->environments.size() == transfer->environments.size() &&
+                  bounded->roots[0].targets == transfer->roots[0].targets,
+              "bounded environment planning returned a partial target graph");
+      completed = true;
+    }
+  }
+  require(completed, "environment planning never completed within a sufficient work budget");
 }
 int main() {
   try {
