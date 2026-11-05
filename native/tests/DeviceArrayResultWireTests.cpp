@@ -2,6 +2,7 @@
 #include "../runtime/DeviceAggregateResult.h"
 #include "../runtime/DeviceGraphCapture.h"
 #include "../runtime/DeviceGraphArena.h"
+#include "../runtime/DeviceGraphMaterialize.h"
 #include <functional>
 #include "../runtime/HostArrays.h"
 #include <atomic>
@@ -491,11 +492,47 @@ void graphCapture() {
   const std::array nativeLayouts{DeviceGraphNativeLayout{scalar, 8, true},
                                  DeviceGraphNativeLayout{scalar, 8, false},
                                  DeviceGraphNativeLayout{rootCells, sizeof(Root), true}};
+  std::vector<DeviceGraphNativeView> views;
   auto packed = packDeviceGraph({3, 1, std::as_bytes(std::span(&root, 1))}, nativeLayouts,
-                                100, 100, std::ref(capture), [] { return false; });
+                                100, 100, std::ref(capture), [] { return false; }, &views);
   const std::vector<std::uint64_t> expected{DeviceGraphWireABI::Magic, 3, 1,
                                            3, 1, 1, 1, 2, 2, 2, 3, 41, 3, 5};
   check(packed && *packed == expected, "real runtime backing did not pack to canonical graph");
+  const std::array rootRules{rootCells[0].wire, rootCells[1].wire};
+  const std::array scalarRules{scalar[0].wire};
+  const std::array wireLayouts{DeviceGraphLayout{scalarRules, true},
+                               DeviceGraphLayout{scalarRules, false},
+                               DeviceGraphLayout{rootRules, true}};
+  constexpr std::array layoutIDs{12u, 8u, 14u};
+  std::vector<std::uint64_t> handles;
+  const auto image = makeDeviceGraphArena(*packed, wireLayouts, layoutIDs, 3, 100, 100,
+                                          [] { return false; }, &handles);
+  check(bool(image), "could not relocate the capture graph");
+  const auto origins = makeDeviceGraphOrigins(views, handles, layoutIDs);
+  check(origins && origins->size() == 2, "capture origin table included inline root");
+  std::vector<std::uint64_t> envelope{DeviceGraphWireABI::OriginMagic, 3, 0, handles[1], handles[2]};
+  envelope.insert(envelope.end(), packed->begin(), packed->end());
+  const auto decode = [&] {
+    return decodeDeviceGraphOrigins(envelope, wireLayouts, layoutIDs, 3, *origins, 100,
+                                    [] { return false; });
+  };
+  const auto decoded = decode();
+  check(decoded && verifyDeviceGraphOriginContents(*decoded, nativeLayouts, 100,
+        [] { return false; }) == DeviceGraphValidation::Valid, "valid captured result rejected");
+  const std::array<const void *, 3> keys{&key, &wrongKey, &rootCells};
+  Root returned{};
+  {
+    Invocation::OwnershipScope scope(source);
+    Invocation::OwnershipSelection selection(scope);
+    check(materializeDeviceGraph(source, decoded->graph, wireLayouts, nativeLayouts, keys, 3,
+          std::as_writable_bytes(std::span(&returned, 1)), 100, 100, decoded->nodes) ==
+          DeviceGraphValidation::Valid && returned.box == box && returned.array.allocated == array &&
+          returned.array.offset == 1, "captured result replaced original native identity or view");
+  }
+  envelope.back() = 99;
+  const auto forged = decode();
+  check(forged && verifyDeviceGraphOriginContents(*forged, nativeLayouts, 100,
+        [] { return false; }) == DeviceGraphValidation::Invalid, "forged captured content accepted");
   source.release(array);
   source.release(const_cast<void *>(box));
   std::uint64_t retained = 0;

@@ -29,7 +29,7 @@ public:
     retained_.emplace(std::move(*retained));
     return true;
   }
-  bool advance(Invocation &context, Result &value) {
+  bool advance(Invocation &context, Result &value, std::span<const DeviceGraphOrigin> origins) {
     using W = DeviceArrayWireABI;
     using V = DeviceGraphValidation;
     if (context.poll())
@@ -40,9 +40,26 @@ public:
     }
     const auto bytes = retained_->data();
     const auto words = std::span(reinterpret_cast<const std::uint64_t *>(bytes.data()), bytes.size()/8);
-    const auto status = materializeDeviceGraph(context, words.subspan(W::HeaderWords),
-        Policy::wireLayouts, Policy::nativeLayouts, Policy::keys, Policy::root,
-        std::as_writable_bytes(std::span(&value, 1)), 8 * 1024 * 1024, 8 * 1024 * 1024);
+    const auto payload = words.subspan(W::HeaderWords);
+    constexpr std::size_t budget = 8 * 1024 * 1024;
+    const auto cancelled = [&] { return context.poll() != 0; };
+    V status;
+    try {
+      if (!payload.empty() && payload[0] == DeviceGraphOriginEnvelope::Magic) {
+        const auto envelope = decodeDeviceGraphOrigins(payload, Policy::wireLayouts,
+            Policy::arenaLayouts, Policy::root, origins, budget, cancelled);
+        status = envelope ? verifyDeviceGraphOriginContents(*envelope, Policy::nativeLayouts,
+                                                             budget, cancelled) : envelope.error();
+        if (status == V::Valid)
+          status = materializeDeviceGraph(context, envelope->graph, Policy::wireLayouts,
+              Policy::nativeLayouts, Policy::keys, Policy::root,
+              std::as_writable_bytes(std::span(&value, 1)), budget, budget, envelope->nodes);
+      } else
+        status = materializeDeviceGraph(context, payload, Policy::wireLayouts, Policy::nativeLayouts,
+            Policy::keys, Policy::root, std::as_writable_bytes(std::span(&value, 1)), budget, budget);
+    } catch (const std::bad_alloc &) {
+      status = V::Budget;
+    }
     if (status == V::Valid)
       return true;
     if (!context.poll())

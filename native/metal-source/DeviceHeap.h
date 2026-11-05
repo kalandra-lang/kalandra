@@ -99,7 +99,7 @@ public:
   // arena boundary. Return true only after the whole graph has been written.
   mlir::Value writeResultEnvelope(mlir::Value root, unsigned baseCell, unsigned blockCell,
                                  unsigned wordCell, unsigned outputCell,
-                                 std::span<const DeviceGraphExportLayout>);
+                                 std::span<const DeviceGraphExportLayout>, bool includeOrigins = false);
   void begin(mlir::Value length, unsigned layout);
   mlir::Value ready();
   mlir::Value handle();

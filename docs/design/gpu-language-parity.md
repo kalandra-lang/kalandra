@@ -256,8 +256,10 @@ channel. Packing currently checks a one-million-word image limit and a
 separate work budget before publishing a device value. Fresh recursive results use a terminal device trace. The exporter numbers
 reachable allocations, writes their canonical graph into the paged result
 channel, and the native decoder builds dependency-owned storage before
-publishing the root. Results that refer to captured backing still need
-origin metadata to recover their CPU aliases.
+publishing the root. A result that refers to captured backing carries an origin for each reused
+allocation. The native decoder checks that the returned view and active
+payload agree with the retained capture, then reuses its backing. Fresh
+allocations in the same result keep separate ownership.
 
 A validated graph can be relocated into a private arena image before upload.
 This step converts directory references to device handles and writes allocator

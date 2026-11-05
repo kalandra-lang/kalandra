@@ -106,6 +106,13 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     run([compiler, graph_source, "--target", "metal", "-O2", "-o", graph_app], cwd)
     assert run([graph_app / "program"], cwd).stdout.strip() == "000000000000001b"
     applications.append((graph_app, "000000000000001b"))
+    graph_result = cwd / "recursive graph result.k"
+    graph_result.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/graph-result-captured.k").read_bytes())
+    graph_result_app = cwd / "recursive graph result application"
+    run([compiler, graph_result, "--target", "metal", "-O2", "-o", graph_result_app], cwd)
+    assert run([graph_result_app / "program"], cwd).stdout.strip() == "00000000000003a0"
+    applications.append((graph_result_app, "00000000000003a0"))
     result_source = cwd / "device array results.k"
     result_source.write_text("""fn ordered(values:[int])->[int]:
   sorted(values)

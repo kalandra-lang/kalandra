@@ -2003,9 +2003,10 @@ class Compiler {
     if (deviceInlineRecordValue(fn.resultType) &&
         !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1))) {
       if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
-            return !deviceScalarValue(cpu.symbols.at(symbol).type);
+            const auto &type = cpu.symbols.at(symbol).type;
+            return !deviceScalarValue(type) && !deviceInlineRecordValue(type);
           }))
-        reject(span, "GPU recursive results with captured backing require graph origins");
+        reject(span, "GPU recursive results require scalar or nominal graph inputs");
       graphResultPolicy = graphCapturePolicy(fn.resultType, span);
       resultLayouts = graphExportLayouts.at(*fn.resultType.record);
     }
@@ -2022,7 +2023,10 @@ class Compiler {
         })) {
       auto normalized = aggregateEntries.find(function);
       if (normalized == aggregateEntries.end()) {
-        auto entry = normalizeDeviceAggregateEntry(cpu, function, aggregateEntryWorkRemaining);
+        auto entry = graphResultPolicy.empty()
+            ? normalizeDeviceAggregateEntry(cpu, function, aggregateEntryWorkRemaining)
+            : std::expected<NormalizedDeviceEntry, std::string>(
+                  std::unexpected("GPU recursive result requires one nominal graph input"));
         if (entry) {
           found = emit(entry->module, entry->function);
           normalized = aggregateEntries.emplace(function, std::move(entry->plan)).first;
@@ -2037,10 +2041,10 @@ class Compiler {
             else if (!deviceScalarValue(type))
               reject(span, entry.error());
           }
-          if (!graphParameter || !deviceScalarValue(fn.resultType))
+          if (!graphParameter || (graphResultPolicy.empty() && !deviceScalarValue(fn.resultType)))
             reject(span, entry.error());
           const auto &type = cpu.symbols.at(fn.parameters[*graphParameter]).type;
-          if (planDeviceAggregateLayouts(cpu, std::span(&type, 1)))
+          if (graphResultPolicy.empty() && planDeviceAggregateLayouts(cpu, std::span(&type, 1)))
             reject(span, entry.error());
           graphPolicy = graphCapturePolicy(type, span);
           if (found == numericPrograms.end())

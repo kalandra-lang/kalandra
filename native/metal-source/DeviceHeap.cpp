@@ -476,7 +476,7 @@ Value DeviceHeapEmitter::reserveResultEnvelope(Value words, unsigned baseCell) {
 }
 Value DeviceHeapEmitter::writeResultEnvelope(
     Value root, unsigned baseCell, unsigned blockCell, unsigned wordCell, unsigned outputCell,
-    std::span<const DeviceGraphExportLayout> schemas) {
+    std::span<const DeviceGraphExportLayout> schemas, bool includeOrigins) {
   using A = runtime::DeviceGraphWireABI;
   const auto base = load(baseCell), block = load(blockCell), word = load(wordCell);
   const auto output = load(outputCell);
@@ -500,8 +500,14 @@ Value DeviceHeapEmitter::writeResultEnvelope(
     b.setInsertionPointToStart(&op.getThenRegion().front());
     emit();
   };
-  const auto put = [&](Value index, Value value) { write(base, add(c(4), index), value); };
+  const auto graphStart = includeOrigins ? add(c(2), nodeCount) : c(0);
+  const auto putEnvelope = [&](Value index, Value value) { write(base, add(c(4), index), value); };
+  const auto put = [&](Value index, Value value) { putEnvelope(add(graphStart, index), value); };
   branch(eq(block, c(0)), [&] {
+    if (includeOrigins) {
+      putEnvelope(c(0), c(A::OriginMagic));
+      putEnvelope(c(1), nodeCount);
+    }
     put(c(0), c(A::Magic));
     put(c(1), nodeCount);
     put(c(2), resultNodeId(root));
@@ -521,11 +527,16 @@ Value DeviceHeapEmitter::writeResultEnvelope(
           found = arith::OrIOp::create(b, loc, found, selected);
           when(selected, [&] {
             const Value writable = eq(readOnlyFlag(read(block, c(3))), c(0));
-            branch(writable, [&] {
+            const Value transportable = includeOrigins
+                ? Value(arith::ConstantIntOp::create(b, loc, 1, 1)) : writable;
+            branch(transportable, [&] {
               branch(eq(word, c(0)), [&] {
                 const Value index = add(c(A::HeaderWords),
                     arith::MulIOp::create(b, loc,
                         arith::SubIOp::create(b, loc, id, c(1)), c(A::DirectoryWords)));
+                if (includeOrigins)
+                  putEnvelope(add(id, c(1)),
+                      arith::SelectOp::create(b, loc, writable, c(0), block));
                 put(index, c(schema.wireIdentity));
                 put(add(index, c(1)), arith::DivUIOp::create(b, loc, length, c(schema.stride)));
                 store(wordCell, c(1));

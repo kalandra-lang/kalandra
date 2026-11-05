@@ -1082,7 +1082,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return reject("GPU aggregate outputs need typed transport");
   const bool exportResult = arrayResult || aggregateResult;
   storage |= aggregateResult;
-  if (graphParameter && (*graphParameter >= root.parameters.size() || !scalar(root.resultType) ||
+  if (graphParameter && (*graphParameter >= root.parameters.size() ||
+                         (!scalar(root.resultType) && !graphResult) ||
                          !deviceInlineRecordValue(input.symbols.at(root.parameters[*graphParameter]).type)))
     return reject("GPU graph capture currently requires an inline record and scalar result");
   const auto graphSymbol = graphParameter ? std::optional{root.parameters[*graphParameter]}
@@ -2223,8 +2224,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           when(equal(phase, constant(3)), [&] {
             const Value directory = arith::MulIOp::create(b, loc, heap->resultNodeCount(),
                                                           constant(G::DirectoryWords));
-            const Value words = arith::AddIOp::create(b, loc, heap->resultPayloadWords(),
+            Value words = arith::AddIOp::create(b, loc, heap->resultPayloadWords(),
                 arith::AddIOp::create(b, loc, directory, constant(G::HeaderWords)));
+            if (graphParameter)
+              words = arith::AddIOp::create(b, loc, words,
+                  arith::AddIOp::create(b, loc, constant(2), heap->resultNodeCount()));
             when(heap->reserveResultEnvelope(words, graphReturn + EnvelopeBase), [&] {
               store(graphReturn + ReturnPhase, constant(4));
             });
@@ -2232,7 +2236,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
           when(equal(phase, constant(4)), [&] {
             when(heap->writeResultEnvelope(load(graphReturn + ReturnRoot), graphReturn + EnvelopeBase,
                     graphReturn + EnvelopeBlock, graphReturn + EnvelopeWord,
-                    graphReturn + EnvelopeOutput, graphResultLayouts), [&] {
+                    graphReturn + EnvelopeOutput, graphResultLayouts, graphParameter.has_value()), [&] {
               emitDeviceArrayReturn(*heap, b, load(graphReturn + EnvelopeBase), NumericType::UInt64, false);
               store(graphReturn + ReturnPhase, constant(5));
             });

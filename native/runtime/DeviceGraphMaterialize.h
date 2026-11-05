@@ -1,5 +1,5 @@
 #pragma once
-#include "DeviceGraphPack.h"
+#include "DeviceGraphOrigins.h"
 #include "Runtime.h"
 
 namespace kalandra::runtime {
@@ -10,7 +10,8 @@ inline DeviceGraphValidation materializeDeviceGraph(
     std::span<const DeviceGraphLayout> layouts,
     std::span<const DeviceGraphNativeLayout> nativeLayouts,
     std::span<const void *const> keys, std::size_t rootLayout,
-    std::span<std::byte> result, std::size_t byteLimit, std::size_t work) {
+    std::span<std::byte> result, std::size_t byteLimit, std::size_t work,
+    std::span<const DeviceGraphOrigin *const> origins = {}) {
   using V = DeviceGraphValidation;
   using A = DeviceGraphWireABI;
   const auto cancelled = [&] { return context.poll() != 0; };
@@ -38,6 +39,8 @@ inline DeviceGraphValidation materializeDeviceGraph(
       return validated;
     const auto count = static_cast<std::size_t>(wire[1]);
     const auto root = static_cast<std::size_t>(wire[2] - 1);
+    if (!origins.empty() && (origins.size() != count || origins[root]))
+      return V::Invalid;
     std::vector<Node> nodes;
     nodes.reserve(count);
     std::size_t begin = A::HeaderWords + A::DirectoryWords * count;
@@ -100,6 +103,13 @@ inline DeviceGraphValidation materializeDeviceGraph(
       if (cancelled())
         return V::Cancelled;
       auto &node = nodes[id];
+      if (!origins.empty() && origins[id]) {
+        const auto *owner = origins[id]->owner;
+        if (!context.retainFrom(context, const_cast<void *>(owner)))
+          return context.status() ? V::Budget : V::Cancelled;
+        node.pointer = owner;
+        continue;
+      }
       const auto &native = nativeLayouts[node.layout];
       const auto cells = layouts[node.layout].cells;
       std::vector<std::byte> payload(node.elements * native.stride);
@@ -133,7 +143,9 @@ inline DeviceGraphValidation materializeDeviceGraph(
               const void *allocated, *aligned;
               std::int64_t offset, count, stride;
             };
-            const Descriptor descriptor{child.pointer, child.pointer, 0,
+            const auto *origin = origins.empty() ? nullptr : origins[value - 1];
+            const Descriptor descriptor{child.pointer, origin ? origin->aligned : child.pointer,
+                                        origin ? origin->offset : 0,
                                         static_cast<std::int64_t>(child.elements), 1};
             if (field.bytes != sizeof(descriptor))
               return V::Invalid;

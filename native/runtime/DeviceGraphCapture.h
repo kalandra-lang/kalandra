@@ -1,6 +1,7 @@
 #pragma once
 #include "DeviceGraphPack.h"
 #include "DeviceGraphArena.h"
+#include "DeviceGraphOrigins.h"
 #include "DeviceArrayWire.h"
 #include "Tasks.h"
 #include <functional>
@@ -39,7 +40,7 @@ public:
       auto bytes = lease->recursiveBytes(layout.boxKey, layout.stride, layout.alignment);
       if (!bytes)
         return std::unexpected(V::Invalid);
-      return DeviceGraphNativeView{id, 1, *bytes};
+      return DeviceGraphNativeView{id, 1, *bytes, pointer, pointer, 0};
     }
     struct Descriptor {
       const void *allocated, *aligned;
@@ -69,7 +70,8 @@ public:
     if (std::uint64_t(array.count) > (bytes.size() - start) / layout.stride)
       return std::unexpected(V::Invalid);
     return DeviceGraphNativeView{id, static_cast<std::size_t>(array.count),
-                                 bytes.subspan(start, std::size_t(array.count) * layout.stride)};
+                                 bytes.subspan(start, std::size_t(array.count) * layout.stride),
+                                 array.allocated, array.aligned, array.offset};
   }
 
 private:
@@ -89,11 +91,18 @@ private:
 template <class Policy> struct DeviceGraphArgument {
   static constexpr bool graph = true;
   using Descriptor = typename Policy::Record;
-  using Capture = DeviceArrayCapture<NumericType::UInt64>;
+  struct Capture {
+    DeviceArrayCapture<NumericType::UInt64> transfer;
+    std::vector<DeviceGraphOrigin> origins;
+    auto origin() const noexcept { return transfer.origin(); }
+    auto wire() const noexcept { return transfer.wire(); }
+    bool advance() noexcept { return transfer.advance(); }
+    void retireWire() noexcept { transfer.retireWire(); }
+  };
   static const ValueLayout &layout() noexcept { return Policy::layout(); }
 
   static bool prepare(Invocation &context, Capture &capture, const Descriptor &value,
-                      std::uint64_t origin) noexcept {
+                      std::uint64_t origin, bool preserveOrigins) noexcept {
     using V = DeviceGraphValidation;
     using W = DeviceArrayWireABI;
     const auto fail = [&](V error) {
@@ -106,14 +115,21 @@ template <class Policy> struct DeviceGraphArgument {
       constexpr std::size_t limit = 1 << 20, work = 8 * limit;
       const auto cancelled = [&] { return context.poll() != 0; };
       DeviceGraphCapture resolver(context, Policy::captureLayouts);
+      std::vector<DeviceGraphNativeView> views;
       auto wire = packDeviceGraph({Policy::root, 1, std::as_bytes(std::span(&value, 1))},
-                                  Policy::nativeLayouts, limit, work, std::ref(resolver), cancelled);
+                                  Policy::nativeLayouts, limit, work, std::ref(resolver), cancelled,
+                                  preserveOrigins ? &views : nullptr);
       if (!wire)
         return fail(wire.error());
+      std::vector<std::uint64_t> handles;
       auto image = makeDeviceGraphArena(*wire, Policy::wireLayouts, Policy::arenaLayouts,
-                                        Policy::root, limit, work, cancelled);
+                                        Policy::root, limit, work, cancelled,
+                                        preserveOrigins ? &handles : nullptr);
       if (!image)
         return fail(image.error());
+      auto origins = makeDeviceGraphOrigins(views, handles, Policy::arenaLayouts);
+      if (!origins)
+        return fail(origins.error());
       const auto count = image->words.size() + 1;
       auto *data = static_cast<std::uint64_t *>(context.allocate(count * sizeof(std::uint64_t)));
       if (!data)
@@ -128,9 +144,11 @@ template <class Policy> struct DeviceGraphArgument {
         std::memcpy(data + 1 + at, image->words.data() + at, words * sizeof(std::uint64_t));
         at += words;
       }
-      const bool ready = capture.initialize(context,
+      const bool ready = capture.transfer.initialize(context,
           {data, data, 0, {static_cast<std::int64_t>(count)}, {1}}, origin);
       context.release(data);
+      if (ready)
+        capture.origins = std::move(*origins);
       return ready;
     } catch (const std::bad_alloc &) {
       return fail(V::Budget);

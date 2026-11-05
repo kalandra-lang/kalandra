@@ -155,9 +155,9 @@ private:
         if (!capture.origin()) {
           using Argument = std::tuple_element_t<I, std::tuple<Arguments...>>;
           const auto &descriptor = std::get<I>(frame.arguments);
-          if constexpr (requires { Argument::prepare(task.context(), capture, descriptor,
-                                                       frame.origins[I]); })
-            valid = Argument::prepare(task.context(), capture, descriptor, frame.origins[I]);
+          if constexpr (Argument::graph)
+            valid = Argument::prepare(task.context(), capture, descriptor, frame.origins[I],
+                                      GraphResult);
           else
             valid = capture.initialize(task.context(), descriptor, frame.origins[I]);
           if (!valid)
@@ -389,7 +389,13 @@ private:
         bool complete;
         if constexpr (GraphResult) {
           Invocation::OwnershipSelection selection(*frame.resultScope);
-          complete = frame.decoder.advance(task.context(), frame.value);
+          std::span<const DeviceGraphOrigin> origins;
+          each([&]<std::size_t I>() {
+            using Argument = std::tuple_element_t<I, std::tuple<Arguments...>>;
+            if constexpr (Argument::graph)
+              origins = std::get<I>(frame.captures).origins;
+          });
+          complete = frame.decoder.advance(task.context(), frame.value, origins);
         } else if constexpr (Aggregate) {
           Invocation::OwnershipSelection selection(*frame.resultScope);
           const auto resolve = [&](std::uint64_t origin, NumericType element, bool boolean,

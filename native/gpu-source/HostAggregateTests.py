@@ -251,6 +251,8 @@ cases['graph-entry-record-array'] = ((fixtures/'array-graph-entry.k').read_text(
 cases['graph-entry-copy'] = ((fixtures/'graph-entry-copy.k').read_text(), 10)
 cases['graph-result-list'] = ((fixtures/'graph-result.k').read_text(), 18)
 cases['graph-result-shared-alias'] = ((fixtures/'graph-result-alias.k').read_text(), 1000)
+cases['graph-result-captured-alias'] = ((fixtures/'graph-result-captured.k').read_text(), 928)
+cases['graph-result-captured-box'] = ((fixtures/'graph-result-captured-box.k').read_text(), 1008)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
 fn collect(batch:Batch)->Batch:

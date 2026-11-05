@@ -23,12 +23,15 @@ struct DeviceGraphNativeLayout {
 struct DeviceGraphNativeView {
   std::size_t layout, elements;
   std::span<const std::byte> data;
+  const void *owner = nullptr, *aligned = nullptr;
+  std::int64_t offset = 0;
 };
 
 template <class Resolve, class Cancelled>
 std::expected<std::vector<std::uint64_t>, DeviceGraphValidation>
 packDeviceGraph(DeviceGraphNativeView root, std::span<const DeviceGraphNativeLayout> layouts,
-                std::size_t wordLimit, std::size_t work, Resolve resolve, Cancelled cancelled) {
+                std::size_t wordLimit, std::size_t work, Resolve resolve, Cancelled cancelled,
+                std::vector<DeviceGraphNativeView> *origins = nullptr) {
   using A = DeviceGraphWireABI;
   using V = DeviceGraphValidation;
   using Id = std::expected<std::uint64_t, V>;
@@ -142,6 +145,8 @@ packDeviceGraph(DeviceGraphNativeView root, std::span<const DeviceGraphNativeLay
     wire.insert(wire.end(), payload.begin() + at, payload.begin() + end);
     at = end;
   }
+  if (origins)
+    *origins = std::move(nodes);
   return wire;
 }
 } // namespace kalandra::runtime

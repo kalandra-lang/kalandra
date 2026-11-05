@@ -7,6 +7,7 @@ namespace kalandra::runtime {
 // A directory precedes the packed payloads. References are one-based directory
 // indices. Each layout is a compiler-generated schema local to the entry.
 struct DeviceGraphWireABI {
+  static constexpr std::uint64_t OriginMagic = UINT64_C(0x4b414c4f52470001);
   static constexpr std::uint64_t Magic = UINT64_C(0x4b414c4752500001);
   static constexpr std::size_t HeaderWords = 3, DirectoryWords = 2;
 };

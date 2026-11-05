@@ -20,7 +20,8 @@ std::expected<DeviceGraphArenaImage, DeviceGraphValidation>
 makeDeviceGraphArena(std::span<const std::uint64_t> wire,
                      std::span<const DeviceGraphLayout> layouts,
                      std::span<const unsigned> arenaLayouts, std::size_t rootLayout,
-                     std::size_t wordLimit, std::size_t work, Cancelled cancelled) {
+                     std::size_t wordLimit, std::size_t work, Cancelled cancelled,
+                     std::vector<std::uint64_t> *origins = nullptr) {
   using A = DeviceGraphWireABI;
   using V = DeviceGraphValidation;
   constexpr auto header = DeviceGraphArenaImage::BlockHeader;
@@ -75,6 +76,8 @@ makeDeviceGraphArena(std::span<const std::uint64_t> wire,
       }
     }
   }
+  if (origins)
+    *origins = std::move(handles);
   return image;
 }
 } // namespace kalandra::runtime
