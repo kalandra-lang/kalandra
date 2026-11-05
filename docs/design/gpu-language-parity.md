@@ -118,3 +118,33 @@ from a resident tensor and from the private UInt64 carrier. Bool remains distinc
 from uint8. Zero-array-input generators skip the capture/upload groups. Every
 child is observed before its group closes. No cancellation-contract change or
 wall-clock preemption is introduced by this transport.
+
+
+## Aggregate boundary representation
+
+The compiler uses one canonical device aggregate projection for local frames and
+transport planning. Each numeric or Bool leaf uses one 64-bit cell; a flat array
+uses one checked handle. Nested records contribute their inline child cells.
+Nominal identities, field offsets, owned leaf positions and enum payload tags
+remain explicit. Recursive nominal graphs require references and tracing; the
+inline projection rejects them rather than expanding indefinitely.
+
+Native layout is a separate projection of the same checked nominal fields.
+`TaskValueTypes` and LLVM's target `DataLayout` provide allocation size,
+alignment and field offsets, agreeing with the synchronous CPU type emitter.
+An array descriptor is native metadata, not its device representation. Padding,
+native addresses and inactive enum payloads must not be serialized as cells.
+Nested enums require all enclosing active-payload guards when traversed.
+
+The private CPU pointer bridge adapts native aggregate parameters to slot
+addresses and native aggregate returns to an explicit first output address.
+Generated C++ therefore does not depend on platform-specific by-value struct
+classification. Narrow scalar ABI extension attributes stay on their actual
+scalar arguments; by-value memory/capture attributes are not copied onto the
+pointer wrapper. Existing scalar and array bridges use the same adapter.
+
+These components establish layout and native calling convention only. They do
+not yet admit aggregate captures/results or provide their retained ownership,
+wire graph transport or publication. Those remain required before aggregate
+CPU/GPU boundary support can be reported complete. Existing cancellation,
+fault precedence and checkpoint contracts are unchanged.

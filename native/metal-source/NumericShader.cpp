@@ -1,4 +1,5 @@
 #include "DeviceArrayReturn.h"
+#include "../gpu-source/AggregateLayout.h"
 #include "../gpu-runtime/ControlExport.h"
 #include "NumericShader.h"
 #include "DeviceHeap.h"
@@ -1076,79 +1077,14 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       }))
     return reject("GPU checkpointed entry requires numeric/Bool scalar or flat array results and inputs; "
                   "aggregate outputs need typed transport");
-  // Plain aggregates are values, not host pointers. Each scalar leaf occupies
-  // one private 64-bit cell. Enum tags use their canonical synthetic first field.
-  // Plan the nominal graph iteratively so recursive source types cannot recurse
-  // through the compiler's C++ stack or acquire an accidental pointer ABI.
-  struct RecordLayout {
-    std::size_t words = 0;
-    std::vector<std::size_t> fields;
-    std::vector<std::size_t> owned;
-  };
-  std::map<std::size_t, RecordLayout> layouts;
-  const auto plainRecord = [](const ValueType &type) {
-    return type.record && type.builtin == BuiltinValue::Record && !type.tensor && !type.array &&
-           !type.task && !type.fallible;
-  };
-  std::size_t layoutBudget = 300000;
-  for (const auto &type : plan.slots) {
-    if (scalar(type) || flatArray(type))
-      continue;
-    if (!plainRecord(type))
-      return reject("GPU checkpointed values support numeric/Bool scalars, local numeric/Bool arrays and "
-                    "plain-data records/enums; owned aggregates and tensor loop state need device layouts");
-    std::vector<std::pair<std::size_t, std::size_t>> pending{{*type.record, 0}};
-    std::set<std::size_t> activeRecords;
-    while (!pending.empty()) {
-      auto &[id, field] = pending.back();
-      if (layouts.contains(id)) {
-        pending.pop_back();
-        continue;
-      }
-      if (field == 0 && !activeRecords.insert(id).second)
-        return reject("recursive owned device records require device storage");
-      const auto &record = input.records.at(id);
-      if (field < record.fields.size()) {
-        if (!layoutBudget--)
-          return reject("GPU aggregate layout exceeds configured work budget");
-        const auto &child = record.fields[field++].type;
-        if (scalar(child) || flatArray(child))
-          continue;
-        if (!plainRecord(child))
-          return reject("GPU plain-data records cannot contain owned or host-only fields");
-        if (activeRecords.contains(*child.record))
-          return reject("recursive owned device records require device storage");
-        if (!layouts.contains(*child.record))
-          pending.emplace_back(*child.record, 0);
-        continue;
-      }
-      RecordLayout layout;
-      for (const auto &member : record.fields) {
-        layout.fields.push_back(layout.words);
-        const auto size = scalar(member.type) || flatArray(member.type)
-                              ? 1 : layouts.at(*member.type.record).words;
-        const auto owned = flatArray(member.type) ? 1
-                           : plainRecord(member.type) ? layouts.at(*member.type.record).owned.size()
-                                                     : 0;
-        if (owned > layoutBudget)
-          return reject("GPU aggregate owned layout exceeds configured work budget");
-        layoutBudget -= owned;
-        if (flatArray(member.type))
-          layout.owned.push_back(layout.words);
-        else if (plainRecord(member.type))
-          for (auto offset : layouts.at(*member.type.record).owned)
-            layout.owned.push_back(layout.words + offset);
-        if (size > (UINT32_MAX - 4) / 2 - layout.words)
-          return reject("GPU aggregate layout exceeds the device ABI");
-        layout.words += size;
-      }
-      // Empty records still have an addressable private cell, never a host pointer.
-      layout.words = std::max<std::size_t>(1, layout.words);
-      storage |= !layout.owned.empty();
-      layouts.emplace(id, std::move(layout));
-      activeRecords.erase(id);
-      pending.pop_back();
-    }
+  auto aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots);
+  if (!aggregateLayouts)
+    return reject(aggregateLayouts.error());
+  const auto &layouts = *aggregateLayouts;
+  const auto plainRecord = deviceInlineRecordValue;
+  for (const auto &[id, layout] : layouts) {
+    (void)id;
+    storage |= !layout.owned.empty();
   }
   const auto width = [&](const ValueType &type) -> std::size_t {
     return scalar(type) || flatArray(type) ? 1 : layouts.at(*type.record).words;

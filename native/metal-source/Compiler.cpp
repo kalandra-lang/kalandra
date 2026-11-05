@@ -1,4 +1,5 @@
 #include "../gpu-source/Supervisor.h"
+#include "../gpu-source/PointerBridge.h"
 #include "../metal/ElementwiseLayout.h"
 #include "MatmulShader.h"
 #include "MatmulTiles.h"
@@ -1078,37 +1079,8 @@ class Compiler {
         auto *target = module->getFunction("_mlir_ciface_kalandra_cpu_" + std::to_string(i));
         if (!target)
           reject(span, "native CPU bridge entry is missing");
-        std::vector<llvm::Type *> parameters;
-        for (auto *type : target->getFunctionType()->params())
-          parameters.push_back(type->isStructTy() ? llvm::PointerType::getUnqual(context) : type);
-        auto *bridge = llvm::Function::Create(
-            llvm::FunctionType::get(target->getReturnType(), parameters, false),
-            llvm::GlobalValue::ExternalLinkage, prefix + std::to_string(i), *module);
+        auto *bridge = emitCpuPointerBridge(*target, prefix + std::to_string(i));
         bridges.insert(bridge);
-        // Only carry ABI extension attributes. Aggregate-to-pointer adaptation
-        // adds descriptor loads, so copying the callee's memory/capture effects
-        // onto this wrapper would make an unsound optimization promise.
-        for (auto attribute : {llvm::Attribute::ZExt, llvm::Attribute::SExt}) {
-          if (target->hasRetAttribute(attribute))
-            bridge->addRetAttr(attribute);
-          for (unsigned n = 0; n < bridge->arg_size(); ++n)
-            if (!target->getFunctionType()->getParamType(n)->isStructTy() &&
-                target->hasParamAttribute(n, attribute))
-              bridge->addParamAttr(n, attribute);
-        }
-        llvm::IRBuilder<> builder(llvm::BasicBlock::Create(context, "entry", bridge));
-        std::vector<llvm::Value *> args;
-        for (unsigned n = 0; n < bridge->arg_size(); ++n) {
-          auto *type = target->getFunctionType()->getParamType(n);
-          args.push_back(type->isStructTy() ? builder.CreateLoad(type, bridge->getArg(n))
-                                            : static_cast<llvm::Value *>(bridge->getArg(n)));
-        }
-        auto *result = builder.CreateCall(target, args);
-        result->setAttributes(target->getAttributes());
-        if (target->getReturnType()->isVoidTy())
-          builder.CreateRetVoid();
-        else
-          builder.CreateRet(result);
       }
       // Separate typed modules have their own private callable and function IDs.
       // Only the pointer-based bridges are shared with generated C++.
