@@ -165,7 +165,8 @@ public:
                   functionValueTransportError(output_, output_.expressions[task->operand]))
             error("S074", *unsupported, value.span);
     if (diagnostics_.empty())
-      if (auto unsupported = numericCapabilityError(output_, NumericTarget::Cpu))
+      if (auto unsupported =
+              numericCapabilityError(output_, NumericTarget::Cpu, options_.placement))
         error("S054", *unsupported,
               syntax_.functions.empty() ? SourceSpan{} : syntax_.functions[0].name);
     if (!syntax_.editorOnly && diagnostics_.empty())

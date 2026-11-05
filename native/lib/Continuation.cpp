@@ -125,7 +125,7 @@ public:
         invocationFlow(functionInvocationFlow(input)) {
     if (options.preserveCalls)
       for (FunctionId id = 0; id < input.functions.size(); ++id)
-        if (loopControl[id] && !coordinating[id] && !input.functions[id].resultType.fallible)
+        if (!coordinating[id] && !input.functions[id].resultType.fallible)
           resumable[id] = false;
     if (options.entry && *options.entry >= input.functions.size())
       throw std::runtime_error("continuation entry function is out of range");
@@ -1237,11 +1237,13 @@ private:
           {Code::Kernel, output, args,
            !options.preserveCalls ||
                    std::holds_alternative<IntegerRangeOperation>(node.operation) ||
-                   (options.valueScopes &&
-                    (node.type.array ||
-                     std::ranges::any_of(
-                         operands(node),
-                         [&](auto value) { return input.expressions[value].type.array; })))
+                   (options.valueScopes && (node.type.array || node.type.record ||
+                                            std::ranges::any_of(operands(node),
+                                                                [&](auto value) {
+                                                                  const auto &type =
+                                                                      input.expressions[value].type;
+                                                                  return type.array || type.record;
+                                                                })))
                ? kernel(id)
                : 0,
            0, 0, id});
@@ -1391,7 +1393,7 @@ std::expected<ModulePlan, std::string> plan(const TypedModule &input, Options op
       return std::unexpected(storage.error().message);
     if (hasPlacement(input) && !options.deviceValues)
       return std::unexpected("records are not implemented in placement-aware continuations");
-    if (auto error = numericCapabilityError(input, NumericTarget::Cpu))
+    if (auto error = numericCapabilityError(input, NumericTarget::Cpu, options.deviceValues))
       return std::unexpected(*error);
   }
   try {

@@ -112,6 +112,11 @@ int main() {
     input.records = {record({number(), nominal(0)})};
     input.records[0].variants = {{"End", {}, {}}, {"Next", {}, {1}}};
     require(!planDeviceAggregateLayouts(input, roots), "recursive graph infinitely flattened");
+    auto nativeRecursive =
+        planNativeAggregateLayouts(input, llvm, llvm::DataLayout("e-p:64:64-i64:64"));
+    require(nativeRecursive && nativeRecursive->at(0).fields[1].nativeBytes == 8 &&
+                nativeRecursive->at(0).fields[1].storage == RecordFieldStorage::ManagedReference,
+            "native recursive slot incorrectly depends on device inline admission");
     roots = {nominal(100)};
     require(!planDeviceAggregateLayouts(input, roots), "invalid nominal identity admitted");
     // An iterative deep layout, bounded by work rather than C++ recursion.

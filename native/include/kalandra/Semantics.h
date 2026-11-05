@@ -523,6 +523,9 @@ struct CheckOptions {
 [[nodiscard]] std::string describeType(const ValueType &type);
 [[nodiscard]] std::string dumpTypedIR(const TypedModule &module);
 // Reject unsupported numeric IR before a backend can apply float32-specific lowering.
+// Mixed placement keeps CPU-owned data separate from unrelated device selectors;
+// each placed-entry consumer must still enforce its own device capability rules.
 [[nodiscard]] std::optional<std::string> numericCapabilityError(const TypedModule &module,
-                                                                NumericTarget target);
+                                                                NumericTarget target,
+                                                                bool mixedPlacement = false);
 } // namespace kalandra

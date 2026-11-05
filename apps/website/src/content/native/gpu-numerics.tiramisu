@@ -153,7 +153,7 @@ Helpers with numeric or Bool results can use numeric, Bool, plain-data record/en
 
 h2 { "Local arrays and collecting loops" }
 
-A GPU helper can construct numeric and Bool arrays, index and iterate them, and modify local elements. Assignment keeps the same backing; copy creates independent element storage. slice and concat also construct independent arrays. A synchronous helper with a mut parameter can modify an array created by the calling GPU helper. GPU tasks can capture existing numeric and Bool arrays as read-only parameters. Array results cannot cross the CPU/device entry boundary.
+A GPU helper can construct numeric and Bool arrays, index and iterate them, and modify local elements. Assignment keeps the same backing; copy creates independent element storage. slice and concat also construct independent arrays. A synchronous helper with a mut parameter can modify an array created by the calling GPU helper. GPU tasks can capture existing numeric and Bool arrays as read-only parameters. Helpers can return flat numeric or Bool arrays as native CPU arrays after await.
 
 codeblock { language = kalandra, """fn selected(n: int) -> int:
   indices = generate(n, fn(i): i)
@@ -282,6 +282,32 @@ Input packing, temporary device storage, result transfer and native result stora
 h2 { "AI and LLM foundations" }
 
 Matrix products, tensor arithmetic, conversions and reductions are numerical building blocks for AI workloads. Kalandra does not supply model loading, tokenizers or a full LLM inference runtime, and the Linux CUDA backend remains experimental. Start with a small numerical graph and measure both resident execution and transfer-inclusive latency.
+
+h2 { "Keep records in coordinating CPU code" }
+
+CPU helpers and CPU tasks can receive and return records and enums while the program also runs GPU work. Their arrays keep normal alias identity, including when returned through a CPU task. Recursive links, String fields and record-array fields can remain in these CPU values. Writes through an array field or its alias are rejected while a task is reading it; an independent copy remains writable.
+
+Pass an individual supported array field to a GPU helper, then wrap the returned native array in a CPU record:
+
+codeblock { language = kalandra, """type Batch:
+  values: [int]
+
+fn squares(values: [int]) -> [int]:
+  generate(length(values), fn(i): values[i] * values[i])
+
+fn summarize(batch: Batch) -> int:
+  batch.values[0] + batch.values[1]
+
+fn main() -> int ! TaskError:
+  original = Batch {values: [2, 3]}
+  try parallel:
+    gpu = devices.gpu()
+    values = try await spawn squares(original.values) on gpu
+    result = Batch {values: values}
+    summarize(result)
+""" }
+
+This computes 13 and prints 000000000000000d. squares executes on the GPU; the records and summarize execute on the CPU. This passes an array across the boundary, not the enclosing record. Passing or returning an entire record through a GPU task still requires aggregate device transport and is rejected.
 
 h2 { "CPU and device language coverage" }
 

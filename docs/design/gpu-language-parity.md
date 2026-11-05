@@ -148,3 +148,35 @@ not yet admit aggregate captures/results or provide their retained ownership,
 wire graph transport or publication. Those remain required before aggregate
 CPU/GPU boundary support can be reported complete. Existing cancellation,
 fault precedence and checkpoint contracts are unchanged.
+
+
+## Native aggregate values in mixed programs
+
+The supervisor stores CPU records/enums in opaque slots whose size and alignment
+come from the native CPU layout. Typed CPU kernel exports use the pointer bridge;
+existing task payload-copy callbacks retain their active owned fields before
+publication. CPU child tasks and resumable helper packets use the same native
+payload layout. Ordinary synchronous CPU matching/recursive helpers remain
+native calls rather than being recursively expanded into host continuation code.
+
+Native layout is independent of device eligibility: CPU record factories can
+retain Strings, record arrays and recursive links while unrelated GPU work runs.
+Mixed semantic validation permits that coexistence; each GPU entry still has to
+pass the device compiler's own value and operation admission. Standalone host
+String/function/application-error carriers need their own typed adapters; they
+must not be declared as numeric C interfaces.
+
+The two CPU LLVM projections preserve checked source nominal identities. Their
+address-significant recursive type tokens are joined before linking. Synthetic
+closure-environment type tokens remain private to their projection. Native field
+schemas and enum payload tables must agree before a record crosses a bridge.
+
+A failed/cancelled aggregate result has no success payload. Its ownership slot
+is discarded without traversing a zeroed enum discriminator or nonexistent
+pointers. Discard releases the previous value and preserves other rooted aliases;
+ordinary fault/cancellation precedence and final task settlement remain intact.
+
+This establishes native host coordination only. Whole-record GPU captures and
+results still require device graph encoding, active enum traversal and bounded
+owned-region publication. It does not establish device execution of recursive
+graphs, String operations, general function values or recursive calls.

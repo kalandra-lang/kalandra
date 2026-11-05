@@ -1,0 +1,237 @@
+"""Owned native records/enums around GPU work, with equivalent CPU source oracles.
+
+These are host-continuation aggregate boundaries, not device aggregate captures.
+Actual GPU work is compiled/executed separately from the native field operations.
+"""
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+
+p = argparse.ArgumentParser(description=__doc__)
+p.add_argument('--compiler', type=Path, required=True)
+p.add_argument('--backend', choices=('metal', 'vulkan', 'cuda'), required=True)
+p.add_argument('--variant', choices=('debug', 'optimized', 'sanitized', 'thread-sanitized'), default='optimized')
+p.add_argument('--root', type=Path, required=True)
+p.add_argument('--compile-only', action='store_true')
+p.add_argument('--case', action='append', default=[], help='Run named discovery cases; omit for the full qualification corpus')
+a = p.parse_args()
+a.compiler = a.compiler.resolve()
+a.root = a.root.resolve()
+a.root.mkdir(parents=True, exist_ok=True)
+flags = {'debug': ['-O0'], 'optimized': ['-O2'], 'sanitized': ['--sanitize'],
+         'thread-sanitized': ['--thread-sanitize']}[a.variant]
+suffix = '.exe' if os.name == 'nt' else ''
+def run(command, env=None):
+    r = subprocess.run(list(map(str, command)), capture_output=True, text=True, timeout=240, env=env)
+    assert r.returncode == 0, (command, r.returncode, r.stdout, r.stderr)
+    assert not any(s in r.stderr for s in ('AddressSanitizer', 'ThreadSanitizer', 'runtime error:')), r.stderr
+    return r.stdout.strip()
+work = 'fn work(n:int)->int:\n  total=0\n  for i in range(n):\n    total=total+i\n  total\n'
+cases = {}
+for typ in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','float32','float64','Bool'):
+    if typ == 'Bool':
+        fields = 'Batch {value:true,values:[true,false,true]}'
+        score = '  if batch.value and batch.values[0] and not batch.values[1]:6\n  else:0\n'
+    else:
+        fields = 'Batch {value:2,values:[1,2,3]}'
+        score = '  int(batch.value)+int(batch.values[0])+int(batch.values[2])\n'
+    helper = f'type Batch:\n  value:{typ}\n  values:[{typ}]\nfn make()->Batch:\n  {fields}\nfn score(batch:Batch)->int:\n' + score
+    for child in (False, True):
+        setup = '    batch=try await spawn make() on devices.cpu()\n' if child else '    batch=make()\n'
+        cases[('child-' if child else 'direct-')+typ] = (helper+work+'fn main()->int ! TaskError:\n  try parallel:\n'+setup+'    try await spawn work(score(batch)) on devices.gpu()\n',15)
+common = 'type Batch:\n  values:[int]\n  enabled:Bool\nfn make(n:int)->Batch:\n  Batch {values:[n,n+1],enabled:true}\nfn score(batch:Batch)->int:\n  if batch.enabled:batch.values[0]+batch.values[1]\n  else:0\n'
+cases['retained-through-replacement'] = (common+work+'''fn main()->int ! TaskError:
+  saved=make(7)
+  for i in range(1000):
+    temporary=make(i)
+  try parallel:
+    try await spawn work(score(saved)) on devices.gpu()
+''',105)
+cases['record-update-shared-array'] = (common+work+'''fn main()->int ! TaskError:
+  original=make(1)
+  updated=original with {enabled:false}
+  original.values[0]=7
+  try parallel:
+    try await spawn work(updated.values[0]+updated.values[1]) on devices.gpu()
+''',36)
+cases['helper-record-capture-result'] = (common+work+'''fn remote(batch:Batch)->Batch ! TaskError:
+  try parallel:
+    n=try await spawn work(score(batch)) on devices.gpu()
+    make(n)
+fn main()->int ! TaskError:
+  batch=make(1)
+  try parallel:
+    copied=try await spawn remote(batch) on devices.cpu()
+    copied.values[0]+copied.values[1]
+''',7)
+enum = '''enum Choice:
+  Empty
+  Some:
+    batch:Batch
+fn pick(n:int)->Choice:
+  if n==0:Choice.Empty
+  else:Choice.Some {batch:make(n)}
+fn scoreChoice(value:Choice)->int:
+  match value:
+    Choice.Empty:4
+    Choice.Some {batch}:score(batch)
+'''
+for n, score in [(0,4),(3,7)]:
+    cases['enum-child-'+str(n)] = (common+enum+work+f'''fn main()->int ! TaskError:
+  try parallel:
+    choice=try await spawn pick({n}) on devices.cpu()
+    n=match choice:
+      Choice.Empty:4
+      Choice.Some {{batch}}:score(batch)
+    try await spawn work(n) on devices.gpu()
+''',score*(score-1)//2)
+cases['failed-enum-result-recovery'] = (common+enum+work+'''fn broken(n:int)->int:
+  1/n
+fn remote(n:int)->Choice ! TaskError:
+  try parallel:
+    done=try await spawn broken(n) on devices.gpu()
+    pick(done)
+fn main()->int ! TaskError:
+  try parallel:
+    outcome=parallel:
+      choice=try await spawn remote(0) on devices.cpu()
+      choice
+    recovered=outcome catch fn(error):
+      Choice.Some {batch:make(2)}
+    try await spawn work(scoreChoice(recovered)) on devices.gpu()
+''',10)
+cases['recursive-native-projection-identity'] = (work+'''enum List:
+  End
+  Next:
+    value:int
+    tail:List
+fn makeList(n:int)->List:
+  if n==0:List.End
+  else:List.Next {value:n,tail:makeList(n-1)}
+fn sumList(list:List)->int:
+  match list:
+    List.End:0
+    List.Next {value,tail}:value+sumList(tail)
+fn forwardList(list:List)->List:
+  list
+fn main()->int ! TaskError:
+  original=makeList(20)
+  updated=List.Next {value:2,tail:original}
+  try parallel:
+    kept=try await spawn forwardList(updated) on devices.cpu()
+    try await spawn work(sumList(kept)) on devices.gpu()
+''',22366)
+cases['native-owned-string-field'] = (work+'''type Message:
+  text:String
+fn makeMessage()->Message:
+  Message {text:"Kalandra"}
+fn scoreMessage(message:Message)->int:
+  length(message.text)
+fn main()->int ! TaskError:
+  try parallel:
+    message=try await spawn makeMessage() on devices.cpu()
+    try await spawn work(scoreMessage(message)) on devices.gpu()
+''',28)
+cases['native-owned-record-array-field'] = (work+'''type Row:
+  values:[int]
+type Batch:
+  rows:[Row]
+fn makeBatch()->Batch:
+  Batch {rows:[Row {values:[1,2]},Row {values:[3,4]}]}
+fn scoreBatch(batch:Batch)->int:
+  batch.rows[0].values[0]+batch.rows[1].values[1]
+fn main()->int ! TaskError:
+  try parallel:
+    batch=try await spawn makeBatch() on devices.cpu()
+    try await spawn work(scoreBatch(batch)) on devices.gpu()
+''',10)
+cases['device-array-result-native-record-field'] = (common+'''fn squares(values:[int])->[int]:
+  generate(length(values),fn(i):values[i]*values[i])
+fn main()->int ! TaskError:
+  original=make(2)
+  try parallel:
+    values=try await spawn squares(original.values) on devices.gpu()
+    wrapped=Batch {values:values,enabled:true}
+    score(wrapped)
+''',13)
+cases['native-record-result-retains-original-alias'] = (common+work+'''fn forward(batch:Batch)->Batch:
+  batch
+fn main()->int ! TaskError:
+  original=make(1)
+  try parallel:
+    alias=try await spawn forward(original) on devices.cpu()
+    original.values[0]=9
+    try await spawn work(alias.values[0]+alias.values[1]) on devices.gpu()
+''',55)
+cases['independent-copy-mutation-while-record-read-locked'] = (common+work+'''fn main()->int ! TaskError:
+  original=make(1)
+  fresh=copy(original.values)
+  try parallel:
+    pending=spawn score(original) on devices.cpu()
+    fresh[0]=9
+    n=try await pending
+    try await spawn work(n+fresh[0]) on devices.gpu()
+''',66)
+known = set(cases) | {'reject-record-field','reject-record-field-alias','reject-record-field-sort',
+                       'reject-device-string-body','reject-device-record-capture'}
+if set(a.case)-known:
+    p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
+results = []
+for name,(source,expected) in cases.items():
+    if a.case and name not in a.case:
+        continue
+    root = a.root/name
+    root.mkdir(exist_ok=True)
+    cpu = root/'cpu.k'
+    cpu.write_text(source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', ''))
+    reference = root/('cpu'+suffix)
+    run([a.compiler,cpu,*flags,'-o',reference])
+    assert int(run([reference])) == expected, (name,'CPU',expected)
+    gpu = root/'gpu.k'
+    gpu.write_text(source)
+    bundle = root/'device'
+    run([a.compiler,gpu,'--target',a.backend,*flags,'-o',bundle])
+    host = (bundle/'host.cpp').read_text()
+    assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name
+    assert 'HostArrayScopes' in host and 'HostArrayWork' in host, name
+    assert any('gpu.func' in f.read_text() for f in bundle.glob('*.mlir')), name
+    outputs = []
+    if not a.compile_only:
+        for workers in ('1','4'):
+            out = run([bundle/('program'+suffix)],dict(os.environ,KALANDRA_WORKERS=workers))
+            assert int(out,16) == expected, (name,workers,out,expected)
+            outputs.append(out)
+    results.append({'case':name,'expected':expected,'status':'compiled' if a.compile_only else 'executed','outputs':outputs})
+    print(name,results[-1]['status'],flush=True)
+for name,mutation in [('record-field','batch.values[0]=9'),
+                      ('record-field-alias','alias[0]=9'),
+                      ('record-field-sort','sort(batch.values)')]:
+    if a.case and 'reject-'+name not in a.case:
+        continue
+    root=a.root/('reject-'+name)
+    root.mkdir(exist_ok=True)
+    source=root/'gpu.k'
+    source.write_text(common+work+'fn main()->int ! TaskError:\n  batch=make(1)\n  alias=batch.values\n  try parallel:\n    pending=spawn score(batch) on devices.cpu()\n    '+mutation+'\n    n=try await pending\n    try await spawn work(n) on devices.gpu()\n')
+    r=subprocess.run(list(map(str,[a.compiler,source,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
+    assert r.returncode!=0 and 'S077' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
+    results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'S077'})
+    print('reject-'+name,'rejected S077',flush=True)
+for name,source in {
+    'device-string-body':'fn work(n:int)->int:\n  message="text"\n  length(message)+n\nfn main()->int ! TaskError:\n  try parallel:\n    try await spawn work(1) on devices.gpu()\n',
+    'device-record-capture':common+'fn work(batch:Batch)->int:\n  score(batch)\nfn main()->int ! TaskError:\n  batch=make(1)\n  try parallel:\n    try await spawn work(batch) on devices.gpu()\n',
+}.items():
+    if a.case and 'reject-'+name not in a.case:
+        continue
+    root=a.root/('reject-'+name)
+    root.mkdir(exist_ok=True)
+    path=root/'gpu.k'
+    path.write_text(source)
+    r=subprocess.run(list(map(str,[a.compiler,path,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
+    assert r.returncode!=0 and 'G001' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
+    results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'G001'})
+    print('reject-'+name,'rejected G001',flush=True)
+(a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case),'selectedCases':a.case,'gpuExecution':not a.compile_only,
+    'backend':a.backend,'variant':a.variant,'scope':'native host aggregate slots around actual GPU work',
+    'results':results},indent=2)+'\n')

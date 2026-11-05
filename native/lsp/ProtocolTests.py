@@ -168,6 +168,31 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.hover(main, 5, 6)["result"]["contents"]["value"] == "row: Row"
     client.finish()
 
+    # CPU-owned data may coexist with device work; that does not make the
+    # recursive/String storage a device value. Checking never probes hardware.
+    for owned_record in (
+        'type Message:\n  text:String\nfn make()->Message:\n  Message {text:"Kalandra"}\n'
+        'fn size(message:Message)->int:\n  length(message.text)\n'
+        'fn work(n:int)->int:\n  n\nfn main()->int ! TaskError:\n  value=make()\n'
+        '  try parallel:\n    try await spawn work(size(value)) on devices.gpu()\n',
+        'enum Link:\n  End\n  Next:\n    value:int\n    tail:Link\n'
+        'fn size(link:Link)->int:\n  match link:\n    Link.End:0\n'
+        '    Link.Next {value,tail}:value+size(tail)\n'
+        'fn work(n:int)->int:\n  n\nfn main()->int ! TaskError:\n'
+        '  value=Link.Next {value:42,tail:Link.End}\n  try parallel:\n'
+        '    try await spawn work(size(value)) on devices.gpu()\n',
+    ):
+        client = Client("--placement")
+        client.init()
+        client.open(main, owned_record)
+        assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
+        at = owned_record.rindex('value)')
+        line = owned_record[:at].count('\n')
+        column = len(owned_record[:at].rsplit('\n',1)[-1])
+        expected = 'value: Message' if 'type Message' in owned_record else 'value: Link'
+        assert client.hover(main,line,column+1)["result"]["contents"]["value"] == expected
+        client.finish()
+
     # Device-local arrays and ordered collectors share the ordinary array type
     # and access diagnostics. Editor checking never initializes a GPU driver.
     device_arrays = ("fn work(n:int)->int:\n"

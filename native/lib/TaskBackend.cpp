@@ -185,17 +185,19 @@ public:
       if (found == planner.input.functions.end())
         throw std::runtime_error("CPU bridge names an unknown function");
       const auto id = static_cast<FunctionId>(found - planner.input.functions.begin());
-      const auto supported = [](const ValueType &type) {
+      const auto supported = [&](const ValueType &type) {
         return !type.task && !type.fallible && !type.device &&
                (type.builtin == BuiltinValue::Numeric ||
-                (type.builtin == BuiltinValue::Bool && (!type.tensor || isBoolArray(type))));
+                (type.builtin == BuiltinValue::Bool && (!type.tensor || isBoolArray(type))) ||
+                (type.builtin == BuiltinValue::Record && !type.tensor &&
+                 !containsFunctionStorage(planner.input, type)));
       };
       if (coordinating[id] || found->captureCount || !supported(found->resultType) ||
           std::ranges::any_of(found->parameters, [&](auto symbol) {
             return !supported(planner.input.symbols[symbol].type);
           }))
-        throw std::runtime_error(
-            "CPU bridge exports require completed synchronous numerical values");
+        throw std::runtime_error("CPU bridge exports require completed synchronous numeric/Bool or "
+                                 "non-callable record values");
       const auto &code = planner.plans[id]->code;
       if (code.size() != 2 || code.front().code != Code::Kernel)
         synchronousTargets.insert(id);
@@ -344,7 +346,9 @@ public:
         args.push_back(type.tensor ? static_cast<Value *>(builder.CreateLoad(
                                          scalarType(type), bridge->getArg(n + offset)))
                                    : static_cast<Value *>(bridge->getArg(n + offset)));
-        if (!type.tensor && (type.builtin == BuiltinValue::Bool || isNarrowInteger(type.element)))
+        if (!type.tensor &&
+            (type.builtin == BuiltinValue::Bool ||
+             (type.builtin == BuiltinValue::Numeric && isNarrowInteger(type.element))))
           bridge->addParamAttr(n + offset,
                                type.builtin == BuiltinValue::Bool || isUnsigned(type.element)
                                    ? llvm::Attribute::ZExt
@@ -357,7 +361,8 @@ public:
         builder.CreateRetVoid();
       } else {
         if (found->resultType.builtin == BuiltinValue::Bool ||
-            isNarrowInteger(found->resultType.element))
+            (found->resultType.builtin == BuiltinValue::Numeric &&
+             isNarrowInteger(found->resultType.element)))
           bridge->addRetAttr(found->resultType.builtin == BuiltinValue::Bool ||
                                      isUnsigned(found->resultType.element)
                                  ? llvm::Attribute::ZExt
@@ -570,6 +575,13 @@ public:
 
   llvm::GlobalVariable *emitValueLayout(const ValueType &type) {
     auto *result = layout(type);
+    finishRecordRetainers();
+    return result;
+  }
+  std::vector<llvm::GlobalVariable *> emitPayloadValueLayouts(std::span<const ValueType> types) {
+    std::vector<llvm::GlobalVariable *> result;
+    for (const auto &type : types)
+      result.push_back(payloadLayout(type));
     finishRecordRetainers();
     return result;
   }
@@ -2750,6 +2762,18 @@ llvm::GlobalVariable *emitTaskFrameValueLayout(const TypedModule &input, const T
   continuation::ModulePlan planner(input);
   planner.kernels = kernels;
   return Emitter(planner, module).emitFrameValueLayout(type);
+}
+std::vector<llvm::GlobalVariable *> emitTaskPayloadValueLayouts(const TypedModule &input,
+                                                                llvm::Module &module,
+                                                                std::span<const ValueType> types) {
+  if (!input.functions.empty() || !input.expressions.empty())
+    throw std::invalid_argument("component payload layout requires a schema-only source module");
+  for (const auto &type : types)
+    if (type.task || type.fallible || type.errorRecord || containsFunctionStorage(input, type))
+      throw std::invalid_argument(
+          "standalone payload layout requires completed non-callable storage");
+  continuation::ModulePlan planner(input);
+  return Emitter(planner, module).emitPayloadValueLayouts(types);
 }
 std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &planner,
                                                     llvm::Module &module) {

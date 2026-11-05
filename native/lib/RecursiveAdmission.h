@@ -67,7 +67,8 @@ inline std::optional<Diagnostic> recursiveRecordLayoutError(const TypedModule &m
   auto physical = planRecordPhysicalLayout(module, limits);
   return physical ? std::optional<Diagnostic>{} : std::optional<Diagnostic>{physical.error()};
 }
-inline std::optional<std::string> recursiveProgramError(const TypedModule &module) {
+inline std::optional<std::string> recursiveProgramError(const TypedModule &module,
+                                                        bool mixedPlacement = false) {
   auto storage = planRecordStorage(module);
   if (!storage)
     return storage.error().message;
@@ -75,7 +76,15 @@ inline std::optional<std::string> recursiveProgramError(const TypedModule &modul
     return {};
   if (auto invalid = recursiveRecordLayoutError(module))
     return invalid->message;
-  const auto supported = recursiveValueTypeSupported;
+  // The mixed supervisor owns CPU data beside device selectors/resident numeric
+  // values. Recursive records and callable signatures themselves remain CPU
+  // values; actual device admission belongs to each placed entry's consumer.
+  const auto supported = [&](const ValueType &type) {
+    return mixedPlacement && type.builtin != BuiltinValue::Record &&
+                   type.builtin != BuiltinValue::Function
+               ? true
+               : recursiveValueTypeSupported(type);
+  };
   for (const auto &symbol : module.symbols)
     if (!supported(symbol.type))
       return "recursive programs require CPU values without device residency";
@@ -86,8 +95,8 @@ inline std::optional<std::string> recursiveProgramError(const TypedModule &modul
   for (const auto &expression : module.expressions) {
     if (!supported(expression.type))
       return "recursive programs require CPU values without device residency";
-    if (std::holds_alternative<DeviceSelection>(expression.operation) ||
-        std::holds_alternative<Transfer>(expression.operation))
+    if (!mixedPlacement && (std::holds_alternative<DeviceSelection>(expression.operation) ||
+                            std::holds_alternative<Transfer>(expression.operation)))
       return "recursive values require CPU execution";
     if (const auto *match = std::get_if<MatchOperation>(&expression.operation)) {
       if (match->subject >= module.expressions.size() || match->cases.empty())

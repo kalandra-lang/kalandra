@@ -10,6 +10,9 @@ public:
   void destroy() noexcept;
   bool begin() noexcept;
   bool commit(std::size_t, void *) noexcept;
+  // A stopped/failed result has no valid success payload to copy. Retire its
+  // previous rooted value without interpreting zeroed enum/pointer fields.
+  bool discard(std::size_t) noexcept;
   struct Write {
     std::uint64_t slot;
     void *value;

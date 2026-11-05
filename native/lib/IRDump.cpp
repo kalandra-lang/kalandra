@@ -126,13 +126,16 @@ std::string describeType(const ValueType &type) {
     out << (type.errorRecord ? " ! error#" + std::to_string(*type.errorRecord) : " ! TaskError");
   return out.str();
 }
-std::optional<std::string> numericCapabilityError(const TypedModule &module, NumericTarget target) {
-  if (auto error = recursiveProgramError(module))
+std::optional<std::string> numericCapabilityError(const TypedModule &module, NumericTarget target,
+                                                  bool mixedPlacement) {
+  if (mixedPlacement && target != NumericTarget::Cpu)
+    return "mixed placement validation requires CPU host types";
+  if (auto error = recursiveProgramError(module, mixedPlacement))
     return error;
   if (auto error = functionValueCapabilityError(module, target))
     return error;
   if (hasOrdinaryStrings(module)) {
-    if (target != NumericTarget::Cpu || hasPlacement(module))
+    if (target != NumericTarget::Cpu || (hasPlacement(module) && !mixedPlacement))
       return "ordinary Strings currently require CPU execution without placement";
   }
   // Placement is checked by the device compiler at each placed entry. Plain

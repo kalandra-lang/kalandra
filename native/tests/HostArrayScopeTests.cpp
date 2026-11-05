@@ -59,6 +59,34 @@ template <NumericType Element, bool Boolean = false> static void exercise() {
     context.settle();
     require(context.allocations() == context.releases(), "array scope leaked allocations");
   }
+  // A failed aggregate result has no success descriptor to retain. Discard must
+  // release just that slot and preserve a second alias without reading payload.
+  {
+    Invocation owner, destination;
+    auto *bytes = static_cast<Cell *>(owner.allocate(sizeof(Cell)));
+    require(bytes != nullptr, "discard source allocation failed");
+    *bytes = Cell(1);
+    Descriptor input{bytes, bytes, 0, {1}, {1}}, first{}, second{};
+    HostArrayScopes scopes;
+    require(scopes.initialize(destination, layouts), "discard scope initialization failed");
+    const auto fixed = destination.live();
+    require(scopes.capture(destination, 0, layout, &first, owner, &input) &&
+                scopes.capture(destination, 1, layout, &second, owner, &input),
+            "discard capture failed");
+    owner.settle();
+    const auto before = destination.live();
+    {
+      HostArrayWork work(scopes);
+      require(bool(work) && scopes.discard(0), "valid payload discard failed");
+    }
+    require(second.aligned[0] == Cell(1) && destination.live() < before,
+            "discard retired a live alias or retained an abandoned slot");
+    {
+      HostArrayWork work(scopes);
+      require(bool(work) && scopes.discard(1), "last payload discard failed");
+    }
+    require(destination.live() == fixed, "discard kept native backing alive");
+  }
   Invocation context;
   std::atomic<bool> cancelled{false};
   context.bindCancellation(&cancelled);
@@ -85,6 +113,37 @@ int main() {
     exercise<NumericType::Float32>();
     exercise<NumericType::Float64>();
     exercise<NumericType::UInt8, true>();
+    for (unsigned mode = 0; mode < 4; ++mode) {
+      Invocation context;
+      std::atomic<bool> cancelled{false};
+      context.bindCancellation(&cancelled);
+      const auto &layout = hostArrayLayout<NumericType::Int64>();
+      const std::array layouts{&layout};
+      {
+        HostArrayScopes scopes;
+        require(scopes.initialize(context, layouts), "discard guard initialization failed");
+        if (mode == 0)
+          require(!scopes.discard(0) && context.status() == 3,
+                  "discard without an active ownership interval was admitted");
+        else {
+          HostArrayWork work(scopes);
+          require(bool(work), "discard guard interval failed");
+          if (mode == 1)
+            require(!scopes.discard(1) && context.status() == 3,
+                    "discard outside the checked slot range was admitted");
+          else {
+            if (mode == 3)
+              context.fault(5);
+            cancelled = true;
+            require(!scopes.discard(0) && context.status() == (mode == 3 ? 5 : 0),
+                    "discard changed cancellation or earlier-fault precedence");
+          }
+        }
+      }
+      context.settle();
+      require(!context.live() && context.allocations() == context.releases(),
+              "failed/cancelled discard retained ownership");
+    }
     Invocation source, destination;
     auto *data = static_cast<unsigned char *>(source.allocate(1));
     require(data != nullptr, "invalid Bool source allocation failed");

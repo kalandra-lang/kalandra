@@ -108,6 +108,13 @@ array_main = [sys.executable, repo/'native/gpu-source/DeviceArrayMainTests.py',
 if not a.execute:
     array_main.append('--compile-only')
 subprocess.run(array_main, check=True, timeout=1200)
+host_aggregates = [sys.executable, repo/'native/gpu-source/HostAggregateTests.py',
+                   '--compiler', compiler, '--backend', 'vulkan',
+                   '--variant', 'optimized', '--root', a.root/'host-aggregates']
+if not a.execute:
+    host_aggregates.append('--compile-only')
+subprocess.run(host_aggregates, check=True, timeout=1200)
+
 
 
 booleans = [sys.executable, repo/'native/gpu-source/DeviceBoolTests.py',
