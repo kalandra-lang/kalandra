@@ -1,4 +1,5 @@
 #include "../gpu-source/ClosureNativeLayout.h"
+#include "../gpu-source/ClosureGraphSchema.h"
 #include "../gpu-source/PointerBridge.h"
 #include "kalandra/Backend.h"
 #include "kalandra/Continuation.h"
@@ -62,6 +63,17 @@ fn main()->int:
     const auto native = planNativeClosureLayouts(source, *plan, context, module->getDataLayout());
     if (!native)
       throw std::runtime_error(native.error());
+    const auto records = planNativeAggregateLayouts(source, context, module->getDataLayout());
+    if (!records)
+      throw std::runtime_error(records.error());
+    const auto graph = planClosureGraphSchema(source, std::span(&source.functions[factory].resultType, 1),
+                                               *plan, *native, *records);
+    if (!graph)
+      throw std::runtime_error(graph.error());
+    if (graph->graph.layouts.size() != 2 || graph->imports.size() != 2 ||
+        graph->graph.layouts[0].cells.size() != 2 ||
+        graph->graph.layouts[1].cells.size() != 1)
+      throw std::runtime_error("source closure canonical schema disagrees with its capture ABI");
     auto *entry = module->getFunction("_mlir_ciface_kalandra_cpu_" + std::to_string(exportedFactory));
     if (!entry)
       throw std::runtime_error("source factory export is missing");
@@ -84,9 +96,12 @@ fn main()->int:
       if (captures) {
         if (environment.captures.size() != 1)
           throw std::runtime_error("unexpected source capture count");
-        constant("fixture_environment_bytes", environment.bytes);
-        constant("fixture_environment_alignment", environment.alignment);
-        constant("fixture_offset_field", environment.captures[0].offset);
+        const auto &wireEnvironment = graph->graph.layouts[1];
+        if (graph->environments[1] != environment.target)
+          throw std::runtime_error("source graph environment target changed");
+        constant("fixture_environment_bytes", wireEnvironment.nativeStride);
+        constant("fixture_environment_alignment", wireEnvironment.nativeAlignment);
+        constant("fixture_offset_field", wireEnvironment.cells[0].nativeOffset);
       }
     }
     emitCpuClosureBridge(*module, "fixture_identify", targets);

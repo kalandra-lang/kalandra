@@ -483,6 +483,18 @@ void closureGraphCapture() {
   check(retained && std::memcmp(retained->data.data(), &payload, sizeof(payload)) == 0,
         "closure graph lease did not outlive the source");
 
+  alignas(8) const std::array<std::uint64_t, 2> embedded{17, 29};
+  const std::array inlineLayouts{
+      DeviceGraphCaptureLayout{16, 8, nullptr, nullptr, true},
+      DeviceGraphCaptureLayout{16, 8, nullptr, &code, true}};
+  DeviceGraphCapture inlineResolver(source, inlineLayouts);
+  const auto inlineField = std::as_bytes(std::span(embedded));
+  const auto inlineView = inlineResolver(1, inlineField);
+  check(inlineView && inlineView->data.data() == inlineField.data(),
+        "embedded carrier lost its parent graph view");
+  check(!inlineResolver(1, inlineField.first(8)) && !inlineResolver(2, inlineField),
+        "malformed embedded carrier layout accepted");
+
   std::array<std::uint64_t, 2> carrier{71, 99};
   const auto project = +[](std::span<const std::byte> field) -> std::expected<std::uint64_t, V> {
     return field.size() == 16 ? std::expected<std::uint64_t, V>(2) : std::unexpected(V::Invalid);

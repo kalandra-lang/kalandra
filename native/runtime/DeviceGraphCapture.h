@@ -12,8 +12,9 @@
 namespace kalandra::runtime {
 struct DeviceGraphCaptureLayout {
   std::size_t stride, alignment;
-  const void *boxKey; // Null for array descriptors.
+  const void *boxKey; // Nominal recursive payload key; null for other view kinds.
   const void *environmentKey = nullptr; // Native closure code identity, never serialized.
+  bool inlineValue = false; // A carrier embedded in an already-retained parent view.
 };
 
 // Holds every backing used by the packer. This runs while the source invocation
@@ -32,6 +33,12 @@ public:
     if (!layout.stride || !layout.alignment || (layout.alignment & (layout.alignment - 1)) ||
         layout.stride % layout.alignment)
       return std::unexpected(V::Invalid);
+    if (layout.inlineValue) {
+      if (layout.boxKey || layout.environmentKey || field.size() != layout.stride ||
+          reinterpret_cast<std::uintptr_t>(field.data()) % layout.alignment)
+        return std::unexpected(V::Invalid);
+      return DeviceGraphNativeView{id, 1, field};
+    }
     if (layout.boxKey || layout.environmentKey) {
       if (layout.boxKey && layout.environmentKey)
         return std::unexpected(V::Invalid);

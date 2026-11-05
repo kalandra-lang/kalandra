@@ -2,6 +2,7 @@
 #include "../gpu-source/AggregateEntry.h"
 #include "../gpu-source/AggregateGraphSchema.h"
 #include "../gpu-source/ClosureNativeLayout.h"
+#include "../gpu-source/ClosureGraphSchema.h"
 #include "../runtime/DeviceGraphPack.h"
 #include "../lib/RecordLLVMTypes.h"
 #include "kalandra/Continuation.h"
@@ -378,6 +379,46 @@ fn produce()->Outer:
                      std::holds_alternative<ArrayIndex>(checked.module->expressions[op.source].operation);
             }),
             "normalized wrapper omitted the original enum computation");
+    auto closureSource = check(parse(std::make_shared<SourceFile>("closure-graph.k", R"k(
+type Batch:
+  run:fn(int)->int
+  values:[int]
+fn make()->Batch:
+  values=[3,7]
+  inner=fn(n:int):n+values[0]
+  outer=fn(n:int):inner(n)+values[1]
+  Batch {run:outer,values:values}
+fn main()->int:
+  batch=make()
+  batch.run(1)
+)k")));
+    require(closureSource.ok(), "closure graph source rejected");
+    const auto &closureModule = *closureSource.module;
+    const auto closureRoot = closureModule.functions[0].result;
+    const auto closurePlan = planClosureTransfer(closureModule, std::span(&closureRoot, 1));
+    require(bool(closurePlan), "closure graph target planning failed");
+    const auto closureABI = planNativeClosureLayouts(closureModule, *closurePlan, llvm, graphLayout);
+    const auto closureRecords = planNativeAggregateLayouts(closureModule, llvm, graphLayout);
+    require(closureABI && closureRecords, "closure graph native ABI planning failed");
+    const auto &closureType = closureModule.functions[0].resultType;
+    const auto closureGraph = planClosureGraphSchema(closureModule, std::span(&closureType, 1),
+                                                     *closurePlan, *closureABI, *closureRecords);
+    if (!closureGraph)
+      throw std::runtime_error(closureGraph.error());
+    require(closureGraph->imports.size() == 2, "nested closure graph lost a target");
+    require(std::ranges::count_if(closureGraph->graph.layouts, [](const auto &layout) {
+              return layout.type.array;
+            }) == 1, "array shape refinement split a shared capture layout");
+    require(std::ranges::count(closureGraph->kinds, ClosureGraphSchema::Kind::Callable) == 1,
+            "nested closures with the same signature split their carrier layout");
+    for (const auto &import : closureGraph->imports) {
+      require(import.environmentLayout && import.environmentWord && import.carrierWords == 3,
+              "nested closure environment schema missing");
+    }
+    for (std::size_t limit : {0u, 1u, 8u})
+      require(!planClosureGraphSchema(closureModule, std::span(&closureType, 1),
+                                     *closurePlan, *closureABI, *closureRecords, limit),
+              "partial closure graph escaped the work budget");
     std::cout
         << "device/native aggregate schemas: padding, all numeric/Bool arrays, nested aliases, "
            "enum activity, budgets and iterative layout passed\n";

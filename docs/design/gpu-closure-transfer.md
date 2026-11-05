@@ -113,6 +113,15 @@ generation and physical execution of imported closures remain qualification
 requirements; existing device-local closure regression tests do not prove that
 boundary complete.
 
+`ClosureGraphSchema` combines ordinary values, callable carriers and selected
+environments into one directory. Callable signatures remain distinct, while
+array layout keys ignore static length refinements so an array shared through a
+capture and an ordinary field retains one graph identity. Callable fields are
+borrowed views within their retained parent; environments use checked leases.
+The generated environment offsets are exercised by source-compiled factory
+tests. Host submission policy emission is still required to admit this schema
+at a user-facing GPU boundary.
+
 ## Implementation sequence
 
 1. Expose value-level target provenance and test unused values, factories,
