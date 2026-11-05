@@ -1,7 +1,6 @@
 # CPU/device language parity qualification
 
-Issue #279 is the completion boundary. PR #281's scalar checkpoints are a
-foundation, not completion. Device execution means source predicates, arithmetic,
+Issue #279 defines the completion boundary. Device execution means source predicates, arithmetic,
 traversal and value construction execute on the selected GPU. Host scheduling,
 resource admission and transfers must not masquerade as device computation.
 
@@ -194,9 +193,10 @@ the flat input job keeps its origin deduplication, readonly and acknowledgement
 contracts. A returned captured array therefore retains its original CPU alias.
 No native pointers or padding become device wire values.
 
-Recursive graphs, Strings, general function values, recursive calls and tensor
-state remain separate qualification work. The normalized entry accepts scalar
-and flat-array peers alongside eligible aggregate inputs and results.
+Recursive graphs and tensor state use the transport paths described below.
+Strings and host/device function-value transfer are not admitted. The normalized
+entry accepts scalar and flat-array peers alongside eligible aggregate inputs
+and results.
 
 ### Whole-record result transport
 

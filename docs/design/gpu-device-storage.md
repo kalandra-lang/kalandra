@@ -1,12 +1,11 @@
 # Invocation-owned device storage
 
-This is the storage contract for #279. Invocation-local numeric/Bool arrays and
-ordered collecting loops use its arena and a collector for reference-free
-payloads. Local acyclic records/enums may contain these arrays; their live inline
-owned leaves are roots, preserving array aliases through allocation checkpoints. Flat numeric/Bool host-array inputs have typed read-only capture transport.
-Owned-reference source layouts, cyclic values and aggregate/result transport
-remain required work. The plain-record frame remains an inline value
-representation; host pointers are not a valid extension of it.
+This is the storage contract for #279. Invocation-local arrays, recursive
+records/enums, closure environments and tensors use a typed arena with
+checkpointed tracing and reclamation. Captured backing is read-only; explicit
+copies own independent backing. Typed input/result transport preserves aliases
+without putting native host pointers in shader-visible storage. See
+[gpu-language-parity.md](gpu-language-parity.md) for the transport and call ABI.
 
 ## Storage and permissions
 
@@ -193,14 +192,15 @@ block or root. The compiler computes roots from the CFG, including allocation
 operands and implicit collector handles; stale overwritten/dead slots are not
 roots. An independent path oracle checks those liveness maps.
 
-These initial payload layouts contain no owned references. They therefore do
-not implement the grey-block traversal needed for owned fields, record/function
-arrays or cycles. Those types remain rejected. Collector append grows private
-backing geometrically, copies one initialized cell per step, then publishes the
-new logical prefix. No source array pointer escapes the invocation; typed result
-transport remains unimplemented. Flat host-array input transport uses sealed
-lengths and read-only external handles above the 32-bit local handle range. The complete reference-tracing design above
-remains required for full parity.
+Typed payload layouts also describe owned references in active record/enum
+fields, record arrays, call frames and closure environments. The device collector
+traces these edges in bounded steps. Collector append grows private backing
+geometrically, copies initialized cells in checkpointed steps, then publishes the
+new logical prefix. Flat host-array input transport uses sealed lengths and
+read-only external handles. Recursive graph inputs use typed arena images whose
+imported allocations remain read-only. Array and aggregate results use checked,
+paged transport; resident tensor results retain their device allocation. Native
+addresses never become device handles.
 
 ## Required qualification
 
