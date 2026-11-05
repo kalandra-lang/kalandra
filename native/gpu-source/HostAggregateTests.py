@@ -255,6 +255,7 @@ cases['graph-result-captured-alias'] = ((fixtures/'graph-result-captured.k').rea
 cases['graph-result-captured-box'] = ((fixtures/'graph-result-captured-box.k').read_text(), 1008)
 cases['graph-entry-multiple-captures'] = ((fixtures/'graph-entry-multiple-captures.k').read_text(), 84)
 cases['graph-result-multiple-captures'] = ((fixtures/'graph-result-multiple-captures.k').read_text(), 1000)
+cases['device-mutual-recursion'] = ((fixtures/'device-mutual-recursion.k').read_text(), 1501)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
 fn collect(batch:Batch)->Batch:
@@ -300,7 +301,11 @@ for name,(source,expected) in cases.items():
     root = a.root/name
     root.mkdir(exist_ok=True)
     cpu = root/'cpu.k'
-    cpu.write_text(source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', ''))
+    if name == 'device-mutual-recursion':
+        # Compare the identical recursive functions through the ordinary CPU call ABI.
+        cpu.write_text(source[:source.index('fn main()')]+'fn main()->int:\n  even(1000)\n')
+    else:
+        cpu.write_text(source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', ''))
     reference = root/('cpu'+suffix)
     run([a.compiler,cpu,*flags,'-o',reference])
     assert int(run([reference])) == expected, (name,'CPU',expected)
@@ -310,7 +315,7 @@ for name,(source,expected) in cases.items():
     policy = ['--arithmetic','hardware-with-software-fallback'] if name == 'entry-float64' else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
-    if name.startswith('local-recursive-'):
+    if name.startswith(('local-recursive-', 'device-mutual-recursion')):
         assert 'NumericInstructionKind::DeviceControl' in host, name
     else:
         assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name

@@ -5,7 +5,7 @@
 namespace kalandra {
 std::expected<std::vector<std::vector<continuation::Slot>>, std::string>
 deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Slot> tracked,
-                std::uint64_t maxBytes, std::uint64_t maxWork) try {
+                std::uint64_t maxBytes, std::uint64_t maxWork, bool callFrames) try {
   using C = continuation::Code;
   const auto count = plan.code.size(), slots = plan.slots.size();
   if (count > std::numeric_limits<std::uint32_t>::max())
@@ -49,6 +49,11 @@ deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Sl
     const auto &op = plan.code[pc];
     bool produces = false;
     switch (op.code) {
+    case C::SynchronousCall:
+      if (!callFrames || pc + 1 >= count)
+        return std::unexpected("device root analysis requires a resumable call continuation");
+      produces = true;
+      break;
     case C::Literal:
     case C::Unary:
     case C::Binary:
@@ -160,5 +165,19 @@ deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Sl
   return result;
 } catch (const std::bad_alloc &) {
   return std::unexpected("device root analysis allocation failed");
+}
+std::expected<std::vector<continuation::Slot>, std::string>
+deviceSuspendedCallRoots(const continuation::Plan &plan, std::size_t call,
+                         std::span<const std::vector<continuation::Slot>> live) try {
+  if (live.size() != plan.code.size() || call >= live.size() ||
+      plan.code[call].code != continuation::Code::SynchronousCall || call + 1 == live.size())
+    return std::unexpected("invalid device suspended call root map");
+  std::vector<continuation::Slot> roots;
+  for (const auto slot : live[call + 1])
+    if (slot != plan.code[call].output)
+      roots.push_back(slot);
+  return roots;
+} catch (const std::bad_alloc &) {
+  return std::unexpected("device suspended call root map allocation failed");
 }
 } // namespace kalandra

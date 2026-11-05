@@ -2,6 +2,7 @@
 #include "../gpu-runtime/ControlArena.h"
 #include "kalandra/NumericType.h"
 #include "mlir/IR/Builders.h"
+#include <optional>
 #include <span>
 #include <vector>
 namespace kalandra {
@@ -10,6 +11,10 @@ namespace kalandra {
 struct DeviceRootMap {
   std::size_t pc;
   std::vector<std::size_t> cells;
+  // With a nonzero active frame, trace that frame and its PC-specific slots.
+  // The ordinary parameter roots remain the fallback for an outer invocation.
+  std::optional<unsigned> activeFrameCell{};
+  std::vector<std::size_t> frameCells{};
 };
 // Guards are ordered from the outermost enum to the innermost. A failed
 // guard skips its entire reference, including any inactive nested tags.
@@ -71,7 +76,9 @@ public:
   DeviceHeapEmitter(mlir::OpBuilder &, mlir::Value arena, mlir::Value params,
                     unsigned parameterWords, std::span<const DeviceRootMap> roots,
                     std::span<const DeviceTraceLayout> layouts = {},
-                    std::span<const DeviceArrayInput> inputs = {}, bool readOnlyBlocks = false);
+                    std::span<const DeviceArrayInput> inputs = {}, bool readOnlyBlocks = false,
+                    std::optional<unsigned> outerSuspensionCell = {},
+                    std::span<const DeviceRootMap> outerSuspendedRoots = {});
   mlir::Value load(unsigned cell);
   void store(unsigned cell, mlir::Value);
   // Dynamic indices into compiler-reserved frame tables.
@@ -124,6 +131,8 @@ private:
   std::span<const DeviceTraceLayout> layouts;
   std::span<const DeviceArrayInput> inputs;
   bool readOnlyBlocks;
+  std::optional<unsigned> outerSuspensionCell;
+  std::span<const DeviceRootMap> outerSuspendedRoots;
   mlir::Value markState(mlir::Value);
   mlir::Value readOnlyFlag(mlir::Value);
   mlir::Value readArena(mlir::Value, mlir::Value);

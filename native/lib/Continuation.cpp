@@ -123,6 +123,9 @@ public:
       : ModulePlan(input), options(options), resumable(resumableFunctions(input)),
         coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)),
         invocationFlow(functionInvocationFlow(input)) {
+    if (options.deviceCallFrames &&
+        (!options.entry || !options.deviceValues || options.nativeSubgraphs || options.preserveCalls))
+      throw std::runtime_error("device call frames require a selected device continuation entry");
     if (options.preserveCalls)
       for (FunctionId id = 0; id < input.functions.size(); ++id)
         if (!coordinating[id] && !input.functions[id].resultType.fallible)
@@ -858,6 +861,21 @@ private:
       std::vector<Slot> args;
       for (auto arg : call->arguments)
         args.push_back(expression(plan, arg, env, stack));
+      if (options.deviceCallFrames) {
+        const auto target = call->function;
+        const auto &callee = input.functions.at(target);
+        if (coordinating.at(target) || callee.captureCount ||
+            callee.parameters.size() != args.size())
+          throw std::runtime_error("device call frame requires a synchronous named function");
+        if (!scheduled.at(target)) {
+          scheduled[target] = true;
+          pending.push_back(target);
+        }
+        const auto value = slot(plan, node.type);
+        plan.code.push_back({Code::SynchronousCall, value, args, target, 0, 0, id});
+        env.values[id] = value;
+        return value;
+      }
       // Synchronous native subgraphs share the ordinary checked call ABI,
       // including recursive/function-value calls and their cancellation boundary.
       // A task owns only the outer continuation; it must not impose a heap

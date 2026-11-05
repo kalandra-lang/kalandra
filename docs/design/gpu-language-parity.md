@@ -272,3 +272,16 @@ The collector can follow relocated aliases and reclaim the graph after its
 roots retire. The initialization continuation requests arena capacity, copies
 one word per checkpoint, and publishes the checked root to the device frame
 after staging completes. It resumes through the existing growth handshake.
+
+### Recursive device calls
+
+Direct and mutually recursive numeric and Bool functions use the same
+checkpointed dispatch as device loops. Each call reserves a frame in the
+invocation arena. Argument and result transfers advance one word at a time,
+and the caller resumes only after its result is written. Arena growth uses
+the existing host acknowledgement, so call depth is bounded by the
+invocation's allocation budget. Device faults and cancellation discard the
+private arena through the existing task retirement path.
+
+Recursive frames with owned values, recursive function values and tensor
+state require separate qualification.

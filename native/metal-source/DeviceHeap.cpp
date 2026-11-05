@@ -12,9 +12,13 @@ DeviceHeapEmitter::DeviceHeapEmitter(OpBuilder &builder, Value heap, Value frame
                                      std::span<const DeviceRootMap> maps,
                                      std::span<const DeviceTraceLayout> traceLayouts,
                                      std::span<const DeviceArrayInput> arrayInputs,
-                                     bool hasReadOnlyBlocks)
+                                     bool hasReadOnlyBlocks, std::optional<unsigned> outerCell,
+                                     std::span<const DeviceRootMap> outerRoots)
     : b(builder), loc(b.getUnknownLoc()), arena(heap), params(frame), parameterWords(words),
-      roots(maps), layouts(traceLayouts), inputs(arrayInputs), readOnlyBlocks(hasReadOnlyBlocks) {
+      roots(maps), layouts(traceLayouts), inputs(arrayInputs), readOnlyBlocks(hasReadOnlyBlocks),
+      outerSuspensionCell(outerCell), outerSuspendedRoots(outerRoots) {
+  if (!outerSuspensionCell && !outerSuspendedRoots.empty())
+    throw std::invalid_argument("GPU outer roots require a suspension cell");
   for (const auto &input : inputs) {
     const auto buffer = mlir::dyn_cast<mlir::MemRefType>(input.buffer.getType());
     if (!buffer || buffer.getRank() != 1 || !buffer.getElementType().isInteger(64) ||
@@ -709,24 +713,52 @@ Value DeviceHeapEmitter::service(bool terminalTrace) {
       auto selected = eq(pc, c(roots[i].pc));
       matched = arith::OrIOp::create(b, loc, matched, selected);
       when(selected, [&] {
-        auto root = load(RootCursor);
-        conditional(
-            compare(arith::CmpIPredicate::ult, root, c(roots[i].cells.size())),
-            [&] {
-              Value offset = c(0);
-              for (std::size_t j = 0; j < roots[i].cells.size(); ++j)
-                offset =
-                    arith::SelectOp::create(b, loc, eq(root, c(j)), c(roots[i].cells[j]), offset);
-              auto handle = loadAt(offset);
-              mark(handle);
-              store(RootCursor, add(root, c(1)));
-            },
-            [&] {
-              if (layouts.empty())
-                finishMarking();
-              else
-                store(Phase, c(4));
+        const auto root = load(RootCursor);
+        const auto finished = [&] {
+          if (layouts.empty())
+            finishMarking();
+          else
+            store(Phase, c(4));
+        };
+        const auto trace = [&](std::span<const std::size_t> cells, Value frame,
+                               Value index, auto complete) {
+          conditional(compare(arith::CmpIPredicate::ult, index, c(cells.size())), [&] {
+            Value offset = c(0);
+            for (std::size_t j = 0; j < cells.size(); ++j)
+              offset = arith::SelectOp::create(b, loc, eq(index, c(j)), c(cells[j]), offset);
+            mark(frame ? read(frame, add(c(4), offset)) : loadAt(offset));
+            store(RootCursor, add(root, c(1)));
+          }, complete);
+        };
+        if (const auto cell = roots[i].activeFrameCell) {
+          const auto frame = load(*cell);
+          conditional(eq(frame, c(0)), [&] { trace(roots[i].cells, {}, root, finished); }, [&] {
+            conditional(eq(root, c(0)), [&] {
+              mark(frame);
+              store(RootCursor, c(1));
+            }, [&] {
+              trace(roots[i].frameCells, frame, arith::SubIOp::create(b, loc, root, c(1)), [&] {
+                if (!outerSuspensionCell) {
+                  finished();
+                  return;
+                }
+                const auto suspended = load(*outerSuspensionCell);
+                const Value index = arith::SubIOp::create(
+                    b, loc, root, c(roots[i].frameCells.size() + 1));
+                Value found = arith::ConstantIntOp::create(b, loc, 0, 1);
+                for (const auto &site : outerSuspendedRoots) {
+                  const auto selected = eq(suspended, c(site.pc));
+                  found = arith::OrIOp::create(b, loc, found, selected);
+                  when(selected, [&] { trace(site.cells, {}, index, finished); });
+                }
+                when(arith::XOrIOp::create(b, loc, found, arith::ConstantIntOp::create(b, loc, 1, 1)),
+                     [&] { fault(99); });
+              });
             });
+          });
+        } else {
+          trace(roots[i].cells, {}, root, finished);
+        }
       });
     }
     when(arith::XOrIOp::create(b, loc, matched, arith::ConstantIntOp::create(b, loc, 1, 1)),

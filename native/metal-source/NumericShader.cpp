@@ -1,3 +1,7 @@
+#include "DeviceCallEnter.h"
+#include "DeviceCallReturn.h"
+#include "DeviceCallSchedule.h"
+#include "DeviceCallReachability.h"
 #include "DeviceArrayReturn.h"
 #include "../gpu-source/AggregateLayout.h"
 #include "../gpu-runtime/ControlExport.h"
@@ -1026,7 +1030,7 @@ std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &in
 
 bool usesScalarControl(const TypedModule &input, FunctionId function) {
   const auto &fn = input.functions.at(function);
-  return std::ranges::any_of(fn.expressions,
+  return deviceNeedsCallFrames(input, function) || std::ranges::any_of(fn.expressions,
                              [&](auto id) {
                                const auto &op = input.expressions.at(id).operation;
                                if (input.expressions.at(id).type.array)
@@ -1061,12 +1065,21 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   const auto reject = [&](const std::string &message) -> std::expected<NumericShader, Diagnostic> {
     return std::unexpected(Diagnostic{"G001", message, root.declaration});
   };
+  const bool callFrames = deviceNeedsCallFrames(input, function);
   auto planned = continuation::plan(
       input,
-      {.entry = function, .nativeSubgraphs = false, .valueScopes = true, .inlineLoopCalls = true, .deviceValues = true});
+      {.entry = function, .nativeSubgraphs = false, .valueScopes = true, .inlineLoopCalls = true, .deviceValues = true, .deviceCallFrames = callFrames});
   if (!planned)
     return reject("GPU scalar control planning: " + planned.error());
-  const auto &plan = *planned->plans.at(function);
+  std::optional<DeviceCallSchedule> schedule;
+  if (callFrames) {
+    auto merged = scheduleDeviceCalls(*planned, function,
+        runtime::detail::ControlArenaABI::Grow - 1, 300000);
+    if (!merged)
+      return reject(merged.error());
+    schedule.emplace(std::move(*merged));
+  }
+  const auto &plan = schedule ? schedule->plan : *planned->plans.at(function);
   const auto scalar = [](const ValueType &type) {
     return !type.tensor && !type.array && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
@@ -1075,7 +1088,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
   };
-  bool storage = std::ranges::any_of(plan.slots, flatArray);
+  if (callFrames && (!scalar(root.resultType) || !std::ranges::all_of(plan.slots, scalar)))
+    return reject("GPU recursive call frames currently require numeric or Bool values");
+  bool storage = callFrames || std::ranges::any_of(plan.slots, flatArray);
   const bool arrayResult = flatArray(root.resultType);
   const bool aggregateResult = deviceInlineRecordValue(root.resultType);
   const bool graphResult = aggregateResult && !graphResultLayouts.empty();
@@ -1220,6 +1235,42 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     if (frameWords > 300000)
       return reject("GPU aggregate control frame exceeds configured compilation work budget");
   }
+  const auto slotEnd = frameWords;
+  const auto activeFrame = frameWords;
+  const auto callCursor = activeFrame + 1;
+  const auto outerSuspension = activeFrame + 2;
+  const auto callLayout = [](FunctionId fn) { return 12u + static_cast<unsigned>(fn); };
+  std::vector<DeviceCallFrame> callFramesByFunction;
+  const auto callSlot = [&](FunctionId fn, continuation::Slot slot) {
+    return static_cast<unsigned>(callFramesByFunction.at(fn).offsets.at(
+        slot - schedule->slotBases.at(fn)));
+  };
+  std::vector<DeviceRootMap> outerCallRoots;
+  std::vector<std::vector<std::size_t>> callSites;
+  if (callFrames) {
+    frameWords += 3;
+    callFramesByFunction.resize(input.functions.size());
+    for (FunctionId fn = 0; fn < input.functions.size(); ++fn) {
+      if (!schedule->dispatch.entries.at(fn))
+        continue;
+      auto frame = planDeviceCallFrame(*planned->plans.at(fn), 300000,
+          [&](const auto &type) -> std::optional<std::size_t> { return width(type); });
+      if (!frame)
+        return reject(frame.error());
+      traceLayouts.push_back({callLayout(fn), static_cast<unsigned>(frame->words), {{0, {}}}});
+      callFramesByFunction[fn] = std::move(*frame);
+    }
+    callSites.resize(input.functions.size());
+    for (std::size_t i = 0; i < plan.code.size(); ++i) {
+      const auto &op = plan.code[i];
+      if (op.code != continuation::Code::SynchronousCall)
+        continue;
+      callSites.at(op.target).push_back(i);
+      if (schedule->owners[i] == function)
+        outerCallRoots.push_back({i + 2, {}});
+    }
+
+  }
   const auto boxStep = frameWords;
   if (!traceTypes.empty())
     frameWords += 2; // Record construction field and multiword read cursor.
@@ -1261,7 +1312,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       if (localArray(type) || (plainRecord(type) && !layouts.at(*type.record).owned.empty()))
         ownedSlots.push_back(i);
     }
-    auto roots = deviceLiveRoots(plan, ownedSlots);
+    auto roots = deviceLiveRoots(plan, ownedSlots, 64 * 1024 * 1024, 30000000, callFrames);
     if (!roots)
       return reject(roots.error());
     liveRoots = std::move(*roots);
@@ -1336,6 +1387,10 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
            (std::holds_alternative<CollectionQuery>(node.operation) && !op.args.empty() &&
             localArray(plan.slots.at(op.args[0])));
   };
+  if (callFrames)
+    for (std::size_t i = 0; i < plan.code.size(); ++i)
+      if (plan.code[i].code == C::SynchronousCall)
+        allocationRoots.push_back({i + 1, {}, static_cast<unsigned>(activeFrame), {}});
   auto code = planned->kernels;
   std::vector<std::optional<FunctionId>> kernels;
   for (const auto &op : plan.code) {
@@ -1352,7 +1407,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     if (op.code == C::MapInit || op.code == C::MapCheck || op.code == C::MapLoad ||
         op.code == C::MapStore || op.code == C::MapAdvance || arrayOperation(op) || op.code == C::CollectInit || op.code == C::CollectAppend ||
         op.code == C::CollectFinish || op.code == C::Label || op.code == C::Copy || op.code == C::Branch || op.code == C::Jump ||
-        op.code == C::Return || op.code == C::Field || op.code == C::Case ||
+        op.code == C::Return || (callFrames && op.code == C::SynchronousCall) || op.code == C::Field || op.code == C::Case ||
         (op.code == C::Kernel &&
          std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)))
       continue;
@@ -1407,7 +1462,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   auto name = numericKernelName(type, inputs, states);
   if (storage)
     roles.push_back(exportResult ? runtime::DeviceArrayWireABI::ExportRole : 0);
-  if (!root.parameters.empty() || exportResult) {
+  if (!root.parameters.empty() || exportResult || callFrames) {
     name += "_d_";
     for (auto role : roles)
       name += role == 3 ? 'x' : role == 2 ? 'a' : role ? 's' : 't';
@@ -1489,7 +1544,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   std::optional<DeviceHeapEmitter> heap;
   if (storage)
     heap.emplace(b, kernel.getArgument(inputs.size() - 1), params, 2 + 2 * frames, allocationRoots,
-                 traceLayouts, captures, graphParameter.has_value());
+                 traceLayouts, captures, graphParameter.has_value(),
+                 callFrames ? std::optional<unsigned>(outerSuspension) : std::nullopt,
+                 outerCallRoots);
   auto yes = constant(1, 1);
   const auto initializeParameters = [&] {
     std::size_t capture = 0;
@@ -1506,7 +1563,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
       store(offsets.at(plan.parameters[i]), value);
     }
-    store(0, constant(1)); // Zero is uninitialized; instruction PCs are one-based.
+    store(0, constant(schedule ? schedule->dispatch.entries[function] : 1));
     for (std::size_t i = 0; i < captures.size(); ++i)
       heap->read(constant(runtime::DeviceArrayWireABI::ExternalHandle | (i + 1)), constant(1));
   };
@@ -1627,6 +1684,89 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
               arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, pc, constant(i + 1))), false);
       OpBuilder::InsertionGuard guard(b);
       b.setInsertionPointToStart(&selected.getThenRegion().front());
+      const auto outerLoad = load;
+      const auto outerStore = store;
+      const auto frame = callFrames ? heap->load(activeFrame) : Value{};
+      const auto owner = schedule ? schedule->owners[i] : function;
+      const auto frameOffset = [&](std::size_t cell) {
+        // This admission uses single-word values. Owned multiword values need
+        // an explicit logical word-to-slot mapping before enabling them here.
+        return callSlot(owner, cell - offsets.front());
+      };
+      const auto atRoot = [&]() -> Value {
+        return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, frame, constant(0));
+      };
+      const auto load = [&](std::size_t cell) -> Value {
+        if (!callFrames || cell < offsets.front() || cell >= slotEnd)
+          return outerLoad(cell);
+        auto select = scf::IfOp::create(b, loc, TypeRange{b.getI64Type()}, atRoot(), true);
+        OpBuilder::InsertionGuard nested(b);
+        b.setInsertionPointToStart(&select.getThenRegion().front());
+        scf::YieldOp::create(b, loc, outerLoad(cell));
+        b.setInsertionPointToStart(&select.getElseRegion().front());
+        scf::YieldOp::create(b, loc, heap->read(frame, constant(frameOffset(cell) + 4)));
+        return select.getResult(0);
+      };
+      const auto store = [&](std::size_t cell, Value value) {
+        if (!callFrames || cell < offsets.front() || cell >= slotEnd) {
+          outerStore(cell, value);
+          return;
+        }
+        auto select = scf::IfOp::create(b, loc, atRoot(), true);
+        OpBuilder::InsertionGuard nested(b);
+        b.setInsertionPointToStart(&select.getThenRegion().front());
+        outerStore(cell, value);
+        b.setInsertionPointToStart(&select.getElseRegion().front());
+        if (value.getType().isInteger(1))
+          value = arith::ExtUIOp::create(b, loc, b.getI64Type(), value);
+        heap->write(frame, constant(frameOffset(cell) + 4), value);
+      };
+      if (callFrames && op.code == C::SynchronousCall) {
+        std::vector<DeviceCallMove> moves;
+        const auto &parameters = schedule->parameters.at(op.target);
+        for (std::size_t arg = 0; arg < op.args.size(); ++arg)
+          moves.push_back({callSlot(owner, op.args[arg]), callSlot(op.target, parameters[arg]), 1,
+                           static_cast<unsigned>(offsets.at(op.args[arg]))});
+        emitDeviceCallEnter(b, *heap, {static_cast<unsigned>(activeFrame),
+            static_cast<unsigned>(callCursor), static_cast<unsigned>(outerSuspension), callLayout(op.target),
+            static_cast<unsigned>(callFramesByFunction.at(op.target).words),
+            schedule->dispatch.entries.at(op.target),
+            i + 2, callSlot(owner, op.output), moves});
+        continue;
+      }
+      if (callFrames && op.code == C::Return) {
+        auto returning = scf::IfOp::create(b, loc, atRoot(), true);
+        b.setInsertionPointToStart(&returning.getThenRegion().front());
+        if (owner == function)
+          outerStore(0, constant(UINT64_MAX));
+        else
+          heap->fault(99);
+        b.setInsertionPointToStart(&returning.getElseRegion().front());
+        const auto continuation = heap->read(frame, constant(5));
+        Value matched = constant(0, 1);
+        chargeAggregate(callSites.at(owner).size());
+        for (const auto call : callSites.at(owner)) {
+          const auto &site = plan.code[call];
+          const Value valid = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                     continuation, constant(call + 2));
+          matched = arith::OrIOp::create(b, loc, matched, valid);
+          auto branch = scf::IfOp::create(b, loc, valid, false);
+          OpBuilder::InsertionGuard nested(b);
+          b.setInsertionPointToStart(&branch.getThenRegion().front());
+          const auto caller = schedule->owners[call];
+          emitDeviceCallReturn(b, *heap, {static_cast<unsigned>(activeFrame),
+              static_cast<unsigned>(callCursor), static_cast<unsigned>(outerSuspension),
+              callLayout(owner), static_cast<unsigned>(callFramesByFunction.at(owner).words), call + 2,
+              {callSlot(owner, op.args.at(0)), callSlot(caller, site.output), 1, UINT32_MAX,
+               static_cast<unsigned>(offsets.at(site.output))},
+              caller == function ? static_cast<unsigned>(slotEnd) : 0,
+              callLayout(caller), static_cast<unsigned>(callFramesByFunction.at(caller).words)});
+        }
+        auto bad = scf::IfOp::create(b, loc, arith::XOrIOp::create(b, loc, matched, yes), false);
+        b.setInsertionPointToStart(&bad.getThenRegion().front());
+        heap->fault(99);
+        continue;
+      }
       Value next = constant(i + 2);
       const auto read = [&](std::size_t slot) {
         auto raw = load(offsets.at(slot));

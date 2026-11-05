@@ -84,6 +84,9 @@ struct Options {
   // Placement-aware consumers validate their own device value layouts. This is
   // planning admission only, not permission to transport arbitrary host objects.
   bool deviceValues = false;
+  // Emit separately resumable plans for direct device calls. The device
+  // backend implements their frame storage and return dispatch.
+  bool deviceCallFrames = false;
 };
 struct ModulePlan {
   // The source typed module must outlive its plan and target emission.
