@@ -21,5 +21,6 @@ emitNumericProgram(const TypedModule &, FunctionId, ArithmeticMode = ArithmeticM
                    bool nativeFloat64Conversions = false, bool aggregateEnvelope = false,
                    std::optional<std::size_t> graphParameter = {},
                    std::span<const DeviceGraphExportLayout> graphResultLayouts = {},
-                   std::span<const std::size_t> graphPeers = {});
+                   std::span<const std::size_t> graphPeers = {},
+                   std::span<const DeviceClosureImport> closureImports = {});
 } // namespace kalandra

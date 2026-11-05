@@ -91,6 +91,28 @@ Native layout, checked reads and graph packing are prerequisites. Compiler
 capture-schema generation and device entry construction remain required before
 any host/device closure boundary is admitted.
 
+### Device import representation
+
+An imported closure uses a tagged carrier with guarded references to its
+target-specific environment node. Device-created closures retain their existing
+inline capture representation. Indirect dispatch validates the carrier layout,
+payload length and target tag before selecting a body. Capture extraction for
+an imported target additionally checks the environment layout and length.
+Both forms invoke the same checked device call frames and source function body.
+
+The collector traces the imported carrier's active environment and that
+environment's owned captures. Keeping the environment as a separate graph node
+allows repeated capture references to retain their original graph aliases;
+import does not rebuild every record reachable from a closure. This changes an
+internal device representation, not cancellation checkpoints or source semantics.
+
+`DeviceClosureImport` carries compiler-owned layout metadata into numerical
+program and shader emission. Emission tests exercise callable graph parameters,
+capture dispatch and rejection of malformed metadata. User-facing host schema
+generation and physical execution of imported closures remain qualification
+requirements; existing device-local closure regression tests do not prove that
+boundary complete.
+
 ## Implementation sequence
 
 1. Expose value-level target provenance and test unused values, factories,

@@ -1,6 +1,7 @@
 #pragma once
 #include "kalandra/Arithmetic.h"
 #include "kalandra/Semantics.h"
+#include "DeviceClosureImport.h"
 #include <expected>
 #include <span>
 namespace kalandra {
@@ -36,7 +37,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                                                                  bool aggregateEnvelope = false,
                                                                  std::optional<std::size_t> graphParameter = {},
                                                                  std::span<const DeviceGraphExportLayout> graphResultLayouts = {},
-                                                               std::span<const std::size_t> graphPeers = {});
+                                                               std::span<const std::size_t> graphPeers = {},
+                                                               std::span<const DeviceClosureImport> closureImports = {});
 std::expected<NumericShader, Diagnostic> emitNumericShader(const TypedModule &, FunctionId,
                                                            const NumericShaderOptions & = {});
 } // namespace kalandra

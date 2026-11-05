@@ -24,6 +24,7 @@ class Builder {
   std::optional<std::size_t> graphParameter_;
   std::span<const std::size_t> graphPeers_;
   std::span<const DeviceGraphExportLayout> graphResultLayouts_;
+  std::span<const DeviceClosureImport> closureImports_;
   const TypedModule &input;
   const TypedFunction &root;
   TypedModule normalized;
@@ -354,7 +355,8 @@ class Builder {
       auto shader =
           emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph,
                                   &fn == &root ? graphResultLayouts_ : std::span<const DeviceGraphExportLayout>{},
-                                  graph ? graphPeers_ : std::span<const std::size_t>{});
+                                  graph ? graphPeers_ : std::span<const std::size_t>{},
+                                  &fn == &root ? closureImports_ : std::span<const DeviceClosureImport>{});
       if (!shader)
         throw Rejected{shader.error()};
       NumericProgramInstruction op{shader->deviceStorage ? NumericProgramKind::DeviceControl
@@ -546,9 +548,10 @@ public:
           bool nativeFloat64Conversions, bool aggregateEnvelope,
           std::optional<std::size_t> graphParameter,
           std::span<const DeviceGraphExportLayout> graphResultLayouts,
-          std::span<const std::size_t> graphPeers)
+          std::span<const std::size_t> graphPeers,
+          std::span<const DeviceClosureImport> closureImports)
       : arithmetic_(arithmetic), nativeFloat64Conversions_(nativeFloat64Conversions),
-        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter), graphPeers_(graphPeers), graphResultLayouts_(graphResultLayouts), input(module),
+        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter), graphPeers_(graphPeers), graphResultLayouts_(graphResultLayouts), closureImports_(closureImports), input(module),
         root(module.functions.at(id)) {
     normalized.source = input.source;
   }
@@ -572,6 +575,7 @@ public:
         wire.builtin = BuiltinValue::Numeric;
         wire.element = NumericType::UInt64;
         wire.record.reset();
+        wire.callable.reset();
         wire.array = wire.tensor = true;
         wire.shape = {{std::nullopt, 1}};
         args.push_back(resident(wire, value()));
@@ -605,9 +609,10 @@ std::expected<NumericProgram, Diagnostic> emitNumericProgram(const TypedModule &
                                                              bool aggregateEnvelope,
                                                              std::optional<std::size_t> graphParameter,
                                                              std::span<const DeviceGraphExportLayout> graphResultLayouts,
-          std::span<const std::size_t> graphPeers) {
+          std::span<const std::size_t> graphPeers,
+          std::span<const DeviceClosureImport> closureImports) {
   try {
-    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope, graphParameter, graphResultLayouts, graphPeers).run(function);
+    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope, graphParameter, graphResultLayouts, graphPeers, closureImports).run(function);
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }
