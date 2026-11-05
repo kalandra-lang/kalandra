@@ -5240,7 +5240,7 @@ private:
       }
     }
     auto resultType = callResult(id, operands, options_.placement && !device);
-    if (resultType.tensor)
+    if (resultType.tensor && !resultType.array)
       resultType.device = device;
     resultType.fallible = syntax_.functions[id].taskError;
     if (resultType.fallible)

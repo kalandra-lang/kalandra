@@ -124,6 +124,29 @@ void copyValidation(g::Runtime &runtime) {
     check(bool(runtime.readBytes(output, std::as_writable_bytes(std::span(observed)))) &&
               observed == std::array<std::uint32_t, 8>{0, 23, 456, 7890, 0, 0, 0, 0},
           "private range copy changed bytes outside the requested range");
+    check(bool(runtime.copyPrivateBytes(input, output, 0, 12, 4)), "translated copy target offset");
+    check(bool(runtime.copyPrivateBytes(input, output, 8, 0, 8)), "translated copy source offset");
+    check(bool(runtime.copyPrivateBytes(input, output, input.bytes(), output.bytes(), 0)),
+          "zero-byte terminal ranges");
+    check(bool(runtime.readBytes(output, std::as_writable_bytes(std::span(observed)))) &&
+              observed == std::array<std::uint32_t, 8>{456, 7890, 456, 1, 0, 0, 0, 0},
+          "translated copy changed prefix/suffix or copied wrong bytes");
+    std::array<std::uint32_t, 4> unchanged{};
+    check(bool(runtime.readBytes(input, std::as_writable_bytes(std::span(unchanged)))) &&
+              unchanged == data,
+          "ranged copy mutated its source");
+    for (auto range : {std::array<std::uint64_t, 3>{UINT64_MAX, 0, 4},
+                       {0, UINT64_MAX, 4},
+                       {12, 0, 8},
+                       {0, 28, 8},
+                       {1, 0, 4},
+                       {0, 1, 4},
+                       {0, 0, 3}}) {
+      auto rejected = runtime.copyPrivateBytes(input, output, range[0], range[1], range[2]);
+      check(!rejected && rejected.error() == g::Error::Invalid, "invalid translated copy admitted");
+    }
+    auto self = runtime.copyPrivateBytes(output, output, 0, 4, 4);
+    check(!self && self.error() == g::Error::Invalid, "same-owner translated copy admitted");
     for (auto range :
          {std::array<std::uint64_t, 2>{UINT64_MAX, 4}, {4, UINT64_MAX}, {1, 4}, {0, 3}, {12, 8}}) {
       auto rejected = runtime.copyPrivateBytes(input, output, range[0], range[1]);
@@ -281,8 +304,16 @@ int main(int argc, char **argv) {
     const auto device = runtime->device();
     check(device.discrete || device.integrated, "arena probe selected a software device");
     std::cout << "Physical device: " << device.name << '\n';
-    auto program = prepare(*runtime, argv[1]);
     copyValidation(*runtime);
+    if (std::string_view(argv[1]) == "--copy-only") {
+#if !defined(KALANDRA_CONTROL_CUDA)
+      check(!runtime->validationErrors(), "ranged copy emitted Vulkan validation errors");
+#endif
+      std::cout << "PASS physical private range copies: distinct offsets, exact bytes, bounds, "
+                   "immutable/foreign storage and zero owners\n";
+      return 0;
+    }
+    auto program = prepare(*runtime, argv[1]);
     direct(*runtime, program, false);
     direct(*runtime, program, true);
     invalidResults(*runtime, program);

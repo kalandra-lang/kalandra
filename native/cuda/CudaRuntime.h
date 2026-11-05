@@ -124,8 +124,11 @@ public:
   DeviceInfo device() const;
   std::expected<Buffer, Error> uploadBytes(std::span<const std::byte>);
   std::expected<Buffer, Error> blankBytes(std::uint64_t);
+  std::expected<void, Error> copyPrivateBytes(const Buffer &, const Buffer &, std::uint64_t offset,
+                                              std::uint64_t bytes);
   std::expected<void, Error> copyPrivateBytes(const Buffer &, const Buffer &,
-                                              std::uint64_t offset, std::uint64_t bytes);
+                                              std::uint64_t sourceOffset,
+                                              std::uint64_t targetOffset, std::uint64_t bytes);
   std::expected<std::vector<std::byte>, Error> downloadBytes(const Buffer &);
   std::expected<Kernel, Error> loadKernel(const std::filesystem::path &,
                                           const KernelContract * = nullptr);
@@ -134,6 +137,8 @@ public:
     return std::unexpected(Error::Unsupported);
   }
   std::expected<void, Error> readBytes(const Buffer &, std::span<std::byte>);
+  // Private array-result payload page; never reads outside logical backing.
+  std::expected<void, Error> readArrayPage(const Buffer &, std::span<std::byte>, std::uint64_t offset);
   std::expected<KernelResult, Error> execute(const Kernel &, std::span<const Buffer>,
                                              std::span<const std::uint32_t>,
                                              std::uint64_t outputBytes, std::uint32_t groups);

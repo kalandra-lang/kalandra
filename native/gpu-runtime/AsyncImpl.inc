@@ -85,6 +85,7 @@ struct AsyncRuntime::Bridge {
     bool booleanResult = false;
     std::optional<TensorValue> transferInput{};
     bool upload = false;
+    std::optional<std::pair<std::uint64_t, std::uint64_t>> arrayPage{};
   };
   struct PacketData {
     std::shared_ptr<Operation> operation;
@@ -211,7 +212,10 @@ struct AsyncRuntime::Bridge {
       if (!work.completion.cancelled()) {
         if (operation.transferInput) {
           stage = true;
-          auto result = transferTensor(*state.runtime, *operation.transferInput, operation.upload);
+          auto result = operation.arrayPage
+                            ? downloadArrayPagePayload(*state.runtime, *operation.transferInput,
+                                                operation.arrayPage->first, operation.arrayPage->second)
+                            : transferTensor(*state.runtime, *operation.transferInput, operation.upload);
           if (!result)
             frame.error = result.error();
           else
@@ -376,8 +380,10 @@ struct AsyncRuntime::Bridge {
   }
   template <class Caller>
   static TaskHandle transfer(Caller &caller, GroupHandle group, std::shared_ptr<State> state,
-                             const TensorValue &input, bool upload) noexcept {
-    auto valid = validateTransfer(*state->runtime, input, upload);
+                             const TensorValue &input, bool upload,
+                             std::optional<std::pair<std::uint64_t, std::uint64_t>> page = {}) noexcept {
+    auto valid = page ? validateArrayPage(*state->runtime, input, page->first, page->second)
+                      : validateTransfer(*state->runtime, input, upload);
     if (!valid)
       return rejected(caller, group, valid.error(), true);
     try {
@@ -390,6 +396,7 @@ struct AsyncRuntime::Bridge {
         return rejected(caller, group, reserved.error(), true);
       operation->transferInput = input;
       operation->upload = upload;
+      operation->arrayPage = page;
       PacketData packet{std::move(operation)};
       return submit(caller, group, programEntry,
                     {programEntry.packetLayout, &packet, sizeof(packet)});
@@ -435,7 +442,7 @@ struct AsyncRuntime::Bridge {
 const ValueLayout AsyncRuntime::Bridge::layout{0x564b42554601, sizeof(Buffer), alignof(Buffer),
                                                copy, destroyBuffer};
 const ValueLayout AsyncRuntime::Bridge::tensorLayout{
-    0x564b54454e01, sizeof(TensorValue), alignof(TensorValue), copyTensor, destroyTensor};
+    0x564b54454e02, sizeof(TensorValue), alignof(TensorValue), copyTensor, destroyTensor};
 const TaskEntry AsyncRuntime::Bridge::entry{1,
                                             0x564b42554602,
                                             sizeof(PacketData),
@@ -578,4 +585,13 @@ TaskHandle AsyncRuntime::reject(TaskCore &core, GroupHandle group, Error error,
 TaskHandle AsyncRuntime::reject(Task &task, GroupHandle group, Error error,
                                 std::optional<NumericType> scalar) noexcept {
   return Bridge::rejected(task, group, error, true, scalar);
+}
+
+TaskHandle AsyncRuntime::downloadArrayPage(TaskCore &core, GroupHandle group, const TensorValue &input,
+                                           std::uint64_t offset, std::uint64_t words) noexcept {
+  return Bridge::transfer(core, group, state_, input, false, std::pair{offset, words});
+}
+TaskHandle AsyncRuntime::downloadArrayPage(Task &task, GroupHandle group, const TensorValue &input,
+                                           std::uint64_t offset, std::uint64_t words) noexcept {
+  return Bridge::transfer(task, group, state_, input, false, std::pair{offset, words});
 }

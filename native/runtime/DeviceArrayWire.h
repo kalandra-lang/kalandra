@@ -55,7 +55,7 @@ public:
   // False means either more work, a recorded context fault, or cancellation.
   // A stopped capture never exposes partially packed cells through wire().
   bool advance() noexcept {
-    if (!context_ || context_->poll())
+    if (!context_ || retired_ || context_->poll())
       return false;
     const auto length = std::uint64_t(original_.sizes[0]);
     if (!storage_) {
@@ -90,7 +90,7 @@ public:
     return cursor_ == length;
   }
   bool complete() const noexcept {
-    return context_ && storage_ && cursor_ == std::uint64_t(original_.sizes[0]) &&
+    return context_ && !retired_ && storage_ && cursor_ == std::uint64_t(original_.sizes[0]) &&
            !context_->poll();
   }
   std::optional<CpuTensor<NumericType::UInt64, 1>> wire() const noexcept {
@@ -102,6 +102,15 @@ public:
         0,
         {original_.sizes[0] + std::int64_t(DeviceArrayWireABI::HeaderWords)},
         {1}};
+  }
+  // Upload completion owns independent GPU bytes. Retire the packing scope
+  // before allocating result wires; callers retain the original native capture
+  // separately for aliases. Existing external leases still protect snapshots.
+  void retireWire() noexcept {
+    scope_.reset();
+    storage_ = nullptr;
+    retained_.reset();
+    retired_ = true;
   }
   const Descriptor &original() const noexcept { return original_; }
   std::uint64_t origin() const noexcept { return origin_; }
@@ -120,5 +129,6 @@ private:
   Descriptor original_{};
   std::uint64_t *storage_ = nullptr;
   std::uint64_t origin_ = 0, cursor_ = 0;
+  bool retired_ = false;
 };
 } // namespace kalandra::runtime

@@ -69,10 +69,10 @@ evidence is saved.
 Flat numeric and Bool host-array inputs use a private versioned word protocol.
 Each input contains magic/version, element layout, logical length and invocation
 origin ID, followed by zero-extended raw element bits. Origin IDs identify
-captured aliases; native addresses never appear in shader-visible cells. Public
-array results still require a separate decoder that preserves captured aliases
-and creates owners for new device allocations; accepting inputs does not satisfy
-that result contract.
+captured aliases; native addresses never appear in shader-visible cells. Array results use a distinct checked terminal descriptor, opaque paged payload
+transport, and a typed native decoder. Captured origins retain their original
+CPU backing; new device allocations receive new native owners. Native pointers
+are never transmitted in either direction.
 
 The admitted GPU child retains native backing, packs at most one 64 KiB wire
 page per scheduler step, and then uploads and executes. Parent `spawn` does not
@@ -93,3 +93,28 @@ so normal task observation and fault/cancellation rules remain intact. This adds
 no wall-clock preemption or cancellation-contract exception. Physical input
 execution, malformed metadata, failure/acknowledgement lifetimes and installed
 backend checks must all qualify before this transport is reported complete.
+
+
+## Typed array result transport
+
+Only a terminal device-control instruction can export an array descriptor. Its
+reserved checkpoint cells report root, payload offset, length, layout and capture
+origin. The runtime validates these against the actual retained arena and input
+count after a successful final source fence. Intermediate chunks must keep the
+export cells zero. A malformed descriptor is not a numerical tensor.
+
+Fresh payloads move from the arena into independently owned private result
+storage in at most 64 KiB fence-complete steps. Captured aliases have a header-only
+result and reuse the matching original typed capture. The admitted child then
+reads fresh payload pages, assembles a versioned CPU wire and decodes native
+elements with cancellation checks. Ordinary tensor transfers reject these
+private envelopes. Input wire staging is retired after upload acknowledgement;
+original native capture owners remain available for alias results. This avoids
+retaining both input staging and fresh result decoding unnecessarily under the
+unchanged task budget.
+
+The task result layout is the existing native numeric/Bool array layout, distinct
+from a resident tensor and from the private UInt64 carrier. Bool remains distinct
+from uint8. Zero-array-input generators skip the capture/upload groups. Every
+child is observed before its group closes. No cancellation-contract change or
+wall-clock preemption is introduced by this transport.

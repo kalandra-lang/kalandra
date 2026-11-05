@@ -136,7 +136,7 @@ fn main() -> int ! TaskError:
 
 This returns 4. The write is allowed because pending has been awaited. If the write appeared before await, the checker would reject it even through an alias.
 
-Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Numeric and Bool array operations also run inside GPU helpers on arrays constructed there, including element writes and sorting under the same access rules. A GPU task can capture existing numeric and Bool arrays as read-only parameters. The task packs and uploads those arrays before executing its device helper. Await its readers before modifying the originals or their aliases. GPU helpers can return numeric or Bool scalars; array results cannot cross the CPU/device entry boundary. Use explicit tensor transfers for resident tensor calculations.
+Replacing String, record or function-array elements is not supported. Tensors retain value semantics. Numeric and Bool array operations also run inside GPU helpers on arrays constructed there, including element writes and sorting under the same access rules. A GPU task can capture existing numeric and Bool arrays as read-only parameters. The task packs and uploads those arrays before executing its device helper. Await its readers before modifying the originals or their aliases. GPU helpers can return numeric/Bool scalars or flat numeric/Bool arrays. Awaiting an array result produces a native CPU array and includes transfer/decoding costs. Returning a captured array preserves its original backing; copy and sorted create independent backing. Use explicit tensor transfers for resident tensor calculations.
 
 list {
   link { url = "/docs/tensors", "Shapes and tensor arithmetic" },

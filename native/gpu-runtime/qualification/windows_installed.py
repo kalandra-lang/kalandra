@@ -99,6 +99,12 @@ run([sys.executable, repo/'native/gpu-source/DeviceArrayTests.py', '--compiler',
 run([sys.executable, repo/'native/gpu-source/DeviceArrayEntryTests.py', '--compiler', compiler,
      '--backend', a.backend, '--variant', 'optimized', '--compile-only',
      '--root', root/'device-array-entry'])
+run([sys.executable, repo/'native/gpu-source/DeviceArrayResultTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-array-results'])
+run([sys.executable, repo/'native/gpu-source/DeviceArrayMainTests.py', '--compiler', compiler,
+     '--backend', a.backend, '--variant', 'optimized', '--compile-only',
+     '--root', root/'device-array-main'])
 run([sys.executable, repo/'native/gpu-source/DeviceBoolTests.py', '--compiler', compiler,
      '--backend', a.backend, '--variant', 'optimized', '--compile-only',
      '--root', root/'device-bool'])

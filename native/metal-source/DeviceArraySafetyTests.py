@@ -11,6 +11,7 @@ p.add_argument('--runtime', type=Path, required=True)
 p.add_argument('--variant', choices=('optimized', 'sanitized', 'thread-sanitized'), required=True)
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--entries-only', action='store_true')
+p.add_argument('--results-only', action='store_true')
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(repo/'native/gpu-source'))
@@ -66,6 +67,27 @@ sources.update({
 })
 if a.entries_only:
     sources={name:helper for name,helper in sources.items() if name.endswith('-entry')}
+if a.results_only:
+    sources={
+      'finite-result': """fn work(values:[int],n:int)->[int]:
+  total=0
+  for i in range(n):
+    local=[i+1,values[0]]
+    total=total+local[0]
+  [total,values[0]]
+""",
+      'infinite-result': """fn work(values:[int],n:int)->[int]:
+  i=0
+  while true:
+    local=[i,values[0]]
+    i=local[0]+1
+  [i]
+""",
+      'fault-result': """fn work(values:[int],n:int)->[int]:
+  [values[2],1/(n-n)]
+"""
+    }
+
 
 flags = {'optimized': ['-O2'], 'sanitized': ['-O1', '-g', '-fsanitize=address,undefined',
     '-fno-sanitize-recover=all', '-fno-omit-frame-pointer'],
@@ -79,7 +101,16 @@ def run(command):
     return r.stdout.strip()
 for name, helper in sources.items():
     source = a.root/(name+'.k')
-    source.write_text(helper+('''fn main()->int ! TaskError:
+    if a.results_only:
+        source.write_text(helper+'''fn main()->int ! TaskError:
+  values:[int]=[1]
+  try parallel:
+    gpu=devices.gpu()
+    result=try await spawn work(values,1000) on gpu
+    result[0]
+''')
+    else:
+        source.write_text(helper+('''fn main()->int ! TaskError:
   values:[int]=[1]
   try parallel:
     gpu=devices.gpu()

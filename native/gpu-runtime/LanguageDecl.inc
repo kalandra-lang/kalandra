@@ -93,6 +93,15 @@ public:
   }
   TaskHandle upload(TaskCore &, GroupHandle, Buffer, Device) noexcept;
   TaskHandle upload(Task &, GroupHandle, Buffer, Device) noexcept;
+  static std::expected<std::span<const std::byte>, Error> arrayPageBytes(const Buffer &value) noexcept {
+    if (value.type != NumericType::UInt64 || value.rank != 1 || value.scalar)
+      return std::unexpected(Error::Invalid);
+    return hostBytes(value);
+  }
+  static std::optional<DeviceArrayResultMetadata> arrayResult(const Buffer &value) noexcept {
+    return value.arrayResult;
+  }
+  TaskHandle downloadArrayPage(Task &, GroupHandle, const Buffer &, std::uint64_t, std::uint64_t) noexcept;
   TaskHandle download(TaskCore &, GroupHandle, Buffer) noexcept;
   TaskHandle download(Task &, GroupHandle, Buffer) noexcept;
   std::expected<Kernel, Error> loadNumericGraphKernel(std::string_view, Device, NumericType,

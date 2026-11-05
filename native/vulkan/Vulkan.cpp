@@ -511,35 +511,40 @@ std::expected<void, Error> dispatch(State &state, Pipeline &p,
 // Called with queueMutex held. Owners and command resources remain alive until
 // the real fence completes, including the existing device-loss settlement path.
 std::expected<void, Error> copyStorage(State &state, const Storage &source, const Storage &target,
-                                      std::uint64_t offset = 0, std::uint64_t bytes = 0) {
+                                       std::uint64_t offset = 0, std::uint64_t bytes = 0,
+                                       std::uint64_t targetOffset = 0) {
   Dispatch run{state};
   auto begun = beginDispatch(run);
   if (!begun)
     return std::unexpected(begun.error());
   VkMemoryBarrier before{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-  before.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT |
-                         VK_ACCESS_TRANSFER_WRITE_BIT;
+  before.srcAccessMask =
+      VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
   before.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-  vulkanApi().vkCmdPipelineBarrier(run.command,
-      VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+  vulkanApi().vkCmdPipelineBarrier(
+      run.command,
+      VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+          VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &before, 0, nullptr, 0, nullptr);
-  VkBufferCopy region{offset, offset, bytes ? bytes : source.capacity};
+  VkBufferCopy region{offset, targetOffset, bytes ? bytes : source.capacity};
   vulkanApi().vkCmdCopyBuffer(run.command, source.buffer, target.buffer, 1, &region);
   VkMemoryBarrier after{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
   after.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
   after.dstAccessMask = VK_ACCESS_HOST_READ_BIT | VK_ACCESS_SHADER_READ_BIT |
                         VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT;
   vulkanApi().vkCmdPipelineBarrier(run.command, VK_PIPELINE_STAGE_TRANSFER_BIT,
-      VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-      0, 1, &after, 0, nullptr, 0, nullptr);
+                                   VK_PIPELINE_STAGE_HOST_BIT |
+                                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                   0, 1, &after, 0, nullptr, 0, nullptr);
   return finishDispatch(run);
 }
 std::expected<void, Error> readStorage(const std::shared_ptr<Storage> &source,
-                                      std::span<std::byte> output) {
+                                      std::span<std::byte> output, std::uint64_t offset = 0) {
   auto &state = *source->state;
   // Small/cached reads avoid an extra submission. Larger uncached mapped reads
   // otherwise serialize thousands of CPU transactions across PCIe or uncached RAM.
-  if (output.size() >= 64 * 1024 &&
+  if (!offset && output.size() == source->bytes && output.size() >= 64 * 1024 &&
       !(source->memoryFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) &&
       mappedMemoryType(state.memory, UINT32_MAX, true) != UINT32_MAX) {
     std::lock_guard queue(state.queueMutex);
@@ -572,7 +577,7 @@ std::expected<void, Error> readStorage(const std::shared_ptr<Storage> &source,
   if (!visible)
     return std::unexpected(visible.error());
   if (!output.empty())
-    std::memcpy(output.data(), source->mapped, output.size());
+    std::memcpy(output.data(), static_cast<const std::byte *>(source->mapped) + offset, output.size());
   return {};
 }
 
@@ -987,18 +992,26 @@ std::expected<Buffer, Error> Runtime::blankBytes(std::uint64_t bytes) {
 }
 std::expected<void, Error> Runtime::copyPrivateBytes(const Buffer &source, const Buffer &target,
                                                      std::uint64_t offset, std::uint64_t bytes) {
+  return copyPrivateBytes(source, target, offset, offset, bytes);
+}
+std::expected<void, Error> Runtime::copyPrivateBytes(const Buffer &source, const Buffer &target,
+                                                     std::uint64_t sourceOffset,
+                                                     std::uint64_t targetOffset,
+                                                     std::uint64_t bytes) {
   if (!owns(source) || !owns(target))
     return std::unexpected(Error::Residency);
   if (!target.storage_->privateCopyTarget || source.storage_ == target.storage_ ||
-      offset > source.bytes() || offset > target.bytes() ||
-      bytes > source.bytes() - offset || bytes > target.bytes() - offset || offset % 4 || bytes % 4)
+      sourceOffset > source.bytes() || targetOffset > target.bytes() ||
+      bytes > source.bytes() - sourceOffset || bytes > target.bytes() - targetOffset ||
+      sourceOffset % 4 || targetOffset % 4 || bytes % 4)
     return std::unexpected(Error::Invalid);
   std::lock_guard lock(state_->queueMutex);
   if (state_->failed)
     return std::unexpected(Error::Device);
   if (!bytes)
     return {};
-  return copyStorage(*state_, *source.storage_, *target.storage_, offset, bytes);
+  return copyStorage(*state_, *source.storage_, *target.storage_, sourceOffset, bytes,
+                     targetOffset);
 }
 std::expected<std::vector<std::byte>, Error> Runtime::downloadBytes(const Buffer &buffer) {
   try {
@@ -1011,6 +1024,20 @@ std::expected<std::vector<std::byte>, Error> Runtime::downloadBytes(const Buffer
     if (!copied)
       return std::unexpected(copied.error());
     return result;
+  } catch (const std::bad_alloc &) {
+    return std::unexpected(Error::Allocation);
+  }
+}
+std::expected<void, Error> Runtime::readArrayPage(const Buffer &buffer, std::span<std::byte> output,
+                                                  std::uint64_t offset) {
+  try {
+    if (!owns(buffer) || output.size() > 64 * 1024 || offset % 8 || output.size() % 8 ||
+        offset > buffer.bytes() || output.size() > buffer.bytes() - offset)
+      return std::unexpected(Error::Invalid);
+    std::lock_guard lock(buffer.storage_->hostMutex);
+    if (state_->failed)
+      return std::unexpected(Error::Device);
+    return readStorage(buffer.storage_, output, offset);
   } catch (const std::bad_alloc &) {
     return std::unexpected(Error::Allocation);
   }

@@ -87,6 +87,43 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
          "-O2", "-o", array_app], cwd)
     assert run([array_app / "program"], cwd).stdout.strip() == "00000000000000ef"
     applications.append((array_app, "00000000000000ef"))
+    result_source = cwd / "device array results.k"
+    result_source.write_text("""fn ordered(values:[int])->[int]:
+  sorted(values)
+fn identity(flags:[Bool])->[Bool]:
+  flags
+fn main()->int ! TaskError:
+  values:[int]=[9,2,5]
+  flags:[Bool]=[true,false]
+  try parallel:
+    gpu=devices.gpu()
+    result=try await spawn ordered(values) on gpu
+    result[0]=7
+    alias=try await spawn identity(flags) on gpu
+    alias[0]=false
+    if not flags[0]:
+      result[0]+values[0]
+    else:
+      0
+""")
+    result_app = cwd / "device array results application"
+    run([compiler, result_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", result_app], cwd)
+    assert run([result_app / "program"], cwd).stdout.strip() == "0000000000000010"
+    applications.append((result_app, "0000000000000010"))
+    collection_source = cwd / "array main.k"
+    collection_source.write_text("""fn work(values:[int])->[int]:
+  sorted(values)
+fn main()->[int] ! TaskError:
+  values:[int]=[9,2,5]
+  try parallel:
+    gpu=devices.gpu()
+    try await spawn work(values) on gpu
+""")
+    collection_app = cwd / "array main application"
+    run([compiler, collection_source, "--target", "metal", "-O2", "-o", collection_app], cwd)
+    collection_expected = "[0000000000000002,0000000000000005,0000000000000009]"
+    assert run([collection_app / "program"], cwd).stdout.strip() == collection_expected
+    applications.append((collection_app, collection_expected))
     for name, flags in (("debug", []), ("optimized", ["-O2"]),
                         ("sanitized", ["--sanitize"]), ("thread-sanitized", ["--thread-sanitize"])):
         app = cwd / ("application " + name)

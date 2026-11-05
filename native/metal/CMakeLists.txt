@@ -21,6 +21,15 @@ foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
   target_compile_options(kalandra-metal-${VARIANT} PRIVATE -Wall -Wextra -Werror -fobjc-arc -fblocks -fno-objc-msgsend-class-selector-stubs ${METAL_FLAGS})
   target_link_libraries(kalandra-metal-${VARIANT} PUBLIC ${RUNTIME_TARGET} "-framework Foundation" "-framework Metal")
   if(BUILD_TESTING)
+    add_executable(kalandra-metal-array-job-${VARIANT} ../gpu-source/DeviceArrayJobRuntimeTests.cpp)
+    target_compile_options(kalandra-metal-array-job-${VARIANT} PRIVATE -Wall -Wextra -Werror ${METAL_FLAGS})
+    target_compile_definitions(kalandra-metal-array-job-${VARIANT} PRIVATE KALANDRA_ARRAY_METAL)
+    target_link_options(kalandra-metal-array-job-${VARIANT} PRIVATE ${METAL_FLAGS})
+    target_link_libraries(kalandra-metal-array-job-${VARIANT} PRIVATE kalandra-metal-${VARIANT})
+    add_executable(kalandra-metal-array-export-${VARIANT} DeviceArrayExportTests.cpp)
+    target_compile_options(kalandra-metal-array-export-${VARIANT} PRIVATE -Wall -Wextra -Werror ${METAL_FLAGS})
+    target_link_options(kalandra-metal-array-export-${VARIANT} PRIVATE ${METAL_FLAGS})
+    target_link_libraries(kalandra-metal-array-export-${VARIANT} PRIVATE kalandra-metal-${VARIANT})
     add_executable(kalandra-metal-upload-${VARIANT} UploadTests.cpp)
     target_compile_options(kalandra-metal-upload-${VARIANT} PRIVATE -Wall -Wextra -Werror ${METAL_FLAGS})
     target_link_options(kalandra-metal-upload-${VARIANT} PRIVATE ${METAL_FLAGS})
@@ -124,5 +133,45 @@ if(BUILD_TESTING AND KALANDRA_BUILD_METAL_PROOF)
       COMMAND kalandra-metal-control-arena-${VARIANT} "${ARENA_FIXTURE}/arena.metallib")
     set_tests_properties(native-metal-control-arena-${VARIANT} PROPERTIES TIMEOUT 180
       FIXTURES_REQUIRED metal-control-arena RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()
+
+if(BUILD_TESTING AND KALANDRA_BUILD_METAL_PROOF)
+  set(ARRAY_EXPORT_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/array-export")
+  add_test(NAME native-metal-array-export-fixture
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../gpu-source/DeviceArrayExportProbe.py"
+      --build "${PROJECT_BINARY_DIR}" --llvm "${KALANDRA_LLVM_ROOT}" --backend metal
+      --root "${ARRAY_EXPORT_FIXTURE}" --metal "${KALANDRA_METAL_COMPILER}" --sdk "${KALANDRA_METAL_SDK}"
+      --cross "${KALANDRA_SPIRV_CROSS_ROOT}/bin/spirv-cross"
+      --validator "${KALANDRA_SPIRV_TOOLS_ROOT}/bin/spirv-val")
+  set_tests_properties(native-metal-array-export-fixture PROPERTIES TIMEOUT 300
+    FIXTURES_SETUP metal-array-export RESOURCE_LOCK apple-metal-gpu)
+  foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
+    add_dependencies(kalandra-metal-array-export-${VARIANT} kalandra-vulkan-kernels
+      kalandra-metal-strict64 kalandra-metal-extract)
+    add_test(NAME native-metal-array-export-${VARIANT}
+      COMMAND kalandra-metal-array-export-${VARIANT} "${ARRAY_EXPORT_FIXTURE}")
+    set_tests_properties(native-metal-array-export-${VARIANT} PROPERTIES TIMEOUT 180
+      FIXTURES_REQUIRED metal-array-export RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+  endforeach()
+endif()
+
+if(BUILD_TESTING AND KALANDRA_BUILD_METAL_PROOF)
+  set(ARRAY_JOB_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/array-job")
+  add_test(NAME native-metal-array-job-fixture
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../gpu-source/DeviceArrayExportProbe.py"
+      --build "${PROJECT_BINARY_DIR}" --llvm "${KALANDRA_LLVM_ROOT}" --backend metal --all-types
+      --root "${ARRAY_JOB_FIXTURE}" --metal "${KALANDRA_METAL_COMPILER}" --sdk "${KALANDRA_METAL_SDK}"
+      --cross "${KALANDRA_SPIRV_CROSS_ROOT}/bin/spirv-cross"
+      --validator "${KALANDRA_SPIRV_TOOLS_ROOT}/bin/spirv-val")
+  set_tests_properties(native-metal-array-job-fixture PROPERTIES TIMEOUT 600
+    FIXTURES_SETUP metal-array-job RESOURCE_LOCK apple-metal-gpu)
+  foreach(VARIANT IN ITEMS optimized sanitized thread-sanitized)
+    add_dependencies(kalandra-metal-array-job-${VARIANT} kalandra-vulkan-kernels
+      kalandra-metal-strict64 kalandra-metal-extract)
+    add_test(NAME native-metal-array-job-${VARIANT}
+      COMMAND kalandra-metal-array-job-${VARIANT} "${ARRAY_JOB_FIXTURE}")
+    set_tests_properties(native-metal-array-job-${VARIANT} PROPERTIES TIMEOUT 300
+      FIXTURES_REQUIRED metal-array-job RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
   endforeach()
 endif()

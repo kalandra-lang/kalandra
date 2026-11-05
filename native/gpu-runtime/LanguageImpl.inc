@@ -391,3 +391,12 @@ void Runtime::holdCompletions(bool hold) noexcept {
     if (context.async)
       context.async->holdCompletions(hold);
 }
+
+TaskHandle Runtime::downloadArrayPage(Task &task, GroupHandle group, const Buffer &value,
+                                      std::uint64_t offset, std::uint64_t words) noexcept {
+  std::lock_guard lock(state_->contextMutex);
+  for (auto &context : state_->contexts)
+    if (context.driver && context.driver->owns(value.data))
+      return context.async->downloadArrayPage(task, group, value, offset, words);
+  return state_->contexts[state_->options.defaultDevice].async->reject(task, group, Error::Residency);
+}

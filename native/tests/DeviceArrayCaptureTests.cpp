@@ -149,6 +149,28 @@ int main() {
       require(capture->advance() && capture->wire()->aligned[4] == 42,
               "temporary caller scope retired pending wire storage");
     }
+    {
+      Invocation context;
+      auto *data = static_cast<std::int64_t *>(context.allocate(8));
+      *data = 42;
+      CpuTensor<NumericType::Int64, 1> descriptor{data, data, 0, {1}, {1}};
+      auto capture = makeCapture<NumericType::Int64>(context, descriptor, 1);
+      require(capture && !capture->advance() && capture->advance(), "retirement setup failed");
+      auto wire = *capture->wire();
+      auto retained = retainCpuTensor(context, wire.view());
+      require(bool(retained), "snapshot lease failed");
+      capture->retireWire();
+      require(!capture->wire() && !capture->complete() && !capture->advance() && !context.status(),
+              "retired packing became available or fabricated a fault");
+      const auto *words = reinterpret_cast<const std::uint64_t *>(retained->data().data());
+      require(words[0] == DeviceArrayWireABI::Magic && words[4] == 42,
+              "retirement destroyed an externally retained snapshot");
+      retained.reset();
+      context.release(data);
+      capture.reset();
+      require(!context.live() && context.allocations() == context.releases(),
+              "retirement retained staging or source ownership");
+    }
     std::cout << "Eleven array types: exact raw bits, offsets, bounded pages, aliases, moves, "
                  "invalid Bool, allocation faults and cancellation passed\n";
   } catch (const std::exception &error) {

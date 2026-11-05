@@ -340,8 +340,8 @@ class Builder {
       reject(fn.declaration, "recursive GPU numerical helper expansion");
     if (arguments.size() != fn.parameters.size())
       reject(fn.declaration, "numerical helper capture count mismatch");
-    if (usesScalarControl(input, function)) {
-      if (fn.resultType.tensor)
+    if (fn.resultType.array || usesScalarControl(input, function)) {
+      if (fn.resultType.tensor && !fn.resultType.array)
         reject(fn.declaration, "device scalar control requires a numeric/Bool scalar helper; "
                                "tensor loop state is not implemented");
       auto shader =
@@ -533,8 +533,8 @@ public:
   }
   NumericProgram run(FunctionId id) {
     if ((root.resultType.builtin != BuiltinValue::Numeric &&
-         !(root.resultType.builtin == BuiltinValue::Bool && !root.resultType.tensor)) ||
-        root.resultType.array || root.resultType.task || root.resultType.fallible)
+         !(root.resultType.builtin == BuiltinValue::Bool && (!root.resultType.tensor || root.resultType.array))) ||
+        (root.resultType.array && root.resultType.shape.size() != 1) || root.resultType.task || root.resultType.fallible)
       reject(root.declaration,
              "GPU numerical program requires a numeric/Bool scalar or numeric tensor result");
     std::vector<Ref> args;

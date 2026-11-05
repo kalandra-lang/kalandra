@@ -113,8 +113,6 @@ class Compiler {
             !numericArithmeticAvailable(type.element, NumericTarget::AppleGpu))
           reject(fn.declaration, "GPU kernel numeric type is not implemented");
       };
-      if (function == root && fn.resultType.array)
-        reject(fn.declaration, "GPU entry array results require typed result transport");
       supported(fn.resultType);
       for (auto parameter : fn.parameters)
         supported(cpu.symbols[parameter].type);
@@ -1678,9 +1676,12 @@ class Compiler {
     const auto base = "kernel" + std::to_string(entry->second);
     auto out = field("TaskHandle");
     Value result{Value::Task, next - 1, true, target.device};
-    result.scalarTask = !program.type.tensor;
+    result.array = program.type.array;
+    result.booleanArray = isBoolArray(program.type);
+    result.gpu = !result.array;
+    result.scalarTask = !program.type.tensor && !result.array;
     result.booleanTask = program.type.builtin == BuiltinValue::Bool && !program.type.tensor;
-    result.element = result.booleanTask ? NumericType::UInt8 : program.type.element;
+    result.element = result.booleanTask || result.booleanArray ? NumericType::UInt8 : program.type.element;
     result.rank = program.type.shape.size();
     for (unsigned axis = 0; axis < result.rank; ++axis)
       setExtent(result, axis, program.type.shape[axis].constant);
@@ -1783,23 +1784,24 @@ class Compiler {
           "u" + (op.workPerElement ? "," + std::to_string(op.workPerElement) + "u" : "") + "},";
     }
     code += "}};\nauto prepared=r.prepareNumericProgram(" + std::to_string(tensors.size()) +
-            "u,code," + std::to_string(program.result) + "u," + elementName(result.element) + "," +
+            "u,code," + std::to_string(program.result) + "u," +
+            elementName(result.array ? NumericType::UInt64 : result.element) + "," +
             (result.scalarTask ? "true" : "false") + (result.booleanTask ? ",true" : "") +
             (backend_ != GpuBackend::Metal ? ",*target" : "") + ");if(!prepared){" +
             error("prepared.error()") + "}f." + executable + "=*prepared;\n}\n";
     const bool arrayInputs =
         std::ranges::any_of(tensors, [](const auto &v) { return v.kind == Value::Array; });
-    if (arrayInputs) {
+    if (arrayInputs || result.array) {
       if (std::ranges::any_of(tensors, [](const auto &v) { return v.kind != Value::Array; }))
         reject(span, "GPU array entry cannot yet combine host arrays and resident tensors");
       std::string arguments;
       for (const auto &value : tensors)
         arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
                      (value.booleanArray ? "true" : "false") + ">";
-      code += "using "
-              "ArrayJob=DeviceArrayInputJob<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
+      code += "using ArrayJob=" + std::string(result.array ? "DeviceArrayResultJob" : "DeviceArrayInputJob") +
+              "<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
               std::to_string(0x4b414c4441520000ULL + function) + "ull," +
-              elementName(result.element) + "," + (result.booleanTask ? "true" : "false") + "," +
+              elementName(result.element) + "," + ((result.array ? result.booleanArray : result.booleanTask) ? "true" : "false") + "," +
               std::to_string(captureCount) + arguments + ">;\n";
       code += "ArrayJob::PacketData packet{&r,f." + executable + ",*target," +
               "std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
@@ -3818,15 +3820,20 @@ public:
     if (!fn.parameters.empty() || !fn.result || !fn.taskError)
       reject(fn.span, "Metal main requires no parameters, a float32 or tensor "
                       "result, and ! TaskError");
-    bool scalarResult = !fn.result->tensor;
+    const auto &mainType = placement.functions.at(*main).resultType;
+    const bool mainArray = mainType.array;
+    const bool mainBoolArray = isBoolArray(mainType);
+    if (mainArray && mainType.builtin != BuiltinValue::Numeric && !mainBoolArray)
+      reject(fn.span, "GPU main array results require numeric or Bool elements");
+    bool scalarResult = !mainArray && !fn.result->tensor;
     const bool booleanResult = scalarResult && text(fn.result->name) == "Bool";
     if (scalarResult && !booleanResult && !resolveNumeric(text(fn.result->name)))
       reject(fn.span, "Metal main requires float32 or a rank-one through "
                       "rank-eight float32 tensor");
-    if (!scalarResult)
+    if (!scalarResult && !mainArray)
       tensorType(*fn.result);
     const auto mainElement =
-        booleanResult ? NumericType::UInt8 : placement.functions.at(*main).resultType.element;
+        booleanResult || mainBoolArray ? NumericType::UInt8 : mainType.element;
     const auto mainWidth = describeNumeric(mainElement)->bytes();
     auto planned = continuation::plan(
         placement,
@@ -4002,6 +4009,9 @@ using namespace kalandra::runtime;
                         : "namespace m = kalandra::runtime::vulkan::language;\n")
                  : "namespace m = kalandra::runtime::metal;\n")
          << " " << declarations << helperDeclarations << cpuEntries;
+    if (mainArray)
+      host << "const ValueLayout &mainArrayLayout=hostArrayLayout<" << elementName(mainElement)
+           << "," << (mainBoolArray ? "true" : "false") << ">();\n";
     if (scalarResult)
       host << (booleanResult ? "const ValueLayout &scalarLayout=boolScalarLayout();\n"
                              : "const ValueLayout &scalarLayout=*numericScalarLayout(" +
@@ -4063,7 +4073,7 @@ void resume(Task &task) {
     host << "default: task.fault(3); return;\n} }\n}\n";
     host
         << R"(const TaskEntry entry{1,0x4b414c47505501,sizeof(PacketData),alignof(PacketData),sizeof(Frame),alignof(Frame),construct,destroy,resume,)"
-        << (scalarResult ? "&scalarLayout" : "&m::Runtime::bufferLayout()") << "};\n"
+        << (mainArray ? "&mainArrayLayout" : scalarResult ? "&scalarLayout" : "&m::Runtime::bufferLayout()") << "};\n"
         << helperBodies << R"(int main(int argc,char **argv) {
   if (argc!=1 && argc!=2) { std::fprintf(stderr,"expected optional shader directory\n"); return 2; }
   const auto directory=argc==2 ? std::string(argv[1]) : std::filesystem::absolute(argv[0]).parent_path().string();
@@ -4080,7 +4090,11 @@ void resume(Task &task) {
   PacketData packet{runtime.get(),directory.c_str()};
   Invocation context;
 )";
-    if (scalarResult)
+    if (mainArray)
+      host << tensorDescriptor(mainElement, 1) << " value{};\n"
+              "auto failure=runner->run(entry,{entry.packetLayout,&packet,sizeof(packet)},"
+              "mainArrayLayout,context,&value);\n";
+    else if (scalarResult)
       host << (booleanResult ? "bool" : scalarType(mainElement))
            << " value{};\n"
               "auto "
@@ -4096,7 +4110,18 @@ void resume(Task &task) {
   if (failure.kind!=TaskFailure::None) { std::fprintf(stderr,"Metal task failed: %d/%lld\n",int(failure.kind),(long long)failure.code); status=1; }
   else {
 )";
-    if (booleanResult) {
+    if (mainArray) {
+      host << "{auto retained=retainCpuTensor(context,value.view());if(!retained)status=1;else{\n"
+              "std::printf(\"[\");for(std::uint64_t i=0;i<std::uint64_t(value.sizes[0]);++i){\n"
+              "std::uint64_t bits=0;std::memcpy(&bits,retained->data().data()+i*"
+           << mainWidth << "," << mainWidth << ");\n";
+      if (mainBoolArray)
+        host << "if(i)std::printf(\",\");std::printf(\"%s\",bits ? \"true\" : \"false\");\n";
+      else
+        host << "std::printf(i ? \",%0*llx\" : \"%0*llx\"," << mainWidth * 2
+             << ",static_cast<unsigned long long>(bits));\n";
+      host << "}std::puts(\"]\");}}context.settle();if(context.status()||context.live())status=1;\n";
+    } else if (booleanResult) {
       host << "std::puts(value ? \"true\" : \"false\");\n";
     } else if (scalarResult) {
       host << "std::printf(\"%0*llx\\n\"," << mainWidth * 2

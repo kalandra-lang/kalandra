@@ -1,4 +1,5 @@
 #pragma once
+#include "DeviceArrayResultWire.h"
 #include "DeviceArrayWire.h"
 #include "HostArrays.h"
 #include <tuple>
@@ -12,12 +13,14 @@ template <NumericType Element, bool Boolean = false> struct DeviceArrayArgument 
 // its caller, so spawn does not insert an implicit await in the parent program.
 // Runtime/Buffer/Device/Executable are the existing backend facade types.
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
-          NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
+          NumericType ResultElement, bool BooleanResult, bool ArrayResult, std::size_t ScalarCount,
           class... Arguments>
-class DeviceArrayInputJob final {
+class DeviceArrayTask final {
   static constexpr std::size_t Count = sizeof...(Arguments);
-  static_assert(Count > 0);
-  using Result = std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>;
+  static_assert(Count > 0 || ArrayResult);
+  using Result =
+      std::conditional_t<ArrayResult, CpuTensor<ResultElement, 1>,
+                         std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>>;
   using Descriptors = std::tuple<typename Arguments::Descriptor...>;
   using Captures = std::tuple<typename Arguments::Capture...>;
   inline static const std::array<const ValueLayout *, Count> layouts{&Arguments::layout()...};
@@ -48,6 +51,13 @@ private:
     std::size_t packing = 0;
     unsigned phase = 0;
     Result value{};
+    Buffer output{}, page{};
+    TaskHandle download{};
+    std::optional<DeviceArrayResultMetadata> metadata;
+    std::optional<Invocation::OwnershipScope> resultScope;
+    DeviceArrayResultDecode<ResultElement, BooleanResult> decoder;
+    CpuTensor<NumericType::UInt64, 1> wire{};
+    std::uint64_t cursor = 0, pageWords = 0;
     explicit Frame(const PacketData &packet)
         : runtime(packet.runtime), executable(packet.executable), device(packet.device),
           scalars(packet.scalars), arguments(packet.arguments) {}
@@ -59,7 +69,9 @@ private:
     each(std::forward<F>(function), std::make_index_sequence<Count>{});
   }
   static const ValueLayout &resultLayout() noexcept {
-    if constexpr (BooleanResult)
+    if constexpr (ArrayResult)
+      return hostArrayLayout<ResultElement, BooleanResult>();
+    else if constexpr (BooleanResult)
       return boolScalarLayout();
     else
       return *numericScalarLayout(ResultElement);
@@ -75,7 +87,9 @@ private:
       return false;
     }
     auto &frame = *new (out) Frame(data);
-    bool valid = frame.scopes.initialize(context, layouts);
+    bool valid = true;
+    if constexpr (Count > 0)
+      valid = frame.scopes.initialize(context, layouts);
     each([&]<std::size_t I>() {
       if (valid)
         valid = frame.scopes.capture(context, I, *layouts[I], &std::get<I>(frame.arguments),
@@ -151,14 +165,18 @@ private:
       frame.phase = 1;
     }
     if (frame.phase == 1) {
-      frame.group = task.openGroup();
-      if (!frame.group) {
-        hostArrayFailure(task);
-        return;
+      if constexpr (Count == 0) {
+        frame.phase = 3;
+      } else {
+        frame.group = task.openGroup();
+        if (!frame.group) {
+          hostArrayFailure(task);
+          return;
+        }
+        for (std::size_t i = 0; i < Count; ++i)
+          frame.uploads[i] = runtime.upload(task, frame.group, frame.snapshots[i], frame.device);
+        frame.phase = 2;
       }
-      for (std::size_t i = 0; i < Count; ++i)
-        frame.uploads[i] = runtime.upload(task, frame.group, frame.snapshots[i], frame.device);
-      frame.phase = 2;
     }
     if (frame.phase == 2) {
       for (const auto child : frame.uploads)
@@ -171,24 +189,27 @@ private:
       frame.phase = 3;
     }
     if (frame.phase == 3) {
-      if (!task.join(frame.group))
-        return;
-      const auto failure = task.failure(frame.group);
-      if (failure.kind != TaskFailure::None) {
-        task.releaseGroup(frame.group);
-        task.fail(failure);
-        return;
-      }
-      for (std::size_t i = 0; i < Count; ++i)
-        if (!readBuffer(task, frame.uploads[i], frame.inputs[i])) {
+      if constexpr (Count > 0) {
+        if (!task.join(frame.group))
+          return;
+        const auto failure = task.failure(frame.group);
+        if (failure.kind != TaskFailure::None) {
+          task.releaseGroup(frame.group);
+          task.fail(failure);
+          return;
+        }
+        for (std::size_t i = 0; i < Count; ++i)
+          if (!readBuffer(task, frame.uploads[i], frame.inputs[i])) {
+            hostArrayFailure(task);
+            return;
+          }
+        if (!task.releaseGroup(frame.group)) {
           hostArrayFailure(task);
           return;
         }
-      if (!task.releaseGroup(frame.group)) {
-        hostArrayFailure(task);
-        return;
+        frame.snapshots = {};
+        each([&]<std::size_t I>() { std::get<I>(frame.captures).retireWire(); });
       }
-      frame.snapshots = {};
       frame.group = task.openGroup();
       if (!frame.group) {
         hostArrayFailure(task);
@@ -207,23 +228,147 @@ private:
       }
       frame.phase = 5;
     }
-    if (!task.join(frame.group))
-      return;
-    const auto failure = task.failure(frame.group);
-    if (failure.kind != TaskFailure::None) {
-      task.releaseGroup(frame.group);
-      task.fail(failure);
-      return;
+    if (frame.phase == 5) {
+      if (!task.join(frame.group))
+        return;
+      const auto failure = task.failure(frame.group);
+      if (failure.kind != TaskFailure::None) {
+        task.releaseGroup(frame.group);
+        task.fail(failure);
+        return;
+      }
+      bool read;
+      if constexpr (ArrayResult)
+        read = readBuffer(task, frame.computation, frame.output);
+      else
+        read = task.read(frame.computation, resultLayout(), &frame.value);
+      if (!read || !task.releaseGroup(frame.group)) {
+        hostArrayFailure(task);
+        return;
+      }
+      if constexpr (!ArrayResult) {
+        task.complete(&frame.value);
+        return;
+      } else {
+        frame.metadata = Runtime::arrayResult(frame.output);
+        if (!frame.metadata ||
+            frame.metadata->layout != DeviceArrayWireABI::layout(ResultElement, BooleanResult) ||
+            frame.metadata->origin > Count ||
+            frame.metadata->length >
+                DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords) {
+          task.fault(3);
+          return;
+        }
+        const auto words =
+            DeviceArrayWireABI::HeaderWords + (frame.metadata->origin ? 0 : frame.metadata->length);
+        if (words > SIZE_MAX / 8) {
+          task.fault(2);
+          return;
+        }
+        frame.resultScope.emplace(task.context());
+        if (!frame.resultScope->valid()) {
+          hostArrayFailure(task);
+          return;
+        }
+        Invocation::OwnershipSelection selection(*frame.resultScope);
+        auto *data = static_cast<std::uint64_t *>(task.context().allocate(words * 8));
+        if (!data) {
+          hostArrayFailure(task);
+          return;
+        }
+        frame.wire = {data, data, 0, {std::int64_t(words)}, {1}};
+        data[0] = DeviceArrayWireABI::ResultMagic;
+        data[1] = frame.metadata->layout;
+        data[2] = frame.metadata->length;
+        data[3] = frame.metadata->origin;
+        frame.phase = 6;
+        task.yield();
+        return;
+      }
     }
-    if (!task.read(frame.computation, resultLayout(), &frame.value)) {
-      hostArrayFailure(task);
-      return;
+    if constexpr (ArrayResult) {
+      if (frame.phase == 6) {
+        const auto payload = frame.metadata->origin ? 0 : frame.metadata->length;
+        if (frame.cursor < payload) {
+          frame.pageWords =
+              std::min<std::uint64_t>(DeviceArrayWireABI::PageWords, payload - frame.cursor);
+          frame.group = task.openGroup();
+          if (!frame.group) {
+            hostArrayFailure(task);
+            return;
+          }
+          frame.download = runtime.downloadArrayPage(task, frame.group, frame.output, frame.cursor,
+                                                     frame.pageWords);
+          frame.phase = 7;
+        } else {
+          const auto resolve = [&](std::uint64_t origin) {
+            std::optional<CpuTensor<ResultElement, 1>> descriptor;
+            each([&]<std::size_t I>() {
+              if constexpr (std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
+                                           DeviceArrayArgument<ResultElement, BooleanResult>>) {
+                if (frame.origins[I] == origin)
+                  descriptor = std::get<I>(frame.arguments);
+              }
+            });
+            return descriptor;
+          };
+          if (!frame.decoder.initialize(task.context(), frame.wire, resolve)) {
+            hostArrayFailure(task);
+            return;
+          }
+          frame.output = {};
+          frame.phase = 9;
+          task.yield();
+          return;
+        }
+      }
+      if (frame.phase == 7) {
+        if (!task.await(frame.download))
+          return;
+        if (!task.close(frame.group)) {
+          hostArrayFailure(task);
+          return;
+        }
+        frame.phase = 8;
+      }
+      if (frame.phase == 8) {
+        if (!task.join(frame.group))
+          return;
+        const auto failure = task.failure(frame.group);
+        if (failure.kind != TaskFailure::None) {
+          task.releaseGroup(frame.group);
+          task.fail(failure);
+          return;
+        }
+        if (!readBuffer(task, frame.download, frame.page) || !task.releaseGroup(frame.group)) {
+          hostArrayFailure(task);
+          return;
+        }
+        auto bytes = Runtime::arrayPageBytes(frame.page);
+        if (!bytes || bytes->size() != frame.pageWords * 8) {
+          task.fault(bytes ? 3 : std::int64_t(bytes.error()));
+          return;
+        }
+        std::memcpy(frame.wire.aligned + DeviceArrayWireABI::HeaderWords + frame.cursor,
+                    bytes->data(), bytes->size());
+        frame.cursor += frame.pageWords;
+        frame.page = {};
+        frame.phase = 6;
+        task.yield();
+        return;
+      }
+      if (frame.phase == 9) {
+        if (!frame.decoder.advance()) {
+          if (task.context().poll())
+            hostArrayFailure(task);
+          else
+            task.yield();
+          return;
+        }
+        frame.value = *frame.decoder.result();
+        task.complete(&frame.value);
+      }
     }
-    if (!task.releaseGroup(frame.group)) {
-      hostArrayFailure(task);
-      return;
-    }
-    task.complete(&frame.value);
   }
 
 public:
@@ -238,4 +383,19 @@ public:
                                       resume,
                                       &resultLayout()};
 };
+} // namespace kalandra::runtime
+
+namespace kalandra::runtime {
+template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
+          NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
+          class... Arguments>
+using DeviceArrayInputJob =
+    DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
+                    false, ScalarCount, Arguments...>;
+template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
+          NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
+          class... Arguments>
+using DeviceArrayResultJob =
+    DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
+                    true, ScalarCount, Arguments...>;
 } // namespace kalandra::runtime

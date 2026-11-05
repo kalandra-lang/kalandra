@@ -11,7 +11,7 @@ struct ProgramDefinition {
 namespace {
 using K = NumericProgramKind;
 std::expected<std::uint32_t, Error> cells(const TensorValue &value) {
-  if (value.rank > value.dimensions.size() || (value.scalar && value.rank))
+  if (value.arrayResult || value.rank > value.dimensions.size() || (value.scalar && value.rank))
     return std::unexpected(Error::Invalid);
   for (auto extent : value.shape())
     if (extent > INT64_MAX)
@@ -119,7 +119,8 @@ bool validInstruction(const ProgramInstruction &op) {
         op.kernel->scalarTypes.size() < detail::ControlArenaABI::Cells ||
         op.kernel->tensorTypes.size() != n + 1 ||
         op.kernel->tensorTypes.back() != NumericType::UInt64 ||
-        op.kernel->scalarBuffers.size() != n + 1 || op.kernel->scalarBuffers.back() != 0 ||
+        op.kernel->scalarBuffers.size() != n + 1 || (op.kernel->scalarBuffers.back() != 0 &&
+         op.kernel->scalarBuffers.back() != DeviceArrayWireABI::ExportRole) ||
         !detail::validControlInputRoles(op.kernel->scalarBuffers, op.kernel->scalarTypes.size()) ||
         !std::all_of(op.constants.begin(), op.constants.end(), [](auto x) { return x == 0; }) ||
         !std::all_of(op.kernel->scalarTypes.begin(), op.kernel->scalarTypes.end(),
@@ -203,7 +204,8 @@ std::expected<KernelContract, Error> kernelContract(const ProgramKernel &kernel,
   if (maps(kind) && std::any_of(kernel.scalarBuffers.begin(), kernel.scalarBuffers.end(),
                                 [](auto role) { return role != 0; })) {
     result.entry += "_d_";
-    for (auto role : kernel.scalarBuffers) result.entry += role == 2 ? 'a' : role ? 's' : 't';
+    for (auto role : kernel.scalarBuffers)
+      result.entry += role == 3 ? 'x' : role == 2 ? 'a' : role ? 's' : 't';
   }
   result.entry += backendKernelSuffix;
   return result;
@@ -230,6 +232,15 @@ std::expected<Program, Error> Program::prepare(Runtime &runtime, std::uint32_t i
         (produces(op.kind) && op.output < inputCount) ||
         ((op.kind == K::Branch || op.kind == K::Jump) &&
          (op.target <= pc || op.target > code.size())))
+      return std::unexpected(Error::Invalid);
+    // Export descriptors are a terminal private transport, never intermediate
+    // numerical values. Require an explicit UInt64 carrier and array result.
+    if (op.kernel && std::find(op.kernel->scalarBuffers.begin(),
+                              op.kernel->scalarBuffers.end(), DeviceArrayWireABI::ExportRole) !=
+                         op.kernel->scalarBuffers.end() &&
+        (op.kind != K::DeviceControl || op.kernel->scalarBuffers.back() != DeviceArrayWireABI::ExportRole ||
+         pc + 1 != code.size() || op.output != result || scalar ||
+         resultType != NumericType::UInt64 || op.kernel->type != NumericType::UInt64))
       return std::unexpected(Error::Invalid);
     if (produces(op.kind))
       slots = std::max(slots, std::uint64_t(op.output) + 1);
@@ -363,6 +374,44 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
   if (!definition_ || pending_)
     return fail(Error::Invalid);
   try {
+    if (exportMetadata_) {
+      // One fence-complete page per service step. Cancellation is checked by
+      // the outer service before every next(), including the final copy page.
+      Buffer payload;
+      if (controlExport_.active()) {
+        auto copied = controlExport_.advance(
+            [&](auto bytes) { return runtime.blankBytes(bytes); },
+            [&](const auto &from, const auto &to, auto source, auto target, auto bytes) {
+              return runtime.copyPrivateBytes(from, to, source, target, bytes);
+            });
+        if (!copied)
+          return fail(copied.error());
+        if (!*copied)
+          return std::optional<ProgramDispatch>{};
+        payload = *controlExport_.result();
+      } else {
+        // Alias and empty results still have a real, zero-sized private owner.
+        auto empty = runtime.blankBytes(0);
+        if (!empty)
+          return fail(empty.error());
+        payload = std::move(*empty);
+      }
+      output_ = {};
+      output_.type = NumericType::UInt64;
+      output_.rank = 1;
+      output_.dimensions[0] = payload.bytes() / 8;
+      output_.data = std::move(payload);
+      output_.arrayResult = *exportMetadata_;
+      const auto &op = definition_->code[pc_];
+      values_[op.output] = std::move(output_);
+      for (auto input : op.inputs)
+        release(input);
+      controlExport_ = {};
+      controlArena_ = {};
+      exportMetadata_.reset();
+      ++pc_;
+      return std::optional<ProgramDispatch>{};
+    }
     if (pc_ < definition_->code.size()) {
       const auto &op = definition_->code[pc_];
       for (auto input : op.inputs)
@@ -727,6 +776,29 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
               [&](std::size_t i) { return values_[instruction.inputs[i]].data.bytes(); },
               cell, [](std::size_t, std::uint64_t) {}))
         return fail(Error::Invalid);
+      if (instruction.kernel->scalarBuffers.back() == DeviceArrayWireABI::ExportRole) {
+        if (next == ABI::Done) {
+          const auto captures = std::count(instruction.kernel->scalarBuffers.begin(),
+                                          instruction.kernel->scalarBuffers.end(),
+                                          DeviceArrayWireABI::InputRole);
+          auto range = detail::controlArrayExportRange(cell, controlArena_.words(), captures);
+          if (!range || cell(ABI::Requested) || cell(ABI::Resume))
+            return fail(Error::Invalid);
+          if (!range->metadata.origin && range->metadata.length) {
+            auto started = controlExport_.start(controlArena_.buffer(), range->offsetWords,
+                                                range->metadata.length);
+            if (!started)
+              return fail(started.error());
+          }
+          exportMetadata_ = range->metadata;
+          controlParameters_.clear();
+          output_ = {};
+          return {};
+        }
+        for (std::size_t i = DeviceArrayExportABI::Root; i < DeviceArrayExportABI::Cells; ++i)
+          if (cell(i))
+            return fail(Error::Invalid);
+      }
       if (next == ABI::Grow) {
         if (!cell(ABI::Resume) || cell(ABI::Resume) >= ABI::Grow)
           return fail(Error::Invalid);

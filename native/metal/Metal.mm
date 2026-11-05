@@ -1,5 +1,5 @@
 #include "Metal.h"
-#include "../gpu-runtime/ControlArena.h"
+#include "../gpu-runtime/ControlExport.h"
 #include "../include/kalandra/NumericKernelName.h"
 #include "ElementwiseLayout.h"
 #include "MatmulLayout.h"
@@ -282,6 +282,7 @@ struct Storage {
   std::array<std::int64_t, 8> dimensions{};
   std::uint32_t rank = 0, deviceIndex = 0;
   Format format = Format::Float32;
+  std::optional<DeviceArrayResultMetadata> arrayResult{};
   bool device = false;
   std::uint64_t size = 0, hostReserved = 0;
   std::vector<std::byte> host;
@@ -534,6 +535,8 @@ struct NumericProgramArguments {
   std::uint32_t controlSlots = 0;
   bool controlActive = false;
   detail::ControlArena<Buffer, Error> controlArena{false};
+  detail::ControlExport<Buffer, Error> controlExport;
+  std::optional<DeviceArrayResultMetadata> exportMetadata;
   std::uint32_t captureCount = 0, slots = 0;
   std::vector<Buffer> values;
   std::vector<std::uint32_t> uses, retired, origins;
@@ -607,7 +610,8 @@ struct Bridge {
             kernel->tensorTypes.size() != op.inputs.size() + 1 ||
             kernel->tensorTypes.back() != NumericType::UInt64 ||
             kernel->scalarBuffers.size() != op.inputs.size() + 1 ||
-            kernel->scalarBuffers.back() || kernel->readCount != op.inputs.size() + 1 ||
+            (kernel->scalarBuffers.back() != 0 &&
+             kernel->scalarBuffers.back() != DeviceArrayWireABI::ExportRole) || kernel->readCount != op.inputs.size() + 1 ||
             !detail::validControlInputRoles(kernel->scalarBuffers, op.scalars.size()))
           return std::unexpected(Error::Invalid);
         for (std::size_t i = 0; i < op.inputs.size(); ++i)
@@ -668,6 +672,12 @@ struct Bridge {
       }
       if (!valid)
         return std::unexpected(Error::Invalid);
+      if (kernel && std::find(kernel->scalarBuffers.begin(), kernel->scalarBuffers.end(),
+                              DeviceArrayWireABI::ExportRole) != kernel->scalarBuffers.end() &&
+          (op.kind != K::DeviceControl || kernel->scalarBuffers.back() != DeviceArrayWireABI::ExportRole ||
+           pc + 1 != code.size() || op.output != resultId || scalar || element != NumericType::UInt64 ||
+           kernel->numericType != NumericType::UInt64))
+        return std::unexpected(Error::Invalid);
       if (op.output != UINT32_MAX)
         values = std::max(values, std::uint64_t(op.output) + 1);
       if (op.inputs.size() > UINT32_MAX - edges || op.scalars.size() > UINT32_MAX - scalars)
@@ -726,7 +736,7 @@ struct Bridge {
       result->boolean = boolean;
       for (std::size_t i = 0; !prepareOnly && i < inputs.size(); ++i) {
         const auto &input = inputs[i].storage_;
-        if (!input || !input->device || input->state != state || input->deviceIndex != *index)
+        if (!input || input->arrayResult || !input->device || input->state != state || input->deviceIndex != *index)
           return std::unexpected(Error::Residency);
         result->values[i] = inputs[i];
       }
@@ -796,7 +806,7 @@ struct Bridge {
     if (plan->state != state)
       return std::unexpected(Error::Residency);
     for (const auto &input : inputs)
-      if (!input.storage_ || !input.storage_->device || input.storage_->state != state ||
+      if (!input.storage_ || input.arrayResult() || !input.storage_->device || input.storage_->state != state ||
           input.storage_->deviceIndex != plan->index)
         return std::unexpected(Error::Residency);
     if (!captures.empty())
@@ -865,6 +875,8 @@ struct Bridge {
   static std::expected<std::shared_ptr<const Arguments>, Error>
   capture(std::shared_ptr<State> state, const Kernel &kernel, std::span<const Buffer> tensors,
           std::span<const float> scalars) noexcept {
+    if (std::any_of(tensors.begin(), tensors.end(), [](const auto &v) { return v.arrayResult().has_value(); }))
+      return std::unexpected(Error::Invalid);
     const auto expected = kernel.state_ && kernel.state_->signature ? *kernel.state_->signature
                                                                     : ElementwiseSignature{2, 0};
     if (!kernel.state_ || kernel.state_->numericType || !kernel.state_->elementwise ||
@@ -908,6 +920,8 @@ struct Bridge {
   static std::expected<std::shared_ptr<const Arguments>, Error>
   captureNumeric(std::shared_ptr<State> state, const Kernel &kernel,
                  std::span<const Buffer> tensors, std::span<const std::uint64_t> scalars) noexcept {
+    if (std::any_of(tensors.begin(), tensors.end(), [](const auto &v) { return v.arrayResult().has_value(); }))
+      return std::unexpected(Error::Invalid);
     if (!kernel.state_ || !kernel.state_->numericType || !kernel.state_->signature ||
         !kernel.state_->elementwise || kernel.state_->matrix || kernel.state_->reduction ||
         tensors.size() != kernel.state_->signature->tensors ||
@@ -1263,7 +1277,7 @@ struct Bridge {
     std::shared_ptr<MetalAllocation> staging, resources;
     Error error = Error::Device;
     bool succeeded = false, started = false, active = false;
-    bool copyingUpload = false, arenaAcknowledging = false;
+    bool copyingUpload = false, arenaAcknowledging = false, exportAcknowledging = false;
     std::uint64_t uploadOffset = 0;
     explicit Frame(PacketData p) : packet(std::move(p)) {}
     ~Frame() {
@@ -1694,6 +1708,7 @@ struct Bridge {
   }
   static void captureJoin(PacketData &packet, Kernel join,
                           std::span<const float> scalars) noexcept {
+
     if (!packet.graph)
       return;
     const auto &base = packet.kernel.state_, &reduction = packet.reduction.state_;
@@ -2377,6 +2392,28 @@ struct Bridge {
                 [&](std::size_t i) { return p.controlState[i]; },
                 [](std::size_t, std::uint64_t) {}))
           return std::unexpected(Error::Invalid);
+        if (last.kernel.state_->scalarBuffers.back() == DeviceArrayWireABI::ExportRole) {
+          if (next == A::Done) {
+            auto range = detail::controlArrayExportRange(
+                [&](std::size_t i) { return p.controlState[i]; }, p.controlArena.words(),
+                std::count(last.kernel.state_->scalarBuffers.begin(),
+                           last.kernel.state_->scalarBuffers.end(), DeviceArrayWireABI::InputRole));
+            if (!range || p.controlState[A::Requested] || p.controlState[A::Resume])
+              return std::unexpected(Error::Invalid);
+            if (!range->metadata.origin && range->metadata.length) {
+              auto started = p.controlExport.start(p.controlArena.buffer(), range->offsetWords,
+                                                   range->metadata.length);
+              if (!started)
+                return std::unexpected(started.error());
+            }
+            p.exportMetadata = range->metadata;
+            p.controlActive = false;
+            return {};
+          }
+          for (std::size_t i = DeviceArrayExportABI::Root; i < DeviceArrayExportABI::Cells; ++i)
+            if (p.controlState[i])
+              return std::unexpected(Error::Invalid);
+        }
         if (next == A::Grow) {
           if (!p.controlState[A::Resume] || p.controlState[A::Resume] >= A::Grow)
             return std::unexpected(Error::Invalid);
@@ -2801,6 +2838,55 @@ struct Bridge {
     submitCommand(task, f, command);
     return true;
   }
+  static std::expected<bool, Error> serviceArrayExport(Task &task, Frame &f) {
+    auto &p = *f.packet.numericProgram;
+    const auto allocate = [&](std::uint64_t bytes) -> std::expected<Buffer, Error> {
+      const std::int64_t words = bytes / 8;
+      auto storage = allocateStorage(p.state, std::span(&words, 1), Format::UInt64, true, p.index);
+      if (!storage)
+        return std::unexpected(storage.error());
+      (*storage)->arrayResult = *p.exportMetadata;
+      return Buffer(std::move(*storage));
+    };
+    if (!p.controlExport.active()) {
+      auto output = p.controlExport.complete() ? std::expected<Buffer, Error>(*p.controlExport.result())
+                                               : allocate(0);
+      if (!output)
+        return std::unexpected(output.error());
+      const auto &op = p.code[p.pc];
+      p.values[op.output] = std::move(*output);
+      for (auto input : op.inputs)
+        p.release(input);
+      p.controlExport = {};
+      p.controlArena = detail::ControlArena<Buffer, Error>(false);
+      p.exportMetadata.reset();
+      ++p.pc;
+      return false;
+    }
+    auto page = p.controlExport.beginPage(allocate);
+    if (!page)
+      return std::unexpected(page.error());
+    if (!p.state->permit())
+      return std::unexpected(Error::Allocation);
+    id<MTLCommandBuffer> command = [p.state->queues[p.index] commandBuffer];
+    if (!command)
+      return std::unexpected(Error::Device);
+    id<MTLBlitCommandEncoder> encoder = [command blitCommandEncoder];
+    if (!encoder)
+      return std::unexpected(Error::Device);
+    [encoder copyFromBuffer:page->source.storage_->metal->buffer sourceOffset:page->sourceOffset
+                   toBuffer:page->target.storage_->metal->buffer destinationOffset:page->targetOffset
+                       size:page->bytes];
+    [encoder endEncoding];
+    auto count = p.state->inFlight.load();
+    do {
+      if (count >= p.state->options.maxInFlight)
+        return std::unexpected(Error::Budget);
+    } while (!p.state->inFlight.compare_exchange_weak(count, count + 1));
+    f.active = f.exportAcknowledging = true;
+    submitCommand(task, f, command);
+    return true;
+  }
   static void resume(Task &task) {
     ProgressionEncodingExit encodingExit{*static_cast<Frame *>(task.frame())};
     for (;;) {
@@ -2813,6 +2899,19 @@ struct Bridge {
         }
         if (f.packet.numericProgram && !f.packet.preparation) {
           auto &program = *f.packet.numericProgram;
+          if (f.exportAcknowledging) {
+            if (!f.succeeded) {
+              fail(task, f, std::int64_t(f.error));
+              return;
+            }
+            auto settled = program.controlExport.acknowledge();
+            if (!settled) {
+              fail(task, f, std::int64_t(settled.error()));
+              return;
+            }
+            f.exportAcknowledging = false;
+            f.started = f.succeeded = false;
+          }
           if (f.arenaAcknowledging) {
             if (!f.succeeded) {
               fail(task, f, std::int64_t(f.error));
@@ -2947,6 +3046,16 @@ struct Bridge {
           while (!scheduled) {
             if (task.cancelled())
               return;
+            if (program.exportMetadata) {
+              auto serviced = serviceArrayExport(task, f);
+              if (!serviced) {
+                fail(task, f, std::int64_t(serviced.error()));
+                return;
+              }
+              if (*serviced)
+                return;
+              continue;
+            }
             if (f.numericBatched == 4 ||
                 ((f.numericBatched ||
                   (f.progression && (f.pendingCommand || !f.progression->checkpoints.empty()))) &&
@@ -3451,6 +3560,11 @@ struct Bridge {
         const bool upload = f.packet.kind == Kind::Upload;
         const bool reduce = f.packet.kind == Kind::Reduce;
         const bool matrix = f.packet.kind == Kind::Matmul;
+        if ((compute || reduce || matrix) &&
+            (source->arrayResult || f.packet.right.arrayResult())) {
+          fail(task, f, std::int64_t(Error::Invalid));
+          return;
+        }
         std::array<std::int64_t, 2> matrixShape{};
         if (matrix) {
           const auto &kernel = f.packet.kernel.state_;
@@ -3779,6 +3893,8 @@ struct Bridge {
             fail(task, f, std::int64_t(result.error()));
             return;
           }
+          if (!compute && !matrix && !reduce)
+            (*result)->arrayResult = source->arrayResult;
           f.result = Buffer(*result);
           const bool numeric = compute && f.packet.kernel.state_->numericType.has_value();
           if (!f.result.bytes() && numeric) {
@@ -4150,7 +4266,7 @@ struct Bridge {
                                size:source->size];
             } else
               [blit copyFromBuffer:source->metal->buffer
-                       sourceOffset:0
+                       sourceOffset:source->metal->offset
                            toBuffer:f.staging->buffer
                   destinationOffset:0
                                size:source->size];
@@ -4325,6 +4441,9 @@ std::span<const std::int64_t> Buffer::shape() const noexcept {
 }
 bool Buffer::onDevice() const noexcept { return storage_ && storage_->device; }
 Format Buffer::format() const noexcept { return storage_ ? storage_->format : Format::Float32; }
+std::optional<DeviceArrayResultMetadata> Buffer::arrayResult() const noexcept {
+  return storage_ ? storage_->arrayResult : std::optional<DeviceArrayResultMetadata>{};
+}
 std::expected<std::span<const std::byte>, Error> Buffer::hostBytes() const noexcept {
   if (!storage_)
     return std::unexpected(Error::Invalid);
@@ -4431,7 +4550,7 @@ std::expected<Buffer, Error> Runtime::fromCpu(const Invocation &context,
 std::expected<void *, Error> Runtime::exportCpu(Invocation &context, const Buffer &buffer,
                                                 NumericType element, std::span<std::int64_t> sizes,
                                                 std::span<std::int64_t> strides) noexcept {
-  if (!context.usable() || !buffer || storageNumericType(buffer.format()) != element)
+  if (!context.usable() || !buffer || buffer.arrayResult() || storageNumericType(buffer.format()) != element)
     return std::unexpected(Error::Invalid);
   auto bytes = buffer.hostBytes();
   if (!bytes)
@@ -4448,6 +4567,44 @@ TaskHandle Runtime::upload(TaskCore &core, GroupHandle group, Buffer buffer,
       state_, std::move(buffer), std::move(target), Bridge::Kind::Upload, {}, BinaryOperation::Add,
       {}};
   return core.submit(group, Bridge::entry, {Bridge::entry.packetLayout, &packet, sizeof(packet)});
+}
+TaskHandle Runtime::downloadArrayPage(Task &task, GroupHandle group, const Buffer &value,
+                                       std::uint64_t offset, std::uint64_t words) noexcept {
+  Bridge::PacketData packet{state_, {}, {}, Bridge::Kind::Download, {}, BinaryOperation::Add, {}};
+  const auto &source = value.storage_;
+  const auto metadata = value.arrayResult();
+  if (!source || source->state != state_ || !source->device || source->format != Format::UInt64 ||
+      !metadata || !metadata->layout || metadata->layout > 11 || metadata->origin > UINT32_MAX ||
+      metadata->length > DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords ||
+      source->rank != 1 || source->dimensions[0] < 0 ||
+      std::uint64_t(source->dimensions[0]) != (metadata->origin ? 0 : metadata->length) ||
+      source->size != std::uint64_t(source->dimensions[0]) * 8 ||
+      offset > source->size / 8 || words > source->size / 8 - offset ||
+      words > DeviceArrayWireABI::PageWords) {
+    packet.preparation = Error::Invalid;
+  } else try {
+    if (!state_->permit())
+      packet.preparation = Error::Allocation;
+    else {
+      auto page = std::make_shared<Storage>(state_, true);
+      page->rank = 1;
+      page->dimensions[0] = words;
+      page->format = Format::UInt64;
+      page->size = words * 8;
+      page->deviceIndex = source->deviceIndex;
+      if (words) {
+        if (!state_->permit())
+          packet.preparation = Error::Allocation;
+        else
+          page->metal = std::make_shared<MetalAllocation>(source->metal, words * 8,
+                                                         source->metal->offset + offset * 8);
+      }
+      packet.input = Buffer(std::move(page));
+    }
+  } catch (...) {
+    packet.preparation = Error::Allocation;
+  }
+  return task.spawn(group, Bridge::entry, {Bridge::entry.packetLayout, &packet, sizeof(packet)});
 }
 TaskHandle Runtime::download(TaskCore &core, GroupHandle group, Buffer buffer) noexcept {
   Bridge::PacketData packet{state_, std::move(buffer),    {}, Bridge::Kind::Download,
@@ -4515,7 +4672,8 @@ std::expected<Kernel, Error> Runtime::loadKernel(
       // storage, following scalar source inputs. Validate that complete frame
       // schema here; captureProgram separately requires DeviceControl semantics.
       const bool privateControl = !tensorTypes.empty() &&
-          tensorTypes.back() == NumericType::UInt64 && !scalarBuffers.back() &&
+          tensorTypes.back() == NumericType::UInt64 &&
+          (scalarBuffers.back() == 0 || scalarBuffers.back() == DeviceArrayWireABI::ExportRole) &&
           scalarTypes.size() >= detail::ControlArenaABI::Cells &&
           std::all_of(scalarTypes.begin(), scalarTypes.end(),
                       [](auto type) { return type == NumericType::UInt64; }) &&
@@ -4523,7 +4681,8 @@ std::expected<Kernel, Error> Runtime::loadKernel(
       bool seen = false;
       for (std::size_t i = 0; i < scalarBuffers.size(); ++i) {
         const auto role = scalarBuffers[i];
-        if (role > 2 || (role == 2 && (!privateControl || tensorTypes[i] != NumericType::UInt64)) ||
+        if (role > 3 || (role == 3 && (!privateControl || i + 1 != scalarBuffers.size() ||
+                                                   numericType != NumericType::UInt64)) || (role == 2 && (!privateControl || tensorTypes[i] != NumericType::UInt64)) ||
             (seen && !role && !(privateControl && i + 1 == scalarBuffers.size())))
           return std::unexpected(Error::Invalid);
         seen |= role;
@@ -4712,7 +4871,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
                         [](auto x) { return x != 0; })) {
           spelling += "_d_";
           for (auto role : scalarBuffers)
-            spelling += role == 2 ? 'a' : role ? 's' : 't';
+            spelling += role == 3 ? 'x' : role == 2 ? 'a' : role ? 's' : 't';
         }
         numericName = [[NSString alloc] initWithBytes:spelling.data()
                                                length:spelling.size()

@@ -19,7 +19,7 @@ struct ControlArenaABI {
 // domain. Its actual backing length is sealed in the final frame cells by the
 // runtime, never trusted from the wire's own bytes. Verify it after each fence.
 inline bool validControlInputRoles(std::span<const std::uint8_t> roles, std::size_t slots) {
-  if (roles.empty() || roles.back() != 0)
+  if (roles.empty() || (roles.back() != 0 && roles.back() != DeviceArrayWireABI::ExportRole))
     return false;
   std::size_t arrays = 0;
   for (auto role : roles.first(roles.size() - 1)) {
@@ -27,7 +27,9 @@ inline bool validControlInputRoles(std::span<const std::uint8_t> roles, std::siz
       return false;
     arrays += role == DeviceArrayWireABI::InputRole;
   }
-  return slots >= ControlArenaABI::Cells && arrays <= slots - ControlArenaABI::Cells;
+  const auto prefix = roles.back() == DeviceArrayWireABI::ExportRole
+                          ? DeviceArrayExportABI::Cells : ControlArenaABI::Cells;
+  return slots >= prefix && arrays <= slots - prefix;
 }
 template <class Bytes, class Read, class Write>
 bool controlInputLengths(std::span<const std::uint8_t> roles, std::size_t slots, bool initialize,

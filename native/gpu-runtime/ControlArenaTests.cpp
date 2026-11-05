@@ -1,4 +1,5 @@
 #include "ControlArena.h"
+#include "ControlExport.h"
 #include <array>
 #include <atomic>
 #include <cstring>
@@ -201,8 +202,127 @@ void captureLengths() {
   for (auto malformed : {std::array<std::uint8_t, 4>{2, 0, 2, 0}, {2, 1, 2, 1}, {3, 1, 2, 0}})
     check(!validControlInputRoles(malformed, 8), "unknown/domain role accepted as capture");
 }
+void exportRoles() {
+  using namespace kalandra::runtime;
+  using namespace kalandra::runtime::detail;
+  std::array<std::uint8_t, 3> roles{2, 1, 3};
+  check(!validControlInputRoles(roles, DeviceArrayExportABI::Cells), "export footer overlaps descriptor");
+  check(validControlInputRoles(roles, DeviceArrayExportABI::Cells + 1), "valid export footer rejected");
+  roles[0] = 3;
+  check(!validControlInputRoles(roles, 64), "export role accepted as input capture");
+}
+void resultDescriptor() {
+  using namespace kalandra::runtime;
+  using namespace kalandra::runtime::detail;
+  using A = ControlArrayExportABI;
+  std::array<std::uint64_t, A::Cells> frame{};
+  auto checkRange = [&] {
+    return controlArrayExportRange([&](auto i) { return frame[i]; }, 32, 2);
+  };
+  frame[A::Layout] = 4;
+  check(bool(checkRange()), "canonical empty result rejected");
+  frame[A::Root] = 5;
+  frame[A::Data] = 9;
+  frame[A::Length] = 23;
+  auto range = checkRange();
+  check(range && range->offsetWords == 9 && range->metadata.length == 23,
+        "exact terminal arena range rejected");
+  frame[A::Length] = 24;
+  check(!checkRange(), "terminal range exceeded actual backing");
+  frame[A::Root] = DeviceArrayWireABI::ExternalHandle | 2;
+  frame[A::Data] = 0;
+  frame[A::Origin] = 1;
+  frame[A::Length] = 1000;
+  check(bool(checkRange()), "captured alias treated as local arena address");
+  frame[A::Origin] = 3;
+  check(!checkRange(), "unknown origin accepted");
+  frame[A::Origin] = 1;
+  frame[A::Data] = 1;
+  check(!checkRange(), "captured result imported an arena address");
+  frame[A::Data] = 0;
+  frame[A::Root] = DeviceArrayWireABI::ExternalHandle | 3;
+  check(!checkRange(), "unknown capture handle accepted");
+  frame[A::Root] = 0;
+  frame[A::Origin] = 0;
+  frame[A::Length] = 1;
+  check(!checkRange(), "null root contained payload");
+  frame[A::Length] = 0;
+  frame[A::Layout] = 12;
+  check(!checkRange(), "unknown result type accepted");
+}
+void resultExport() {
+  using Export = kalandra::runtime::detail::ControlExport<Buffer, Error>;
+  Driver driver;
+  {
+    auto source = driver.allocate(4 * Export::CopyBytes).value();
+    auto &bytes = source.storage->data;
+    for (std::size_t i = 0; i < bytes.size(); ++i)
+      bytes[i] = std::byte((i * 13 + 9) % 251);
+    constexpr std::uint64_t offset = 3, words = 2 * Export::CopyBytes / 8 + 5;
+    Export value;
+    check(!value.start(source, 0, 0) && !value.start(source, UINT64_MAX, 4) &&
+              !value.start(source, source.bytes() / 8 - 1, 4),
+          "invalid export range accepted");
+    check(bool(value.start(source, offset, words)), "start export");
+    check(!value.start(source, offset, words), "replaced pending export");
+    std::weak_ptr<Storage> weak = source.storage;
+    source = {};
+    unsigned pages = 0;
+    while (!value.complete()) {
+      auto page = value.beginPage([&](auto size) { return driver.allocate(size); });
+      check(bool(page) && page->bytes && page->bytes <= Export::CopyBytes, "unbounded export page");
+      check(page->sourceOffset == offset * 8 + page->targetOffset,
+            "export offset translation changed");
+      check(!value.beginPage([&](auto size) { return driver.allocate(size); }) &&
+                !value.complete() && !value.result(),
+            "unacknowledged page published/reused");
+      std::memcpy(page->target.storage->data.data() + page->targetOffset,
+                  page->source.storage->data.data() + page->sourceOffset, page->bytes);
+      Export moved(std::move(value));
+      check(!value.active() && !value.complete(), "moved export retained pending state");
+      auto ack = moved.acknowledge();
+      check(bool(ack), "export fence acknowledgement");
+      value = std::move(moved);
+      ++pages;
+    }
+    check(pages == 3 && weak.expired(),
+          "export retired source early or retained it after final fence");
+    check(value.result()->bytes() == words * 8, "export result size changed");
+    const auto &out = value.result()->storage->data;
+    for (std::size_t i = 0; i < out.size(); ++i)
+      check(out[i] == std::byte(((i + offset * 8) * 13 + 9) % 251),
+            "export copied wrong arena range");
+  }
+  check(!driver.ledger.bytes, "export retained owners after result release");
+  {
+    auto source = driver.allocate(1024).value();
+    Export value;
+    check(bool(value.start(source, 0, 4)), "failed export setup");
+    driver.limit = 1024;
+    check(!value.beginPage([&](auto size) { return driver.allocate(size); }),
+          "export bypassed allocation budget");
+    check(!value.complete(), "failed export published destination");
+  }
+  check(!driver.ledger.bytes, "failed export leaked source");
+  driver.limit = 4 * 1024 * 1024;
+  {
+    auto source = driver.allocate(1024).value();
+    Export value;
+    check(bool(value.start(source, 0, 4)), "cancel export setup");
+    auto page = value.beginPage([&](auto size) { return driver.allocate(size); });
+    check(bool(page), "cancel export admission");
+    source = {};
+    value = {};
+    check(driver.ledger.bytes == 1024 + 32, "in-flight page lost retained owners");
+    page = {};
+  }
+  check(!driver.ledger.bytes, "cancelled export leaked retained page");
+}
 int main() {
   try {
+    exportRoles();
+    resultDescriptor();
+    resultExport();
     captureLengths();
     lifecycle();
     interruptedCopy();

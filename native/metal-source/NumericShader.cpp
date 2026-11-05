@@ -1,3 +1,5 @@
+#include "DeviceArrayReturn.h"
+#include "../gpu-runtime/ControlExport.h"
 #include "NumericShader.h"
 #include "DeviceHeap.h"
 #include "DeviceLiveness.h"
@@ -1068,10 +1070,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
   };
   bool storage = std::ranges::any_of(plan.slots, flatArray);
-  if (!scalar(root.resultType) || std::ranges::any_of(root.parameters, [&](auto symbol) {
+  const bool arrayResult = flatArray(root.resultType);
+  if ((!scalar(root.resultType) && !arrayResult) || std::ranges::any_of(root.parameters, [&](auto symbol) {
         return !scalar(input.symbols.at(symbol).type) && !flatArray(input.symbols.at(symbol).type);
       }))
-    return reject("GPU checkpointed entry requires numeric/Bool scalar results and scalar/array inputs; "
+    return reject("GPU checkpointed entry requires numeric/Bool scalar or flat array results and inputs; "
                   "aggregate outputs need typed transport");
   // Plain aggregates are values, not host pointers. Each scalar leaf occupies
   // one private 64-bit cell. Enum tags use their canonical synthetic first field.
@@ -1151,7 +1154,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return scalar(type) || flatArray(type) ? 1 : layouts.at(*type.record).words;
   };
   std::vector<std::size_t> offsets;
-  std::size_t frameWords = storage ? unsigned(DeviceHeapEmitter::Cells) : 1;
+  std::size_t frameWords = arrayResult ? runtime::detail::ControlArrayExportABI::Cells :
+                           storage ? unsigned(DeviceHeapEmitter::Cells) : 1;
   for (const auto &type : plan.slots) {
     offsets.push_back(frameWords);
     if (width(type) > (UINT32_MAX - 4) / 2 - frameWords)
@@ -1268,7 +1272,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     kernels.back() = code.functions.size();
     code.functions.push_back(std::move(fn));
   }
-  const auto type =
+  const auto type = arrayResult ? NumericType::UInt64 :
       root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element;
   const auto bits = describeNumeric(type)->bits;
   const auto frames = std::uint32_t(frameWords);
@@ -1286,11 +1290,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   for (auto parameter : root.parameters)
     roles.push_back(flatArray(input.symbols.at(parameter).type) ? 2 : 1);
   if (storage)
-    roles.push_back(0);
-  if (!root.parameters.empty()) {
+    roles.push_back(arrayResult ? runtime::DeviceArrayWireABI::ExportRole : 0);
+  if (!root.parameters.empty() || arrayResult) {
     name += "_d_";
     for (auto role : roles)
-      name += role == 2 ? 'a' : role ? 's' : 't';
+      name += role == 3 ? 'x' : role == 2 ? 'a' : role ? 's' : 't';
   }
   std::ostringstream source;
   const auto hasWidth = [&](unsigned width) {
@@ -1820,8 +1824,13 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             arith::SelectOp::create(b, loc, read(op.args.at(0)).value, next, constant(op.jump + 1));
       else if (op.code == C::Jump)
         next = constant(op.jump + 1);
-      else if (op.code == C::Return)
+      else if (op.code == C::Return) {
+        if (arrayResult)
+          emitDeviceArrayReturn(*heap, b, load(offsets.at(plan.result)),
+              root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element,
+              root.resultType.builtin == BuiltinValue::Bool);
         next = constant(UINT64_MAX);
+      }
       else if (op.code != C::Label) {
         std::vector<ShaderValue> arguments;
         for (auto arg : op.args)

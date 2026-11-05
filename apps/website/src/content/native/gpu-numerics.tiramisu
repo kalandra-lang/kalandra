@@ -241,7 +241,43 @@ fn main() -> int ! TaskError:
 
 This computes 6 and prints 0000000000000006. sorted creates independent device storage; values remains unchanged. Captured arrays follow the same read-only rules as ordinary function parameters. Use copy or sorted before modifying elements inside the GPU helper. Writing through a host alias while the task is pending is a compile-time error.
 
-Array capture supports all ten numeric types and Bool, subject to the selected arithmetic policy. Packing and upload costs count toward end-to-end latency, and their storage counts toward task and device budgets. The private wire representation uses a 64-bit cell per element, so it can use more memory than the corresponding CPU array. Captured host arrays and resident tensor inputs cannot yet be combined in one GPU entry. Return a numeric or Bool scalar; array and record results are not supported across this boundary.
+Array capture supports all ten numeric types and Bool, subject to the selected arithmetic policy. Packing and upload costs count toward end-to-end latency, and their storage counts toward task and device budgets. The private wire representation uses a 64-bit cell per element, so it can use more memory than the corresponding CPU array. Captured host arrays and resident tensor inputs cannot yet be combined in one GPU entry. Return numeric/Bool scalars or flat numeric/Bool arrays. Record results cannot cross this boundary.
+
+h2 { "Return arrays from GPU tasks" }
+
+A GPU helper can return a numeric or Bool array. Awaiting it gives the caller a native CPU array. The helper's computation runs on the GPU; returning its array includes device-to-host transfer and decoding costs. Empty results are valid, and their element type comes from the function's result type.
+
+codeblock { language = kalandra, """fn ordered(values: [int]) -> [int]:
+  sorted(values)
+
+fn main() -> int ! TaskError:
+  values: [int] = [9, 2, 5]
+  try parallel:
+    gpu = devices.gpu()
+    result = try await spawn ordered(values) on gpu
+    result[0] = 7
+    result[0] + values[0]
+""" }
+
+This computes 16 and prints 0000000000000010. The GPU sorts into independent storage, so editing result leaves values unchanged. A helper returning a captured array directly preserves its original CPU backing instead: assignment and helper calls do not imply a copy. Other pending readers still prevent writes through any alias. Use copy or sorted when you need independent backing.
+
+Generators do not need an input array: a GPU helper can return the array produced by a for/while expression or generate. Result order follows the corresponding CPU operation. A returned array can be read, modified under the normal access rules, or captured by another GPU task. For repeated calculations on resident tensors, use explicit tensor transfers instead of moving an array back after each task.
+
+main can return the array directly:
+
+codeblock { language = kalandra, """fn squares(n: int) -> [int]:
+  generate(n, fn(i): i * i)
+
+fn main() -> [int] ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    try await spawn squares(4) on gpu
+""" }
+
+The values are [0, 1, 4, 9]. Like other numerical output from a GPU-targeted executable, numeric array cells print as fixed-width hexadecimal bit patterns: [0000000000000000,0000000000000001,0000000000000004,0000000000000009]. Bool array cells print as true or false.
+
+
+Input packing, temporary device storage, result transfer and native result storage count toward their respective resource budgets. Transfers and decoding proceed in bounded pages with cancellation checks. A bounds fault, allocation failure or cancellation discards partial results; submitted copies settle before their backing is released.
 
 h2 { "AI and LLM foundations" }
 
@@ -259,7 +295,8 @@ table {
   row = ["Integer-range for, while, break and continue", "Supported", "Supported in scalar helpers; sequential iterations"],
   row = ["Single-result loop expressions", "Supported", "Supported for numeric/Bool scalar results"],
   row = ["Plain-data records, enums and match", "Supported", "Local values and internal helpers; no aggregate host/device transport"],
-  row = ["Numeric and Bool array parameters", "Supported", "Read-only task captures with packing/upload costs; scalar results only"],
+  row = ["Numeric and Bool array parameters", "Supported", "Read-only task captures with packing/upload costs"],
+  row = ["Numeric and Bool array task results", "Supported", "Native CPU arrays after await; transfer/decoding costs; captured aliases preserved"],
   row = ["Array iteration, indexing and element mutation", "Supported with access rules", "Local numeric/Bool arrays; bounds checked; existing access rules apply"],
   row = ["Collecting loops with yield", "Supported", "Numeric/Bool elements; ordered, nested and filtered collection"],
   row = ["Array copy, slice and concat", "Supported for their documented element types", "Local numeric/Bool arrays"],

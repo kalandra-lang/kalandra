@@ -31,6 +31,10 @@ public:
   TaskHandle reject(TaskCore &, GroupHandle, Error,
                     std::optional<NumericType> scalar = {}) noexcept;
   TaskHandle reject(Task &, GroupHandle, Error, std::optional<NumericType> scalar = {}) noexcept;
+  TaskHandle downloadArrayPage(TaskCore &, GroupHandle, const TensorValue &, std::uint64_t offset,
+                               std::uint64_t words) noexcept;
+  TaskHandle downloadArrayPage(Task &, GroupHandle, const TensorValue &, std::uint64_t offset,
+                               std::uint64_t words) noexcept;
   static const ValueLayout &bufferLayout() noexcept;
   static const ValueLayout &tensorLayout() noexcept;
   AsyncStats stats() const noexcept;

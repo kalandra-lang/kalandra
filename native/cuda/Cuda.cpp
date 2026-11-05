@@ -295,11 +295,18 @@ std::expected<Buffer, Error> Runtime::blankBytes(std::uint64_t size) {
 }
 std::expected<void, Error> Runtime::copyPrivateBytes(const Buffer &source, const Buffer &target,
                                                      std::uint64_t offset, std::uint64_t bytes) {
+  return copyPrivateBytes(source, target, offset, offset, bytes);
+}
+std::expected<void, Error> Runtime::copyPrivateBytes(const Buffer &source, const Buffer &target,
+                                                     std::uint64_t sourceOffset,
+                                                     std::uint64_t targetOffset,
+                                                     std::uint64_t bytes) {
   if (!owns(source) || !owns(target))
     return std::unexpected(Error::Residency);
   if (!target.storage_->privateCopyTarget || source.storage_ == target.storage_ ||
-      offset > source.bytes() || offset > target.bytes() ||
-      bytes > source.bytes() - offset || bytes > target.bytes() - offset || offset % 4 || bytes % 4)
+      sourceOffset > source.bytes() || targetOffset > target.bytes() ||
+      bytes > source.bytes() - sourceOffset || bytes > target.bytes() - targetOffset ||
+      sourceOffset % 4 || targetOffset % 4 || bytes % 4)
     return std::unexpected(Error::Invalid);
   std::lock_guard lock(state_->mutex);
   Current current(*state_);
@@ -311,12 +318,13 @@ std::expected<void, Error> Runtime::copyPrivateBytes(const Buffer &source, const
     state_->poisoned = true;
     return std::unexpected(Error::Device);
   }
-  auto copied = state_->driver.dtod(target.storage_->pointer + offset,
-                                    source.storage_->pointer + offset, bytes);
+  auto copied = state_->driver.dtod(target.storage_->pointer + targetOffset,
+                                    source.storage_->pointer + sourceOffset, bytes);
   // cuMemcpyDtoD need not block the host. Settle even a failed submission before
   // either private allocation may be reclaimed or replaced.
   auto settled = state_->driver.sync();
-  if (copied != CUDA_SUCCESS || settled != CUDA_SUCCESS || state_->fail(FailurePoint::WaitAfterCompletion)) {
+  if (copied != CUDA_SUCCESS || settled != CUDA_SUCCESS ||
+      state_->fail(FailurePoint::WaitAfterCompletion)) {
     state_->poisoned = true;
     return std::unexpected(Error::Device);
   }
@@ -741,6 +749,20 @@ std::uint64_t Runtime::reservedBytes(const std::shared_ptr<ByteBudget> &budget) 
 std::expected<std::shared_ptr<const HostCharge>, Error>
 Runtime::reserveHostBytes(std::uint64_t size) {
   return reserveBytes(state_->budget, size);
+}
+std::expected<void, Error> Runtime::readArrayPage(const Buffer &buffer, std::span<std::byte> output,
+                                                  std::uint64_t offset) {
+  if (!owns(buffer) || output.size() > 64 * 1024 || offset % 8 || output.size() % 8 ||
+      offset > buffer.bytes() || output.size() > buffer.bytes() - offset)
+    return std::unexpected(Error::Invalid);
+  std::lock_guard lock(state_->mutex);
+  Current current(*state_);
+  if (!current.entered || state_->poisoned)
+    return std::unexpected(Error::Device);
+  if (!output.empty() && (state_->fail(FailurePoint::Readback) ||
+      state_->driver.dtoh(output.data(), buffer.storage_->pointer + offset, output.size()) != CUDA_SUCCESS))
+    return std::unexpected(Error::Device);
+  return {};
 }
 std::expected<void, Error> Runtime::readBytes(const Buffer &buffer, std::span<std::byte> output) {
   if (output.size() != buffer.bytes() || !owns(buffer))

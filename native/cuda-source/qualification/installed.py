@@ -89,6 +89,20 @@ array_entries = [sys.executable, repo/'native/gpu-source/DeviceArrayEntryTests.p
 if not a.execute:
     array_entries.append('--compile-only')
 subprocess.run(array_entries, check=True, timeout=1200)
+array_results = [sys.executable, repo/'native/gpu-source/DeviceArrayResultTests.py',
+                 '--compiler', compiler, '--backend', 'cuda',
+                 '--variant', 'optimized', '--root', a.root/'device-array-results']
+if not a.execute:
+    array_results.append('--compile-only')
+subprocess.run(array_results, check=True, timeout=1200)
+array_main = [sys.executable, repo/'native/gpu-source/DeviceArrayMainTests.py',
+              '--compiler', compiler, '--backend', 'cuda',
+              '--variant', 'optimized', '--root', a.root/'device-array-main']
+if not a.execute:
+    array_main.append('--compile-only')
+subprocess.run(array_main, check=True, timeout=1200)
+
+
 booleans = [sys.executable, repo/'native/gpu-source/DeviceBoolTests.py',
             '--compiler', compiler, '--backend', 'cuda',
             '--variant', 'optimized', '--root', a.root/'device-bool']

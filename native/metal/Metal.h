@@ -2,6 +2,7 @@
 #include "../include/kalandra/GpuProgram.h"
 #include "../include/kalandra/TensorTransform.h"
 #include "../runtime/Tasks.h"
+#include "../runtime/DeviceArrayABI.h"
 #include "../runtime/Tensor.h"
 #include "ElementwiseLayout.h"
 #include <cstddef>
@@ -154,6 +155,7 @@ public:
   std::span<const std::int64_t> shape() const noexcept;
   bool onDevice() const noexcept;
   Format format() const noexcept;
+  std::optional<DeviceArrayResultMetadata> arrayResult() const noexcept;
   std::expected<std::span<const std::byte>, Error> hostBytes() const noexcept;
 
 private:
@@ -265,6 +267,16 @@ public:
     return toCpuTyped<NumericType::Float32, Rank>(context, buffer);
   }
   TaskHandle upload(TaskCore &, GroupHandle, Buffer, Device) noexcept;
+  static std::expected<std::span<const std::byte>, Error> arrayPageBytes(const Buffer &value) noexcept {
+    if (value.arrayResult() || value.format() != Format::UInt64 || value.shape().size() != 1)
+      return std::unexpected(Error::Invalid);
+    return value.hostBytes();
+  }
+  static std::optional<DeviceArrayResultMetadata> arrayResult(const Buffer &value) noexcept {
+    return value.arrayResult();
+  }
+  TaskHandle downloadArrayPage(Task &, GroupHandle, const Buffer &, std::uint64_t offset,
+                               std::uint64_t words) noexcept;
   TaskHandle download(TaskCore &, GroupHandle, Buffer) noexcept;
   TaskHandle upload(Task &, GroupHandle, Buffer, Device) noexcept;
   TaskHandle download(Task &, GroupHandle, Buffer) noexcept;
