@@ -286,5 +286,18 @@ private arena through the existing task retirement path.
 Recursive calls can carry supported local arrays, records and enums across
 activations. The collector traces the active frame's live slots and the
 suspended callers' live values. The outer entry publishes array and graph
-results through the usual device result transfer. Function values and
-tensor state require separate qualification.
+results through the usual device result transfer. Tensor state requires
+separate qualification.
+
+### Device-local function values
+
+Function values created inside a device task use a typed arena environment.
+An indirect call checks the environment's target tag and layout against the
+compiler's closed target set before copying captures into the callee frame.
+Environments can own arrays, records and other closures. Collection traces
+those references through live frames and device-local records. Environment
+construction advances one word per checkpoint. The same arithmetic policy
+applies inside direct calls and closures.
+
+Function values at the host/device boundary require a separate transport
+contract.

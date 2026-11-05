@@ -19,6 +19,9 @@ inline bool deviceNeedsCallFrames(const TypedModule &module, FunctionId entry) {
       continue;
     }
     const auto &op = module.expressions.at(expressions[frame.next++]).operation;
+    if (std::holds_alternative<FunctionInvoke>(op) ||
+        std::holds_alternative<FunctionReference>(op))
+      return true;
     const auto *call = std::get_if<FunctionCall>(&op);
     if (!call)
       continue;

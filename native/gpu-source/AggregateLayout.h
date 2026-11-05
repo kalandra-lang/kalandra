@@ -35,16 +35,23 @@ inline bool deviceRecordArrayValue(const ValueType &type) {
   return isRecordArray(type) && type.record && type.tensor && type.shape.size() == 1 &&
          !type.task && !type.fallible;
 }
+inline bool deviceCallableValue(const ValueType &type) {
+  return type.builtin == BuiltinValue::Function && !type.array && !type.tensor &&
+         !type.task && !type.fallible;
+}
 // Frame planning can use nominal storage decisions to terminate expansion at
 // arena handles. Flat boundary projections omit the storage plan.
 inline std::expected<DeviceAggregateLayouts, std::string>
 planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> values,
                            std::size_t budget = 300000,
-                           const RecordStoragePlan *storage = nullptr) {
+                           const RecordStoragePlan *storage = nullptr, bool deviceClosures = false) {
   DeviceAggregateLayouts layouts;
   const auto reject = [](std::string message) { return std::unexpected(std::move(message)); };
   const auto recordArray = [&](const ValueType &type) {
     return storage && deviceRecordArrayValue(type);
+  };
+  const auto closure = [&](const ValueType &type) {
+    return deviceClosures && deviceCallableValue(type);
   };
   std::vector<std::size_t> roots;
   std::set<std::size_t> scheduled;
@@ -53,7 +60,7 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
       roots.push_back(id);
   };
   for (const auto &type : values) {
-    if (deviceScalarValue(type) || deviceFlatArrayValue(type))
+    if (deviceScalarValue(type) || deviceFlatArrayValue(type) || closure(type))
       continue;
     if (!deviceInlineRecordValue(type) && !recordArray(type))
       return reject(
@@ -84,7 +91,7 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
         --budget;
         const auto &child = record.fields[field].type;
         const bool indirect = boxed(field++) || recordArray(child);
-        if (deviceScalarValue(child) || deviceFlatArrayValue(child))
+        if (deviceScalarValue(child) || deviceFlatArrayValue(child) || closure(child))
           continue;
         if (indirect) {
           schedule(*child.record);
@@ -117,7 +124,7 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
         const auto &member = record.fields[index];
         layout.fields.push_back(layout.words);
         layout.boxed.push_back(boxed(index));
-        const bool handle = deviceFlatArrayValue(member.type) || recordArray(member.type) ||
+        const bool handle = deviceFlatArrayValue(member.type) || recordArray(member.type) || closure(member.type) ||
                             layout.boxed.back();
         const auto size = deviceScalarValue(member.type) || handle
                               ? 1

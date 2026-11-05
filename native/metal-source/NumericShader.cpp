@@ -1089,8 +1089,12 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return type.array && type.tensor && type.shape.size() == 1 && !type.task && !type.fallible &&
            (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool);
   };
+  const auto callable = [](const ValueType &type) {
+    return type.builtin == BuiltinValue::Function && !type.array && !type.tensor &&
+           !type.task && !type.fallible;
+  };
   if (callFrames && !std::ranges::all_of(plan.slots, [&](const auto &type) {
-                       return scalar(type) || flatArray(type) || deviceInlineRecordValue(type) ||
+                       return scalar(type) || callable(type) || flatArray(type) || deviceInlineRecordValue(type) ||
                               deviceRecordArrayValue(type);
                      }))
     return reject("GPU recursive calls require supported device frame values");
@@ -1126,13 +1130,13 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       }))
     return reject("GPU checkpointed entry requires scalar or flat array inputs and "
                   "scalar, flat array or inline aggregate results");
-  auto aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots);
+  auto aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots, 300000, nullptr, callFrames);
   std::optional<RecordStoragePlan> nominalStorage;
   if (!aggregateLayouts) {
     auto nominal = planRecordStorage(input);
     if (nominal) {
       nominalStorage.emplace(std::move(*nominal));
-      aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots, 300000, &*nominalStorage);
+      aggregateLayouts = planDeviceAggregateLayouts(input, plan.slots, 300000, &*nominalStorage, callFrames);
     }
   }
   if (!aggregateLayouts)
@@ -1197,7 +1201,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       --traceBudget;
       const auto field = path.next++;
       const auto &type = record.fields[field].type;
-      const bool handle = layout.boxed[field] || localArray(type);
+      const bool handle = layout.boxed[field] || localArray(type) || callable(type);
       if (!handle && (!plainRecord(type) || layouts.at(*type.record).owned.empty()))
         continue;
       const auto offset = path.offset + layout.fields[field];
@@ -1226,8 +1230,41 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     storage |= !layout.owned.empty();
   }
   const auto width = [&](const ValueType &type) -> std::size_t {
-    return scalar(type) || localArray(type) ? 1 : layouts.at(*type.record).words;
+    return scalar(type) || callable(type) || localArray(type) ? 1 : layouts.at(*type.record).words;
   };
+  struct ClosureLayout {
+    unsigned identity;
+    std::size_t words = 1;
+    std::vector<std::size_t> offsets;
+  };
+  std::map<FunctionId, ClosureLayout> closures;
+  if (callFrames)
+    for (const auto &op : plan.code) {
+      if (op.code != continuation::Code::FunctionReference || closures.contains(op.target))
+        continue;
+      const auto identity = static_cast<unsigned>(12 + 2 * input.records.size() +
+                                                   input.functions.size() + op.target);
+      ClosureLayout closure{identity, 1, {}};
+      DeviceTraceLayout trace{identity, 0, {}};
+      for (auto slot : op.args) {
+        const auto &type = plan.slots.at(slot);
+        if (!scalar(type) && !callable(type) && !localArray(type) && !plainRecord(type))
+          return reject("GPU closure capture requires a device value layout");
+        const auto words = width(type);
+        if (words > 256 - closure.words)
+          return reject("GPU closure environment exceeds its compilation word budget");
+        closure.offsets.push_back(closure.words);
+        if (callable(type) || localArray(type))
+          trace.references.push_back({static_cast<unsigned>(closure.words), {}});
+        else if (plainRecord(type))
+          for (auto leaf : layouts.at(*type.record).owned)
+            trace.references.push_back({static_cast<unsigned>(closure.words + leaf), {}});
+        closure.words += words;
+      }
+      trace.stride = closure.words;
+      traceLayouts.push_back(std::move(trace));
+      closures.emplace(op.target, std::move(closure));
+    }
   std::vector<std::size_t> offsets;
   std::size_t frameWords = exportResult ? runtime::detail::ControlArrayExportABI::Cells :
                            storage ? unsigned(DeviceHeapEmitter::Cells) : 1;
@@ -1316,7 +1353,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     std::vector<continuation::Slot> ownedSlots;
     for (std::size_t i = 0; i < plan.slots.size(); ++i) {
       const auto &type = plan.slots[i];
-      if (localArray(type) || (plainRecord(type) && !layouts.at(*type.record).owned.empty()))
+      if (localArray(type) || callable(type) ||
+          (plainRecord(type) && !layouts.at(*type.record).owned.empty()))
         ownedSlots.push_back(i);
     }
     auto roots = deviceLiveRoots(plan, ownedSlots, 64 * 1024 * 1024, 30000000, callFrames);
@@ -1332,11 +1370,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       std::vector<std::size_t> expanded;
       for (auto slot : row) {
         const auto &type = plan.slots.at(slot);
-        const auto count = localArray(type) ? 1 : layouts.at(*type.record).owned.size();
+        const auto count = localArray(type) || callable(type) ? 1 : layouts.at(*type.record).owned.size();
         if (count > rootBudget)
           return reject("GPU aggregate root expansion exceeds configured memory budget");
         rootBudget -= count;
-        if (localArray(type))
+        if (localArray(type) || callable(type))
           expanded.push_back(offsets.at(slot));
         else
           for (auto leaf : layouts.at(*type.record).owned)
@@ -1404,6 +1442,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     std::size_t rootWork = 300000;
     for (std::size_t i = 0; i < plan.code.size(); ++i) {
       const auto &op = plan.code[i];
+      if (op.code == C::FunctionReference)
+        allocationRoots.push_back({i + 1, liveRoots[i]});
       if (op.code != C::SynchronousCall)
         continue;
       const auto fn = schedule->owners[i];
@@ -1461,7 +1501,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     if (op.code == C::MapInit || op.code == C::MapCheck || op.code == C::MapLoad ||
         op.code == C::MapStore || op.code == C::MapAdvance || arrayOperation(op) || op.code == C::CollectInit || op.code == C::CollectAppend ||
         op.code == C::CollectFinish || op.code == C::Label || op.code == C::Copy || op.code == C::Branch || op.code == C::Jump ||
-        op.code == C::Return || (callFrames && op.code == C::SynchronousCall) || op.code == C::Field || op.code == C::Case ||
+        op.code == C::Return || (callFrames && (op.code == C::SynchronousCall ||
+        op.code == C::FunctionReference || op.code == C::CallableTarget || op.code == C::CallableCaptures ||
+        op.code == C::InvalidCallable)) || op.code == C::Field || op.code == C::Case ||
         (op.code == C::Kernel &&
          std::holds_alternative<RecordValue>(input.expressions.at(op.source).operation)))
       continue;
@@ -1909,6 +1951,82 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         continue;
       }
       Value next = constant(i + 2);
+      const auto advanceCallable = [&] {
+        const auto current = outerLoad(0);
+        const Value good = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne,
+                                                  current, constant(UINT64_MAX));
+        outerStore(0, arith::SelectOp::create(b, loc, good, next, current));
+      };
+      if (callFrames && op.code == C::FunctionReference) {
+        const auto &closure = closures.at(op.target);
+        chargeAggregate(closure.words);
+        auto allocating = scf::IfOp::create(b, loc, heap->ready(), true);
+        {
+          OpBuilder::InsertionGuard nested(b);
+          b.setInsertionPointToStart(&allocating.getThenRegion().front());
+          const auto cursor = heap->cursor();
+          const auto handle = heap->handle();
+          const auto whenWord = [&](std::size_t index, auto work) {
+            const Value matches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+                                                        cursor, constant(index));
+            auto branch = scf::IfOp::create(b, loc, matches, false);
+            OpBuilder::InsertionGuard wordGuard(b);
+            b.setInsertionPointToStart(&branch.getThenRegion().front());
+            work();
+          };
+          whenWord(0, [&] { heap->write(handle, constant(4), constant(op.target + 1)); });
+          for (std::size_t j = 0; j < op.args.size(); ++j)
+            for (std::size_t word = 0; word < width(plan.slots.at(op.args[j])); ++word) {
+              const auto field = closure.offsets.at(j) + word;
+              whenWord(field, [&] {
+                heap->write(handle, constant(4 + field), load(offsets.at(op.args[j]) + word));
+              });
+            }
+          whenWord(closure.words, [&] {
+            store(offsets.at(op.output), handle);
+            heap->finish();
+            advanceCallable();
+          });
+          heap->advance();
+          b.setInsertionPointToStart(&allocating.getElseRegion().front());
+          heap->begin(constant(closure.words), closure.identity);
+        }
+        continue;
+      }
+      if (callFrames && op.code == C::CallableCaptures) {
+        const auto target = closures.find(op.target);
+        if (target == closures.end() || op.group >= target->second.offsets.size())
+          throw Rejected{{"G001", "GPU closure capture layout mismatch", root.declaration}};
+        const auto words = width(plan.slots.at(op.output));
+        chargeAggregate(words);
+        const auto handle = load(offsets.at(op.args.at(0)));
+        for (std::size_t word = 0; word < words; ++word)
+          store(offsets.at(op.output) + word,
+                heap->read(handle, constant(4 + target->second.offsets.at(op.group) + word)));
+        advanceCallable();
+        continue;
+      }
+      if (callFrames && op.code == C::CallableTarget) {
+        const auto handle = load(offsets.at(op.args.at(0)));
+        const auto target = closures.find(op.target);
+        if (target == closures.end())
+          throw Rejected{{"G001", "GPU closure target has no device layout", root.declaration}};
+        const Value identityMatches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+            heap->read(handle, constant(1)), constant(target->second.identity));
+        const Value lengthMatches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+            heap->read(handle, constant(2)), constant(target->second.words));
+        const Value tagMatches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
+            heap->read(handle, constant(4)), constant(op.target + 1));
+        const Value matches = arith::AndIOp::create(b, loc, identityMatches,
+            arith::AndIOp::create(b, loc, lengthMatches, tagMatches));
+        store(offsets.at(op.output), matches);
+        advanceCallable();
+        continue;
+      }
+      if (callFrames && op.code == C::InvalidCallable) {
+        heap->fault(99);
+        continue;
+      }
       const auto read = [&](std::size_t slot) {
         auto raw = load(offsets.at(slot));
         const auto &t = plan.slots.at(slot);

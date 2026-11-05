@@ -842,6 +842,48 @@ private:
     plan.code.push_back({Code::ReleaseGroup, 0, {}, 0, group});
     return output;
   }
+  void deviceIndirectCall(Plan &plan, ValueId id, Slot output,
+                          const kalandra::FunctionInvoke &call, Environment &env,
+                          std::set<FunctionId> &stack) {
+    if (!invocationFlow || invocationFlow->unknown.at(id) ||
+        invocationFlow->targets.at(id).empty())
+      throw std::runtime_error("GPU function invocation needs a closed target set");
+    const auto callee = expression(plan, call.callee, env, stack);
+    std::vector<Slot> args;
+    for (auto argument : call.arguments)
+      args.push_back(expression(plan, argument, env, stack));
+    std::vector<std::size_t> exits;
+    ValueType boolean;
+    boolean.builtin = BuiltinValue::Bool;
+    for (auto target : invocationFlow->targets.at(id)) {
+      const auto &fn = input.functions.at(target);
+      if (coordinating.at(target) || fn.parameters.size() != args.size() + fn.captureCount)
+        throw std::runtime_error("GPU function invocation target requires unsupported transport");
+      if (!scheduled.at(target)) {
+        scheduled[target] = true;
+        pending.push_back(target);
+      }
+      const auto selected = slot(plan, boolean);
+      plan.code.push_back({Code::CallableTarget, selected, {callee}, target, 0, 0, id});
+      const auto skip = plan.code.size();
+      plan.code.push_back({Code::Branch, 0, {selected}});
+      auto parameters = args;
+      for (std::size_t capture = 0; capture < fn.captureCount; ++capture) {
+        const auto type = input.symbols.at(fn.parameters.at(args.size() + capture)).type;
+        const auto value = slot(plan, type);
+        plan.code.push_back({Code::CallableCaptures, value, {callee}, target, capture, 0, id});
+        parameters.push_back(value);
+      }
+      plan.code.push_back({Code::SynchronousCall, output, std::move(parameters), target, 0, 0, id});
+      exits.push_back(plan.code.size());
+      plan.code.push_back({Code::Jump, 0, {}});
+      plan.code[skip].jump = plan.code.size();
+    }
+    plan.code.push_back({Code::InvalidCallable, 0, {}, 0, 0, 0, id});
+    for (auto exit : exits)
+      plan.code[exit].jump = plan.code.size();
+    plan.code.push_back({Code::Label, 0, {}});
+  }
   Slot expression(Plan &plan, ValueId id, Environment &env, std::set<FunctionId> &stack) {
     if (auto found = env.values.find(id); found != env.values.end())
       return found->second;
@@ -916,6 +958,18 @@ private:
       deviceMap(plan, id, output, *map, env, stack);
     } else if (const auto *map = std::get_if<ArrayMap>(&node.operation); map && map->parallel) {
       parallelMap(plan, id, output, *map, env, stack);
+    } else if (const auto *reference = std::get_if<kalandra::FunctionReference>(&node.operation);
+               reference && options.deviceCallFrames) {
+      if (coordinating.at(reference->function))
+        throw std::runtime_error("GPU function reference requires a synchronous target");
+      std::vector<Slot> captures;
+      for (auto capture : reference->captures)
+        captures.push_back(expression(plan, capture, env, stack));
+      plan.code.push_back(
+          {Code::FunctionReference, output, std::move(captures), reference->function, 0, 0, id});
+    } else if (const auto *call = std::get_if<kalandra::FunctionInvoke>(&node.operation);
+               call && options.deviceCallFrames) {
+      deviceIndirectCall(plan, id, output, *call, env, stack);
     } else if (const auto *reference = std::get_if<kalandra::FunctionReference>(&node.operation);
                reference && resumable.at(reference->function)) {
       std::vector<Slot> captures;

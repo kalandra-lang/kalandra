@@ -132,7 +132,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
     return "mixed placement validation requires CPU host types";
   if (auto error = recursiveProgramError(module, mixedPlacement))
     return error;
-  if (auto error = functionValueCapabilityError(module, target))
+  if (auto error = functionValueCapabilityError(module, target, mixedPlacement))
     return error;
   if (hasOrdinaryStrings(module)) {
     if (target != NumericTarget::Cpu || (hasPlacement(module) && !mixedPlacement))

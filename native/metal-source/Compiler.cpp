@@ -146,6 +146,8 @@ class Compiler {
           pending.push_back(call->function);
         if (auto *map = std::get_if<ArrayMap>(&op))
           pending.push_back(map->function);
+        if (auto *reference = std::get_if<FunctionReference>(&op))
+          pending.push_back(reference->function);
         if (arithmetic_ != ArithmeticMode::Hardware)
           continue;
         bool requiresDouble =
@@ -4279,14 +4281,16 @@ public:
       if (fn.result->tensor && !fn.result->array)
         tensorType(*fn.result);
       else if (!placement.functions.at(i).resultType.record &&
+               placement.functions.at(i).resultType.builtin != BuiltinValue::Function &&
                !resolveNumeric(text(fn.result->name)) && text(fn.result->name) != "Bool")
         reject(fn.result->span,
                "mixed source results require numeric scalars, Bool, numeric/Bool arrays "
                "or rank-zero through rank-eight numeric tensors");
       for (std::size_t parameter = 0; parameter < fn.parameters.size(); ++parameter) {
         const auto &p = fn.parameters[parameter];
-        if (placement.symbols.at(placement.functions.at(i).parameters.at(parameter)).type.record)
-          continue; // Internal aggregate helpers do not imply a host transport ABI.
+        const auto &type = placement.symbols.at(placement.functions.at(i).parameters.at(parameter)).type;
+        if (type.record || type.builtin == BuiltinValue::Function)
+          continue; // Internal helpers do not imply a host transport ABI.
         if (p.type.tensor && !p.type.array)
           tensorType(p.type);
         else if (!resolveNumeric(text(p.type.name)) && text(p.type.name) != "Bool")

@@ -579,8 +579,8 @@ private:
     auto success = result;
     success.fallible = false;
     success.errorRecord.reset();
-    if (!supported(success) || !std::ranges::all_of(parameters, supported) || options_.placement) {
-      error("S074", "function values require completed CPU parameters and synchronous CPU results",
+    if (!supported(success) || !std::ranges::all_of(parameters, supported)) {
+      error("S074", "function values require completed parameters and synchronous results",
             span);
       return {};
     }

@@ -258,6 +258,9 @@ cases['graph-result-multiple-captures'] = ((fixtures/'graph-result-multiple-capt
 cases['device-recursive-owned-array'] = ((fixtures/'device-recursive-owned-array.k').read_text(), 5057)
 cases['device-recursive-bounds'] = ((fixtures/'device-recursive-bounds.k').read_text(), 2142)
 cases['graph-result-recursive-capture'] = ((fixtures/'graph-result-recursive-capture.k').read_text(), 5059)
+cases['device-array-closure'] = ((fixtures/'device-array-closure.k').read_text(), 239)
+cases['device-closure-float64'] = ((fixtures/'device-closure-float64.k').read_text(), 6)
+cases['device-nested-closure'] = ((fixtures/'device-nested-closure.k').read_text(), 239)
 cases['device-mutual-recursion'] = ((fixtures/'device-mutual-recursion.k').read_text(), 1501)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
@@ -315,10 +318,11 @@ for name,(source,expected) in cases.items():
     gpu = root/'gpu.k'
     gpu.write_text(source)
     bundle = root/'device'
-    policy = ['--arithmetic','hardware-with-software-fallback'] if name == 'entry-float64' else []
+    fallback = name == 'entry-float64' or (name == 'device-closure-float64' and a.backend == 'metal')
+    policy = ['--arithmetic','hardware-with-software-fallback'] if fallback else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
-    if name.startswith(('local-recursive-', 'device-mutual-recursion', 'device-recursive-')):
+    if name.startswith(('local-recursive-', 'device-mutual-recursion', 'device-recursive-', 'device-nested-closure', 'device-array-closure', 'device-closure-float64')):
         assert 'NumericInstructionKind::DeviceControl' in host, name
     else:
         assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name

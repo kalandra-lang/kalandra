@@ -54,6 +54,17 @@ deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Sl
         return std::unexpected("device root analysis requires a resumable call continuation");
       produces = true;
       break;
+    case C::FunctionReference:
+    case C::CallableTarget:
+    case C::CallableCaptures:
+      if (!callFrames)
+        return std::unexpected("device root analysis requires a callable continuation");
+      produces = true;
+      break;
+    case C::InvalidCallable:
+      if (!callFrames)
+        return std::unexpected("device root analysis requires a callable continuation");
+      break;
     case C::Literal:
     case C::Unary:
     case C::Binary:
@@ -98,7 +109,7 @@ deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Sl
       if (!(op.code == C::Case && op.jump == SIZE_MAX) && !edge(op.jump))
         return std::unexpected("device root branch target is out of range");
     }
-    if (op.code != C::Jump && op.code != C::Return && pc + 1 < count)
+    if (op.code != C::Jump && op.code != C::Return && op.code != C::InvalidCallable && pc + 1 < count)
       edge(pc + 1);
   }
   std::vector<std::vector<std::uint64_t>> live(count, std::vector<std::uint64_t>(words));

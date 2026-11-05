@@ -120,6 +120,13 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     run([compiler, recursive_source, "--target", "metal", "-O2", "-o", recursive_app], cwd)
     assert run([recursive_app / "program"], cwd).stdout.strip() == "00000000000013c3"
     applications.append((recursive_app, "00000000000013c3"))
+    closure_source = cwd / "device closure.k"
+    closure_source.write_bytes(
+        (fixtures.parent / "tests/fixtures/mixed-host-aggregates/device-array-closure.k").read_bytes())
+    closure_app = cwd / "device closure application"
+    run([compiler, closure_source, "--target", "metal", "-O2", "-o", closure_app], cwd)
+    assert run([closure_app / "program"], cwd).stdout.strip() == "00000000000000ef"
+    applications.append((closure_app, "00000000000000ef"))
     result_source = cwd / "device array results.k"
     result_source.write_text("""fn ordered(values:[int])->[int]:
   sorted(values)

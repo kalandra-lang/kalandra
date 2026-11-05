@@ -58,7 +58,7 @@ functionInvocationFlow(const struct TypedModule &, std::size_t budget = 300000);
 [[nodiscard]] bool sameFunctionValueType(const ValueType &, const ValueType &,
                                          std::size_t depth = 0);
 [[nodiscard]] std::optional<std::string> functionValueCapabilityError(const struct TypedModule &,
-                                                                      NumericTarget);
+                                                                      NumericTarget, bool mixedPlacement = false);
 [[nodiscard]] bool containsFunctionStorage(const struct TypedModule &, const ValueType &);
 // CPU data captures supported by the first worker closure-environment copy.
 [[nodiscard]] bool workerClosureCaptureTypeSupported(const struct TypedModule &, const ValueType &);
