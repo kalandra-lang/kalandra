@@ -20,17 +20,22 @@ DeviceHeapEmitter::DeviceHeapEmitter(OpBuilder &builder, Value heap, Value frame
       throw std::invalid_argument("invalid external device array layout");
   }
   std::set<unsigned> identities;
-  std::size_t fields = 0;
+  constexpr std::size_t maxSteps = 100000;
+  std::size_t steps = 0;
   for (const auto &layout : layouts) {
     if (layout.identity <= 11 || !identities.insert(layout.identity).second || !layout.stride ||
-        layout.stride > runtime::detail::ControlArenaABI::MaxWords || layout.references.empty() ||
-        layout.references.size() > 100000 - fields)
+        layout.stride > runtime::detail::ControlArenaABI::MaxWords || layout.references.empty())
       throw std::invalid_argument("invalid device reference traversal layout");
-    fields += layout.references.size();
-    for (const auto &field : layout.references)
-      if (field.cell >= layout.stride ||
-          (field.tagCell != UINT32_MAX && field.tagCell >= layout.stride))
+    for (const auto &field : layout.references) {
+      if (steps == maxSteps || field.guards.size() > maxSteps - steps - 1)
+        throw std::invalid_argument("device reference traversal budget exceeded");
+      steps += field.guards.size() + 1;
+      if (field.cell >= layout.stride)
         throw std::invalid_argument("device reference field outside element layout");
+      for (const auto &guard : field.guards)
+        if (guard.cell >= layout.stride)
+          throw std::invalid_argument("device reference guard outside element layout");
+    }
   }
 }
 Value DeviceHeapEmitter::c(std::uint64_t n) {
@@ -479,40 +484,45 @@ Value DeviceHeapEmitter::service() {
                     conditional(
                         compare(arith::CmpIPredicate::ult, element, length),
                         [&] {
-                          Value offset = c(0), tagCell = c(0), tag = c(0);
-                          Value guarded = arith::ConstantIntOp::create(b, loc, 0, 1);
-                          for (std::size_t i = 0; i < descriptor.references.size(); ++i) {
-                            const auto &reference = descriptor.references[i];
-                            auto chosen = eq(field, c(i));
-                            offset =
-                                arith::SelectOp::create(b, loc, chosen, c(reference.cell), offset);
-                            if (reference.tagCell != UINT32_MAX) {
-                              tagCell = arith::SelectOp::create(b, loc, chosen,
-                                                                c(reference.tagCell), tagCell);
-                              tag = arith::SelectOp::create(b, loc, chosen, c(reference.tag), tag);
-                              guarded = arith::OrIOp::create(b, loc, guarded, chosen);
+                          // TraceField is a cursor into an element's guard
+                          // and reference steps. Each visit reads at most one cell.
+                          Value offset = c(0), tag = c(0), skip = c(0);
+                          Value guard = arith::ConstantIntOp::create(b, loc, 0, 1);
+                          std::size_t step = 0;
+                          for (const auto &reference : descriptor.references) {
+                            const auto after = step + reference.guards.size() + 1;
+                            for (const auto &condition : reference.guards) {
+                              auto chosen = eq(field, c(step++));
+                              offset = arith::SelectOp::create(b, loc, chosen,
+                                                               c(condition.cell), offset);
+                              tag = arith::SelectOp::create(b, loc, chosen, c(condition.tag), tag);
+                              skip = arith::SelectOp::create(b, loc, chosen, c(after), skip);
+                              guard = arith::OrIOp::create(b, loc, guard, chosen);
                             }
+                            auto chosen = eq(field, c(step++));
+                            offset = arith::SelectOp::create(b, loc, chosen, c(reference.cell),
+                                                             offset);
                           }
                           conditional(
-                              compare(arith::CmpIPredicate::ult, field,
-                                      c(descriptor.references.size())),
+                              compare(arith::CmpIPredicate::ult, field, c(step)),
                               [&] {
-                                auto active = arith::OrIOp::create(
-                                    b, loc,
-                                    arith::XOrIOp::create(
-                                        b, loc, guarded,
-                                        arith::ConstantIntOp::create(b, loc, 1, 1)),
-                                    eq(read(h, add(c(4), add(element, tagCell))), tag));
-                                when(active,
-                                     [&] { mark(read(h, add(c(4), add(element, offset)))); });
+                                auto value = read(h, add(c(4), add(element, offset)));
                                 auto next = add(field, c(1));
-                                auto done = eq(next, c(descriptor.references.size()));
-                                store(TraceField,
-                                      arith::SelectOp::create(b, loc, done, c(0), next));
-                                store(TraceElement,
-                                      arith::SelectOp::create(b, loc, done,
-                                                              add(element, c(descriptor.stride)),
-                                                              element));
+                                conditional(
+                                    guard,
+                                    [&] {
+                                      auto resume = arith::SelectOp::create(b, loc, eq(value, tag),
+                                                                           next, skip);
+                                      store(TraceField, resume);
+                                    },
+                                    [&] {
+                                      mark(value);
+                                      store(TraceField, next);
+                                    });
+                                when(eq(load(TraceField), c(step)), [&] {
+                                  store(TraceField, c(0));
+                                  store(TraceElement, add(element, c(descriptor.stride)));
+                                });
                               },
                               [&] { fault(99); });
                         },

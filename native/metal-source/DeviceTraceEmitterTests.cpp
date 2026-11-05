@@ -54,10 +54,12 @@ int main(int argc, char **) {
     std::vector<DeviceRootMap> roots{{1, {DeviceHeapEmitter::Cells}}};
     // Repeated records: tag, first child, second child. Variant 1 owns the
     // second field; variant 2 owns both. Inactive bits must not be traversed.
-    std::vector<DeviceTraceLayout> layouts{{12, 3, {{1, 0, 1}, {1, 0, 2}, {2, 0, 2}}},
-                                           {13, 1, {{0}}}};
+    std::vector<DeviceTraceLayout> layouts{{12, 3, {{1, {{0, 1}}}, {1, {{0, 2}}}, {2, {{0, 2}}}}},
+                                           {13, 1, {{0, {}}}},
+                                           {14, 3, {{2, {{0, 1}, {1, 2}}}}}};
     for (auto invalid : std::vector<DeviceTraceLayout>{
-             {11, 1, {{0}}}, {12, 0, {{0}}}, {12, 1, {{1}}}, {12, 1, {{0, 1, 1}}}}) {
+             {11, 1, {{0, {}}}}, {12, 0, {{0, {}}}}, {12, 1, {{1, {}}}},
+             {12, 1, {{0, {{0, 1}, {1, 1}}}}}}) {
       bool rejected = false;
       try {
         DeviceHeapEmitter heap(builder, arena, frame, 52, roots, std::span(&invalid, 1));

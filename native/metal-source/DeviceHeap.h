@@ -11,12 +11,15 @@ struct DeviceRootMap {
   std::size_t pc;
   std::vector<std::size_t> cells;
 };
-// A repeated payload layout. Cells are private 64-bit arena words. A reference
-// may be guarded by an enum tag in the same element; UINT32_MAX is unconditional.
+// Guards are ordered from the outermost enum to the innermost. A failed
+// guard skips its entire reference, including any inactive nested tags.
+struct DeviceReferenceGuard {
+  unsigned cell;
+  std::uint64_t tag;
+};
 struct DeviceReferenceField {
   unsigned cell;
-  unsigned tagCell = UINT32_MAX;
-  std::uint64_t tag = 0;
+  std::vector<DeviceReferenceGuard> guards;
 };
 struct DeviceTraceLayout {
   unsigned identity, stride;

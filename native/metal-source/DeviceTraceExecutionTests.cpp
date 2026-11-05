@@ -165,6 +165,16 @@ int main() {
     }
     {
       Heap h;
+      auto leaf = h.block(1, {7});
+      auto root = h.block(14, {0, 2, UINT64_MAX, 1, 0, UINT64_MAX, 1, 2, leaf});
+      h.collect(root);
+      require(h.data[leaf + 1] == 1, "nested active reference was lost");
+      h.data[root + 10] = 0;
+      h.collect(root);
+      require(h.data[leaf + 1] == 0, "inactive nested reference retained backing");
+    }
+    {
+      Heap h;
       auto empty = h.block(13, {});
       h.collect(empty);
       require(h.data[empty + 1] == 13, "empty owned array was lost");
