@@ -60,7 +60,8 @@ struct Value {
     FaultKind,
     Text,
     Array,
-    Aggregate
+    Aggregate,
+    Callable
   } kind;
   std::size_t slot = 0;
   bool gpu = false;
@@ -74,6 +75,7 @@ struct Value {
   NumericType element = NumericType::Float32;
   bool array = false, booleanArray = false, booleanTask = false;
   std::optional<std::size_t> record = {};
+  std::optional<std::size_t> callable = {};
 };
 class Compiler {
   ArithmeticMode arithmetic_;
@@ -90,6 +92,7 @@ class Compiler {
   std::map<std::size_t, Value> arrayFields;
   std::string declarations, cpuEntries, aggregateDeclarations;
   std::map<std::size_t, NativeAggregateABI> aggregateTypes;
+  std::vector<ValueType> callableTypes;
   std::optional<std::vector<NativeAggregateABI>> nativeAggregateLayouts;
   std::set<std::pair<bool, FunctionId>> declaredAggregateFunctions;
   std::set<std::pair<const TypedModule *, std::size_t>> checkedAggregateSchemas;
@@ -253,11 +256,6 @@ class Compiler {
   }
   std::string recordType(std::size_t id) {
     if (!aggregateTypes.contains(id)) {
-      ValueType root;
-      root.builtin = BuiltinValue::Record;
-      root.record = id;
-      if (containsFunctionStorage(placement, root))
-        reject({}, "native host aggregate callable fields require callable environment transport");
       if (!nativeAggregateLayouts) {
         llvm::LLVMContext context;
         auto plan =
@@ -277,20 +275,51 @@ class Compiler {
     }
     return recordName(id);
   }
+  static std::string callableName(std::size_t id) { return "NativeCallable" + std::to_string(id); }
+  static std::string callableLayoutName(std::size_t id) {
+    return "kalandra_gpu_callable_layout_" + std::to_string(id);
+  }
+  std::size_t callableType(const ValueType &type) {
+    auto payload = type;
+    payload.task = false;
+    payload.fallible = false;
+    for (std::size_t id = 0; id < callableTypes.size(); ++id)
+      if (sameFunctionValueType(callableTypes[id], payload))
+        return id;
+    const auto id = callableTypes.size();
+    callableTypes.push_back(payload);
+    aggregateDeclarations += "struct " + callableName(id) +
+                             " {const void *code=nullptr;const void *environment=nullptr;};\n"
+                             "extern \"C\" const ValueLayout " +
+                             callableLayoutName(id) + ";\n";
+    return id;
+  }
   static std::string valueStorage(const Value &value) {
-    return value.record && value.kind != Value::Task  ? recordName(*value.record)
-           : value.array && value.kind != Value::Task ? tensorDescriptor(value.element, 1)
-           : value.kind == Value::Tensor              ? "m::Buffer"
-           : value.kind == Value::Boolean             ? "bool"
-                                                      : scalarType(value.element);
+    return value.callable && value.kind != Value::Task ? callableName(*value.callable)
+           : value.record && value.kind != Value::Task ? recordName(*value.record)
+           : value.array && value.kind != Value::Task  ? tensorDescriptor(value.element, 1)
+           : value.kind == Value::Tensor               ? "m::Buffer"
+           : value.kind == Value::Boolean              ? "bool"
+                                                       : scalarType(value.element);
   }
   static std::string arrayLayout(const Value &value) {
+    if (value.callable)
+      return callableLayoutName(*value.callable);
     if (value.record)
       return recordLayoutName(*value.record);
     return "hostArrayLayout<" + elementName(value.element) + "," +
            (value.booleanArray ? "true" : "false") + ">()";
   }
-  static std::string arrayLayout(const ValueType &type) {
+  std::string arrayLayout(const ValueType &type) const {
+    if (type.builtin == BuiltinValue::Function) {
+      auto payload = type;
+      payload.task = false;
+      payload.fallible = false;
+      for (std::size_t id = 0; id < callableTypes.size(); ++id)
+        if (sameFunctionValueType(callableTypes[id], payload))
+          return callableLayoutName(id);
+      reject({}, "missing native callable ownership layout");
+    }
     Value value{Value::Array};
     value.record = type.record;
     value.booleanArray = isBoolArray(type);
@@ -298,11 +327,13 @@ class Compiler {
     return arrayLayout(value);
   }
   void trackArray(const Value &value) {
-    if (value.kind == Value::Array || value.kind == Value::Aggregate)
+    if (value.kind == Value::Array || value.kind == Value::Aggregate ||
+        value.kind == Value::Callable)
       arrayFields.emplace(value.slot, value);
   }
   std::string commitArray(const Value &value) const {
-    if (value.kind != Value::Array && value.kind != Value::Aggregate)
+    if (value.kind != Value::Array && value.kind != Value::Aggregate &&
+        value.kind != Value::Callable)
       return {};
     const auto found = arrayFields.find(value.slot);
     if (found == arrayFields.end())
@@ -310,7 +341,7 @@ class Compiler {
     const auto index = std::to_string(std::distance(arrayFields.begin(), found));
     const auto commit = "if(!f.arrayScopes.commit(" + index + ",&" + ref(value) +
                         ")){hostArrayFailure(task);return;}\n";
-    if (value.record && value.failure)
+    if ((value.record || value.callable) && value.failure)
       return "if(" + failureRef(value) + ".kind!=TaskFailure::None){" + ref(value) +
              "={};if(!f.arrayScopes.discard(" + index + ")){hostArrayFailure(task);return;}}else{" +
              commit + "}\n";
@@ -1115,9 +1146,10 @@ class Compiler {
   static bool pointerCpuABI(const TypedModule &module, FunctionId id) {
     const auto &fn = module.functions.at(id);
     return fn.resultType.array || fn.resultType.record ||
+           fn.resultType.builtin == BuiltinValue::Function ||
            std::ranges::any_of(fn.parameters, [&](auto parameter) {
              const auto &type = module.symbols.at(parameter).type;
-             return type.array || type.record;
+             return type.array || type.record || type.builtin == BuiltinValue::Function;
            });
   }
   void declareCpuFunction(FunctionId id, const TypedModule *source = nullptr,
@@ -1143,14 +1175,18 @@ class Compiler {
     }
     declarations +=
         "extern \"C\" " +
-        (fn.resultType.tensor || fn.resultType.record  ? std::string("void")
+        (fn.resultType.tensor || fn.resultType.record ||
+                 fn.resultType.builtin == BuiltinValue::Function
+             ? std::string("void")
          : fn.resultType.builtin == BuiltinValue::Bool ? std::string("bool")
                                                        : scalarType(fn.resultType.element)) +
         (source                      ? " kalandra_gpu_step_"
          : pointerCpuABI(module, id) ? " kalandra_gpu_cpu_"
                                      : " _mlir_ciface_kalandra_cpu_") +
         std::to_string(id) + "(";
-    if (fn.resultType.record)
+    if (fn.resultType.builtin == BuiltinValue::Function)
+      declarations += callableName(callableType(fn.resultType)) + "*,";
+    else if (fn.resultType.record)
       declarations += recordName(*fn.resultType.record) + "*,";
     else if (fn.resultType.tensor)
       declarations +=
@@ -1159,13 +1195,14 @@ class Compiler {
           "*,";
     for (auto parameter : fn.parameters) {
       const auto &type = module.symbols.at(parameter).type;
-      declarations += type.record ? recordName(*type.record) + "*,"
-                      : type.tensor
-                          ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element,
-                                             type.shape.size()) +
-                                "*,"
-                      : type.builtin == BuiltinValue::Bool ? "bool,"
-                                                           : scalarType(type.element) + ",";
+      declarations +=
+          type.builtin == BuiltinValue::Function ? callableName(callableType(type)) + "*,"
+          : type.record                          ? recordName(*type.record) + "*,"
+          : type.tensor ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element,
+                                           type.shape.size()) +
+                              "*,"
+          : type.builtin == BuiltinValue::Bool ? "bool,"
+                                               : scalarType(type.element) + ",";
     }
     declarations += "Invocation*);\n";
   }
@@ -1195,6 +1232,10 @@ class Compiler {
       }
       // Separate typed modules have their own private callable and function IDs.
       // Only the pointer-based bridges are shared with generated C++.
+      if (!stepsModule)
+        for (auto &function : *module)
+          if (function.getName().starts_with("kalandra_callable_"))
+            function.setName(prefix + function.getName().str());
       if (stepsModule) {
         for (auto &function : *module)
           if (!function.isDeclaration() && !bridges.contains(&function))
@@ -1251,7 +1292,7 @@ class Compiler {
     if (linked)
       for (const auto &name : sharedNominalKeys)
         linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
-    if (!aggregateTypes.empty()) {
+    if (!aggregateTypes.empty() || !callableTypes.empty()) {
       if (!linked)
         reject(span, "native aggregate slots require a linked CPU module");
       TypedModule schema;
@@ -1265,17 +1306,25 @@ class Compiler {
         type.record = id;
         types.push_back(type);
       }
-      const auto layouts = emitTaskPayloadValueLayouts(schema, *linked, types);
+      const auto recordCount = types.size();
+      types.insert(types.end(), callableTypes.begin(), callableTypes.end());
+      const auto layouts =
+          continuationCpu
+              ? emitTaskKernelPayloadValueLayouts(schema, *continuationCpu, *linked, types)
+              : emitTaskPayloadValueLayouts(schema, *linked, types);
       for (std::size_t n = 0; n < types.size(); ++n) {
         auto *layout = layouts.at(n);
         auto fields = std::vector<llvm::Constant *>();
         for (const auto &operand : layout->getInitializer()->operands())
           fields.push_back(llvm::cast<llvm::Constant>(operand.get()));
         fields[0] = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context),
-                                           UINT64_C(0x4b414c4147470000) + *types[n].record);
+                                           n < recordCount
+                                               ? UINT64_C(0x4b414c4147470000) + *types[n].record
+                                               : UINT64_C(0x4b414c434c530000) + n - recordCount);
         layout->setInitializer(llvm::ConstantStruct::get(
             llvm::cast<llvm::StructType>(layout->getValueType()), fields));
-        layout->setName(recordLayoutName(*types[n].record));
+        layout->setName(n < recordCount ? recordLayoutName(*types[n].record)
+                                        : callableLayoutName(n - recordCount));
         layout->setLinkage(llvm::GlobalValue::ExternalLinkage);
       }
     }
@@ -1466,11 +1515,17 @@ class Compiler {
     (source ? usedContinuationCpu : usedCpuFunctions).insert(function);
     const auto &module = source ? *source : cpu;
     const auto &fn = module.functions[function];
+    if (!source && (containsFunctionStorage(module, fn.resultType) ||
+                    std::ranges::any_of(fn.parameters, [&](auto parameter) {
+                      return containsFunctionStorage(module, module.symbols.at(parameter).type);
+                    })))
+      reject(span, "host callable boundaries require the shared continuation projection");
     if (inputs.size() != fn.parameters.size())
       reject(span, "CPU function argument count mismatch");
     const auto supported = [](const ValueType &type) {
       return type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Bool ||
-             type.builtin == BuiltinValue::Record;
+             type.builtin == BuiltinValue::Record ||
+             (type.builtin == BuiltinValue::Function && !type.array && !type.tensor);
     };
     if (!supported(fn.resultType) || std::ranges::any_of(fn.parameters, [&](auto parameter) {
           return !supported(module.symbols.at(parameter).type);
@@ -1480,26 +1535,31 @@ class Compiler {
           return module.symbols.at(parameter).type.record.has_value();
         }))
       declareCpuFunction(function, source, true);
+    const bool callableResult = fn.resultType.builtin == BuiltinValue::Function;
     const bool recordResult = fn.resultType.record.has_value();
     const bool tensorResult = fn.resultType.tensor;
     const bool booleanResult = !tensorResult && fn.resultType.builtin == BuiltinValue::Bool;
     const bool arrayResult = fn.resultType.array;
     auto out = spawned ? std::string("value")
-                       : field(recordResult  ? recordType(*fn.resultType.record)
-                               : arrayResult ? tensorDescriptor(isBoolArray(fn.resultType)
-                                                                    ? NumericType::UInt8
-                                                                    : fn.resultType.element,
+                       : field(callableResult ? callableName(callableType(fn.resultType))
+                               : recordResult ? recordType(*fn.resultType.record)
+                               : arrayResult  ? tensorDescriptor(isBoolArray(fn.resultType)
+                                                                     ? NumericType::UInt8
+                                                                     : fn.resultType.element,
                                                                 1)
                                : tensorResult  ? "m::Buffer"
                                : booleanResult ? "bool"
                                                : scalarType(fn.resultType.element));
-    Value value{recordResult    ? Value::Aggregate
+    Value value{callableResult  ? Value::Callable
+                : recordResult  ? Value::Aggregate
                 : arrayResult   ? Value::Array
                 : tensorResult  ? Value::Tensor
                 : booleanResult ? Value::Boolean
                                 : Value::Scalar,
                 spawned ? 0 : next - 1};
     value.record = fn.resultType.record;
+    if (callableResult)
+      value.callable = callableType(fn.resultType);
     value.array = arrayResult;
     value.booleanArray = isBoolArray(fn.resultType);
     value.element =
@@ -1519,7 +1579,11 @@ class Compiler {
       auto input = inputs[i];
       completed(input, span);
       const auto &type = module.symbols[fn.parameters[i]].type;
-      if (type.record) {
+      if (type.builtin == BuiltinValue::Function) {
+        if (input.kind != Value::Callable || input.callable != callableType(type) || input.gpu)
+          reject(span, "CPU callable argument requires its declared function type");
+        arguments += "&" + ref(input) + ",";
+      } else if (type.record) {
         if (input.kind != Value::Aggregate || input.record != type.record || input.gpu)
           reject(span, "CPU aggregate argument requires its declared nominal type");
         arguments += "&" + ref(input) + ",";
@@ -1591,16 +1655,19 @@ class Compiler {
       }
     }
     step = guards + step;
-    if (recordResult)
+    if (callableResult)
+      step += callableName(*value.callable) + " result{};\n";
+    else if (recordResult)
       step += recordName(*value.record) + " result{};\n";
     else if (tensorResult)
       step += tensorDescriptor(value.element, value.rank) + " result{};\n";
-    step += (tensorResult || recordResult ? "" : "f." + out + " = ") +
+    step += (tensorResult || recordResult || callableResult ? "" : "f." + out + " = ") +
             std::string(source                            ? "kalandra_gpu_step_"
                         : pointerCpuABI(module, function) ? "kalandra_gpu_cpu_"
                                                           : "_mlir_ciface_kalandra_cpu_") +
-            std::to_string(function) + "(" + (tensorResult || recordResult ? "&result," : "") +
-            arguments + "&task.context());\n";
+            std::to_string(function) + "(" +
+            (tensorResult || recordResult || callableResult ? "&result," : "") + arguments +
+            "&task.context());\n";
     auto [line, column] = syntax.source->location(span.begin);
     const auto location = inlineOperation ? std::to_string(line) + "," + std::to_string(column)
                                           : "task.context().line(),task.context().column()";
@@ -1608,7 +1675,7 @@ class Compiler {
             "); return; }\n";
     if (spawned)
       step += "if(task.cancelled()) return;\n";
-    if (arrayResult || recordResult) {
+    if (arrayResult || recordResult || callableResult) {
       step += "f." + out + "=result;\n";
     } else if (tensorResult) {
       // Acquire the immutable backing lease before releasing the returned
@@ -1637,7 +1704,8 @@ class Compiler {
         continue;
       const auto name = "v" + std::to_string(input.slot);
       members += valueStorage(input) + " " + name + ";";
-      if (input.kind == Value::Array || input.kind == Value::Aggregate)
+      if (input.kind == Value::Array || input.kind == Value::Aggregate ||
+          input.kind == Value::Callable)
         capturedArrays.push_back(input);
       captures += "," + ref(input);
       owned += ",data." + name;
@@ -1646,15 +1714,16 @@ class Compiler {
                       ".format()!=*m::storageFormat(" + elementName(input.element) + ") || data." +
                       name + ".shape().size()!=" + std::to_string(input.rank);
     }
-    const bool scopedJob = arrayResult || recordResult || !capturedArrays.empty();
+    const bool scopedJob = arrayResult || recordResult || callableResult || !capturedArrays.empty();
     std::string layouts;
     for (const auto &input : capturedArrays)
       layouts += "&" + arrayLayout(input) + ",";
-    if (arrayResult || recordResult)
+    if (arrayResult || recordResult || callableResult)
       layouts += "&" + arrayLayout(value) + ",";
     if (scopedJob)
       cpuEntries += "inline const std::array<const ValueLayout*," +
-                    std::to_string(capturedArrays.size() + (arrayResult || recordResult ? 1 : 0)) +
+                    std::to_string(capturedArrays.size() +
+                                   (arrayResult || recordResult || callableResult ? 1 : 0)) +
                     "> " + prefix + "Layouts{{" + layouts + "}};\n";
     cpuEntries += "struct " + prefix + "Packet{" + members + "};\nstruct " + prefix + "Frame{" +
                   members + valueStorage(value) + " value{};" +
@@ -1687,7 +1756,7 @@ class Compiler {
     if (scopedJob)
       cpuEntries += "HostArrayWork work(f.arrayScopes);if(!work){hostArrayFailure(task);return;}\n";
     cpuEntries += step;
-    if (arrayResult || recordResult)
+    if (arrayResult || recordResult || callableResult)
       cpuEntries += "if(!f.arrayScopes.commit(" + std::to_string(capturedArrays.size()) +
                     ",&f.value)){hostArrayFailure(task);return;}\n";
     cpuEntries += "task.complete(&f.value); }\n";
@@ -1696,9 +1765,9 @@ class Compiler {
                   "Packet),alignof(" + prefix + "Packet),sizeof(" + prefix + "Frame),alignof(" +
                   prefix + "Frame)," + prefix + "Construct," + prefix + "Destroy," + prefix +
                   "Resume," +
-                  (arrayResult || recordResult ? "&" + arrayLayout(value)
-                   : tensorResult              ? "&m::Runtime::bufferLayout()"
-                   : booleanResult             ? "&boolScalarLayout()"
+                  (arrayResult || recordResult || callableResult ? "&" + arrayLayout(value)
+                   : tensorResult                                ? "&m::Runtime::bufferLayout()"
+                   : booleanResult                               ? "&boolScalarLayout()"
                                    : "numericScalarLayout(" + elementName(value.element) + ")") +
                   "};\n";
     auto taskField = field("TaskHandle");
@@ -3129,10 +3198,12 @@ class Compiler {
         joins.emplace(plan.code[i].group, i);
     for (std::size_t i = 0; i < plan.groups; ++i)
       plannedGroups.push_back("f." + field("GroupHandle"));
-    auto shape = [](Value &value, const ValueType &type) {
+    auto shape = [&](Value &value, const ValueType &type) {
       if (type.builtin == BuiltinValue::Numeric)
         value.element = type.element;
       value.record = type.record;
+      if (type.builtin == BuiltinValue::Function)
+        value.callable = callableType(type);
       value.array = type.array;
       value.booleanArray = isBoolArray(type);
       if (value.booleanArray)
@@ -3147,17 +3218,22 @@ class Compiler {
     };
     auto allocate = [&](Slot slot) {
       const auto &type = plan.slots.at(slot);
-      Value value{type.task     ? Value::Task
-                  : type.array  ? Value::Array
-                  : type.tensor ? Value::Tensor
-                  : type.record ? Value::Aggregate
-                                : Value::Scalar};
+      if (type.builtin == BuiltinValue::Function && (type.array || type.tensor))
+        reject({}, "host callable arrays require an owned array transport layout");
+      Value value{type.task                                ? Value::Task
+                  : type.array                             ? Value::Array
+                  : type.tensor                            ? Value::Tensor
+                  : type.record                            ? Value::Aggregate
+                  : type.builtin == BuiltinValue::Function ? Value::Callable
+                                                           : Value::Scalar};
       shape(value, type);
       std::string storage = type.task     ? "TaskHandle"
                             : type.array  ? tensorDescriptor(value.element, 1)
                             : type.tensor ? "m::Buffer"
                             : type.record ? recordType(*type.record)
-                                          : scalarType(type.element);
+                            : type.builtin == BuiltinValue::Function
+                                ? callableName(callableType(type))
+                                : scalarType(type.element);
       if (type.builtin == BuiltinValue::Device) {
         value.kind = Value::Target;
       } else {
@@ -3596,7 +3672,7 @@ class Compiler {
       }
     }
     const bool arrayParameters = std::ranges::any_of(plannedParameters, [](const auto &v) {
-      return v.kind == Value::Array || v.kind == Value::Aggregate;
+      return v.kind == Value::Array || v.kind == Value::Aggregate || v.kind == Value::Callable;
     });
     if (arrayParameters)
       out << " || !packet.source";
@@ -3606,7 +3682,8 @@ class Compiler {
       out << "if(!f.arrayScopes.initialize(context,arrayLayouts)){f.~Frame();return false;}\n";
     for (std::size_t n = 0; n < plannedParameters.size(); ++n) {
       const auto &value = plannedParameters[n];
-      if (value.kind == Value::Array || value.kind == Value::Aggregate)
+      if (value.kind == Value::Array || value.kind == Value::Aggregate ||
+          value.kind == Value::Callable)
         out << "if(!f.arrayScopes.capture(context,"
             << std::distance(arrayFields.begin(), arrayFields.find(value.slot)) << ","
             << arrayLayout(value) << ",&" << ref(value) << ",*packet.source,&data.arg" << n

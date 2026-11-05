@@ -947,8 +947,18 @@ private:
       const bool preserve = options.preserveCalls && !resumable.at(call->function);
       auto value =
           preserve ? slot(plan, node.type) : function(plan, call->function, args, stack, env.group);
-      if (preserve)
-        plan.code.push_back({Code::Call, value, args, call->function, 0, 0, id});
+      if (preserve) {
+        // Callable values share the continuation projection's identities and
+        // capture layouts, including factories returning callable records.
+        const bool callableBoundary =
+            options.valueScopes &&
+            (containsFunctionStorage(input, node.type) ||
+             std::ranges::any_of(operands(node), [&](auto argument) {
+               return containsFunctionStorage(input, input.expressions.at(argument).type);
+             }));
+        plan.code.push_back({callableBoundary ? Code::Kernel : Code::Call, value, args,
+                             callableBoundary ? kernel(id) : call->function, 0, 0, id});
+      }
       env.values[id] = value;
       return value;
     }
@@ -1310,11 +1320,15 @@ private:
            !options.preserveCalls ||
                    std::holds_alternative<IntegerRangeOperation>(node.operation) ||
                    (options.valueScopes && (node.type.array || node.type.record ||
+                                            containsFunctionStorage(input, node.type) ||
                                             std::ranges::any_of(operands(node),
                                                                 [&](auto value) {
                                                                   const auto &type =
                                                                       input.expressions[value].type;
-                                                                  return type.array || type.record;
+                                                                  return type.array ||
+                                                                         type.record ||
+                                                                         containsFunctionStorage(
+                                                                             input, type);
                                                                 })))
                ? kernel(id)
                : 0,
