@@ -1,0 +1,77 @@
+# CPU to GPU closure transfer
+
+Design and implementation plan for #282, following #279. This document is an
+engineering contract; it does not advertise an implemented user capability.
+
+## Boundary
+
+A GPU task may receive a CPU-created function value only when the compiler can
+prove its complete target set and every active capture has an admitted device
+representation. The selected target executes on the selected GPU. A native
+function pointer is never a wire identity, and no host execution fallback is
+introduced.
+
+The first boundary is CPU to GPU. Returning function values to the CPU, host
+services, application-error handling, strings and custom workgroup facilities
+remain separate work. Nested closures and function-valued aggregate fields need
+the same proof as a direct function argument; they cannot bypass admission.
+
+## Target discovery
+
+Reuse the bounded whole-module function-value flow analysis. Transport needs
+provenance at the value being passed, including values never invoked on the CPU,
+not just the existing indirect-call sites. Unknown provenance must remain
+explicit even when known compatible targets also exist. An empty target set or
+an exhausted analysis budget is not an eligibility proof.
+
+Target identifiers are deterministic within a compiled entry. Validate each
+identifier against its exact callable signature and environment schema before
+device invocation. Creating or transporting a closure does not execute its body
+and must not make a factory a coordinating function.
+
+## Captures and ownership
+
+Translate each eligible environment into a typed graph node using existing
+canonical device cells and target-native host field extraction. Transfer active
+fields only; native padding, pointers and inactive enum payloads are excluded.
+Preserve graph aliases across ordinary arguments and closure captures. Nested
+environments participate in tracing and resource accounting.
+
+The owning task retains captured backing and its read locks until settlement.
+Host reassignment of an independent scalar binding does not mutate a captured
+value. Captured shared arrays remain read-only on the device; explicit local
+copies may be mutated under the existing rules. Admission must not erase mutable
+parameter contracts or permit a mutating call through a read-only capture.
+
+Resident tensor captures must retain the selected device and shape contracts.
+Do not reinterpret a CPU tensor or a tensor on another device as a resident
+pointer. Unsupported captures receive a diagnostic identifying the capture and
+reason, before any partial result can be published.
+
+## Runtime contract
+
+Use bounded existing capture, graph transfer, arena allocation and checkpoint
+protocols. Admission failure releases all acquired owners. Cancellation,
+deadlines and faults retain their existing precedence. Device call frames and
+the collector trace imported environments as they do device-created closures.
+Concurrent invocations must not share mutable environment storage.
+
+## Implementation sequence
+
+1. Expose value-level target provenance and test unused values, factories,
+   conditionals, aggregate projections, nested captures, unknown sources and
+   budget exhaustion.
+2. Plan eligible closure environments and target tags; integrate native host
+   extraction with canonical graph schemas, without opening admission early.
+3. Connect entry transport to device environment construction and indirect
+   dispatch on Metal, Vulkan and CUDA.
+4. Qualify ownership, read locks, mixed argument/capture aliases, cancellation,
+   partial admission failure and concurrent calls.
+5. Add runnable user docs and editor diagnostics. Run physical Metal, NVIDIA and
+   Intel Vulkan, and CUDA correctness tests, then installed-package and hosted
+   platform checks. Windows physical GPU execution remains explicitly
+   unqualified until #276 is completed.
+
+Each stage preserves rejection of unsupported boundary values until the full
+transport path is implemented and tested. Compare device outputs with CPU and
+independent expected results; compilation alone is not device qualification.
