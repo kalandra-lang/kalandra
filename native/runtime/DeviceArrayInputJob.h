@@ -5,14 +5,25 @@
 #include "DeviceArrayWire.h"
 #include "HostArrays.h"
 #include <tuple>
+#include <variant>
 namespace kalandra::runtime {
 template <NumericType Element, bool Boolean = false> struct DeviceArrayArgument {
   static constexpr auto element = Element;
   static constexpr bool boolean = Boolean;
   static constexpr bool graph = false;
+  static constexpr bool resident = false;
   using Descriptor = CpuTensor<Element, 1>;
   using Capture = DeviceArrayCapture<Element, Boolean>;
   static const ValueLayout &layout() noexcept { return hostArrayLayout<Element, Boolean>(); }
+};
+// A resident tensor is already an immutable backend lease. Keep it in the
+// admitted frame and bind it in source order without packing or uploading.
+template <class Runtime, class Buffer> struct DeviceResidentArgument {
+  using Descriptor = Buffer;
+  using Capture = std::monostate;
+  static constexpr bool graph = false;
+  static constexpr bool resident = true;
+  static const ValueLayout &layout() noexcept { return Runtime::bufferLayout(); }
 };
 // Private source bridge. Packing and upload belong to this admitted child, not
 // its caller, so spawn does not insert an implicit await in the parent program.
@@ -23,6 +34,14 @@ template <class Runtime, class Buffer, class Device, class Executable, std::uint
           class... Arguments>
 class DeviceArrayTask final {
   static constexpr std::size_t Count = sizeof...(Arguments);
+  using ArgumentTypes = std::tuple<Arguments...>;
+  template <std::size_t I> using ArgumentAt = std::tuple_element_t<I, ArgumentTypes>;
+  template <class Argument> static constexpr bool resident() {
+    if constexpr (requires { Argument::resident; })
+      return Argument::resident;
+    return false;
+  }
+  static constexpr std::size_t Packed = (std::size_t{0} + ... + !resident<Arguments>());
   static constexpr bool Aggregate = !std::is_void_v<AggregatePolicy>;
   static_assert(Count > 0 || ArrayResult);
   static constexpr bool GraphResult = requires { AggregatePolicy::graphResult; };
@@ -103,25 +122,35 @@ private:
     bool valid = true;
     if constexpr (Count > 0)
       valid = frame.scopes.initialize(context, layouts);
+    std::size_t origin = 0;
     each([&]<std::size_t I>() {
-      if (valid)
-        valid = frame.scopes.capture(context, I, *layouts[I], &std::get<I>(frame.arguments),
-                                     *packet.source, &std::get<I>(data.arguments));
-      frame.origins[I] = I + 1;
+      if constexpr (resident<ArgumentAt<I>>()) {
+        const auto &buffer = std::get<I>(frame.arguments);
+        valid = valid && bool(buffer) && buffer.onDevice();
+        if (!valid && !context.status())
+          context.fault(3);
+      } else {
+        if (valid)
+          valid = frame.scopes.capture(context, I, *layouts[I], &std::get<I>(frame.arguments),
+                                       *packet.source, &std::get<I>(data.arguments));
+        frame.origins[I] = ++origin;
+      }
     });
     // Distinct capture slots can name the same native array. Canonicalize their
     // origin IDs without allocating an uncharged hash table.
     if constexpr (!(Arguments::graph || ...)) {
       each([&]<std::size_t I>() {
-        each([&]<std::size_t J>() {
-          if constexpr (J < I && std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
-                                                std::tuple_element_t<J, std::tuple<Arguments...>>>) {
-            const auto &a = std::get<I>(frame.arguments), &b = std::get<J>(frame.arguments);
-            if (a.allocated == b.allocated && a.aligned == b.aligned && a.offset == b.offset &&
-                a.sizes == b.sizes && a.strides == b.strides)
-              frame.origins[I] = frame.origins[J];
-          }
-        });
+        if constexpr (!resident<ArgumentAt<I>>()) {
+          each([&]<std::size_t J>() {
+            if constexpr (J < I && std::is_same_v<std::tuple_element_t<I, std::tuple<Arguments...>>,
+                                                  std::tuple_element_t<J, std::tuple<Arguments...>>>) {
+              const auto &a = std::get<I>(frame.arguments), &b = std::get<J>(frame.arguments);
+              if (a.allocated == b.allocated && a.aligned == b.aligned && a.offset == b.offset &&
+                  a.sizes == b.sizes && a.strides == b.strides)
+                frame.origins[I] = frame.origins[J];
+            }
+          });
+        }
       });
     }
     if (!valid || context.poll()) {
@@ -151,29 +180,34 @@ private:
       each([&]<std::size_t I>() {
         if (selected != I)
           return;
-        auto &capture = std::get<I>(frame.captures);
-        if (!capture.origin()) {
-          using Argument = std::tuple_element_t<I, std::tuple<Arguments...>>;
-          const auto &descriptor = std::get<I>(frame.arguments);
-          if constexpr (Argument::graph)
-            valid = Argument::prepare(task.context(), capture, descriptor, frame.origins[I],
-                                      GraphResult);
-          else
-            valid = capture.initialize(task.context(), descriptor, frame.origins[I]);
-          if (!valid)
-            return;
-        }
-        if (capture.advance()) {
-          auto snapshot = runtime.fromCpu(task.context(), capture.wire()->view());
-          if (!snapshot) {
-            task.fault(std::int64_t(snapshot.error()));
-            valid = false;
-            return;
-          }
-          frame.snapshots[I] = std::move(*snapshot);
+        if constexpr (resident<ArgumentAt<I>>()) {
+          frame.inputs[I] = std::get<I>(frame.arguments);
           ++frame.packing;
-        } else if (task.context().poll())
-          valid = false;
+        } else {
+          auto &capture = std::get<I>(frame.captures);
+          if (!capture.origin()) {
+            using Argument = std::tuple_element_t<I, std::tuple<Arguments...>>;
+            const auto &descriptor = std::get<I>(frame.arguments);
+            if constexpr (Argument::graph)
+              valid = Argument::prepare(task.context(), capture, descriptor, frame.origins[I],
+                                        GraphResult);
+            else
+              valid = capture.initialize(task.context(), descriptor, frame.origins[I]);
+            if (!valid)
+              return;
+          }
+          if (capture.advance()) {
+            auto snapshot = runtime.fromCpu(task.context(), capture.wire()->view());
+            if (!snapshot) {
+              task.fault(std::int64_t(snapshot.error()));
+              valid = false;
+              return;
+            }
+            frame.snapshots[I] = std::move(*snapshot);
+            ++frame.packing;
+          } else if (task.context().poll())
+            valid = false;
+        }
       });
       if (!valid) {
         hostArrayFailure(task);
@@ -186,7 +220,7 @@ private:
       frame.phase = 1;
     }
     if (frame.phase == 1) {
-      if constexpr (Count == 0) {
+      if constexpr (Packed == 0) {
         frame.phase = 3;
       } else {
         frame.group = task.openGroup();
@@ -194,14 +228,16 @@ private:
           hostArrayFailure(task);
           return;
         }
-        for (std::size_t i = 0; i < Count; ++i)
-          frame.uploads[i] = runtime.upload(task, frame.group, frame.snapshots[i], frame.device);
+        each([&]<std::size_t I>() {
+          if constexpr (!resident<ArgumentAt<I>>())
+            frame.uploads[I] = runtime.upload(task, frame.group, frame.snapshots[I], frame.device);
+        });
         frame.phase = 2;
       }
     }
     if (frame.phase == 2) {
-      for (const auto child : frame.uploads)
-        if (!task.await(child))
+      for (std::size_t i = 0; i < Count; ++i)
+        if (frame.origins[i] && !task.await(frame.uploads[i]))
           return;
       if (!task.close(frame.group)) {
         hostArrayFailure(task);
@@ -210,7 +246,7 @@ private:
       frame.phase = 3;
     }
     if (frame.phase == 3) {
-      if constexpr (Count > 0) {
+      if constexpr (Packed > 0) {
         if (!task.join(frame.group))
           return;
         const auto failure = task.failure(frame.group);
@@ -220,7 +256,7 @@ private:
           return;
         }
         for (std::size_t i = 0; i < Count; ++i)
-          if (!readBuffer(task, frame.uploads[i], frame.inputs[i])) {
+          if (frame.origins[i] && !readBuffer(task, frame.uploads[i], frame.inputs[i])) {
             hostArrayFailure(task);
             return;
           }
@@ -229,7 +265,10 @@ private:
           return;
         }
         frame.snapshots = {};
-        each([&]<std::size_t I>() { std::get<I>(frame.captures).retireWire(); });
+        each([&]<std::size_t I>() {
+          if constexpr (!resident<ArgumentAt<I>>())
+            std::get<I>(frame.captures).retireWire();
+        });
       }
       frame.group = task.openGroup();
       if (!frame.group) {
@@ -274,7 +313,7 @@ private:
         frame.metadata = Runtime::arrayResult(frame.output);
         if (!frame.metadata ||
             frame.metadata->layout != DeviceArrayWireABI::layout(ResultElement, BooleanResult) ||
-            frame.metadata->origin > (Aggregate ? 0 : Count) ||
+            frame.metadata->origin > (Aggregate ? 0 : Packed) ||
             frame.metadata->length >
                 DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords) {
           task.fault(3);
@@ -403,11 +442,13 @@ private:
             bool resolved = false;
             each([&]<std::size_t I>() {
               using Argument = std::tuple_element_t<I, std::tuple<Arguments...>>;
-              const auto &source = std::get<I>(frame.arguments);
-              if (!resolved && frame.origins[I] == origin && Argument::element == element &&
-                  Argument::boolean == boolean && std::uint64_t(source.sizes[0]) == length) {
-                std::memcpy(out, &source, sizeof(source));
-                resolved = true;
+              if constexpr (!resident<ArgumentAt<I>>()) {
+                const auto &source = std::get<I>(frame.arguments);
+                if (!resolved && frame.origins[I] == origin && Argument::element == element &&
+                    Argument::boolean == boolean && std::uint64_t(source.sizes[0]) == length) {
+                  std::memcpy(out, &source, sizeof(source));
+                  resolved = true;
+                }
               }
             });
             return resolved;

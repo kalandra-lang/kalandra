@@ -119,9 +119,10 @@ bool validInstruction(const ProgramInstruction &op) {
         op.kernel->scalarTypes.size() < detail::ControlArenaABI::Cells ||
         op.kernel->tensorTypes.size() != n + 1 ||
         op.kernel->tensorTypes.back() != NumericType::UInt64 ||
-        op.kernel->scalarBuffers.size() != n + 1 || (op.kernel->scalarBuffers.back() != 0 &&
-         op.kernel->scalarBuffers.back() != DeviceArrayWireABI::ExportRole) ||
+        op.kernel->scalarBuffers.size() != n + 1 ||
         !detail::validControlInputRoles(op.kernel->scalarBuffers, op.kernel->scalarTypes.size()) ||
+        (detail::ControlTensorInputs::resultRank(op.kernel->scalarBuffers.back()) &&
+         op.kernel->type != NumericType::UInt64) ||
         !std::all_of(op.constants.begin(), op.constants.end(), [](auto x) { return x == 0; }) ||
         !std::all_of(op.kernel->scalarTypes.begin(), op.kernel->scalarTypes.end(),
                      [](auto type) { return type == NumericType::UInt64; }) ||
@@ -205,7 +206,7 @@ std::expected<KernelContract, Error> kernelContract(const ProgramKernel &kernel,
                                 [](auto role) { return role != 0; })) {
     result.entry += "_d_";
     for (auto role : kernel.scalarBuffers)
-      result.entry += role == 3 ? 'x' : role == 2 ? 'a' : role ? 's' : 't';
+      result.entry += detail::ControlTensorInputs::encode(role);
   }
   result.entry += backendKernelSuffix;
   return result;
@@ -374,7 +375,7 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
   if (!definition_ || pending_)
     return fail(Error::Invalid);
   try {
-    if (exportMetadata_) {
+    if (exportMetadata_ || exportTensor_) {
       // One fence-complete page per service step. Cancellation is checked by
       // the outer service before every next(), including the final copy page.
       Buffer payload;
@@ -398,10 +399,15 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
       }
       output_ = {};
       output_.type = NumericType::UInt64;
-      output_.rank = 1;
-      output_.dimensions[0] = payload.bytes() / 8;
       output_.data = std::move(payload);
-      output_.arrayResult = *exportMetadata_;
+      if (exportTensor_) {
+        output_.rank = exportTensor_->rank;
+        output_.dimensions = exportTensor_->extents;
+      } else {
+        output_.rank = 1;
+        output_.dimensions[0] = output_.data.bytes() / 8;
+        output_.arrayResult = *exportMetadata_;
+      }
       const auto &op = definition_->code[pc_];
       values_[op.output] = std::move(output_);
       for (auto input : op.inputs)
@@ -409,6 +415,7 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
       controlExport_ = {};
       controlArena_ = {};
       exportMetadata_.reset();
+      exportTensor_.reset();
       ++pc_;
       return std::optional<ProgramDispatch>{};
     }
@@ -589,6 +596,9 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
           if (schema.scalarBuffers[i] == DeviceArrayWireABI::InputRole) {
             if (op.kind != K::DeviceControl || value.rank != 1 || value.type != NumericType::UInt64)
               return fail(Error::Invalid);
+          } else if (auto rank = detail::ControlTensorInputs::rank(schema.scalarBuffers[i])) {
+            if (op.kind != K::DeviceControl || value.rank != *rank)
+              return fail(Error::Invalid);
           } else if (!schema.scalarBuffers[i]) {
             if (domain && !sameShape(value, values_[op.inputs[*domain]]))
               return fail(Error::Shape);
@@ -703,8 +713,14 @@ std::expected<std::optional<ProgramDispatch>, Error> ProgramExecution::next(Runt
           dispatch.parameters[1 + 2 * cell] = value;
           dispatch.parameters[2 + 2 * cell] = value >> 32;
         };
-        if (!detail::controlInputLengths(schema.scalarBuffers, schema.scalarTypes.size(),
-                controlParameters_.empty(), [&](std::size_t i) { return values_[op.inputs[i]].data.bytes(); },
+        if (!detail::controlInputMetadata(schema.scalarBuffers, schema.scalarTypes.size(),
+                controlParameters_.empty(),
+                [&](std::size_t i) {
+                  const auto &value = values_[op.inputs[i]];
+                  return std::span(value.dimensions).first(value.rank);
+                },
+                [&](std::size_t i) { return values_[op.inputs[i]].data.bytes(); },
+                [&](std::size_t i) { return describeNumeric(values_[op.inputs[i]].type)->bytes(); },
                 read, write))
           return fail(Error::Invalid);
       }
@@ -772,11 +788,37 @@ std::expected<void, Error> ProgramExecution::accept(Runtime &runtime, KernelResu
       };
       const auto &instruction = definition_->code[pc_];
       if (cell(ABI::Capacity) != controlArena_.words() ||
-          !detail::controlInputLengths(instruction.kernel->scalarBuffers,
+          !detail::controlInputMetadata(instruction.kernel->scalarBuffers,
               instruction.kernel->scalarTypes.size(), false,
+              [&](std::size_t i) {
+                const auto &value = values_[instruction.inputs[i]];
+                return std::span(value.dimensions).first(value.rank);
+              },
               [&](std::size_t i) { return values_[instruction.inputs[i]].data.bytes(); },
+              [&](std::size_t i) { return describeNumeric(values_[instruction.inputs[i]].type)->bytes(); },
               cell, [](std::size_t, std::uint64_t) {}))
         return fail(Error::Invalid);
+      const auto terminal = instruction.kernel->scalarBuffers.back();
+      if (const auto rank = detail::ControlTensorInputs::resultRank(terminal)) {
+        using T = detail::ControlTensorExportABI;
+        if (next == ABI::Done) {
+          auto range = detail::controlTensorExportRange(cell, controlArena_.words(), *rank);
+          if (!range || cell(ABI::Requested) || cell(ABI::Resume))
+            return fail(Error::Invalid);
+          if (range->length) {
+            auto started = controlExport_.start(controlArena_.buffer(), range->offsetWords, range->length);
+            if (!started)
+              return fail(started.error());
+          }
+          exportTensor_ = *range;
+          controlParameters_.clear();
+          output_ = {};
+          return {};
+        }
+        for (std::size_t i = T::Root; i < T::Cells; ++i)
+          if (cell(i))
+            return fail(Error::Invalid);
+      }
       if (instruction.kernel->scalarBuffers.back() == DeviceArrayWireABI::ExportRole) {
         if (next == ABI::Done) {
           const auto captures = std::count(instruction.kernel->scalarBuffers.begin(),

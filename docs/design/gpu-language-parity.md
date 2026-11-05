@@ -311,4 +311,35 @@ per checkpoint. Elementwise operations use the scalar arithmetic policy
 on each element. Rank-zero tensors carry one element, and empty tensors
 retain their dimensions.
 
-Resident input and output bindings require separate qualification.
+### Resident tensor transport
+
+An admitted task retains each resident input on the selected device. The
+runtime seals the rank, extents and element count before dispatch and
+rechecks the metadata after each fence. Read-only uses can access the
+original buffer. A value that needs an arena handle is imported in
+bounded steps. Tensor returns publish their checked shape and payload
+range, copy pages on-device, and materialize the target element width
+without a host numerical conversion.
+
+NVIDIA Vulkan driver 595.112.07 traps inside pipeline creation for
+some checkpointed resident arithmetic shaders. The Vulkan compiler
+outlines scalar 64-bit subtraction in checkpointed tensor arithmetic
+shaders into one SPIR-V helper marked `DontInline`. The helper performs
+the same subtraction on the same operands. Shape validation, fault
+checks and dispatch boundaries stay in the original shader. The
+compound arithmetic regression passes on physical NVIDIA and Intel
+Vulkan with this lowering.
+
+### Representative workload timings
+
+Run `native/benchmarks/parity_latency.py` to prepare and measure
+equivalent CPU and GPU applications. Each sample includes process and
+runtime startup, allocation, transfer, computation and output. The
+sources perform sequential work inside each invocation.
+
+On macOS 27.2, the 8,192-element collection took 11.48 ms on CPU and
+855.14 ms on Metal. The resident tensor sum took 3.78 ms and 56.18 ms
+at 1,024 elements, and 3.87 ms and 320.23 ms at 8,192 elements. These
+pairs passed the 10% identical-binary drift control. The remaining
+three pairs exceeded the drift threshold and were exploratory. Every
+timed result matched its independent integer oracle.

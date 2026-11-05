@@ -1,4 +1,5 @@
 #include "NumericProgram.h"
+#include "DeviceTensorResultMap.h"
 #include "../gpu-source/AggregateLayout.h"
 #include "TensorTransformShader.h"
 #include <algorithm>
@@ -349,9 +350,7 @@ class Builder {
                            deviceInlineRecordValue(fn.resultType);
     const auto graph = &fn == &root ? graphParameter_ : std::nullopt;
     if (fn.resultType.array || aggregate || graph || usesScalarControl(input, function)) {
-      if (fn.resultType.tensor && !fn.resultType.array)
-        reject(fn.declaration, "device scalar control requires a numeric/Bool scalar helper; "
-                               "tensor loop state is not implemented");
+      const bool tensorResult = fn.resultType.tensor && !fn.resultType.array;
       auto shader =
           emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph,
                                   &fn == &root ? graphResultLayouts_ : std::span<const DeviceGraphExportLayout>{},
@@ -367,6 +366,13 @@ class Builder {
       op.kernel = kernel(std::move(*shader));
       op.output = value();
       program.code.push_back(std::move(op));
+      if (tensorResult && fn.resultType.element != NumericType::UInt64) {
+        NumericProgramInstruction materialize{NumericProgramKind::Map};
+        materialize.inputs.push_back(program.code.back().output);
+        materialize.kernel = kernel(deviceTensorResultMap(fn.resultType.element));
+        materialize.output = value();
+        program.code.push_back(std::move(materialize));
+      }
       active.erase(function);
       return resident(fn.resultType, program.code.back().output);
     }

@@ -98,6 +98,7 @@ private:
   detail::ControlArena<Buffer, Error> controlArena_;
   detail::ControlExport<Buffer, Error> controlExport_;
   std::optional<DeviceArrayResultMetadata> exportMetadata_;
+  std::optional<detail::ControlTensorExportRange> exportTensor_;
   std::optional<Error> error_;
   void release(std::uint32_t);
   void skip(std::size_t, std::size_t);

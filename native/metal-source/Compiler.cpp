@@ -2026,6 +2026,9 @@ class Compiler {
                             SourceSpan span) {
     admitGpuTypes(function);
     const auto &fn = cpu.functions.at(function);
+    const auto residentTensor = [](const ValueType &type) {
+      return type.tensor && !type.array && type.builtin == BuiltinValue::Numeric;
+    };
     auto inputs = sourceInputs;
     auto found = numericPrograms.find(function);
     std::optional<std::size_t> graphParameter;
@@ -2036,9 +2039,9 @@ class Compiler {
         !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1))) {
       if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
             const auto &type = cpu.symbols.at(symbol).type;
-            return !deviceScalarValue(type) && !deviceInlineRecordValue(type);
+            return !deviceScalarValue(type) && !deviceInlineRecordValue(type) && !residentTensor(type);
           }))
-        reject(span, "GPU recursive results require scalar or nominal graph inputs");
+        reject(span, "GPU recursive results require scalar, nominal graph or resident tensor inputs");
       graphResultPolicy = graphCapturePolicy(fn.resultType, span);
       resultLayouts = graphExportLayouts.at(*fn.resultType.record);
     }
@@ -2073,7 +2076,7 @@ class Compiler {
                 graphPeers.push_back(i);
               else
                 graphParameter = i;
-            } else if (!deviceScalarValue(type))
+            } else if (!deviceScalarValue(type) && !residentTensor(type))
               reject(span, entry.error());
           }
           if (!graphParameter || (graphResultPolicy.empty() && !deviceScalarValue(fn.resultType)))
@@ -2145,8 +2148,12 @@ class Compiler {
     }
     auto locate = [&](const Extent &extent) -> std::pair<std::size_t, unsigned> {
       std::size_t tensor = 0;
-      for (const auto *parameter : parameterTypes) {
-        const auto &type = *parameter;
+      for (std::size_t i = 0; i < parameterTypes.size(); ++i) {
+        if (i == graphParameter) {
+          ++tensor;
+          continue;
+        }
+        const auto &type = *parameterTypes[i];
         if (!type.tensor)
           continue;
         for (unsigned axis = 0; axis < type.shape.size(); ++axis)
@@ -2301,16 +2308,16 @@ class Compiler {
     const bool arrayInputs =
         std::ranges::any_of(tensors, [](const auto &v) { return v.kind == Value::Array; });
     if (arrayInputs || graphParameter || result.array || result.record) {
-      if (!graphParameter &&
-          std::ranges::any_of(tensors, [](const auto &v) { return v.kind != Value::Array; }))
-        reject(span, "GPU array entry cannot yet combine host arrays and resident tensors");
       std::string arguments;
-      for (const auto &value : tensors)
-        if (graphParameter)
+      for (const auto &value : tensors) {
+        if (value.kind == Value::Aggregate)
           arguments += ",DeviceGraphArgument<" + graphPolicy + ">";
+        else if (value.kind == Value::Tensor)
+          arguments += ",DeviceResidentArgument<m::Runtime,m::Buffer>";
         else
           arguments += ",DeviceArrayArgument<" + elementName(value.element) + "," +
                        (value.booleanArray ? "true" : "false") + ">";
+      }
       code += "using ArrayJob=" + std::string(result.record ? "DeviceAggregateResultJob" :
                                              result.array ? "DeviceArrayResultJob" : "DeviceArrayInputJob") +
               "<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
@@ -2326,17 +2333,17 @@ class Compiler {
       code += "ArrayJob::PacketData packet{&r,f." + executable + ",*target," +
               "std::array<std::uint64_t," + std::to_string(captureCount) + ">{" + captureList +
               "},";
-      if (!graphPeers.empty()) {
-        code += "std::make_tuple(std::tuple{" + ref(inputs.at(*graphParameter));
-        for (auto peer : graphPeers)
-          code += "," + ref(inputs.at(peer));
-        code += "})";
-      } else {
-        code += "std::tuple{";
-        for (const auto &value : tensors)
+      code += "std::tuple{";
+      for (const auto &value : tensors) {
+        if (value.kind == Value::Aggregate && !graphPeers.empty()) {
+          code += "std::tuple{" + ref(value);
+          for (auto peer : graphPeers)
+            code += "," + ref(inputs.at(peer));
+          code += "},";
+        } else
           code += ref(value) + ",";
-        code += "}";
       }
+      code += "}";
       code += "};\nf." + out + "=task.spawn(" + activeGroup +
               ",ArrayJob::entry,{ArrayJob::entry.packetLayout,&packet,sizeof(packet),&task.context("
               ")});\n";
@@ -4462,11 +4469,15 @@ public:
           }
           outputs[name + (shader.nativeMetal.empty() ? ".mlir" : ".native.metal")] =
               shader.nativeMetal.empty() ? shader.mlir : shader.nativeMetal;
+          if (backend_ == GpuBackend::Vulkan && shader.checkpointedTensorArithmetic)
+            outputs[name + ".vulkan-outline-i64-sub"] = "";
         }
         continue;
       }
       if (auto found = numericShaders.find(function); found != numericShaders.end()) {
         outputs[base + ".mlir"] = found->second.mlir;
+        if (backend_ == GpuBackend::Vulkan && found->second.checkpointedTensorArithmetic)
+          outputs[base + ".vulkan-outline-i64-sub"] = "";
         if (!found->second.reduction.empty())
           outputs[base + "-reduce.mlir"] = found->second.reduction;
         continue;

@@ -335,6 +335,9 @@ struct KernelState {
                               skinnyMatrix = nil;
   bool scalarBuffer(std::size_t i) const { return !scalarBuffers.empty() && scalarBuffers[i] == 1; }
   bool arrayCapture(std::size_t i) const { return !scalarBuffers.empty() && scalarBuffers[i] == 2; }
+  std::optional<unsigned> tensorCaptureRank(std::size_t i) const {
+    return scalarBuffers.empty() ? std::nullopt : detail::ControlTensorInputs::rank(scalarBuffers[i]);
+  }
   NumericType tensorType(std::size_t i) const {
     return tensorTypes.empty() ? *numericType : tensorTypes[i];
   }
@@ -537,6 +540,7 @@ struct NumericProgramArguments {
   detail::ControlArena<Buffer, Error> controlArena{false};
   detail::ControlExport<Buffer, Error> controlExport;
   std::optional<DeviceArrayResultMetadata> exportMetadata;
+  std::optional<detail::ControlTensorExportRange> exportTensor;
   std::uint32_t captureCount = 0, slots = 0;
   std::vector<Buffer> values;
   std::vector<std::uint32_t> uses, retired, origins;
@@ -610,8 +614,7 @@ struct Bridge {
             kernel->tensorTypes.size() != op.inputs.size() + 1 ||
             kernel->tensorTypes.back() != NumericType::UInt64 ||
             kernel->scalarBuffers.size() != op.inputs.size() + 1 ||
-            (kernel->scalarBuffers.back() != 0 &&
-             kernel->scalarBuffers.back() != DeviceArrayWireABI::ExportRole) || kernel->readCount != op.inputs.size() + 1 ||
+            kernel->readCount != op.inputs.size() + 1 ||
             !detail::validControlInputRoles(kernel->scalarBuffers, op.scalars.size()))
           return std::unexpected(Error::Invalid);
         for (std::size_t i = 0; i < op.inputs.size(); ++i)
@@ -2387,11 +2390,35 @@ struct Bridge {
       if (last.kind == NumericInstructionKind::DeviceControl) {
         using A = detail::ControlArenaABI;
         if (p.controlState[A::Capacity] != p.controlArena.words() ||
-            !detail::controlInputLengths(last.kernel.state_->scalarBuffers, last.scalars.size(), false,
+            !detail::controlInputMetadata(last.kernel.state_->scalarBuffers, last.scalars.size(), false,
+                [&](std::size_t i) { return p.values[last.inputs[i]].shape(); },
                 [&](std::size_t i) { return p.values[last.inputs[i]].bytes(); },
+                [&](std::size_t i) { return describeNumeric(last.kernel.state_->tensorTypes[i])->bytes(); },
                 [&](std::size_t i) { return p.controlState[i]; },
                 [](std::size_t, std::uint64_t) {}))
           return std::unexpected(Error::Invalid);
+        const auto terminal = last.kernel.state_->scalarBuffers.back();
+        if (const auto rank = detail::ControlTensorInputs::resultRank(terminal)) {
+          using T = detail::ControlTensorExportABI;
+          if (next == A::Done) {
+            auto range = detail::controlTensorExportRange(
+                [&](std::size_t i) { return p.controlState[i]; }, p.controlArena.words(), *rank);
+            if (!range || p.controlState[A::Requested] || p.controlState[A::Resume])
+              return std::unexpected(Error::Invalid);
+            if (range->length) {
+              auto started = p.controlExport.start(p.controlArena.buffer(), range->offsetWords,
+                                                   range->length);
+              if (!started)
+                return std::unexpected(started.error());
+            }
+            p.exportTensor = *range;
+            p.controlActive = false;
+            return {};
+          }
+          for (std::size_t i = T::Root; i < T::Cells; ++i)
+            if (p.controlState[i])
+              return std::unexpected(Error::Invalid);
+        }
         if (last.kernel.state_->scalarBuffers.back() == DeviceArrayWireABI::ExportRole) {
           if (next == A::Done) {
             auto range = detail::controlArrayExportRange(
@@ -2841,11 +2868,18 @@ struct Bridge {
   static std::expected<bool, Error> serviceArrayExport(Task &task, Frame &f) {
     auto &p = *f.packet.numericProgram;
     const auto allocate = [&](std::uint64_t bytes) -> std::expected<Buffer, Error> {
-      const std::int64_t words = bytes / 8;
-      auto storage = allocateStorage(p.state, std::span(&words, 1), Format::UInt64, true, p.index);
+      std::array<std::int64_t, 8> dimensions{std::int64_t(bytes / 8)};
+      unsigned rank = 1;
+      if (p.exportTensor) {
+        rank = p.exportTensor->rank;
+        std::copy_n(p.exportTensor->extents.begin(), rank, dimensions.begin());
+      }
+      auto storage = allocateStorage(p.state, std::span(dimensions).first(rank), Format::UInt64,
+                                     true, p.index);
       if (!storage)
         return std::unexpected(storage.error());
-      (*storage)->arrayResult = *p.exportMetadata;
+      if (p.exportMetadata)
+        (*storage)->arrayResult = *p.exportMetadata;
       return Buffer(std::move(*storage));
     };
     if (!p.controlExport.active()) {
@@ -2860,6 +2894,7 @@ struct Bridge {
       p.controlExport = {};
       p.controlArena = detail::ControlArena<Buffer, Error>(false);
       p.exportMetadata.reset();
+      p.exportTensor.reset();
       ++p.pc;
       return false;
     }
@@ -3046,7 +3081,7 @@ struct Bridge {
           while (!scheduled) {
             if (task.cancelled())
               return;
-            if (program.exportMetadata) {
+            if (program.exportMetadata || program.exportTensor) {
               auto serviced = serviceArrayExport(task, f);
               if (!serviced) {
                 fail(task, f, std::int64_t(serviced.error()));
@@ -3263,9 +3298,11 @@ struct Bridge {
                 program.controlState[A::Requested] = program.controlState[A::Resume] = 0;
               }
               program.controlState[A::Capacity] = program.controlArena.words();
-              if (!detail::controlInputLengths(kernel->scalarBuffers, op.scalars.size(),
+              if (!detail::controlInputMetadata(kernel->scalarBuffers, op.scalars.size(),
                       program.controlState[A::PC] == 0,
+                      [&](std::size_t i) { return input(i).shape(); },
                       [&](std::size_t i) { return input(i).bytes(); },
+                      [&](std::size_t i) { return describeNumeric(kernel->tensorTypes[i])->bytes(); },
                       [&](std::size_t i) { return program.controlState[i]; },
                       [&](std::size_t i, std::uint64_t value) { program.controlState[i] = value; })) {
                 fail(task, f, std::int64_t(Error::Invalid));
@@ -3679,6 +3716,7 @@ struct Bridge {
                                       i >= f.packet.graph->products[f.graphStage].tensorCount());
               const bool privateArena = arenaControl && i + 1 == signature.tensors;
               const bool capturedArray = kernel->arrayCapture(i);
+              const auto capturedRank = kernel->tensorCaptureRank(i);
               if (!other ||
                   other->format !=
                       (kernel->numericType ? *storageFormat(kernel->tensorType(i)) : format) ||
@@ -3689,7 +3727,8 @@ struct Bridge {
                       other->format != *storageFormat(NumericType::UInt64) ||
                       other->size % 8 || other->size / 8 < DeviceArrayWireABI::HeaderWords ||
                       other->size / 8 > DeviceArrayWireABI::MaxWords)) ||
-                  (read && !broadcast && !privateArena && !capturedArray &&
+                  (capturedRank && (!arenaControl || other->rank != *capturedRank)) ||
+                  (read && !broadcast && !privateArena && !capturedArray && !capturedRank &&
                    (other->rank != source->rank ||
                     other->size / describeNumeric(*storageNumericType(other->format))->bytes() !=
                         source->size / width ||
@@ -4673,7 +4712,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
       // schema here; captureProgram separately requires DeviceControl semantics.
       const bool privateControl = !tensorTypes.empty() &&
           tensorTypes.back() == NumericType::UInt64 &&
-          (scalarBuffers.back() == 0 || scalarBuffers.back() == DeviceArrayWireABI::ExportRole) &&
+          detail::ControlTensorInputs::validTerminal(scalarBuffers.back()) &&
           scalarTypes.size() >= detail::ControlArenaABI::Cells &&
           std::all_of(scalarTypes.begin(), scalarTypes.end(),
                       [](auto type) { return type == NumericType::UInt64; }) &&
@@ -4681,7 +4720,11 @@ std::expected<Kernel, Error> Runtime::loadKernel(
       bool seen = false;
       for (std::size_t i = 0; i < scalarBuffers.size(); ++i) {
         const auto role = scalarBuffers[i];
-        if (role > 3 || (role == 3 && (!privateControl || i + 1 != scalarBuffers.size() ||
+        if (!detail::ControlTensorInputs::encode(role) ||
+            (detail::ControlTensorInputs::rank(role) && !privateControl) ||
+            (detail::ControlTensorInputs::resultRank(role) &&
+             (!privateControl || i + 1 != scalarBuffers.size() || numericType != NumericType::UInt64)) ||
+            (role == 3 && (!privateControl || i + 1 != scalarBuffers.size() ||
                                                    numericType != NumericType::UInt64)) || (role == 2 && (!privateControl || tensorTypes[i] != NumericType::UInt64)) ||
             (seen && !role && !(privateControl && i + 1 == scalarBuffers.size())))
           return std::unexpected(Error::Invalid);
@@ -4871,7 +4914,7 @@ std::expected<Kernel, Error> Runtime::loadKernel(
                         [](auto x) { return x != 0; })) {
           spelling += "_d_";
           for (auto role : scalarBuffers)
-            spelling += role == 3 ? 'x' : role == 2 ? 'a' : role ? 's' : 't';
+            spelling += detail::ControlTensorInputs::encode(role);
         }
         numericName = [[NSString alloc] initWithBytes:spelling.data()
                                                length:spelling.size()

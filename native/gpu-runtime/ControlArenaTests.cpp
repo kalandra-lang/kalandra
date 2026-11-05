@@ -1,5 +1,6 @@
 #include "ControlArena.h"
 #include "ControlExport.h"
+#include "ControlTensorExport.h"
 #include <array>
 #include <atomic>
 #include <cstring>
@@ -211,6 +212,70 @@ void exportRoles() {
   roles[0] = 3;
   check(!validControlInputRoles(roles, 64), "export role accepted as input capture");
 }
+void residentTensorMetadata() {
+  using kalandra::runtime::DeviceArrayWireABI;
+  using namespace kalandra::runtime::detail;
+  using Roles = ControlTensorInputs;
+  const std::array<std::uint8_t, 4> roles{
+      Roles::FirstRole, DeviceArrayWireABI::InputRole, Roles::FirstRole + 2, Roles::FirstResultRole + 2};
+  std::array<std::vector<std::int64_t>, 3> shapes{{{}, {}, {2, 3}}};
+  std::array<std::uint64_t, 3> sizes{4, 32, 12};
+  const std::array<std::uint64_t, 3> widths{4, 0, 2};
+  std::array<std::uint64_t, 12> frame{};
+  const auto seal = [&](bool initialize, std::size_t prefix = 7) {
+    return sealControlInputs(roles, frame.size(), prefix, 64, initialize,
+        [&](std::size_t i) -> std::span<const std::int64_t> { return shapes.at(i); },
+        [&](std::size_t i) { return sizes.at(i); },
+        [&](std::size_t i) { return widths.at(i); },
+        [&](std::size_t i) { return frame.at(i); },
+        [&](std::size_t i, std::uint64_t value) { frame.at(i) = value; });
+  };
+  check(seal(true) && seal(false) &&
+            std::ranges::equal(std::span(frame).last(5), std::array{1, 4, 6, 2, 3}),
+        "mixed tensor and array metadata was not sealed in signature order");
+  check(!seal(true, 8), "tensor footer overlapped the protected prefix");
+  ++frame.back();
+  check(!seal(false), "changed GPU tensor extent was accepted");
+  frame.fill(77);
+  const auto original = frame;
+  for (auto invalid : {std::vector<std::int64_t>{-1, 3}, {9, 8}, {65, 0}, {6}}) {
+    shapes[2] = invalid;
+    check(!seal(true) && frame == original, "invalid tensor shape changed the footer");
+  }
+  shapes[2] = {0, 64};
+  sizes[2] = 2;
+  check(!seal(true) && frame == original, "empty tensor with nonempty storage was accepted");
+  sizes[2] = 0;
+  check(seal(true) && seal(false) && frame[9] == 0 && frame[11] == 64,
+        "empty tensor lost its runtime extents");
+}
+void tensorResultDescriptor() {
+  using namespace kalandra::runtime::detail;
+  using A = ControlTensorExportABI;
+  std::array<std::uint64_t, A::Cells> frame{};
+  const auto range = [&](unsigned rank) {
+    return controlTensorExportRange([&](auto i) { return frame.at(i); }, 32, rank);
+  };
+  frame[A::Root] = 4;
+  frame[A::Data] = 8;
+  frame[A::Length] = 1;
+  check(range(0).has_value(), "rank-zero tensor result rejected");
+  frame[A::Length] = 0;
+  check(!range(0), "rank-zero tensor result lost its scalar element");
+  frame[A::Data] = 10;
+  frame[A::Extents + 1] = 7;
+  check(range(2).has_value(), "empty tensor result rejected");
+  frame[A::Extents] = 2;
+  frame[A::Length] = 14;
+  const auto valid = range(2);
+  check(valid && valid->offsetWords == 10 && valid->length == 14 && valid->extents[1] == 7,
+        "tensor result range changed its shape or payload");
+  frame[A::Extents + 2] = 1;
+  check(!range(2), "tensor descriptor admitted nonzero trailing metadata");
+  frame[A::Extents + 2] = 0;
+  frame[A::Data] = 19;
+  check(!range(2), "tensor descriptor admitted out-of-arena payload");
+}
 void resultDescriptor() {
   using namespace kalandra::runtime;
   using namespace kalandra::runtime::detail;
@@ -324,6 +389,8 @@ int main() {
     resultDescriptor();
     resultExport();
     captureLengths();
+    residentTensorMetadata();
+    tensorResultDescriptor();
     lifecycle();
     interruptedCopy();
     asynchronousPages();

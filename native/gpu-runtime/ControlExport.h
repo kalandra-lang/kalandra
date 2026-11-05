@@ -1,5 +1,6 @@
 #pragma once
 #include "ControlArena.h"
+#include "ControlTensorExport.h"
 namespace kalandra::runtime::detail {
 // These cells exist only for owned-array-result kernels. Source slots follow
 // this prefix; scalar-result frame layouts remain unchanged. The device reports

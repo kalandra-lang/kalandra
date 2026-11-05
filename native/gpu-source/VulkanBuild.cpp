@@ -98,12 +98,16 @@ void buildVulkanProgram(const std::filesystem::path &directory,
     } else if (name.starts_with("kernel") && name.ends_with(".mlir")) {
       auto target = directory / name;
       target.replace_extension();
+      const bool outline = outputs.contains(target.filename().string() + ".vulkan-outline-i64-sub");
       const auto compile = [&](const std::string &base, const char *policy) {
         run({lower, (directory / name).string(), base + ".lowered.mlir", policy});
         run({opt, base + ".lowered.mlir", "--verify-each",
              "--pass-pipeline=builtin.module(canonicalize,cse,convert-gpu-to-spirv,spirv.module(spirv-lower-abi-attrs,spirv-update-vce))",
              "-o", base + ".converted.mlir"});
-        run({extract, base + ".converted.mlir", base + ".kernel.mlir"});
+        std::vector<std::string> extractArgs{extract, base + ".converted.mlir", base + ".kernel.mlir"};
+        if (outline)
+          extractArgs.emplace_back("--vulkan-outline-i64-sub");
+        run(extractArgs);
         run({translate, "--no-implicit-module", "--serialize-spirv",
              base + ".kernel.mlir", "-o", base + ".spv"});
         run({validate, "--target-env", "vulkan1.0", base + ".spv"});

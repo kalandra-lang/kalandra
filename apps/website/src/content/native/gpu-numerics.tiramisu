@@ -149,7 +149,7 @@ fn main() -> float32 ! TaskError:
 
 This computes 1000 on the GPU. The executable prints its float32 bits as 447a0000. Loop arithmetic and branch decisions execute on the device. Each scalar helper runs sequentially in one GPU thread; placing it on a GPU does not parallelize its iterations. The runtime saves private scalar state between bounded chunks and checks cancellation before submitting more work. There is no total iteration limit; execution remains subject to ordinary device, task and memory limits. A cancellation request cannot reclaim buffers until submitted work has finished.
 
-Helpers with numeric or Bool results can use numeric, Bool, plain-data record/enum and local numeric/Bool array state. Tensor values carried around a loop and recursive device calls are not supported. Keep tensor operations outside those loops and compose them with scalar helpers. Numeric policies still apply; Metal float64 arithmetic requires explicit software arithmetic or hardware-with-software-fallback.
+GPU helpers can carry numeric and Bool values, supported arrays, records, enums and numeric tensors across iterations. Direct and mutually recursive calls can carry supported values across calls. Each active call uses invocation-owned device storage subject to the task memory budget. Numeric policies still apply; Metal float64 arithmetic requires explicit software arithmetic or hardware-with-software-fallback.
 
 h2 { "Local arrays and collecting loops" }
 
@@ -181,7 +181,7 @@ generate calls a callback with each index; array map calls it with each input el
 
 Local arrays use invocation-owned device memory. Their backing can grow as needed, subject to device and task memory budgets. Unreachable numeric/Bool arrays are reclaimed during execution, so repeatedly constructing temporary arrays does not retain every earlier allocation. Allocation, copying and collection have cancellation checkpoints. Checked bounds errors discard partial results, and submitted work settles before its storage is released.
 
-The numeric and Bool array representation uses a 64-bit cell per element plus private allocation metadata. Memory costs can therefore exceed the corresponding CPU array payload. Strings, records and function values are not supported as device-array elements. sort orders a local numeric/Bool array in place, so aliases observe the changes. sorted allocates independent backing first. Both use the same deterministic order as CPU arrays, including NaNs and signed zero, and compare floating values by integer keys without floating-point arithmetic. Sorting has cancellation checkpoints between bounded comparison/swap steps.
+The numeric and Bool array representation uses a 64-bit cell per element plus private allocation metadata. Memory costs can therefore exceed the corresponding CPU array payload. Eligible record arrays and device-local closure arrays can also live in the invocation arena. Strings remain host-only. sort orders a local numeric/Bool array in place, so aliases observe the changes. sorted allocates independent backing first. Both use the same deterministic order as CPU arrays, including NaNs and signed zero, and compare floating values by integer keys without floating-point arithmetic. Sorting has cancellation checkpoints between bounded comparison/swap steps.
 
 h2 { "Records and enums in GPU helpers" }
 
@@ -241,7 +241,7 @@ fn main() -> int ! TaskError:
 
 This computes 6 and prints 0000000000000006. sorted creates independent device storage; values remains unchanged. Captured arrays follow the same read-only rules as ordinary function parameters. Use copy or sorted before modifying elements inside the GPU helper. Writing through a host alias while the task is pending is a compile-time error.
 
-Array capture supports all ten numeric types and Bool, subject to the selected arithmetic policy. Packing and upload costs count toward end-to-end latency, and their storage counts toward task and device budgets. The private wire representation uses a 64-bit cell per element, so it can use more memory than the corresponding CPU array. Captured host arrays and resident tensor inputs cannot yet be combined in one GPU entry. Return numeric/Bool scalars or flat numeric/Bool arrays. Record results cannot cross this boundary.
+Array capture supports all ten numeric types and Bool, subject to the selected arithmetic policy. Packing and upload costs count toward end-to-end latency, and their storage counts toward task and device budgets. The private wire representation uses a 64-bit cell per element, so it can use more memory than the corresponding CPU array. A GPU entry can accept captured host arrays alongside tensors already resident on the selected device. GPU tasks can return supported scalars, arrays, records, enums and tensors. Array and record results materialize on the CPU. Tensor results remain on the GPU.
 
 h2 { "Return arrays from GPU tasks" }
 
@@ -308,7 +308,7 @@ fn main() -> int ! TaskError:
 
 The loop runs on the GPU. This computes 12 and prints 000000000000000c.
 
-Keep records with recursive links, Strings or other unsupported fields on the CPU. You can pass an individual supported field to a GPU helper, then wrap the returned array in a CPU record:
+Supported recursive records and enums can cross the GPU boundary. Records with unsupported fields such as Strings stay on the CPU. You can pass a supported field to a GPU helper, then wrap the returned array in a CPU record:
 
 codeblock { language = kalandra, """type Batch:
   values: [int]
@@ -350,9 +350,29 @@ fn main() -> int ! TaskError:
 
 This prints 0000000000000009. The fresh array is independent of original.
 
+h2 { "Pass resident tensors between GPU tasks" }
+
+Transfer a CPU tensor explicitly before passing it to a GPU task. A tensor returned by a GPU task is already resident on that device. Pass it directly to another task on the same device, or transfer it to the CPU when you need a host value.
+
+codeblock { language = kalandra, """fn make(n: int) -> Tensor[int]:
+  cells = [n]
+  tensor(cells, [])
+
+fn readCell(cell: Tensor[int]) -> int:
+  cell[]
+
+fn main() -> int ! TaskError:
+  try parallel:
+    gpu = devices.gpu()
+    cell = try await spawn make(7) on gpu
+    try await spawn readCell(cell) on gpu
+""" }
+
+This prints 0000000000000007. A rank-zero tensor contains one element and uses empty index brackets. A tensor with a zero extent keeps its rank and dimensions with no elements. Checkpointed helpers can also index, reshape and do elementwise arithmetic on numeric tensors. Their private copies and result materialization use device memory and count toward the task budget.
+
 h2 { "CPU and device language coverage" }
 
-Device support means the operation executes on the selected GPU. A host continuation may schedule GPU work between CPU operations; that does not turn the CPU operations into device instructions. The portable device column applies to Metal, Vulkan and CUDA, subject to the numerical policies and backend limits above. Windows GPU execution remains experimental and physically unqualified.
+Device support means the operation executes on the selected GPU. A host continuation may schedule GPU work between CPU operations. The portable device column applies to Metal, Vulkan and CUDA, subject to the numerical policies and backend limits above. Windows GPU execution remains experimental and physically unqualified.
 
 table {
   row = ["Feature", "CPU", "Inside a GPU function"],
@@ -367,12 +387,14 @@ table {
   row = ["Array iteration, indexing and element mutation", "Supported with access rules", "Local numeric/Bool arrays; bounds checked; existing access rules apply"],
   row = ["Collecting loops with yield", "Supported", "Numeric/Bool elements; ordered, nested and filtered collection"],
   row = ["Array copy, slice and concat", "Supported for their documented element types", "Local numeric/Bool arrays"],
-  row = ["Array generate and map", "Supported for their documented element types", "Local numeric/Bool arrays; ordered nonrecursive callbacks with supported captures"],
+  row = ["Array generate and map", "Supported for their documented element types", "Local numeric/Bool arrays; ordered callbacks with supported device captures"],
   row = ["Array sorted and sort", "Supported for their documented element types", "Local numeric/Bool arrays; deterministic ordering and checkpointed sorting"],
-  row = ["Record/enum numeric and Bool array fields", "Supported", "Supported in local values, internal nonrecursive helpers and read-only captures"],
-  row = ["Recursive owned data and other owned fields", "Supported", "Not supported"],
-  row = ["Function values, captures and recursive calls", "Supported", "Direct nonrecursive helpers and generate/map callback literals; general function values and recursive calls are not supported"],
-  row = ["Tensor calculations", "Supported", "Supported numerical graphs; tensor loop state is not supported"],
+  row = ["Record/enum numeric and Bool array fields", "Supported", "Supported in local values, eligible recursive and nonrecursive helpers, and read-only captures"],
+  row = ["Recursive records and enums", "Supported", "Supported for eligible captured and returned graphs; Strings and host resources stay on the CPU"],
+  row = ["Function values and captures", "Supported", "Device-local functions with a closed set of targets and supported captures. Host/device function-value transfer is unsupported"],
+  row = ["Recursive calls", "Supported", "Direct and mutual calls with supported frame values, subject to task allocation and cancellation limits"],
+  row = ["Tensor calculations", "Supported", "Numerical graphs and checkpointed tensor construction, indexing, reshape, conversion and elementwise operations"],
+  row = ["Resident tensor arguments and task results", "Explicit transfers", "Same-device resident inputs and outputs. Host inspection requires transfer"],
   row = ["Task scheduling and device transfers", "Supported", "Host orchestration; not device instructions"]
 }
 

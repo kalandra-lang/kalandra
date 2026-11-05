@@ -265,6 +265,31 @@ cases['device-tensor-arithmetic'] = ((fixtures/'device-tensor-arithmetic.k').rea
 cases['device-tensor-edge'] = ((fixtures/'device-tensor-edge.k').read_text(), 8)
 cases['device-tensor-index'] = ((fixtures/'device-tensor-index.k').read_text(), 7)
 cases['device-tensor-rank0'] = ((fixtures/'device-tensor-rank0.k').read_text(), 4)
+for fixture, expected in {
+    'device-tensor-resident-mixed': 17,
+    'device-tensor-resident-operations': 98,
+    'device-tensor-resident-alias': 609,
+    'device-tensor-resident-graph': 88,
+    'device-tensor-resident-rank8': 40,
+    'device-tensor-return-edge': 10,
+}.items():
+    cases[fixture] = ((fixtures/f'{fixture}.k').read_text(), expected)
+for typ in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','float32','float64'):
+    cases[f'device-tensor-return-{typ}'] = (f'''fn make(rows:int)->Tensor[{typ}, ?, ?]:
+  cells:[{typ}]=[1,2,3,4]
+  tensor(cells,[rows,4/rows])+1
+fn consume(grid:Tensor[{typ}, ?, ?])->{typ}:
+  total:{typ}=0
+  for i in range(2):
+    total=total+grid[i,1]
+  total+2
+fn main()->int ! TaskError:
+  try parallel:
+    gpu=devices.gpu()
+    result=try await spawn make(2) on gpu
+    value=try await spawn consume(result) on gpu
+    int(value)
+''', 10)
 cases['device-mutual-recursion'] = ((fixtures/'device-mutual-recursion.k').read_text(), 1501)
 cases['result-record-input-and-fresh-bool'] = ('''type Batch:
   values:[Bool]
@@ -315,14 +340,18 @@ for name,(source,expected) in cases.items():
         # Compare the identical recursive functions through the ordinary CPU call ABI.
         cpu.write_text(source[:source.index('fn main()')]+'fn main()->int:\n  even(1000)\n')
     else:
-        cpu.write_text(source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', ''))
+        cpu_source = source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', '')
+        if name.startswith(('device-tensor-resident-', 'device-tensor-return-')):
+            cpu_source = cpu_source.replace('    gpu=devices.gpu()\n', '').replace(' on gpu', '')
+            cpu_source = cpu_source.replace('try await transfer(grid,gpu)', 'grid')
+        cpu.write_text(cpu_source)
     reference = root/('cpu'+suffix)
     run([a.compiler,cpu,*flags,'-o',reference])
     assert int(run([reference])) == expected, (name,'CPU',expected)
     gpu = root/'gpu.k'
     gpu.write_text(source)
     bundle = root/'device'
-    fallback = name == 'entry-float64' or (name == 'device-closure-float64' and a.backend == 'metal')
+    fallback = name == 'entry-float64' or (name in ('device-closure-float64','device-tensor-return-float64') and a.backend == 'metal')
     policy = ['--arithmetic','hardware-with-software-fallback'] if fallback else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
@@ -331,6 +360,9 @@ for name,(source,expected) in cases.items():
     else:
         assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name
         assert 'HostArrayScopes' in host and 'HostArrayWork' in host, name
+    if name in ('device-tensor-resident-mixed', 'device-tensor-resident-alias',
+                'device-tensor-resident-graph'):
+        assert 'DeviceResidentArgument<' in host, name
     if name.startswith('graph-entry-'):
         assert 'DeviceGraphArgument<' in host and 'NumericInstructionKind::DeviceControl' in host, name
     if name.startswith('graph-result-'):

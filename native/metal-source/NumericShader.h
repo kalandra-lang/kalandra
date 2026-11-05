@@ -18,6 +18,7 @@ struct NumericShader {
   std::string nativeMetal = {};
   bool noArithmeticFault = false;
   bool deviceStorage = false;
+  bool checkpointedTensorArithmetic = false;
 };
 // Typed map and primitive shaders use integer bit carriers at the task boundary.
 std::string numericReductionShader(NumericType);

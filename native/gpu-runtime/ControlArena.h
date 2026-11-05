@@ -1,5 +1,5 @@
 #pragma once
-#include "../runtime/DeviceArrayABI.h"
+#include "ControlTensorInputs.h"
 #include <algorithm>
 #include <span>
 #include <cstddef>
@@ -18,40 +18,42 @@ struct ControlArenaABI {
 // Capture role 2 is a read-only array wire, not a scalar broadcast or a map
 // domain. Its actual backing length is sealed in the final frame cells by the
 // runtime, never trusted from the wire's own bytes. Verify it after each fence.
+inline std::size_t controlInputPrefix(std::uint8_t terminal) {
+  if (ControlTensorInputs::resultRank(terminal))
+    return ControlTensorExportABI::Cells;
+  return terminal == DeviceArrayWireABI::ExportRole ? DeviceArrayExportABI::Cells : ControlArenaABI::Cells;
+}
 inline bool validControlInputRoles(std::span<const std::uint8_t> roles, std::size_t slots) {
-  if (roles.empty() || (roles.back() != 0 && roles.back() != DeviceArrayWireABI::ExportRole))
+  if (roles.empty() || !ControlTensorInputs::validTerminal(roles.back()))
     return false;
-  std::size_t arrays = 0;
+  const auto prefix = controlInputPrefix(roles.back());
+  if (slots < prefix)
+    return false;
+  auto remaining = slots - prefix;
   for (auto role : roles.first(roles.size() - 1)) {
-    if (role != 1 && role != DeviceArrayWireABI::InputRole)
+    if (role != 1 && role != DeviceArrayWireABI::InputRole && !ControlTensorInputs::rank(role))
       return false;
-    arrays += role == DeviceArrayWireABI::InputRole;
+    const auto words = ControlTensorInputs::words(role);
+    if (words > remaining)
+      return false;
+    remaining -= words;
   }
-  const auto prefix = roles.back() == DeviceArrayWireABI::ExportRole
-                          ? DeviceArrayExportABI::Cells : ControlArenaABI::Cells;
-  return slots >= prefix && arrays <= slots - prefix;
+  return true;
+}
+template <class Dimensions, class Bytes, class CellBytes, class Read, class Write>
+bool controlInputMetadata(std::span<const std::uint8_t> roles, std::size_t slots, bool initialize,
+                          Dimensions dimensions, Bytes bytes, CellBytes cellBytes,
+                          Read read, Write write) {
+  const auto prefix = roles.empty() ? 0 : controlInputPrefix(roles.back());
+  return sealControlInputs(roles, slots, prefix, ControlArenaABI::MaxWords, initialize,
+                           dimensions, bytes, cellBytes, read, write);
 }
 template <class Bytes, class Read, class Write>
 bool controlInputLengths(std::span<const std::uint8_t> roles, std::size_t slots, bool initialize,
                          Bytes bytes, Read read, Write write) {
-  if (!validControlInputRoles(roles, slots))
-    return false;
-  const auto arrays = std::count(roles.begin(), roles.end(), DeviceArrayWireABI::InputRole);
-  // Validate every input before publishing any metadata, even in initialization.
-  for (std::size_t i = 0, index = slots - arrays; i + 1 < roles.size(); ++i) {
-    if (roles[i] != DeviceArrayWireABI::InputRole)
-      continue;
-    const auto size = bytes(i);
-    if (size % 8 || size / 8 < DeviceArrayWireABI::HeaderWords ||
-        size / 8 > DeviceArrayWireABI::MaxWords || (!initialize && read(index) != size / 8))
-      return false;
-    ++index;
-  }
-  if (initialize)
-    for (std::size_t i = 0, index = slots - arrays; i + 1 < roles.size(); ++i)
-      if (roles[i] == DeviceArrayWireABI::InputRole)
-        write(index++, bytes(i) / 8);
-  return true;
+  return controlInputMetadata(roles, slots, initialize,
+      [](std::size_t) { return std::span<const std::int64_t>{}; }, bytes,
+      [](std::size_t) { return 0u; }, read, write);
 }
 // Private invocation storage. Callbacks allocate charged device storage and
 // perform fence-complete opaque GPU copies; this class never evaluates source
