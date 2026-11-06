@@ -211,6 +211,7 @@ if(BUILD_TESTING)
     "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-application-errors.k"
     "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-recursive-error.k"
     "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-tensor-error.k"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-tensor-outcome.k")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-tensor-outcome.k"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-captured-tensor-error.k")
   set_tests_properties(native-device-application-errors PROPERTIES TIMEOUT 120)
 endif()

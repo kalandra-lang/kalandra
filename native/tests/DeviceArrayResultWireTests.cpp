@@ -732,6 +732,50 @@ void tensorGraphResult() {
         out[0].strides[0] != 1 || out[0].strides[1] != 1 || context.live())
       throw std::runtime_error("empty ranked graph result lost shape or allocated backing");
   }
+  {
+    Invocation context;
+    auto *data = static_cast<std::int16_t *>(context.allocate(6 * sizeof(std::int16_t)));
+    check(data != nullptr, "tensor origin allocation failed");
+    data[1] = 7;
+    data[2] = 11;
+    data[4] = -1;
+    data[5] = 13;
+    const Tensor captured{data, data, 1, {2, 2}, {1, 3}};
+    const std::array captureLayouts{DeviceGraphCaptureLayout{8, 8, nullptr, nullptr, false, 2, 2}};
+    const std::array<unsigned, 2> arenaLayouts{12, DeviceHeapBlockABI::tensorLayout(NumericType::Int16, 2)};
+    constexpr std::uint64_t handle = 17;
+    auto makeOrigin = [&] {
+      DeviceGraphCapture capture(context, captureLayouts);
+      auto view = capture(1, std::as_bytes(std::span(&captured, 1)));
+      check(bool(view), "strided tensor capture failed");
+      view->layout = 2;
+      return makeDeviceGraphOrigins(std::span(&*view, 1), std::span(&handle, 1), arenaLayouts);
+    };
+    auto origins = makeOrigin(); // The capture's temporary canonical words are gone.
+    check(bool(origins) && origins->size() == 1, "strided tensor origin was not registered");
+    std::vector<std::uint64_t> returned{DeviceGraphWireABI::OriginMagic, 2, 0, handle};
+    returned.insert(returned.end(), valid.begin(), valid.end());
+    const auto decode = [&] {
+      return decodeDeviceGraphOrigins(returned, wireLayouts, arenaLayouts, 1, *origins, 1024,
+                                      [] { return false; });
+    };
+    auto envelope = decode();
+    check(envelope && verifyDeviceGraphOriginContents(*envelope, nativeLayouts, 1024,
+                                                       [] { return false; }) == V::Valid,
+          "strided tensor origin failed validation");
+    std::array<Tensor, 2> out{};
+    check(materializeDeviceGraph(context, envelope->graph, wireLayouts, nativeLayouts, keys, 1,
+                                 std::as_writable_bytes(std::span(out)), 1024, 1024,
+                                 envelope->nodes) == V::Valid &&
+              out[0].allocated == data && out[1].allocated == data && out[0].offset == 1 &&
+              out[0].strides == captured.strides,
+          "ranked origin lost its original backing or descriptor");
+    returned.back() ^= 1;
+    envelope = decode();
+    check(envelope && verifyDeviceGraphOriginContents(*envelope, nativeLayouts, 1024,
+                                                       [] { return false; }) == V::Invalid,
+          "changed tensor origin payload was accepted");
+  }
   for (unsigned mode = 0; mode < 6; ++mode) {
     Invocation context;
     std::atomic<bool> cancelled{mode == 5};

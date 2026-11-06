@@ -415,6 +415,9 @@ cases['graph-result-tensor-application-error'] = (
 cases['graph-result-resident-tensor-outcome'] = (
     (Path(__file__).resolve().parents[1] / 'metal-source' /
      'device-tensor-outcome.k').read_text(), 20)
+cases['graph-result-captured-tensor-application-error'] = (
+    (Path(__file__).resolve().parents[1] / 'metal-source' /
+     'device-captured-tensor-error.k').read_text(), 10)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',

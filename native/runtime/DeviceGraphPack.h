@@ -31,6 +31,7 @@ struct DeviceGraphNativeView {
   std::span<const std::byte> data;
   const void *owner = nullptr, *aligned = nullptr;
   std::int64_t offset = 0;
+  std::span<const std::byte> tensorDescriptor{};
 };
 
 template <class Resolve, class Cancelled>

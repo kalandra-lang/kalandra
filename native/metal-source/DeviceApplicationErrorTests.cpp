@@ -145,7 +145,7 @@ static void verifyErrorExport(TypedModule module) {
 
 int main(int argc, char **argv) {
   try {
-    if (argc != 5)
+    if (argc != 6)
       throw std::runtime_error("expected the device application error fixture paths");
     std::ifstream fixture(argv[1], std::ios::binary);
     if (!fixture)
@@ -231,8 +231,12 @@ fn main() -> int ! TaskError:
     if (!residentFixture)
       throw std::runtime_error("could not read the resident tensor outcome fixture");
     const std::string resident{std::istreambuf_iterator<char>(residentFixture), {}};
+    std::ifstream capturedFixture(argv[5], std::ios::binary);
+    if (!capturedFixture)
+      throw std::runtime_error("could not read the captured tensor error fixture");
+    const std::string captured{std::istreambuf_iterator<char>(capturedFixture), {}};
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {
-      for (const auto &program : {placed, observed, propagated, uncaught, helper, recursive, tensor, resident}) {
+      for (const auto &program : {placed, observed, propagated, uncaught, helper, recursive, tensor, resident, captured}) {
         auto parsed = parse(std::make_shared<SourceFile>("placed-device-errors.k", program));
         if (!parsed.ok())
           throw std::runtime_error(parsed.diagnostics.front().message);
@@ -250,6 +254,8 @@ fn main() -> int ! TaskError:
         if (program == helper && (!host.contains("::outcomeLayout,bytes") ||
                                   !host.contains("f.arrayScopes.clear(")))
           throw std::runtime_error("host helper await did not use a typed outcome");
+        if (program == captured && !host.contains("DeviceGraphArgument<GpuGraphCapture"))
+          throw std::runtime_error("captured tensor error lost its source graph transport");
         if (program == resident && (!host.contains("DeviceResidentOutcome<") ||
                                     !host.contains("> successTensor(")))
           throw std::runtime_error("fallible tensor task lost its resident result publication");

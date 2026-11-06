@@ -1993,19 +1993,17 @@ class Compiler {
       result.push_back(values.at(leaf));
     return result;
   }
-  std::set<std::size_t> graphCapturePolicies, graphNominalKeys, rankedGraphResults;
+  std::set<std::size_t> graphCapturePolicies, graphNominalKeys;
   std::map<std::size_t, std::vector<DeviceGraphExportLayout>> graphExportLayouts;
   std::set<FunctionId> joinedGraphPolicies, closureGraphPolicies;
   std::string graphCapturePolicy(const ValueType &type, SourceSpan span,
                                  std::span<const ValueType> joined = {}, FunctionId function = {},
                                  const ClosureGraphSchema *closure = nullptr,
-                                 const TypedModule *source = nullptr, bool exporting = false,
+                                 const TypedModule *source = nullptr,
                                  bool residentOutcome = false) {
     const auto id = closure ? function : *type.record;
     const auto name = closure ? "GpuClosureCapture" + std::to_string(function) : joined.empty() ? "GpuGraphCapture" + std::to_string(id)
                                      : "GpuJoinedGraphCapture" + std::to_string(function);
-    if (!closure && !exporting && rankedGraphResults.contains(id))
-      reject(span, "GPU ranked graph fields require fresh result storage");
     if (closure && !closureGraphPolicies.insert(function).second)
       return name;
     if (!closure && (joined.empty() ? !graphCapturePolicies.insert(id).second
@@ -2027,13 +2025,6 @@ class Compiler {
                                                      aggregateEntryWorkRemaining);
     if (!schema)
       reject(span, schema.error());
-    if (!closure && std::ranges::any_of(schema->layouts, [](const auto &layout) {
-          return deviceTensorValue(layout.type);
-        })) {
-      if (!exporting)
-        reject(span, "GPU ranked graph fields require fresh result storage");
-      rankedGraphResults.insert(id);
-    }
     if (!joined.empty() && !schema->captureJoin && !appendAggregateCaptureJoin(*schema, aggregateEntryWorkRemaining))
       reject(span, "GPU joined graph schema exceeds configured work budget");
     for (const auto &layout : schema->layouts) {
@@ -2359,13 +2350,8 @@ class Compiler {
         reject(span, "GPU recursive results require scalar, nominal graph or resident tensor inputs");
       const bool residentOutcome = errorOutcome &&
           deviceTensorValue(cpu.records.at(*fn.resultType.record).fields.at(1).type);
-      graphResultPolicy = graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu, true,
+      graphResultPolicy = graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu,
                                              residentOutcome);
-      if (rankedGraphResults.contains(*fn.resultType.record) && closureSchema &&
-          std::ranges::any_of(closureSchema->graph.layouts, [](const auto &layout) {
-            return deviceTensorValue(layout.type);
-          }))
-        reject(span, "GPU ranked graph results cannot yet reuse captured tensor backing");
       resultLayouts = graphExportLayouts.at(*fn.resultType.record);
     }
     const auto emit = [&](const TypedModule &module, FunctionId entry) {

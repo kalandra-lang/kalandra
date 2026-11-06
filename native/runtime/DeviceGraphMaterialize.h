@@ -105,10 +105,16 @@ inline DeviceGraphValidation materializeDeviceGraph(
         return V::Cancelled;
       auto &node = nodes[id];
       if (!origins.empty() && origins[id]) {
-        if (nativeLayouts[node.layout].tensorRank >= 0)
-          return V::Invalid; // Ranked captures are flattened without an origin.
-        const auto *owner = origins[id]->owner;
-        if (!context.retainFrom(context, const_cast<void *>(owner)))
+        const auto &origin = *origins[id];
+        const auto &schema = nativeLayouts[node.layout];
+        if (schema.tensorRank >= 0 &&
+            (schema.tensorRank > 8 ||
+             origin.tensorDescriptor.size() != (3 + 2 * std::size_t(schema.tensorRank)) * 8))
+          return V::Invalid;
+        const auto *owner = origin.owner;
+        if (!owner && schema.tensorRank < 0)
+          return V::Invalid;
+        if (owner && !context.retainFrom(context, const_cast<void *>(owner)))
           return context.status() ? V::Budget : V::Cancelled;
         node.pointer = owner;
         continue;
@@ -187,16 +193,20 @@ inline DeviceGraphValidation materializeDeviceGraph(
             static_assert(sizeof(child.pointer) == sizeof(descriptor[0]));
             if (field.bytes != (3 + 2 * rank) * sizeof(descriptor[0]))
               return V::Invalid;
-            std::memcpy(&descriptor[0], &child.pointer, sizeof(child.pointer));
-            descriptor[1] = descriptor[0];
-            std::uint64_t stride = 1;
-            for (std::size_t axis = rank; axis-- != 0;) {
-              descriptor[3 + axis] = wire[child.begin + axis];
-              descriptor[3 + rank + axis] = stride;
-              if (child.pointer)
-                stride *= descriptor[3 + axis];
+            if (const auto *origin = origins.empty() ? nullptr : origins[value - 1]) {
+              std::memcpy(destination, origin->tensorDescriptor.data(), field.bytes);
+            } else {
+              std::memcpy(&descriptor[0], &child.pointer, sizeof(child.pointer));
+              descriptor[1] = descriptor[0];
+              std::uint64_t stride = 1;
+              for (std::size_t axis = rank; axis-- != 0;) {
+                descriptor[3 + axis] = wire[child.begin + axis];
+                descriptor[3 + rank + axis] = stride;
+                if (child.pointer)
+                  stride *= descriptor[3 + axis];
+              }
+              std::memcpy(destination, descriptor.data(), field.bytes);
             }
-            std::memcpy(destination, descriptor.data(), field.bytes);
           } else if (layouts[child.layout].singleton) {
             if (field.bytes != sizeof(child.pointer))
               return V::Invalid;
