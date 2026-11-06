@@ -2230,13 +2230,13 @@ class Compiler {
           if (containsFunctionStorage(placement, type))
             roots.push_back(call.arguments.at(i));
           rootTypes.push_back(type);
-        } else if (!deviceScalarValue(type))
-          reject(span, "GPU closure entry requires native graph or scalar inputs");
+        } else if (!deviceScalarValue(type) && !residentTensor(type))
+          reject(span, "GPU closure entry requires native graph, scalar or resident tensor inputs");
       }
       if (!graphParameter || (!deviceScalarValue(fn.resultType) && !deviceFlatArrayValue(fn.resultType) &&
-                              !deviceInlineRecordValue(fn.resultType)) ||
+                              !deviceInlineRecordValue(fn.resultType) && !deviceTensorValue(fn.resultType)) ||
           containsFunctionStorage(placement, fn.resultType))
-        reject(span, "GPU closure entry requires a scalar, flat array or non-callable record result");
+        reject(span, "GPU closure entry requires a scalar, flat array, tensor or non-callable record result");
       auto plan = planClosureTransfer(placement, roots, aggregateEntryWorkRemaining);
       if (!plan)
         reject(span, plan.error());
@@ -2565,7 +2565,8 @@ class Compiler {
                        (value.booleanArray ? "true" : "false") + ">";
       }
       code += "using ArrayJob=" + std::string(result.record ? "DeviceAggregateResultJob" :
-                                             result.array ? "DeviceArrayResultJob" : "DeviceArrayInputJob") +
+                                             result.array ? "DeviceArrayResultJob" :
+                                             !result.scalarTask ? "DeviceTensorResultJob" : "DeviceArrayInputJob") +
               "<m::Runtime,m::Buffer,m::Device,m::NumericExecutable," +
               std::to_string(0x4b414c4441520000ULL + function) + "ull,";
       if (result.record)

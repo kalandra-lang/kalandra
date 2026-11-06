@@ -29,7 +29,7 @@ template <class Runtime, class Buffer> struct DeviceResidentArgument {
 // its caller, so spawn does not insert an implicit await in the parent program.
 // Runtime/Buffer/Device/Executable are the existing backend facade types.
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
-          NumericType ResultElement, bool BooleanResult, bool ArrayResult, std::size_t ScalarCount,
+          NumericType ResultElement, bool BooleanResult, bool ArrayResult, bool BufferResult, std::size_t ScalarCount,
           class AggregatePolicy,
           class... Arguments>
 class DeviceArrayTask final {
@@ -49,8 +49,9 @@ class DeviceArrayTask final {
       std::conditional_t<Aggregate, DeviceAggregateResultDecode<AggregatePolicy>,
                          DeviceArrayResultDecode<ResultElement, BooleanResult>>>;
   using Result =
-      std::conditional_t<ArrayResult, typename Decoder::Result,
-                         std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>>;
+      std::conditional_t<BufferResult, Buffer,
+          std::conditional_t<ArrayResult, typename Decoder::Result,
+                             std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>>>;
   using Descriptors = std::tuple<typename Arguments::Descriptor...>;
   using Captures = std::tuple<typename Arguments::Capture...>;
   inline static const std::array<const ValueLayout *, Count> layouts{&Arguments::layout()...};
@@ -99,7 +100,9 @@ private:
     each(std::forward<F>(function), std::make_index_sequence<Count>{});
   }
   static const ValueLayout &resultLayout() noexcept {
-    if constexpr (Aggregate)
+    if constexpr (BufferResult)
+      return Runtime::bufferLayout();
+    else if constexpr (Aggregate)
       return AggregatePolicy::layout();
     else if constexpr (ArrayResult)
       return hostArrayLayout<ResultElement, BooleanResult>();
@@ -298,7 +301,9 @@ private:
         return;
       }
       bool read;
-      if constexpr (ArrayResult)
+      if constexpr (BufferResult)
+        read = readBuffer(task, frame.computation, frame.value);
+      else if constexpr (ArrayResult)
         read = readBuffer(task, frame.computation, frame.output);
       else
         read = task.read(frame.computation, resultLayout(), &frame.value);
@@ -504,16 +509,22 @@ template <class Runtime, class Buffer, class Device, class Executable, std::uint
           class... Arguments>
 using DeviceArrayInputJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
-                    false, ScalarCount, void, Arguments...>;
+                    false, false, ScalarCount, void, Arguments...>;
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
           NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
           class... Arguments>
 using DeviceArrayResultJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
-                    true, ScalarCount, void, Arguments...>;
+                    true, false, ScalarCount, void, Arguments...>;
+template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
+          NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
+          class... Arguments>
+using DeviceTensorResultJob =
+    DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
+                    false, true, ScalarCount, void, Arguments...>;
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
           class Policy, std::size_t ScalarCount, class... Arguments>
 using DeviceAggregateResultJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, NumericType::UInt64, false,
-                    true, ScalarCount, Policy, Arguments...>;
+                    true, false, ScalarCount, Policy, Arguments...>;
 } // namespace kalandra::runtime

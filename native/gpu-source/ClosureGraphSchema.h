@@ -34,6 +34,23 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
   std::vector<ValueType> allTypes(roots.begin(), roots.end());
   std::map<FunctionId, const NativeClosureLayout *> environments;
   std::map<FunctionId, ValueType> signatures;
+  std::set<FunctionId> admitted;
+  for (const auto &environment : closures.environments)
+    admitted.insert(environment.target);
+  // FunctionReference carries the checked public signature. A lambda body may
+  // have more precise tensor result extents than that declared signature.
+  for (const auto &expression : input.expressions) {
+    if (!consume(1))
+      return reject("closure graph reference discovery exceeds its work budget");
+    const auto *reference = std::get_if<FunctionReference>(&expression.operation);
+    if (!reference || !admitted.contains(reference->function))
+      continue;
+    if (!deviceCallableValue(expression.type) || !expression.type.callable)
+      return reject("closure graph requires a checked callable reference signature");
+    const auto [found, inserted] = signatures.emplace(reference->function, expression.type);
+    if (!inserted && !sameFunctionValueType(found->second, expression.type))
+      return reject("closure graph target has inconsistent checked reference signatures");
+  }
   for (std::size_t i = 0; i < closures.environments.size(); ++i) {
     const auto &environment = closures.environments[i];
     const auto &abi = closureABI.environments[i];
@@ -44,19 +61,8 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
     const auto &fn = input.functions[environment.target];
     if (fn.captureCount > fn.parameters.size() || fn.captureCount != environment.captures.size())
       return reject("closure graph capture arity mismatch");
-    auto signature = std::make_shared<FunctionSignature>();
-    signature->result = fn.resultType;
-    for (std::size_t p = 0; p < fn.parameters.size() - fn.captureCount; ++p) {
-      if (!consume(1))
-        return reject("closure graph signature exceeds its work budget");
-      const auto &symbol = input.symbols.at(fn.parameters[p]);
-      signature->parameters.push_back(symbol.type);
-      signature->mutableParameters.push_back(symbol.mutableAccess);
-    }
-    ValueType callable;
-    callable.builtin = BuiltinValue::Function;
-    callable.callable = std::move(signature);
-    signatures.emplace(environment.target, std::move(callable));
+    if (!signatures.contains(environment.target))
+      return reject("closure graph target has no checked reference signature");
     for (std::size_t c = 0; c < environment.captures.size(); ++c) {
       const auto symbol = environment.captures[c];
       if (symbol >= input.symbols.size() || abi.captures[c].symbol != symbol ||

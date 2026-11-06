@@ -24,9 +24,12 @@ if(NOT DEFINED SOURCE_FIXTURE)
 endif()
 RUN_OK("${COMPILER}" --target metal "${SOURCE_DIR}/${SOURCE_FIXTURE}"
   -o "${OUTPUT_DIR}/program" --build ${EXTRA})
+if(NOT DEFINED SOURCE_HARNESS)
+  set(SOURCE_HARNESS "tests/MixedHostArrayRuntimeTests.cpp")
+endif()
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module -ffp-contract=off
   "-mmacosx-version-min=${MACOS_MINIMUM}" -isysroot "${SDK}" ${FLAGS}
   "-I${SOURCE_DIR}/metal" "-I${OUTPUT_DIR}/program"
-  "${SOURCE_DIR}/tests/MixedHostArrayRuntimeTests.cpp" "${OUTPUT_DIR}/program/cpu.ll"
+  "${SOURCE_DIR}/${SOURCE_HARNESS}" "${OUTPUT_DIR}/program/cpu.ll"
   "${METAL_RUNTIME}" "${RUNTIME}" -framework Foundation -framework Metal -o "${OUTPUT_DIR}/harness")
 RUN_OK("${OUTPUT_DIR}/harness" "${OUTPUT_DIR}/program")

@@ -1125,7 +1125,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     graphParameters.push_back(*graphParameter);
   graphParameters.insert(graphParameters.end(), graphPeers.begin(), graphPeers.end());
   if ((!graphPeers.empty() && !graphParameter) ||
-      (graphParameter && !scalar(root.resultType) && !graphResult && !arrayResult) ||
+      (graphParameter && !scalar(root.resultType) && !graphResult && !arrayResult && !tensorResult) ||
       !std::ranges::is_sorted(graphParameters) ||
       std::ranges::adjacent_find(graphParameters) != graphParameters.end() ||
       std::ranges::any_of(graphParameters, [&](auto i) {

@@ -259,6 +259,7 @@ fn main()->int ! TaskError:
   try parallel:
     try await spawn work(callback) on devices.gpu()
 ''', 7)
+cases['gpu-host-closure-resident-result'] = ((fixtures/'gpu-host-closure-resident-result.k').read_text(), 32)
 cases['gpu-host-closure-record-result'] = ((fixtures/'gpu-host-closure-record-result.k').read_text(), 44)
 cases['gpu-host-closure-array-result'] = ((fixtures/'gpu-host-closure-array-result.k').read_text(), 66)
 cases['gpu-host-closure-array-result-slice'] = (
@@ -375,7 +376,7 @@ for name,(source,expected) in cases.items():
         cpu.write_text(source[:source.index('fn main()')]+'fn main()->int:\n  even(1000)\n')
     else:
         cpu_source = source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', '')
-        if name.startswith(('device-tensor-resident-', 'device-tensor-return-')):
+        if name.startswith(('device-tensor-resident-', 'device-tensor-return-', 'gpu-host-closure-resident-')):
             cpu_source = cpu_source.replace('    gpu=devices.gpu()\n', '').replace(' on gpu', '')
             cpu_source = cpu_source.replace('try await transfer(grid,gpu)', 'grid')
         cpu.write_text(cpu_source)

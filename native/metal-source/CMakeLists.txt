@@ -1231,6 +1231,18 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyHostArrayRuntime.cmake")
     set_tests_properties(native-metal-host-aggregate-runtime-${VARIANT} PROPERTIES TIMEOUT 600
       RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
+    add_test(NAME native-metal-closure-lifecycle-${VARIANT} COMMAND "${CMAKE_COMMAND}"
+      "-DCOMPILER=$<TARGET_FILE:kalandra>" "-DCLANGXX=${CMAKE_CXX_COMPILER}"
+      "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}/native" "-DVARIANT=${VARIANT}"
+      "-DSOURCE_FIXTURE=tests/fixtures/mixed-host-aggregates/gpu-host-closure-resident-result.k"
+      "-DSOURCE_HARNESS=tests/GpuClosureLifecycleTests.cpp"
+      "-DSDK=${KALANDRA_METAL_SDK}" "-DMACOS_MINIMUM=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+      "-DMETAL_RUNTIME=$<TARGET_FILE:kalandra-metal-${VARIANT}>"
+      "-DRUNTIME=$<TARGET_FILE:${HOST_ARRAY_RUNTIME}>"
+      "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/closure-lifecycle-${VARIANT}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/VerifyHostArrayRuntime.cmake")
+    set_tests_properties(native-metal-closure-lifecycle-${VARIANT} PROPERTIES TIMEOUT 600
+      RESOURCE_LOCK apple-metal-gpu ENVIRONMENT "MTL_DEBUG_LAYER=1")
     add_test(NAME native-metal-host-aggregates-${VARIANT}
       COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/native/gpu-source/HostAggregateTests.py"
         --compiler "$<TARGET_FILE:kalandra>" --backend metal --variant "${VARIANT}"
