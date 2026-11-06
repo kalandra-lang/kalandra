@@ -28,7 +28,8 @@ for name,(helper,call,oracle) in cases().items():
  gpu=d/'gpu.k';gpu.write_text(helper+f'fn main()->{typ} ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n    try await spawn {call} on gpu\n')
  bundle=d/'device';policy='hardware-with-software-fallback' if a.backend=='metal' and typ=='float64' else 'hardware'
  run([a.compiler,gpu,'--target',a.backend,'--arithmetic',policy,*flags,'-o',bundle])
- assert 'ScalarControl' in (bundle/'host.cpp').read_text(),name
+ kind='DeviceControl' if name.startswith('application-error-') else 'ScalarControl'
+ assert 'NumericInstructionKind::'+kind in (bundle/'host.cpp').read_text(),name
  # Do not mistake a host loop or an unrolled computation for device execution.
  shaders=list(bundle.glob('*.mlir'))
  assert any('scf.while' in f.read_text() and 'gpu.func' in f.read_text() for f in shaders),name
