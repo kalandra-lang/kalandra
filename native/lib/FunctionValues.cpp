@@ -94,6 +94,23 @@ public:
     return id >= targets.size() || targets[id].contains(module_.functions.size());
   }
 
+  std::optional<FunctionValueTargets> summarize(ValueId id) {
+    if (id >= targets.size() || !step() ||
+        !containsFunctionStorage(module_, module_.expressions[id].type))
+      return {};
+    FunctionValueTargets result{{}, unknown(id)};
+    const auto &type = module_.expressions[id].type;
+    const bool direct = type.builtin == BuiltinValue::Function && !type.array;
+    for (auto target : targets[id]) {
+      if (!step())
+        return {};
+      if (target < module_.functions.size() && (!direct || compatible(target, id)))
+        result.targets.push_back(target);
+    }
+    std::ranges::sort(result.targets);
+    return result;
+  }
+
   bool build() {
     // Join possible application-error producers, including early guard failures.
     // This is deliberately conservative across locally handled channels too.
@@ -514,6 +531,35 @@ bool workerValueProvenance(const TypedModule &module, ValueId root) {
   return found;
 }
 } // namespace
+std::optional<FunctionValueTargets> functionValueTargets(const TypedModule &module,
+                                                         ValueId root, std::size_t budget) {
+  auto result = functionValueTargets(module, std::span(&root, 1), budget);
+  if (!result)
+    return {};
+  return std::move(result->front());
+}
+std::optional<std::vector<FunctionValueTargets>>
+functionValueTargets(const TypedModule &module, std::span<const ValueId> roots,
+                     std::size_t budget) {
+  if (!budget || roots.size() > budget ||
+      std::ranges::any_of(roots, [&](auto root) { return root >= module.expressions.size(); }))
+    return {};
+  if (roots.empty())
+    return std::vector<FunctionValueTargets>{};
+  const auto bindings = valueBindings(module);
+  WorkerValueFlow flow(module, bindings, budget);
+  if (!flow.build())
+    return {};
+  std::vector<FunctionValueTargets> result;
+  result.reserve(roots.size());
+  for (auto root : roots) {
+    auto value = flow.summarize(root);
+    if (!value)
+      return {};
+    result.push_back(std::move(*value));
+  }
+  return result;
+}
 std::optional<FunctionInvocationFlow> functionInvocationFlow(const TypedModule &module,
                                                              std::size_t budget) {
   const auto bindings = valueBindings(module);

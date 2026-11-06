@@ -453,6 +453,135 @@ void graphWire() {
   check(loop && loop->root == 1 && loop->words.back() == loop->root,
         "arena image did not relocate a self reference");
 }
+void closureGraphCapture() {
+  using V = DeviceGraphValidation;
+  Invocation source;
+  const char code = 0, other = 0, nominal = 0;
+  const std::uint64_t payload = 71;
+  auto *flat = source.allocateEnvironment(sizeof(payload), &code);
+  check(flat != nullptr, "allocate closure environment");
+  std::memcpy(flat, &payload, sizeof(payload));
+  const void *recursive = source.makeRecursiveValue(std::as_bytes(std::span(&payload, 1)), &nominal);
+  check(recursive && source.bindRecursiveEnvironment(recursive, &code), "bind recursive environment");
+  const std::array layouts{
+      DeviceGraphCaptureLayout{8, 8, nullptr, &code},
+      DeviceGraphCaptureLayout{8, 8, nullptr, &other},
+      DeviceGraphCaptureLayout{16, 8, nullptr, &code},
+      DeviceGraphCaptureLayout{8, 3, nullptr, &code},
+      DeviceGraphCaptureLayout{8, 8, &nominal, &code}};
+  DeviceGraphCapture resolver(source, layouts);
+  for (const void *pointer : {static_cast<const void *>(flat), recursive}) {
+    auto field = std::as_bytes(std::span(&pointer, 1));
+    auto retained = resolver(1, field);
+    check(retained && retained->data.size() == 8, "closure payload lease rejected");
+    for (std::size_t id = 2; id <= layouts.size(); ++id)
+      check(!resolver(id, field), "closure capture accepted wrong identity, size or alignment");
+  }
+  auto pointer = static_cast<const void *>(flat);
+  source.settle();
+  auto retained = resolver(1, std::as_bytes(std::span(&pointer, 1)));
+  check(retained && std::memcmp(retained->data.data(), &payload, sizeof(payload)) == 0,
+        "closure graph lease did not outlive the source");
+
+  alignas(8) const std::array<std::uint64_t, 2> embedded{17, 29};
+  const std::array inlineLayouts{
+      DeviceGraphCaptureLayout{16, 8, nullptr, nullptr, true},
+      DeviceGraphCaptureLayout{16, 8, nullptr, &code, true}};
+  DeviceGraphCapture inlineResolver(source, inlineLayouts);
+  const auto inlineField = std::as_bytes(std::span(embedded));
+  const auto inlineView = inlineResolver(1, inlineField);
+  check(inlineView && inlineView->data.data() == inlineField.data(),
+        "embedded carrier lost its parent graph view");
+  check(!inlineResolver(1, inlineField.first(8)) && !inlineResolver(2, inlineField),
+        "malformed embedded carrier layout accepted");
+
+  std::array<std::uint64_t, 2> carrier{71, 99};
+  const auto project = +[](std::span<const std::byte> field) -> std::expected<std::uint64_t, V> {
+    return field.size() == 16 ? std::expected<std::uint64_t, V>(2) : std::unexpected(V::Invalid);
+  };
+  std::array cells{DeviceGraphNativeCell{{2, 0, false, 1}, 0, sizeof(carrier), project}};
+  const std::array native{DeviceGraphNativeLayout{cells, sizeof(carrier), true}};
+  bool stop = false;
+  const auto pack = [&](std::size_t budget = 10) {
+    return packDeviceGraph({1, 1, std::as_bytes(std::span(carrier))}, native, 100, budget,
+        [](auto, auto) -> std::expected<DeviceGraphNativeView, V> { return std::unexpected(V::Invalid); },
+        [&] { return stop; });
+  };
+  auto wire = pack();
+  check(wire && wire->back() == 2, "native identity projection copied pointer bytes");
+  cells[0].wire.maximum = 1;
+  check(!pack() && pack().error() == V::Invalid, "projected tag escaped canonical range check");
+  cells[0].wire.maximum = 2;
+  check(!pack(0) && pack(0).error() == V::Budget, "identity projection escaped work budget");
+  stop = true;
+  check(!pack() && pack().error() == V::Cancelled, "identity projection ignored cancellation");
+  stop = false;
+  cells[0].wire.target = 1;
+  check(!pack(), "scalar projector accepted on a reference cell");
+  cells[0].wire.target = 0;
+  cells[0].bytes = 0;
+  check(!pack(), "zero-byte projection accepted");
+}
+void tensorGraphCapture() {
+  using V = DeviceGraphValidation;
+  Invocation source;
+  auto *values = static_cast<std::uint16_t *>(source.allocate(12));
+  check(values != nullptr, "tensor capture allocation");
+  for (unsigned i = 0; i < 6; ++i)
+    values[i] = i + 1;
+  CpuTensor<NumericType::UInt16, 2> descriptor{values, values, 0, {3, 2}, {1, 3}};
+  const std::array layouts{DeviceGraphCaptureLayout{8, 8, nullptr, nullptr, false, 2, 2},
+                           DeviceGraphCaptureLayout{8, 8, nullptr, nullptr, false, 0, 2}};
+  DeviceGraphCapture resolver(source, layouts);
+  const auto field = std::as_bytes(std::span(&descriptor, 1));
+  const auto view = resolver(1, field);
+  const std::array<std::uint64_t, 8> expected{3, 2, 1, 4, 2, 5, 3, 6};
+  check(view && view->elements == expected.size() &&
+            std::ranges::equal(view->data, std::as_bytes(std::span(expected))),
+        "tensor capture lost shape, stride order or element bits");
+  const auto again = resolver(1, field);
+  check(again && again->data.data() == view->data.data(), "shared tensor capture duplicated its node");
+  descriptor.strides[1] = 9;
+  check(!resolver(1, field), "tensor capture read outside retained allocation");
+  descriptor.strides[1] = -1;
+  check(!resolver(1, field), "tensor capture accepted negative stride");
+  descriptor.strides[1] = 3;
+  DeviceGraphCapture bounded(source, layouts, {}, 7);
+  const auto budget = bounded(1, field);
+  check(!budget && budget.error() == V::Budget, "tensor capture ignored word budget");
+  DeviceGraphCapture workBounded(source, layouts, {}, 100, 1);
+  check(!workBounded(1, field), "tensor capture ignored work budget");
+  DeviceGraphCapture cancelled(source, layouts, [] { return true; });
+  const auto stopped = cancelled(1, field);
+  check(!stopped && stopped.error() == V::Cancelled, "tensor capture ignored cancellation");
+  CpuTensor<NumericType::UInt16, 0> scalar{values, values, 2};
+  const auto rankZero = resolver(2, std::as_bytes(std::span(&scalar, 1)));
+  std::uint64_t word = 0;
+  check(rankZero && rankZero->elements == 1, "rank-zero tensor capture rejected");
+  std::memcpy(&word, rankZero->data.data(), 8);
+  check(word == 3, "rank-zero tensor capture lost offset");
+  descriptor = {nullptr, nullptr, 0, {0, 7}, {7, 1}};
+  const auto empty = resolver(1, field);
+  check(empty && empty->elements == 2, "empty tensor capture lost dimension metadata");
+  auto *large = static_cast<std::uint16_t *>(source.allocate(1200));
+  check(large != nullptr, "large tensor capture allocation");
+  std::fill_n(large, 600, std::uint16_t(9));
+  CpuTensor<NumericType::UInt16, 2> largeDescriptor{large, large, 0, {20, 30}, {30, 1}};
+  unsigned polls = 0;
+  DeviceGraphCapture interrupted(source, layouts, [&] { return ++polls == 3; });
+  const auto partial = interrupted(1, std::as_bytes(std::span(&largeDescriptor, 1)));
+  check(!partial && partial.error() == V::Cancelled && polls == 3,
+        "tensor capture did not poll during data conversion");
+  const auto retry = interrupted(1, std::as_bytes(std::span(&largeDescriptor, 1)));
+  check(retry && retry->elements == 602, "cancelled tensor copy published a partial cached node");
+  source.release(large);
+  descriptor = {values, values, 0, {3, 2}, {1, 3}};
+  source.release(values);
+  check(resolver(1, field).has_value() &&
+            std::ranges::equal(view->data, std::as_bytes(std::span(expected))),
+        "tensor capture did not retain its private canonical payload");
+}
+
 void graphCapture() {
   Invocation source;
   const char key = 0, wrongKey = 0;
@@ -508,6 +637,26 @@ void graphCapture() {
   const auto image = makeDeviceGraphArena(*packed, wireLayouts, layoutIDs, 3, 100, 100,
                                           [] { return false; }, &handles);
   check(bool(image), "could not relocate the capture graph");
+  // A descriptor root and an environment/record field referring to the same
+  // array must share one node, even though one view was resolved before packing.
+  const std::array joinCells{DeviceGraphNativeCell{{0, 2, true}, 0, 1},
+                             DeviceGraphNativeCell{{0, 3}, 1, 1}};
+  const std::array joinedNative{nativeLayouts[0], nativeLayouts[1], nativeLayouts[2],
+                                DeviceGraphNativeLayout{joinCells, 2, true}};
+  const std::array joinRules{joinCells[0].wire, joinCells[1].wire};
+  const std::array joinedWire{wireLayouts[0], wireLayouts[1], wireLayouts[2],
+                              DeviceGraphLayout{joinRules, true}};
+  const std::array joinedIDs{12u, 8u, 14u, 0u};
+  const std::array roots{*retainedArray,
+                         DeviceGraphNativeView{3, 1, std::as_bytes(std::span(&root, 1))}};
+  const auto joined = packDeviceGraphCaptures(roots, joinedNative, 4, 100, 100,
+                                              std::ref(capture), [] { return false; });
+  check(joined && joined->at(1) == 4, "joined descriptor root duplicated a captured backing");
+  const auto joinedImage = makeDeviceGraphArena(*joined, joinedWire, joinedIDs, 4, 100, 100,
+                                               [] { return false; }, nullptr, true);
+  check(joinedImage && joinedImage->captureRoots.size() == 2 &&
+            joinedImage->words.at(joinedImage->captureRoots[1] + 5) == joinedImage->captureRoots[0],
+        "joined graph lost identity between a direct array and captured field");
   const auto origins = makeDeviceGraphOrigins(views, handles, layoutIDs);
   check(origins && origins->size() == 2, "capture origin table included inline root");
   std::vector<std::uint64_t> envelope{DeviceGraphWireABI::OriginMagic, 3, 0, handles[1], handles[2]};
@@ -558,6 +707,8 @@ int main() {
     aggregateEnvelope();
     graphWire();
     graphCapture();
+    tensorGraphCapture();
+    closureGraphCapture();
     cancellationAndAllocation();
     std::cout << "PASS: eleven typed result decoders, exact bits, retained aliases, bounded pages, "
                  "faults, cancellation and owner retirement\n";

@@ -2,6 +2,7 @@
 #include "kalandra/NumericType.h"
 #include "kalandra/Syntax.h"
 #include "kalandra/TensorTransform.h"
+#include <span>
 
 namespace kalandra {
 using ValueId = std::size_t;
@@ -54,6 +55,21 @@ struct FunctionInvocationFlow {
 };
 [[nodiscard]] std::optional<FunctionInvocationFlow>
 functionInvocationFlow(const struct TypedModule &, std::size_t budget = 300000);
+// Provenance of a transported value, even when it is never invoked on the CPU.
+// Aggregate values conservatively join their function-valued fields/elements.
+// Unknown sources remain explicit; neither an empty set nor budget exhaustion
+// establishes that a value is eligible for device transport.
+struct FunctionValueTargets {
+  std::vector<FunctionId> targets;
+  bool unknown = false;
+};
+[[nodiscard]] std::optional<FunctionValueTargets>
+functionValueTargets(const struct TypedModule &, ValueId, std::size_t budget = 300000);
+// All requested roots share one analysis and work budget; no partial result is
+// returned when any root or its provenance cannot be analyzed.
+[[nodiscard]] std::optional<std::vector<FunctionValueTargets>>
+functionValueTargets(const struct TypedModule &, std::span<const ValueId>,
+                     std::size_t budget = 300000);
 // Structural signatures ignore dynamic shape identities, never nominal record identities.
 [[nodiscard]] bool sameFunctionValueType(const ValueType &, const ValueType &,
                                          std::size_t depth = 0);

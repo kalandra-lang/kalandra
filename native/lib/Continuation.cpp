@@ -132,7 +132,11 @@ public:
           resumable[id] = false;
     if (options.entry && *options.entry >= input.functions.size())
       throw std::runtime_error("continuation entry function is out of range");
-    if (hasPlacement(input) && !options.preserveCalls)
+    // A device entry can share its source module with unrelated host placement.
+    // Only the selected entry and its reachable calls are lowered in this mode;
+    // the device emitter still rejects task/placement instructions in that graph.
+    if (hasPlacement(input) && !options.preserveCalls &&
+        !(options.entry && options.deviceValues))
       throw std::runtime_error("placement-aware plans require preserved target calls");
     for (const auto &symbol : input.symbols)
       if (symbol.reassignable && symbol.type.array && resumable.at(symbol.owner) &&
@@ -258,7 +262,6 @@ private:
     stack.erase(id);
     return boundary.output;
   }
-  std::unordered_map<FunctionId, FunctionId> importedFunctions;
   std::unordered_map<ValueId, ValueId> importedValues;
   std::unordered_map<SymbolId, SymbolId> importedSymbols;
   bool nativeFunction(FunctionId id) const {
@@ -374,6 +377,13 @@ private:
               statement = importStatement(statement);
             op.trueResult = importValue(op.trueResult);
             op.falseResult = importValue(op.falseResult);
+          } else if constexpr (std::is_same_v<T, MatchOperation>) {
+            op.subject = importValue(op.subject);
+            for (auto &arm : op.cases) {
+              for (auto &statement : arm.body)
+                statement = importStatement(statement);
+              arm.result = importValue(arm.result);
+            }
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
             op.condition = importValue(op.condition);
             for (auto *body : {&op.initial, &op.iteration, &op.body, &op.whenDone})
@@ -947,8 +957,18 @@ private:
       const bool preserve = options.preserveCalls && !resumable.at(call->function);
       auto value =
           preserve ? slot(plan, node.type) : function(plan, call->function, args, stack, env.group);
-      if (preserve)
-        plan.code.push_back({Code::Call, value, args, call->function, 0, 0, id});
+      if (preserve) {
+        // Callable values share the continuation projection's identities and
+        // capture layouts, including factories returning callable records.
+        const bool callableBoundary =
+            options.valueScopes &&
+            (containsFunctionStorage(input, node.type) ||
+             std::ranges::any_of(operands(node), [&](auto argument) {
+               return containsFunctionStorage(input, input.expressions.at(argument).type);
+             }));
+        plan.code.push_back({callableBoundary ? Code::Kernel : Code::Call, value, args,
+                             callableBoundary ? kernel(id) : call->function, 0, 0, id});
+      }
       env.values[id] = value;
       return value;
     }
@@ -1310,11 +1330,15 @@ private:
            !options.preserveCalls ||
                    std::holds_alternative<IntegerRangeOperation>(node.operation) ||
                    (options.valueScopes && (node.type.array || node.type.record ||
+                                            containsFunctionStorage(input, node.type) ||
                                             std::ranges::any_of(operands(node),
                                                                 [&](auto value) {
                                                                   const auto &type =
                                                                       input.expressions[value].type;
-                                                                  return type.array || type.record;
+                                                                  return type.array ||
+                                                                         type.record ||
+                                                                         containsFunctionStorage(
+                                                                             input, type);
                                                                 })))
                ? kernel(id)
                : 0,

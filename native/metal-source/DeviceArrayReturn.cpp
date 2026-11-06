@@ -5,7 +5,7 @@
 using namespace mlir;
 namespace kalandra {
 void emitDeviceArrayReturn(DeviceHeapEmitter &heap, OpBuilder &b, Value root, NumericType element,
-                           bool boolean) {
+                           bool boolean, bool graphOrigins) {
   using A = runtime::detail::ControlArrayExportABI;
   using W = runtime::DeviceArrayWireABI;
   static_assert(A::Root == DeviceHeapEmitter::Cells);
@@ -35,9 +35,16 @@ void emitDeviceArrayReturn(DeviceHeapEmitter &heap, OpBuilder &b, Value root, Nu
     auto external =
         arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne,
                               arith::AndIOp::create(b, loc, root, c(W::ExternalHandle)), c(0));
-    auto origin = arith::SelectOp::create(b, loc, external, heap.read(root, c(3)), c(0));
+    Value localOrigin = c(0);
+    if (graphOrigins) {
+      const Value captured = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne,
+          arith::AndIOp::create(b, loc, heap.read(root, c(3)), c(runtime::DeviceHeapBlockABI::ReadOnly)), c(0));
+      localOrigin = arith::SelectOp::create(b, loc, captured,
+          arith::OrIOp::create(b, loc, root, c(W::GraphOrigin)), c(0));
+    }
+    auto origin = arith::SelectOp::create(b, loc, external, heap.read(root, c(3)), localOrigin);
     auto offset =
-        arith::SelectOp::create(b, loc, external, c(0), arith::AddIOp::create(b, loc, root, c(4)));
+        arith::SelectOp::create(b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, origin, c(0)), c(0), arith::AddIOp::create(b, loc, root, c(4)));
     scf::YieldOp::create(b, loc, ValueRange{length, origin, offset});
     b.setInsertionPointToStart(&descriptor.getElseRegion().front());
     scf::YieldOp::create(b, loc, ValueRange{c(0), c(0), c(0)});

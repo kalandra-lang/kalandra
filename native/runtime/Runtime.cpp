@@ -251,6 +251,16 @@ std::optional<AllocationLease> Invocation::lease(const void *allocated) const no
     return {};
   return AllocationLease(backing);
 }
+std::optional<std::span<const std::byte>>
+AllocationLease::environmentBytes(const void *code, std::uint64_t size,
+                                   std::uint64_t alignment) const noexcept {
+  if (!backing_ || !code || !size || backing_->environmentKey != code ||
+      backing_->bytes != size || !alignment || alignment > alignof(std::max_align_t) ||
+      (alignment & (alignment - 1)) ||
+      reinterpret_cast<std::uintptr_t>(backing_ + 1) % alignment)
+    return {};
+  return bytes();
+}
 constinit const Invocation::Ledger Invocation::emptyLedger_{};
 void Invocation::materializeLedger() noexcept {
   initializeControl();
@@ -628,6 +638,22 @@ void *Invocation::allocateEnvironment(std::uint64_t bytes, const void *key) noex
   if (result)
     owners().head_->backing->environmentKey = key;
   return result;
+}
+const void *Invocation::readEnvironment(const void *environment, std::uint64_t bytes,
+                                        std::uint64_t alignment, const void *key) noexcept {
+  if (poll() || !usable())
+    return nullptr;
+  if (!key || !bytes || !alignment || alignment > alignof(std::max_align_t) ||
+      (alignment & (alignment - 1)) || reinterpret_cast<std::uintptr_t>(environment) % alignment) {
+    fault(3);
+    return nullptr;
+  }
+  auto retained = lease(environment);
+  if (!retained || !retained->environmentBytes(key, bytes, alignment)) {
+    fault(3);
+    return nullptr;
+  }
+  return environment;
 }
 void *Invocation::allocateTransportStorage(std::uint64_t bytes, const void *key) noexcept {
   auto &ledgerState = ledger();

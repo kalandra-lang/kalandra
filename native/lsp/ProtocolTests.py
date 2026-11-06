@@ -155,6 +155,26 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         assert bool(publications(client.barrier())[main.as_uri()]["diagnostics"]) == expected_error
         client.finish()
 
+    # A CPU-created closure is legal at GPU placement; its captured array stays
+    # read-locked through aliases until the task has been awaited.
+    closure = ("fn apply(callback:fn(int)->int)->int:\n  callback(1)\n"
+               "fn main()->int ! TaskError:\n  values=[7,11]\n"
+               "  alias=values\n  callback=fn(n:int):n+values[0]\n  try parallel:\n"
+               "    pending=spawn apply(callback) on devices.gpu()\n"
+               "    result=try await pending\n    alias[0]=99\n    result\n")
+    for source, rejected in ((closure, False),
+                             (closure.replace('    result=try await pending\n    alias[0]=99',
+                                              '    alias[0]=99\n    result=try await pending'), True)):
+        client = Client("--placement")
+        client.init()
+        client.open(main, source)
+        diagnostics = publications(client.barrier())[main.as_uri()]["diagnostics"]
+        if rejected:
+            assert any(d.get("code") == "S077" for d in diagnostics), diagnostics
+        else:
+            assert not diagnostics, diagnostics
+        client.finish()
+
     # Local device records use the same typed admission and nominal hover data.
     device_record = ("type Row:\n  value:int\n  enabled:Bool\n"
                      "fn work(n:int)->int:\n  row=Row {value:n,enabled:true}\n"

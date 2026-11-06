@@ -1,4 +1,21 @@
 if(BUILD_TESTING)
+  add_executable(kalandra-closure-source-bridge tests/ClosureSourceBridge.cpp)
+  target_include_directories(kalandra-closure-source-bridge SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
+  target_compile_options(kalandra-closure-source-bridge PRIVATE -Wall -Wextra -Werror)
+  target_link_libraries(kalandra-closure-source-bridge PRIVATE kalandra-backend MLIR LLVM)
+  foreach(VARIANT IN ITEMS debug optimized sanitized)
+    set(CLOSURE_BRIDGE_RUNTIME kalandra-native-runtime)
+    if(VARIANT STREQUAL "sanitized")
+      set(CLOSURE_BRIDGE_RUNTIME kalandra-native-runtime-sanitized)
+    endif()
+    add_test(NAME native-closure-source-bridge-${VARIANT}
+      COMMAND "${CMAKE_COMMAND}" "-DGENERATOR=$<TARGET_FILE:kalandra-closure-source-bridge>"
+        "-DCLANGXX=${CMAKE_CXX_COMPILER}" "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+        "-DRUNTIME=$<TARGET_FILE:${CLOSURE_BRIDGE_RUNTIME}>" "-DVARIANT=${VARIANT}"
+        "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/closure-source-bridge-${VARIANT}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyClosureSourceBridge.cmake")
+    set_tests_properties(native-closure-source-bridge-${VARIANT} PROPERTIES TIMEOUT 120)
+  endforeach()
   # Some official LLVM packages expose only static components, while development
   # installations also provide the monolithic LLVM target. The executable ABI
   # test needs ORC and the host code generator in either configuration.

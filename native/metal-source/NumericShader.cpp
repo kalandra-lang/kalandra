@@ -1066,7 +1066,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                                                                  bool aggregateEnvelope,
                                                                  std::optional<std::size_t> graphParameter,
                                                                  std::span<const DeviceGraphExportLayout> graphResultLayouts,
-                                                                 std::span<const std::size_t> graphPeers) {
+                                                                 std::span<const std::size_t> graphPeers,
+                                                                 std::span<const DeviceClosureImport> closureImports) {
   const auto &root = input.functions.at(function);
   const auto reject = [&](const std::string &message) -> std::expected<NumericShader, Diagnostic> {
     return std::unexpected(Diagnostic{"G001", message, root.declaration});
@@ -1124,12 +1125,14 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     graphParameters.push_back(*graphParameter);
   graphParameters.insert(graphParameters.end(), graphPeers.begin(), graphPeers.end());
   if ((!graphPeers.empty() && !graphParameter) ||
-      (graphParameter && !scalar(root.resultType) && !graphResult) ||
+      (graphParameter && !scalar(root.resultType) && !graphResult && !arrayResult && !tensorResult) ||
       !std::ranges::is_sorted(graphParameters) ||
       std::ranges::adjacent_find(graphParameters) != graphParameters.end() ||
       std::ranges::any_of(graphParameters, [&](auto i) {
         return i >= root.parameters.size() ||
-               !deviceInlineRecordValue(input.symbols.at(root.parameters[i]).type);
+               !(deviceInlineRecordValue(input.symbols.at(root.parameters[i]).type) ||
+                 (!closureImports.empty() && (callable(input.symbols.at(root.parameters[i]).type) ||
+                                             flatArray(input.symbols.at(root.parameters[i]).type))));
       }))
     return reject("GPU graph capture requires ordered inline record inputs and a scalar or graph result");
   std::set<SymbolId> graphSymbols;
@@ -1178,7 +1181,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return deviceRecordArrayValue(type) ? layouts.at(*type.record).words : 1;
   };
   for (auto symbol : graphSymbols)
-    boxTypes.insert(*input.symbols.at(symbol).type.record);
+    if (auto record = input.symbols.at(symbol).type.record)
+      boxTypes.insert(*record);
   if (graphResult)
     boxTypes.insert(*root.resultType.record);
   for (const auto &type : plan.slots)
@@ -1257,33 +1261,88 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     std::vector<std::size_t> offsets;
   };
   std::map<FunctionId, ClosureLayout> closures;
-  if (callFrames)
-    for (const auto &op : plan.code) {
-      if (op.code != continuation::Code::FunctionReference || closures.contains(op.target))
-        continue;
-      const auto identity = static_cast<unsigned>(12 + 2 * input.records.size() +
-                                                   input.functions.size() + op.target);
-      ClosureLayout closure{identity, 1, {}};
-      DeviceTraceLayout trace{identity, 0, {}};
-      for (auto slot : op.args) {
-        const auto &type = plan.slots.at(slot);
-        if (!scalar(type) && !callable(type) && !localArray(type) && !plainRecord(type))
-          return reject("GPU closure capture requires a device value layout");
-        const auto words = width(type);
-        if (words > 256 - closure.words)
-          return reject("GPU closure environment exceeds its compilation word budget");
-        closure.offsets.push_back(closure.words);
-        if (callable(type) || localArray(type))
-          trace.references.push_back({static_cast<unsigned>(closure.words), {}});
-        else if (plainRecord(type))
-          for (auto leaf : layouts.at(*type.record).owned)
-            trace.references.push_back({static_cast<unsigned>(closure.words + leaf), {}});
-        closure.words += words;
-      }
-      trace.stride = closure.words;
-      traceLayouts.push_back(std::move(trace));
-      closures.emplace(op.target, std::move(closure));
+  std::map<FunctionId, DeviceClosureImport> importedClosures;
+  std::map<unsigned, DeviceTraceLayout> importedCarriers;
+  std::set<unsigned> importedEnvironmentIds;
+  const auto nativeLayoutEnd = 12 + 2 * input.records.size() + 2 * input.functions.size();
+  if (closureImports.size() > 300000 || (!closureImports.empty() && !callFrames))
+    return reject("GPU closure import requires bounded indirect call frames");
+  for (const auto &import : closureImports) {
+    if (import.target >= input.functions.size() || !schedule ||
+        !schedule->dispatch.entries.at(import.target) || import.carrierLayout < nativeLayoutEnd ||
+        !import.carrierWords || import.carrierWords > 256 ||
+        !importedClosures.emplace(import.target, import).second)
+      return reject("GPU closure import has invalid target or carrier metadata");
+    const auto &fn = input.functions[import.target];
+    if (fn.captureCount > fn.parameters.size() ||
+        (fn.captureCount && (import.environmentLayout < nativeLayoutEnd ||
+                            !import.environmentWord || import.environmentWord >= import.carrierWords ||
+                            !importedEnvironmentIds.insert(import.environmentLayout).second)) ||
+        (!fn.captureCount && (import.environmentLayout || import.environmentWord)))
+      return reject("GPU closure import has invalid environment metadata");
+    auto [carrier, inserted] = importedCarriers.try_emplace(import.carrierLayout,
+        DeviceTraceLayout{import.carrierLayout, static_cast<unsigned>(import.carrierWords), {}});
+    if (!inserted && carrier->second.stride != import.carrierWords)
+      return reject("GPU closure imports disagree on carrier layout");
+    if (fn.captureCount)
+      carrier->second.references.push_back({static_cast<unsigned>(import.environmentWord),
+                                            {{0, import.target + 1}}});
+  }
+  for (auto id : importedEnvironmentIds)
+    if (importedCarriers.contains(id))
+      return reject("GPU closure carrier and environment identities overlap");
+  const auto addClosure = [&](FunctionId target) -> std::optional<std::string> {
+    if (closures.contains(target))
+      return {};
+    const auto &fn = input.functions.at(target);
+    if (fn.captureCount > fn.parameters.size())
+      return "GPU closure target has invalid capture metadata";
+    const auto identity = static_cast<unsigned>(12 + 2 * input.records.size() +
+                                                 input.functions.size() + target);
+    ClosureLayout closure{identity, 1, {}};
+    DeviceTraceLayout trace{identity, 0, {}};
+    for (std::size_t n = fn.parameters.size() - fn.captureCount; n < fn.parameters.size(); ++n) {
+      const auto &type = input.symbols.at(fn.parameters[n]).type;
+      if (!scalar(type) && !callable(type) && !localArray(type) && !plainRecord(type))
+        return "GPU closure capture requires a device value layout";
+      const auto words = width(type);
+      if (words > 256 - closure.words)
+        return "GPU closure environment exceeds its compilation word budget";
+      closure.offsets.push_back(closure.words);
+      if (callable(type) || localArray(type))
+        trace.references.push_back({static_cast<unsigned>(closure.words), {}});
+      else if (plainRecord(type))
+        for (auto leaf : layouts.at(*type.record).owned)
+          trace.references.push_back({static_cast<unsigned>(closure.words + leaf), {}});
+      closure.words += words;
     }
+    trace.stride = closure.words;
+    traceLayouts.push_back(trace);
+    if (auto found = importedClosures.find(target); found != importedClosures.end() && fn.captureCount) {
+      trace.identity = found->second.environmentLayout;
+      --trace.stride; // Imported environment payload has no target-tag prefix.
+      for (auto &reference : trace.references)
+        --reference.cell;
+      traceLayouts.push_back(std::move(trace));
+    }
+    closures.emplace(target, std::move(closure));
+    return {};
+  };
+  if (callFrames) {
+    for (const auto &op : plan.code)
+      if (op.code == continuation::Code::FunctionReference)
+        if (auto error = addClosure(op.target))
+          return reject(*error);
+    for (const auto &[target, import] : importedClosures) {
+      (void)import;
+      if (auto error = addClosure(target))
+        return reject(*error);
+    }
+    for (auto &[id, trace] : importedCarriers) {
+      (void)id;
+      traceLayouts.push_back(std::move(trace));
+    }
+  }
   std::vector<std::size_t> offsets;
   std::size_t frameWords = tensorResult ? runtime::detail::ControlTensorExportABI::Cells :
       exportResult ? runtime::detail::ControlArrayExportABI::Cells :
@@ -1561,8 +1620,11 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   for (auto i : graphParameters) {
     const auto slot = plan.parameters.at(i);
     const auto &type = plan.slots.at(slot);
-    for (auto leaf : layouts.at(*type.record).owned)
-      importedRoots.push_back(offsets.at(slot) + leaf);
+    if (callable(type) || localArray(type))
+      importedRoots.push_back(offsets.at(slot));
+    else
+      for (auto leaf : layouts.at(*type.record).owned)
+        importedRoots.push_back(offsets.at(slot) + leaf);
   }
   for (std::size_t i = 0; i < residentParameters.size(); ++i) {
     allocationRoots.push_back({residentPC + i, importedRoots});
@@ -1874,13 +1936,43 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, remaining, constant(count + 4)));
         auto bound = scf::IfOp::create(b, loc, inRange, true);
         b.setInsertionPointToStart(&bound.getThenRegion().front());
-        const Value valid = arith::AndIOp::create(b, loc,
-            equal(heap->read(handle, constant(1)), constant(boxIdentity(*type.record))),
-            equal(heap->read(handle, constant(2)), constant(count)));
+        Value valid;
+        if (callable(type)) {
+          valid = arith::ConstantIntOp::create(b, loc, 0, 1);
+          for (const auto &[target, import] : importedClosures) {
+            (void)target;
+            const Value matches = arith::AndIOp::create(b, loc,
+                equal(heap->read(handle, constant(1)), constant(import.carrierLayout)),
+                equal(heap->read(handle, constant(2)), constant(import.carrierWords)));
+            valid = arith::OrIOp::create(b, loc, valid, matches);
+          }
+        } else if (localArray(type)) {
+          const auto payload = heap->read(handle, constant(2));
+          valid = arith::AndIOp::create(b, loc,
+              equal(heap->read(handle, constant(1)), constant(arrayIdentity(type))),
+              arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, payload,
+                  arith::SubIOp::create(b, loc, remaining, constant(4))));
+          valid = arith::AndIOp::create(b, loc, valid,
+              equal(arith::RemUIOp::create(b, loc, payload, constant(arrayStride(type))), constant(0)));
+          const auto empty = equal(handle, constant(0));
+          valid = arith::OrIOp::create(b, loc, valid, empty);
+          if (type.shape.front().constant) {
+            const auto length = *type.shape.front().constant;
+            valid = arith::AndIOp::create(b, loc, valid, length
+                ? Value(arith::AndIOp::create(b, loc,
+                    arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, handle, constant(0)),
+                    equal(payload, constant(length * arrayStride(type))))) : empty);
+          }
+        } else {
+          valid = arith::AndIOp::create(b, loc,
+              equal(heap->read(handle, constant(1)), constant(boxIdentity(*type.record))),
+              equal(heap->read(handle, constant(2)), constant(count)));
+        }
         auto checked = scf::IfOp::create(b, loc, valid, true);
         b.setInsertionPointToStart(&checked.getThenRegion().front());
         const Value word = arith::SubIOp::create(b, loc, cursor, constant(start));
         heap->storeAt(arith::AddIOp::create(b, loc, constant(offsets.at(parameter)), word),
+                      (callable(type) || localArray(type)) ? handle :
                       heap->read(handle, arith::AddIOp::create(b, loc, constant(4), word)));
         store(graphCursor, arith::AddIOp::create(b, loc, cursor, constant(1)));
         if (index + 1 == graphParameters.size()) {
@@ -1952,7 +2044,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       if (arrayResult)
         emitDeviceArrayReturn(*heap, b, load(offsets.at(plan.result)),
             root.resultType.builtin == BuiltinValue::Bool ? NumericType::UInt8 : root.resultType.element,
-            root.resultType.builtin == BuiltinValue::Bool);
+            root.resultType.builtin == BuiltinValue::Bool, graphParameter.has_value());
       if (graphResult) {
         using A = runtime::detail::ControlArenaABI;
         using G = runtime::DeviceGraphWireABI;
@@ -2125,6 +2217,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         continue;
       }
       Value next = constant(i + 2);
+      const auto equalCallable = [&](Value left, Value right) -> Value {
+        return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, left, right);
+      };
       const auto advanceCallable = [&] {
         const auto current = outerLoad(0);
         const Value good = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne,
@@ -2174,9 +2269,32 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         const auto words = width(plan.slots.at(op.output));
         chargeAggregate(words);
         const auto handle = load(offsets.at(op.args.at(0)));
+        Value captureHandle = handle;
+        Value captureOffset = constant(4 + target->second.offsets.at(op.group));
+        if (auto imported = importedClosures.find(op.target); imported != importedClosures.end()) {
+          const auto &import = imported->second;
+          const Value isImported = equalCallable(heap->read(handle, constant(1)), constant(import.carrierLayout));
+          auto select = scf::IfOp::create(b, loc, TypeRange{b.getI64Type(), b.getI64Type()}, isImported, true);
+          b.setInsertionPointToStart(&select.getThenRegion().front());
+          const auto environment = heap->read(handle, constant(4 + import.environmentWord));
+          const Value valid = arith::AndIOp::create(b, loc,
+              equalCallable(heap->read(environment, constant(1)), constant(import.environmentLayout)),
+              equalCallable(heap->read(environment, constant(2)), constant(target->second.words - 1)));
+          auto check = scf::IfOp::create(b, loc, valid, true);
+          b.setInsertionPointToStart(&check.getElseRegion().front());
+          heap->fault(99);
+          b.setInsertionPointAfter(check);
+          scf::YieldOp::create(b, loc, ValueRange{environment,
+              constant(3 + target->second.offsets.at(op.group))});
+          b.setInsertionPointToStart(&select.getElseRegion().front());
+          scf::YieldOp::create(b, loc, ValueRange{handle, captureOffset});
+          b.setInsertionPointAfter(select);
+          captureHandle = select.getResult(0);
+          captureOffset = select.getResult(1);
+        }
         for (std::size_t word = 0; word < words; ++word)
           store(offsets.at(op.output) + word,
-                heap->read(handle, constant(4 + target->second.offsets.at(op.group) + word)));
+                heap->read(captureHandle, arith::AddIOp::create(b, loc, captureOffset, constant(word))));
         advanceCallable();
         continue;
       }
@@ -2191,8 +2309,15 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             heap->read(handle, constant(2)), constant(target->second.words));
         const Value tagMatches = arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq,
             heap->read(handle, constant(4)), constant(op.target + 1));
-        const Value matches = arith::AndIOp::create(b, loc, identityMatches,
-            arith::AndIOp::create(b, loc, lengthMatches, tagMatches));
+        Value shapeMatches = arith::AndIOp::create(b, loc, identityMatches, lengthMatches);
+        if (auto imported = importedClosures.find(op.target); imported != importedClosures.end()) {
+          const auto &import = imported->second;
+          const Value importedShape = arith::AndIOp::create(b, loc,
+              equalCallable(heap->read(handle, constant(1)), constant(import.carrierLayout)),
+              equalCallable(heap->read(handle, constant(2)), constant(import.carrierWords)));
+          shapeMatches = arith::OrIOp::create(b, loc, shapeMatches, importedShape);
+        }
+        const Value matches = arith::AndIOp::create(b, loc, shapeMatches, tagMatches);
         store(offsets.at(op.output), matches);
         advanceCallable();
         continue;

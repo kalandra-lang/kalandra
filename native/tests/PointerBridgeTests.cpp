@@ -84,6 +84,38 @@ int main() {
     b.CreateStore(indirect->getArg(1), indirect->getArg(0));
     b.CreateRetVoid();
     emitCpuPointerBridge(*indirect, "array_bridge");
+    auto *closureType = llvm::StructType::get(*context, {ptr, ptr});
+    std::array<llvm::Function *, 2> closureCodes;
+    for (unsigned i = 0; i < closureCodes.size(); ++i) {
+      closureCodes[i] = llvm::Function::Create(
+          llvm::FunctionType::get(b.getInt64Ty(), {ptr}, false),
+          llvm::GlobalValue::InternalLinkage, "closure." + std::to_string(i), *module);
+      b.SetInsertPoint(llvm::BasicBlock::Create(*context, "entry", closureCodes[i]));
+      b.CreateRet(b.getInt64(i));
+    }
+    const CpuClosureTarget closureTargets[]{{closureCodes[0], 301, false},
+                                            {closureCodes[1], 907, true}};
+    emitCpuClosureBridge(*module, "closure_bridge", closureTargets);
+    auto *factory = llvm::Function::Create(
+        llvm::FunctionType::get(closureType, {ptr, b.getInt64Ty()}, false),
+        llvm::GlobalValue::InternalLinkage, "closure.factory", *module);
+    b.SetInsertPoint(llvm::BasicBlock::Create(*context, "entry", factory));
+    auto *selected = b.CreateSelect(b.CreateICmpEQ(factory->getArg(1), b.getInt64(0)),
+                                    closureCodes[0], closureCodes[1]);
+    auto *closureValue = b.CreateInsertValue(llvm::Constant::getNullValue(closureType), selected, 0);
+    b.CreateRet(b.CreateInsertValue(closureValue, factory->getArg(0), 1));
+    emitCpuPointerBridge(*factory, "closure_factory");
+    closureCodes[0]->setName("renamed.projection.callback.0");
+    closureCodes[1]->setName("renamed.projection.callback.1");
+    bool badClosureTable = false;
+    try {
+      const CpuClosureTarget repeated[]{{closureCodes[0], 1, false}, {closureCodes[1], 1, true}};
+      emitCpuClosureBridge(*module, "invalid_closure_bridge", repeated);
+    } catch (const std::invalid_argument &) {
+      badClosureTable = true;
+    }
+    require(badClosureTable && !module->getNamedValue("invalid_closure_bridge"),
+            "invalid closure target table left a partial bridge");
     require(!llvm::verifyModule(*module, &llvm::errs()),
             "pointer bridges failed LLVM verification");
     const auto &layout = jit->getDataLayout();
@@ -126,6 +158,29 @@ int main() {
       throw std::runtime_error(llvm::toString(std::move(error)));
     auto run =
         take(jit->lookup("record_bridge")).toPtr<void (*)(void *, const void *, std::int8_t)>();
+    auto createClosure = take(jit->lookup("closure_factory"))
+                             .toPtr<void (*)(void *, const void *, std::int64_t)>();
+    auto identifyClosure = take(jit->lookup("closure_bridge"))
+                               .toPtr<std::uint64_t (*)(const void *, const void **)>();
+    struct Carrier { const void *code, *environment; } carrier{};
+    const void *environment = input.data();
+    createClosure(&carrier, nullptr, 0);
+    require(identifyClosure(&carrier, &environment) == 301 && !environment,
+            "capture-free identity failed after CPU projection rename");
+    createClosure(&carrier, input.data(), 1);
+    require(identifyClosure(&carrier, &environment) == 907 && environment == input.data(),
+            "capturing identity lost its borrowed environment");
+    carrier.environment = nullptr;
+    environment = input.data();
+    require(identifyClosure(&carrier, &environment) == 0 && !environment,
+            "capturing target admitted a missing environment");
+    createClosure(&carrier, input.data(), 0);
+    require(identifyClosure(&carrier, &environment) == 0 && !environment,
+            "capture-free target admitted a foreign environment");
+    carrier.code = input.data();
+    environment = input.data();
+    require(identifyClosure(&carrier, &environment) == 0 && !environment,
+            "unknown native code identity acquired a device tag");
     run(output.data(), input.data(), -7);
     std::int64_t got;
     std::memcpy(&got, output.data() + wideOffset, sizeof(got));

@@ -94,6 +94,9 @@ struct ModulePlan {
   TypedModule kernels;
   std::vector<std::unique_ptr<Plan>> plans;
   std::map<ValueId, FunctionId> kernelIds;
+  // Original source identity -> imported synchronous function identity. Native
+  // closure bridges must use this map rather than assume projection IDs match.
+  std::map<FunctionId, FunctionId> importedFunctions;
   explicit ModulePlan(const TypedModule &input) : input(input) {}
 };
 // Direct/transitive task or control effects require continuation lowering.

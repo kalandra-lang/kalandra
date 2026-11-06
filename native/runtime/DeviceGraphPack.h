@@ -10,6 +10,10 @@ namespace kalandra::runtime {
 struct DeviceGraphNativeCell {
   DeviceGraphCell wire;
   std::size_t offset, bytes;
+  // Compiler-owned projection, e.g. native callable identity to a closed tag.
+  // It never supplies a pointer or bypasses canonical scalar validation.
+  std::expected<std::uint64_t, DeviceGraphValidation> (*project)(
+      std::span<const std::byte>) = nullptr;
 };
 
 struct DeviceGraphNativeLayout {
@@ -103,6 +107,8 @@ packDeviceGraph(DeviceGraphNativeView root, std::span<const DeviceGraphNativeLay
             return std::unexpected(V::Invalid);
           const auto field = bytes.subspan(cell.offset, cell.bytes);
           if (cell.wire.target) {
+            if (cell.project)
+              return std::unexpected(V::Invalid);
             auto view = resolve(cell.wire.target, field);
             if (!view)
               return std::unexpected(view.error());
@@ -117,13 +123,24 @@ packDeviceGraph(DeviceGraphNativeView root, std::span<const DeviceGraphNativeLay
               return std::unexpected(V::Invalid);
             }
           } else {
-            if (cell.bytes > sizeof(value))
-              return std::unexpected(V::Invalid);
-            std::memcpy(&value, field.data(), field.size());
+            if (cell.project) {
+              const auto projected = cell.project(field);
+              if (cancelled())
+                return std::unexpected(V::Cancelled);
+              if (!projected)
+                return std::unexpected(projected.error());
+              value = *projected;
+            } else {
+              if (cell.bytes > sizeof(value))
+                return std::unexpected(V::Invalid);
+              std::memcpy(&value, field.data(), field.size());
+            }
+            if (cancelled())
+              return std::unexpected(V::Cancelled);
             if (value < cell.wire.minimum || value > cell.wire.maximum)
               return std::unexpected(V::Invalid);
           }
-        } else if (active && (cell.wire.target || cell.wire.minimum)) {
+        } else if (active && (cell.wire.target || cell.wire.minimum || cell.project)) {
           return std::unexpected(V::Invalid);
         }
         payload.push_back(value);

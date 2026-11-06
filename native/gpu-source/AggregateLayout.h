@@ -39,6 +39,10 @@ inline bool deviceCallableValue(const ValueType &type) {
   return type.builtin == BuiltinValue::Function && !type.array && !type.tensor &&
          !type.task && !type.fallible;
 }
+inline bool deviceTensorValue(const ValueType &type) {
+  return type.tensor && !type.array && !type.task && !type.fallible &&
+         type.builtin == BuiltinValue::Numeric && type.shape.size() <= 8;
+}
 // Frame planning can use nominal storage decisions to terminate expansion at
 // arena handles. Flat boundary projections omit the storage plan.
 inline std::expected<DeviceAggregateLayouts, std::string>
@@ -51,7 +55,7 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
     return storage && deviceRecordArrayValue(type);
   };
   const auto closure = [&](const ValueType &type) {
-    return deviceClosures && deviceCallableValue(type);
+    return deviceClosures && (deviceCallableValue(type) || deviceTensorValue(type));
   };
   std::vector<std::size_t> roots;
   std::set<std::size_t> scheduled;

@@ -281,6 +281,23 @@ int main(int argc, char **argv) {
     require(bool(embedded) && embedded->plans[0]->slots.size() < 20,
             "embedded constants consumed continuation frame slots");
     verify(*embedded);
+    auto factory = analyze("fn make(n:int)->fn(int)->int:\n  fn(v:int):v+n\n"
+                           "fn main()->int:\n  callback=make(3)\n  callback(2)\n");
+    require(factory.ok(), "host callable factory source rejected");
+    auto sharedClosures = plan(*factory.module, {.preserveCalls = true, .valueScopes = true});
+    require(bool(sharedClosures), "shared host callable projection failed");
+    verify(*sharedClosures);
+    for (const auto &function : sharedClosures->plans)
+      for (const auto &op : function->code)
+        if (op.code == Code::Call)
+          require(!containsFunctionStorage(*factory.module,
+                                           factory.module->functions.at(op.target).resultType),
+                  "callable factory escaped into a separate CPU identity projection");
+    require(std::ranges::any_of(sharedClosures->kernels.expressions,
+                                [](const auto &node) {
+                                  return std::holds_alternative<FunctionReference>(node.operation);
+                                }),
+            "host callable projection lost factory environment metadata");
     auto mapped = analyze("fn main()->int:\n  values=generate(4,fn(i):i+1)\n"
                           "  changed=map(values,fn(v):v*2)\n  length(changed)\n");
     require(mapped.ok(), "device map planning source rejected");

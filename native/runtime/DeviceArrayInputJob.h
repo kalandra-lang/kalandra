@@ -29,7 +29,7 @@ template <class Runtime, class Buffer> struct DeviceResidentArgument {
 // its caller, so spawn does not insert an implicit await in the parent program.
 // Runtime/Buffer/Device/Executable are the existing backend facade types.
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
-          NumericType ResultElement, bool BooleanResult, bool ArrayResult, std::size_t ScalarCount,
+          NumericType ResultElement, bool BooleanResult, bool ArrayResult, bool BufferResult, std::size_t ScalarCount,
           class AggregatePolicy,
           class... Arguments>
 class DeviceArrayTask final {
@@ -49,8 +49,9 @@ class DeviceArrayTask final {
       std::conditional_t<Aggregate, DeviceAggregateResultDecode<AggregatePolicy>,
                          DeviceArrayResultDecode<ResultElement, BooleanResult>>>;
   using Result =
-      std::conditional_t<ArrayResult, typename Decoder::Result,
-                         std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>>;
+      std::conditional_t<BufferResult, Buffer,
+          std::conditional_t<ArrayResult, typename Decoder::Result,
+                             std::conditional_t<BooleanResult, bool, NumericValue<ResultElement>>>>;
   using Descriptors = std::tuple<typename Arguments::Descriptor...>;
   using Captures = std::tuple<typename Arguments::Capture...>;
   inline static const std::array<const ValueLayout *, Count> layouts{&Arguments::layout()...};
@@ -99,7 +100,9 @@ private:
     each(std::forward<F>(function), std::make_index_sequence<Count>{});
   }
   static const ValueLayout &resultLayout() noexcept {
-    if constexpr (Aggregate)
+    if constexpr (BufferResult)
+      return Runtime::bufferLayout();
+    else if constexpr (Aggregate)
       return AggregatePolicy::layout();
     else if constexpr (ArrayResult)
       return hostArrayLayout<ResultElement, BooleanResult>();
@@ -190,7 +193,7 @@ private:
             const auto &descriptor = std::get<I>(frame.arguments);
             if constexpr (Argument::graph)
               valid = Argument::prepare(task.context(), capture, descriptor, frame.origins[I],
-                                        GraphResult);
+                                        GraphResult || (ArrayResult && !Aggregate));
             else
               valid = capture.initialize(task.context(), descriptor, frame.origins[I]);
             if (!valid)
@@ -298,7 +301,9 @@ private:
         return;
       }
       bool read;
-      if constexpr (ArrayResult)
+      if constexpr (BufferResult)
+        read = readBuffer(task, frame.computation, frame.value);
+      else if constexpr (ArrayResult)
         read = readBuffer(task, frame.computation, frame.output);
       else
         read = task.read(frame.computation, resultLayout(), &frame.value);
@@ -313,7 +318,10 @@ private:
         frame.metadata = Runtime::arrayResult(frame.output);
         if (!frame.metadata ||
             frame.metadata->layout != DeviceArrayWireABI::layout(ResultElement, BooleanResult) ||
-            frame.metadata->origin > (Aggregate ? 0 : Packed) ||
+            (frame.metadata->origin > (Aggregate ? 0 : Packed) &&
+             !(!Aggregate && (Arguments::graph || ...) &&
+               frame.metadata->origin <= UINT32_MAX &&
+               (frame.metadata->origin & DeviceArrayWireABI::GraphOrigin))) ||
             frame.metadata->length >
                 DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords) {
           task.fault(3);
@@ -374,6 +382,17 @@ private:
                                              DeviceArrayArgument<ResultElement, BooleanResult>>) {
                   if (frame.origins[I] == origin)
                     descriptor = std::get<I>(frame.arguments);
+                } else if constexpr (ArgumentAt<I>::graph) {
+                  if (origin & DeviceArrayWireABI::GraphOrigin) {
+                    const auto *captured = findDeviceGraphOrigin(std::get<I>(frame.captures).origins,
+                        origin ^ DeviceArrayWireABI::GraphOrigin,
+                        DeviceArrayWireABI::layout(ResultElement, BooleanResult), frame.metadata->length);
+                    if (captured && captured->stride == sizeof(NumericValue<ResultElement>))
+                      descriptor = CpuTensor<ResultElement, 1>{
+                          const_cast<NumericValue<ResultElement> *>(static_cast<const NumericValue<ResultElement> *>(captured->owner)),
+                          const_cast<NumericValue<ResultElement> *>(static_cast<const NumericValue<ResultElement> *>(captured->aligned)),
+                          captured->offset, {static_cast<std::int64_t>(captured->elements)}, {1}};
+                  }
                 }
               });
               return descriptor;
@@ -490,16 +509,22 @@ template <class Runtime, class Buffer, class Device, class Executable, std::uint
           class... Arguments>
 using DeviceArrayInputJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
-                    false, ScalarCount, void, Arguments...>;
+                    false, false, ScalarCount, void, Arguments...>;
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
           NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
           class... Arguments>
 using DeviceArrayResultJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
-                    true, ScalarCount, void, Arguments...>;
+                    true, false, ScalarCount, void, Arguments...>;
+template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
+          NumericType ResultElement, bool BooleanResult, std::size_t ScalarCount,
+          class... Arguments>
+using DeviceTensorResultJob =
+    DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, ResultElement, BooleanResult,
+                    false, true, ScalarCount, void, Arguments...>;
 template <class Runtime, class Buffer, class Device, class Executable, std::uint64_t Identity,
           class Policy, std::size_t ScalarCount, class... Arguments>
 using DeviceAggregateResultJob =
     DeviceArrayTask<Runtime, Buffer, Device, Executable, Identity, NumericType::UInt64, false,
-                    true, ScalarCount, Policy, Arguments...>;
+                    true, false, ScalarCount, Policy, Arguments...>;
 } // namespace kalandra::runtime

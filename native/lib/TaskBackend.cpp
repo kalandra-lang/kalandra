@@ -2775,6 +2775,18 @@ std::vector<llvm::GlobalVariable *> emitTaskPayloadValueLayouts(const TypedModul
   continuation::ModulePlan planner(input);
   return Emitter(planner, module).emitPayloadValueLayouts(types);
 }
+std::vector<llvm::GlobalVariable *>
+emitTaskKernelPayloadValueLayouts(const TypedModule &input, const TypedModule &kernels,
+                                  llvm::Module &module, std::span<const ValueType> types) {
+  if (!input.functions.empty() || !input.expressions.empty())
+    throw std::invalid_argument("component payload layout requires a schema-only source module");
+  for (const auto &type : types)
+    if (type.task || type.fallible || type.errorRecord)
+      throw std::invalid_argument("component payload layout requires completed storage");
+  continuation::ModulePlan planner(input);
+  planner.kernels = kernels;
+  return Emitter(planner, module).emitPayloadValueLayouts(types);
+}
 std::vector<llvm::GlobalVariable *> emitTaskEntries(continuation::ModulePlan &planner,
                                                     llvm::Module &module) {
   if (planner.plans.empty() || planner.plans.size() != planner.input.functions.size() ||

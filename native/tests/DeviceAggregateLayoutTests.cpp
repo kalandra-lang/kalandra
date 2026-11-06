@@ -1,6 +1,8 @@
 #include "../gpu-source/AggregateNativeLayout.h"
 #include "../gpu-source/AggregateEntry.h"
 #include "../gpu-source/AggregateGraphSchema.h"
+#include "../gpu-source/ClosureNativeLayout.h"
+#include "../gpu-source/ClosureGraphSchema.h"
 #include "../runtime/DeviceGraphPack.h"
 #include "../lib/RecordLLVMTypes.h"
 #include "kalandra/Continuation.h"
@@ -92,6 +94,64 @@ int main() {
               "array descriptor mistaken for wire payload");
       require(abi->at(0).fields[0].nativeBytes == 1 && abi->at(0).fields[0].deviceWords == 1,
               "Bool native width confused with canonical cell width");
+
+      auto closureModule = input;
+      ValueType callback;
+      callback.builtin = BuiltinValue::Function;
+      auto signature = std::make_shared<FunctionSignature>();
+      signature->parameters = {number()};
+      signature->result = number();
+      callback.callable = signature;
+      const std::vector<ValueType> captures{boolean, number(NumericType::Int8), nominal(1), callback};
+      TypedFunction closure;
+      closure.name = "capturing";
+      closure.captureCount = captures.size();
+      TypedRecord expectedEnvironment;
+      expectedEnvironment.name = "Environment";
+      for (std::size_t i = 0; i < captures.size(); ++i) {
+        closure.parameters.push_back(i);
+        closureModule.symbols.push_back({"capture", captures[i], {}, 0, true});
+        expectedEnvironment.fields.push_back({"capture", captures[i], {}});
+      }
+      closureModule.functions.push_back(closure);
+      closureModule.functions.push_back(TypedFunction{});
+      ClosureTransferPlan transfer;
+      transfer.environments = {{0, closure.parameters}, {1, {}}};
+      const auto nativeClosure = planNativeClosureLayouts(closureModule, transfer, llvm, layout);
+      require(nativeClosure && nativeClosure->carrierBytes == 16 &&
+                  nativeClosure->codeOffset == 0 && nativeClosure->environmentOffset == 8 &&
+                  nativeClosure->environments.size() == 2 &&
+                  nativeClosure->environments[1].bytes == 0 &&
+                  nativeClosure->environments[1].captures.empty(),
+              "native closure carrier or empty environment layout changed");
+      // Independent synchronous CPU record lowering reproduces the literal
+      // struct used by Backend::closureEnvironment, including descriptor fields.
+      closureModule.records.push_back(expectedEnvironment);
+      auto closureRecords = lowerRecordTypes(closureModule, mlir);
+      require(bool(closureRecords), "independent closure environment type rejected");
+      auto *expected = llvm::cast<llvm::StructType>(
+          translator.translateType(closureRecords->back()));
+      const auto &actualEnvironment = nativeClosure->environments[0];
+      require(actualEnvironment.bytes == layout.getTypeAllocSize(expected).getFixedValue() &&
+                  actualEnvironment.alignment == layout.getABITypeAlign(expected).value(),
+              "closure environment native size/alignment disagrees with CPU lowering");
+      for (std::size_t i = 0; i < captures.size(); ++i) {
+        const auto &field = actualEnvironment.captures[i];
+        require(field.symbol == i &&
+                    field.offset == layout.getStructLayout(expected)->getElementOffset(i) &&
+                    field.bytes == layout.getTypeAllocSize(expected->getElementType(i)).getFixedValue() &&
+                    field.alignment == layout.getABITypeAlign(expected->getElementType(i)).value(),
+                "closure capture field offset/size/alignment disagrees with CPU lowering");
+      }
+      auto malformed = transfer;
+      std::swap(malformed.environments[0].captures[0], malformed.environments[0].captures[1]);
+      require(!planNativeClosureLayouts(closureModule, malformed, llvm, layout) &&
+                  !planNativeClosureLayouts(closureModule, transfer, llvm, layout, 1),
+              "closure layout accepted reordered captures or ignored its work budget");
+      malformed = transfer;
+      malformed.environments.push_back(transfer.environments[0]);
+      require(!planNativeClosureLayouts(closureModule, malformed, llvm, layout),
+              "duplicate closure environment target accepted");
     }
     // Payload activity is scoped to its containing enum; a nested enum adds its
     // own tag check rather than replacing the parent's guard.
@@ -319,6 +379,46 @@ fn produce()->Outer:
                      std::holds_alternative<ArrayIndex>(checked.module->expressions[op.source].operation);
             }),
             "normalized wrapper omitted the original enum computation");
+    auto closureSource = check(parse(std::make_shared<SourceFile>("closure-graph.k", R"k(
+type Batch:
+  run:fn(int)->int
+  values:[int]
+fn make()->Batch:
+  values=[3,7]
+  inner=fn(n:int):n+values[0]
+  outer=fn(n:int):inner(n)+values[1]
+  Batch {run:outer,values:values}
+fn main()->int:
+  batch=make()
+  batch.run(1)
+)k")));
+    require(closureSource.ok(), "closure graph source rejected");
+    const auto &closureModule = *closureSource.module;
+    const auto closureRoot = closureModule.functions[0].result;
+    const auto closurePlan = planClosureTransfer(closureModule, std::span(&closureRoot, 1));
+    require(bool(closurePlan), "closure graph target planning failed");
+    const auto closureABI = planNativeClosureLayouts(closureModule, *closurePlan, llvm, graphLayout);
+    const auto closureRecords = planNativeAggregateLayouts(closureModule, llvm, graphLayout);
+    require(closureABI && closureRecords, "closure graph native ABI planning failed");
+    const auto &closureType = closureModule.functions[0].resultType;
+    const auto closureGraph = planClosureGraphSchema(closureModule, std::span(&closureType, 1),
+                                                     *closurePlan, *closureABI, *closureRecords);
+    if (!closureGraph)
+      throw std::runtime_error(closureGraph.error());
+    require(closureGraph->imports.size() == 2, "nested closure graph lost a target");
+    require(std::ranges::count_if(closureGraph->graph.layouts, [](const auto &layout) {
+              return layout.type.array;
+            }) == 1, "array shape refinement split a shared capture layout");
+    require(std::ranges::count(closureGraph->kinds, ClosureGraphSchema::Kind::Callable) == 1,
+            "nested closures with the same signature split their carrier layout");
+    for (const auto &import : closureGraph->imports) {
+      require(import.environmentLayout && import.environmentWord && import.carrierWords == 3,
+              "nested closure environment schema missing");
+    }
+    for (std::size_t limit : {0u, 1u, 8u})
+      require(!planClosureGraphSchema(closureModule, std::span(&closureType, 1),
+                                     *closurePlan, *closureABI, *closureRecords, limit),
+              "partial closure graph escaped the work budget");
     std::cout
         << "device/native aggregate schemas: padding, all numeric/Bool arrays, nested aliases, "
            "enum activity, budgets and iterative layout passed\n";

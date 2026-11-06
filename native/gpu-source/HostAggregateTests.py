@@ -240,6 +240,63 @@ fn main()->int ! TaskError:
     try await spawn device(pair,batch.values,7) on devices.gpu()
 ''',17)
 fixtures = Path(__file__).resolve().parent.parent / 'tests/fixtures/mixed-host-aggregates'
+cases['gpu-host-closure-empty'] = ('''fn work(values:[int],callback:fn(int)->int)->int:
+  length(values)+callback(5)
+fn main()->int ! TaskError:
+  values=generate(0,fn(i:int):i)
+  callback=fn(n:int):n+length(values)
+  try parallel:
+    try await spawn work(values,callback) on devices.gpu()
+''', 5)
+for typ in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','float32','float64'):
+    cases['gpu-host-closure-tensor-'+typ] = (f'''fn make(n:{typ})->fn(int)->{typ}:
+  grid=tensor([n,n,n,n],[2,2])
+  fn(i:int):grid[i,1]
+fn work(callback:fn(int)->{typ})->int:
+  int(callback(1))
+fn main()->int ! TaskError:
+  callback=make(7)
+  try parallel:
+    try await spawn work(callback) on devices.gpu()
+''', 7)
+cases['gpu-host-closure-resident-result'] = ((fixtures/'gpu-host-closure-resident-result.k').read_text(), 32)
+cases['gpu-host-closure-record-result'] = ((fixtures/'gpu-host-closure-record-result.k').read_text(), 44)
+cases['gpu-host-closure-array-result'] = ((fixtures/'gpu-host-closure-array-result.k').read_text(), 66)
+cases['gpu-host-closure-array-result-slice'] = (
+    (fixtures/'gpu-host-closure-array-result.k').read_text()
+    .replace('values=[7,11]', 'values=[5,7,11,13]')
+    .replace('callback=make(values)', 'callback=make(slice(values,1,3))')
+    .replace('  values[0]+result[1]', '  values[1]+result[1]'), 54)
+cases['gpu-host-closure-tensor-record'] = ((fixtures/'gpu-host-closure-tensor-record.k').read_text(), 7)
+cases['gpu-host-closure-tensor'] = ((fixtures/'gpu-host-closure-tensor.k').read_text(), 20)
+cases['gpu-host-closure-joined'] = ((fixtures/'gpu-host-closure-joined.k').read_text(), 42)
+cases['gpu-host-closure'] = ((fixtures/'gpu-host-closure.k').read_text(), 22)
+cases['gpu-host-closure-nested'] = ((fixtures/'gpu-host-closure-nested.k').read_text(), 26)
+cases['gpu-host-closure-recursive-enum'] = ('''enum Tree:
+  End
+  Node:
+    values:[int]
+    tail:Tree
+fn sumTree(tree:Tree)->int:
+  match tree:
+    Tree.End:0
+    Tree.Node {values,tail}:values[0]+sumTree(tail)
+fn make(values:[int])->fn(int)->int:
+  tree=Tree.Node {values:values,tail:Tree.Node {values:values,tail:Tree.End}}
+  fn(n:int):sumTree(tree)+n
+fn work(callback:fn(int)->int)->int:
+  callback(4)
+fn main()->int ! TaskError:
+  values=[9,11]
+  callback=make(values)
+  try parallel:
+    result=try await spawn work(callback) on devices.gpu()
+    values[0]=10
+    result+values[0]
+''',32)
+
+cases['host-closure'] = ((fixtures/'host-closure.k').read_text(), 59)
+cases['host-closure-record'] = ((fixtures/'host-closure-record.k').read_text(), 23)
 cases['result-enum-owned-aliases'] = ((fixtures/'record-result.k').read_text(), 983)
 cases['local-recursive-list'] = ((fixtures/'list-local.k').read_text(), 18)
 cases['local-recursive-tree'] = ((fixtures/'tree-local.k').read_text(), 50275)
@@ -326,7 +383,8 @@ fn main()->int ! TaskError:
 ''',0)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
-known |= {'reject-device-string-body','reject-device-host-only-record-result'}
+known |= {'reject-device-string-body','reject-device-host-only-record-result',
+          'reject-closure-write', 'reject-closure-sort', 'reject-closure-string-capture'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
 results = []
@@ -341,7 +399,7 @@ for name,(source,expected) in cases.items():
         cpu.write_text(source[:source.index('fn main()')]+'fn main()->int:\n  even(1000)\n')
     else:
         cpu_source = source.replace(' on devices.gpu()', '').replace(' on devices.cpu()', '')
-        if name.startswith(('device-tensor-resident-', 'device-tensor-return-')):
+        if name.startswith(('device-tensor-resident-', 'device-tensor-return-', 'gpu-host-closure-resident-')):
             cpu_source = cpu_source.replace('    gpu=devices.gpu()\n', '').replace(' on gpu', '')
             cpu_source = cpu_source.replace('try await transfer(grid,gpu)', 'grid')
         cpu.write_text(cpu_source)
@@ -351,12 +409,18 @@ for name,(source,expected) in cases.items():
     gpu = root/'gpu.k'
     gpu.write_text(source)
     bundle = root/'device'
-    fallback = name == 'entry-float64' or (name in ('device-closure-float64','device-tensor-return-float64') and a.backend == 'metal')
+    fallback = name == 'entry-float64' or (name in ('device-closure-float64','device-tensor-return-float64','gpu-host-closure-tensor-float64') and a.backend == 'metal')
     policy = ['--arithmetic','hardware-with-software-fallback'] if fallback else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
     if name.startswith(('local-recursive-', 'device-mutual-recursion', 'device-recursive-', 'device-nested-closure', 'device-array-closure', 'device-closure-float64', 'device-tensor-')):
         assert 'NumericInstructionKind::DeviceControl' in host, name
+    elif name.startswith("gpu-host-closure"):
+        assert "kalandra_gpu_closure_tag_" in host and "DeviceGraphArgument<GpuClosureCapture" in host, name
+        assert "NumericInstructionKind::DeviceControl" in host, name
+    elif name == "host-closure":
+        assert "NativeCallable" in host and "kalandra_gpu_callable_layout_" in host, name
+        assert "HostArrayScopes" in host and "HostArrayWork" in host, name
     else:
         assert 'NativeRecord' in host and 'kalandra_gpu_record_layout_' in host, name
         assert 'HostArrayScopes' in host and 'HostArrayWork' in host, name
@@ -391,7 +455,25 @@ for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-recor
     assert r.returncode!=0 and 'S077' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'S077'})
     print('reject-'+name,'rejected S077',flush=True)
+for mutation in ('values[0]=99', 'sort(values)'):
+    name = 'reject-closure-' + ('write' if mutation.startswith('values') else 'sort')
+    if a.case and name not in a.case:
+        continue
+    root = a.root/name
+    root.mkdir(exist_ok=True)
+    path = root/'gpu.k'
+    path.write_text('fn work(callback:fn(int)->int)->int:\n  callback(1)\n'
+                    'fn main()->int ! TaskError:\n  values=[7,11]\n'
+                    '  callback=fn(n:int):n+values[0]\n  try parallel:\n'
+                    '    pending=spawn work(callback) on devices.gpu()\n    ' + mutation +
+                    '\n    try await pending\n')
+    r = subprocess.run(list(map(str, [a.compiler, path, '--target', a.backend, '-o', root/'device'])),
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode != 0 and 'S077' in r.stderr, (name, r.returncode, r.stdout, r.stderr)
+    results.append({'case': name, 'status': 'rejected', 'diagnostic': 'S077'})
+    print(name, 'rejected S077', flush=True)
 for name,source in {
+    'closure-string-capture':'fn make()->fn(int)->int:\n  text="hello"\n  fn(n:int):length(text)+n\nfn work(callback:fn(int)->int)->int:\n  callback(1)\nfn main()->int ! TaskError:\n  callback=make()\n  try parallel:\n    try await spawn work(callback) on devices.gpu()\n',
     'device-string-body':'fn work(n:int)->int:\n  message="text"\n  length(message)+n\nfn main()->int ! TaskError:\n  try parallel:\n    try await spawn work(1) on devices.gpu()\n',
     'device-host-only-record-result':'''type Message:
   text:String
@@ -411,6 +493,8 @@ fn main()->int ! TaskError:
     path.write_text(source)
     r=subprocess.run(list(map(str,[a.compiler,path,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
     assert r.returncode!=0 and 'G001' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
+    if name == 'closure-string-capture':
+        assert "capture 'text'" in r.stderr and 'String' in r.stderr, r.stderr
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'G001'})
     print('reject-'+name,'rejected G001',flush=True)
 (a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case),'selectedCases':a.case,'gpuExecution':not a.compile_only,

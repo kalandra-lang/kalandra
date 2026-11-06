@@ -6,7 +6,7 @@ namespace kalandra {
 // Publish only checked, device-computed descriptor cells. Runtime transfer keeps
 // this invocation's arena alive; this is not a host pointer or native result.
 void emitDeviceArrayReturn(DeviceHeapEmitter &, mlir::OpBuilder &, mlir::Value root,
-                           NumericType element, bool boolean);
+                           NumericType element, bool boolean, bool graphOrigins = false);
 
 struct DeviceAggregateReturnFrame {
   enum Cell : unsigned { Phase, Node, Scan, Leaf, Words, Cursor, StateCells };

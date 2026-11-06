@@ -27,4 +27,9 @@ llvm::GlobalVariable *emitTaskFrameValueLayout(const TypedModule &, const TypedM
 // storage requires linked callable entries and is rejected by this component.
 std::vector<llvm::GlobalVariable *> emitTaskPayloadValueLayouts(const TypedModule &, llvm::Module &,
                                                                 std::span<const ValueType>);
+// Payload counterpart with linked continuation callable identities.
+std::vector<llvm::GlobalVariable *> emitTaskKernelPayloadValueLayouts(const TypedModule &,
+                                                                      const TypedModule &kernels,
+                                                                      llvm::Module &,
+                                                                      std::span<const ValueType>);
 } // namespace kalandra

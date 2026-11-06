@@ -30,6 +30,9 @@ public:
   // lease, rather than the originating invocation, owns the returned view.
   std::optional<std::span<const std::byte>> recursiveBytes(const void *key, std::uint64_t bytes,
                                                            std::uint64_t alignment) const noexcept;
+  // Checked closure payload, for either flat or recursive owned environments.
+  std::optional<std::span<const std::byte>> environmentBytes(const void *code, std::uint64_t bytes,
+                                                             std::uint64_t alignment) const noexcept;
 
 private:
   Backing *backing_ = nullptr;
@@ -113,6 +116,11 @@ public:
                            EnvironmentRelease release) noexcept;
   std::uint64_t recursiveBytes() const noexcept { return flags_ & Materialized ? storage_.value.recursiveBytes_ : 0; }
   void *allocateEnvironment(std::uint64_t bytes, const void *key) noexcept;
+  // Borrow capture bytes from an environment already owned by this invocation.
+  // Works for ordinary and recursive environments; adds no owner and does not
+  // extend lifetime past the enclosing task/value scope.
+  const void *readEnvironment(const void *environment, std::uint64_t bytes,
+                              std::uint64_t alignment, const void *key) noexcept;
   void *allocateTransportStorage(std::uint64_t bytes, const void *key) noexcept;
   void *cloneEnvironment(const Invocation &source, const void *environment, std::uint64_t bytes,
                          std::uint64_t alignment, const void *key) noexcept;
