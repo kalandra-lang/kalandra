@@ -2,6 +2,7 @@
 #include "../gpu-source/AggregateEntry.h"
 #include "../gpu-source/AggregateGraphSchema.h"
 #include "../gpu-source/PointerBridge.h"
+#include "../gpu-source/ClosureGraphSchema.h"
 #include "../gpu-source/Supervisor.h"
 #include "../lib/NativeLayout.h"
 #include "../lib/TaskValueCopy.h"
@@ -89,6 +90,10 @@ class Compiler {
   std::set<FunctionId> usedCpuFunctions, usedContinuationCpu;
   const TypedModule *continuationCpu = nullptr;
   std::map<ValueId, FunctionId> continuationKernels;
+  std::map<FunctionId, FunctionId> continuationImports;
+  struct ClosureBridgeRequest { std::string name; std::vector<FunctionId> targets; };
+  std::vector<ClosureBridgeRequest> closureBridges;
+  std::set<FunctionId> closureCodeGetters;
   std::map<std::size_t, Value> arrayFields;
   std::string declarations, cpuEntries, aggregateDeclarations;
   std::map<std::size_t, NativeAggregateABI> aggregateTypes;
@@ -125,7 +130,8 @@ class Compiler {
   // Admit the placed function's typed closure, not CPU expressions used to
   // compute its arguments. Host preflight checks fixed and inferred shape
   // contracts.
-  void admitGpuTypes(FunctionId root) const {
+  void admitGpuTypes(FunctionId root, const TypedModule *source = nullptr) const {
+    const auto &cpu = source ? *source : this->cpu;
     std::set<FunctionId> visited;
     std::vector<FunctionId> pending{root};
     while (!pending.empty()) {
@@ -1237,6 +1243,33 @@ class Compiler {
           if (function.getName().starts_with("kalandra_callable_"))
             function.setName(prefix + function.getName().str());
       if (stepsModule) {
+        const auto targetCode = [&](FunctionId original) {
+          auto imported = continuationImports.find(original);
+          if (imported == continuationImports.end())
+            reject(span, "GPU closure target is missing from the host continuation projection");
+          auto *code = module->getFunction("kalandra_callable_" + std::to_string(imported->second));
+          if (!code || code->isDeclaration())
+            reject(span, "GPU closure target has no native host identity");
+          code->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);
+          return code;
+        };
+        for (const auto &request : closureBridges) {
+          std::vector<CpuClosureTarget> targets;
+          for (auto target : request.targets)
+            targets.push_back({targetCode(target), target + 1,
+                               placement.functions.at(target).captureCount != 0});
+          bridges.insert(emitCpuClosureBridge(*module, request.name, targets));
+        }
+        for (auto target : closureCodeGetters) {
+          auto *type = llvm::FunctionType::get(llvm::PointerType::getUnqual(context), false);
+          auto *getter = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage,
+              "kalandra_gpu_closure_code_" + std::to_string(target), *module);
+          llvm::IRBuilder<> builder(llvm::BasicBlock::Create(context, "entry", getter));
+          builder.CreateRet(targetCode(target));
+          bridges.insert(getter);
+        }
+      }
+      if (stepsModule) {
         for (auto &function : *module)
           if (!function.isDeclaration() && !bridges.contains(&function))
             function.setLinkage(llvm::GlobalValue::InternalLinkage);
@@ -1921,19 +1954,23 @@ class Compiler {
   }
   std::set<std::size_t> graphCapturePolicies, graphNominalKeys;
   std::map<std::size_t, std::vector<DeviceGraphExportLayout>> graphExportLayouts;
-  std::set<FunctionId> joinedGraphPolicies;
+  std::set<FunctionId> joinedGraphPolicies, closureGraphPolicies;
   std::string graphCapturePolicy(const ValueType &type, SourceSpan span,
-                                 std::span<const ValueType> joined = {}, FunctionId function = {}) {
-    const auto id = *type.record;
-    const auto name = joined.empty() ? "GpuGraphCapture" + std::to_string(id)
+                                 std::span<const ValueType> joined = {}, FunctionId function = {},
+                                 const ClosureGraphSchema *closure = nullptr) {
+    const auto id = closure ? function : *type.record;
+    const auto name = closure ? "GpuClosureCapture" + std::to_string(function) : joined.empty() ? "GpuGraphCapture" + std::to_string(id)
                                      : "GpuJoinedGraphCapture" + std::to_string(function);
-    if (joined.empty() ? !graphCapturePolicies.insert(id).second
-                       : !joinedGraphPolicies.insert(function).second)
+    if (closure && !closureGraphPolicies.insert(function).second)
       return name;
-    const auto record = recordType(id);
+    if (!closure && (joined.empty() ? !graphCapturePolicies.insert(id).second
+                       : !joinedGraphPolicies.insert(function).second))
+      return name;
+    const auto record = deviceCallableValue(type) ? callableName(callableType(type)) : recordType(*type.record);
     const auto roots = joined.empty() ? std::span(&type, 1) : joined;
-    auto schema = planAggregateGraphSchema(cpu, roots, *nativeAggregateLayouts,
-                                           aggregateEntryWorkRemaining);
+    auto schema = closure ? std::expected<AggregateGraphSchema, std::string>(closure->graph)
+                          : planAggregateGraphSchema(cpu, roots, *nativeAggregateLayouts,
+                                                     aggregateEntryWorkRemaining);
     if (!schema)
       reject(span, schema.error());
     if (!joined.empty() && !appendAggregateCaptureJoin(*schema, aggregateEntryWorkRemaining))
@@ -1952,9 +1989,30 @@ class Compiler {
         code += "extern \"C\" const unsigned char kalandra_recursive_type_" +
                 std::to_string(*layout.type.record) + ";\n";
       }
+    if (closure) {
+      for (std::size_t l = 0; l < closure->kinds.size(); ++l) {
+        if (closure->kinds[l] == ClosureGraphSchema::Kind::Callable) {
+          const auto bridge = "kalandra_gpu_closure_tag_" + std::to_string(closureBridges.size());
+          closureBridges.push_back({bridge, closure->targets[l]});
+          code += "extern \"C\" std::uint64_t " + bridge + "(const void*,const void**);\n";
+          code += "static std::expected<std::uint64_t,DeviceGraphValidation> " + name +
+              "_project" + std::to_string(l) + "(std::span<const std::byte> bytes){"
+              "if(bytes.size()!=" + std::to_string(schema->layouts[l].nativeStride) +
+              ")return std::unexpected(DeviceGraphValidation::Invalid);const void *environment=nullptr;"
+              "auto tag=" + bridge + "(bytes.data(),&environment);if(!tag)return std::unexpected("
+              "DeviceGraphValidation::Invalid);return tag;}\n";
+        }
+        if (closure->environments[l]) {
+          auto target = *closure->environments[l];
+          closureCodeGetters.insert(target);
+          code += "extern \"C\" const void *kalandra_gpu_closure_code_" + std::to_string(target) + "();\n";
+        }
+      }
+    }
     if (joined.empty()) {
       code += "struct " + name + " {using Record=" + record +
-              ";static const ValueLayout &layout(){return " + recordLayoutName(id) + ";}\n";
+              ";static const ValueLayout &layout(){return " +
+              (deviceCallableValue(type) ? callableLayoutName(callableType(type)) : recordLayoutName(*type.record)) + ";}\n";
     } else {
       std::string memberTypes, memberPolicies, views;
       for (std::size_t i = 0; i < joined.size(); ++i) {
@@ -1993,7 +2051,9 @@ class Compiler {
                           "," + number(cell.rule.minimum) + "," + guard + "}";
         wire += rule + ",";
         native += "{" + rule + "," + number(cell.nativeOffset) + "," +
-                  number(cell.nativeBytes) + "},";
+                  number(cell.nativeBytes) +
+                  (closure && closure->kinds[l] == ClosureGraphSchema::Kind::Callable && c == 0
+                     ? "," + name + "_project" + suffix : "") + "},";
       }
       const auto count = std::to_string(layout.cells.size());
       code += "inline static constexpr std::array<DeviceGraphCell," + count + "> cells" + suffix +
@@ -2016,8 +2076,12 @@ class Compiler {
         capture += "nullptr";
         keys += "&cells" + suffix + ",";
       }
+      if (closure && closure->environments[l])
+        capture += ",kalandra_gpu_closure_code_" + std::to_string(*closure->environments[l]) + "()";
+      else if (closure && closure->kinds[l] == ClosureGraphSchema::Kind::Callable)
+        capture += ",nullptr,true";
       capture += "},";
-      const auto layoutId = schema->captureJoin == l + 1 ? 0 : layout.type.record ?
+      const auto layoutId = closure ? closure->arenaLayouts[l] : schema->captureJoin == l + 1 ? 0 : layout.type.record ?
           runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*layout.type.record), layout.type.array) :
           runtime::DeviceArrayWireABI::layout(layout.type.element, layout.type.builtin == BuiltinValue::Bool);
       arena += std::to_string(layoutId) + "u,";
@@ -2026,13 +2090,13 @@ class Compiler {
       for (std::size_t word = 0; word < layout.cells.size(); ++word)
         if (layout.cells[word].rule.target)
           exportLayout.references.push_back(static_cast<unsigned>(word));
-      if (joined.empty())
+      if (joined.empty() && !closure)
         graphExportLayouts[id].push_back(std::move(exportLayout));
     }
     const auto count = std::to_string(schema->layouts.size());
     code += "inline static constexpr std::array<DeviceGraphLayout," + count + "> wireLayouts{{" +
             wire + "}};\ninline static constexpr std::array<DeviceGraphNativeLayout," + count +
-            "> nativeLayouts{{" + native + "}};\ninline static constexpr std::array<DeviceGraphCaptureLayout," +
+            "> nativeLayouts{{" + native + "}};\ninline static const std::array<DeviceGraphCaptureLayout," +
             count + "> captureLayouts{{" + capture + "}};\ninline static constexpr std::array<unsigned," +
             count + "> arenaLayouts{{" + arena + "}};\ninline static constexpr std::array<const void*," +
             count + "> keys{{" + keys + "}};\nstatic constexpr bool graphResult=true;\nstatic constexpr auto root=" +
@@ -2092,18 +2156,63 @@ class Compiler {
     return name;
   }
   Value spawnNumericProgram(FunctionId function, const std::vector<Value> &sourceInputs, Value target,
-                            SourceSpan span) {
-    admitGpuTypes(function);
+                            SourceSpan span, std::optional<ValueId> closureSource = {}) {
+    const auto &cpu = closureSource ? placement : this->cpu;
+    const auto cacheKey = closureSource ? this->cpu.functions.size() + *closureSource : function;
+    admitGpuTypes(function, &cpu);
     const auto &fn = cpu.functions.at(function);
     const auto residentTensor = [](const ValueType &type) {
       return type.tensor && !type.array && type.builtin == BuiltinValue::Numeric;
     };
     auto inputs = sourceInputs;
-    auto found = numericPrograms.find(function);
+    auto found = numericPrograms.find(cacheKey);
     std::optional<std::size_t> graphParameter;
     std::vector<std::size_t> graphPeers;
     std::string graphPolicy, graphResultPolicy;
     std::span<const DeviceGraphExportLayout> resultLayouts;
+    std::optional<ClosureGraphSchema> closureSchema;
+    if (closureSource) {
+      const auto &task = std::get<TaskOperation>(placement.expressions.at(*closureSource).operation);
+      const auto &call = std::get<FunctionCall>(placement.expressions.at(task.operand).operation);
+      std::vector<ValueId> roots;
+      std::vector<ValueType> rootTypes;
+      for (std::size_t i = 0; i < fn.parameters.size(); ++i) {
+        const auto &parameter = cpu.symbols.at(fn.parameters[i]);
+        const auto &type = parameter.type;
+        if (deviceCallableValue(type)) {
+          if (graphParameter || parameter.mutableAccess)
+            reject(span, "GPU closure entry currently requires one read-only callable root");
+          graphParameter = i;
+          roots.push_back(call.arguments.at(i));
+          rootTypes.push_back(type);
+        } else if (!deviceScalarValue(type))
+          reject(span, "GPU closure entry currently requires scalar companion inputs");
+      }
+      if (!graphParameter || !deviceScalarValue(fn.resultType))
+        reject(span, "GPU closure entry currently requires a scalar result");
+      auto plan = planClosureTransfer(placement, roots, aggregateEntryWorkRemaining);
+      if (!plan)
+        reject(span, plan.error());
+      for (const auto &environment : plan->environments)
+        admitGpuTypes(environment.target, &placement);
+      llvm::LLVMContext context;
+      llvm::DataLayout layout(nativeCpuDataLayout);
+      auto abi = planNativeClosureLayouts(placement, *plan, context, layout, aggregateEntryWorkRemaining);
+      if (!abi)
+        reject(span, abi.error());
+      if (!nativeAggregateLayouts) {
+        auto native = planNativeAggregateLayouts(placement, context, layout);
+        if (!native)
+          reject(span, native.error());
+        nativeAggregateLayouts = std::move(*native);
+      }
+      auto schema = planClosureGraphSchema(placement, rootTypes, *plan, *abi,
+                                           *nativeAggregateLayouts, aggregateEntryWorkRemaining);
+      if (!schema)
+        reject(span, schema.error());
+      closureSchema = std::move(*schema);
+      graphPolicy = graphCapturePolicy(rootTypes.front(), span, {}, cacheKey, &*closureSchema);
+    }
     if (deviceInlineRecordValue(fn.resultType) &&
         !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1))) {
       if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
@@ -2116,13 +2225,20 @@ class Compiler {
     }
     const auto emit = [&](const TypedModule &module, FunctionId entry) {
       auto program = emitNumericProgram(module, entry, arithmetic_, backend_ != GpuBackend::Metal,
-                                        deviceInlineRecordValue(fn.resultType), graphParameter, resultLayouts, graphPeers);
+                                        deviceInlineRecordValue(fn.resultType), graphParameter, resultLayouts, graphPeers,
+                                        closureSchema ? std::span<const DeviceClosureImport>(closureSchema->imports)
+                                                      : std::span<const DeviceClosureImport>{});
       if (!program)
         throw Rejected{program.error()};
-      return numericPrograms.emplace(function, std::move(*program)).first;
+      return numericPrograms.emplace(cacheKey, std::move(*program)).first;
     };
     std::vector<const ValueType *> parameterTypes;
-    if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
+    if (closureSchema) {
+      if (found == numericPrograms.end())
+        found = emit(cpu, function);
+      for (auto symbol : fn.parameters)
+        parameterTypes.push_back(&cpu.symbols.at(symbol).type);
+    } else if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
           return cpu.symbols.at(symbol).type.record.has_value();
         })) {
       auto normalized = aggregateEntries.find(function);
@@ -2190,7 +2306,9 @@ class Compiler {
       const auto &value = inputs[i];
       completed(value, span);
       if (i == graphParameter || std::ranges::find(graphPeers, i) != graphPeers.end()) {
-        if (value.kind != Value::Aggregate || value.record != type.record || value.gpu)
+        if ((deviceCallableValue(type)
+                 ? value.kind != Value::Callable || value.callable != callableType(type)
+                 : value.kind != Value::Aggregate || value.record != type.record) || value.gpu)
           reject(span, "GPU graph capture requires a completed native nominal value");
         if (i == graphParameter)
           tensors.push_back(value);
@@ -2255,7 +2373,7 @@ class Compiler {
         }
       }
     }
-    const auto [entry, inserted] = entries.emplace(function, entries.size());
+    const auto [entry, inserted] = entries.emplace(cacheKey, entries.size());
     (void)inserted;
     const auto base = "kernel" + std::to_string(entry->second);
     auto out = field("TaskHandle");
@@ -2379,7 +2497,7 @@ class Compiler {
     if (arrayInputs || graphParameter || result.array || result.record) {
       std::string arguments;
       for (const auto &value : tensors) {
-        if (value.kind == Value::Aggregate)
+        if (value.kind == Value::Aggregate || value.kind == Value::Callable)
           arguments += ",DeviceGraphArgument<" + graphPolicy + ">";
         else if (value.kind == Value::Tensor)
           arguments += ",DeviceResidentArgument<m::Runtime,m::Buffer>";
@@ -3435,9 +3553,14 @@ class Compiler {
           auto target = get(*op.placement);
           if (target.gpu)
             gpuCalls[op.output] = op.group;
-          bind(op.output, resumable.at(op.target)
-                              ? spawnHelper(op.target, args, target, span)
-                              : spawn(cpuFunction(op.target, span), args, target, span));
+          const bool closureEntry = target.gpu && std::ranges::any_of(args, [](const Value &value) {
+            return value.kind == Value::Callable;
+          });
+          bind(op.output, closureEntry
+                              ? spawnNumericProgram(op.target, args, target, span, op.source)
+                              : resumable.at(op.target)
+                                  ? spawnHelper(op.target, args, target, span)
+                                  : spawn(cpuFunction(op.target, span), args, target, span));
         }
         break;
       }
@@ -4475,6 +4598,7 @@ public:
       reject(fn.span, planned.error());
     continuationCpu = &planned->kernels;
     continuationKernels = planned->kernelIds;
+    continuationImports = planned->importedFunctions;
     for (const auto &[sourceId, targetId] : continuationKernels) {
       (void)sourceId;
       declareCpuFunction(targetId, continuationCpu);

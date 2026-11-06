@@ -240,6 +240,8 @@ fn main()->int ! TaskError:
     try await spawn device(pair,batch.values,7) on devices.gpu()
 ''',17)
 fixtures = Path(__file__).resolve().parent.parent / 'tests/fixtures/mixed-host-aggregates'
+cases['gpu-host-closure'] = ((fixtures/'gpu-host-closure.k').read_text(), 22)
+cases['gpu-host-closure-nested'] = ((fixtures/'gpu-host-closure-nested.k').read_text(), 26)
 cases['host-closure'] = ((fixtures/'host-closure.k').read_text(), 59)
 cases['host-closure-record'] = ((fixtures/'host-closure-record.k').read_text(), 23)
 cases['result-enum-owned-aliases'] = ((fixtures/'record-result.k').read_text(), 983)
@@ -359,6 +361,9 @@ for name,(source,expected) in cases.items():
     host = (bundle/'host.cpp').read_text()
     if name.startswith(('local-recursive-', 'device-mutual-recursion', 'device-recursive-', 'device-nested-closure', 'device-array-closure', 'device-closure-float64', 'device-tensor-')):
         assert 'NumericInstructionKind::DeviceControl' in host, name
+    elif name.startswith("gpu-host-closure"):
+        assert "kalandra_gpu_closure_tag_" in host and "DeviceGraphArgument<GpuClosureCapture" in host, name
+        assert "NumericInstructionKind::DeviceControl" in host, name
     elif name == "host-closure":
         assert "NativeCallable" in host and "kalandra_gpu_callable_layout_" in host, name
         assert "HostArrayScopes" in host and "HostArrayWork" in host, name

@@ -87,9 +87,12 @@ Bridge emission uses that map to resolve actual callable symbols; source IDs
 are not assumed to survive projection. Source-generated tests exercise both
 ordinary and continuation-projected factories through canonical graph packing.
 
-Native layout, checked reads and graph packing are prerequisites. Compiler
-capture-schema generation and device entry construction remain required before
-any host/device closure boundary is admitted.
+Host submission now connects those layouts and bridges for one read-only
+callable parameter with scalar companion parameters and a scalar result.
+The compiler derives provenance from the original spawn arguments, emits the
+selected device bodies, and retains native captures through the task packet.
+Multiple owned arguments, callable-containing record roots and tensor captures
+remain integration requirements before this PR is ready.
 
 ### Device import representation
 
@@ -108,10 +111,11 @@ internal device representation, not cancellation checkpoints or source semantics
 
 `DeviceClosureImport` carries compiler-owned layout metadata into numerical
 program and shader emission. Emission tests exercise callable graph parameters,
-capture dispatch and rejection of malformed metadata. User-facing host schema
-generation and physical execution of imported closures remain qualification
-requirements; existing device-local closure regression tests do not prove that
-boundary complete.
+capture dispatch and rejection of malformed metadata. The maintained
+`gpu-host-closure` and `gpu-host-closure-nested` fixtures exercise real CPU-created
+closures on Metal against CPU oracles. They cover array captures, nested closures,
+named-versus-captured target selection and concurrent submissions. These checks
+do not replace the remaining ownership/fault matrix and backend qualification.
 
 `ClosureGraphSchema` combines ordinary values, callable carriers and selected
 environments into one directory. Callable signatures remain distinct, while
@@ -119,8 +123,11 @@ array layout keys ignore static length refinements so an array shared through a
 capture and an ordinary field retains one graph identity. Callable fields are
 borrowed views within their retained parent; environments use checked leases.
 The generated environment offsets are exercised by source-compiled factory
-tests. Host submission policy emission is still required to admit this schema
-at a user-facing GPU boundary.
+tests. Host policies use these schemas directly; generated LLVM bridges compare
+actual continuation callable identities and export environment identity getters.
+Source IDs are canonical wire tags, not native addresses. Device entry planning
+can select a pure function from a module containing unrelated host placement;
+placement instructions inside the selected device graph remain unsupported.
 
 ## Implementation sequence
 

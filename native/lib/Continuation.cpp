@@ -132,7 +132,11 @@ public:
           resumable[id] = false;
     if (options.entry && *options.entry >= input.functions.size())
       throw std::runtime_error("continuation entry function is out of range");
-    if (hasPlacement(input) && !options.preserveCalls)
+    // A device entry can share its source module with unrelated host placement.
+    // Only the selected entry and its reachable calls are lowered in this mode;
+    // the device emitter still rejects task/placement instructions in that graph.
+    if (hasPlacement(input) && !options.preserveCalls &&
+        !(options.entry && options.deviceValues))
       throw std::runtime_error("placement-aware plans require preserved target calls");
     for (const auto &symbol : input.symbols)
       if (symbol.reassignable && symbol.type.array && resumable.at(symbol.owner) &&
