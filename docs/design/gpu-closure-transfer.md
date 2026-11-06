@@ -88,13 +88,14 @@ are not assumed to survive projection. Source-generated tests exercise both
 ordinary and continuation-projected factories through canonical graph packing.
 
 Host submission connects those layouts and bridges for read-only callable,
-record and flat-array parameters with scalar companions and a scalar result.
+record and flat-array parameters with scalar companions. Scalar, flat-array
+and non-callable record results use their typed return transports.
 The compiler derives provenance from the original spawn arguments, emits the
 selected device bodies, and retains native captures through the task packet.
 All owned inputs share one graph directory, including callable-containing
 records and arrays also captured by closures. CPU-resident tensor captures are
 converted from their native descriptors to shape-prefixed device payloads.
-Broader result transport and backend/lifecycle qualification remain requirements
+Resident tensor result integration and backend/lifecycle qualification remain requirements
 before this PR is ready.
 
 ### Device import representation
@@ -134,6 +135,21 @@ actual continuation callable identities and export environment identity getters.
 Source IDs are canonical wire tags, not native addresses. Device entry planning
 can select a pure function from a module containing unrelated host placement;
 placement instructions inside the selected device graph remain unsupported.
+
+### Returned array aliases
+
+An array returned from a captured graph uses a tagged invocation-local origin
+handle. The export bounds check verifies its arena range and matching root;
+the host then resolves it exclusively against that invocation's retained graph
+origins, including exact numeric layout, element count and native stride.
+Unknown origins fail before publication. A captured return reuses the original
+native descriptor; fresh device arrays still receive new backing. Record
+results use the existing graph envelope and origin-content validation.
+
+Source tests mutate returned backing after `await` to verify alias preservation,
+and compare fresh computed returns against CPU execution. Slicing retains its
+existing language semantics: `slice` creates a new array, which the closure and
+its returned value can subsequently share.
 
 ### Tensor payload conversion
 

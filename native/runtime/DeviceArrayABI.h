@@ -39,6 +39,10 @@ struct DeviceArrayWireABI {
   static constexpr std::uint8_t InputRole = 2, ExportRole = 3;
   // Local arena handles occupy at most 32 bits. Keep the external tag in
   // the immediately following bit, leaving the sign bit out of handle dispatch.
+  // Returned array aliases from a seeded graph use a disjoint origin namespace.
+  // Capture graphs are bounded below this bit; origins are resolved only against
+  // the current invocation's retained native graph directory.
+  static constexpr std::uint64_t GraphOrigin = UINT64_C(1) << 31;
   static constexpr std::uint64_t ExternalHandle = UINT64_C(1) << 32;
   static_assert(ExternalHandle > MaxWords);
   static constexpr std::uint64_t layout(NumericType type, bool boolean) {

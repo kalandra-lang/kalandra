@@ -190,7 +190,7 @@ private:
             const auto &descriptor = std::get<I>(frame.arguments);
             if constexpr (Argument::graph)
               valid = Argument::prepare(task.context(), capture, descriptor, frame.origins[I],
-                                        GraphResult);
+                                        GraphResult || (ArrayResult && !Aggregate));
             else
               valid = capture.initialize(task.context(), descriptor, frame.origins[I]);
             if (!valid)
@@ -313,7 +313,10 @@ private:
         frame.metadata = Runtime::arrayResult(frame.output);
         if (!frame.metadata ||
             frame.metadata->layout != DeviceArrayWireABI::layout(ResultElement, BooleanResult) ||
-            frame.metadata->origin > (Aggregate ? 0 : Packed) ||
+            (frame.metadata->origin > (Aggregate ? 0 : Packed) &&
+             !(!Aggregate && (Arguments::graph || ...) &&
+               frame.metadata->origin <= UINT32_MAX &&
+               (frame.metadata->origin & DeviceArrayWireABI::GraphOrigin))) ||
             frame.metadata->length >
                 DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords) {
           task.fault(3);
@@ -374,6 +377,17 @@ private:
                                              DeviceArrayArgument<ResultElement, BooleanResult>>) {
                   if (frame.origins[I] == origin)
                     descriptor = std::get<I>(frame.arguments);
+                } else if constexpr (ArgumentAt<I>::graph) {
+                  if (origin & DeviceArrayWireABI::GraphOrigin) {
+                    const auto *captured = findDeviceGraphOrigin(std::get<I>(frame.captures).origins,
+                        origin ^ DeviceArrayWireABI::GraphOrigin,
+                        DeviceArrayWireABI::layout(ResultElement, BooleanResult), frame.metadata->length);
+                    if (captured && captured->stride == sizeof(NumericValue<ResultElement>))
+                      descriptor = CpuTensor<ResultElement, 1>{
+                          const_cast<NumericValue<ResultElement> *>(static_cast<const NumericValue<ResultElement> *>(captured->owner)),
+                          const_cast<NumericValue<ResultElement> *>(static_cast<const NumericValue<ResultElement> *>(captured->aligned)),
+                          captured->offset, {static_cast<std::int64_t>(captured->elements)}, {1}};
+                  }
                 }
               });
               return descriptor;

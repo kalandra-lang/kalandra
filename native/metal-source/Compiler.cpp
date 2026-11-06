@@ -2233,8 +2233,10 @@ class Compiler {
         } else if (!deviceScalarValue(type))
           reject(span, "GPU closure entry requires native graph or scalar inputs");
       }
-      if (!graphParameter || !deviceScalarValue(fn.resultType))
-        reject(span, "GPU closure entry currently requires a scalar result");
+      if (!graphParameter || (!deviceScalarValue(fn.resultType) && !deviceFlatArrayValue(fn.resultType) &&
+                              !deviceInlineRecordValue(fn.resultType)) ||
+          containsFunctionStorage(placement, fn.resultType))
+        reject(span, "GPU closure entry requires a scalar, flat array or non-callable record result");
       auto plan = planClosureTransfer(placement, roots, aggregateEntryWorkRemaining);
       if (!plan)
         reject(span, plan.error());
@@ -2269,8 +2271,8 @@ class Compiler {
           cacheKey, &*closureSchema);
     }
     if (deviceInlineRecordValue(fn.resultType) &&
-        !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1))) {
-      if (std::ranges::any_of(fn.parameters, [&](auto symbol) {
+        (closureSchema || !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1)))) {
+      if (!closureSchema && std::ranges::any_of(fn.parameters, [&](auto symbol) {
             const auto &type = cpu.symbols.at(symbol).type;
             return !deviceScalarValue(type) && !deviceInlineRecordValue(type) && !residentTensor(type);
           }))

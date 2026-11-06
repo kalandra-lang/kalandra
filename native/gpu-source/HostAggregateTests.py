@@ -259,6 +259,13 @@ fn main()->int ! TaskError:
   try parallel:
     try await spawn work(callback) on devices.gpu()
 ''', 7)
+cases['gpu-host-closure-record-result'] = ((fixtures/'gpu-host-closure-record-result.k').read_text(), 44)
+cases['gpu-host-closure-array-result'] = ((fixtures/'gpu-host-closure-array-result.k').read_text(), 66)
+cases['gpu-host-closure-array-result-slice'] = (
+    (fixtures/'gpu-host-closure-array-result.k').read_text()
+    .replace('values=[7,11]', 'values=[5,7,11,13]')
+    .replace('callback=make(values)', 'callback=make(slice(values,1,3))')
+    .replace('  values[0]+result[1]', '  values[1]+result[1]'), 54)
 cases['gpu-host-closure-tensor-record'] = ((fixtures/'gpu-host-closure-tensor-record.k').read_text(), 7)
 cases['gpu-host-closure-tensor'] = ((fixtures/'gpu-host-closure-tensor.k').read_text(), 20)
 cases['gpu-host-closure-joined'] = ((fixtures/'gpu-host-closure-joined.k').read_text(), 42)

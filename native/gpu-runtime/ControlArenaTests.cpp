@@ -294,6 +294,18 @@ void resultDescriptor() {
         "exact terminal arena range rejected");
   frame[A::Length] = 24;
   check(!checkRange(), "terminal range exceeded actual backing");
+  frame[A::Root] = 5;
+  frame[A::Data] = 0;
+  frame[A::Length] = 23;
+  frame[A::Origin] = DeviceArrayWireABI::GraphOrigin | 5;
+  check(bool(checkRange()), "bounded captured graph array origin rejected");
+  frame[A::Origin] = DeviceArrayWireABI::GraphOrigin | 6;
+  check(!checkRange(), "graph origin did not match its arena root");
+  frame[A::Origin] = DeviceArrayWireABI::GraphOrigin | 5;
+  frame[A::Length] = 24;
+  check(!checkRange(), "graph origin payload exceeded arena bounds");
+  frame[A::Data] = 1;
+  check(!checkRange(), "graph alias contained a payload offset");
   frame[A::Root] = DeviceArrayWireABI::ExternalHandle | 2;
   frame[A::Data] = 0;
   frame[A::Origin] = 1;

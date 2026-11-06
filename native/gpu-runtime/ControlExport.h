@@ -18,10 +18,15 @@ std::optional<ControlArrayExportRange> controlArrayExportRange(Read read, std::u
   DeviceArrayResultMetadata value{read(A::Layout), read(A::Length), read(A::Origin)};
   if (!value.layout || value.layout > 11 ||
       value.length > DeviceArrayWireABI::MaxWords - DeviceArrayWireABI::HeaderWords ||
-      value.origin > captures || arenaWords > ControlArenaABI::MaxWords)
+      value.origin > UINT32_MAX || arenaWords > ControlArenaABI::MaxWords)
     return {};
-  if (value.origin) {
-    if (offset || root <= DeviceArrayWireABI::ExternalHandle ||
+  if (value.origin & DeviceArrayWireABI::GraphOrigin) {
+    if (offset || !root || root >= DeviceArrayWireABI::GraphOrigin ||
+        (value.origin ^ DeviceArrayWireABI::GraphOrigin) != root || arenaWords < 4 ||
+        root > arenaWords - 4 || value.length > arenaWords - root - 4)
+      return {};
+  } else if (value.origin) {
+    if (value.origin > captures || offset || root <= DeviceArrayWireABI::ExternalHandle ||
         root - DeviceArrayWireABI::ExternalHandle > captures)
       return {};
   } else if (!root) {

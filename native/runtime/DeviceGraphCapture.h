@@ -243,6 +243,7 @@ template <class Policy> struct DeviceGraphArgument {
     try {
       // Bound temporary packing work and the resulting transfer separately.
       constexpr std::size_t limit = 1 << 20, work = 8 * limit;
+      static_assert(limit < DeviceArrayWireABI::GraphOrigin);
       const auto cancelled = [&] { return context.poll() != 0; };
       DeviceGraphCapture resolver(context, Policy::captureLayouts, cancelled, limit, work);
       std::vector<DeviceGraphNativeView> views;
