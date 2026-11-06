@@ -494,6 +494,53 @@ fn main() -> int ! TaskError:
             _: 0
         _: 0
 ''', 42)
+cases['graph-result-application-error-replacement'] = ('''error InputError:
+  Invalid:
+    value: int
+
+error OutputError:
+  Replaced:
+    values: [int]
+
+fn validate(value: int) -> int ! InputError:
+  fail InputError.Invalid { value: value }
+
+fn replace(value: int) -> int ! OutputError:
+  converted = validate(value) catch fn(error):
+    match error:
+      InputError.Invalid { value }: fail OutputError.Replaced { values: [value, 2] }
+  try converted
+
+fn main() -> int ! TaskError:
+  try parallel:
+    result = await spawn replace(40) on devices.gpu()
+    result catch fn(error):
+      match error:
+        OutputError.Replaced { values }: values[0] + values[1]
+        _: 0
+''', 42)
+cases['graph-result-application-error-repeated-await'] = (device_errors + '''
+fn coordinate(n: int) -> int ! (SampleError | OtherError | TaskError):
+  try parallel:
+    try await spawn descend(n) on devices.gpu()
+
+fn main() -> int ! TaskError:
+  try parallel:
+    child = spawn coordinate(0) on devices.cpu()
+    first = await child
+    total = first catch fn(error): 0
+    i = 0
+    while i < 100:
+      response = await child
+      value = response catch fn(error):
+        match error:
+          SampleError.Invalid { values }: values[0] + values[1]
+          OtherError.Empty: 23
+          _: 0
+      total = total + value
+      i = i + 1
+    total
+''', 1800)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',
