@@ -1,4 +1,6 @@
 """Independent-oracle cases shared by physical device-control qualification."""
+from pathlib import Path
+
 def cases():
     out = {
         'range-break-continue': ('fn work(n:int)->int:\n  total=0\n  for i in range(n):\n    if i%2==0:\n      continue\n    if i>100:\n      break\n    total=total+i\n  total\n', 'work(200)', 2500),
@@ -25,6 +27,12 @@ def cases():
         'enum-local-match': ('enum Choice:\n  Empty\n  Some:\n    value:int\n    enabled:Bool\nfn score(choice:Choice)->int:\n  match choice:\n    Choice.Empty:1\n    Choice.Some {value,enabled}:\n      if enabled:value+7\n      else:0\nfn work(n:int)->int:\n  total=0\n  for i in range(n):\n    choice=if i%3==0:Choice.Some {value:i,enabled:true}\n    else:Choice.Empty\n    total=total+score(choice)\n  total\n', 'work(100)', sum(i+7 if i%3==0 else 1 for i in range(100))),
         'enum-nested-record': ('type Row:\n  value:int8\n  step:uint64\nenum Choice:\n  Missing\n  Present:\n    row:Row\nfn score(choice:Choice)->int:\n  match choice:\n    Choice.Missing:0\n    Choice.Present {row}:int(row.value)+int(row.step)\nfn work(n:int)->int:\n  total=0\n  for i in range(n):\n    choice=Choice.Present {row:Row {value:int8(i),step:uint64(2)}}\n    total=total+score(choice)\n  total\n', 'work(50)', 1325),
     })
+    errors = (Path(__file__).resolve().parents[1] / 'metal-source' /
+              'device-application-errors.k').read_text()
+    out['application-error-owned-payload'] = (errors, 'work(0)', 18)
+    out['application-error-recursive-propagation'] = (errors, 'work(40)', 18)
+    out['application-error-success'] = (errors, 'work(-1)', 5)
+    out['application-error-alternative-family'] = (errors, 'work(1)', 23)
     return out
 
 def fault_cases():

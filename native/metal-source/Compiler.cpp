@@ -4576,10 +4576,12 @@ public:
                  "mixed source parameters require numeric scalars, Bool, numeric/Bool arrays "
                  "or rank-zero through rank-eight numeric tensors");
       }
-      if (resumable[i])
+      if (coordinating[i])
         continue;
       cpuFunctions.emplace(name, hostModule.functions.size());
-      cpuExports.push_back(name);
+      // Synchronous error helpers can be dependencies of ordinary CPU
+      // bridges and GPU entries. Only completed results use the bridge ABI.
+      cpuExports.push_back(placement.functions.at(i).resultType.fallible ? std::string{} : name);
       hostModule.functions.push_back(fn);
     }
     if (!main)
@@ -4606,7 +4608,7 @@ public:
       // callers.
       for (std::size_t depth = 0; depth <= syntax.imports.size(); ++depth) {
         if (auto found = exportedFunctions.find(binding); found != exportedFunctions.end())
-          return found->second == *main || resumable[found->second];
+          return found->second == *main || coordinating[found->second];
         auto next = reexports.find(binding);
         if (next == reexports.end())
           return false;
@@ -4640,7 +4642,8 @@ public:
       }
     }
     for (std::size_t i = 0; i < cpu.functions.size(); ++i)
-      declareCpuFunction(i);
+      if (!cpu.functions[i].resultType.fallible)
+        declareCpuFunction(i);
     const auto &fn = syntax.functions[*main];
     if (!fn.parameters.empty() || !fn.result || !fn.taskError)
       reject(fn.span, "Metal main requires no parameters, a float32 or tensor "

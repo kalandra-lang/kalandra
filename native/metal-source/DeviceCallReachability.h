@@ -2,8 +2,8 @@
 #include "kalandra/Semantics.h"
 
 namespace kalandra {
-// A reachable back edge requires a device activation stack. A repeated
-// callee in an acyclic diamond does not. Use an explicit traversal stack.
+// Recursive calls, callable values and typed error control use device
+// activation frames. Repeated calls in an otherwise acyclic diamond do not.
 inline bool deviceNeedsCallFrames(const TypedModule &module, FunctionId entry) {
   enum State : unsigned char { New, Active, Done };
   struct Scan { FunctionId function; std::size_t next; };
@@ -20,7 +20,10 @@ inline bool deviceNeedsCallFrames(const TypedModule &module, FunctionId entry) {
     }
     const auto &op = module.expressions.at(expressions[frame.next++]).operation;
     if (std::holds_alternative<FunctionInvoke>(op) ||
-        std::holds_alternative<FunctionReference>(op))
+        std::holds_alternative<FunctionReference>(op) ||
+        std::holds_alternative<FailOperation>(op) ||
+        std::holds_alternative<CatchOperation>(op) ||
+        std::holds_alternative<ErrorNarrow>(op))
       return true;
     const auto *call = std::get_if<FunctionCall>(&op);
     if (!call)

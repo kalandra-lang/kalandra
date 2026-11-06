@@ -201,3 +201,12 @@ if(BUILD_TESTING)
   add_test(NAME native-device-closure-import COMMAND kalandra-device-closure-import-tests)
   set_tests_properties(native-device-closure-import PROPERTIES TIMEOUT 120)
 endif()
+
+if(BUILD_TESTING)
+  add_executable(kalandra-device-application-error-tests ../metal-source/DeviceApplicationErrorTests.cpp)
+  target_link_libraries(kalandra-device-application-error-tests PRIVATE kalandra-gpu-supervisor)
+  target_compile_options(kalandra-device-application-error-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-device-application-errors COMMAND kalandra-device-application-error-tests
+    "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-application-errors.k")
+  set_tests_properties(native-device-application-errors PROPERTIES TIMEOUT 120)
+endif()
