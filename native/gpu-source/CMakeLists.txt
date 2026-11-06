@@ -204,7 +204,8 @@ endif()
 
 if(BUILD_TESTING)
   add_executable(kalandra-device-application-error-tests ../metal-source/DeviceApplicationErrorTests.cpp)
-  target_link_libraries(kalandra-device-application-error-tests PRIVATE kalandra-gpu-supervisor)
+  target_link_libraries(kalandra-device-application-error-tests PRIVATE kalandra-gpu-supervisor kalandra-task-core-optimized)
+  target_include_directories(kalandra-device-application-error-tests SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-device-application-error-tests PRIVATE -Wall -Wextra -Werror)
   add_test(NAME native-device-application-errors COMMAND kalandra-device-application-error-tests
     "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-application-errors.k")
