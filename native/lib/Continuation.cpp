@@ -377,6 +377,13 @@ private:
               statement = importStatement(statement);
             op.trueResult = importValue(op.trueResult);
             op.falseResult = importValue(op.falseResult);
+          } else if constexpr (std::is_same_v<T, MatchOperation>) {
+            op.subject = importValue(op.subject);
+            for (auto &arm : op.cases) {
+              for (auto &statement : arm.body)
+                statement = importStatement(statement);
+              arm.result = importValue(arm.result);
+            }
           } else if constexpr (std::is_same_v<T, WhileOperation>) {
             op.condition = importValue(op.condition);
             for (auto *body : {&op.initial, &op.iteration, &op.body, &op.whenDone})

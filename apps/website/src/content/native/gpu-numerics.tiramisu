@@ -85,7 +85,7 @@ fn main() -> float32 ! TaskError:
 
 This returns 21, displayed as 41a80000. The GPU doubles the original [1, 2, 3] snapshot; the CPU adds the edited first array element, 9. array(tensor) also copies, so editing that array cannot change the tensor.
 
-This example prepares arrays on the host and transfers an immutable tensor snapshot. GPU helpers can also construct and modify their own numeric/Bool arrays, as described below. Flat numeric and Bool arrays can also cross the task boundary as read-only inputs or as results. Arrays of Strings, records, enums or function values, first-class function values and parallelMap are not supported as coordinating values in mixed GPU programs.
+This example prepares arrays on the host and transfers an immutable tensor snapshot. GPU helpers can also construct and modify their own numeric/Bool arrays, as described below. Flat numeric and Bool arrays can also cross the task boundary as read-only inputs or as results. Arrays of Strings or function values and parallelMap are not supported as coordinating values in mixed GPU programs. Eligible records, enums and CPU-created function values can be passed to GPU tasks as described below.
 
 h2 { "Types and ranks" }
 
@@ -392,7 +392,7 @@ table {
   row = ["Array sorted and sort", "Supported for their documented element types", "Local numeric/Bool arrays; deterministic ordering and checkpointed sorting"],
   row = ["Record/enum numeric and Bool array fields", "Supported", "Supported in local values, eligible recursive and nonrecursive helpers, and read-only captures"],
   row = ["Recursive records and enums", "Supported", "Supported for eligible captured and returned graphs; Strings and host resources stay on the CPU"],
-  row = ["Function values and captures", "Supported", "Device-local functions with a closed set of targets and supported captures. Host/device function-value transfer is unsupported"],
+  row = ["Function values and captures", "Supported", "Device-local functions and CPU-created callbacks with compiler-known targets and supported captures. Returning function values from GPU to CPU is unsupported"],
   row = ["Recursive calls", "Supported", "Direct and mutual calls with supported frame values, subject to task allocation and cancellation limits"],
   row = ["Tensor calculations", "Supported", "Numerical graphs and checkpointed tensor construction, indexing, reshape, conversion and elementwise operations"],
   row = ["Resident tensor arguments and task results", "Explicit transfers", "Same-device resident inputs and outputs. Host inspection requires transfer"],
@@ -403,3 +403,30 @@ list {
   link { url = "/docs/tensors", "Tensor construction and shape rules" },
   link { url = "/docs/tensor-functions", "Numerical function reference" }
 }
+
+
+h2 { "Pass a CPU-created callback to the GPU" }
+
+Create a callback on the CPU and pass it to a GPU-placed helper just like another argument. The callback body executes on the GPU. The compiler must know every possible function target and be able to compile each target and its captures for that device.
+
+codeblock { language = kalandra, """fn makeOffset(offset: int) -> fn(int) -> int:
+  fn(value: int): value + offset
+
+fn apply(callback: fn(int) -> int, value: int) -> int:
+  callback(value)
+
+fn main() -> int ! TaskError:
+  callback = makeOffset(10)
+  try parallel:
+    try await spawn apply(callback, 32) on devices.gpu()
+""" }
+
+This computes 42 and prints 000000000000002a. makeOffset runs on the CPU; apply and the callback run on the selected GPU. The callback can outlive the function that created it. Transfer does not send CPU machine code or silently execute the callback on the CPU.
+
+Supported captures include numeric and Bool scalars, flat numeric and Bool arrays, eligible records and enums, CPU tensors of ranks zero through eight, and other eligible closures. Named functions and a compiler-known choice between multiple callbacks also work. Each target must satisfy the selected backend's numerical policy; capturing float64 does not enable hardware float64 arithmetic on a device that lacks it.
+
+Captured arrays are read-only. Their backing and every alias stay read-locked while a task may read them. Await all readers before modifying the original array, or make an independent copy. Passing the same array directly and through a callback preserves its shared identity. Returning captured array backing from the GPU preserves its CPU alias; constructing a new array produces independent storage.
+
+A callback can return supported scalar, array, record, enum or tensor values. Tensor task results stay resident on the GPU and can feed another GPU task. A tensor already resident on the device can be passed as a separate helper argument; it is not a CPU tensor capture. Function values cannot be returned from GPU tasks to the CPU.
+
+Packing and uploading captured data consume time and task/device memory budgets. Prefer small captures and reuse resident tensors for repeated numerical work. Strings, host resources and application-error handling are not device-compatible captures. An unknown function target or an unsupported capture is a compile-time error.

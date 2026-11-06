@@ -48,7 +48,7 @@ Tasks receive parent-provided arrays read-only. A spawned call cannot request mu
 
 h2 { "Callbacks and execution" }
 
-map calls its callback sequentially. parallelMap schedules callbacks on CPU workers. Both accept checked function values and supported closures. A closure passed to a worker must capture values that can be shared with that worker. GPU functions accept a more restricted set of values; an arbitrary CPU closure cannot be sent to a GPU.
+map calls its callback sequentially. parallelMap schedules callbacks on CPU workers. Both accept checked function values and supported closures. A closure passed to a worker must capture values that can be shared with that worker. GPU tasks also accept CPU-created callbacks when the compiler can identify every possible target and all captured values are device-compatible. See the GPU numerical guide for capture types, ownership rules and examples.
 
 h2 { "Recursive calls" }
 

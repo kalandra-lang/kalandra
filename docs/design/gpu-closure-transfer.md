@@ -168,6 +168,21 @@ cancellation during copying, rank zero, empty tensors and repeated-view identity
 Physical Metal fixtures compare CPU-created tensor closures, including record
 fields and rank-eight captures, against CPU execution with host sanitizers.
 
+### Resident tensor results and lifecycle qualification
+
+A transferred callback may compute a tensor result. The graph-input job returns
+its device buffer directly; it does not download and re-upload the tensor.
+Resident tensors may also accompany the closure as separate arguments. Callable
+schema signatures come from checked function references, preserving declared
+dynamic tensor extents even when a lambda body has more precise inferred shapes.
+
+The generated-program lifecycle harness exercises four concurrent submissions,
+pre-start and held-completion cancellation/deadlines, completion faults, and
+native, device and scheduler allocation failures with one and four workers.
+It checks fault precedence and zero retained backend buffers, task records,
+environments and ownership after settlement. Optimized and ASan/UBSan Metal
+runs pass. This does not substitute for physical Vulkan/CUDA qualification.
+
 ## Implementation sequence
 
 1. Expose value-level target provenance and test unused values, factories,

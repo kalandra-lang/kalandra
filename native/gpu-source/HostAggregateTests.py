@@ -272,6 +272,29 @@ cases['gpu-host-closure-tensor'] = ((fixtures/'gpu-host-closure-tensor.k').read_
 cases['gpu-host-closure-joined'] = ((fixtures/'gpu-host-closure-joined.k').read_text(), 42)
 cases['gpu-host-closure'] = ((fixtures/'gpu-host-closure.k').read_text(), 22)
 cases['gpu-host-closure-nested'] = ((fixtures/'gpu-host-closure-nested.k').read_text(), 26)
+cases['gpu-host-closure-recursive-enum'] = ('''enum Tree:
+  End
+  Node:
+    values:[int]
+    tail:Tree
+fn sumTree(tree:Tree)->int:
+  match tree:
+    Tree.End:0
+    Tree.Node {values,tail}:values[0]+sumTree(tail)
+fn make(values:[int])->fn(int)->int:
+  tree=Tree.Node {values:values,tail:Tree.Node {values:values,tail:Tree.End}}
+  fn(n:int):sumTree(tree)+n
+fn work(callback:fn(int)->int)->int:
+  callback(4)
+fn main()->int ! TaskError:
+  values=[9,11]
+  callback=make(values)
+  try parallel:
+    result=try await spawn work(callback) on devices.gpu()
+    values[0]=10
+    result+values[0]
+''',32)
+
 cases['host-closure'] = ((fixtures/'host-closure.k').read_text(), 59)
 cases['host-closure-record'] = ((fixtures/'host-closure-record.k').read_text(), 23)
 cases['result-enum-owned-aliases'] = ((fixtures/'record-result.k').read_text(), 983)
