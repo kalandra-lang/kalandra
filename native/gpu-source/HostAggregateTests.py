@@ -464,6 +464,36 @@ fn main() -> int ! TaskError:
       SampleError.Invalid { values }: values[0] + values[1]
       _: 0
 ''', 18)
+cases['graph-result-recursive-error-union'] = ('''error NestedError:
+  Leaf:
+    value: int
+  Wrapped:
+    inner: NestedError
+
+error OtherError:
+  Missing
+
+fn failNested(n: int) -> int ! NestedError:
+  if n == 0:
+    fail NestedError.Leaf { value: 42 }
+  fail NestedError.Wrapped { inner: NestedError.Leaf { value: 42 } }
+
+fn widen(n: int) -> int ! (NestedError | OtherError):
+  if n < 0:
+    fail OtherError.Missing
+  try failNested(n)
+
+fn main() -> int ! TaskError:
+  try parallel:
+    result = await spawn widen(1) on devices.gpu()
+    result catch fn(error):
+      match error:
+        NestedError.Wrapped { inner }:
+          match inner:
+            NestedError.Leaf { value }: value
+            _: 0
+        _: 0
+''', 42)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',
