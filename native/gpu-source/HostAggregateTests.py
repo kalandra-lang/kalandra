@@ -384,7 +384,7 @@ fn main()->int ! TaskError:
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',
-          'reject-closure-write', 'reject-closure-sort'}
+          'reject-closure-write', 'reject-closure-sort', 'reject-closure-string-capture'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
 results = []
@@ -473,6 +473,7 @@ for mutation in ('values[0]=99', 'sort(values)'):
     results.append({'case': name, 'status': 'rejected', 'diagnostic': 'S077'})
     print(name, 'rejected S077', flush=True)
 for name,source in {
+    'closure-string-capture':'fn make()->fn(int)->int:\n  text="hello"\n  fn(n:int):length(text)+n\nfn work(callback:fn(int)->int)->int:\n  callback(1)\nfn main()->int ! TaskError:\n  callback=make()\n  try parallel:\n    try await spawn work(callback) on devices.gpu()\n',
     'device-string-body':'fn work(n:int)->int:\n  message="text"\n  length(message)+n\nfn main()->int ! TaskError:\n  try parallel:\n    try await spawn work(1) on devices.gpu()\n',
     'device-host-only-record-result':'''type Message:
   text:String
@@ -492,6 +493,8 @@ fn main()->int ! TaskError:
     path.write_text(source)
     r=subprocess.run(list(map(str,[a.compiler,path,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
     assert r.returncode!=0 and 'G001' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
+    if name == 'closure-string-capture':
+        assert "capture 'text'" in r.stderr and 'String' in r.stderr, r.stderr
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'G001'})
     print('reject-'+name,'rejected G001',flush=True)
 (a.root/'report.json').write_text(json.dumps({'complete':True,'fullCorpus':not bool(a.case),'selectedCases':a.case,'gpuExecution':not a.compile_only,

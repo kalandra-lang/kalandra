@@ -130,9 +130,13 @@ planClosureTransfer(const TypedModule &module, std::span<const ValueId> roots,
     ClosureTransferPlan::Environment environment{target, {}};
     for (std::size_t i = fn.parameters.size() - fn.captureCount; i < fn.parameters.size(); ++i) {
       const auto symbol = fn.parameters[i];
-      if (symbol >= module.symbols.size() || module.symbols[symbol].mutableAccess ||
-          !admissible(module.symbols[symbol].type))
-        return reject("GPU closure target '" + fn.name + "' has an unsupported lexical capture");
+      if (symbol >= module.symbols.size())
+        return reject("GPU closure target '" + fn.name + "' has an invalid capture identity");
+      const auto &capture = module.symbols[symbol];
+      if (capture.mutableAccess || !admissible(capture.type))
+        return reject("GPU closure capture '" + capture.name + "' of type " +
+                      describeType(capture.type) + " is not device-compatible; " +
+                      "pass supported read-only data or keep this callback on the CPU");
       environment.captures.push_back(symbol);
     }
     for (auto source : references.at(target)) {

@@ -35,7 +35,7 @@ void empty(m::Runtime &runtime, TaskCore &core) {
 }
 enum class Mode { Success, PreCancel, PreDeadline, HeldCancel, HeldDeadline,
                   NativeAllocation, DeviceAllocation, Admission, Completion };
-void run(const char *directory, unsigned workers, Mode mode, unsigned attempt = 0,
+std::uint64_t run(const char *directory, unsigned workers, Mode mode, unsigned attempt = 0,
          unsigned concurrent = 1) {
   auto created = m::Runtime::create();
   require(bool(created), "create closure-test runtime");
@@ -49,7 +49,14 @@ void run(const char *directory, unsigned workers, Mode mode, unsigned attempt = 
   require(bool(core), "create closure-test scheduler");
   nativeFailure = mode == Mode::NativeAllocation ? attempt : 0;
   const bool held = mode == Mode::HeldCancel || mode == Mode::HeldDeadline;
-  runtime->holdCompletions(held);
+  const auto hold = [&](auto &backend, bool enabled) {
+    if constexpr (requires { backend.holdCompletionAt(0); })
+      backend.holdCompletionAt(enabled ? attempt : 0);
+    else
+      backend.holdCompletions(enabled);
+  };
+  if (held)
+    hold(*runtime, true);
   if (mode == Mode::DeviceAllocation)
     runtime->failAllocationAt(attempt);
   if (mode == Mode::Completion)
@@ -69,7 +76,8 @@ void run(const char *directory, unsigned workers, Mode mode, unsigned attempt = 
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     while (std::chrono::steady_clock::now() < deadline) {
       core->step();
-      if (core->stats().externalPending && runtime->stats().inFlight) {
+      if (core->stats().externalPending && runtime->stats().inFlight &&
+          runtime->stats().submissions >= attempt) {
         reached = true;
         break;
       }
@@ -80,7 +88,7 @@ void run(const char *directory, unsigned workers, Mode mode, unsigned attempt = 
     if (reached)
       core->cancel(group, mode == Mode::HeldDeadline);
     // Always acknowledge held work before assertions or frame destruction.
-    runtime->holdCompletions(false);
+    hold(*runtime, false);
     require(reached, "closure task never reached a held GPU completion");
   }
   require(core->drain(), "drain closure-test group");
@@ -121,6 +129,7 @@ void run(const char *directory, unsigned workers, Mode mode, unsigned attempt = 
   require(core->close(group) && core->drain() && core->release(group),
           "release closure-test group");
   empty(*runtime, *core);
+  return runtime->stats().submissions;
 }
 } // namespace
 int main(int argc, char **argv) {
@@ -128,8 +137,21 @@ int main(int argc, char **argv) {
     require(argc == 2, "expected closure shader directory");
     for (unsigned workers : {1u, 4u}) {
       run(argv[1], workers, Mode::Success, 0, 4);
-      for (auto mode : {Mode::PreCancel, Mode::PreDeadline, Mode::HeldCancel,
-                        Mode::HeldDeadline, Mode::Completion})
+      const auto submissions = run(argv[1], workers, Mode::Success);
+      require(submissions >= 3, "closure fixture omitted transport or device execution");
+      const auto holds = []<class Backend>(std::uint64_t count) {
+        if constexpr (requires(Backend &backend) { backend.holdCompletionAt(0); })
+          return count;
+        else
+          return std::uint64_t(1);
+      };
+      // Metal can hold an exact submission, exercising cancellation during
+      // initial transfer, closure graph upload and actual device computation.
+      const auto count = holds.template operator()<m::Runtime>(submissions);
+      for (unsigned submission = 1; submission <= count; ++submission)
+        for (auto mode : {Mode::HeldCancel, Mode::HeldDeadline})
+          run(argv[1], workers, mode, submission);
+      for (auto mode : {Mode::PreCancel, Mode::PreDeadline, Mode::Completion})
         run(argv[1], workers, mode);
       for (unsigned attempt = 1; attempt <= 32; ++attempt)
         run(argv[1], workers, Mode::NativeAllocation, attempt);
