@@ -418,6 +418,52 @@ cases['graph-result-resident-tensor-outcome'] = (
 cases['graph-result-captured-tensor-application-error'] = (
     (Path(__file__).resolve().parents[1] / 'metal-source' /
      'device-captured-tensor-error.k').read_text(), 10)
+cases['device-application-handler-fault'] = ('''error InputError:
+  Negative
+
+fn validate(divisor: int) -> int ! InputError:
+  if divisor < 0:
+    fail InputError.Negative
+  42 / divisor
+
+fn guarded(divisor: int) -> int:
+  validate(divisor) catch fn(error): 7
+
+fn main() -> int ! TaskError:
+  recovered = try parallel:
+    try await spawn guarded(-1) on devices.gpu()
+  outcome = parallel:
+    try await spawn guarded(0) on devices.gpu()
+  fault = outcome catch fn(error):
+    match error:
+      TaskError.Fault { kind }:
+        match kind:
+          FaultKind.Arithmetic: 35
+          _: 0
+      _: 0
+  recovered + fault
+''', 42)
+cases['graph-result-application-error-cancels-sibling'] = (device_errors + '''
+fn checkpointed(count: int) -> int:
+  i = 0
+  total = 0
+  while i < count:
+    total = total + i % 7
+    i = i + 1
+  total
+
+fn main() -> int ! TaskError:
+  outcome = parallel:
+    failing = spawn descend(0) on devices.gpu()
+    sibling = spawn checkpointed(1000000000) on devices.gpu()
+    first = try await failing
+    second = try await sibling
+    first + second
+  outcome catch fn(error):
+    match error:
+      SampleError.Invalid { values }: values[0] + values[1]
+      _: 0
+''', 18)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',
@@ -458,6 +504,8 @@ for name,(source,expected) in cases.items():
     elif name.startswith("gpu-host-closure"):
         assert "kalandra_gpu_closure_tag_" in host and "DeviceGraphArgument<GpuClosureCapture" in host, name
         assert "NumericInstructionKind::DeviceControl" in host, name
+    elif name == 'device-application-handler-fault':
+        assert 'NumericInstructionKind::DeviceControl' in host, name
     elif name == "host-closure":
         assert "NativeCallable" in host and "kalandra_gpu_callable_layout_" in host, name
         assert "HostArrayScopes" in host and "HostArrayWork" in host, name
