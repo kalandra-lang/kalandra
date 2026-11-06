@@ -429,4 +429,4 @@ Captured arrays are read-only. Their backing and every alias stay read-locked wh
 
 A callback can return supported scalar, array, record, enum or tensor values. Tensor task results stay resident on the GPU and can feed another GPU task. A tensor already resident on the device can be passed as a separate helper argument; it is not a CPU tensor capture. Function values cannot be returned from GPU tasks to the CPU.
 
-Packing and uploading captured data consume time and task/device memory budgets. Prefer small captures and reuse resident tensors for repeated numerical work. Strings, host resources and application-error handling are not device-compatible captures. An unknown function target or an unsupported capture is a compile-time error.
+Packing and uploading captured data consume time and task/device memory budgets. Prefer small captures and reuse resident tensors for repeated numerical work. Strings and host resources are unavailable in device captures. GPU functions can use declared application errors with supported device payloads. An unknown function target or an unsupported capture is a compile-time error.
