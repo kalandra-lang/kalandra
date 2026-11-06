@@ -110,7 +110,7 @@ private:
     std::size_t packing = 0;
     unsigned phase = 0;
     Result value{};
-    [[no_unique_address]] Published published{};
+    Published published{};
     Buffer output{}, page{};
     TaskHandle download{};
     std::optional<DeviceArrayResultMetadata> metadata;
