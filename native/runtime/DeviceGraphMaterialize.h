@@ -1,6 +1,7 @@
 #pragma once
 #include "DeviceGraphOrigins.h"
 #include "Runtime.h"
+#include <array>
 
 namespace kalandra::runtime {
 // Decode an acyclic graph into native owned backing. The caller selects its
@@ -104,6 +105,8 @@ inline DeviceGraphValidation materializeDeviceGraph(
         return V::Cancelled;
       auto &node = nodes[id];
       if (!origins.empty() && origins[id]) {
+        if (nativeLayouts[node.layout].tensorRank >= 0)
+          return V::Invalid; // Ranked captures are flattened without an origin.
         const auto *owner = origins[id]->owner;
         if (!context.retainFrom(context, const_cast<void *>(owner)))
           return context.status() ? V::Budget : V::Cancelled;
@@ -111,6 +114,49 @@ inline DeviceGraphValidation materializeDeviceGraph(
         continue;
       }
       const auto &native = nativeLayouts[node.layout];
+      if (native.tensorRank >= 0) {
+        const auto rank = static_cast<std::size_t>(native.tensorRank);
+        const auto bytes = native.tensorElementBytes;
+        if (rank > 8 || native.singleton || native.stride != sizeof(std::uint64_t) ||
+            native.cells.size() != 1 || native.cells.front().wire.target || node.words < rank ||
+            (bytes != 1 && bytes != 2 && bytes != 4 && bytes != 8))
+          return V::Invalid;
+        const auto dimensions = wire.subspan(node.begin, rank);
+        const auto elements = node.words - rank;
+        bool empty = false;
+        for (auto extent : dimensions) {
+          if (extent > std::uint64_t(INT64_MAX))
+            return V::Invalid;
+          empty |= extent == 0;
+        }
+        std::uint64_t count = empty ? 0 : 1;
+        if (!empty)
+          for (auto extent : dimensions) {
+            if (count > std::uint64_t(INT64_MAX) / extent)
+              return V::Invalid;
+            count *= extent;
+          }
+        if (count != elements)
+          return V::Invalid;
+        if (elements > work)
+          return V::Budget;
+        work -= elements;
+        std::vector<std::byte> payload(elements * bytes);
+        for (std::size_t i = 0; i < elements; ++i) {
+          if (!(i % 256) && cancelled())
+            return V::Cancelled;
+          const auto word = wire[node.begin + rank + i];
+          if (bytes < sizeof(word) && word >> (8 * bytes))
+            return V::Invalid;
+          std::memcpy(payload.data() + i * bytes, &word, bytes);
+        }
+        if (elements) {
+          node.pointer = context.makeRecursiveValueFromPointers(payload, keys[node.layout], {});
+          if (!node.pointer)
+            return context.status() ? V::Budget : V::Cancelled;
+        }
+        continue;
+      }
       const auto cells = layouts[node.layout].cells;
       std::vector<std::byte> payload(node.elements * native.stride);
       std::vector<const void *> dependencies;
@@ -134,7 +180,24 @@ inline DeviceGraphValidation materializeDeviceGraph(
             std::memcpy(destination, &value, field.bytes);
         } else if (value) {
           const auto &child = nodes[value - 1];
-          if (layouts[child.layout].singleton) {
+          const auto &childNative = nativeLayouts[child.layout];
+          if (childNative.tensorRank >= 0) {
+            const auto rank = static_cast<std::size_t>(childNative.tensorRank);
+            std::array<std::uint64_t, 3 + 2 * 8> descriptor{};
+            static_assert(sizeof(child.pointer) == sizeof(descriptor[0]));
+            if (field.bytes != (3 + 2 * rank) * sizeof(descriptor[0]))
+              return V::Invalid;
+            std::memcpy(&descriptor[0], &child.pointer, sizeof(child.pointer));
+            descriptor[1] = descriptor[0];
+            std::uint64_t stride = 1;
+            for (std::size_t axis = rank; axis-- != 0;) {
+              descriptor[3 + axis] = wire[child.begin + axis];
+              descriptor[3 + rank + axis] = stride;
+              if (child.pointer)
+                stride *= descriptor[3 + axis];
+            }
+            std::memcpy(destination, descriptor.data(), field.bytes);
+          } else if (layouts[child.layout].singleton) {
             if (field.bytes != sizeof(child.pointer))
               return V::Invalid;
             std::memcpy(destination, &child.pointer, sizeof(child.pointer));
@@ -151,9 +214,11 @@ inline DeviceGraphValidation materializeDeviceGraph(
               return V::Invalid;
             std::memcpy(destination, &descriptor, sizeof(descriptor));
           }
-          if (dependencies.size() == Invocation::maxRecursiveDependencies)
-            return V::Budget;
-          dependencies.push_back(child.pointer);
+          if (child.pointer) {
+            if (dependencies.size() == Invocation::maxRecursiveDependencies)
+              return V::Budget;
+            dependencies.push_back(child.pointer);
+          }
         }
       }
       node.pointer = context.makeRecursiveValueFromPointers(payload, keys[node.layout], dependencies);

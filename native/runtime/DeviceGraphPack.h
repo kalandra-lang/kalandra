@@ -20,6 +20,8 @@ struct DeviceGraphNativeLayout {
   std::span<const DeviceGraphNativeCell> cells;
   std::size_t stride;
   bool singleton;
+  int tensorRank = -1; // Extents followed by zero-extended element words.
+  std::size_t tensorElementBytes = 0;
 };
 
 // The caller retains the root and every resolved view throughout packing.
