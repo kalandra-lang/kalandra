@@ -19,8 +19,10 @@ p.add_argument('--runtime-build', type=Path, required=True)
 p.add_argument('--cxx', type=Path, required=True)
 p.add_argument('--root', type=Path, required=True)
 a = p.parse_args()
-compiler, build, cxx, root = (x.resolve() for x in
-                              (a.compiler, a.runtime_build, a.cxx, a.root))
+compiler, build, root = (x.resolve() for x in
+                         (a.compiler, a.runtime_build, a.root))
+# Preserve clang++'s driver name: resolving its symlink to clang changes linking.
+cxx = a.cxx.absolute()
 native = Path(__file__).resolve().parents[1]
 root.mkdir(parents=True, exist_ok=False)
 cache = (build / 'CMakeCache.txt').read_text()
@@ -51,7 +53,7 @@ flags = ['-std=c++23', '-O1', '-g', '-fsanitize=address,undefined',
          '-Wall', '-Wextra', '-Werror', '-Wno-override-module']
 # Standalone runtime targets provide Runtime.cpp and Tasks.cpp. Include the
 # remaining native bridge definitions exactly once, with the same sanitizers.
-extra = [native / 'runtime' / name for name in ('ValueScopes.cpp', 'TaskABI.cpp', 'Entry.cpp')]
+extra = [native / 'runtime' / name for name in ('ValueScopes.cpp', 'TaskABI.cpp')]
 run([cxx, *flags, '-I' + str(native / a.backend), '-I' + str(native / 'include'),
      '-I' + str(program), harness, program / 'cpu.ll', *extra,
      *libraries, '-pthread', '-ldl', '-o', executable])
