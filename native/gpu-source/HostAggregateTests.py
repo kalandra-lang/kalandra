@@ -541,6 +541,27 @@ fn main() -> int ! TaskError:
       i = i + 1
     total
 ''', 1800)
+cases['device-application-error-indirect'] = ('''error InputError:
+  Invalid:
+    value: int
+
+fn callback(offset: int) -> (fn(int) -> int ! InputError):
+  fn(value: int) -> int ! InputError:
+    fail InputError.Invalid { value: value + offset }
+
+fn apply(f: fn(int) -> int ! InputError, value: int) -> int:
+  f(value) catch fn(error):
+    match error:
+      InputError.Invalid { value }: value
+
+fn worker(value: int) -> int:
+  f = callback(2)
+  apply(f, value)
+
+fn main() -> int ! TaskError:
+  try parallel:
+    try await spawn worker(40) on devices.gpu()
+''', 42)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',
@@ -581,7 +602,7 @@ for name,(source,expected) in cases.items():
     elif name.startswith("gpu-host-closure"):
         assert "kalandra_gpu_closure_tag_" in host and "DeviceGraphArgument<GpuClosureCapture" in host, name
         assert "NumericInstructionKind::DeviceControl" in host, name
-    elif name == 'device-application-handler-fault':
+    elif name in ('device-application-handler-fault', 'device-application-error-indirect'):
         assert 'NumericInstructionKind::DeviceControl' in host, name
     elif name == "host-closure":
         assert "NativeCallable" in host and "kalandra_gpu_callable_layout_" in host, name
