@@ -40,6 +40,8 @@ for policy in ('hardware','software','hardware-with-software-fallback'):
     (out.parent/(name+'-build.log')).write_text(built.stdout+built.stderr)
     builds.append({'case':name,'policy':policy,'status':built.returncode})
     if built.returncode:
+      if not failures:
+        print(built.stderr or built.stdout, flush=True)
       record={'case':name,'policy':policy,'stage':'build','status':built.returncode};records.append(record);failures.append(record)
     else:
       assert (out/program_name).is_file() and list(out.glob('*.ptx')),out
