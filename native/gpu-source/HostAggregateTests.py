@@ -562,6 +562,24 @@ fn main() -> int ! TaskError:
   try parallel:
     try await spawn worker(40) on devices.gpu()
 ''', 42)
+cases['gpu-host-closure-application-error'] = ('''error InputError:
+  Invalid:
+    value: int
+
+fn callback(offset: int) -> (fn(int) -> int ! InputError):
+  fn(value: int) -> int ! InputError:
+    fail InputError.Invalid { value: value + offset }
+
+fn apply(f: fn(int) -> int ! InputError, value: int) -> int:
+  f(value) catch fn(error):
+    match error:
+      InputError.Invalid { value }: value
+
+fn main() -> int ! TaskError:
+  f = callback(2)
+  try parallel:
+    try await spawn apply(f, 40) on devices.gpu()
+''', 42)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',

@@ -190,14 +190,15 @@ public:
                (type.builtin == BuiltinValue::Numeric ||
                 (type.builtin == BuiltinValue::Bool && (!type.tensor || isBoolArray(type))) ||
                 (type.builtin == BuiltinValue::Record && !type.tensor &&
-                 !containsFunctionStorage(planner.input, type)));
+                 !containsFunctionStorage(planner.input, type)) ||
+                (type.builtin == BuiltinValue::Function && !type.tensor));
       };
       if (coordinating[id] || found->captureCount || !supported(found->resultType) ||
           std::ranges::any_of(found->parameters, [&](auto symbol) {
             return !supported(planner.input.symbols[symbol].type);
           }))
         throw std::runtime_error("CPU bridge exports require completed synchronous numeric/Bool or "
-                                 "non-callable record values");
+                                 "non-callable record or function values");
       const auto &code = planner.plans[id]->code;
       if (code.size() != 2 || code.front().code != Code::Kernel)
         synchronousTargets.insert(id);
@@ -321,32 +322,36 @@ public:
           builder.CreateRet(value);
         continue;
       }
+      const auto indirect = [](const ValueType &type) {
+        return type.tensor || type.builtin == BuiltinValue::Function;
+      };
+      const bool indirectResult = indirect(found->resultType);
       std::vector<Type *> parameters;
-      if (found->resultType.tensor)
+      if (indirectResult)
         parameters.push_back(pointer);
       for (auto symbol : found->parameters) {
         const auto &type = planner.input.symbols[symbol].type;
-        parameters.push_back(type.tensor ? pointer : scalarType(type));
+        parameters.push_back(indirect(type) ? pointer : scalarType(type));
       }
       parameters.push_back(pointer);
       auto *bridge =
           Function::Create(llvm::FunctionType::get(
-                               found->resultType.tensor ? voidType : scalarType(found->resultType),
+                               indirectResult ? voidType : scalarType(found->resultType),
                                parameters, false),
                            llvm::GlobalValue::ExternalLinkage,
                            "_mlir_ciface_kalandra_cpu_" + std::to_string(index), module);
       builder.SetInsertPoint(Block::Create(context, "entry", bridge));
       std::vector<Value *> args{llvm::ConstantPointerNull::get(builder.getPtrTy())};
-      const auto offset = found->resultType.tensor ? 1u : 0u;
-      if (found->resultType.tensor)
+      const auto offset = indirectResult ? 1u : 0u;
+      if (indirectResult)
         builder.CreateStore(llvm::Constant::getNullValue(scalarType(found->resultType)),
                             bridge->getArg(0));
       for (unsigned n = 0; n < found->parameters.size(); ++n) {
         const auto &type = planner.input.symbols[found->parameters[n]].type;
-        args.push_back(type.tensor ? static_cast<Value *>(builder.CreateLoad(
+        args.push_back(indirect(type) ? static_cast<Value *>(builder.CreateLoad(
                                          scalarType(type), bridge->getArg(n + offset)))
                                    : static_cast<Value *>(bridge->getArg(n + offset)));
-        if (!type.tensor &&
+        if (!indirect(type) &&
             (type.builtin == BuiltinValue::Bool ||
              (type.builtin == BuiltinValue::Numeric && isNarrowInteger(type.element))))
           bridge->addParamAttr(n + offset,
@@ -356,7 +361,7 @@ public:
       }
       args.push_back(bridge->getArg(bridge->arg_size() - 1));
       auto *value = builder.CreateCall(synchronousEntries[id], args);
-      if (found->resultType.tensor) {
+      if (indirectResult) {
         builder.CreateStore(value, bridge->getArg(0));
         builder.CreateRetVoid();
       } else {
@@ -1292,9 +1297,14 @@ private:
       builder.SetInsertPoint(next);
     };
     for (const auto &expression : planner.kernels.expressions)
-      if (const auto *ref = std::get_if<FunctionReference>(&expression.operation))
-        accept(planner.kernels, *ref, expression.type,
-               module.getFunction("kalandra_callable_" + std::to_string(ref->function)));
+      if (const auto *ref = std::get_if<FunctionReference>(&expression.operation)) {
+        const auto id = std::to_string(ref->function);
+        const bool projectedFallible = planner.input.functions.empty() &&
+            planner.kernels.functions.at(ref->function).resultType.fallible;
+        auto *code = module.getFunction(
+            (projectedFallible ? "kalandra_callable_plan_" : "kalandra_callable_") + id);
+        accept(planner.kernels, *ref, expression.type, code);
+      }
     for (const auto &expression : planner.input.expressions)
       if (const auto *ref = std::get_if<FunctionReference>(&expression.operation))
         accept(planner.input, *ref, expression.type,

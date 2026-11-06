@@ -379,6 +379,23 @@ private:
               statement = importStatement(statement);
             op.trueResult = importValue(op.trueResult);
             op.falseResult = importValue(op.falseResult);
+          } else if constexpr (std::is_same_v<T, GuardOperation>) {
+            op.condition = importValue(op.condition);
+            for (auto &statement : op.body)
+              statement = importStatement(statement);
+            op.result = importValue(op.result);
+          } else if constexpr (std::is_same_v<T, FailOperation>) {
+            op.error = importValue(op.error);
+          } else if constexpr (std::is_same_v<T, CatchOperation>) {
+            op.operand = importValue(op.operand);
+            op.parameter = importSymbol(op.parameter);
+            for (auto &statement : op.body)
+              statement = importStatement(statement);
+            op.result = importValue(op.result);
+          } else if constexpr (std::is_same_v<T, TaskOperation>) {
+            if (op.prefix != TaskPrefix::Try || op.placement)
+              throw std::runtime_error("native callable projection cannot suspend");
+            op.operand = importValue(op.operand);
           } else if constexpr (std::is_same_v<T, MatchOperation>) {
             op.subject = importValue(op.subject);
             for (auto &arm : op.cases) {
@@ -423,7 +440,7 @@ private:
   FunctionId importFunction(FunctionId id) {
     if (auto found = importedFunctions.find(id); found != importedFunctions.end())
       return found->second;
-    if (resumable.at(id))
+    if (resumable.at(id) && !(options.preserveCalls && options.deviceValues && !coordinating.at(id)))
       throw std::runtime_error("map callback cannot suspend");
     const auto copied = kernels.functions.size();
     importedFunctions[id] = copied;

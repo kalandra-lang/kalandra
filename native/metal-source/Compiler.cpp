@@ -1281,7 +1281,10 @@ class Compiler {
           auto imported = continuationImports.find(original);
           if (imported == continuationImports.end())
             reject(span, "GPU closure target is missing from the host continuation projection");
-          auto *code = module->getFunction("kalandra_callable_" + std::to_string(imported->second));
+          const bool fallible = placement.functions.at(original).resultType.fallible;
+          auto *code = module->getFunction(
+              (fallible ? "kalandra_callable_plan_" : "kalandra_callable_") +
+              std::to_string(imported->second));
           if (!code || code->isDeclaration())
             reject(span, "GPU closure target has no native host identity");
           code->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);
