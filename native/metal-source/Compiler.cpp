@@ -3,6 +3,7 @@
 #include "../gpu-source/AggregateGraphSchema.h"
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/ClosureGraphSchema.h"
+#include "../gpu-source/DeviceErrorLayout.h"
 #include "../gpu-source/Supervisor.h"
 #include "../lib/NativeLayout.h"
 #include "../lib/TaskValueCopy.h"
@@ -134,6 +135,7 @@ class Compiler {
     const auto &cpu = source ? *source : this->cpu;
     std::set<FunctionId> visited;
     std::vector<FunctionId> pending{root};
+    std::set<std::size_t> errorFamilies;
     while (!pending.empty()) {
       auto function = pending.back();
       pending.pop_back();
@@ -144,12 +146,16 @@ class Compiler {
         if (type.builtin == BuiltinValue::Numeric &&
             !numericArithmeticAvailable(type.element, NumericTarget::AppleGpu))
           reject(fn.declaration, "GPU kernel numeric type is not implemented");
+        if (type.fallible && type.errorRecord)
+          errorFamilies.insert(*type.errorRecord);
       };
       supported(fn.resultType);
       for (auto parameter : fn.parameters)
         supported(cpu.symbols[parameter].type);
       for (auto value : fn.expressions) {
         const auto &expression = cpu.expressions[value];
+        if (expression.type.fallible && expression.type.errorRecord)
+          errorFamilies.insert(*expression.type.errorRecord);
         const auto &op = expression.operation;
         if (auto *call = std::get_if<FunctionCall>(&op))
           pending.push_back(call->function);
@@ -176,6 +182,12 @@ class Compiler {
           reject(expression.span, "Metal has no hardware float64 arithmetic; explicitly select "
                                   "--arithmetic hardware-with-software-fallback or software");
       }
+    }
+    if (!errorFamilies.empty()) {
+      const std::vector families(errorFamilies.begin(), errorFamilies.end());
+      auto layouts = planDeviceErrorPayloadLayouts(cpu, families);
+      if (!layouts)
+        reject(cpu.functions[root].declaration, layouts.error());
     }
   }
 
