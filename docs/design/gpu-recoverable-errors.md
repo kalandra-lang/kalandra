@@ -51,6 +51,12 @@ allocated backing use the existing result ownership rules. Release temporary
 storage on every terminal path, including interrupted export and partial
 materialization.
 
+A successful tensor result remains resident on the selected GPU. The current
+typed result path validates the downloaded graph and uploads the active
+success tensor inside the child task before publishing its outcome. Repeated
+awaits share the completed device buffer. Application failures retain the
+native payload graph and skip the upload.
+
 ## Implementation and verification
 
 The shared GPU continuation planner already represents `Fail`, `Catch`, and

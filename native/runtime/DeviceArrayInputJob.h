@@ -25,6 +25,31 @@ template <class Runtime, class Buffer> struct DeviceResidentArgument {
   static constexpr bool resident = true;
   static const ValueLayout &layout() noexcept { return Runtime::bufferLayout(); }
 };
+// The job publishes the resident tensor only after its upload settles. On
+// application failure, retain the checked native graph as the task result.
+template <class Policy, class Buffer> struct DeviceResidentOutcome {
+  Buffer value{};
+  typename Policy::Record error{};
+  static const ValueLayout &layout() noexcept {
+    static const ValueLayout valueLayout{
+        Policy::residentIdentity, sizeof(DeviceResidentOutcome), alignof(DeviceResidentOutcome),
+        +[](Invocation &dst, void *out, const Invocation &src, const void *input) noexcept {
+          if (dst.poll())
+            return false;
+          const auto &from = *static_cast<const DeviceResidentOutcome *>(input);
+          auto &to = *new (out) DeviceResidentOutcome{};
+          if (from.value)
+            to.value = from.value;
+          else if (!Policy::layout().copy(dst, &to.error, src, &from.error)) {
+            to.~DeviceResidentOutcome();
+            return false;
+          }
+          return true;
+        },
+        +[](void *out) noexcept { static_cast<DeviceResidentOutcome *>(out)->~DeviceResidentOutcome(); }};
+    return valueLayout;
+  }
+};
 // Private source bridge. Packing and upload belong to this admitted child, not
 // its caller, so spawn does not insert an implicit await in the parent program.
 // Runtime/Buffer/Device/Executable are the existing backend facade types.
@@ -45,6 +70,9 @@ class DeviceArrayTask final {
   static constexpr bool Aggregate = !std::is_void_v<AggregatePolicy>;
   static_assert(Count > 0 || ArrayResult);
   static constexpr bool GraphResult = requires { AggregatePolicy::graphResult; };
+  static constexpr bool ResidentOutcome = requires { AggregatePolicy::residentIdentity; };
+  using Published = std::conditional_t<ResidentOutcome,
+      DeviceResidentOutcome<AggregatePolicy, Buffer>, std::monostate>;
   using Decoder = std::conditional_t<GraphResult, DeviceGraphResultDecode<AggregatePolicy>,
       std::conditional_t<Aggregate, DeviceAggregateResultDecode<AggregatePolicy>,
                          DeviceArrayResultDecode<ResultElement, BooleanResult>>>;
@@ -82,6 +110,7 @@ private:
     std::size_t packing = 0;
     unsigned phase = 0;
     Result value{};
+    [[no_unique_address]] Published published{};
     Buffer output{}, page{};
     TaskHandle download{};
     std::optional<DeviceArrayResultMetadata> metadata;
@@ -100,7 +129,9 @@ private:
     each(std::forward<F>(function), std::make_index_sequence<Count>{});
   }
   static const ValueLayout &resultLayout() noexcept {
-    if constexpr (BufferResult)
+    if constexpr (ResidentOutcome)
+      return Published::layout();
+    else if constexpr (BufferResult)
       return Runtime::bufferLayout();
     else if constexpr (Aggregate)
       return AggregatePolicy::layout();
@@ -484,7 +515,70 @@ private:
         }
         if constexpr (!Aggregate)
           frame.value = *frame.decoder.result();
-        task.complete(&frame.value);
+        if constexpr (ResidentOutcome) {
+          const auto tag = AggregatePolicy::outcomeTag(frame.value);
+          if (tag == 2) {
+            frame.published.error = frame.value;
+            task.complete(&frame.published);
+            return;
+          }
+          if (tag != 1) {
+            task.fault(3);
+            return;
+          }
+          const auto descriptor = AggregatePolicy::successTensor(frame.value);
+          if (!descriptor) {
+            task.fault(3);
+            return;
+          }
+          auto host = runtime.fromCpu(task.context(), descriptor->view());
+          if (!host) {
+            task.fault(std::int64_t(host.error()));
+            return;
+          }
+          frame.group = task.openGroup();
+          if (!frame.group) {
+            hostArrayFailure(task);
+            return;
+          }
+          frame.download = runtime.upload(task, frame.group, std::move(*host), frame.device);
+          if (!frame.download) {
+            task.fail({TaskFailure::AdmissionRejected});
+            return;
+          }
+          frame.resultScope.reset();
+          frame.phase = 10;
+        } else {
+          task.complete(&frame.value);
+          return;
+        }
+      }
+      if constexpr (ResidentOutcome) {
+        if (frame.phase == 10) {
+          if (!task.await(frame.download))
+            return;
+          if (!task.close(frame.group)) {
+            hostArrayFailure(task);
+            return;
+          }
+          frame.phase = 11;
+        }
+        if (frame.phase == 11) {
+          if (!task.join(frame.group))
+            return;
+          const auto failure = task.failure(frame.group);
+          if (failure.kind != TaskFailure::None) {
+            task.releaseGroup(frame.group);
+            task.fail(failure);
+            return;
+          }
+          if (!readBuffer(task, frame.download, frame.published.value) ||
+              !task.releaseGroup(frame.group)) {
+            hostArrayFailure(task);
+            return;
+          }
+          task.complete(&frame.published);
+        }
       }
     }
   }

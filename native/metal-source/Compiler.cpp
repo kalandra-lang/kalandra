@@ -1999,7 +1999,8 @@ class Compiler {
   std::string graphCapturePolicy(const ValueType &type, SourceSpan span,
                                  std::span<const ValueType> joined = {}, FunctionId function = {},
                                  const ClosureGraphSchema *closure = nullptr,
-                                 const TypedModule *source = nullptr, bool exporting = false) {
+                                 const TypedModule *source = nullptr, bool exporting = false,
+                                 bool residentOutcome = false) {
     const auto id = closure ? function : *type.record;
     const auto name = closure ? "GpuClosureCapture" + std::to_string(function) : joined.empty() ? "GpuGraphCapture" + std::to_string(id)
                                      : "GpuJoinedGraphCapture" + std::to_string(function);
@@ -2198,8 +2199,27 @@ class Compiler {
             count + "> captureLayouts{{" + capture + "}};\ninline static constexpr std::array<unsigned," +
             count + "> arenaLayouts{{" + arena + "}};\ninline static constexpr std::array<const void*," +
             count + "> keys{{" + keys + "}};\nstatic constexpr bool graphResult=true;\nstatic constexpr auto root=" +
-            number(schema->captureJoin.value_or(schema->roots.at(0))) + ";};\n";
-    aggregateDeclarations += std::move(code);
+            number(schema->captureJoin.value_or(schema->roots.at(0))) + ";\n";
+    if (residentOutcome) {
+      const auto &value = source->records.at(id).fields.at(1).type;
+      const auto &abi = nativeAggregateLayouts->at(id).fields;
+      const auto descriptor = tensorDescriptor(value.element, value.shape.size());
+      code += "static constexpr std::uint64_t residentIdentity=" +
+              number(0x4b414c5254000000ULL + id) + ";\n"
+              "static std::int64_t outcomeTag(const Record &record){std::int64_t tag{};"
+              "std::memcpy(&tag,record.data.data()+" + number(abi.at(0).nativeOffset) +
+              ",sizeof(tag));return tag;}\nstatic std::optional<" + descriptor +
+              "> successTensor(const Record &record){" + descriptor +
+              " descriptor{};static_assert(sizeof(descriptor)==" + number(abi.at(1).nativeBytes) +
+              ");std::memcpy(&descriptor,record.data.data()+" +
+              number(abi.at(1).nativeOffset) + ",sizeof(descriptor));\n";
+      for (std::size_t axis = 0; axis < value.shape.size(); ++axis)
+        if (auto extent = value.shape[axis].constant)
+          code += "if(descriptor.sizes[" + std::to_string(axis) + "]!=" +
+                  number(*extent) + ")return std::nullopt;\n";
+      code += "return descriptor;}\n";
+    }
+    aggregateDeclarations += code + "};\n";
     return name;
   }
   std::set<std::size_t> aggregateResultPolicies;
@@ -2337,9 +2357,10 @@ class Compiler {
             return !deviceScalarValue(type) && !deviceInlineRecordValue(type) && !residentTensor(type);
           }))
         reject(span, "GPU recursive results require scalar, nominal graph or resident tensor inputs");
-      if (errorOutcome && deviceTensorValue(cpu.records.at(*fn.resultType.record).fields.at(1).type))
-        reject(span, "fallible GPU tensor success requires resident result publication");
-      graphResultPolicy = graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu, true);
+      const bool residentOutcome = errorOutcome &&
+          deviceTensorValue(cpu.records.at(*fn.resultType.record).fields.at(1).type);
+      graphResultPolicy = graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu, true,
+                                             residentOutcome);
       if (rankedGraphResults.contains(*fn.resultType.record) && closureSchema &&
           std::ranges::any_of(closureSchema->graph.layouts, [](const auto &layout) {
             return deviceTensorValue(layout.type);
@@ -2671,8 +2692,17 @@ class Compiler {
     }
     code += admitted("f." + out);
     steps.push_back(std::move(code));
-    if (errorOutcome)
+    if (errorOutcome) {
       result.outcomeRecord = result.record;
+      const auto &success = cpu.records.at(*result.record).fields.at(1).type;
+      if (deviceTensorValue(success)) {
+        result.gpu = true;
+        result.rank = success.shape.size();
+        result.element = success.element;
+        for (unsigned axis = 0; axis < result.rank; ++axis)
+          setExtent(result, axis, success.shape[axis].constant);
+      }
+    }
     return result;
   }
   Value spawnNumeric(FunctionId function, const std::vector<Value> &inputs, Value target,
@@ -3878,12 +3908,24 @@ class Compiler {
           field(recordType(*type.fields.at(2).type.record));
           Value error{Value::Aggregate, next - 1};
           error.record = type.fields.at(2).type.record;
-          read = "if(!task.read(" + ref(input) + "," + recordLayoutName(*outcome.record) +
-                 ",&" + ref(outcome) + "))return;\nswitch(" + hostErrorTag(outcome) + "){\n" +
-                 "case 1:{" + readNativeField(outcome, 1, output) + "break;}\n" +
-                 "case 2:{" + readNativeField(outcome, 2, error) +
-                 hostErrorCopy(applicationError(output), error) + "break;}\n" +
-                 "default:task.fault(3);return;}\n";
+          const auto errorRead = readNativeField(outcome, 2, error) +
+                                 hostErrorCopy(applicationError(output), error);
+          if (deviceTensorValue(type.fields.at(1).type)) {
+            const auto policy = "GpuGraphCapture" + std::to_string(*outcome.record);
+            read = "using Published=DeviceResidentOutcome<" + policy + ",m::Buffer>;\n"
+                   "alignas(Published) std::byte bytes[sizeof(Published)];\nif(!task.read(" +
+                   ref(input) + ",Published::layout(),bytes))return;\n"
+                   "auto &published=*std::launder(reinterpret_cast<Published *>(bytes));\n"
+                   "bool success=bool(published.value);if(success)" + ref(output) +
+                   "=std::move(published.value);else " + ref(outcome) + "=published.error;\n"
+                   "Published::layout().destroy(&published);\nif(!success){\n" + errorRead + "}\n";
+          } else {
+            read = "if(!task.read(" + ref(input) + "," + recordLayoutName(*outcome.record) +
+                   ",&" + ref(outcome) + "))return;\nswitch(" + hostErrorTag(outcome) + "){\n" +
+                   "case 1:{" + readNativeField(outcome, 1, output) + "break;}\n" +
+                   "case 2:{" + errorRead + "break;}\n" +
+                   "default:task.fault(3);return;}\n";
+          }
         } else if (input.array || input.record)
           read = "if(!task.read(" + ref(input) + "," + arrayLayout(input) + ",&" + ref(output) +
                  ")) return;\n";

@@ -145,7 +145,7 @@ static void verifyErrorExport(TypedModule module) {
 
 int main(int argc, char **argv) {
   try {
-    if (argc != 4)
+    if (argc != 5)
       throw std::runtime_error("expected the device application error fixture paths");
     std::ifstream fixture(argv[1], std::ios::binary);
     if (!fixture)
@@ -227,8 +227,12 @@ fn main() -> int ! TaskError:
     if (!tensorFixture)
       throw std::runtime_error("could not read the tensor error fixture");
     const std::string tensor{std::istreambuf_iterator<char>(tensorFixture), {}};
+    std::ifstream residentFixture(argv[4], std::ios::binary);
+    if (!residentFixture)
+      throw std::runtime_error("could not read the resident tensor outcome fixture");
+    const std::string resident{std::istreambuf_iterator<char>(residentFixture), {}};
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {
-      for (const auto &program : {placed, observed, propagated, uncaught, helper, recursive, tensor}) {
+      for (const auto &program : {placed, observed, propagated, uncaught, helper, recursive, tensor, resident}) {
         auto parsed = parse(std::make_shared<SourceFile>("placed-device-errors.k", program));
         if (!parsed.ok())
           throw std::runtime_error(parsed.diagnostics.front().message);
@@ -246,6 +250,9 @@ fn main() -> int ! TaskError:
         if (program == helper && (!host.contains("::outcomeLayout,bytes") ||
                                   !host.contains("f.arrayScopes.clear(")))
           throw std::runtime_error("host helper await did not use a typed outcome");
+        if (program == resident && (!host.contains("DeviceResidentOutcome<") ||
+                                    !host.contains("> successTensor(")))
+          throw std::runtime_error("fallible tensor task lost its resident result publication");
         if (program == tensor && !host.contains("r.fromCpu(task.context(),descriptor.view())"))
           throw std::runtime_error("tensor error projection lost its native descriptor adapter");
         if (program == recursive && !host.contains("kalandra_recursive_read_v1("))
