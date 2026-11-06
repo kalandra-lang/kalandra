@@ -240,6 +240,15 @@ fn main()->int ! TaskError:
     try await spawn device(pair,batch.values,7) on devices.gpu()
 ''',17)
 fixtures = Path(__file__).resolve().parent.parent / 'tests/fixtures/mixed-host-aggregates'
+cases['gpu-host-closure-empty'] = ('''fn work(values:[int],callback:fn(int)->int)->int:
+  length(values)+callback(5)
+fn main()->int ! TaskError:
+  values=generate(0,fn(i:int):i)
+  callback=fn(n:int):n+length(values)
+  try parallel:
+    try await spawn work(values,callback) on devices.gpu()
+''', 5)
+cases['gpu-host-closure-joined'] = ((fixtures/'gpu-host-closure-joined.k').read_text(), 42)
 cases['gpu-host-closure'] = ((fixtures/'gpu-host-closure.k').read_text(), 22)
 cases['gpu-host-closure-nested'] = ((fixtures/'gpu-host-closure-nested.k').read_text(), 26)
 cases['host-closure'] = ((fixtures/'host-closure.k').read_text(), 59)
@@ -330,7 +339,8 @@ fn main()->int ! TaskError:
 ''',0)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
-known |= {'reject-device-string-body','reject-device-host-only-record-result'}
+known |= {'reject-device-string-body','reject-device-host-only-record-result',
+          'reject-closure-write', 'reject-closure-sort'}
 if set(a.case)-known:
     p.error('unknown case: '+', '.join(sorted(set(a.case)-known)))
 results = []
@@ -401,6 +411,23 @@ for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-recor
     assert r.returncode!=0 and 'S077' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'S077'})
     print('reject-'+name,'rejected S077',flush=True)
+for mutation in ('values[0]=99', 'sort(values)'):
+    name = 'reject-closure-' + ('write' if mutation.startswith('values') else 'sort')
+    if a.case and name not in a.case:
+        continue
+    root = a.root/name
+    root.mkdir(exist_ok=True)
+    path = root/'gpu.k'
+    path.write_text('fn work(callback:fn(int)->int)->int:\n  callback(1)\n'
+                    'fn main()->int ! TaskError:\n  values=[7,11]\n'
+                    '  callback=fn(n:int):n+values[0]\n  try parallel:\n'
+                    '    pending=spawn work(callback) on devices.gpu()\n    ' + mutation +
+                    '\n    try await pending\n')
+    r = subprocess.run(list(map(str, [a.compiler, path, '--target', a.backend, '-o', root/'device'])),
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode != 0 and 'S077' in r.stderr, (name, r.returncode, r.stdout, r.stderr)
+    results.append({'case': name, 'status': 'rejected', 'diagnostic': 'S077'})
+    print(name, 'rejected S077', flush=True)
 for name,source in {
     'device-string-body':'fn work(n:int)->int:\n  message="text"\n  length(message)+n\nfn main()->int ! TaskError:\n  try parallel:\n    try await spawn work(1) on devices.gpu()\n',
     'device-host-only-record-result':'''type Message:

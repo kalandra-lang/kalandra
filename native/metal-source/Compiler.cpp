@@ -1966,14 +1966,23 @@ class Compiler {
     if (!closure && (joined.empty() ? !graphCapturePolicies.insert(id).second
                        : !joinedGraphPolicies.insert(function).second))
       return name;
-    const auto record = deviceCallableValue(type) ? callableName(callableType(type)) : recordType(*type.record);
+    const auto captureType = [&](const ValueType &value) {
+      if (deviceCallableValue(value))
+        return callableName(callableType(value));
+      if (deviceInlineRecordValue(value))
+        return recordType(*value.record);
+      if (deviceFlatArrayValue(value))
+        return tensorDescriptor(value.builtin == BuiltinValue::Bool ? NumericType::UInt8 : value.element, 1);
+      reject(span, "GPU closure capture requires an owned native graph value");
+    };
+    const auto record = captureType(type);
     const auto roots = joined.empty() ? std::span(&type, 1) : joined;
     auto schema = closure ? std::expected<AggregateGraphSchema, std::string>(closure->graph)
                           : planAggregateGraphSchema(cpu, roots, *nativeAggregateLayouts,
                                                      aggregateEntryWorkRemaining);
     if (!schema)
       reject(span, schema.error());
-    if (!joined.empty() && !appendAggregateCaptureJoin(*schema, aggregateEntryWorkRemaining))
+    if (!joined.empty() && !schema->captureJoin && !appendAggregateCaptureJoin(*schema, aggregateEntryWorkRemaining))
       reject(span, "GPU joined graph schema exceeds configured work budget");
     for (const auto &layout : schema->layouts) {
       if (!consumeAggregateProjectionWork(aggregateEntryWorkRemaining, layout.cells.size()))
@@ -2014,24 +2023,53 @@ class Compiler {
               ";static const ValueLayout &layout(){return " +
               (deviceCallableValue(type) ? callableLayoutName(callableType(type)) : recordLayoutName(*type.record)) + ";}\n";
     } else {
-      std::string memberTypes, memberPolicies, views;
+      std::string memberTypes, memberPolicies, views, policies;
       for (std::size_t i = 0; i < joined.size(); ++i) {
         if (i) {
           memberTypes += ",";
           memberPolicies += ",";
         }
-        memberTypes += recordType(*joined[i].record);
-        memberPolicies += graphCapturePolicy(joined[i], span);
-        views += "{" + std::to_string(schema->roots[i]) +
-                 "u,1,std::as_bytes(std::span(&std::get<" + std::to_string(i) +
-                 ">(value),1))},";
+        const auto member = captureType(joined[i]);
+        memberTypes += member;
+        if (closure) {
+          const auto policy = name + "Member" + std::to_string(i);
+          const auto layout = deviceCallableValue(joined[i])
+              ? callableLayoutName(callableType(joined[i]))
+              : deviceInlineRecordValue(joined[i]) ? recordLayoutName(*joined[i].record)
+              : "hostArrayLayout<" + elementName(joined[i].builtin == BuiltinValue::Bool
+                                                    ? NumericType::UInt8 : joined[i].element) + "," +
+                    (joined[i].builtin == BuiltinValue::Bool ? "true" : "false") + ">()";
+          policies += "struct " + policy + "{using Record=" + member +
+                      ";static const ValueLayout &layout(){return " + layout + ";}};\n";
+          memberPolicies += policy;
+          const auto field = "std::as_bytes(std::span(&std::get<" + std::to_string(i) + ">(value),1))";
+          if (joined[i].array) {
+            views += "auto view" + std::to_string(i) + "=resolver(" + std::to_string(schema->roots[i]) +
+                     "u," + field + ");if(!view" + std::to_string(i) +
+                     ")return std::unexpected(view" + std::to_string(i) + ".error());roots[" +
+                     std::to_string(i) + "]=*view" + std::to_string(i) + ";";
+          } else {
+            views += "roots[" + std::to_string(i) + "]={" + std::to_string(schema->roots[i]) +
+                     "u,1," + field + "};";
+          }
+        } else {
+          memberPolicies += graphCapturePolicy(joined[i], span);
+          views += "{" + std::to_string(schema->roots[i]) +
+                   "u,1,std::as_bytes(std::span(&std::get<" + std::to_string(i) +
+                   ">(value),1))},";
+        }
       }
       const auto count = std::to_string(joined.size());
-      code += "struct " + name + " {using Record=std::tuple<" + memberTypes + ">;\n"
+      code += policies + "struct " + name + " {using Record=std::tuple<" + memberTypes + ">;\n"
               "static const ValueLayout &layout(){return deviceGraphCaptureTupleLayout<" +
-              std::to_string(0x4b414c474a000000ULL + function) + "ull," + memberPolicies +
-              ">();}\nstatic auto captureViews(const Record &value){return std::array<DeviceGraphNativeView," +
-              count + ">{{" + views + "}};}\n";
+              std::to_string(0x4b414c474a000000ULL + function) + "ull," + memberPolicies + ">();}\n";
+      if (closure)
+        code += "static std::expected<std::array<DeviceGraphNativeView," + count +
+                ">,DeviceGraphValidation> captureViews(const Record &value,DeviceGraphCapture &resolver){"
+                "std::array<DeviceGraphNativeView," + count + "> roots{};" + views + "return roots;}\n";
+      else
+        code += "static auto captureViews(const Record &value){return std::array<DeviceGraphNativeView," +
+                count + ">{{" + views + "}};}\n";
     }
     const auto number = [](std::uint64_t value) { return std::to_string(value) + "ull"; };
     for (std::size_t l = 0; l < schema->layouts.size(); ++l) {
@@ -2179,14 +2217,18 @@ class Compiler {
       for (std::size_t i = 0; i < fn.parameters.size(); ++i) {
         const auto &parameter = cpu.symbols.at(fn.parameters[i]);
         const auto &type = parameter.type;
-        if (deviceCallableValue(type)) {
-          if (graphParameter || parameter.mutableAccess)
-            reject(span, "GPU closure entry currently requires one read-only callable root");
-          graphParameter = i;
-          roots.push_back(call.arguments.at(i));
+        if (deviceCallableValue(type) || deviceInlineRecordValue(type) || deviceFlatArrayValue(type)) {
+          if (parameter.mutableAccess)
+            reject(span, "GPU closure graph inputs are read-only");
+          if (graphParameter)
+            graphPeers.push_back(i);
+          else
+            graphParameter = i;
+          if (containsFunctionStorage(placement, type))
+            roots.push_back(call.arguments.at(i));
           rootTypes.push_back(type);
         } else if (!deviceScalarValue(type))
-          reject(span, "GPU closure entry currently requires scalar companion inputs");
+          reject(span, "GPU closure entry requires native graph or scalar inputs");
       }
       if (!graphParameter || !deviceScalarValue(fn.resultType))
         reject(span, "GPU closure entry currently requires a scalar result");
@@ -2211,7 +2253,17 @@ class Compiler {
       if (!schema)
         reject(span, schema.error());
       closureSchema = std::move(*schema);
-      graphPolicy = graphCapturePolicy(rootTypes.front(), span, {}, cacheKey, &*closureSchema);
+      if (rootTypes.size() > 1) {
+        if (!appendAggregateCaptureJoin(closureSchema->graph, aggregateEntryWorkRemaining))
+          reject(span, "GPU joined closure graph exceeds its work budget");
+        closureSchema->kinds.push_back(ClosureGraphSchema::Kind::Value);
+        closureSchema->environments.emplace_back();
+        closureSchema->targets.emplace_back();
+        closureSchema->arenaLayouts.push_back(0);
+      }
+      graphPolicy = graphCapturePolicy(rootTypes.front(), span,
+          rootTypes.size() > 1 ? std::span<const ValueType>(rootTypes) : std::span<const ValueType>{},
+          cacheKey, &*closureSchema);
     }
     if (deviceInlineRecordValue(fn.resultType) &&
         !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1))) {
@@ -2308,7 +2360,9 @@ class Compiler {
       if (i == graphParameter || std::ranges::find(graphPeers, i) != graphPeers.end()) {
         if ((deviceCallableValue(type)
                  ? value.kind != Value::Callable || value.callable != callableType(type)
-                 : value.kind != Value::Aggregate || value.record != type.record) || value.gpu)
+                 : deviceFlatArrayValue(type)
+                     ? value.kind != Value::Array || value.element != (type.builtin == BuiltinValue::Bool ? NumericType::UInt8 : type.element)
+                     : value.kind != Value::Aggregate || value.record != type.record) || value.gpu)
           reject(span, "GPU graph capture requires a completed native nominal value");
         if (i == graphParameter)
           tensors.push_back(value);
@@ -2497,7 +2551,7 @@ class Compiler {
     if (arrayInputs || graphParameter || result.array || result.record) {
       std::string arguments;
       for (const auto &value : tensors) {
-        if (value.kind == Value::Aggregate || value.kind == Value::Callable)
+        if (graphParameter && value.slot == inputs.at(*graphParameter).slot)
           arguments += ",DeviceGraphArgument<" + graphPolicy + ">";
         else if (value.kind == Value::Tensor)
           arguments += ",DeviceResidentArgument<m::Runtime,m::Buffer>";
@@ -2522,7 +2576,7 @@ class Compiler {
               "},";
       code += "std::tuple{";
       for (const auto &value : tensors) {
-        if (value.kind == Value::Aggregate && !graphPeers.empty()) {
+        if (graphParameter && value.slot == inputs.at(*graphParameter).slot && !graphPeers.empty()) {
           code += "std::tuple{" + ref(value);
           for (auto peer : graphPeers)
             code += "," + ref(inputs.at(peer));
@@ -3553,9 +3607,8 @@ class Compiler {
           auto target = get(*op.placement);
           if (target.gpu)
             gpuCalls[op.output] = op.group;
-          const bool closureEntry = target.gpu && std::ranges::any_of(args, [](const Value &value) {
-            return value.kind == Value::Callable;
-          });
+          const bool closureEntry = target.gpu && std::ranges::any_of(placement.functions.at(op.target).parameters,
+              [&](auto symbol) { return containsFunctionStorage(placement, placement.symbols.at(symbol).type); });
           bind(op.output, closureEntry
                               ? spawnNumericProgram(op.target, args, target, span, op.source)
                               : resumable.at(op.target)

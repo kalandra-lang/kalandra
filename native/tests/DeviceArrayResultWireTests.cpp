@@ -577,6 +577,26 @@ void graphCapture() {
   const auto image = makeDeviceGraphArena(*packed, wireLayouts, layoutIDs, 3, 100, 100,
                                           [] { return false; }, &handles);
   check(bool(image), "could not relocate the capture graph");
+  // A descriptor root and an environment/record field referring to the same
+  // array must share one node, even though one view was resolved before packing.
+  const std::array joinCells{DeviceGraphNativeCell{{0, 2, true}, 0, 1},
+                             DeviceGraphNativeCell{{0, 3}, 1, 1}};
+  const std::array joinedNative{nativeLayouts[0], nativeLayouts[1], nativeLayouts[2],
+                                DeviceGraphNativeLayout{joinCells, 2, true}};
+  const std::array joinRules{joinCells[0].wire, joinCells[1].wire};
+  const std::array joinedWire{wireLayouts[0], wireLayouts[1], wireLayouts[2],
+                              DeviceGraphLayout{joinRules, true}};
+  const std::array joinedIDs{12u, 8u, 14u, 0u};
+  const std::array roots{*retainedArray,
+                         DeviceGraphNativeView{3, 1, std::as_bytes(std::span(&root, 1))}};
+  const auto joined = packDeviceGraphCaptures(roots, joinedNative, 4, 100, 100,
+                                              std::ref(capture), [] { return false; });
+  check(joined && joined->at(1) == 4, "joined descriptor root duplicated a captured backing");
+  const auto joinedImage = makeDeviceGraphArena(*joined, joinedWire, joinedIDs, 4, 100, 100,
+                                               [] { return false; }, nullptr, true);
+  check(joinedImage && joinedImage->captureRoots.size() == 2 &&
+            joinedImage->words.at(joinedImage->captureRoots[1] + 5) == joinedImage->captureRoots[0],
+        "joined graph lost identity between a direct array and captured field");
   const auto origins = makeDeviceGraphOrigins(views, handles, layoutIDs);
   check(origins && origins->size() == 2, "capture origin table included inline root");
   std::vector<std::uint64_t> envelope{DeviceGraphWireABI::OriginMagic, 3, 0, handles[1], handles[2]};

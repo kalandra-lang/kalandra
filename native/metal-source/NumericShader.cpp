@@ -1131,7 +1131,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       std::ranges::any_of(graphParameters, [&](auto i) {
         return i >= root.parameters.size() ||
                !(deviceInlineRecordValue(input.symbols.at(root.parameters[i]).type) ||
-                 (!closureImports.empty() && callable(input.symbols.at(root.parameters[i]).type)));
+                 (!closureImports.empty() && (callable(input.symbols.at(root.parameters[i]).type) ||
+                                             flatArray(input.symbols.at(root.parameters[i]).type))));
       }))
     return reject("GPU graph capture requires ordered inline record inputs and a scalar or graph result");
   std::set<SymbolId> graphSymbols;
@@ -1619,7 +1620,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
   for (auto i : graphParameters) {
     const auto slot = plan.parameters.at(i);
     const auto &type = plan.slots.at(slot);
-    if (callable(type))
+    if (callable(type) || localArray(type))
       importedRoots.push_back(offsets.at(slot));
     else
       for (auto leaf : layouts.at(*type.record).owned)
@@ -1945,6 +1946,23 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
                 equal(heap->read(handle, constant(2)), constant(import.carrierWords)));
             valid = arith::OrIOp::create(b, loc, valid, matches);
           }
+        } else if (localArray(type)) {
+          const auto payload = heap->read(handle, constant(2));
+          valid = arith::AndIOp::create(b, loc,
+              equal(heap->read(handle, constant(1)), constant(arrayIdentity(type))),
+              arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, payload,
+                  arith::SubIOp::create(b, loc, remaining, constant(4))));
+          valid = arith::AndIOp::create(b, loc, valid,
+              equal(arith::RemUIOp::create(b, loc, payload, constant(arrayStride(type))), constant(0)));
+          const auto empty = equal(handle, constant(0));
+          valid = arith::OrIOp::create(b, loc, valid, empty);
+          if (type.shape.front().constant) {
+            const auto length = *type.shape.front().constant;
+            valid = arith::AndIOp::create(b, loc, valid, length
+                ? Value(arith::AndIOp::create(b, loc,
+                    arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ne, handle, constant(0)),
+                    equal(payload, constant(length * arrayStride(type))))) : empty);
+          }
         } else {
           valid = arith::AndIOp::create(b, loc,
               equal(heap->read(handle, constant(1)), constant(boxIdentity(*type.record))),
@@ -1954,7 +1972,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         b.setInsertionPointToStart(&checked.getThenRegion().front());
         const Value word = arith::SubIOp::create(b, loc, cursor, constant(start));
         heap->storeAt(arith::AddIOp::create(b, loc, constant(offsets.at(parameter)), word),
-                      callable(type) ? handle :
+                      (callable(type) || localArray(type)) ? handle :
                       heap->read(handle, arith::AddIOp::create(b, loc, constant(4), word)));
         store(graphCursor, arith::AddIOp::create(b, loc, cursor, constant(1)));
         if (index + 1 == graphParameters.size()) {

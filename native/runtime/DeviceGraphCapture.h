@@ -153,10 +153,17 @@ template <class Policy> struct DeviceGraphArgument {
       const auto cancelled = [&] { return context.poll() != 0; };
       DeviceGraphCapture resolver(context, Policy::captureLayouts);
       std::vector<DeviceGraphNativeView> views;
-      constexpr bool joined = requires { Policy::captureViews(value); };
+      constexpr bool resolved = requires { Policy::captureViews(value, resolver); };
+      constexpr bool joined = resolved || requires { Policy::captureViews(value); };
       auto *originViews = preserveOrigins ? &views : nullptr;
-      auto wire = [&] {
-        if constexpr (joined) {
+      auto wire = [&]() -> std::expected<std::vector<std::uint64_t>, V> {
+        if constexpr (resolved) {
+          const auto roots = Policy::captureViews(value, resolver);
+          if (!roots)
+            return std::unexpected(roots.error());
+          return packDeviceGraphCaptures(*roots, Policy::nativeLayouts, Policy::root, limit,
+                                         work, std::ref(resolver), cancelled, originViews);
+        } else if constexpr (joined) {
           const auto roots = Policy::captureViews(value);
           return packDeviceGraphCaptures(roots, Policy::nativeLayouts, Policy::root, limit,
                                          work, std::ref(resolver), cancelled, originViews);

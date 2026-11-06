@@ -87,12 +87,13 @@ Bridge emission uses that map to resolve actual callable symbols; source IDs
 are not assumed to survive projection. Source-generated tests exercise both
 ordinary and continuation-projected factories through canonical graph packing.
 
-Host submission now connects those layouts and bridges for one read-only
-callable parameter with scalar companion parameters and a scalar result.
+Host submission connects those layouts and bridges for read-only callable,
+record and flat-array parameters with scalar companions and a scalar result.
 The compiler derives provenance from the original spawn arguments, emits the
 selected device bodies, and retains native captures through the task packet.
-Multiple owned arguments, callable-containing record roots and tensor captures
-remain integration requirements before this PR is ready.
+All owned inputs share one graph directory, including callable-containing
+records and arrays also captured by closures. Tensor captures and broader
+result transport remain integration requirements before this PR is ready.
 
 ### Device import representation
 
@@ -114,7 +115,10 @@ program and shader emission. Emission tests exercise callable graph parameters,
 capture dispatch and rejection of malformed metadata. The maintained
 `gpu-host-closure` and `gpu-host-closure-nested` fixtures exercise real CPU-created
 closures on Metal against CPU oracles. They cover array captures, nested closures,
-named-versus-captured target selection and concurrent submissions. These checks
+named-versus-captured target selection and concurrent submissions. Joined-root
+fixtures add callable record fields, shared arrays, and empty arrays. Runtime
+wire tests assert shared node identity, and negative source tests reject mutation
+or sorting of captured backing while the GPU task holds its read lock. These checks
 do not replace the remaining ownership/fault matrix and backend qualification.
 
 `ClosureGraphSchema` combines ordinary values, callable carriers and selected
