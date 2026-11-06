@@ -114,13 +114,15 @@ class Builder : public ModulePlan {
 public:
   std::size_t totalSlots = 0;
   Options options;
+  const RecordStoragePlan &recordStorage;
   std::vector<bool> resumable, coordinating, loopControl;
   std::optional<FunctionInvocationFlow> invocationFlow;
   std::vector<FunctionId> pending;
   std::vector<bool> scheduled;
   std::vector<std::vector<SymbolId>> localCells;
-  explicit Builder(const TypedModule &input, Options options)
-      : ModulePlan(input), options(options), resumable(resumableFunctions(input)),
+  explicit Builder(const TypedModule &input, Options options, const RecordStoragePlan &recordStorage)
+      : ModulePlan(input), options(options), recordStorage(recordStorage),
+        resumable(resumableFunctions(input)),
         coordinating(coordinatingFunctions(input)), loopControl(loopControlFunctions(input)),
         invocationFlow(functionInvocationFlow(input)) {
     if (options.deviceCallFrames &&
@@ -1276,7 +1278,9 @@ private:
     } else if (const auto *field = std::get_if<RecordFieldRead>(&node.operation);
                field && (!options.preserveCalls ||
                          (options.deviceValues && input.expressions.at(field->input).type.record &&
-                          input.records.at(*input.expressions.at(field->input).type.record).error))) {
+                          (input.records.at(*input.expressions.at(field->input).type.record).error ||
+                           recordStorage.fields.at(*input.expressions.at(field->input).type.record)
+                                   .at(field->field) == RecordFieldStorage::ManagedReference)))) {
       auto subject = expression(plan, field->input, env, stack);
       plan.code.push_back({Code::Field, output, {subject}, field->field, 0, 0, id});
     } else if (const auto *narrow = std::get_if<ErrorNarrow>(&node.operation);
@@ -1490,17 +1494,19 @@ std::vector<bool> coordinatingFunctions(const TypedModule &input) {
   return result;
 }
 std::expected<ModulePlan, std::string> plan(const TypedModule &input, Options options) {
+  RecordStoragePlan recordStorage;
   if (!input.records.empty()) {
     auto storage = planRecordStorage(input);
     if (!storage)
       return std::unexpected(storage.error().message);
+    recordStorage = std::move(*storage);
     if (hasPlacement(input) && !options.deviceValues)
       return std::unexpected("records are not implemented in placement-aware continuations");
     if (auto error = numericCapabilityError(input, NumericTarget::Cpu, options.deviceValues))
       return std::unexpected(*error);
   }
   try {
-    Builder builder(input, options);
+    Builder builder(input, options, recordStorage);
     return std::move(static_cast<ModulePlan &>(builder));
   } catch (const std::exception &error) {
     return std::unexpected(error.what());

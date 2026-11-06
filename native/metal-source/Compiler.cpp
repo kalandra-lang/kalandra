@@ -3420,8 +3420,25 @@ class Compiler {
   std::string readNativeField(Value record, std::size_t member, Value output) {
     const auto source = nativeField(record, member);
     const auto &abi = aggregateTypes.at(*record.record).fields.at(member);
-    if (abi.storage == RecordFieldStorage::ManagedReference || output.kind == Value::Tensor)
-      reject({}, "GPU host field requires an owned reference or tensor adapter");
+    if (abi.storage == RecordFieldStorage::ManagedReference) {
+      const auto &field = placement.records.at(*record.record).fields.at(member);
+      if (!output.record || output.record != field.type.record)
+        reject({}, "GPU host recursive projection changed its nominal type");
+      const auto id = *output.record;
+      recordType(id);
+      const auto &layout = aggregateTypes.at(id);
+      const auto key = "kalandra_recursive_type_" + std::to_string(id);
+      if (graphNominalKeys.insert(id).second)
+        aggregateDeclarations += "extern \"C\" const unsigned char " + key + ";\n";
+      return "{const void *node=nullptr;static_assert(sizeof(node)==" +
+             std::to_string(abi.nativeBytes) + ");\nstd::memcpy(&node," + source +
+             ",sizeof(node));\nconst auto *payload=kalandra_recursive_read_v1(&task.context(),node," +
+             std::to_string(layout.nativeBytes) + "," + std::to_string(layout.nativeAlignment) +
+             ",&" + key + ");\nif(!payload){hostArrayFailure(task);return;}\nstd::memcpy(&" +
+             ref(output) + ",payload,sizeof(" + ref(output) + "));}\n";
+    }
+    if (output.kind == Value::Tensor)
+      reject({}, "GPU host field requires an owned tensor adapter");
     return "static_assert(sizeof(" + ref(output) + ")==" + std::to_string(abi.nativeBytes) +
            ");\nstd::memcpy(&" + ref(output) + "," + source + ",sizeof(" + ref(output) + "));\n";
   }

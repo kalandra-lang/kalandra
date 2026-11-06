@@ -208,6 +208,7 @@ if(BUILD_TESTING)
   target_include_directories(kalandra-device-application-error-tests SYSTEM PRIVATE ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
   target_compile_options(kalandra-device-application-error-tests PRIVATE -Wall -Wextra -Werror)
   add_test(NAME native-device-application-errors COMMAND kalandra-device-application-error-tests
-    "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-application-errors.k")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-application-errors.k"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../metal-source/device-recursive-error.k")
   set_tests_properties(native-device-application-errors PROPERTIES TIMEOUT 120)
 endif()
