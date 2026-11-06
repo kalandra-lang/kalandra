@@ -197,8 +197,22 @@ fn main() -> int ! (SampleError | OtherError | TaskError):
   try parallel:
     try await spawn descend(0) on devices.gpu()
 )k";
+    const std::string helper = source + R"k(
+fn coordinate(n: int) -> int ! (SampleError | OtherError | TaskError):
+  try parallel:
+    try await spawn descend(n) on devices.gpu()
+
+fn main() -> int ! TaskError:
+  try parallel:
+    response = await spawn coordinate(0) on devices.cpu()
+    response catch fn(error):
+      match error:
+        SampleError.Invalid { values }: values[0] + values[1]
+        OtherError.Empty: 23
+        _: 0
+)k";
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {
-      for (const auto &program : {placed, observed, propagated, uncaught}) {
+      for (const auto &program : {placed, observed, propagated, uncaught, helper}) {
         auto parsed = parse(std::make_shared<SourceFile>("placed-device-errors.k", program));
         if (!parsed.ok())
           throw std::runtime_error(parsed.diagnostics.front().message);
@@ -213,6 +227,8 @@ fn main() -> int ! (SampleError | OtherError | TaskError):
           throw std::runtime_error("fallible task did not use the typed device outcome transport");
         if (program == propagated && !host.contains("task.stopGroup("))
           throw std::runtime_error("propagated device error did not reserve the group outcome");
+        if (program == helper && !host.contains("::outcomeLayout,bytes"))
+          throw std::runtime_error("host helper await did not use a typed outcome");
         if (program == uncaught &&
             (!host.contains("mainOutcomeLayout") ||
              !host.contains(R"(std::fprintf(stderr,"%s.%s\n","SampleError","Invalid");return 89;)")))

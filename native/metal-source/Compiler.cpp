@@ -80,6 +80,7 @@ struct Value {
   std::optional<std::size_t> record = {};
   std::optional<std::size_t> callable = {};
   std::optional<std::size_t> outcomeRecord = {};
+  std::optional<FunctionId> outcomeHelper = {};
   std::optional<std::pair<std::size_t, std::size_t>> applicationError = {};
 };
 class Compiler {
@@ -1862,6 +1863,8 @@ class Compiler {
                     admitted("f." + out));
     Value value{Value::Task, next - 1};
     const auto type = fn.declaredResult.value_or(fn.resultType);
+    if (fn.resultType.errorRecord)
+      value.outcomeHelper = id;
     value.record = type.record;
     value.array = type.array;
     value.booleanArray = isBoolArray(type);
@@ -3595,8 +3598,17 @@ class Compiler {
     auto write = [&](Slot slot, Value input) {
       auto output = get(slot);
       const auto &type = plan.slots.at(slot);
+      const bool first = (type.task || type.tensor) && payloadWrites[slot]++ == 0;
+      if (type.task) {
+        if (!first &&
+            (output.outcomeHelper != input.outcomeHelper ||
+             output.outcomeRecord != input.outcomeRecord))
+          reject({}, "task branches require a common application outcome layout");
+        output.outcomeHelper = input.outcomeHelper;
+        output.outcomeRecord = input.outcomeRecord;
+        values[slot] = output;
+      }
       if (type.tensor) {
-        const bool first = payloadWrites[slot]++ == 0;
         for (unsigned axis = 0; axis < output.rank; ++axis) {
           auto known = type.shape[axis].constant;
           if (!known)
@@ -3773,7 +3785,23 @@ class Compiler {
         if (auto found = gpuCalls.find(op.args[0]); found != gpuCalls.end())
           gpuAwaitSites.push_back({i, found->second});
         std::string read;
-        if (input.outcomeRecord) {
+        if (input.outcomeHelper) {
+          if (!output.applicationError)
+            reject(span, "host task application error requires a typed await channel");
+          const auto helper = helperName(*input.outcomeHelper);
+          const auto family = *placement.functions.at(*input.outcomeHelper).resultType.errorRecord;
+          field(recordType(family));
+          Value error{Value::Aggregate, next - 1};
+          error.record = family;
+          read = "alignas(" + helper + "::Outcome) std::byte bytes[sizeof(" + helper +
+                 "::Outcome)];\nif(!task.read(" + ref(input) + "," + helper +
+                 "::outcomeLayout,bytes))return;\n"
+                 "auto &outcome=*std::launder(reinterpret_cast<" + helper + "::Outcome *>(bytes));\n"
+                 "const bool failed=outcome.failed;\nif(failed)" + ref(error) +
+                 "=outcome.error;else " + ref(output) + "=std::move(outcome.value);\n" +
+                 helper + "::outcomeLayout.destroy(&outcome);\nif(failed){\n" +
+                 hostErrorCopy(applicationError(output), error) + "}\n";
+        } else if (input.outcomeRecord) {
           if (!output.applicationError)
             reject(span, "GPU task application error requires a typed await channel");
           field(recordType(*input.outcomeRecord));
@@ -3799,7 +3827,7 @@ class Compiler {
                  ref(input) + "," + ref(output) + ")) return;\n";
         steps.push_back("if(!task.await(" + ref(input) + ")) return;\n" + failureRef(output) +
                         "=task.failure(" + ref(input) + ");\n" +
-                        (input.outcomeRecord ? ref(output) + "={};\n" : "") +
+                        ((input.outcomeRecord || input.outcomeHelper) ? ref(output) + "={};\n" : "") +
                         (output.applicationError ? ref(applicationError(output)) + "={};\n" : "") +
                         "if(" + failureRef(output) +
                         ".kind==TaskFailure::None){\n" + read + "}\n" + commitArray(output));
@@ -4012,15 +4040,14 @@ class Compiler {
         break;
       case Code::Return: {
         auto result = args.at(0);
-        if (result.applicationError && !publishApplicationOutcome)
-          reject(span, "application errors escaping a GPU host entry require a typed result adapter");
         auto code = (result.failure
                              ? "if(" + failureRef(result) + ".kind!=TaskFailure::None){task.fail(" +
                                    failureRef(result) + ");return;}\n"
                              : "");
         if (result.applicationError) {
           const auto error = applicationError(result);
-          code += "MainOutcome outcome(" + hostErrorTag(error) + "!=0);\n"
+          code += std::string(publishApplicationOutcome ? "MainOutcome" : "Outcome") +
+                  " outcome(" + hostErrorTag(error) + "!=0);\n"
                   "if(outcome.failed)std::construct_at(&outcome.error," + ref(error) +
                   ");else std::construct_at(&outcome.value," + ref(result) + ");\n"
                   "task.complete(&outcome);\n"
@@ -4043,6 +4070,34 @@ class Compiler {
       }
     return get(plan.result);
   }
+  std::string helperSuccessLayout(const ValueType &type) const {
+    if (type.array || type.record)
+      return arrayLayout(type);
+    if (type.tensor)
+      return "m::Runtime::bufferLayout()";
+    if (type.builtin == BuiltinValue::Bool)
+      return "boolScalarLayout()";
+    return "(*numericScalarLayout(" + elementName(type.element) + "))";
+  }
+  std::string outcomeDeclaration(const std::string &type, const std::string &layout,
+                                 const std::string &payload, std::size_t family,
+                                 const std::string &success, std::uint64_t identity) const {
+    const auto error = recordLayoutName(family);
+    return "struct " + type + " {bool failed;union {" + payload + " value;" +
+           recordName(family) + " error;};\nexplicit " + type +
+           "(bool failed) noexcept:failed(failed){}\n~" + type + "() noexcept {}\n};\n"
+           "const ValueLayout " + layout + "{" + std::to_string(identity) + "ull,sizeof(" + type +
+           "),alignof(" + type + "),\n"
+           "+[](Invocation &dst,void *out,const Invocation &src,const void *in) noexcept {\n"
+           "const auto &from=*static_cast<const " + type + " *>(in);\n"
+           "auto &to=*new(out) " + type + "(from.failed);\n"
+           "const bool copied=from.failed ? " + error + ".copy(dst,&to.error,src,&from.error) : " +
+           success + ".copy(dst,&to.value,src,&from.value);\nif(!copied)to.~" + type +
+           "();return copied;},\n+[](void *raw) noexcept {\n"
+           "auto &value=*static_cast<" + type + " *>(raw);\n"
+           "if(value.failed)" + error + ".destroy(&value.error);else " + success +
+           ".destroy(&value.value);\nvalue.~" + type + "();}};\n";
+  }
   std::string helperPacket(FunctionId id) const {
     std::string code = "namespace " + helperName(id) +
                        " { struct PacketData { m::Runtime *runtime; const char *directory;";
@@ -4057,7 +4112,17 @@ class Compiler {
                                                 : scalarType(type.element)) +
           " arg" + std::to_string(n) + ";";
     }
-    return code + "}; extern const TaskEntry entry; }\n";
+    code += "}; extern const TaskEntry entry;\n";
+    if (const auto family = fn.resultType.errorRecord) {
+      const auto &type = fn.resultType;
+      const auto payload = type.record ? recordName(*type.record)
+          : type.array ? tensorDescriptor(isBoolArray(type) ? NumericType::UInt8 : type.element, 1)
+          : type.tensor ? std::string("m::Buffer")
+          : type.builtin == BuiltinValue::Bool ? std::string("bool") : scalarType(type.element);
+      code += outcomeDeclaration("Outcome", "outcomeLayout", payload, *family,
+                                 helperSuccessLayout(type), 0x4b414c484f000000ULL + id);
+    }
+    return code + "}\n";
   }
   std::string helperBody(FunctionId id) const {
     const auto &fn = placement.functions.at(id);
@@ -4120,11 +4185,7 @@ class Compiler {
         << 0x4b414c52534d0000ULL + id
         << "ull,sizeof(PacketData),alignof(PacketData),"
            "sizeof(Frame),alignof(Frame),construct,destroy,resume,"
-        << (fn.resultType.array || fn.resultType.record ? "&" + arrayLayout(fn.resultType)
-            : fn.resultType.tensor                      ? "&m::Runtime::bufferLayout()"
-            : fn.resultType.builtin == BuiltinValue::Bool
-                ? "&boolScalarLayout()"
-                : "numericScalarLayout(" + elementName(fn.resultType.element) + ")")
+        << (fn.resultType.errorRecord ? "&outcomeLayout" : "&" + helperSuccessLayout(fn.resultType))
         << "};\n}\n";
     return out.str();
   }
@@ -5095,26 +5156,9 @@ using namespace kalandra::runtime;
       const auto valueType = mainArray ? tensorDescriptor(mainElement, 1)
           : scalarResult ? booleanResult ? std::string("bool") : scalarType(mainElement)
                          : std::string("m::Buffer");
-      host << "struct MainOutcome { bool failed; union { " << valueType << " value; "
-           << recordName(family) << " error; };\n"
-              "explicit MainOutcome(bool failed) noexcept:failed(failed){}\n"
-              "~MainOutcome() noexcept {}\n};\n"
-              "bool copyMainOutcome(Invocation &dst,void *out,const Invocation &src,"
-              "const void *in) noexcept {\n"
-              "const auto &from=*static_cast<const MainOutcome *>(in);\n"
-              "auto &to=*new(out) MainOutcome(from.failed);\n"
-              "bool copied=from.failed ? "
-           << recordLayoutName(family) << ".copy(dst,&to.error,src,&from.error) : "
-           << mainSuccessLayout << ".copy(dst,&to.value,src,&from.value);\n"
-              "if(!copied)to.~MainOutcome();return copied;\n}\n"
-              "void destroyMainOutcome(void *raw) noexcept {\n"
-              "auto &value=*static_cast<MainOutcome *>(raw);\n"
-              "if(value.failed)" << recordLayoutName(family) << ".destroy(&value.error);"
-              "else " << mainSuccessLayout << ".destroy(&value.value);\n"
-              "value.~MainOutcome();\n}\n"
-              "const ValueLayout mainOutcomeLayout{0x4b414c4750554552ull,sizeof(MainOutcome),"
-              "alignof(MainOutcome),copyMainOutcome,destroyMainOutcome};\n"
-              "int reportMainError(const " << recordName(family) << " &error){\n"
+      host << outcomeDeclaration("MainOutcome", "mainOutcomeLayout", valueType, family,
+                                 mainSuccessLayout, 0x4b414c4750554552ull)
+           <<              "int reportMainError(const " << recordName(family) << " &error){\n"
               "std::int64_t tag=0;std::memcpy(&tag,error.data.data(),sizeof(tag));\nswitch(tag){\n";
       const auto &record = placement.records.at(family);
       for (std::size_t v = 0; v < record.variants.size(); ++v) {
