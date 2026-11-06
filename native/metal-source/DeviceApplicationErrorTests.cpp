@@ -172,16 +172,43 @@ fn main() -> int ! TaskError:
   try parallel:
     try await spawn work(0) on devices.gpu()
 )k";
+    const std::string observed = source + R"k(
+fn main() -> int ! TaskError:
+  try parallel:
+    child = spawn descend(0) on devices.gpu()
+    await child catch fn(error):
+      match error:
+        SampleError.Invalid { values }: values[0] + values[1]
+        OtherError.Empty: 23
+        _: 0
+)k";
+    const std::string propagated = source + R"k(
+fn main() -> int ! TaskError:
+  result = parallel:
+    try await spawn descend(40) on devices.gpu()
+  result catch fn(error):
+    match error:
+      SampleError.Invalid { values }: values[0] + values[1]
+      OtherError.Empty: 23
+      _: 0
+)k";
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {
-      auto parsed = parse(std::make_shared<SourceFile>("placed-device-errors.k", placed));
-      if (!parsed.ok())
-        throw std::runtime_error(parsed.diagnostics.front().message);
-      auto emitted = emitGpuSupervisor(std::move(parsed.module), ArithmeticMode::Hardware,
-                                       false, backend);
-      if (!emitted)
-        throw std::runtime_error(emitted.error().message);
-      if (!emitted->at("host.cpp").contains("NumericInstructionKind::DeviceControl"))
-        throw std::runtime_error("placed error handling did not use a device kernel");
+      for (const auto &program : {placed, observed, propagated}) {
+        auto parsed = parse(std::make_shared<SourceFile>("placed-device-errors.k", program));
+        if (!parsed.ok())
+          throw std::runtime_error(parsed.diagnostics.front().message);
+        auto emitted = emitGpuSupervisor(std::move(parsed.module), ArithmeticMode::Hardware,
+                                         false, backend);
+        if (!emitted)
+          throw std::runtime_error(emitted.error().message);
+        const auto &host = emitted->at("host.cpp");
+        if (!host.contains("NumericInstructionKind::DeviceControl"))
+          throw std::runtime_error("placed error handling did not use a device kernel");
+        if (program != placed && !host.contains("DeviceAggregateResultJob"))
+          throw std::runtime_error("fallible task did not use the typed device outcome transport");
+        if (program == propagated && !host.contains("task.stopGroup("))
+          throw std::runtime_error("propagated device error did not reserve the group outcome");
+      }
     }
     std::cout << "Device error recovery and recursive propagation IR verified\n";
   } catch (const std::exception &error) {

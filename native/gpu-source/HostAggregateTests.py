@@ -381,6 +381,31 @@ fn main()->int ! TaskError:
     if pair.second:int(pair.first)+128
     else:1
 ''',0)
+device_errors = (Path(__file__).resolve().parents[1] / 'metal-source' /
+                 'device-application-errors.k').read_text()
+cases['graph-result-application-error-siblings'] = (device_errors + '''
+fn main()->int ! TaskError:
+  try parallel:
+    child = spawn descend(0) on devices.gpu()
+    sibling = spawn descend(-1) on devices.gpu()
+    caught = await child catch fn(error):
+      match error:
+        SampleError.Invalid { values }: values[0] + values[1]
+        OtherError.Empty: 23
+        _: 0
+    result = await sibling catch fn(error):0
+    caught + result
+''', 23)
+cases['graph-result-application-error-propagation'] = (device_errors + '''
+fn main()->int ! TaskError:
+  result = parallel:
+    try await spawn descend(40) on devices.gpu()
+  result catch fn(error):
+    match error:
+      SampleError.Invalid { values }: values[0] + values[1]
+      OtherError.Empty: 23
+      _: 0
+''', 18)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',

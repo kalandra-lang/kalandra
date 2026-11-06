@@ -1056,11 +1056,16 @@ private:
         if (const auto *call = std::get_if<FunctionCall>(&invocation.operation)) {
           operands = call->arguments;
           target = call->function;
-          if ((!options.preserveCalls || resumable.at(target)) && !scheduled.at(target)) {
+          const bool gpuErrorEntry =
+              options.preserveCalls && options.deviceValues && task->placement &&
+              input.expressions.at(*task->placement).type.device && !coordinating.at(target) &&
+              input.functions.at(target).resultType.errorRecord;
+          if (!gpuErrorEntry && (!options.preserveCalls || resumable.at(target)) &&
+              !scheduled.at(target)) {
             scheduled[target] = true;
             pending.push_back(target);
           }
-          if (options.preserveCalls && resumable.at(target)) {
+          if (!gpuErrorEntry && options.preserveCalls && resumable.at(target)) {
             if (task->placement && input.expressions.at(*task->placement).type.device)
               throw std::runtime_error("resumable helpers require CPU placement; GPU placements "
                                        "require numeric kernels");
@@ -1269,11 +1274,13 @@ private:
       for (auto jump : exits)
         plan.code[jump].jump = exit;
     } else if (const auto *field = std::get_if<RecordFieldRead>(&node.operation);
-               field && !options.preserveCalls) {
+               field && (!options.preserveCalls ||
+                         (options.deviceValues && input.expressions.at(field->input).type.record &&
+                          input.records.at(*input.expressions.at(field->input).type.record).error))) {
       auto subject = expression(plan, field->input, env, stack);
       plan.code.push_back({Code::Field, output, {subject}, field->field, 0, 0, id});
     } else if (const auto *narrow = std::get_if<ErrorNarrow>(&node.operation);
-               narrow && !options.preserveCalls) {
+               narrow && (!options.preserveCalls || options.deviceValues)) {
       auto subject = expression(plan, narrow->input, env, stack);
       plan.code.push_back({Code::Field, output, {subject}, 0, 0, 0, id});
     } else if (const auto *field = std::get_if<ErrorFieldRead>(&node.operation)) {

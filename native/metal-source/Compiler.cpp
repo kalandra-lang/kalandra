@@ -4,6 +4,7 @@
 #include "../gpu-source/PointerBridge.h"
 #include "../gpu-source/ClosureGraphSchema.h"
 #include "../gpu-source/DeviceErrorLayout.h"
+#include "../gpu-source/DeviceErrorEntry.h"
 #include "../gpu-source/Supervisor.h"
 #include "../lib/NativeLayout.h"
 #include "../lib/TaskValueCopy.h"
@@ -78,6 +79,8 @@ struct Value {
   bool array = false, booleanArray = false, booleanTask = false;
   std::optional<std::size_t> record = {};
   std::optional<std::size_t> callable = {};
+  std::optional<std::size_t> outcomeRecord = {};
+  std::optional<std::pair<std::size_t, std::size_t>> applicationError = {};
 };
 class Compiler {
   ArithmeticMode arithmetic_;
@@ -194,6 +197,7 @@ class Compiler {
   std::map<std::size_t, std::size_t> entries;
   std::map<FunctionId, NumericShader> numericShaders;
   std::map<FunctionId, NumericProgram> numericPrograms;
+  std::map<FunctionId, FunctionId> deviceErrorEntries;
   std::map<FunctionId, DeviceAggregateProjection> aggregateEntries;
   std::size_t aggregateEntryWorkRemaining = 300000;
   std::vector<std::string> steps, fields;
@@ -1338,8 +1342,11 @@ class Compiler {
       for (const auto &name : sharedNominalKeys)
         linked->getNamedGlobal(name)->setLinkage(llvm::GlobalValue::InternalLinkage);
     if (!aggregateTypes.empty() || !callableTypes.empty()) {
-      if (!linked)
-        reject(span, "native aggregate slots require a linked CPU module");
+      if (!linked) {
+        linked = std::make_unique<llvm::Module>("gpu-host-layouts", context);
+        linked->setDataLayout(nativeCpuDataLayout);
+        linked->setTargetTriple(llvm::Triple(KALANDRA_NATIVE_CPU_TARGET_TRIPLE));
+      }
       TypedModule schema;
       schema.source = placement.source;
       schema.records = placement.records;
@@ -1560,6 +1567,8 @@ class Compiler {
     (source ? usedContinuationCpu : usedCpuFunctions).insert(function);
     const auto &module = source ? *source : cpu;
     const auto &fn = module.functions[function];
+    if (fn.resultType.fallible)
+      reject(span, "fallible CPU bridge requires the typed result adapter");
     if (!source && (containsFunctionStorage(module, fn.resultType) ||
                     std::ranges::any_of(fn.parameters, [&](auto parameter) {
                       return containsFunctionStorage(module, module.symbols.at(parameter).type);
@@ -1969,7 +1978,8 @@ class Compiler {
   std::set<FunctionId> joinedGraphPolicies, closureGraphPolicies;
   std::string graphCapturePolicy(const ValueType &type, SourceSpan span,
                                  std::span<const ValueType> joined = {}, FunctionId function = {},
-                                 const ClosureGraphSchema *closure = nullptr) {
+                                 const ClosureGraphSchema *closure = nullptr,
+                                 const TypedModule *source = nullptr) {
     const auto id = closure ? function : *type.record;
     const auto name = closure ? "GpuClosureCapture" + std::to_string(function) : joined.empty() ? "GpuGraphCapture" + std::to_string(id)
                                      : "GpuJoinedGraphCapture" + std::to_string(function);
@@ -1990,7 +2000,7 @@ class Compiler {
     const auto record = captureType(type);
     const auto roots = joined.empty() ? std::span(&type, 1) : joined;
     auto schema = closure ? std::expected<AggregateGraphSchema, std::string>(closure->graph)
-                          : planAggregateGraphSchema(cpu, roots, *nativeAggregateLayouts,
+                          : planAggregateGraphSchema(source ? *source : cpu, roots, *nativeAggregateLayouts,
                                                      aggregateEntryWorkRemaining);
     if (!schema)
       reject(span, schema.error());
@@ -2209,9 +2219,12 @@ class Compiler {
     return name;
   }
   Value spawnNumericProgram(FunctionId function, const std::vector<Value> &sourceInputs, Value target,
-                            SourceSpan span, std::optional<ValueId> closureSource = {}) {
-    const auto &cpu = closureSource ? placement : this->cpu;
-    const auto cacheKey = closureSource ? this->cpu.functions.size() + *closureSource : function;
+                            SourceSpan span, std::optional<ValueId> closureSource = {},
+                            bool errorOutcome = false) {
+    const auto &cpu = closureSource || errorOutcome ? placement : this->cpu;
+    const auto cacheKey = errorOutcome
+        ? this->cpu.functions.size() + placement.expressions.size() + function
+        : closureSource ? this->cpu.functions.size() + *closureSource : function;
     admitGpuTypes(function, &cpu);
     const auto &fn = cpu.functions.at(function);
     const auto residentTensor = [](const ValueType &type) {
@@ -2283,13 +2296,13 @@ class Compiler {
           cacheKey, &*closureSchema);
     }
     if (deviceInlineRecordValue(fn.resultType) &&
-        (closureSchema || !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1)))) {
+        (errorOutcome || closureSchema || !planDeviceAggregateLayouts(cpu, std::span(&fn.resultType, 1)))) {
       if (!closureSchema && std::ranges::any_of(fn.parameters, [&](auto symbol) {
             const auto &type = cpu.symbols.at(symbol).type;
             return !deviceScalarValue(type) && !deviceInlineRecordValue(type) && !residentTensor(type);
           }))
         reject(span, "GPU recursive results require scalar, nominal graph or resident tensor inputs");
-      graphResultPolicy = graphCapturePolicy(fn.resultType, span);
+      graphResultPolicy = graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu);
       resultLayouts = graphExportLayouts.at(*fn.resultType.record);
     }
     const auto emit = [&](const TypedModule &module, FunctionId entry) {
@@ -2345,7 +2358,7 @@ class Compiler {
           const auto roots = joined.empty() ? std::span(&type, 1) : std::span<const ValueType>(joined);
           if (graphResultPolicy.empty() && planDeviceAggregateLayouts(cpu, roots))
             reject(span, entry.error());
-          graphPolicy = graphCapturePolicy(type, span, joined, function);
+          graphPolicy = graphCapturePolicy(type, span, joined, function, nullptr, &cpu);
           if (found == numericPrograms.end())
             found = emit(cpu, function);
         }
@@ -2616,6 +2629,8 @@ class Compiler {
     }
     code += admitted("f." + out);
     steps.push_back(std::move(code));
+    if (errorOutcome)
+      result.outcomeRecord = result.record;
     return result;
   }
   Value spawnNumeric(FunctionId function, const std::vector<Value> &inputs, Value target,
@@ -3371,13 +3386,95 @@ class Compiler {
   };
   std::vector<GpuAwaitSite> gpuAwaitSites;
   std::vector<Value> plannedParameters;
+  static Value applicationError(Value result) {
+    const auto [family, slot] = *result.applicationError;
+    Value value{Value::Aggregate, slot};
+    value.record = family;
+    return value;
+  }
+  std::string nativeField(Value record, std::size_t field) {
+    recordType(*record.record);
+    return ref(record) + ".data.data()+" +
+           std::to_string(aggregateTypes.at(*record.record).fields.at(field).nativeOffset);
+  }
+  std::string readNativeField(Value record, std::size_t member, Value output) {
+    const auto source = nativeField(record, member);
+    const auto &abi = aggregateTypes.at(*record.record).fields.at(member);
+    if (abi.storage == RecordFieldStorage::ManagedReference || output.kind == Value::Tensor)
+      reject({}, "GPU host field requires an owned reference or tensor adapter");
+    return "static_assert(sizeof(" + ref(output) + ")==" + std::to_string(abi.nativeBytes) +
+           ");\nstd::memcpy(&" + ref(output) + "," + source + ",sizeof(" + ref(output) + "));\n";
+  }
+  std::string hostErrorTag(Value value) {
+    return "([&](){std::int64_t tag=0;std::memcpy(&tag," + nativeField(value, 0) +
+           ",sizeof(tag));return tag;}())";
+  }
+  std::string hostErrorCopy(Value output, Value input) {
+    if (output.slot == input.slot)
+      return {};
+    if (output.record == input.record)
+      return ref(output) + "=" + ref(input) + ";\n";
+    const auto taskFamily = taskErrorFamily(placement);
+    const auto fromId = input.record ? input.record : taskFamily;
+    const auto toId = output.record ? output.record : taskFamily;
+    if (!fromId || !toId)
+      reject({}, "host error conversion requires checked error families");
+    const auto &from = placement.records.at(*fromId);
+    const auto &to = placement.records.at(*toId);
+    if (!consumeAggregateProjectionWork(aggregateEntryWorkRemaining, from.variants.size()) ||
+        !consumeAggregateProjectionWork(aggregateEntryWorkRemaining, to.variants.size()))
+      reject({}, "GPU host error conversion exceeds configured work budget");
+    std::string code = "{std::int64_t sourceTag=0;\n";
+    if (input.record)
+      code += "std::memcpy(&sourceTag," + nativeField(input, 0) + ",sizeof(sourceTag));\n";
+    else
+      code += "sourceTag=static_cast<unsigned>(" + ref(input) + ".kind);\n";
+    code += ref(output) + "={};\nswitch(sourceTag){\n";
+    std::map<std::pair<std::size_t, std::size_t>, std::size_t> tags;
+    for (std::size_t v = 0; v < to.variants.size(); ++v)
+      tags.emplace(errorOrigin(placement, *toId, v), v);
+    for (std::size_t v = 0; v < from.variants.size(); ++v) {
+      auto found = tags.find(errorOrigin(placement, *fromId, v));
+      if (found == tags.end())
+        continue;
+      const auto target = found->second;
+      code += "case " + std::to_string(v + 1) + ":{\n";
+      if (output.record) {
+        code += "const std::int64_t tag=" + std::to_string(target + 1) + ";\nstd::memcpy(" +
+                nativeField(output, 0) + ",&tag,sizeof(tag));\n";
+        const auto &fields = from.variants[v].fields;
+        const auto &targetFields = to.variants[target].fields;
+        if (fields.size() != targetFields.size())
+          reject({}, "host error conversion changed its payload fields");
+        for (std::size_t n = 0; n < fields.size(); ++n) {
+          if (!consumeAggregateProjectionWork(aggregateEntryWorkRemaining, 1))
+            reject({}, "GPU host error conversion exceeds configured work budget");
+          const auto destination = nativeField(output, targetFields[n]);
+          const auto bytes = aggregateTypes.at(*output.record).fields.at(targetFields[n]).nativeBytes;
+          if (input.record) {
+            const auto source = nativeField(input, fields[n]);
+            if (aggregateTypes.at(*input.record).fields.at(fields[n]).nativeBytes != bytes)
+              reject({}, "host error conversion changed its payload layout");
+            code += "std::memcpy(" + destination + "," + source + "," +
+                    std::to_string(bytes) + ");\n";
+          } else
+            code += "static_assert(sizeof(Failure)==" + std::to_string(bytes) +
+                    ");\nstd::memcpy(" + destination + ",&" + ref(input) + ",sizeof(Failure));\n";
+        }
+      } else {
+        code += readNativeField(input, from.variants[v].fields.front(), output);
+        code += "if(static_cast<unsigned>(" + ref(output) + ".kind)!=" +
+                std::to_string(target + 1) + "){task.fault(3);return;}\n";
+      }
+      code += "break;}\n";
+    }
+    return code + "default:task.fault(3);return;}}\n";
+  }
   Value lowerPlan(const continuation::Plan &plan, FunctionId entryId) {
     using namespace continuation;
     for (const auto &type : plan.slots)
-      if ((type.array && type.builtin != BuiltinValue::Numeric && !isBoolArray(type)) ||
-          type.errorRecord)
-        reject({}, "mixed GPU host continuations support numeric/Bool arrays, tensors and "
-                   "TaskError; owned arrays and application-error carriers require "
+      if (type.array && type.builtin != BuiltinValue::Numeric && !isBoolArray(type))
+        reject({}, "mixed GPU host continuations require numeric/Bool arrays or a typed "
                    "aggregate transport");
     std::map<Slot, Value> values;
     std::map<Slot, unsigned> payloadWrites;
@@ -3455,6 +3552,10 @@ class Compiler {
         field("Failure");
         value.failure = next - 1;
       }
+      if (type.errorRecord && type.fallible && !type.task) {
+        field(recordType(*type.errorRecord));
+        value.applicationError = {*type.errorRecord, next - 1};
+      }
       return value;
     };
     auto get = [&](Slot slot) -> Value {
@@ -3468,9 +3569,23 @@ class Compiler {
     };
     auto copy = [&](Value output, Value input) {
       auto code = payloadCopy(output, input);
+      if (input.applicationError)
+        code = "if(" + failureRef(input) + ".kind==TaskFailure::None && " +
+               hostErrorTag(applicationError(input)) + "==0){\n" + code + "}else{" +
+               ref(output) + "={};}\n";
       if (output.failure)
         code +=
             failureRef(output) + "=" + (input.failure ? failureRef(input) : "Failure{}") + ";\n";
+      if (output.applicationError) {
+        const auto error = applicationError(output);
+        if (input.applicationError) {
+          const auto original = applicationError(input);
+          if (error.slot != original.slot)
+            code += "if(" + hostErrorTag(original) + "!=0){\n" +
+                    hostErrorCopy(error, original) + "}else{" + ref(error) + "={};}\n";
+        } else
+          code += ref(error) + "={};\n";
+      }
       return code + commitArray(output);
     };
     // Backend kernels can prove a result shape more precisely than its public
@@ -3627,7 +3742,11 @@ class Compiler {
             gpuCalls[op.output] = op.group;
           const bool closureEntry = target.gpu && std::ranges::any_of(placement.functions.at(op.target).parameters,
               [&](auto symbol) { return containsFunctionStorage(placement, placement.symbols.at(symbol).type); });
-          bind(op.output, closureEntry
+          auto errorEntry = deviceErrorEntries.find(op.target);
+          bind(op.output, target.gpu && errorEntry != deviceErrorEntries.end()
+                              ? spawnNumericProgram(errorEntry->second, args, target, span,
+                                    closureEntry ? std::optional<ValueId>{op.source} : std::nullopt, true)
+                              : closureEntry
                               ? spawnNumericProgram(op.target, args, target, span, op.source)
                               : resumable.at(op.target)
                                   ? spawnHelper(op.target, args, target, span)
@@ -3637,7 +3756,13 @@ class Compiler {
       }
       case Code::Open: {
         auto group = plannedGroups.at(op.group);
-        steps.push_back(group + "=task.openGroup(" +
+        std::string reset;
+        if (auto join = joins.find(op.group); join != joins.end()) {
+          auto output = get(plan.code.at(join->second).output);
+          if (output.applicationError)
+            reset = ref(applicationError(output)) + "={};\n";
+        }
+        steps.push_back(reset + group + "=task.openGroup(" +
                         (op.target == SIZE_MAX ? "" : plannedGroups.at(op.target)) + ");\n" +
                         check(group));
         break;
@@ -3647,7 +3772,23 @@ class Compiler {
         if (auto found = gpuCalls.find(op.args[0]); found != gpuCalls.end())
           gpuAwaitSites.push_back({i, found->second});
         std::string read;
-        if (input.array || input.record)
+        if (input.outcomeRecord) {
+          if (!output.applicationError)
+            reject(span, "GPU task application error requires a typed await channel");
+          field(recordType(*input.outcomeRecord));
+          Value outcome{Value::Aggregate, next - 1};
+          outcome.record = input.outcomeRecord;
+          const auto &type = placement.records.at(*outcome.record);
+          field(recordType(*type.fields.at(2).type.record));
+          Value error{Value::Aggregate, next - 1};
+          error.record = type.fields.at(2).type.record;
+          read = "if(!task.read(" + ref(input) + "," + recordLayoutName(*outcome.record) +
+                 ",&" + ref(outcome) + "))return;\nswitch(" + hostErrorTag(outcome) + "){\n" +
+                 "case 1:{" + readNativeField(outcome, 1, output) + "break;}\n" +
+                 "case 2:{" + readNativeField(outcome, 2, error) +
+                 hostErrorCopy(applicationError(output), error) + "break;}\n" +
+                 "default:task.fault(3);return;}\n";
+        } else if (input.array || input.record)
           read = "if(!task.read(" + ref(input) + "," + arrayLayout(input) + ",&" + ref(output) +
                  ")) return;\n";
         else
@@ -3656,12 +3797,42 @@ class Compiler {
                                      : "if(!readBuffer(task,") +
                  ref(input) + "," + ref(output) + ")) return;\n";
         steps.push_back("if(!task.await(" + ref(input) + ")) return;\n" + failureRef(output) +
-                        "=task.failure(" + ref(input) + ");\nif(" + failureRef(output) +
+                        "=task.failure(" + ref(input) + ");\n" +
+                        (input.outcomeRecord ? ref(output) + "={};\n" : "") +
+                        (output.applicationError ? ref(applicationError(output)) + "={};\n" : "") +
+                        "if(" + failureRef(output) +
                         ".kind==TaskFailure::None){\n" + read + "}\n" + commitArray(output));
         break;
       }
       case Code::Try:
       case Code::Fail: {
+        const auto input = args.at(0);
+        const auto target = get(op.target);
+        const bool explicitApplication = op.code == Code::Fail && input.record.has_value();
+        if (explicitApplication || (op.code == Code::Try && input.applicationError)) {
+          if (!target.applicationError)
+            reject(span, "GPU application error propagation requires a typed destination");
+          const auto error = explicitApplication ? input : applicationError(input);
+          std::string code = explicitApplication ? "{\n" : "if(" + hostErrorTag(error) + "!=0){\n";
+          if (op.group != SIZE_MAX) {
+            code += "if(task.stopGroup(" + plannedGroups.at(op.group) + ")){\n" +
+                    hostErrorCopy(applicationError(target), error) + "}\n";
+          } else {
+            code += failureRef(target) + "={};\n" +
+                    hostErrorCopy(applicationError(target), error);
+          }
+          for (auto collection : op.collections) {
+            const auto found = arrayFields.find(get(collection).slot);
+            if (found == arrayFields.end())
+              reject(span, "missing abandoned collection slot");
+            code += "if(!f.arrayScopes.collectDiscard(" +
+                    std::to_string(std::distance(arrayFields.begin(), found)) +
+                    ")){hostArrayFailure(task);return;}\n";
+          }
+          steps.push_back(code + jump(op.jump) + "}\n");
+          if (explicitApplication)
+            break;
+        }
         const auto failure = op.code == Code::Fail ? ref(args[0]) : failureRef(args[0]);
         std::string code =
             op.code == Code::Try ? "if(" + failure + ".kind!=TaskFailure::None){\n" : "{\n";
@@ -3689,9 +3860,17 @@ class Compiler {
         break;
       case Code::Catch: {
         auto output = write(op.output, args[0]), error = get(op.args[1]);
-        steps.push_back("if(" + failureRef(args[0]) + ".kind==TaskFailure::None){\n" +
-                        copy(output, args[0]) + jump(op.target) + "}\n" + ref(error) + "=" +
-                        failureRef(args[0]) + ";\n" + jump(op.jump));
+        const auto input = args[0];
+        const auto app = input.applicationError ? hostErrorTag(applicationError(input)) + "!=0"
+                                                : "false";
+        const Value failure{Value::Error, *input.failure};
+        auto handle = hostErrorCopy(error, failure);
+        if (input.applicationError)
+          handle = "if(" + app + "){\n" + hostErrorCopy(error, applicationError(input)) +
+                   "}else{\n" + handle + "}\n";
+        steps.push_back("if(" + failureRef(input) + ".kind==TaskFailure::None && !(" + app +
+                        ")){\n" + copy(output, input) + jump(op.target) + "}\n" +
+                        handle + jump(op.jump));
         break;
       }
       case Code::Branch:
@@ -3729,7 +3908,23 @@ class Compiler {
         break;
       case Code::Field: {
         auto output = get(op.output);
-        const auto subject = args.at(0);
+        auto subject = args.at(0);
+        if (std::holds_alternative<ErrorNarrow>(node(op.source).operation)) {
+          steps.push_back(hostErrorCopy(output, subject));
+          break;
+        }
+        if (const auto *read = std::get_if<RecordFieldRead>(&node(op.source).operation)) {
+          steps.push_back(readNativeField(subject, read->field, output) + commitArray(output));
+          break;
+        }
+        std::string prefix;
+        if (const auto *read = std::get_if<ErrorFieldRead>(&node(op.source).operation);
+            read && read->taskSlot) {
+          field("Failure");
+          const Value failure{Value::Error, next - 1};
+          prefix = readNativeField(subject, *read->taskSlot, failure);
+          subject = failure;
+        }
         auto field = static_cast<ErrorField>(op.target);
         std::string code;
         if (field == ErrorField::Kind)
@@ -3743,13 +3938,23 @@ class Compiler {
                  ".code==5 ? \"index out of bounds\" : \"native execution fault\"";
         else
           code = "\"task admission rejected\"";
-        steps.push_back(ref(output) + "=" + code + ";\n");
+        steps.push_back(prefix + ref(output) + "=" + code + ";\n");
         break;
       }
       case Code::Join: {
         const auto group = plannedGroups.at(op.group);
         auto output = write(op.output, args.at(0));
         steps.push_back(check("task.close(" + group + ")"));
+        if (output.applicationError) {
+          const auto error = applicationError(output);
+          steps.push_back("if(!task.join(" + group + "))return;\nif(" +
+                          hostErrorTag(error) + "==0){\n" + failureRef(output) +
+                          "=task.failure(" + group + ");\nif(" + failureRef(output) +
+                          ".kind==TaskFailure::None){\n" + copy(output, args.at(0)) +
+                          "}}else{" + failureRef(output) + "={};" + ref(output) + "={};\n" +
+                          commitArray(output) + "}\n");
+          break;
+        }
         steps.push_back("if(!task.join(" + group + ")) return;\n" + failureRef(output) +
                         "=task.failure(" + group + ");\nif(" + failureRef(output) +
                         ".kind==TaskFailure::None){\n" + payloadCopy(output, args.at(0)) + "}\n" +
@@ -3806,6 +4011,8 @@ class Compiler {
         break;
       case Code::Return: {
         auto result = args.at(0);
+        if (result.applicationError)
+          reject(span, "application errors escaping a GPU host entry require a typed result adapter");
         steps.push_back((result.failure
                              ? "if(" + failureRef(result) + ".kind!=TaskFailure::None){task.fail(" +
                                    failureRef(result) + ");return;}\n"
@@ -4625,6 +4832,23 @@ public:
     if (!checked.ok())
       throw Rejected{checked.diagnostics.front()};
     cpu = std::move(*checked.module);
+    std::set<FunctionId> fallibleGpuFunctions;
+    for (const auto &expression : placement.expressions) {
+      const auto *spawn = std::get_if<TaskOperation>(&expression.operation);
+      if (!spawn || spawn->prefix != TaskPrefix::Spawn || !spawn->placement ||
+          !placement.expressions.at(*spawn->placement).type.device)
+        continue;
+      const auto *call =
+          std::get_if<FunctionCall>(&placement.expressions.at(spawn->operand).operation);
+      if (call && placement.functions.at(call->function).resultType.errorRecord)
+        fallibleGpuFunctions.insert(call->function);
+    }
+    for (auto function : fallibleGpuFunctions) {
+      auto entry = appendDeviceErrorEntry(placement, function, aggregateEntryWorkRemaining);
+      if (!entry)
+        reject(placement.functions.at(function).declaration, entry.error());
+      deviceErrorEntries.emplace(function, *entry);
+    }
     // Checking may append anonymous callback functions after the named source
     // entries. Reserve their indices before appending synthesized host exports.
     cpuExports.resize(cpu.functions.size());
