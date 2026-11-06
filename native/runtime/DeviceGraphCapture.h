@@ -5,6 +5,7 @@
 #include "DeviceArrayWire.h"
 #include "Tasks.h"
 #include <functional>
+#include <bit>
 #include <new>
 #include <tuple>
 #include <type_traits>
@@ -15,14 +16,19 @@ struct DeviceGraphCaptureLayout {
   const void *boxKey; // Nominal recursive payload key; null for other view kinds.
   const void *environmentKey = nullptr; // Native closure code identity, never serialized.
   bool inlineValue = false; // A carrier embedded in an already-retained parent view.
+  int tensorRank = -1; // Native ranked descriptor; device payload starts with its extents.
+  unsigned elementBytes = 0;
 };
 
 // Holds every backing used by the packer. This runs while the source invocation
 // has exclusive access; the resulting wire contains only copied payload words.
 class DeviceGraphCapture final {
 public:
-  DeviceGraphCapture(const Invocation &source, std::span<const DeviceGraphCaptureLayout> layouts)
-      : source_(source), layouts_(layouts) {}
+  DeviceGraphCapture(const Invocation &source, std::span<const DeviceGraphCaptureLayout> layouts,
+                     std::function<bool()> cancelled = {}, std::size_t wordLimit = 1 << 20,
+                     std::size_t workLimit = 8 << 20)
+      : source_(source), layouts_(layouts), cancelled_(std::move(cancelled)),
+        tensorWords_(wordLimit), tensorWork_(workLimit) {}
 
   std::expected<DeviceGraphNativeView, DeviceGraphValidation>
   operator()(std::size_t id, std::span<const std::byte> field) {
@@ -32,6 +38,10 @@ public:
     const auto &layout = layouts_[id - 1];
     if (!layout.stride || !layout.alignment || (layout.alignment & (layout.alignment - 1)) ||
         layout.stride % layout.alignment)
+      return std::unexpected(V::Invalid);
+    if (layout.tensorRank >= 0)
+      return tensor(id, field, layout);
+    if (layout.elementBytes)
       return std::unexpected(V::Invalid);
     if (layout.inlineValue) {
       if (layout.boxKey || layout.environmentKey || field.size() != layout.stride ||
@@ -90,6 +100,86 @@ public:
   }
 
 private:
+  std::expected<DeviceGraphNativeView, DeviceGraphValidation>
+  tensor(std::size_t id, std::span<const std::byte> field,
+         const DeviceGraphCaptureLayout &layout) {
+    using V = DeviceGraphValidation;
+    static_assert(sizeof(void *) == 8);
+    if (cancelled_ && cancelled_())
+      return std::unexpected(V::Cancelled);
+    const auto rank = static_cast<std::size_t>(layout.tensorRank);
+    const auto bytes = layout.elementBytes;
+    if (rank > 8 || layout.boxKey || layout.environmentKey || layout.inlineValue ||
+        layout.stride != 8 || layout.alignment != 8 ||
+        (bytes != 1 && bytes != 2 && bytes != 4 && bytes != 8) ||
+        field.size() != 24 + 16 * rank)
+      return std::unexpected(V::Invalid);
+    std::vector<std::uint64_t> descriptor(3 + 2 * rank);
+    std::memcpy(descriptor.data(), field.data(), field.size());
+    const auto key = std::pair{id, descriptor};
+    if (const auto found = tensors_.find(key); found != tensors_.end())
+      return DeviceGraphNativeView{id, found->second.size(), std::as_bytes(std::span(found->second))};
+    const auto signedWord = [&](std::size_t i) { return std::bit_cast<std::int64_t>(descriptor[i]); };
+    if (signedWord(2) < 0)
+      return std::unexpected(V::Invalid);
+    bool empty = false;
+    for (std::size_t axis = 0; axis < rank; ++axis) {
+      if (signedWord(3 + axis) < 0 || signedWord(3 + rank + axis) < 0)
+        return std::unexpected(V::Invalid);
+      empty |= descriptor[3 + axis] == 0;
+    }
+    std::size_t elements = empty ? 0 : 1;
+    for (std::size_t axis = 0; !empty && axis < rank; ++axis) {
+      if (descriptor[3 + axis] > tensorWords_ / elements)
+        return std::unexpected(V::Budget);
+      elements *= descriptor[3 + axis];
+    }
+    if (rank > tensorWords_ || elements > tensorWords_ - rank ||
+        elements > tensorWork_ / (rank + 1))
+      return std::unexpected(V::Budget);
+    std::span<const std::byte> backing;
+    std::size_t start = 0;
+    if (elements) {
+      const auto *lease = retain(reinterpret_cast<const void *>(descriptor[0]));
+      if (!lease)
+        return std::unexpected(V::Invalid);
+      backing = lease->bytes();
+      const auto base = reinterpret_cast<std::uintptr_t>(backing.data());
+      const auto aligned = descriptor[1];
+      if (aligned < base || aligned % bytes || aligned - base > backing.size())
+        return std::unexpected(V::Invalid);
+      start = aligned - base;
+      const auto capacity = (backing.size() - start) / bytes;
+      auto last = descriptor[2];
+      if (last >= capacity)
+        return std::unexpected(V::Invalid);
+      for (std::size_t axis = 0; axis < rank; ++axis) {
+        const auto stride = descriptor[3 + rank + axis];
+        const auto steps = descriptor[3 + axis] - 1;
+        if (stride && steps > (capacity - 1 - last) / stride)
+          return std::unexpected(V::Invalid);
+        last += steps * stride;
+      }
+    }
+    std::vector<std::uint64_t> words(rank + elements);
+    for (std::size_t axis = 0; axis < rank; ++axis)
+      words[axis] = descriptor[3 + axis];
+    for (std::size_t i = 0; i < elements; ++i) {
+      if (!(i % 256) && cancelled_ && cancelled_())
+        return std::unexpected(V::Cancelled);
+      auto index = descriptor[2], remainder = static_cast<std::uint64_t>(i);
+      for (std::size_t axis = rank; axis-- != 0;) {
+        index += (remainder % descriptor[3 + axis]) * descriptor[3 + rank + axis];
+        remainder /= descriptor[3 + axis];
+      }
+      // Zero-extension preserves exact integer/IEEE bits without host arithmetic.
+      std::memcpy(&words[rank + i], backing.data() + start + index * bytes, bytes);
+    }
+    tensorWords_ -= words.size();
+    tensorWork_ -= elements * (rank + 1);
+    const auto &stored = tensors_.emplace(key, std::move(words)).first->second;
+    return DeviceGraphNativeView{id, stored.size(), std::as_bytes(std::span(stored))};
+  }
   const AllocationLease *retain(const void *pointer) {
     if (auto found = leases_.find(pointer); found != leases_.end())
       return &found->second;
@@ -102,6 +192,9 @@ private:
   const Invocation &source_;
   std::span<const DeviceGraphCaptureLayout> layouts_;
   std::map<const void *, AllocationLease> leases_;
+  std::function<bool()> cancelled_;
+  std::size_t tensorWords_, tensorWork_;
+  std::map<std::pair<std::size_t, std::vector<std::uint64_t>>, std::vector<std::uint64_t>> tensors_;
 };
 // All generated native capture descriptors are trivially destructible.
 // The invocation scope owns the dependencies copied by the member layouts.
@@ -151,7 +244,7 @@ template <class Policy> struct DeviceGraphArgument {
       // Bound temporary packing work and the resulting transfer separately.
       constexpr std::size_t limit = 1 << 20, work = 8 * limit;
       const auto cancelled = [&] { return context.poll() != 0; };
-      DeviceGraphCapture resolver(context, Policy::captureLayouts);
+      DeviceGraphCapture resolver(context, Policy::captureLayouts, cancelled, limit, work);
       std::vector<DeviceGraphNativeView> views;
       constexpr bool resolved = requires { Policy::captureViews(value, resolver); };
       constexpr bool joined = resolved || requires { Policy::captureViews(value); };

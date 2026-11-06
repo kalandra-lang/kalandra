@@ -92,8 +92,10 @@ record and flat-array parameters with scalar companions and a scalar result.
 The compiler derives provenance from the original spawn arguments, emits the
 selected device bodies, and retains native captures through the task packet.
 All owned inputs share one graph directory, including callable-containing
-records and arrays also captured by closures. Tensor captures and broader
-result transport remain integration requirements before this PR is ready.
+records and arrays also captured by closures. CPU-resident tensor captures are
+converted from their native descriptors to shape-prefixed device payloads.
+Broader result transport and backend/lifecycle qualification remain requirements
+before this PR is ready.
 
 ### Device import representation
 
@@ -132,6 +134,23 @@ actual continuation callable identities and export environment identity getters.
 Source IDs are canonical wire tags, not native addresses. Device entry planning
 can select a pure function from a module containing unrelated host placement;
 placement instructions inside the selected device graph remain unsupported.
+
+### Tensor payload conversion
+
+Captured CPU tensors use the existing local-device tensor representation: rank
+extents followed by zero-extended numeric bit words. Rank zero, empty extents and
+ranks through eight use the same conversion. The resolver verifies ownership,
+offset, strides and allocation bounds before reading data. It copies logical
+row-major elements, preserving integer and IEEE bits without arithmetic.
+Repeated identical descriptors share a cached node; different views retain
+separate shape/stride interpretations. No host address enters the wire.
+
+Temporary tensor payloads share a word/work allowance with the capture resolver.
+Conversion polls cancellation every 256 elements and never caches partial
+results. Runtime tests cover strided views, invalid bounds/strides, budgets,
+cancellation during copying, rank zero, empty tensors and repeated-view identity.
+Physical Metal fixtures compare CPU-created tensor closures, including record
+fields and rank-eight captures, against CPU execution with host sanitizers.
 
 ## Implementation sequence
 

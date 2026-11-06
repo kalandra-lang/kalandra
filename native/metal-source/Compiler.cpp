@@ -2102,7 +2102,7 @@ class Compiler {
     for (std::size_t l = 0; l < schema->layouts.size(); ++l) {
       const auto &layout = schema->layouts[l];
       const auto suffix = std::to_string(l);
-      const std::string singleton = layout.type.array ? "false" : "true";
+      const std::string singleton = layout.type.tensor ? "false" : "true";
       wire += "{cells" + suffix + "," + singleton + "},";
       native += "{native" + suffix + "," + number(layout.nativeStride) + "," + singleton + "},";
       capture += "{" + number(layout.nativeStride) + "," + number(layout.nativeAlignment) + ",";
@@ -2118,6 +2118,9 @@ class Compiler {
         capture += ",kalandra_gpu_closure_code_" + std::to_string(*closure->environments[l]) + "()";
       else if (closure && closure->kinds[l] == ClosureGraphSchema::Kind::Callable)
         capture += ",nullptr,true";
+      if (closure && deviceTensorValue(layout.type))
+        capture += ",nullptr,false," + std::to_string(layout.type.shape.size()) + "," +
+                   std::to_string(describeNumeric(layout.type.element)->bytes());
       capture += "},";
       const auto layoutId = closure ? closure->arenaLayouts[l] : schema->captureJoin == l + 1 ? 0 : layout.type.record ?
           runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*layout.type.record), layout.type.array) :

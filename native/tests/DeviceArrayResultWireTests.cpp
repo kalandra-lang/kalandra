@@ -522,6 +522,66 @@ void closureGraphCapture() {
   cells[0].bytes = 0;
   check(!pack(), "zero-byte projection accepted");
 }
+void tensorGraphCapture() {
+  using V = DeviceGraphValidation;
+  Invocation source;
+  auto *values = static_cast<std::uint16_t *>(source.allocate(12));
+  check(values != nullptr, "tensor capture allocation");
+  for (unsigned i = 0; i < 6; ++i)
+    values[i] = i + 1;
+  CpuTensor<NumericType::UInt16, 2> descriptor{values, values, 0, {3, 2}, {1, 3}};
+  const std::array layouts{DeviceGraphCaptureLayout{8, 8, nullptr, nullptr, false, 2, 2},
+                           DeviceGraphCaptureLayout{8, 8, nullptr, nullptr, false, 0, 2}};
+  DeviceGraphCapture resolver(source, layouts);
+  const auto field = std::as_bytes(std::span(&descriptor, 1));
+  const auto view = resolver(1, field);
+  const std::array<std::uint64_t, 8> expected{3, 2, 1, 4, 2, 5, 3, 6};
+  check(view && view->elements == expected.size() &&
+            std::ranges::equal(view->data, std::as_bytes(std::span(expected))),
+        "tensor capture lost shape, stride order or element bits");
+  const auto again = resolver(1, field);
+  check(again && again->data.data() == view->data.data(), "shared tensor capture duplicated its node");
+  descriptor.strides[1] = 9;
+  check(!resolver(1, field), "tensor capture read outside retained allocation");
+  descriptor.strides[1] = -1;
+  check(!resolver(1, field), "tensor capture accepted negative stride");
+  descriptor.strides[1] = 3;
+  DeviceGraphCapture bounded(source, layouts, {}, 7);
+  const auto budget = bounded(1, field);
+  check(!budget && budget.error() == V::Budget, "tensor capture ignored word budget");
+  DeviceGraphCapture workBounded(source, layouts, {}, 100, 1);
+  check(!workBounded(1, field), "tensor capture ignored work budget");
+  DeviceGraphCapture cancelled(source, layouts, [] { return true; });
+  const auto stopped = cancelled(1, field);
+  check(!stopped && stopped.error() == V::Cancelled, "tensor capture ignored cancellation");
+  CpuTensor<NumericType::UInt16, 0> scalar{values, values, 2};
+  const auto rankZero = resolver(2, std::as_bytes(std::span(&scalar, 1)));
+  std::uint64_t word = 0;
+  check(rankZero && rankZero->elements == 1, "rank-zero tensor capture rejected");
+  std::memcpy(&word, rankZero->data.data(), 8);
+  check(word == 3, "rank-zero tensor capture lost offset");
+  descriptor = {nullptr, nullptr, 0, {0, 7}, {7, 1}};
+  const auto empty = resolver(1, field);
+  check(empty && empty->elements == 2, "empty tensor capture lost dimension metadata");
+  auto *large = static_cast<std::uint16_t *>(source.allocate(1200));
+  check(large != nullptr, "large tensor capture allocation");
+  std::fill_n(large, 600, std::uint16_t(9));
+  CpuTensor<NumericType::UInt16, 2> largeDescriptor{large, large, 0, {20, 30}, {30, 1}};
+  unsigned polls = 0;
+  DeviceGraphCapture interrupted(source, layouts, [&] { return ++polls == 3; });
+  const auto partial = interrupted(1, std::as_bytes(std::span(&largeDescriptor, 1)));
+  check(!partial && partial.error() == V::Cancelled && polls == 3,
+        "tensor capture did not poll during data conversion");
+  const auto retry = interrupted(1, std::as_bytes(std::span(&largeDescriptor, 1)));
+  check(retry && retry->elements == 602, "cancelled tensor copy published a partial cached node");
+  source.release(large);
+  descriptor = {values, values, 0, {3, 2}, {1, 3}};
+  source.release(values);
+  check(resolver(1, field).has_value() &&
+            std::ranges::equal(view->data, std::as_bytes(std::span(expected))),
+        "tensor capture did not retain its private canonical payload");
+}
+
 void graphCapture() {
   Invocation source;
   const char key = 0, wrongKey = 0;
@@ -647,6 +707,7 @@ int main() {
     aggregateEnvelope();
     graphWire();
     graphCapture();
+    tensorGraphCapture();
     closureGraphCapture();
     cancellationAndAllocation();
     std::cout << "PASS: eleven typed result decoders, exact bits, retained aliases, bounded pages, "

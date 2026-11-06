@@ -78,6 +78,9 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
     auto canonicalType = type;
     if (canonicalType.array)
       canonicalType.shape = {{std::nullopt, 1}};
+    else if (deviceTensorValue(canonicalType))
+      for (auto &extent : canonicalType.shape)
+        extent = {std::nullopt, 1};
     for (std::size_t i = 0; i < out.graph.layouts.size(); ++i) {
       if (!consume(1))
         return 0;
@@ -120,7 +123,7 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
       if (deviceScalarValue(type))
         cell.rule = scalarRule(type);
       else if (deviceCallableValue(type) || deviceFlatArrayValue(type) ||
-               deviceRecordArrayValue(type)) {
+               deviceRecordArrayValue(type) || deviceTensorValue(type)) {
         cell.rule.target = schedule(type);
         cell.rule.nullable = type.array;
         if (!cell.rule.target)
@@ -157,7 +160,7 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
       auto &cell = cells[first + node.deviceWord];
       cell.nativeOffset = offsets[leaf];
       cell.nativeBytes = field.nativeBytes;
-      if (node.boxed || node.type.array || deviceCallableValue(node.type)) {
+      if (node.boxed || node.type.array || deviceCallableValue(node.type) || deviceTensorValue(node.type)) {
         cell.rule.target = schedule(node.type);
         cell.rule.nullable = node.type.array;
         if (!cell.rule.target)
@@ -234,6 +237,11 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
         if (capture.offset > stride || capture.bytes > stride - capture.offset ||
             !append(input.symbols[capture.symbol].type, capture.offset, capture.bytes, cells))
           return reject("closure graph capture has unsupported storage or exceeds its work budget");
+    } else if (deviceTensorValue(type)) {
+      // The resolver validates the native descriptor and converts extents and
+      // element bits to canonical UInt64 words; it never transports pointers.
+      stride = alignment = 8;
+      cells.push_back({{UINT64_MAX}, {}, 0, 8});
     } else {
       const auto element = type.array ? recordArrayElement(type) : type;
       if (element.record) {

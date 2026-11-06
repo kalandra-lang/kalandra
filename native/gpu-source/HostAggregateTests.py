@@ -248,6 +248,19 @@ fn main()->int ! TaskError:
   try parallel:
     try await spawn work(values,callback) on devices.gpu()
 ''', 5)
+for typ in ('int8','int16','int32','int64','uint8','uint16','uint32','uint64','float32','float64'):
+    cases['gpu-host-closure-tensor-'+typ] = (f'''fn make(n:{typ})->fn(int)->{typ}:
+  grid=tensor([n,n,n,n],[2,2])
+  fn(i:int):grid[i,1]
+fn work(callback:fn(int)->{typ})->int:
+  int(callback(1))
+fn main()->int ! TaskError:
+  callback=make(7)
+  try parallel:
+    try await spawn work(callback) on devices.gpu()
+''', 7)
+cases['gpu-host-closure-tensor-record'] = ((fixtures/'gpu-host-closure-tensor-record.k').read_text(), 7)
+cases['gpu-host-closure-tensor'] = ((fixtures/'gpu-host-closure-tensor.k').read_text(), 20)
 cases['gpu-host-closure-joined'] = ((fixtures/'gpu-host-closure-joined.k').read_text(), 42)
 cases['gpu-host-closure'] = ((fixtures/'gpu-host-closure.k').read_text(), 22)
 cases['gpu-host-closure-nested'] = ((fixtures/'gpu-host-closure-nested.k').read_text(), 26)
@@ -365,7 +378,7 @@ for name,(source,expected) in cases.items():
     gpu = root/'gpu.k'
     gpu.write_text(source)
     bundle = root/'device'
-    fallback = name == 'entry-float64' or (name in ('device-closure-float64','device-tensor-return-float64') and a.backend == 'metal')
+    fallback = name == 'entry-float64' or (name in ('device-closure-float64','device-tensor-return-float64','gpu-host-closure-tensor-float64') and a.backend == 'metal')
     policy = ['--arithmetic','hardware-with-software-fallback'] if fallback else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()
