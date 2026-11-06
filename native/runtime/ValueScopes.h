@@ -13,6 +13,8 @@ public:
   // A stopped/failed result has no valid success payload to copy. Retire its
   // previous rooted value without interpreting zeroed enum/pointer fields.
   bool discard(std::size_t) noexcept;
+  // Retire a slot without ending or starting an ownership interval.
+  bool clear(std::size_t) noexcept;
   struct Write {
     std::uint64_t slot;
     void *value;

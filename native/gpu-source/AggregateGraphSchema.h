@@ -53,17 +53,19 @@ planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> ro
   auto storage = planRecordStorage(input, budget);
   if (!storage)
     return reject(storage.error().message);
-  auto canonical = planDeviceAggregateLayouts(input, roots, budget, &*storage);
+  auto canonical = planDeviceAggregateLayouts(input, roots, budget, &*storage, true);
   if (!canonical)
     return reject(canonical.error());
 
   AggregateGraphSchema plan;
-  using Key = std::tuple<BuiltinValue, NumericType, std::optional<std::size_t>, bool>;
+  using Key =
+      std::tuple<BuiltinValue, NumericType, std::optional<std::size_t>, bool, std::optional<std::size_t>>;
   std::map<Key, std::size_t> ids;
   const auto schedule = [&](const ValueType &type) {
     const Key key{type.builtin, type.builtin == BuiltinValue::Numeric ? type.element
                                                                     : NumericType::UInt8,
-                  type.record, type.array};
+                  type.record, type.array,
+                  deviceTensorValue(type) ? std::optional{type.shape.size()} : std::nullopt};
     auto [found, inserted] = ids.try_emplace(key, plan.layouts.size() + 1);
     if (inserted)
       plan.layouts.push_back({type, {}});
@@ -83,6 +85,14 @@ planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> ro
   }
   for (std::size_t layout = 0; layout < plan.layouts.size(); ++layout) {
     const auto type = plan.layouts[layout].type;
+    if (deviceTensorValue(type)) {
+      if (!consumeAggregateProjectionWork(budget, 1))
+        return reject("GPU graph schema exceeds configured work budget");
+      auto &tensor = plan.layouts[layout];
+      tensor.nativeStride = tensor.nativeAlignment = sizeof(std::uint64_t);
+      tensor.cells.push_back({{UINT64_MAX}, {}, 0, sizeof(std::uint64_t)});
+      continue;
+    }
     if (deviceScalarValue(type) || deviceFlatArrayValue(type)) {
       if (!consumeAggregateProjectionWork(budget, 1))
         return reject("GPU graph schema exceeds configured work budget");
@@ -96,6 +106,8 @@ planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> ro
       continue;
     }
     const auto element = type.array ? recordArrayElement(type) : type;
+    if (!element.record)
+      return reject("GPU result graph requires numeric, Bool or nominal storage");
     const auto stride = canonical->at(*element.record).words;
     if (!consumeAggregateProjectionWork(budget, stride))
       return reject("GPU graph schema exceeds configured work budget");
@@ -127,7 +139,9 @@ planAggregateGraphSchema(const TypedModule &input, std::span<const ValueType> ro
       const auto &parent = projection->nodes[node.parent];
       cell.nativeOffset = nativeOffsets[leaf];
       cell.nativeBytes = native[*parent.type.record].fields[node.field].nativeBytes;
-      if (node.boxed || node.type.array) {
+      if (deviceCallableValue(node.type))
+        return reject("GPU result graph cannot export callable values");
+      if (node.boxed || node.type.array || deviceTensorValue(node.type)) {
         cell.rule.target = schedule(node.type);
         cell.rule.nullable = node.type.array;
       } else {

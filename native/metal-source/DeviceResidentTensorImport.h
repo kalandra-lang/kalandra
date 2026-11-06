@@ -11,10 +11,13 @@ inline mlir::Value emitResidentTensorImport(mlir::OpBuilder &b, DeviceHeapEmitte
     mlir::Value buffer, mlir::Value sealedCount, std::span<const mlir::Value> extents,
     unsigned destination, unsigned layout) {
   using namespace mlir;
+  using B = runtime::DeviceHeapBlockABI;
   const auto bufferType = dyn_cast<MemRefType>(buffer.getType());
   if (!bufferType || bufferType.getRank() != 1 ||
       !isa<IntegerType>(bufferType.getElementType()) || extents.size() > 8 ||
-      !sealedCount.getType().isInteger(64) || !layout || layout > 10)
+      !sealedCount.getType().isInteger(64) || layout < B::TensorLayoutBase ||
+      layout >= B::TensorLayoutEnd ||
+      (layout - B::TensorLayoutBase) % B::TensorRankCount != extents.size())
     throw std::invalid_argument("invalid checkpointed resident tensor binding");
   const auto loc = b.getUnknownLoc();
   const auto c = [&](std::uint64_t value, unsigned bits = 64) -> Value {

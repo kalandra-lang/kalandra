@@ -87,6 +87,33 @@ template <NumericType Element, bool Boolean = false> static void exercise() {
     }
     require(destination.live() == fixed, "discard kept native backing alive");
   }
+  // Replacing an active outcome arm must retain aliases before clearing its
+  // old arm. Repeat to detect backing accumulating across observations.
+  {
+    Invocation context;
+    HostArrayScopes scopes;
+    require(scopes.initialize(context, layouts), "outcome scope initialization failed");
+    const auto fixed = context.live();
+    Descriptor arms[2]{};
+    {
+      HostArrayWork work(scopes);
+      auto *cell = static_cast<Cell *>(context.allocate(sizeof(Cell)));
+      require(bool(work) && cell, "outcome source allocation failed");
+      *cell = Cell(1);
+      arms[0] = Descriptor{cell, cell, 0, {1}, {1}};
+      require(scopes.commit(0, &arms[0]), "initial outcome commit failed");
+    }
+    for (unsigned i = 0; i < 1000; ++i) {
+      const auto old = i % 2, next = 1 - old;
+      HostArrayWork work(scopes);
+      arms[next] = arms[old];
+      require(bool(work) && scopes.commit(next, &arms[next]) && scopes.clear(old),
+              "outcome arm replacement failed");
+      require(arms[next].aligned[0] == Cell(1) && context.live() == fixed + 1,
+              "outcome replacement lost or retained backing");
+    }
+    require(scopes.clear(0) && context.live() == fixed, "outcome arm retirement leaked");
+  }
   Invocation context;
   std::atomic<bool> cancelled{false};
   context.bindCancellation(&cancelled);

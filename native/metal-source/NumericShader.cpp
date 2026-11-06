@@ -8,6 +8,7 @@
 #include "DeviceCallReachability.h"
 #include "DeviceArrayReturn.h"
 #include "../gpu-source/AggregateLayout.h"
+#include "../gpu-source/DeviceErrorLayout.h"
 #include "../gpu-runtime/ControlExport.h"
 #include "../runtime/DeviceGraphWire.h"
 #include "NumericShader.h"
@@ -1104,10 +1105,38 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return type.builtin == BuiltinValue::Function && !type.array && !type.tensor &&
            !type.task && !type.fallible;
   };
-  if (callFrames && !std::ranges::all_of(plan.slots, [&](const auto &type) {
-                       return scalar(type) || callable(type) || flatArray(type) || localTensor(type) || deviceInlineRecordValue(type) ||
-                              deviceRecordArrayValue(type);
-                     }))
+  const auto successType = [](ValueType type) {
+    type.fallible = false;
+    type.errorRecord.reset();
+    return type;
+  };
+  auto layoutTypes = plan.slots;
+  std::set<std::size_t> errorFamilies;
+  for (std::size_t slot = 0; slot < plan.slots.size(); ++slot) {
+    const auto &type = plan.slots[slot];
+    if (!type.fallible)
+      continue;
+    if (!callFrames || type.task || !type.errorRecord)
+      return reject("GPU call frames require application-error channels");
+    layoutTypes[slot] = successType(type);
+    errorFamilies.insert(*type.errorRecord);
+  }
+  if (!errorFamilies.empty()) {
+    const std::vector families(errorFamilies.begin(), errorFamilies.end());
+    auto payloads = planDeviceErrorPayloadLayouts(input, families);
+    if (!payloads)
+      return reject(payloads.error());
+    for (auto family : families) {
+      ValueType payload;
+      payload.builtin = BuiltinValue::Record;
+      payload.record = family;
+      layoutTypes.push_back(std::move(payload));
+    }
+  }
+  if (callFrames && !std::ranges::all_of(layoutTypes, [&](const auto &type) {
+        return scalar(type) || callable(type) || flatArray(type) || localTensor(type) ||
+               deviceInlineRecordValue(type) || deviceRecordArrayValue(type);
+      }))
     return reject("GPU recursive calls require supported device frame values");
   bool storage = callFrames || std::ranges::any_of(plan.slots, [&](const auto &type) {
     return flatArray(type) || localTensor(type);
@@ -1146,7 +1175,6 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       }))
     return reject("GPU checkpointed entry requires scalar, flat array or resident tensor inputs and "
                   "scalar, flat array or inline aggregate results");
-  auto layoutTypes = plan.slots;
   for (auto &type : layoutTypes)
     if (localTensor(type)) {
       type.array = true;
@@ -1173,6 +1201,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return flatArray(type) || deviceRecordArrayValue(type) || localTensor(type);
   };
   const auto arrayIdentity = [&](const ValueType &type) -> unsigned {
+    if (localTensor(type))
+      return runtime::DeviceHeapBlockABI::tensorLayout(type.element, type.shape.size());
     if (deviceRecordArrayValue(type))
       return runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*type.record), true);
     return type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1;
@@ -1185,7 +1215,7 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       boxTypes.insert(*record);
   if (graphResult)
     boxTypes.insert(*root.resultType.record);
-  for (const auto &type : plan.slots)
+  for (const auto &type : layoutTypes)
     if (deviceRecordArrayValue(type))
       arrayTypes.insert(*type.record);
   for (const auto &[id, layout] : layouts) {
@@ -1252,8 +1282,33 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     (void)id;
     storage |= !layout.owned.empty();
   }
-  const auto width = [&](const ValueType &type) -> std::size_t {
+  const auto plainWidth = [&](const ValueType &type) -> std::size_t {
     return scalar(type) || callable(type) || localArray(type) ? 1 : layouts.at(*type.record).words;
+  };
+  // A result uses a discriminant followed by disjoint success and error cells.
+  // Writes clear the inactive cells so ordinary frame root maps remain valid.
+  const auto width = [&](const ValueType &type) -> std::size_t {
+    return type.fallible ? 1 + plainWidth(successType(type)) + layouts.at(*type.errorRecord).words
+                         : plainWidth(type);
+  };
+  const auto errorOffset = [&](continuation::Slot slot) {
+    return 1 + plainWidth(successType(plan.slots.at(slot)));
+  };
+  const auto visitOwned = [&](const ValueType &type, auto visit) {
+    const auto visitValue = [&](const ValueType &value, std::size_t base) {
+      if (localArray(value) || callable(value))
+        visit(base);
+      else if (plainRecord(value))
+        for (auto leaf : layouts.at(*value.record).owned)
+          visit(base + leaf);
+    };
+    if (type.fallible) {
+      const auto success = successType(type);
+      visitValue(success, 1);
+      for (auto leaf : layouts.at(*type.errorRecord).owned)
+        visit(1 + plainWidth(success) + leaf);
+    } else
+      visitValue(type, 0);
   };
   struct ClosureLayout {
     unsigned identity;
@@ -1470,8 +1525,9 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     std::vector<continuation::Slot> ownedSlots;
     for (std::size_t i = 0; i < plan.slots.size(); ++i) {
       const auto &type = plan.slots[i];
-      if (localArray(type) || callable(type) ||
-          (plainRecord(type) && !layouts.at(*type.record).owned.empty()))
+      bool owned = false;
+      visitOwned(type, [&](auto) { owned = true; });
+      if (owned)
         ownedSlots.push_back(i);
     }
     auto roots = deviceLiveRoots(plan, ownedSlots, 64 * 1024 * 1024, 30000000, callFrames);
@@ -1487,15 +1543,17 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
       std::vector<std::size_t> expanded;
       for (auto slot : row) {
         const auto &type = plan.slots.at(slot);
-        const auto count = localArray(type) || callable(type) ? 1 : layouts.at(*type.record).owned.size();
-        if (count > rootBudget)
+        bool exhausted = false;
+        visitOwned(type, [&](auto leaf) {
+          if (!rootBudget) {
+            exhausted = true;
+            return;
+          }
+          --rootBudget;
+          expanded.push_back(offsets.at(slot) + leaf);
+        });
+        if (exhausted)
           return reject("GPU aggregate root expansion exceeds configured memory budget");
-        rootBudget -= count;
-        if (localArray(type) || callable(type))
-          expanded.push_back(offsets.at(slot));
-        else
-          for (auto leaf : layouts.at(*type.record).owned)
-            expanded.push_back(offsets.at(slot) + leaf);
       }
       row = std::move(expanded);
     }
@@ -1680,7 +1738,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     if (op.code == C::MapInit || op.code == C::MapCheck || op.code == C::MapLoad ||
         op.code == C::MapStore || op.code == C::MapAdvance || arrayOperation(op) || op.code == C::CollectInit || op.code == C::CollectAppend ||
         op.code == C::CollectFinish || op.code == C::Label || op.code == C::Copy || op.code == C::Branch || op.code == C::Jump ||
-        op.code == C::Return || (callFrames && (op.code == C::SynchronousCall ||
+        op.code == C::Return || op.code == C::Try || op.code == C::Catch || op.code == C::Fail ||
+        (callFrames && (op.code == C::SynchronousCall ||
         op.code == C::FunctionReference || op.code == C::CallableTarget || op.code == C::CallableCaptures ||
         op.code == C::InvalidCallable)) || op.code == C::Field || op.code == C::Case ||
         (op.code == C::Kernel &&
@@ -2345,6 +2404,74 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
         for (std::size_t word = 0; word < count; ++word)
           store(destination + word, values[word]);
       };
+      const auto clearWords = [&](std::size_t destination, std::size_t count) {
+        chargeAggregate(count);
+        for (std::size_t word = 0; word < count; ++word)
+          store(destination + word, constant(0));
+      };
+      const auto when = [&](Value predicate, auto emit) {
+        auto branch = scf::IfOp::create(b, loc, predicate, false);
+        OpBuilder::InsertionGuard restore(b);
+        b.setInsertionPointToStart(&branch.getThenRegion().front());
+        emit();
+      };
+      const auto equal = [&](Value left, std::size_t right) -> Value {
+        return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, left, constant(right));
+      };
+      const auto copyError = [&](std::size_t destination, std::size_t destinationFamily,
+                                 std::size_t source, std::size_t sourceFamily) {
+        const auto &from = input.records.at(sourceFamily);
+        const auto &to = input.records.at(destinationFamily);
+        const auto &fromLayout = layouts.at(sourceFamily);
+        const auto &toLayout = layouts.at(destinationFamily);
+        const auto tag = load(source);
+        std::map<std::pair<std::size_t, std::size_t>, std::size_t> variants;
+        chargeAggregate(from.variants.size() + to.variants.size());
+        for (std::size_t v = 0; v < to.variants.size(); ++v)
+          variants.emplace(errorOrigin(input, destinationFamily, v), v);
+        Value matched = constant(0, 1);
+        for (std::size_t v = 0; v < from.variants.size(); ++v) {
+          auto found = variants.find(errorOrigin(input, sourceFamily, v));
+          if (found == variants.end())
+            continue;
+          const auto target = found->second;
+          const auto &fields = from.variants[v].fields;
+          const auto &targetFields = to.variants[target].fields;
+          if (fields.size() != targetFields.size())
+            throw Rejected{{"G001", "GPU error variants disagree on payload fields", root.declaration}};
+          const auto selected = equal(tag, v + 1);
+          matched = arith::OrIOp::create(b, loc, matched, selected);
+          when(selected, [&] {
+            store(destination, constant(target + 1));
+            for (std::size_t f = 0; f < fields.size(); ++f) {
+              const auto field = fields[f], targetField = targetFields[f];
+              if (fromLayout.boxed[field] != toLayout.boxed[targetField])
+                throw Rejected{{"G001", "GPU error conversion requires compatible recursive payload layouts",
+                                root.declaration}};
+              copyWords(destination + toLayout.fields[targetField], source + fromLayout.fields[field],
+                        fromLayout.boxed[field] ? 1 : plainWidth(from.fields[field].type));
+            }
+          });
+        }
+        when(arith::XOrIOp::create(b, loc, matched, yes), [&] { heap->fault(99); });
+      };
+      const auto success = [&](continuation::Slot destination, std::size_t source) {
+        const auto &type = plan.slots.at(destination);
+        const auto base = offsets.at(destination);
+        if (type.fallible) {
+          clearWords(base, width(type));
+          store(base, constant(1));
+        }
+        copyWords(base + type.fallible, source, plainWidth(successType(type)));
+      };
+      const auto failure = [&](continuation::Slot destination, std::size_t source,
+                               std::size_t family) {
+        const auto &type = plan.slots.at(destination);
+        const auto base = offsets.at(destination);
+        clearWords(base, width(type));
+        store(base, constant(2));
+        copyError(base + errorOffset(destination), *type.errorRecord, source, family);
+      };
       const auto stepElement = [&](std::size_t stride, auto emit) -> Value {
         if (stride == 1) {
           emit(constant(0));
@@ -2978,38 +3105,98 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
             });
           }
         }
-      } else if (op.code == C::Copy)
-        copyWords(offsets.at(op.output), offsets.at(op.args.at(0)),
-                  width(plan.slots.at(op.output)));
-      else if (op.code == C::Field) {
-        const auto source = op.args.at(0);
-        const auto &layout = layouts.at(*plan.slots.at(source).record);
-        const auto field = offsets.at(source) + layout.fields.at(op.target);
-        const auto count = width(plan.slots.at(op.output));
-        if (!layout.boxed.at(op.target)) {
-          copyWords(offsets.at(op.output), field, count);
+      } else if (op.code == C::Try || op.code == C::Catch || op.code == C::Fail) {
+        const auto operand = op.args.at(0);
+        const auto base = offsets.at(operand);
+        const auto &type = plan.slots.at(operand);
+        const auto abandonCollections = [&] {
+          chargeAggregate(op.collections.size());
+          for (auto collection : op.collections)
+            store(offsets.at(collection), constant(0));
+        };
+        if (op.code == C::Fail) {
+          failure(op.target, base, *type.record);
+          abandonCollections();
+          next = constant(op.jump + 1);
         } else {
-          const auto handle = load(field);
-          const auto word = load(boxStep + 1);
-          const auto equal = [&](Value a, Value d) -> Value {
-            return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, a, d);
-          };
-          auto valid = arith::AndIOp::create(b, loc,
-              equal(heap->read(handle, constant(1)), constant(boxIdentity(*plan.slots.at(op.output).record))),
-              equal(heap->read(handle, constant(2)), constant(count)));
-          auto check = scf::IfOp::create(b, loc, valid, true);
-          {
-            OpBuilder::InsertionGuard restore(b);
-            b.setInsertionPointToStart(&check.getThenRegion().front());
-            writeFrame(offsets.at(op.output), word,
-                          heap->read(handle, arith::AddIOp::create(b, loc, constant(4), word)));
-            b.setInsertionPointToStart(&check.getElseRegion().front());
-            heap->fault(99);
+          const auto ok = equal(load(base), 1);
+          const auto failed = equal(load(base), 2);
+          const auto catchError = op.code == C::Catch;
+          when(ok, [&] { success(op.output, base + 1); });
+          when(failed, [&] {
+            if (catchError) {
+              const auto binding = op.args.at(1);
+              clearWords(offsets.at(binding), width(plan.slots.at(binding)));
+              copyError(offsets.at(binding), *plan.slots.at(binding).record,
+                        base + errorOffset(operand), *type.errorRecord);
+            } else {
+              failure(op.target, base + errorOffset(operand), *type.errorRecord);
+              abandonCollections();
+            }
+          });
+          when(arith::XOrIOp::create(b, loc, arith::OrIOp::create(b, loc, ok, failed), yes),
+               [&] { heap->fault(99); });
+          next = arith::SelectOp::create(b, loc, ok,
+              catchError ? constant(op.target + 1) : next, constant(op.jump + 1));
+        }
+      } else if (op.code == C::Copy) {
+        const auto source = op.args.at(0);
+        if (source != op.output) {
+          const auto &from = plan.slots.at(source);
+          const auto &to = plan.slots.at(op.output);
+          const auto base = offsets.at(source);
+          if (from.fallible) {
+            if (!to.fallible)
+              throw Rejected{{"G001", "GPU result copy requires a destination error channel",
+                              root.declaration}};
+            const auto ok = equal(load(base), 1);
+            const auto failed = equal(load(base), 2);
+            when(ok, [&] { success(op.output, base + 1); });
+            when(failed, [&] {
+              failure(op.output, base + errorOffset(source), *from.errorRecord);
+            });
+            when(arith::XOrIOp::create(b, loc, arith::OrIOp::create(b, loc, ok, failed), yes),
+                 [&] { heap->fault(99); });
+          } else if (to.fallible) {
+            success(op.output, base);
+          } else
+            copyWords(offsets.at(op.output), base, width(to));
+        }
+      } else if (op.code == C::Field) {
+        const auto source = op.args.at(0);
+        if (std::holds_alternative<ErrorNarrow>(input.expressions.at(op.source).operation)) {
+          clearWords(offsets.at(op.output), width(plan.slots.at(op.output)));
+          copyError(offsets.at(op.output), *plan.slots.at(op.output).record,
+                    offsets.at(source), *plan.slots.at(source).record);
+        } else {
+          const auto &layout = layouts.at(*plan.slots.at(source).record);
+          const auto field = offsets.at(source) + layout.fields.at(op.target);
+          const auto count = width(plan.slots.at(op.output));
+          if (!layout.boxed.at(op.target)) {
+            copyWords(offsets.at(op.output), field, count);
+          } else {
+            const auto handle = load(field);
+            const auto word = load(boxStep + 1);
+            const auto equal = [&](Value a, Value d) -> Value {
+              return arith::CmpIOp::create(b, loc, arith::CmpIPredicate::eq, a, d);
+            };
+            auto valid = arith::AndIOp::create(b, loc,
+                equal(heap->read(handle, constant(1)), constant(boxIdentity(*plan.slots.at(op.output).record))),
+                equal(heap->read(handle, constant(2)), constant(count)));
+            auto check = scf::IfOp::create(b, loc, valid, true);
+            {
+              OpBuilder::InsertionGuard restore(b);
+              b.setInsertionPointToStart(&check.getThenRegion().front());
+              writeFrame(offsets.at(op.output), word,
+                            heap->read(handle, arith::AddIOp::create(b, loc, constant(4), word)));
+              b.setInsertionPointToStart(&check.getElseRegion().front());
+              heap->fault(99);
+            }
+            const Value advanced = arith::AddIOp::create(b, loc, word, constant(1));
+            const auto done = equal(advanced, constant(count));
+            store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
+            next = arith::SelectOp::create(b, loc, done, next, pc);
           }
-          const Value advanced = arith::AddIOp::create(b, loc, word, constant(1));
-          const auto done = equal(advanced, constant(count));
-          store(boxStep + 1, arith::SelectOp::create(b, loc, done, constant(0), advanced));
-          next = arith::SelectOp::create(b, loc, done, next, pc);
         }
       } else if (op.code == C::Case) {
         auto tag = load(offsets.at(op.args.at(0)));

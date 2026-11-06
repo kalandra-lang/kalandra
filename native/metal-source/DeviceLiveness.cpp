@@ -15,8 +15,12 @@ deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Sl
   const std::uint64_t words = (tracked.size() + 63) / 64;
   // Charge graph/vector tables, bitsets, work queues and the root-slot index
   // before allocating them. Runtime arrays are unaffected by this compiler cap.
+  struct Edge {
+    std::uint32_t target;
+    std::size_t definition;
+  };
   const std::uint64_t row =
-      4 * sizeof(std::vector<std::uint64_t>) + sizeof(std::size_t) + 8 * sizeof(std::uint32_t) + 1;
+      4 * sizeof(std::vector<std::uint64_t>) + 2 * sizeof(Edge) + 8 * sizeof(std::uint32_t) + 1;
   if (slots > maxBytes / sizeof(std::size_t))
     return std::unexpected("device root analysis exceeds its memory budget");
   std::uint64_t retained = slots * sizeof(std::size_t);
@@ -41,8 +45,8 @@ deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Sl
     maxWork -= work;
     return true;
   };
-  std::vector<std::vector<std::uint32_t>> predecessors(count), successors(count);
-  std::vector<std::size_t> definitions(count, SIZE_MAX);
+  std::vector<std::vector<std::uint32_t>> predecessors(count);
+  std::vector<std::vector<Edge>> successors(count);
   for (std::size_t pc = 0; pc < count; ++pc) {
     if (!spend(1 + plan.code[pc].args.size()))
       return std::unexpected("device root analysis exceeds its work budget");
@@ -87,30 +91,43 @@ deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Sl
     case C::Case:
     case C::CollectFinish:
       break;
+    case C::Try:
+    case C::Catch:
+    case C::Fail:
+      break;
     default:
       return std::unexpected("device root analysis requires explicit control-flow effects");
     }
-    if (produces) {
-      if (op.output >= slots)
-        return std::unexpected("device root definition is out of range");
-      definitions[pc] = indices[op.output];
-    }
+    if (produces && op.output >= slots)
+      return std::unexpected("device root definition is out of range");
     for (auto slot : op.args)
       if (slot >= slots)
         return std::unexpected("device root operand is out of range");
-    const auto edge = [&](std::size_t target) -> bool {
-      if (target >= count)
+    const auto edge = [&](std::size_t target, std::size_t output = SIZE_MAX) -> bool {
+      if (target >= count || (output != SIZE_MAX && output >= slots))
         return false;
-      successors[pc].push_back(target);
+      successors[pc].push_back({static_cast<std::uint32_t>(target),
+                                output == SIZE_MAX ? SIZE_MAX : indices[output]});
       predecessors[target].push_back(pc);
       return true;
     };
+    // The success and failure successors define different slots. A previous
+    // value in either destination may still be live on the opposite edge.
+    if (op.code == C::Try || op.code == C::Fail || op.code == C::Catch) {
+      const bool catches = op.code == C::Catch;
+      if (op.args.size() != (catches ? 2 : 1) || op.target == SIZE_MAX ||
+          (op.code != C::Fail && op.output >= slots) ||
+          !edge(op.jump, catches ? op.args[1] : op.target) ||
+          (op.code != C::Fail && !edge(catches ? op.target : pc + 1, op.output)))
+        return std::unexpected("invalid device error control flow");
+      continue;
+    }
     if (op.code == C::Jump || op.code == C::Branch || op.code == C::Case) {
       if (!(op.code == C::Case && op.jump == SIZE_MAX) && !edge(op.jump))
         return std::unexpected("device root branch target is out of range");
     }
     if (op.code != C::Jump && op.code != C::Return && op.code != C::InvalidCallable && pc + 1 < count)
-      edge(pc + 1);
+      edge(pc + 1, produces ? op.output : SIZE_MAX);
   }
   std::vector<std::vector<std::uint64_t>> live(count, std::vector<std::uint64_t>(words));
   std::vector<std::uint32_t> pending(count);
@@ -128,12 +145,14 @@ deviceLiveRoots(const continuation::Plan &plan, std::span<const continuation::Sl
       return std::unexpected("device root analysis exceeds its work budget");
     std::fill(next.begin(), next.end(), 0);
     for (auto successor : successors[pc])
-      for (std::size_t word = 0; word < words; ++word)
-        next[word] |= live[successor][word];
-    const auto output = definitions[pc];
-    if (output != SIZE_MAX)
-      next[output / 64] &= ~(UINT64_C(1) << (output % 64));
-    for (auto arg : plan.code[pc].args) {
+      for (std::size_t word = 0; word < words; ++word) {
+        auto incoming = live[successor.target][word];
+        if (successor.definition != SIZE_MAX && successor.definition / 64 == word)
+          incoming &= ~(UINT64_C(1) << (successor.definition % 64));
+        next[word] |= incoming;
+      }
+    const auto &op = plan.code[pc];
+    for (auto arg : std::span(op.args).first(op.code == C::Catch ? 1 : op.args.size())) {
       const auto root = indices[arg];
       if (root != SIZE_MAX)
         next[root / 64] |= UINT64_C(1) << (root % 64);

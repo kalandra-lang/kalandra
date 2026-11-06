@@ -1,4 +1,5 @@
 #include "DeviceLiveness.h"
+#include "DeviceCallSchedule.h"
 #include <algorithm>
 #include <array>
 #include <iostream>
@@ -132,6 +133,46 @@ int main() {
     check(r[0] == std::vector<Slot>{1} && r[4] == (std::vector<Slot>{0, 1}) &&
               r[5] == (std::vector<Slot>{0, 1}) && r[8] == std::vector<Slot>{0},
           "map destination/input lost across allocating callback or loop backedge");
+    p.code = {{Code::Catch, 1, {0, 2}, 2, 0, 1},
+              {Code::Return, 0, {2}},
+              {Code::Return, 0, {1}}};
+    check(roots(p)[0] == std::vector<Slot>{0},
+          "catch rooted a stale success or handler payload");
+    p.code[1].args.push_back(1);
+    check(roots(p)[0] == (std::vector<Slot>{0, 1}),
+          "catch killed a value preserved along the handler edge");
+    p.code = {{Code::Try, 1, {0}, 2, SIZE_MAX, 2},
+              {Code::Return, 0, {1}},
+              {Code::Return, 0, {2}}};
+    check(roots(p)[0] == std::vector<Slot>{0}, "try rooted a stale outcome");
+    p.code[0].code = Code::Fail;
+    p.code[1].args.push_back(1);
+    check(roots(p)[0] == std::vector<Slot>{0}, "fail retained an unreachable success edge");
+    p.code[0].target = p.slots.size();
+    check(!deviceLiveRoots(p, std::array<Slot, 1>{0}), "invalid error destination admitted");
+    TypedModule input;
+    ModulePlan module(input);
+    auto entry = std::make_unique<Plan>();
+    entry->slots.resize(1);
+    entry->code = {{Code::Return, 0, {0}}};
+    module.plans.push_back(std::move(entry));
+    auto callee = std::make_unique<Plan>();
+    callee->slots.resize(4);
+    callee->result = 2;
+    callee->code = {{Code::Try, 1, {0}, 2, SIZE_MAX, 3, 0, {}, {3}},
+                    {Code::Catch, 1, {0, 3}, 3, 0, 2},
+                    {Code::Fail, 1, {3}, 2, SIZE_MAX, 3},
+                    {Code::Return, 0, {2}}};
+    module.plans.push_back(std::move(callee));
+    auto scheduled = scheduleDeviceCalls(module, 0, 20, 20);
+    check(scheduled && scheduled->plan.code[1].target == 3 &&
+              scheduled->plan.code[1].jump == 4 &&
+              scheduled->plan.code[1].collections == std::vector<Slot>{4} &&
+              scheduled->plan.code[2].target == 4 && scheduled->plan.code[2].jump == 3 &&
+              scheduled->plan.code[3].target == 3 && scheduled->plan.code[3].jump == 4,
+          "device schedule mixed up error destination slots and branch PCs");
+    module.plans[1]->code[0].group = 0;
+    check(!scheduleDeviceCalls(module, 0, 20, 20), "host group propagation admitted to device frame");
     randomGraphs();
     std::cout << "PASS device root maps: aliases, allocation operands, dead slots, CFG fixed "
                  "points and budgets\n";

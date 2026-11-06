@@ -182,6 +182,16 @@ jobs:
           path: ${{ runner.temp }}/native-spirv-validator/vcpkg/buildtrees/**/*.log
           if-no-files-found: ignore
           retention-days: 3
+      - name: Preserve relocated GPU compiler diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-gpu-package-diagnostics-${{ matrix.arch }}
+          path: |
+            build/installed-*/applications/results.json
+            build/installed-*/applications/**/*-build.log
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Verify frozen archive reproducibility
         run: |
           foreach ($backend in @('cuda', 'vulkan')) {

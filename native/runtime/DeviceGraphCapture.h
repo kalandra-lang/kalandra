@@ -117,8 +117,14 @@ private:
     std::vector<std::uint64_t> descriptor(3 + 2 * rank);
     std::memcpy(descriptor.data(), field.data(), field.size());
     const auto key = std::pair{id, descriptor};
+    const auto view = [id](const auto &entry) {
+      const auto &descriptor = entry.first.second;
+      return DeviceGraphNativeView{id, entry.second.size(), std::as_bytes(std::span(entry.second)),
+                                   reinterpret_cast<const void *>(descriptor[0]), nullptr, 0,
+                                   std::as_bytes(std::span(descriptor))};
+    };
     if (const auto found = tensors_.find(key); found != tensors_.end())
-      return DeviceGraphNativeView{id, found->second.size(), std::as_bytes(std::span(found->second))};
+      return view(*found);
     const auto signedWord = [&](std::size_t i) { return std::bit_cast<std::int64_t>(descriptor[i]); };
     if (signedWord(2) < 0)
       return std::unexpected(V::Invalid);
@@ -137,10 +143,12 @@ private:
     if (rank > tensorWords_ || elements > tensorWords_ - rank ||
         elements > tensorWork_ / (rank + 1))
       return std::unexpected(V::Budget);
+    const auto *lease = descriptor[0] ? retain(reinterpret_cast<const void *>(descriptor[0])) : nullptr;
+    if ((descriptor[0] && !lease) || (!descriptor[0] && descriptor[1]))
+      return std::unexpected(V::Invalid);
     std::span<const std::byte> backing;
     std::size_t start = 0;
     if (elements) {
-      const auto *lease = retain(reinterpret_cast<const void *>(descriptor[0]));
       if (!lease)
         return std::unexpected(V::Invalid);
       backing = lease->bytes();
@@ -177,8 +185,7 @@ private:
     }
     tensorWords_ -= words.size();
     tensorWork_ -= elements * (rank + 1);
-    const auto &stored = tensors_.emplace(key, std::move(words)).first->second;
-    return DeviceGraphNativeView{id, stored.size(), std::as_bytes(std::span(stored))};
+    return view(*tensors_.emplace(key, std::move(words)).first);
   }
   const AllocationLease *retain(const void *pointer) {
     if (auto found = leases_.find(pointer); found != leases_.end())

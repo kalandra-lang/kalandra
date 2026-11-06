@@ -42,9 +42,39 @@ This returns 42. try in adjusted propagates InputError; the call in main handles
 
 h2 { "Task errors are a separate channel" }
 
-CPU worker execution can fail independently of application validation. parallelMap and spawn/await therefore expose TaskError as well as any application-defined errors from the work. Error unions use the spelling ! (InputError | TaskError).
+CPU and GPU worker execution can fail independently of application validation. parallelMap and spawn/await therefore expose TaskError as well as any application-defined errors from the work. Error unions use the spelling ! (InputError | TaskError).
 
 Checked arithmetic, bounds, shape and allocation faults are execution failures rather than implicit application variants. Handle a TaskError at a task boundary when you need recovery. An application-only handler does not swallow unrelated execution faults.
+
+h2 { "Recover from a GPU task" }
+
+A GPU function can declare an application-error family. It can handle the error on the device or return it to the task's caller. An await exposes the declared family together with TaskError.
+
+codeblock { language = kalandra, """error InputError:
+  Negative:
+    value: int
+
+fn validate(value: int) -> int ! InputError:
+  if value < 0:
+    fail InputError.Negative { value: value }
+  value
+
+fn main() -> int ! TaskError:
+  try parallel:
+    result = await spawn validate(-42) on devices.gpu()
+    result catch fn(error):
+      match error:
+        InputError.Negative { value }: -value
+        _: 0
+""" }
+
+The handler recovers the value 42. The GPU executable prints it as 000000000000002a. The final match arm supplies a fallback for TaskError in this example. An application error handled inside the group leaves other children running. Propagating the error out of the group cancels unfinished siblings and waits for them to settle.
+
+Payloads can contain numeric and Bool values, supported records and enums, and supported arrays and tensors. The compiler rejects host-only fields such as String and task handles in a device error payload. TaskError belongs to the task boundary. Checked arithmetic and bounds faults bypass device-local application handlers.
+
+list {
+  link { url = "/docs/gpu", "Build and run a GPU program" }
+}
 
 h2 { "Choose a recovery policy" }
 

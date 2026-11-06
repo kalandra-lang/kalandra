@@ -46,7 +46,9 @@ scheduleDeviceCalls(const continuation::ModulePlan &module, FunctionId entry,
       schedule.plan.result = base + source.result;
     }
     for (auto op : source.code) {
-      if (op.output >= source.slots.size() || op.placement || !op.collections.empty())
+      const bool propagates = op.code == C::Try || op.code == C::Fail;
+      if (op.output >= source.slots.size() || op.placement ||
+          (!propagates && !op.collections.empty()))
         return std::unexpected("GPU call schedule has an unsupported instruction operand");
       op.output += base;
       for (auto &arg : op.args) {
@@ -54,7 +56,23 @@ scheduleDeviceCalls(const continuation::ModulePlan &module, FunctionId entry,
           return std::unexpected("GPU call schedule has an invalid input slot");
         arg += base;
       }
-      if (op.code == C::Branch || op.code == C::Jump || (op.code == C::Case && op.jump != SIZE_MAX)) {
+      if (propagates) {
+        if (op.target >= source.slots.size() || op.group != SIZE_MAX)
+          return std::unexpected("GPU error propagation must stay within its device function");
+        op.target += base;
+        for (auto &collection : op.collections) {
+          if (collection >= source.slots.size())
+            return std::unexpected("GPU error propagation has an invalid collection slot");
+          collection += base;
+        }
+      }
+      if (op.code == C::Catch) {
+        if (op.target >= source.code.size())
+          return std::unexpected("GPU catch success branch leaves its function");
+        op.target += pc;
+      }
+      if (op.code == C::Branch || op.code == C::Jump || (op.code == C::Case && op.jump != SIZE_MAX) ||
+          propagates || op.code == C::Catch) {
         if (op.jump >= source.code.size())
           return std::unexpected("GPU call schedule branch leaves its function");
         op.jump += pc;

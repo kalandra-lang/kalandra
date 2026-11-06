@@ -688,6 +688,116 @@ void graphCapture() {
   std::memcpy(&retained, retainedArray->data.data(), sizeof(retained));
   check(retained == 3 && !source.live(), "graph capture lease did not survive source release");
 }
+void tensorGraphResult() {
+  using namespace runtime;
+  using V = DeviceGraphValidation;
+  using Tensor = CpuTensor<NumericType::Int16, 2>;
+  const std::array<DeviceGraphCell, 2> rootCells{{{0, 2}, {0, 2}}};
+  const std::array<DeviceGraphCell, 1> tensorCells{{{UINT64_MAX}}};
+  const std::array<DeviceGraphLayout, 2> wireLayouts{{{rootCells, true}, {tensorCells, false}}};
+  const std::array<DeviceGraphNativeCell, 2> rootNative{{
+      {rootCells[0], 0, sizeof(Tensor)}, {rootCells[1], sizeof(Tensor), sizeof(Tensor)}}};
+  const std::array<DeviceGraphNativeCell, 1> tensorNative{{{tensorCells[0], 0, 8}}};
+  const std::array<DeviceGraphNativeLayout, 2> nativeLayouts{{
+      {rootNative, 2 * sizeof(Tensor), true}, {tensorNative, 8, false, 2, 2}}};
+  const std::array<const void *, 2> keys{&rootNative, &tensorNative};
+  const std::vector<std::uint64_t> valid{
+      DeviceGraphWireABI::Magic, 2, 1, 1, 1, 2, 6, 2, 2, 2, 2, 7, 65535, 11, 13};
+  const auto materialize = [&](Invocation &context, auto &out, const auto &wire,
+                               std::size_t limit = 1024) {
+    return materializeDeviceGraph(context, wire, wireLayouts, nativeLayouts, keys, 1,
+                                  std::as_writable_bytes(std::span(out)), limit, 1024);
+  };
+  {
+    Invocation context;
+    std::array<Tensor, 2> out{};
+    if (materialize(context, out, valid) != V::Valid || !out[0].aligned ||
+        out[0].allocated != out[1].allocated || out[0].sizes[0] != 2 || out[0].sizes[1] != 2 ||
+        out[0].strides[0] != 2 || out[0].strides[1] != 1 ||
+        out[0].aligned[0] != 7 || out[0].aligned[1] != -1 || out[1].aligned[3] != 13)
+      throw std::runtime_error("ranked graph result lost shape, bits or alias identity");
+    context.settle();
+    if (context.live())
+      throw std::runtime_error("ranked graph result leaked backing");
+  }
+  {
+    Invocation context;
+    auto empty = valid;
+    empty[6] = 2;
+    empty[9] = 0;
+    empty.resize(11);
+    std::array<Tensor, 2> out{};
+    if (materialize(context, out, empty) != V::Valid || out[0].allocated ||
+        out[0].sizes[0] != 0 || out[0].sizes[1] != 2 ||
+        out[0].strides[0] != 1 || out[0].strides[1] != 1 || context.live())
+      throw std::runtime_error("empty ranked graph result lost shape or allocated backing");
+  }
+  {
+    Invocation context;
+    auto *data = static_cast<std::int16_t *>(context.allocate(6 * sizeof(std::int16_t)));
+    check(data != nullptr, "tensor origin allocation failed");
+    data[1] = 7;
+    data[2] = 11;
+    data[4] = -1;
+    data[5] = 13;
+    const Tensor captured{data, data, 1, {2, 2}, {1, 3}};
+    const std::array captureLayouts{DeviceGraphCaptureLayout{8, 8, nullptr, nullptr, false, 2, 2}};
+    const std::array<unsigned, 2> arenaLayouts{12, DeviceHeapBlockABI::tensorLayout(NumericType::Int16, 2)};
+    constexpr std::uint64_t handle = 17;
+    auto makeOrigin = [&] {
+      DeviceGraphCapture capture(context, captureLayouts);
+      auto view = capture(1, std::as_bytes(std::span(&captured, 1)));
+      check(bool(view), "strided tensor capture failed");
+      view->layout = 2;
+      return makeDeviceGraphOrigins(std::span(&*view, 1), std::span(&handle, 1), arenaLayouts);
+    };
+    auto origins = makeOrigin(); // The capture's temporary canonical words are gone.
+    check(bool(origins) && origins->size() == 1, "strided tensor origin was not registered");
+    std::vector<std::uint64_t> returned{DeviceGraphWireABI::OriginMagic, 2, 0, handle};
+    returned.insert(returned.end(), valid.begin(), valid.end());
+    const auto decode = [&] {
+      return decodeDeviceGraphOrigins(returned, wireLayouts, arenaLayouts, 1, *origins, 1024,
+                                      [] { return false; });
+    };
+    auto envelope = decode();
+    check(envelope && verifyDeviceGraphOriginContents(*envelope, nativeLayouts, 1024,
+                                                       [] { return false; }) == V::Valid,
+          "strided tensor origin failed validation");
+    std::array<Tensor, 2> out{};
+    check(materializeDeviceGraph(context, envelope->graph, wireLayouts, nativeLayouts, keys, 1,
+                                 std::as_writable_bytes(std::span(out)), 1024, 1024,
+                                 envelope->nodes) == V::Valid &&
+              out[0].allocated == data && out[1].allocated == data && out[0].offset == 1 &&
+              out[0].strides == captured.strides,
+          "ranked origin lost its original backing or descriptor");
+    returned.back() ^= 1;
+    envelope = decode();
+    check(envelope && verifyDeviceGraphOriginContents(*envelope, nativeLayouts, 1024,
+                                                       [] { return false; }) == V::Invalid,
+          "changed tensor origin payload was accepted");
+  }
+  for (unsigned mode = 0; mode < 6; ++mode) {
+    Invocation context;
+    std::atomic<bool> cancelled{mode == 5};
+    context.bindCancellation(&cancelled);
+    auto wire = valid;
+    if (mode == 0)
+      wire[9] = UINT64_MAX;
+    if (mode == 1)
+      wire[10] = 3;
+    if (mode == 2)
+      wire.back() = 65536;
+    if (mode == 4)
+      context.failAllocationAt(2);
+    std::array<Tensor, 2> out{};
+    out[0].offset = 123;
+    const auto expected = mode < 3 ? V::Invalid : mode < 5 ? V::Budget : V::Cancelled;
+    if (materialize(context, out, wire, mode == 3 ? 16 : 1024) != expected ||
+        out[0].offset != 123 || context.live())
+      throw std::runtime_error("invalid or interrupted tensor graph published partial storage");
+  }
+}
+
 } // namespace
 int main() {
   try {
@@ -708,6 +818,7 @@ int main() {
     graphWire();
     graphCapture();
     tensorGraphCapture();
+    tensorGraphResult();
     closureGraphCapture();
     cancellationAndAllocation();
     std::cout << "PASS: eleven typed result decoders, exact bits, retained aliases, bounded pages, "

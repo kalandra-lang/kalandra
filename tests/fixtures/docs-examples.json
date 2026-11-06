@@ -98,6 +98,10 @@
     {
       "kind": "cpu",
       "expected": "42"
+    },
+    {
+      "kind": "gpu",
+      "expected": "000000000000002a"
     }
   ],
   "functions": [

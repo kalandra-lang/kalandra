@@ -93,7 +93,8 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
         if (!budget)
           return reject("GPU aggregate layout exceeds configured work budget");
         --budget;
-        const auto &child = record.fields[field].type;
+        const auto &member = record.fields[field];
+        const auto &child = member.type;
         const bool indirect = boxed(field++) || recordArray(child);
         if (deviceScalarValue(child) || deviceFlatArrayValue(child) || closure(child))
           continue;
@@ -102,7 +103,8 @@ planDeviceAggregateLayouts(const TypedModule &input, std::span<const ValueType> 
           continue;
         }
         if (!deviceInlineRecordValue(child))
-          return reject("GPU plain-data records cannot contain owned or host-only fields");
+          return reject("GPU aggregate field '" + record.name + "." + member.name +
+                        "' has no device layout");
         if (active.contains(*child.record))
           return reject("recursive owned device records require device storage");
         if (!layouts.contains(*child.record))

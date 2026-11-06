@@ -9,7 +9,7 @@ inline void emitDeviceTensorReturn(DeviceHeapEmitter &heap, mlir::OpBuilder &b,
                                    mlir::Value root, const ValueType &type) {
   using namespace mlir;
   using A = runtime::detail::ControlTensorExportABI;
-  using W = runtime::DeviceArrayWireABI;
+  using B = runtime::DeviceHeapBlockABI;
   static_assert(A::Root == DeviceHeapEmitter::Cells);
   const auto loc = b.getUnknownLoc();
   const auto c = [&](std::uint64_t value, unsigned bits = 64) -> Value {
@@ -46,7 +46,7 @@ inline void emitDeviceTensorReturn(DeviceHeapEmitter &heap, mlir::OpBuilder &b,
       runtime::detail::ControlArenaABI::MaxWords - 4 - rank);
   const Value required = arith::AddIOp::create(b, loc, shape.elements, c(rank));
   const auto valid = both(both(matches, shape.valid),
-      both(cmp(arith::CmpIPredicate::eq, layout, c(W::layout(type.element, false))),
+      both(cmp(arith::CmpIPredicate::eq, layout, c(B::tensorLayout(type.element, rank))),
            both(cmp(arith::CmpIPredicate::eq, words, required),
                 both(cmp(arith::CmpIPredicate::uge, span,
                          arith::AddIOp::create(b, loc, required, c(4))),

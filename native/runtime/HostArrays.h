@@ -74,6 +74,7 @@ public:
     if (scopes_)
       scopes_->end();
   }
+  bool clear(std::size_t slot) noexcept { return scopes_ && scopes_->clear(slot); }
   bool discard(std::size_t slot) noexcept { return scopes_ && scopes_->discard(slot); }
   bool commit(std::size_t slot, void *value) noexcept {
     return scopes_ && scopes_->commit(slot, value);

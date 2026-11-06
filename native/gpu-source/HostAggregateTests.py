@@ -381,6 +381,205 @@ fn main()->int ! TaskError:
     if pair.second:int(pair.first)+128
     else:1
 ''',0)
+device_errors = (Path(__file__).resolve().parents[1] / 'metal-source' /
+                 'device-application-errors.k').read_text()
+cases['graph-result-application-error-siblings'] = (device_errors + '''
+fn main()->int ! TaskError:
+  try parallel:
+    child = spawn descend(0) on devices.gpu()
+    sibling = spawn descend(-1) on devices.gpu()
+    caught = await child catch fn(error):
+      match error:
+        SampleError.Invalid { values }: values[0] + values[1]
+        OtherError.Empty: 23
+        _: 0
+    result = await sibling catch fn(error):0
+    caught + result
+''', 23)
+cases['graph-result-application-error-propagation'] = (device_errors + '''
+fn main()->int ! TaskError:
+  result = parallel:
+    try await spawn descend(40) on devices.gpu()
+  result catch fn(error):
+    match error:
+      SampleError.Invalid { values }: values[0] + values[1]
+      OtherError.Empty: 23
+      _: 0
+''', 18)
+cases['graph-result-recursive-application-error'] = (
+    (Path(__file__).resolve().parents[1] / 'metal-source' /
+     'device-recursive-error.k').read_text(), 18)
+cases['graph-result-tensor-application-error'] = (
+    (Path(__file__).resolve().parents[1] / 'metal-source' /
+     'device-tensor-error.k').read_text(), 10)
+cases['graph-result-resident-tensor-outcome'] = (
+    (Path(__file__).resolve().parents[1] / 'metal-source' /
+     'device-tensor-outcome.k').read_text(), 20)
+cases['graph-result-captured-tensor-application-error'] = (
+    (Path(__file__).resolve().parents[1] / 'metal-source' /
+     'device-captured-tensor-error.k').read_text(), 10)
+cases['device-application-handler-fault'] = ('''error InputError:
+  Negative
+
+fn validate(divisor: int) -> int ! InputError:
+  if divisor < 0:
+    fail InputError.Negative
+  42 / divisor
+
+fn guarded(divisor: int) -> int:
+  validate(divisor) catch fn(error): 7
+
+fn main() -> int ! TaskError:
+  recovered = try parallel:
+    try await spawn guarded(-1) on devices.gpu()
+  outcome = parallel:
+    try await spawn guarded(0) on devices.gpu()
+  fault = outcome catch fn(error):
+    match error:
+      TaskError.Fault { kind }:
+        match kind:
+          FaultKind.Arithmetic: 35
+          _: 0
+      _: 0
+  recovered + fault
+''', 42)
+cases['graph-result-application-error-cancels-sibling'] = (device_errors + '''
+fn checkpointed(count: int) -> int:
+  i = 0
+  total = 0
+  while i < count:
+    total = total + i % 7
+    i = i + 1
+  total
+
+fn main() -> int ! TaskError:
+  outcome = parallel:
+    failing = spawn descend(0) on devices.gpu()
+    sibling = spawn checkpointed(1000000000) on devices.gpu()
+    first = try await failing
+    second = try await sibling
+    first + second
+  outcome catch fn(error):
+    match error:
+      SampleError.Invalid { values }: values[0] + values[1]
+      _: 0
+''', 18)
+cases['graph-result-recursive-error-union'] = ('''error NestedError:
+  Leaf:
+    value: int
+  Wrapped:
+    inner: NestedError
+
+error OtherError:
+  Missing
+
+fn failNested(n: int) -> int ! NestedError:
+  if n == 0:
+    fail NestedError.Leaf { value: 42 }
+  fail NestedError.Wrapped { inner: NestedError.Leaf { value: 42 } }
+
+fn widen(n: int) -> int ! (NestedError | OtherError):
+  if n < 0:
+    fail OtherError.Missing
+  try failNested(n)
+
+fn main() -> int ! TaskError:
+  try parallel:
+    result = await spawn widen(1) on devices.gpu()
+    result catch fn(error):
+      match error:
+        NestedError.Wrapped { inner }:
+          match inner:
+            NestedError.Leaf { value }: value
+            _: 0
+        _: 0
+''', 42)
+cases['graph-result-application-error-replacement'] = ('''error InputError:
+  Invalid:
+    value: int
+
+error OutputError:
+  Replaced:
+    values: [int]
+
+fn validate(value: int) -> int ! InputError:
+  fail InputError.Invalid { value: value }
+
+fn replace(value: int) -> int ! OutputError:
+  converted = validate(value) catch fn(error):
+    match error:
+      InputError.Invalid { value }: fail OutputError.Replaced { values: [value, 2] }
+  try converted
+
+fn main() -> int ! TaskError:
+  try parallel:
+    result = await spawn replace(40) on devices.gpu()
+    result catch fn(error):
+      match error:
+        OutputError.Replaced { values }: values[0] + values[1]
+        _: 0
+''', 42)
+cases['graph-result-application-error-repeated-await'] = (device_errors + '''
+fn coordinate(n: int) -> int ! (SampleError | OtherError | TaskError):
+  try parallel:
+    try await spawn descend(n) on devices.gpu()
+
+fn main() -> int ! TaskError:
+  try parallel:
+    child = spawn coordinate(0) on devices.cpu()
+    first = await child
+    total = first catch fn(error): 0
+    i = 0
+    while i < 100:
+      response = await child
+      value = response catch fn(error):
+        match error:
+          SampleError.Invalid { values }: values[0] + values[1]
+          OtherError.Empty: 23
+          _: 0
+      total = total + value
+      i = i + 1
+    total
+''', 1800)
+cases['device-application-error-indirect'] = ('''error InputError:
+  Invalid:
+    value: int
+
+fn callback(offset: int) -> (fn(int) -> int ! InputError):
+  fn(value: int) -> int ! InputError:
+    fail InputError.Invalid { value: value + offset }
+
+fn apply(f: fn(int) -> int ! InputError, value: int) -> int:
+  f(value) catch fn(error):
+    match error:
+      InputError.Invalid { value }: value
+
+fn worker(value: int) -> int:
+  f = callback(2)
+  apply(f, value)
+
+fn main() -> int ! TaskError:
+  try parallel:
+    try await spawn worker(40) on devices.gpu()
+''', 42)
+cases['gpu-host-closure-application-error'] = ('''error InputError:
+  Invalid:
+    value: int
+
+fn callback(offset: int) -> (fn(int) -> int ! InputError):
+  fn(value: int) -> int ! InputError:
+    fail InputError.Invalid { value: value + offset }
+
+fn apply(f: fn(int) -> int ! InputError, value: int) -> int:
+  f(value) catch fn(error):
+    match error:
+      InputError.Invalid { value }: value
+
+fn main() -> int ! TaskError:
+  f = callback(2)
+  try parallel:
+    try await spawn apply(f, 40) on devices.gpu()
+''', 42)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',
@@ -402,6 +601,9 @@ for name,(source,expected) in cases.items():
         if name.startswith(('device-tensor-resident-', 'device-tensor-return-', 'gpu-host-closure-resident-')):
             cpu_source = cpu_source.replace('    gpu=devices.gpu()\n', '').replace(' on gpu', '')
             cpu_source = cpu_source.replace('try await transfer(grid,gpu)', 'grid')
+        if name == 'graph-result-resident-tensor-outcome':
+            for value in ('first', 'second'):
+                cpu_source = cpu_source.replace(f'try await transfer({value}, devices.cpu())', value)
         cpu.write_text(cpu_source)
     reference = root/('cpu'+suffix)
     run([a.compiler,cpu,*flags,'-o',reference])
@@ -418,6 +620,8 @@ for name,(source,expected) in cases.items():
     elif name.startswith("gpu-host-closure"):
         assert "kalandra_gpu_closure_tag_" in host and "DeviceGraphArgument<GpuClosureCapture" in host, name
         assert "NumericInstructionKind::DeviceControl" in host, name
+    elif name in ('device-application-handler-fault', 'device-application-error-indirect'):
+        assert 'NumericInstructionKind::DeviceControl' in host, name
     elif name == "host-closure":
         assert "NativeCallable" in host and "kalandra_gpu_callable_layout_" in host, name
         assert "HostArrayScopes" in host and "HostArrayWork" in host, name

@@ -11,6 +11,7 @@ struct DeviceGraphOrigin {
   const void *owner, *aligned;
   std::int64_t offset;
   std::span<const std::byte> bytes;
+  std::vector<std::byte> tensorDescriptor{}, tensorWords{};
 };
 
 // Root records live inline and have no native backing identity of their own.
@@ -25,7 +26,7 @@ makeDeviceGraphOrigins(std::span<const DeviceGraphNativeView> views,
   std::vector<DeviceGraphOrigin> origins;
   for (std::size_t i = 0; i < views.size(); ++i) {
     const auto &view = views[i];
-    if (!view.owner)
+    if (!view.owner && view.tensorDescriptor.empty())
       continue;
     if (!view.layout || view.layout > arenaLayouts.size() || !view.elements ||
         view.data.empty() || view.data.size() % view.elements ||
@@ -33,7 +34,11 @@ makeDeviceGraphOrigins(std::span<const DeviceGraphNativeView> views,
       return std::unexpected(V::Invalid);
     origins.push_back({handles[i], arenaLayouts[view.layout - 1], view.elements,
                        view.data.size() / view.elements, view.owner, view.aligned,
-                       view.offset, view.data});
+                       view.offset, view.tensorDescriptor.empty() ? view.data
+                                                                  : std::span<const std::byte>{},
+                       {view.tensorDescriptor.begin(), view.tensorDescriptor.end()},
+                       view.tensorDescriptor.empty() ? std::vector<std::byte>{}
+                           : std::vector<std::byte>{view.data.begin(), view.data.end()}});
   }
   return origins;
 }
@@ -125,11 +130,17 @@ DeviceGraphValidation verifyDeviceGraphOriginContents(
     const auto &schema = native[layout];
     const auto *origin = envelope.nodes[i];
     if (origin) {
-      if (origin->stride != schema.stride)
+      if (origin->stride != schema.stride ||
+          (schema.tensorRank >= 0) != !origin->tensorDescriptor.empty())
+        return V::Invalid;
+      const auto backing = schema.tensorRank >= 0 ? std::span<const std::byte>(origin->tensorWords)
+                                                   : origin->bytes;
+      if (!schema.stride || backing.size() / schema.stride != elements ||
+          backing.size() % schema.stride)
         return V::Invalid;
       for (std::size_t element = 0; element < elements; ++element) {
         const auto words = graph.subspan(payload + element * schema.cells.size(), schema.cells.size());
-        const auto data = origin->bytes.subspan(element * schema.stride, schema.stride);
+        const auto data = backing.subspan(element * schema.stride, schema.stride);
         for (std::size_t word = 0; word < schema.cells.size(); ++word) {
           if (cancelled())
             return V::Cancelled;
@@ -167,7 +178,12 @@ DeviceGraphValidation verifyDeviceGraphOriginContents(
             const auto *child = value ? envelope.nodes[value - 1] : nullptr;
             if (value && !child)
               return V::Invalid;
-            if (native[cell.wire.target - 1].singleton) {
+            const auto &target = native[cell.wire.target - 1];
+            if (target.tensorRank >= 0) {
+              if (!child || child->tensorDescriptor.size() != cell.bytes ||
+                  !std::ranges::equal(child->tensorDescriptor, std::span(field, cell.bytes)))
+                return V::Invalid;
+            } else if (target.singleton) {
               const void *pointer = nullptr;
               if (!child || cell.bytes != sizeof(pointer))
                 return V::Invalid;

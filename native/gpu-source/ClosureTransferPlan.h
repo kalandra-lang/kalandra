@@ -1,5 +1,6 @@
 #pragma once
 #include "AggregateLayout.h"
+#include "../lib/ErrorFamilies.h"
 #include <expected>
 #include <map>
 #include <set>
@@ -58,7 +59,22 @@ planClosureTransfer(const TypedModule &module, std::span<const ValueId> roots,
         if (signatures.insert(type.callable.get()).second) {
           if (type.callable->parameters.size() >= budget)
             return false;
-          pending.push_back(type.callable->result);
+          auto result = type.callable->result;
+          if (result.fallible) {
+            if (result.task || !result.errorRecord || *result.errorRecord >= module.records.size())
+              return false;
+            for (auto member : errorMembers(module, *result.errorRecord))
+              if (!spend() || member >= module.records.size() ||
+                  !module.records[member].error || module.records[member].taskErrorFamily)
+                return false;
+            ValueType error;
+            error.builtin = BuiltinValue::Record;
+            error.record = result.errorRecord;
+            pending.push_back(error);
+            result.fallible = false;
+            result.errorRecord.reset();
+          }
+          pending.push_back(result);
           pending.insert(pending.end(), type.callable->parameters.begin(),
                          type.callable->parameters.end());
         }

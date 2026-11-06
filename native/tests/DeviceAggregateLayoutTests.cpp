@@ -3,6 +3,7 @@
 #include "../gpu-source/AggregateGraphSchema.h"
 #include "../gpu-source/ClosureNativeLayout.h"
 #include "../gpu-source/ClosureGraphSchema.h"
+#include "../gpu-source/DeviceErrorLayout.h"
 #include "../runtime/DeviceGraphPack.h"
 #include "../lib/RecordLLVMTypes.h"
 #include "kalandra/Continuation.h"
@@ -37,8 +38,47 @@ static TypedRecord record(std::initializer_list<ValueType> fields) {
     result.fields.push_back({"field", type, {}});
   return result;
 }
+static void checkErrorPayloadLayouts() {
+  auto checked = check(parse(std::make_shared<SourceFile>("device-errors.k", R"k(
+error SampleError:
+  Invalid:
+    values: [int]
+
+error OtherError:
+  Empty
+
+error TextError:
+  Missing:
+    name: String
+
+fn sample(values: [int]) -> int ! (SampleError | OtherError):
+  fail SampleError.Invalid { values: values }
+
+fn text(name: String) -> int ! TextError:
+  fail TextError.Missing { name: name }
+
+fn mixed(values: [int]) -> int ! (SampleError | TaskError):
+  fail SampleError.Invalid { values: values }
+)k")));
+  require(checked.ok(), "device error layout fixture rejected");
+  const auto &input = *checked.module;
+  const auto family = [&](std::size_t function) {
+    return std::array{*input.functions.at(function).resultType.errorRecord};
+  };
+  auto payload = planDeviceErrorPayloadLayouts(input, family(0));
+  require(payload && payload->at(family(0).front()).owned.size() == 1,
+          "application-error union lost its owned array payload");
+  auto host = planDeviceErrorPayloadLayouts(input, family(1));
+  require(!host && host.error().contains("name") && host.error().contains("device layout"),
+          "host-only error field did not receive a field-specific diagnostic");
+  auto mixed = planDeviceErrorPayloadLayouts(input, family(2));
+  require(!mixed && mixed.error().contains("TaskError"), "host scheduling channel admitted");
+  require(!planDeviceErrorPayloadLayouts(input, family(0), 1),
+          "device error payload planning exceeded its work budget");
+}
 int main() {
   try {
+    checkErrorPayloadLayouts();
     ValueType boolean;
     boolean.builtin = BuiltinValue::Bool;
     auto boolArray = boolean;

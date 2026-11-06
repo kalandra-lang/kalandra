@@ -7,6 +7,15 @@ namespace kalandra::runtime {
 struct DeviceHeapBlockABI {
   // Mark state uses the low bits and grey links fit within 34 bits.
   static constexpr std::uint64_t ReadOnly = UINT64_C(1) << 63;
+  // Nominal and continuation identities are bounded by compiler work budgets.
+  // Reserve a disjoint interval for scalar tensor blocks, keyed by rank and type.
+  static constexpr unsigned TensorLayoutBase = 1u << 30;
+  static constexpr unsigned TensorRankCount = 9;
+  static constexpr unsigned TensorLayoutEnd =
+      TensorLayoutBase + TensorRankCount * (static_cast<unsigned>(NumericType::Float64) + 1);
+  static constexpr unsigned tensorLayout(NumericType element, unsigned rank) {
+    return TensorLayoutBase + TensorRankCount * static_cast<unsigned>(element) + rank;
+  }
   static constexpr unsigned nominalLayout(unsigned id, bool array) {
     return 12 + 2 * id + unsigned(array);
   }

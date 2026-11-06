@@ -242,13 +242,18 @@ bool ValueScopes::collectDiscard(std::size_t slot) noexcept {
   return true;
 }
 bool ValueScopes::discard(std::size_t slot) noexcept {
-  if (!selection_ || slot >= layouts_.size()) {
+  if (!selection_)
     context_.fault(3);
-    end();
+  const bool ok = selection_ && clear(slot);
+  end();
+  return ok;
+}
+bool ValueScopes::clear(std::size_t slot) noexcept {
+  if (slot >= layouts_.size()) {
+    context_.fault(3);
     return false;
   }
   slots_[slot].reset();
-  end();
   return !context_.poll();
 }
 bool ValueScopes::commit(std::size_t slot, void *value) noexcept {
