@@ -3470,7 +3470,8 @@ class Compiler {
     }
     return code + "default:task.fault(3);return;}}\n";
   }
-  Value lowerPlan(const continuation::Plan &plan, FunctionId entryId) {
+  Value lowerPlan(const continuation::Plan &plan, FunctionId entryId,
+                  bool publishApplicationOutcome = false) {
     using namespace continuation;
     for (const auto &type : plan.slots)
       if (type.array && type.builtin != BuiltinValue::Numeric && !isBoolArray(type))
@@ -4011,13 +4012,23 @@ class Compiler {
         break;
       case Code::Return: {
         auto result = args.at(0);
-        if (result.applicationError)
+        if (result.applicationError && !publishApplicationOutcome)
           reject(span, "application errors escaping a GPU host entry require a typed result adapter");
-        steps.push_back((result.failure
+        auto code = (result.failure
                              ? "if(" + failureRef(result) + ".kind!=TaskFailure::None){task.fail(" +
                                    failureRef(result) + ");return;}\n"
-                             : "") +
-                        "task.complete(&" + ref(result) + ");return;\n");
+                             : "");
+        if (result.applicationError) {
+          const auto error = applicationError(result);
+          code += "MainOutcome outcome(" + hostErrorTag(error) + "!=0);\n"
+                  "if(outcome.failed)std::construct_at(&outcome.error," + ref(error) +
+                  ");else std::construct_at(&outcome.value," + ref(result) + ");\n"
+                  "task.complete(&outcome);\n"
+                  "if(outcome.failed)std::destroy_at(&outcome.error);else std::destroy_at(&outcome.value);\n"
+                  "return;\n";
+        } else
+          code += "task.complete(&" + ref(result) + ");return;\n";
+        steps.push_back(std::move(code));
         break;
       }
       }
@@ -4901,7 +4912,7 @@ public:
       (void)sourceId;
       declareCpuFunction(targetId, continuationCpu);
     }
-    auto result = lowerPlan(*planned->plans[*main], *main);
+    auto result = lowerPlan(*planned->plans[*main], *main, true);
     (void)result;
     // Compile each reachable resumable child once. Keep the main frame's state
     // separate while numeric exports and shader entries remain module-wide.
@@ -5059,6 +5070,7 @@ public:
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <memory>
 #include <new>
 #include <string>
 using namespace kalandra::runtime;
@@ -5076,6 +5088,52 @@ using namespace kalandra::runtime;
       host << (booleanResult ? "const ValueLayout &scalarLayout=boolScalarLayout();\n"
                              : "const ValueLayout &scalarLayout=*numericScalarLayout(" +
                                    elementName(mainElement) + ");\n");
+    const std::string mainSuccessLayout =
+        mainArray ? "mainArrayLayout" : scalarResult ? "scalarLayout" : "m::Runtime::bufferLayout()";
+    if (result.applicationError) {
+      const auto family = applicationError(result).record.value();
+      const auto valueType = mainArray ? tensorDescriptor(mainElement, 1)
+          : scalarResult ? booleanResult ? std::string("bool") : scalarType(mainElement)
+                         : std::string("m::Buffer");
+      host << "struct MainOutcome { bool failed; union { " << valueType << " value; "
+           << recordName(family) << " error; };\n"
+              "explicit MainOutcome(bool failed) noexcept:failed(failed){}\n"
+              "~MainOutcome() noexcept {}\n};\n"
+              "bool copyMainOutcome(Invocation &dst,void *out,const Invocation &src,"
+              "const void *in) noexcept {\n"
+              "const auto &from=*static_cast<const MainOutcome *>(in);\n"
+              "auto &to=*new(out) MainOutcome(from.failed);\n"
+              "bool copied=from.failed ? "
+           << recordLayoutName(family) << ".copy(dst,&to.error,src,&from.error) : "
+           << mainSuccessLayout << ".copy(dst,&to.value,src,&from.value);\n"
+              "if(!copied)to.~MainOutcome();return copied;\n}\n"
+              "void destroyMainOutcome(void *raw) noexcept {\n"
+              "auto &value=*static_cast<MainOutcome *>(raw);\n"
+              "if(value.failed)" << recordLayoutName(family) << ".destroy(&value.error);"
+              "else " << mainSuccessLayout << ".destroy(&value.value);\n"
+              "value.~MainOutcome();\n}\n"
+              "const ValueLayout mainOutcomeLayout{0x4b414c4750554552ull,sizeof(MainOutcome),"
+              "alignof(MainOutcome),copyMainOutcome,destroyMainOutcome};\n"
+              "int reportMainError(const " << recordName(family) << " &error){\n"
+              "std::int64_t tag=0;std::memcpy(&tag,error.data.data(),sizeof(tag));\nswitch(tag){\n";
+      const auto &record = placement.records.at(family);
+      for (std::size_t v = 0; v < record.variants.size(); ++v) {
+        const auto [origin, variant] = errorOrigin(placement, family, v);
+        const auto &declared = placement.records.at(origin);
+        host << "case " << v + 1 << ":";
+        if (declared.taskErrorFamily) {
+          const auto &field = aggregateTypes.at(family).fields.at(record.variants[v].fields.front());
+          host << "{Failure failure{};static_assert(sizeof(failure)==" << field.nativeBytes
+               << ");std::memcpy(&failure,error.data.data()+" << field.nativeOffset
+               << ",sizeof(failure));if(static_cast<unsigned>(failure.kind)!=" << variant + 1
+               << ")return 1;std::fprintf(stderr,\"Metal task failed: %d/%lld\\n\","
+                  "int(failure.kind),(long long)failure.code);return 1;}\n";
+        } else
+          host << "std::fprintf(stderr,\"%s.%s\\n\",\"" << declared.name
+               << "\",\"" << declared.variants.at(variant).name << "\");return 89;\n";
+      }
+      host << "default:std::fputs(\"invalid GPU application error result\\n\",stderr);return 1;}}\n";
+    }
     host << arrayScopeDeclaration();
     host << R"(struct PacketData { m::Runtime *runtime; const char *directory; };
 struct Frame { m::Runtime *runtime; std::string directory; unsigned pc=1;
@@ -5133,7 +5191,7 @@ void resume(Task &task) {
     host << "default: task.fault(3); return;\n} }\n}\n";
     host
         << R"(const TaskEntry entry{1,0x4b414c47505501,sizeof(PacketData),alignof(PacketData),sizeof(Frame),alignof(Frame),construct,destroy,resume,)"
-        << (mainArray ? "&mainArrayLayout" : scalarResult ? "&scalarLayout" : "&m::Runtime::bufferLayout()") << "};\n"
+        << (result.applicationError ? "&mainOutcomeLayout" : "&" + mainSuccessLayout) << "};\n"
         << helperBodies << R"(int main(int argc,char **argv) {
   if (argc!=1 && argc!=2) { std::fprintf(stderr,"expected optional shader directory\n"); return 2; }
   const auto directory=argc==2 ? std::string(argv[1]) : std::filesystem::absolute(argv[0]).parent_path().string();
@@ -5150,7 +5208,11 @@ void resume(Task &task) {
   PacketData packet{runtime.get(),directory.c_str()};
   Invocation context;
 )";
-    if (mainArray)
+    if (result.applicationError)
+      host << "alignas(MainOutcome) std::byte slot[sizeof(MainOutcome)];\n"
+              "auto failure=runner->run(entry,{entry.packetLayout,&packet,sizeof(packet)},"
+              "mainOutcomeLayout,context,slot);\n";
+    else if (mainArray)
       host << tensorDescriptor(mainElement, 1) << " value{};\n"
               "auto failure=runner->run(entry,{entry.packetLayout,&packet,sizeof(packet)},"
               "mainArrayLayout,context,&value);\n";
@@ -5170,6 +5232,11 @@ void resume(Task &task) {
   if (failure.kind!=TaskFailure::None) { std::fprintf(stderr,"Metal task failed: %d/%lld\n",int(failure.kind),(long long)failure.code); status=1; }
   else {
 )";
+    if (result.applicationError)
+      host << "auto &outcome=*std::launder(reinterpret_cast<MainOutcome *>(slot));\n"
+              "if(outcome.failed)status=reportMainError(outcome.error);else{\n"
+           << (scalarResult || mainArray ? "auto &value=outcome.value;\n"
+                                         : "auto *value=&outcome.value;\n");
     if (mainArray) {
       host << "{auto retained=retainCpuTensor(context,value.view());if(!retained)status=1;else{\n"
               "std::printf(\"[\");for(std::uint64_t i=0;i<std::uint64_t(value.sizes[0]);++i){\n"
@@ -5188,8 +5255,9 @@ void resume(Task &task) {
            << ",static_cast<unsigned long long>(std::bit_cast<std::uint" << mainWidth * 8
            << "_t>(value)));\n";
     } else {
-      host << R"(    auto *value=std::launder(reinterpret_cast<m::Buffer *>(slot));
-    auto cpu=runtime->toCpuTyped<)"
+      if (!result.applicationError)
+        host << "auto *value=std::launder(reinterpret_cast<m::Buffer *>(slot));\n";
+      host << R"(    auto cpu=runtime->toCpuTyped<)"
            << elementName(mainElement) << "," << fn.result->dimensions.size()
            << R"(>(context,*value);
     if (!cpu) status=1;
@@ -5199,8 +5267,13 @@ void resume(Task &task) {
            << mainWidth << R"(); std::printf(i ? ",%0*llx" : "%0*llx",)" << mainWidth * 2
            << R"(,static_cast<unsigned long long>(bits));
     } std::puts("]"); context.release(cpu->allocated); }
-    value->~Buffer();)";
+)";
+      if (!result.applicationError)
+        host << "value->~Buffer();\n";
     }
+    if (result.applicationError)
+      host << "}\nmainOutcomeLayout.destroy(&outcome);context.settle();"
+              "if(context.status()||context.live())status=1;\n";
     host << R"(
   }
   auto s=runtime->stats(); auto t=runner->stats();

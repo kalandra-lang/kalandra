@@ -192,8 +192,13 @@ fn main() -> int ! TaskError:
       OtherError.Empty: 23
       _: 0
 )k";
+    const std::string uncaught = source + R"k(
+fn main() -> int ! (SampleError | OtherError | TaskError):
+  try parallel:
+    try await spawn descend(0) on devices.gpu()
+)k";
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {
-      for (const auto &program : {placed, observed, propagated}) {
+      for (const auto &program : {placed, observed, propagated, uncaught}) {
         auto parsed = parse(std::make_shared<SourceFile>("placed-device-errors.k", program));
         if (!parsed.ok())
           throw std::runtime_error(parsed.diagnostics.front().message);
@@ -208,6 +213,10 @@ fn main() -> int ! TaskError:
           throw std::runtime_error("fallible task did not use the typed device outcome transport");
         if (program == propagated && !host.contains("task.stopGroup("))
           throw std::runtime_error("propagated device error did not reserve the group outcome");
+        if (program == uncaught &&
+            (!host.contains("mainOutcomeLayout") ||
+             !host.contains(R"(std::fprintf(stderr,"%s.%s\n","SampleError","Invalid");return 89;)")))
+          throw std::runtime_error("uncaught application error lost its CLI result");
       }
     }
     std::cout << "Device error recovery and recursive propagation IR verified\n";
