@@ -87,13 +87,19 @@ static void verifyOutcomeWire(const AggregateGraphSchema &graph) {
   }
   if (context.live())
     throw std::runtime_error("releasing the outcome scope retained its error backing");
-  Invocation exhausted;
-  exhausted.failAllocationAt(2);
   const auto untouched = native;
-  if (materializeDeviceGraph(exhausted, failure, layouts, nativeLayouts, keys, root,
-                             native, 300000, 300000) != DeviceGraphValidation::Budget ||
-      exhausted.live() || native != untouched)
-    throw std::runtime_error("failed error materialization published data or retained backing");
+  const auto allocations = context.allocations();
+  if (allocations < 2)
+    throw std::runtime_error("error materialization did not exercise partial allocation");
+  for (std::uint64_t attempt = 1; attempt <= allocations; ++attempt) {
+    Invocation exhausted;
+    exhausted.failAllocationAt(attempt);
+    if (materializeDeviceGraph(exhausted, failure, layouts, nativeLayouts, keys, root,
+                               native, 300000, 300000) != DeviceGraphValidation::Budget ||
+        exhausted.live() || native != untouched ||
+        exhausted.allocations() != exhausted.releases())
+      throw std::runtime_error("failed error materialization published data or retained backing");
+  }
   failure[failureStart + 1] = 5;
   if (validate(failure) != DeviceGraphValidation::Invalid)
     throw std::runtime_error("inactive success payload admitted alongside an error");
@@ -235,7 +241,28 @@ fn main() -> int ! TaskError:
     if (!capturedFixture)
       throw std::runtime_error("could not read the captured tensor error fixture");
     const std::string captured{std::istreambuf_iterator<char>(capturedFixture), {}};
+    const std::string hostOnly = R"k(
+error HostError:
+  Invalid:
+    detail: String
+
+fn validate() -> int ! HostError:
+  fail HostError.Invalid { detail: "invalid" }
+
+fn main() -> int ! (HostError | TaskError):
+  try parallel:
+    try await spawn validate() on devices.gpu()
+)k";
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {
+      auto invalid = parse(std::make_shared<SourceFile>("host-only-error.k", hostOnly));
+      if (!invalid.ok())
+        throw std::runtime_error(invalid.diagnostics.front().message);
+      auto rejected = emitGpuSupervisor(std::move(invalid.module), ArithmeticMode::Hardware,
+                                        false, backend);
+      if (rejected || !rejected.error().message.contains("HostError.detail") ||
+          !rejected.error().message.contains("no device layout"))
+        throw std::runtime_error(rejected ? "host-only error payload reached device lowering"
+                                         : rejected.error().message);
       for (const auto &program : {placed, observed, propagated, uncaught, helper, recursive, tensor, resident, captured}) {
         auto parsed = parse(std::make_shared<SourceFile>("placed-device-errors.k", program));
         if (!parsed.ok())
