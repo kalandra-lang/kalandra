@@ -439,6 +439,9 @@ for name,(source,expected) in cases.items():
         if name.startswith(('device-tensor-resident-', 'device-tensor-return-', 'gpu-host-closure-resident-')):
             cpu_source = cpu_source.replace('    gpu=devices.gpu()\n', '').replace(' on gpu', '')
             cpu_source = cpu_source.replace('try await transfer(grid,gpu)', 'grid')
+        if name == 'graph-result-resident-tensor-outcome':
+            for value in ('first', 'second'):
+                cpu_source = cpu_source.replace(f'try await transfer({value}, devices.cpu())', value)
         cpu.write_text(cpu_source)
     reference = root/('cpu'+suffix)
     run([a.compiler,cpu,*flags,'-o',reference])

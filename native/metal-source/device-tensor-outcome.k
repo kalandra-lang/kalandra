@@ -8,9 +8,8 @@ fn calculate(n: int) -> Tensor[int16,2,2] ! TileError:
 
 fn main() -> int ! (TileError | TaskError):
   try parallel:
-    gpu = devices.gpu()
-    good = spawn calculate(1) on gpu
-    bad = spawn calculate(0) on gpu
+    good = spawn calculate(1) on devices.gpu()
+    bad = spawn calculate(0) on devices.gpu()
     first = try await good
     recovered = await bad catch fn(error):
       try await good
