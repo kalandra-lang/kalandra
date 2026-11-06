@@ -409,6 +409,9 @@ fn main()->int ! TaskError:
 cases['graph-result-recursive-application-error'] = (
     (Path(__file__).resolve().parents[1] / 'metal-source' /
      'device-recursive-error.k').read_text(), 18)
+cases['graph-result-tensor-application-error'] = (
+    (Path(__file__).resolve().parents[1] / 'metal-source' /
+     'device-tensor-error.k').read_text(), 10)
 known = set(cases) | {'reject-'+prefix+name for prefix in ('record-','gpu-record-')
                      for name in ('field','field-alias','field-sort')}
 known |= {'reject-device-string-body','reject-device-host-only-record-result',

@@ -1201,6 +1201,8 @@ std::expected<NumericShader, Diagnostic> emitScalarControlShader(const TypedModu
     return flatArray(type) || deviceRecordArrayValue(type) || localTensor(type);
   };
   const auto arrayIdentity = [&](const ValueType &type) -> unsigned {
+    if (localTensor(type))
+      return runtime::DeviceHeapBlockABI::tensorLayout(type.element, type.shape.size());
     if (deviceRecordArrayValue(type))
       return runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*type.record), true);
     return type.builtin == BuiltinValue::Bool ? 11 : unsigned(type.element) + 1;

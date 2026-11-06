@@ -1993,16 +1993,18 @@ class Compiler {
       result.push_back(values.at(leaf));
     return result;
   }
-  std::set<std::size_t> graphCapturePolicies, graphNominalKeys;
+  std::set<std::size_t> graphCapturePolicies, graphNominalKeys, rankedGraphResults;
   std::map<std::size_t, std::vector<DeviceGraphExportLayout>> graphExportLayouts;
   std::set<FunctionId> joinedGraphPolicies, closureGraphPolicies;
   std::string graphCapturePolicy(const ValueType &type, SourceSpan span,
                                  std::span<const ValueType> joined = {}, FunctionId function = {},
                                  const ClosureGraphSchema *closure = nullptr,
-                                 const TypedModule *source = nullptr) {
+                                 const TypedModule *source = nullptr, bool exporting = false) {
     const auto id = closure ? function : *type.record;
     const auto name = closure ? "GpuClosureCapture" + std::to_string(function) : joined.empty() ? "GpuGraphCapture" + std::to_string(id)
                                      : "GpuJoinedGraphCapture" + std::to_string(function);
+    if (!closure && !exporting && rankedGraphResults.contains(id))
+      reject(span, "GPU ranked graph fields require fresh result storage");
     if (closure && !closureGraphPolicies.insert(function).second)
       return name;
     if (!closure && (joined.empty() ? !graphCapturePolicies.insert(id).second
@@ -2024,6 +2026,13 @@ class Compiler {
                                                      aggregateEntryWorkRemaining);
     if (!schema)
       reject(span, schema.error());
+    if (!closure && std::ranges::any_of(schema->layouts, [](const auto &layout) {
+          return deviceTensorValue(layout.type);
+        })) {
+      if (!exporting)
+        reject(span, "GPU ranked graph fields require fresh result storage");
+      rankedGraphResults.insert(id);
+    }
     if (!joined.empty() && !schema->captureJoin && !appendAggregateCaptureJoin(*schema, aggregateEntryWorkRemaining))
       reject(span, "GPU joined graph schema exceeds configured work budget");
     for (const auto &layout : schema->layouts) {
@@ -2146,7 +2155,11 @@ class Compiler {
       const auto suffix = std::to_string(l);
       const std::string singleton = layout.type.tensor ? "false" : "true";
       wire += "{cells" + suffix + "," + singleton + "},";
-      native += "{native" + suffix + "," + number(layout.nativeStride) + "," + singleton + "},";
+      native += "{native" + suffix + "," + number(layout.nativeStride) + "," + singleton;
+      if (deviceTensorValue(layout.type))
+        native += "," + std::to_string(layout.type.shape.size()) + "," +
+                  std::to_string(describeNumeric(layout.type.element)->bytes());
+      native += "},";
       capture += "{" + number(layout.nativeStride) + "," + number(layout.nativeAlignment) + ",";
       if (deviceInlineRecordValue(layout.type)) {
         const auto key = "&kalandra_recursive_type_" + std::to_string(*layout.type.record);
@@ -2160,13 +2173,15 @@ class Compiler {
         capture += ",kalandra_gpu_closure_code_" + std::to_string(*closure->environments[l]) + "()";
       else if (closure && closure->kinds[l] == ClosureGraphSchema::Kind::Callable)
         capture += ",nullptr,true";
-      if (closure && deviceTensorValue(layout.type))
+      if (deviceTensorValue(layout.type))
         capture += ",nullptr,false," + std::to_string(layout.type.shape.size()) + "," +
                    std::to_string(describeNumeric(layout.type.element)->bytes());
       capture += "},";
       const auto layoutId = closure ? closure->arenaLayouts[l] : schema->captureJoin == l + 1 ? 0 : layout.type.record ?
           runtime::DeviceHeapBlockABI::nominalLayout(static_cast<unsigned>(*layout.type.record), layout.type.array) :
-          runtime::DeviceArrayWireABI::layout(layout.type.element, layout.type.builtin == BuiltinValue::Bool);
+          deviceTensorValue(layout.type)
+              ? runtime::DeviceHeapBlockABI::tensorLayout(layout.type.element, layout.type.shape.size())
+              : runtime::DeviceArrayWireABI::layout(layout.type.element, layout.type.builtin == BuiltinValue::Bool);
       arena += std::to_string(layoutId) + "u,";
       DeviceGraphExportLayout exportLayout{static_cast<unsigned>(layoutId), static_cast<unsigned>(l + 1),
                                            static_cast<unsigned>(layout.cells.size()), {}};
@@ -2322,7 +2337,14 @@ class Compiler {
             return !deviceScalarValue(type) && !deviceInlineRecordValue(type) && !residentTensor(type);
           }))
         reject(span, "GPU recursive results require scalar, nominal graph or resident tensor inputs");
-      graphResultPolicy = graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu);
+      if (errorOutcome && deviceTensorValue(cpu.records.at(*fn.resultType.record).fields.at(1).type))
+        reject(span, "fallible GPU tensor success requires resident result publication");
+      graphResultPolicy = graphCapturePolicy(fn.resultType, span, {}, {}, nullptr, &cpu, true);
+      if (rankedGraphResults.contains(*fn.resultType.record) && closureSchema &&
+          std::ranges::any_of(closureSchema->graph.layouts, [](const auto &layout) {
+            return deviceTensorValue(layout.type);
+          }))
+        reject(span, "GPU ranked graph results cannot yet reuse captured tensor backing");
       resultLayouts = graphExportLayouts.at(*fn.resultType.record);
     }
     const auto emit = [&](const TypedModule &module, FunctionId entry) {
@@ -3437,8 +3459,16 @@ class Compiler {
              ",&" + key + ");\nif(!payload){hostArrayFailure(task);return;}\nstd::memcpy(&" +
              ref(output) + ",payload,sizeof(" + ref(output) + "));}\n";
     }
-    if (output.kind == Value::Tensor)
-      reject({}, "GPU host field requires an owned tensor adapter");
+    if (output.kind == Value::Tensor) {
+      const auto &type = placement.records.at(*record.record).fields.at(member).type;
+      if (!deviceTensorValue(type) || type.element != output.element || type.shape.size() != output.rank)
+        reject({}, "GPU host tensor projection changed its type");
+      return "{" + tensorDescriptor(type.element, output.rank) +
+             " descriptor{};static_assert(sizeof(descriptor)==" + std::to_string(abi.nativeBytes) +
+             ");\nstd::memcpy(&descriptor," + source + ",sizeof(descriptor));\n"
+             "auto buffer=r.fromCpu(task.context(),descriptor.view());\nif(!buffer){" +
+             error("buffer.error()") + "}\n" + ref(output) + "=std::move(*buffer); }\n";
+    }
     return "static_assert(sizeof(" + ref(output) + ")==" + std::to_string(abi.nativeBytes) +
            ");\nstd::memcpy(&" + ref(output) + "," + source + ",sizeof(" + ref(output) + "));\n";
   }

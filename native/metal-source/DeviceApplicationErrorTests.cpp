@@ -145,8 +145,8 @@ static void verifyErrorExport(TypedModule module) {
 
 int main(int argc, char **argv) {
   try {
-    if (argc != 3)
-      throw std::runtime_error("expected both device application error fixture paths");
+    if (argc != 4)
+      throw std::runtime_error("expected the device application error fixture paths");
     std::ifstream fixture(argv[1], std::ios::binary);
     if (!fixture)
       throw std::runtime_error("could not read the device application error fixture");
@@ -223,8 +223,12 @@ fn main() -> int ! TaskError:
     if (!recursiveFixture)
       throw std::runtime_error("could not read the recursive error fixture");
     const std::string recursive{std::istreambuf_iterator<char>(recursiveFixture), {}};
+    std::ifstream tensorFixture(argv[3], std::ios::binary);
+    if (!tensorFixture)
+      throw std::runtime_error("could not read the tensor error fixture");
+    const std::string tensor{std::istreambuf_iterator<char>(tensorFixture), {}};
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {
-      for (const auto &program : {placed, observed, propagated, uncaught, helper, recursive}) {
+      for (const auto &program : {placed, observed, propagated, uncaught, helper, recursive, tensor}) {
         auto parsed = parse(std::make_shared<SourceFile>("placed-device-errors.k", program));
         if (!parsed.ok())
           throw std::runtime_error(parsed.diagnostics.front().message);
@@ -242,6 +246,8 @@ fn main() -> int ! TaskError:
         if (program == helper && (!host.contains("::outcomeLayout,bytes") ||
                                   !host.contains("f.arrayScopes.clear(")))
           throw std::runtime_error("host helper await did not use a typed outcome");
+        if (program == tensor && !host.contains("r.fromCpu(task.context(),descriptor.view())"))
+          throw std::runtime_error("tensor error projection lost its native descriptor adapter");
         if (program == recursive && !host.contains("kalandra_recursive_read_v1("))
           throw std::runtime_error("recursive error projection bypassed the checked host read");
         if (program == uncaught &&

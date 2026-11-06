@@ -103,6 +103,8 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
     out.targets.emplace_back();
     out.arenaLayouts.push_back(
         deviceCallableValue(type) ? nextIdentity++
+        : deviceTensorValue(type)
+            ? runtime::DeviceHeapBlockABI::tensorLayout(type.element, type.shape.size())
         : type.record ? runtime::DeviceHeapBlockABI::nominalLayout(*type.record, type.array)
                       : runtime::DeviceArrayWireABI::layout(type.element,
                                                             type.builtin == BuiltinValue::Bool));

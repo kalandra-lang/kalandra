@@ -284,6 +284,11 @@ void DeviceHeapEmitter::markArena(Value h) {
   Value known = arith::AndIOp::create(
       b, loc, arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, layout, c(1)),
       arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ule, layout, c(11)));
+  using B = runtime::DeviceHeapBlockABI;
+  const Value tensor = arith::AndIOp::create(b, loc,
+      arith::CmpIOp::create(b, loc, arith::CmpIPredicate::uge, layout, c(B::TensorLayoutBase)),
+      arith::CmpIOp::create(b, loc, arith::CmpIPredicate::ult, layout, c(B::TensorLayoutEnd)));
+  known = arith::OrIOp::create(b, loc, known, tensor);
   Value owned = arith::ConstantIntOp::create(b, loc, 0, 1);
   for (const auto &descriptor : layouts) {
     auto matches = eq(layout, c(descriptor.identity));
