@@ -373,6 +373,23 @@ class Compiler {
       code += "if(" + failureRef(value) + ".kind!=TaskFailure::None) " + ref(value) + "={};\n";
     return code + commit;
   }
+  std::string clearArray(const Value &value) const {
+    const auto found = arrayFields.find(value.slot);
+    if (found == arrayFields.end())
+      return {};
+    return "if(!f.arrayScopes.clear(" +
+           std::to_string(std::distance(arrayFields.begin(), found)) +
+           ")){hostArrayFailure(task);return;}\n";
+  }
+  std::string commitOutcome(const Value &value) {
+    if (!value.applicationError)
+      return commitArray(value);
+    const auto error = applicationError(value);
+    return "if(" + failureRef(value) + ".kind!=TaskFailure::None){\n" +
+           clearArray(error) + clearArray(value) + "}else if(" + hostErrorTag(error) + "!=0){\n" +
+           commitArray(error) + clearArray(value) + "}else{\n" +
+           commitArray(value) + clearArray(error) + "}\n";
+  }
   std::string arrayScopeDeclaration() const {
     if (arrayFields.empty())
       return {};
@@ -3559,6 +3576,7 @@ class Compiler {
       if (type.errorRecord && type.fallible && !type.task) {
         field(recordType(*type.errorRecord));
         value.applicationError = {*type.errorRecord, next - 1};
+        trackArray(applicationError(value));
       }
       return value;
     };
@@ -3590,7 +3608,7 @@ class Compiler {
         } else
           code += ref(error) + "={};\n";
       }
-      return code + commitArray(output);
+      return code + commitOutcome(output);
     };
     // Backend kernels can prove a result shape more precisely than its public
     // type. Carry those facts through values, but meet all payload-producing
@@ -3772,8 +3790,10 @@ class Compiler {
         std::string reset;
         if (auto join = joins.find(op.group); join != joins.end()) {
           auto output = get(plan.code.at(join->second).output);
-          if (output.applicationError)
-            reset = ref(applicationError(output)) + "={};\n";
+          if (output.applicationError) {
+            const auto error = applicationError(output);
+            reset = ref(error) + "={};\n" + clearArray(error);
+          }
         }
         steps.push_back(reset + group + "=task.openGroup(" +
                         (op.target == SIZE_MAX ? "" : plannedGroups.at(op.target)) + ");\n" +
@@ -3830,7 +3850,7 @@ class Compiler {
                         ((input.outcomeRecord || input.outcomeHelper) ? ref(output) + "={};\n" : "") +
                         (output.applicationError ? ref(applicationError(output)) + "={};\n" : "") +
                         "if(" + failureRef(output) +
-                        ".kind==TaskFailure::None){\n" + read + "}\n" + commitArray(output));
+                        ".kind==TaskFailure::None){\n" + read + "}\n" + commitOutcome(output));
         break;
       }
       case Code::Try:
@@ -3843,13 +3863,9 @@ class Compiler {
             reject(span, "GPU application error propagation requires a typed destination");
           const auto error = explicitApplication ? input : applicationError(input);
           std::string code = explicitApplication ? "{\n" : "if(" + hostErrorTag(error) + "!=0){\n";
-          if (op.group != SIZE_MAX) {
-            code += "if(task.stopGroup(" + plannedGroups.at(op.group) + ")){\n" +
-                    hostErrorCopy(applicationError(target), error) + "}\n";
-          } else {
-            code += failureRef(target) + "={};\n" +
-                    hostErrorCopy(applicationError(target), error);
-          }
+          const auto destination = applicationError(target);
+          if (op.group != SIZE_MAX)
+            code += "const bool reserved=task.stopGroup(" + plannedGroups.at(op.group) + ");\n";
           for (auto collection : op.collections) {
             const auto found = arrayFields.find(get(collection).slot);
             if (found == arrayFields.end())
@@ -3858,6 +3874,11 @@ class Compiler {
                     std::to_string(std::distance(arrayFields.begin(), found)) +
                     ")){hostArrayFailure(task);return;}\n";
           }
+          const auto retain = hostErrorCopy(destination, error) + commitArray(destination);
+          if (op.group != SIZE_MAX)
+            code += "if(reserved){\n" + retain + "}\n";
+          else
+            code += failureRef(target) + "={};\n" + retain;
           steps.push_back(code + jump(op.jump) + "}\n");
           if (explicitApplication)
             break;
@@ -3899,7 +3920,7 @@ class Compiler {
                    "}else{\n" + handle + "}\n";
         steps.push_back("if(" + failureRef(input) + ".kind==TaskFailure::None && !(" + app +
                         ")){\n" + copy(output, input) + jump(op.target) + "}\n" +
-                        handle + jump(op.jump));
+                        handle + commitArray(error) + jump(op.jump));
         break;
       }
       case Code::Branch:
@@ -3939,7 +3960,7 @@ class Compiler {
         auto output = get(op.output);
         auto subject = args.at(0);
         if (std::holds_alternative<ErrorNarrow>(node(op.source).operation)) {
-          steps.push_back(hostErrorCopy(output, subject));
+          steps.push_back(hostErrorCopy(output, subject) + commitArray(output));
           break;
         }
         if (const auto *read = std::get_if<RecordFieldRead>(&node(op.source).operation)) {
@@ -3980,8 +4001,9 @@ class Compiler {
                           hostErrorTag(error) + "==0){\n" + failureRef(output) +
                           "=task.failure(" + group + ");\nif(" + failureRef(output) +
                           ".kind==TaskFailure::None){\n" + copy(output, args.at(0)) +
+                          "}else{" + ref(output) + "={};\n" + clearArray(output) +
                           "}}else{" + failureRef(output) + "={};" + ref(output) + "={};\n" +
-                          commitArray(output) + "}\n");
+                          clearArray(output) + "}\n");
           break;
         }
         steps.push_back("if(!task.join(" + group + ")) return;\n" + failureRef(output) +
