@@ -76,3 +76,11 @@ boolean storage carrier; source types remain distinct.
 Callable validation accepts the explicit return values of function boundaries
 and ignores non-completing branches at expression joins. It continues to compare
 the signatures of every branch that can actually produce a callable value.
+
+Expected types constrain the success value and permit error propagation; they do
+not introduce an error family by themselves. Match and conditional expressions
+whose branches never complete infer their channels from the actual failing
+branches. Loop results join the channels of their break and normal-completion
+values. A return with a non-completing operand discharges that operand's error
+identity, preserving replacement-error propagation without inventing a host
+TaskError channel in otherwise device-compatible functions.

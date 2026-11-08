@@ -3059,8 +3059,14 @@ private:
                             : infer(frame, span, UnitExpr{}, scope.context);
     if (!value)
       return {};
-    if (frame.stopped)
+    if (frame.stopped) {
+      // A non-completing operand can still carry its checked error identity
+      // (for example, a match whose arms all fail). It is propagated by this
+      // return, not an independently discarded expected-error result.
+      if (node(*value).type.fallible)
+        frame.tasks->handled.insert(node(*value).type.identity);
       return value;
+    }
     const auto actual = node(*value).type;
     if (actual.task) {
       error("S035", "task handles cannot escape their owning parallel group", span);
@@ -3349,6 +3355,9 @@ private:
         scope->results.push_back(*normalResult);
       resultType = expected.value_or(scope->results.empty() ? node(*normalResult).type
                                                             : node(scope->results.front()).type);
+      resultType.fallible = false;
+      resultType.errorRecord.reset();
+      resultType.identity = 0;
       for (auto value : scope->results) {
         const auto actual = node(value).type;
         if (actual.task || actual.builtin == BuiltinValue::Device ||
@@ -3849,6 +3858,11 @@ private:
       ValueType marker;
       marker.builtin = BuiltinValue::Bool;
       resultType = expected.value_or(marker);
+      // Expected types constrain success values; they do not themselves
+      // introduce an error channel on a non-completing branch expression.
+      resultType->fallible = false;
+      resultType->errorRecord.reset();
+      resultType->identity = 0;
     }
     if (!joinErrors(*resultType, errors, span))
       return {};
@@ -4192,6 +4206,11 @@ private:
       ValueType marker;
       marker.builtin = BuiltinValue::Bool;
       resultType = expected.value_or(marker);
+      // Expected types constrain success values; they do not themselves
+      // introduce an error channel on a non-completing branch expression.
+      resultType->fallible = false;
+      resultType->errorRecord.reset();
+      resultType->identity = 0;
     }
     if (!joinErrors(*resultType, errors, span))
       return {};

@@ -96,7 +96,9 @@ for name, (helper, setup, call, body, typ, expected) in cases.items():
     root = a.root / name
     root.mkdir(exist_ok=True)
     cpu_source = root / 'cpu.k'
-    cpu_body = '  result=' + call + '\n' + '\n'.join(line[2:] for line in body.rstrip().splitlines()) + '\n'
+    cpu_lines = [line[2:] for line in body.rstrip().splitlines()]
+    cpu_lines[-1] = '  return ' + cpu_lines[-1].lstrip()
+    cpu_body = '  result=' + call + '\n' + '\n'.join(cpu_lines) + '\n'
     cpu_source.write_text(helper + f'fn main()->{typ}:\n' + setup + cpu_body)
     cpu = root / ('cpu' + suffix)
     run([a.compiler, cpu_source, *flags, '-o', cpu])
@@ -109,7 +111,7 @@ for name, (helper, setup, call, body, typ, expected) in cases.items():
         assert struct.pack('<d', value) == struct.pack('<d', expected), (name, 'CPU float bits', raw)
     source = root / 'gpu.k'
     source.write_text(helper + f'fn main()->{typ} ! TaskError:\n' + setup +
-                      '  try parallel:\n    gpu=devices.gpu()\n    result=try await spawn ' + call + ' on gpu\n' + body)
+                      '  return try parallel:\n    gpu=devices.gpu()\n    result=try await spawn ' + call + ' on gpu\n' + body)
     bundle = root / 'device'
     arithmetic = 'hardware-with-software-fallback' if a.backend == 'metal' and typ == 'f64' else 'hardware'
     run([a.compiler, source, '--target', a.backend, '--arithmetic', arithmetic, *flags, '-o', bundle])
@@ -122,7 +124,7 @@ for name, (helper, setup, call, body, typ, expected) in cases.items():
             value = output == 'true'
         else:
             bits = int(output, 16)
-            width = 32 if typ == 'f32' else 64 if typ in ('f64', 'i64', 'u64') else int(typ.lstrip('u64'))
+            width = 32 if typ == 'f32' else 64 if typ in ('f64', 'i64', 'u64') else int(typ[1:])
             if typ.startswith('f'):
                 fmt = '<f' if width == 32 else '<d'
                 value = struct.unpack(fmt, bits.to_bytes(width // 8, 'little'))[0]

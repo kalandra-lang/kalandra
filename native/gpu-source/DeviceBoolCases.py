@@ -68,7 +68,7 @@ fn main()->bool ! TaskError:
     first and second
 ''')]:
         gpu=predicate+'''fn main()->bool ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
 '''+tasks
         cpu=gpu.replace('    gpu=devices.gpu()\n','').replace(' on gpu','').replace(' on devices.cpu()','')

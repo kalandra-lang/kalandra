@@ -33,14 +33,14 @@ cases = {}
 for typ in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64','bool'):
     if typ == 'bool':
         fields = 'Batch {value:true,values:[true,false,true]}'
-        score = '  if batch.value and batch.values[0] and not batch.values[1]:6\n  else:0\n'
+        score = '  return if batch.value and batch.values[0] and not batch.values[1]:6\n  else:0\n'
     else:
         fields = 'Batch {value:2,values:[1,2,3]}'
-        score = '  int(batch.value)+int(batch.values[0])+int(batch.values[2])\n'
-    helper = f'type Batch:\n  value:{typ}\n  values:[{typ}]\nfn make()->Batch:\n  {fields}\nfn score(batch:Batch)->i64:\n' + score
+        score = '  return i64(batch.value)+i64(batch.values[0])+i64(batch.values[2])\n'
+    helper = f'type Batch:\n  value:{typ}\n  values:[{typ}]\nfn make()->Batch:\n  return {fields}\nfn score(batch:Batch)->i64:\n' + score
     for child in (False, True):
         setup = '    batch=try await spawn make() on devices.cpu()\n' if child else '    batch=make()\n'
-        cases[('child-' if child else 'direct-')+typ] = (helper+work+'fn main()->i64 ! TaskError:\n  try parallel:\n'+setup+'    try await spawn work(score(batch)) on devices.gpu()\n',15)
+        cases[('child-' if child else 'direct-')+typ] = (helper+work+'fn main()->i64 ! TaskError:\n  return try parallel:\n'+setup+'    try await spawn work(score(batch)) on devices.gpu()\n',15)
     cases['entry-'+typ] = (helper+'''fn device(batch:Batch)->i64:
   total=0
   for i in range(score(batch)):
@@ -611,7 +611,7 @@ for name,(source,expected) in cases.items():
     gpu = root/'gpu.k'
     gpu.write_text(source)
     bundle = root/'device'
-    fallback = name == 'entry-float64' or (name in ('device-closure-float64','device-tensor-return-float64','gpu-host-closure-tensor-float64') and a.backend == 'metal')
+    fallback = name == 'entry-f64' or (name in ('device-closure-float64','device-tensor-return-f64','gpu-host-closure-tensor-f64') and a.backend == 'metal')
     policy = ['--arithmetic','hardware-with-software-fallback'] if fallback else []
     run([a.compiler,gpu,'--target',a.backend,*flags,*policy,'-o',bundle])
     host = (bundle/'host.cpp').read_text()

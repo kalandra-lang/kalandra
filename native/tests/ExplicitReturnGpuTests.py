@@ -52,6 +52,41 @@ fn work() -> i64:
   callback = fn() -> i64: return choose()
   return callback()
 ''', 'i64', False, 42),
+    'handler-loop-channel': ('''error InputError:
+  Bad
+fn reject() -> i64 ! InputError:
+  fail InputError.Bad
+fn fallback() -> i64:
+  return reject() catch fn(error):
+    return while false:
+      continue
+    else:
+      42
+fn work() -> i64:
+  return fallback()
+''', 'i64', False, 42),
+    'handler-match-replacement': ('''error InputError:
+  Invalid:
+    value: i64
+
+error OutputError:
+  Replaced:
+    values: [i64]
+
+fn validate(value: i64) -> i64 ! InputError:
+  fail InputError.Invalid { value: value }
+
+fn replace(value: i64) -> i64 ! OutputError:
+  converted = validate(value) catch fn(error):
+    return match error:
+      InputError.Invalid { value }: fail OutputError.Replaced { values: [value, 2] }
+  return try converted
+
+fn work() -> i64:
+  return replace(40) catch fn(error):
+    return match error:
+      OutputError.Replaced { values }: values[0] + values[1]
+''', 'i64', False, 42),
     'unit-values': ('''fn work() -> i64:
   values = generate(5, fn(index: i64) -> unit: return ())
   mapped = map(values, fn(value: unit) -> unit: return value)

@@ -227,6 +227,41 @@ fn main() -> i64:
   observed = failOnly() catch fn(error): return ()
   return reject() catch fn(error): return 42
 ''', '42\n'),
+    'handler-loop-channel': ('''error InputError:
+  Bad
+fn reject() -> i64 ! InputError:
+  fail InputError.Bad
+fn fallback() -> i64:
+  return reject() catch fn(error):
+    return while false:
+      continue
+    else:
+      42
+fn main() -> i64:
+  return fallback()
+''', '42\n'),
+    'handler-match-replacement': ('''error InputError:
+  Invalid:
+    value: i64
+
+error OutputError:
+  Replaced:
+    values: [i64]
+
+fn validate(value: i64) -> i64 ! InputError:
+  fail InputError.Invalid { value: value }
+
+fn replace(value: i64) -> i64 ! OutputError:
+  converted = validate(value) catch fn(error):
+    return match error:
+      InputError.Invalid { value }: fail OutputError.Replaced { values: [value, 2] }
+  return try converted
+
+fn main() -> i64:
+  return replace(40) catch fn(error):
+    return match error:
+      OutputError.Replaced { values }: values[0] + values[1]
+''', '42\n'),
     'conditional-local-constants': ('''fn choose(flag: bool) -> i64:
   if flag:
     zero = 0

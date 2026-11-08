@@ -401,7 +401,7 @@ fn work(n:i64)->i64:
 
 def fault_cases():
     result = {}
-    for typ, argument in (('i32', '-1'), ('i64', '-1'), ('u32', '4294967295'), ('u64', 'uint64(9223372036854775807)+uint64(1)')):
+    for typ, argument in (('i32', '-1'), ('i64', '-1'), ('u32', '4294967295'), ('u64', 'u64(9223372036854775807)+u64(1)')):
         result['bounds-'+typ] = (f'''fn work(n:{typ})->i64:
   values=[1,2,3]
   return values[n]
@@ -415,7 +415,7 @@ def fault_cases():
   values=[1,2,3]
   copied=slice(values,n,2)
   return length(copied)
-''', 'work(int8(-1))', 5)
+''', 'work(i8(-1))', 5)
     result['slice-reversed'] = ('''fn work(n:i64)->i64:
   values=[1,2,3]
   copied=slice(values,n,1)
