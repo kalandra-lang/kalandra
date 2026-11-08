@@ -27,10 +27,8 @@ test("every compiler-provided callable has a signature and public reference entr
   );
   const numeric = await read("native/include/kalandra/NumericType.h");
   for (const match of numeric.matchAll(
-    /NumericDescription\{NumericType::\w+,\s*"(\w+)"/g,
+    /NumericDescription\{NumericType::\w+,\s*"\w+",\s*NumericFamily::\w+,\s*\d+,\s*"(\w+)"/g,
   ))
-    names.add(match[1]!);
-  for (const match of numeric.matchAll(/name == "(\w+)"/g))
     names.add(match[1]!);
   expect(names.size).toBeGreaterThan(20);
   expect([...names].sort()).toEqual(api.map((entry) => entry.name).sort());

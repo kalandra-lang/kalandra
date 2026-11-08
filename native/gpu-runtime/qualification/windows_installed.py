@@ -79,7 +79,7 @@ if a.backend == 'cuda':
     assert len(list((root/'applications').rglob('program.exe'))) == 51
     run([compiler, '--target', 'cuda', '--arithmetic', 'software',
          repo/'native/metal-source/indirect-arguments.k', '-O2', '-o', root/'wide-arguments'])
-    probe = root/'applications/hardware/float32/program.exe'
+    probe = root/'applications/hardware/f32/program.exe'
 else:
     run([sys.executable, repo/'native/vulkan/qualification/public_cli.py', '--compiler', compiler,
          '--output', root/'applications', '--compile-only'])

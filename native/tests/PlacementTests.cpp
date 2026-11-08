@@ -22,7 +22,7 @@ void accepted(const CheckResult &result) {
 unsigned rejectedCases = 0;
 void reject(const std::string &source, std::string_view code, SemanticLimits limits = {}) {
   auto result = analyze(source, limits);
-  require(!result.ok() && !result.module, "partial IR published on a placement error");
+  require(!result.ok() && !result.module, ("partial IR published on a placement error:\n" + source).c_str());
   if (!std::ranges::any_of(result.diagnostics, [&](const auto &d) { return d.code == code; })) {
     for (const auto &diagnostic : result.diagnostics)
       std::cerr << renderDiagnostic(*result.source, diagnostic);
@@ -240,9 +240,18 @@ void failures() {
     try await transfer(data,devices.gpu())
 )",
          "S047");
+  reject(helpers + R"(fn main() -> Tensor[f32,3] ! TaskError:
+  return try parallel:
+    data:Tensor[f32,3] = tensor([1,2,3])
+    resident = try await transfer(data,devices.gpu())
+    if true:
+      return resident
+    data
+)",
+         "S047");
   reject(start + R"(    outcome=parallel:
       try await spawn scale(input,2) on gpu
-    recovered=outcome catch fn(error): values
+    recovered=outcome catch fn(error): return values
     host=try await transfer(recovered,cpu)
     reduceSum(host)
 )",

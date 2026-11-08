@@ -59,7 +59,7 @@ subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
     '--build',a.root,'--compiler',compiler,'--output',a.root/'applications',
     '--execute' if a.execute else '--compile-only'],check=True,timeout=1200)
 subprocess.run([sys.executable,Path(__file__).parents[2]/'cuda/tests/loader.py',
-    '--application',a.root/'applications/hardware/float32/program',
+    '--application',a.root/'applications/hardware/f32/program',
     '--cxx',prefix/'libexec/kalandra/clang++',
     '--resource-dir',prefix/'lib/kalandra/toolchain/clang'],check=True,timeout=90)
 # Compile host array helpers after relocation as well as the shader-only cases.

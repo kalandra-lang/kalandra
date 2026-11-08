@@ -40,7 +40,7 @@ def run(command):
 for numeric,ctype in types.items():
     source = a.output/(numeric+'.k')
     op = '==' if numeric == 'bool' else '+'
-    source.write_text(f'fn tree(v:{numeric},n:i64)->{numeric}:\n  if n==0:v\n  else:tree(v,n-1){op}tree(v,n-1)\nfn main()->{numeric}:\n  tree('+('true' if numeric=='bool' else '1')+',3)\n')
+    source.write_text(f'fn tree(v:{numeric},n:i64)->{numeric}:\n  return if n==0:v\n  else:tree(v,n-1){op}tree(v,n-1)\nfn main()->{numeric}:\n  return tree('+('true' if numeric=='bool' else '1')+',3)\n')
     for name,flag,flags in variants:
         outputs = []
         for version,compiler in compilers:

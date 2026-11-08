@@ -34,6 +34,7 @@ class Checker {
     std::vector<ValueId> results;
     bool transfers = false;
     bool breaks = false;
+    bool handler = false;
   };
   struct CollectionScope {
     std::size_t identity;
@@ -3067,8 +3068,21 @@ private:
     if (frame.stopped)
       return value;
     const auto actual = node(*value).type;
-    if (actual.task || actual.builtin == BuiltinValue::Device) {
-      error("S079", "return requires a completed value", span);
+    if (actual.task) {
+      error("S035", "task handles cannot escape their owning parallel group", span);
+      return {};
+    }
+    if (actual.builtin == BuiltinValue::Device) {
+      error("S048", "device selectors cannot escape as function results", span);
+      return {};
+    }
+    if (options_.placement && actual.tensor &&
+        ((!scope.handler && actual.device) ||
+         (scope.handler && scope.context && actual.device != scope.context->device))) {
+      error("S047", scope.handler
+                        ? "catch branches require matching residency and GPU index; transfer explicitly"
+                        : "function results require an explicit transfer to devices.cpu()",
+            span);
       return {};
     }
     if (!exit.value && scope.context && !conform(frame, *value, *scope.context, span))
@@ -3089,9 +3103,10 @@ private:
                                        std::optional<ValueType> context,
                                        std::vector<TypedStatement> &statements, SourceSpan span,
                                        const std::unordered_set<std::string> &introduced = {},
-                                       bool inferErrorChannel = false) {
+                                       bool handler = false) {
     auto scope =
         std::make_shared<LoopScope>(LoopScope{nextLoop_++, *frame.tasks, true, context, {}});
+    scope->handler = handler;
     frame.returns = scope;
     std::vector<TypedStatement> checked;
     auto completed = suite(frame, body, {}, checked, introduced, true);
@@ -3131,7 +3146,7 @@ private:
         ValueType unit;
         unit.builtin = BuiltinValue::Unit;
         auto resultType = context.value_or(unit);
-        if (inferErrorChannel) {
+        if (handler) {
           resultType.fallible = false;
           resultType.errorRecord.reset();
           resultType.identity = 0;
@@ -3146,7 +3161,7 @@ private:
       return {};
     }
     auto resultType = context.value_or(node(scope->results.front()).type);
-    if (inferErrorChannel) {
+    if (handler) {
       resultType.fallible = false;
       resultType.errorRecord.reset();
       resultType.identity = 0;

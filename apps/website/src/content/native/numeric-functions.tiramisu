@@ -1,4 +1,4 @@
-meta { title = "Numeric conversion functions", description = "All numeric conversion names, ranges, aliases and failure behavior.", order = 1, group = "Library reference" }
+meta { title = "Numeric conversion functions", description = "All numeric conversion names, ranges and failure behavior.", order = 1, group = "Library reference" }
 
 Conversion calls accept one completed numeric scalar or CPU tensor. They do not accept arrays, bool, String, pending tasks or resident device values on the host. Tensors preserve shape and convert each element; a rank-zero tensor remains a tensor. In an eligible GPU numerical function, conversions use that device and its selected arithmetic policy. Download a resident value before performing a host conversion.
 

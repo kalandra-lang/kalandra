@@ -89,7 +89,7 @@ fn remote(values:[{numeric}])->[{numeric}] ! TaskError:
         source = source.replace('fn main()->i64 ! TaskError:', remote + 'fn main()->i64 ! TaskError:')
         source = source.replace('    alias=update(values)',
                                 '    alias=update(values)\n    checkpoint=try await spawn remote(values) on devices.cpu()')
-        source = source.replace('+length(values)', '+length(values)+int(checkpoint[0])')
+        source = source.replace('+length(values)', '+length(values)+i64(checkpoint[0])')
         cases['element-' + numeric] = source, 813
 
 cases['kernel-local-mutation'] = ('''fn edit(values:Tensor[i64,?])->Tensor[i64,?]:

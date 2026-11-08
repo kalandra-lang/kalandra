@@ -1,7 +1,9 @@
 #include "../lib/NativeSanitizerFrames.h"
 #include "../lib/OrdinaryMain.h"
-#include "../lib/PlatformFileSystem.h"
 #include "CrossToolchain.h"
+
+// LLVM COFF declarations must precede Windows SDK macros from platform I/O.
+#include "../lib/PlatformFileSystem.h"
 #include "kalandra/Backend.h"
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"

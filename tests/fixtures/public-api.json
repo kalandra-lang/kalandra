@@ -2,12 +2,12 @@
   {
     "name": "length",
     "page": "collection-functions",
-    "signature": "length(value: String | [T]) -> int"
+    "signature": "length(value: String | [T]) -> i64"
   },
   {
     "name": "byteLength",
     "page": "collection-functions",
-    "signature": "byteLength(text: String) -> int"
+    "signature": "byteLength(text: String) -> i64"
   },
   {
     "name": "slice",
@@ -27,7 +27,7 @@
   {
     "name": "generate",
     "page": "collection-functions",
-    "signature": "generate(count: int, callback: fn(int) -> T) -> [T]"
+    "signature": "generate(count: i64, callback: fn(i64) -> T) -> [T]"
   },
   {
     "name": "copy",
@@ -57,7 +57,7 @@
   {
     "name": "shape",
     "page": "collection-functions",
-    "signature": "shape(values: Tensor[T, ...]) -> [int]"
+    "signature": "shape(values: Tensor[T, ...]) -> [i64]"
   },
   {
     "name": "reshape",
@@ -95,69 +95,54 @@
     "signature": "rmsNormRows(values: Tensor[F, M, N], epsilon: F) -> Tensor[F, M, N]"
   },
   {
-    "name": "int8",
+    "name": "i8",
     "page": "numeric-functions",
-    "signature": "int8(value: numeric scalar | Tensor[T, ...]) -> int8 scalar or same-shape tensor"
+    "signature": "i8(value: numeric scalar | Tensor[T, ...]) -> i8 scalar or same-shape tensor"
   },
   {
-    "name": "int16",
+    "name": "i16",
     "page": "numeric-functions",
-    "signature": "int16(value: numeric scalar | Tensor[T, ...]) -> int16 scalar or same-shape tensor"
+    "signature": "i16(value: numeric scalar | Tensor[T, ...]) -> i16 scalar or same-shape tensor"
   },
   {
-    "name": "int32",
+    "name": "i32",
     "page": "numeric-functions",
-    "signature": "int32(value: numeric scalar | Tensor[T, ...]) -> int32 scalar or same-shape tensor"
+    "signature": "i32(value: numeric scalar | Tensor[T, ...]) -> i32 scalar or same-shape tensor"
   },
   {
-    "name": "int64",
+    "name": "i64",
     "page": "numeric-functions",
-    "signature": "int64(value: numeric scalar | Tensor[T, ...]) -> int64 scalar or same-shape tensor"
+    "signature": "i64(value: numeric scalar | Tensor[T, ...]) -> i64 scalar or same-shape tensor"
   },
   {
-    "name": "uint8",
+    "name": "u8",
     "page": "numeric-functions",
-    "signature": "uint8(value: numeric scalar | Tensor[T, ...]) -> uint8 scalar or same-shape tensor"
+    "signature": "u8(value: numeric scalar | Tensor[T, ...]) -> u8 scalar or same-shape tensor"
   },
   {
-    "name": "uint16",
+    "name": "u16",
     "page": "numeric-functions",
-    "signature": "uint16(value: numeric scalar | Tensor[T, ...]) -> uint16 scalar or same-shape tensor"
+    "signature": "u16(value: numeric scalar | Tensor[T, ...]) -> u16 scalar or same-shape tensor"
   },
   {
-    "name": "uint32",
+    "name": "u32",
     "page": "numeric-functions",
-    "signature": "uint32(value: numeric scalar | Tensor[T, ...]) -> uint32 scalar or same-shape tensor"
+    "signature": "u32(value: numeric scalar | Tensor[T, ...]) -> u32 scalar or same-shape tensor"
   },
   {
-    "name": "uint64",
+    "name": "u64",
     "page": "numeric-functions",
-    "signature": "uint64(value: numeric scalar | Tensor[T, ...]) -> uint64 scalar or same-shape tensor"
+    "signature": "u64(value: numeric scalar | Tensor[T, ...]) -> u64 scalar or same-shape tensor"
   },
   {
-    "name": "float32",
+    "name": "f32",
     "page": "numeric-functions",
-    "signature": "float32(value: numeric scalar | Tensor[T, ...]) -> float32 scalar or same-shape tensor"
+    "signature": "f32(value: numeric scalar | Tensor[T, ...]) -> f32 scalar or same-shape tensor"
   },
   {
-    "name": "float64",
+    "name": "f64",
     "page": "numeric-functions",
-    "signature": "float64(value: numeric scalar | Tensor[T, ...]) -> float64 scalar or same-shape tensor"
-  },
-  {
-    "name": "int",
-    "page": "numeric-functions",
-    "signature": "int(value: numeric scalar | Tensor[T, ...]) -> int64 scalar or same-shape tensor"
-  },
-  {
-    "name": "uint",
-    "page": "numeric-functions",
-    "signature": "uint(value: numeric scalar | Tensor[T, ...]) -> uint64 scalar or same-shape tensor"
-  },
-  {
-    "name": "float",
-    "page": "numeric-functions",
-    "signature": "float(value: numeric scalar | Tensor[T, ...]) -> float64 scalar or same-shape tensor"
+    "signature": "f64(value: numeric scalar | Tensor[T, ...]) -> f64 scalar or same-shape tensor"
   },
   {
     "name": "parallelMap",
@@ -172,7 +157,7 @@
   {
     "name": "devices.gpu",
     "page": "task-functions",
-    "signature": "devices.gpu() -> GPU device selector\ndevices.gpu(index: constant uint32 literal) -> GPU device selector"
+    "signature": "devices.gpu() -> GPU device selector\ndevices.gpu(index: constant u32 literal) -> GPU device selector"
   },
   {
     "name": "transfer",

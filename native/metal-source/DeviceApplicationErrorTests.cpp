@@ -174,50 +174,50 @@ int main(int argc, char **argv) {
         }))
       throw std::runtime_error("recoverable error program did not use device control");
     const std::string placed = source + R"k(
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     try await spawn work(0) on devices.gpu()
 )k";
     const std::string observed = source + R"k(
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     child = spawn descend(0) on devices.gpu()
     await child catch fn(error):
-      match error:
+      return match error:
         SampleError.Invalid { values }: values[0] + values[1]
         OtherError.Empty: 23
         _: 0
 )k";
     const std::string propagated = source + R"k(
-fn main() -> int ! TaskError:
+fn main() -> i64 ! TaskError:
   result = parallel:
     try await spawn descend(40) on devices.gpu()
-  result catch fn(error):
-    match error:
+  return result catch fn(error):
+    return match error:
       SampleError.Invalid { values }: values[0] + values[1]
       OtherError.Empty: 23
       _: 0
 )k";
     const std::string uncaught = source + R"k(
-fn main() -> int ! (SampleError | OtherError | TaskError):
-  try parallel:
+fn main() -> i64 ! (SampleError | OtherError | TaskError):
+  return try parallel:
     try await spawn descend(0) on devices.gpu()
 )k";
     const std::string helper = source + R"k(
-fn coordinate(n: int) -> int ! (SampleError | OtherError | TaskError):
-  try parallel:
+fn coordinate(n: i64) -> i64 ! (SampleError | OtherError | TaskError):
+  return try parallel:
     try await spawn descend(n) on devices.gpu()
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     child = spawn coordinate(0) on devices.cpu()
     first = await child
-    total = first catch fn(error): 0
+    total = first catch fn(error): return 0
     i = 0
     while i < 100:
       response = await child
       value = response catch fn(error):
-        match error:
+        return match error:
           SampleError.Invalid { values }: values[0] + values[1]
           OtherError.Empty: 23
           _: 0
@@ -246,11 +246,11 @@ error HostError:
   Invalid:
     detail: String
 
-fn validate() -> int ! HostError:
+fn validate() -> i64 ! HostError:
   fail HostError.Invalid { detail: "invalid" }
 
-fn main() -> int ! (HostError | TaskError):
-  try parallel:
+fn main() -> i64 ! (HostError | TaskError):
+  return try parallel:
     try await spawn validate() on devices.gpu()
 )k";
     for (auto backend : {GpuBackend::Metal, GpuBackend::Vulkan, GpuBackend::Cuda}) {

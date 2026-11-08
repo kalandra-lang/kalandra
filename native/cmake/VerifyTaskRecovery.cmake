@@ -89,11 +89,27 @@ RUN_OK("${OUTPUT_DIR}/task-refine-result")
 if(NOT OUTPUT STREQUAL "233\n")
   message(FATAL_ERROR "Successful result refinement differs: ${OUTPUT}")
 endif()
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_FAIL_ALLOC_AT=5 KALANDRA_TEST_REPORT_CLEANUP=1
-  "${OUTPUT_DIR}/task-refine-result" RESULT_VARIABLE STATUS OUTPUT_VARIABLE STDOUT ERROR_VARIABLE STDERR)
-if(NOT "${STATUS}" STREQUAL "88" OR NOT STDOUT STREQUAL "" OR NOT STDERR MATCHES "TaskError.Fault" OR
-    NOT STDERR MATCHES "cleanup: live=0")
-  message(FATAL_ERROR "Refinement read an absent error payload: ${STATUS}: ${STDOUT}${STDERR}")
+# Allocation ordinals can move when frame ownership changes. Exercise both
+# root and worker failures, and require a worker failure to reach refinement.
+set(SAW_WORKER_FAILURE FALSE)
+foreach(FAIL_AT RANGE 1 16)
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env "KALANDRA_TEST_FAIL_ALLOC_AT=${FAIL_AT}" KALANDRA_TEST_REPORT_CLEANUP=1
+    "${OUTPUT_DIR}/task-refine-result" RESULT_VARIABLE STATUS OUTPUT_VARIABLE STDOUT ERROR_VARIABLE STDERR)
+  if(STATUS EQUAL 88 AND STDERR MATCHES "TaskError.Fault")
+    set(SAW_WORKER_FAILURE TRUE)
+  elseif(STATUS EQUAL 86 AND STDERR MATCHES "AllocationFault")
+    # Root allocation faults remain uncatchable.
+  elseif(STATUS EQUAL 0 AND STDOUT STREQUAL "233\n")
+    # A later fault point may exceed the invocation's allocation count.
+  else()
+    message(FATAL_ERROR "Refinement read an absent error payload at allocation ${FAIL_AT}: ${STATUS}: ${STDOUT}${STDERR}")
+  endif()
+  if((NOT STATUS EQUAL 0 AND NOT STDOUT STREQUAL "") OR NOT STDERR MATCHES "cleanup: live=0")
+    message(FATAL_ERROR "Refinement published partial output or leaked at allocation ${FAIL_AT}: ${STATUS}: ${STDOUT}${STDERR}")
+  endif()
+endforeach()
+if(NOT SAW_WORKER_FAILURE)
+  message(FATAL_ERROR "Refinement allocation sweep did not exercise a worker failure")
 endif()
 file(READ "${OUTPUT_DIR}/task-refine-result.ll" IR)
 if(NOT IR MATCHES "refine.error")
