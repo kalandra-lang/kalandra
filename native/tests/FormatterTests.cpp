@@ -26,18 +26,21 @@ int main(int argc, char **argv) {
            "fn main():\n  value: i64 = 1 + 2 * 3\n  return value\n");
     expect("# Heading  \nfn main( ): # note  \n    # body  \n    return \"😀 # string  \\\"\"  # "
            "tail  \n",
-           "# Heading  \nfn main():  # note  \n  # body  \n  return \"😀 # string  \\\"\"  # tail  \n");
-    expect("fn main():\n  return   return - 1 + ( - 2 )\n", "fn main():\n  return -1 + (-2)\n");
+           "# Heading  \nfn main():  # note  \n  # body  \n  return \"😀 # string  \\\"\"  # tail  "
+           "\n");
+    expect("fn main():\n    return - 1 + ( - 2 )\n", "fn main():\n  return -1 + (-2)\n");
     require(!format("fn main():\n    ! true\n").text, "unsupported negation repaired");
-    expect("fn main():\n  return   return not(true)\n", "fn main():\n  return not (true)\n");
-    expect("fn main():\n  return   return 1 .field\n", "fn main():\n  return 1 .field\n");
+    expect("fn main():\n    return not(true)\n", "fn main():\n  return not (true)\n");
+    expect("fn main():\n    return 1 .field\n", "fn main():\n  return 1 .field\n");
     expect("fn call( value : [ i64 ] ) -> i64:\n    return value [ 0 ]\n",
            "fn call(value: [i64]) -> i64:\n  return value[0]\n");
     expect("fn put(mut a:[i64])->i64:\n    a [ 0 ]= 9\n    return a[0]\n",
            "fn put(mut a: [i64]) -> i64:\n  a[0] = 9\n  return a[0]\n");
-    expect("fn call( mut value : [ i64 ] ) -> i64:\n    f:fn(mut[i64])->i64=fn(mut x):return length(x)\n  "
+    expect("fn call( mut value : [ i64 ] ) -> i64:\n    f:fn(mut[i64])->i64=fn(mut x):return "
+           "length(x)\n  "
            "  return f(value)\n",
-           "fn call(mut value: [i64]) -> i64:\n  f: fn(mut [i64]) -> i64 = fn(mut x): return length(x)\n  "
+           "fn call(mut value: [i64]) -> i64:\n  f: fn(mut [i64]) -> i64 = fn(mut x): return "
+           "length(x)\n  "
            "return f(value)\n");
     expect("type Point:\n    x:i64\nfn main():\n    return Point{ x:1 }\n",
            "type Point:\n  x: i64\nfn main():\n  return Point { x: 1 }\n");
@@ -55,8 +58,9 @@ int main(int argc, char **argv) {
     const std::string grows = "fn main():\n  return 1+2\n";
     limits.maxSourceBytes = grows.size();
     require(!format(grows, limits).text, "output size limit ignored");
-    expect("fn main():\n  return   return devices.gpu( 1 )\n", "fn main():\n  return devices.gpu(1)\n");
-    require(!format("fn main():\n  return devices . gpu(1)\n").text, "selector source spelling changed");
+    expect("fn main():\n    return devices.gpu( 1 )\n", "fn main():\n  return devices.gpu(1)\n");
+    require(!format("fn main():\n  return devices . gpu(1)\n").text,
+            "selector source spelling changed");
     require(argc == 3, "missing corpus roots");
     std::size_t accepted = 0, rejected = 0;
     for (int root = 1; root < argc; ++root)

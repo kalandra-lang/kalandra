@@ -71,17 +71,21 @@ int main() {
     for (auto source :
          {"fn main():\n  values:[f32]=[]\n  return length(values)\n",
           "fn main():\n  return length(shape(tensor(7)))\n",
-          "fn main():\n  return shape(tensor([[1,2],[3,4]]))[1]\n", "fn main():\n  return [1,2,3] -> length()\n",
-          "fn make()->Tensor[i64,2] ! TaskError:\n  return tensor([1,2])\nfn main() ! TaskError:\n  return "
-          "return length(shape(try make()))\n",
+          "fn main():\n  return shape(tensor([[1,2],[3,4]]))[1]\n",
+          "fn main():\n  return [1,2,3] -> length()\n",
+          "fn make()->Tensor[i64,2] ! TaskError:\n  return tensor([1,2])\nfn main() ! TaskError:\n "
+          " return length(shape(try make()))\n",
           "fn main():\n  return tensor([[1,2],[3,4]]) -> shape() -> length()\n",
-          "fn query(values:[f32]):\n  return map([1,2],fn(x):return x+length(values))\nfn main()->i64:\n  return "
-          "return 0\n",
-          "fn query(values:Tensor[f64,?,?]):\n  return map([1,2],fn(x):return x+length(shape(values)))\nfn "
+          "fn query(values:[f32]):\n  return map([1,2],fn(x):return x+length(values))\nfn "
           "main()->i64:\n  return 0\n",
-          "fn main() ! TaskError:\n  return try parallel:\n    task=spawn shape(tensor([[1,2],[3,4]]))\n  "
+          "fn query(values:Tensor[f64,?,?]):\n  return map([1,2],fn(x):return "
+          "x+length(shape(values)))\nfn "
+          "main()->i64:\n  return 0\n",
+          "fn main() ! TaskError:\n  return try parallel:\n    task=spawn "
+          "shape(tensor([[1,2],[3,4]]))\n  "
           "  dimensions=try await task\n    length(dimensions)\n",
-          "fn main() ! TaskError:\n  return try parallel:\n    task=spawn length([1,2,3])\n    try await "
+          "fn main() ! TaskError:\n  return try parallel:\n    task=spawn length([1,2,3])\n    try "
+          "await "
           "task\n",
           "fn length(value:i64):\n  return value+1\nfn main():\n  return length(1)\n",
           "fn shape(value:i64):\n  return value+2\nfn main():\n  return shape(1)\n"}) {
@@ -94,24 +98,26 @@ int main() {
 #endif
     }
     for (auto source :
-         {"fn main():\n  return length(1)\n", "fn main():\n  return shape(1)\n", "fn main():\n  return shape([1,2])\n",
-          "fn make()->Tensor[i64,2] ! TaskError:\n  return tensor([1,2])\nfn main() ! TaskError:\n  return "
-          "return length(shape(make()))\n",
+         {"fn main():\n  return length(1)\n", "fn main():\n  return shape(1)\n",
+          "fn main():\n  return shape([1,2])\n",
+          "fn make()->Tensor[i64,2] ! TaskError:\n  return tensor([1,2])\nfn main() ! TaskError:\n "
+          " return length(shape(make()))\n",
           "fn main():\n  return length(tensor([1,2]))\n", "fn main():\n  return length([])\n",
           "fn main():\n  return shape()\n", "fn main():\n  return shape(tensor(7),0)\n",
           "fn main():\n  return length([1,2],0)\n", "fn main()->u64:\n  return length([1,2])\n",
           "fn main()->[u64]:\n  return shape(tensor(7))\n",
           "fn main():\n  return shape(tensor([[1,2],[3,4]]))[2]\n",
           "fn main():\n  length=1\n  return length([1,2])\n",
-          "fn made()->[i64]:\n  return [1,2]\nfn main() ! TaskError:\n  return try parallel:\n    pending=spawn "
+          "fn made()->[i64]:\n  return [1,2]\nfn main() ! TaskError:\n  return try parallel:\n    "
+          "pending=spawn "
           "made()\n    length(pending)\n"})
       require(!analyze(source).ok(), std::string("invalid query accepted: ") + source);
-    auto resident = check(parse(std::make_shared<SourceFile>(
-                              "resident.k",
-                              "fn main()->[i64] ! TaskError:\n  return try parallel:\n    "
-                              "values:Tensor[f32,2,2]=tensor([[1,2],[3,4]])\n    resident=try "
-                              "await transfer(values,devices.gpu())\n    shape(resident)\n")),
-                          {}, {.placement = true});
+    auto resident =
+        check(parse(std::make_shared<SourceFile>(
+                  "resident.k", "fn main()->[i64] ! TaskError:\n  return try parallel:\n    "
+                                "values:Tensor[f32,2,2]=tensor([[1,2],[3,4]])\n    resident=try "
+                                "await transfer(values,devices.gpu())\n    shape(resident)\n")),
+              {}, {.placement = true});
     bool diagnostic = false;
     for (auto &d : resident.diagnostics)
       diagnostic |= d.code == "S064";

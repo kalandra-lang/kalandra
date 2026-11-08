@@ -18,13 +18,14 @@ int main() {
           "fn flip(x:bool)->bool:\n  return not x\nfn main():\n  return map([],flip)\n",
           "fn main():\n  return map([],fn(x:bool)->bool:return not x)\n",
           "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main():\n  return "
-          "return map([true,false],encode)\n",
+          "map([true,false],encode)\n",
           "type Flag:\n  enabled:bool\nfn main():\n  rows=map([true,false],fn(x):return Flag "
           "{enabled:x})\n  return map(rows,fn(row):return row.enabled)\n",
-          "fn main()->[bool] ! TaskError:\n  flags=[true,false]\n  return try parallel:\n    try await "
+          "fn main()->[bool] ! TaskError:\n  flags=[true,false]\n  return try parallel:\n    try "
+          "await "
           "spawn map(flags,fn(x):return not x)\n",
-          "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main()->[i64] ! TaskError:\n  return "
-          "flags=[true,false]\n  return try parallel:\n    try await spawn "
+          "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main()->[i64] ! "
+          "TaskError:\n  flags=[true,false]\n  return try parallel:\n    try await spawn "
           "map([0,1],fn(i):return encode(flags[i]))\n"}) {
       auto checked = analyze(body);
       require(checked.ok(), "valid Bool array rejected: " + std::string(body));
@@ -37,18 +38,21 @@ int main() {
 #endif
     }
     for (const auto *body :
-         {"fn main():\n  return [true,1]\n", "fn main()->[bool]:\n  return [1]\n", "fn main():\n  return [[true]]\n",
-          "fn main():\n  return [true,false]+[true,false]\n", "fn main():\n  return not [true]\n",
-          "fn main():\n  return [true]==[false]\n", "fn main():\n  return [true][true]\n",
-          "fn main():\n  return [true][1]\n", "fn main():\n  return tensor([true,false])\n",
+         {"fn main():\n  return [true,1]\n", "fn main()->[bool]:\n  return [1]\n",
+          "fn main():\n  return [[true]]\n", "fn main():\n  return [true,false]+[true,false]\n",
+          "fn main():\n  return not [true]\n", "fn main():\n  return [true]==[false]\n",
+          "fn main():\n  return [true][true]\n", "fn main():\n  return [true][1]\n",
+          "fn main():\n  return tensor([true,false])\n",
           "fn main()->Tensor[bool,2]:\n  return tensor([true,false])\n",
           "fn main():\n  flags=[true,false]\n  return shape(flags)\n",
           "fn main():\n  flags=[true,false]\n  return i64(flags)\n",
           "fn main():\n  flags=[true,false]\n  return reduceSum(flags)\n",
-          "fn main():\n  return map([true],fn(x:i64):return x)\n", "fn main():\n  return map([],fn(x):return true)\n"})
+          "fn main():\n  return map([true],fn(x:i64):return x)\n",
+          "fn main():\n  return map([],fn(x):return true)\n"})
       require(!analyze(body).ok(), "invalid Bool array admitted: " + std::string(body));
-    auto valid = analyze("fn flags(values:[i64])->[bool]:\n  return map(values,fn(x):return x>0)\nfn "
-                         "main()->[bool]:\n  return flags([1,2])\n");
+    auto valid =
+        analyze("fn flags(values:[i64])->[bool]:\n  return map(values,fn(x):return x>0)\nfn "
+                "main()->[bool]:\n  return flags([1,2])\n");
     require(valid.ok() && describeType(valid.module->functions[0].resultType) == "[bool]",
             "Bool array type name lost");
     auto mapId = valid.module->functions[0].result;

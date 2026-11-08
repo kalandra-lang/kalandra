@@ -227,6 +227,14 @@ fn main() -> i64:
   observed = failOnly() catch fn(error): return ()
   return reject() catch fn(error): return 42
 ''', '42\n'),
+    'conditional-local-constants': ('''fn choose(flag: bool) -> i64:
+  if flag:
+    zero = 0
+    return 1 / zero
+  return 42
+fn main() -> i64:
+  return choose(false)
+''', '42\n'),
     'unit-completion': ('''fn explicit() -> unit:
   return ()
 fn bare() -> unit:
@@ -267,7 +275,19 @@ for optimization in ('-O0', '-O2'):
     result = subprocess.run([str(binary)], text=True, capture_output=True, timeout=30)
     assert result.returncode == 89 and not result.stdout and result.stderr.strip() == 'InputError.Bad', result
 
+conditional_fault = root / 'conditional-fault.k'
+conditional_fault.write_text(cases['conditional-local-constants'][0].replace(
+    'return choose(false)', 'return choose(true)'))
+for optimization in ('-O0', '-O2'):
+    binary = root / 'conditional-fault.exe'
+    built = subprocess.run([args.compiler, str(conditional_fault), optimization, '-o', str(binary)],
+                           text=True, capture_output=True, timeout=120)
+    assert built.returncode == 0, built.stderr
+    result = subprocess.run([str(binary)], text=True, capture_output=True, timeout=30)
+    assert result.returncode == 86 and not result.stdout and 'ArithmeticFault' in result.stderr, result
+
 rejected = {
+    'constant-zero': 'fn main() -> i64:\n  zero = 0\n  return 1 / zero\n',
     'missing-return': 'fn main() -> i64:\n  42\n',
     'partial-return': 'fn main() -> i64:\n  if true:\n    return 42\n',
     'unreachable': 'fn main() -> i64:\n  return 42\n  return 0\n',
@@ -296,4 +316,6 @@ for name, source in rejected.items():
     path.write_text(source)
     result = subprocess.run([args.checker, str(path)], text=True, capture_output=True, timeout=30)
     assert result.returncode != 0, (name, result.stdout)
+    if name == 'constant-zero':
+        assert 'S052' in result.stderr, result.stderr
 print(f'{len(cases)} executable cases and {len(rejected)} rejected cases passed')

@@ -15,11 +15,13 @@ int main() {
     const std::string decl =
         "type Data:\n  names:[String]\n  label:String\ntype Box:\n  data:Data\n  copy:[String]\n";
     for (const auto *body :
-         {"fn main()->[String]:\n  return Box {data:Data {names:[],label:\"\"},copy:[]}.data.names\n",
+         {"fn main()->[String]:\n  return Box {data:Data "
+          "{names:[],label:\"\"},copy:[]}.data.names\n",
           "fn change(p:Box)->Box:\n  return p with {data:p.data with "
-          "{names:map(p.data.names,fn(text):return text+\"!\")}}\nfn main()->[String] ! TaskError:\n  return "
-          "p=Box {data:Data {names:[\"é\"],label:\"\"},copy:[]}\n  changed=try parallel:\n    try "
-          "await spawn change(p)\n  return [p.data.names[0],changed.data.names[0]]\n",
+          "{names:map(p.data.names,fn(text):return text+\"!\")}}\nfn main()->[String] ! "
+          "TaskError:\n  p=Box {data:Data {names:[\"é\"],label:\"\"},copy:[]}\n  changed=try "
+          "parallel:\n    try await spawn change(p)\n  return "
+          "[p.data.names[0],changed.data.names[0]]\n",
           "fn main():\n  p=Box {data:Data {names:[\"a\"],label:\"b\"},copy:[]}\n  "
           "return map([0],fn(i):return p.data.names[i]+p.data.label)\n",
           "fn main():\n  rows=[Box {data:Data {names:[\"a\"],label:\"b\"},copy:[]}]\n  "
@@ -38,17 +40,19 @@ int main() {
       require(bool(lowered), lowered ? "" : lowered.error());
 #endif
     }
-    for (const auto *source : {"type Box:\n  names:[String]\nfn main():\n  return Box {names:[1]}\n",
-                               "type Box:\n  names:[String]\nfn main():\n  return Box {names:\"a\"}\n",
-                               "type Box:\n  names:[String]\nfn main():\n  p=Box {names:[\"a\"]}\n "
-                               " return p with {names:[false]}\n",
-                               "type Box:\n  names:[[String]]\nfn main():\n  return 0\n",
-                               "type Box:\n  names:Tensor[String,2]\nfn main():\n  return 0\n",
-                               "type Box:\n  names:[String]\n  next:Box\nfn main():\n  return 0\n"})
+    for (const auto *source :
+         {"type Box:\n  names:[String]\nfn main():\n  return Box {names:[1]}\n",
+          "type Box:\n  names:[String]\nfn main():\n  return Box {names:\"a\"}\n",
+          "type Box:\n  names:[String]\nfn main():\n  p=Box {names:[\"a\"]}\n "
+          " return p with {names:[false]}\n",
+          "type Box:\n  names:[[String]]\nfn main():\n  return 0\n",
+          "type Box:\n  names:Tensor[String,2]\nfn main():\n  return 0\n",
+          "type Box:\n  names:[String]\n  next:Box\nfn main():\n  return 0\n"})
       require(!analyze(source).ok(), "invalid String-array field admitted");
-    const auto valid = analyze(
-        "type Box:\n  names:[String]\nfn make(names:[String])->Box:\n  return Box {names:names}\nfn "
-        "main():\n  a=make([\"a\"])\n  b=make([\"b\",\"c\"])\n  return length(a.names)+length(b.names)\n");
+    const auto valid = analyze("type Box:\n  names:[String]\nfn make(names:[String])->Box:\n  "
+                               "return Box {names:names}\nfn "
+                               "main():\n  a=make([\"a\"])\n  b=make([\"b\",\"c\"])\n  return "
+                               "length(a.names)+length(b.names)\n");
     require(valid.ok(), "field length fixture rejected");
     std::vector<ExtentId> reads;
     for (const auto &e : valid.module->expressions)

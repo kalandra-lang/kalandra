@@ -18,13 +18,14 @@ int main() {
                                 "\ntype Inner:\n  values:[" + type + "]\n  bias:Tensor[" + type +
                                 ",2]\n  enabled:bool\n";
       for (auto expression :
-           {"map(input,fn(x):x+config.offset+config.offset)", "input -> map(fn(x):x+config.offset)",
-            "map(input,fn(x):x+config.inner.values[0]+config.inner.bias[1])",
-            "map(input,fn(config):config+1)",
-            "map(input,fn(x):keep(map(input,fn(y):x+y+config.offset),x))"}) {
-        auto checked = analyze(declarations + "fn keep(values:[" + type + "],value:" + type +
-                               ")->" + type + ":\n  value\nfn mapped(input:[" + type +
-                               "],config:Config):\n  return " + expression + "\nfn main()->i64:\n  return 0\n");
+           {"map(input,fn(x):return x+config.offset+config.offset)", "input -> map(fn(x):return x+config.offset)",
+            "map(input,fn(x):return x+config.inner.values[0]+config.inner.bias[1])",
+            "map(input,fn(config):return config+1)",
+            "map(input,fn(x):return keep(map(input,fn(y):return x+y+config.offset),x))"}) {
+        auto checked =
+            analyze(declarations + "fn keep(values:[" + type + "],value:" + type + ")->" + type +
+                    ":\n  return value\nfn mapped(input:[" + type + "],config:Config):\n  return " +
+                    expression + "\nfn main()->i64:\n  return 0\n");
         require(checked.ok(), "valid record closure rejected: " + std::string(expression));
         require(!numericCapabilityError(*checked.module, NumericTarget::Cpu),
                 "CPU capture validator rejected record");
@@ -36,7 +37,7 @@ int main() {
       }
     }
     auto captured = analyze(
-        "type First:\n  x:i64\ntype Second:\n  x:i64\nfn mapped(values:[i64],config:First):\n  return "
+        "type First:\n  x:i64\ntype Second:\n  x:i64\nfn mapped(values:[i64],config:First):\n  "
         "return map(values,fn(x):return x+config.x+config.x)\nfn main()->i64:\n  return 0\n");
     require(captured.ok(), "nominal fixture rejected");
     const auto &map = std::get<ArrayMap>(
@@ -80,16 +81,15 @@ int main() {
       require(numericCapabilityError(forged, NumericTarget::Cpu).has_value(),
               "forged record capture accepted");
     }
-    for (auto body : {"work=spawn make()\n    map([1],fn(x):work.x+x)",
-                      "pending=make()\n    map([1],fn(x):pending.x+x)"}) {
+    for (auto body : {"work=spawn make()\n    map([1],fn(x):return work.x+x)",
+                      "pending=make()\n    map([1],fn(x):return pending.x+x)"}) {
       auto rejected = analyze("type Config:\n  x:i64\nfn make()->Config ! TaskError:\n  Config "
                               "{x:2}\nfn main() ! TaskError:\n  try parallel:\n    " +
                               std::string(body) + "\n");
       require(!rejected.ok(), "task/fallible record captured before completion");
     }
-    auto returned = analyze(
-        "type Config:\n  x:i64\nfn mapped():\n  config=Config {x:2}\n"
-        "  return map([1],fn(x):return config)\nfn main():\n  return 0\n");
+    auto returned = analyze("type Config:\n  x:i64\nfn mapped():\n  config=Config {x:2}\n"
+                            "  return map([1],fn(x):return config)\nfn main():\n  return 0\n");
     require(returned.ok() && !numericCapabilityError(*returned.module, NumericTarget::Cpu),
             "captured record-valued map rejected");
 #ifndef KALANDRA_RECORD_FRONTEND_ONLY

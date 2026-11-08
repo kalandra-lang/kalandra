@@ -15,17 +15,21 @@ int main() {
     const std::string prefix = "enum Reading:\n  Missing\n  Value:\n    measurement:f32\n  "
                                "Invalid:\n    reason:String\n";
     for (const auto &tail :
-         {"fn main()->i64:\n  return match Reading.Value {measurement:21.5}:\n    Reading.Missing:0\n    "
+         {"fn main()->i64:\n  return match Reading.Value {measurement:21.5}:\n    "
+          "Reading.Missing:0\n    "
           "Reading.Value {measurement:sample}:i64(sample)\n    Reading.Invalid "
           "{reason}:length(reason)\n",
-          "fn main()->i64:\n  value=Reading.Invalid {reason:\"bad\"+\" input\"}\n  return match value:\n  return "
-          "  Reading.Invalid {reason}:length(reason)\n    _:0\n",
-          "fn main()->i64:\n  return match Reading.Missing:\n    _:\n      answer=42\n      answer\n",
-          "fn echo(x:Reading)->Reading:\n  return x\nfn main()->i64 ! TaskError:\n  value=try parallel:\n "
+          "fn main()->i64:\n  value=Reading.Invalid {reason:\"bad\"+\" input\"}\n  return match "
+          "value:\n    Reading.Invalid {reason}:length(reason)\n    _:0\n",
+          "fn main()->i64:\n  return match Reading.Missing:\n    _:\n      answer=42\n      "
+          "answer\n",
+          "fn echo(x:Reading)->Reading:\n  return x\nfn main()->i64 ! TaskError:\n  value=try "
+          "parallel:\n "
           "   work=spawn echo(Reading.Value {measurement:42})\n    one=try await work\n    "
           "again=try await work\n    again\n  return match value:\n    Reading.Value "
           "{measurement}:i64(measurement)\n    _:0\n",
-          "type Box:\n  reading:Reading\nfn main()->i64:\n  box=Box {reading:Reading.Missing}\n  return "
+          "type Box:\n  reading:Reading\nfn main()->i64:\n  box=Box {reading:Reading.Missing}\n  "
+          "return "
           "match box.reading:\n    Reading.Missing:42\n    _:0\n",
           "fn main()->i64:\n  values:[Reading]=[Reading.Missing,Reading.Value {measurement:2}]\n  "
           "return match values[1]:\n    Reading.Value {measurement}:i64(measurement)\n    _:0\n"}) {
@@ -44,17 +48,18 @@ int main() {
 #endif
     }
     for (const auto &description : numericTypes) {
-      std::string type(description.name);
-      auto typed = analyze("enum Sample:\n  Empty\n  Value:\n    item:" + type +
-                           "\nfn main()->i64:\n  value=Sample.Value {item:1}\n  return match value:\n    "
-                           "Sample.Empty:0\n    Sample.Value {item}:i64(item)\n");
+      std::string type(description.sourceName);
+      auto typed =
+          analyze("enum Sample:\n  Empty\n  Value:\n    item:" + type +
+                  "\nfn main()->i64:\n  value=Sample.Value {item:1}\n  return match value:\n    "
+                  "Sample.Empty:0\n    Sample.Value {item}:i64(item)\n");
       require(typed.ok(), "numeric payload rejected: " + type);
 #ifndef KALANDRA_ENUM_FRONTEND_ONLY
       require(bool(lowerNative(*typed.module)), "numeric enum lowering rejected");
 #endif
     }
-    for (const auto &fieldType : {"[i64]", "[bool]", "[String]", "Tensor[f32,2,2]",
-                                  "Tensor[i64]", "Tensor[u64,?,?]", "Reading"}) {
+    for (const auto &fieldType : {"[i64]", "[bool]", "[String]", "Tensor[f32,2,2]", "Tensor[i64]",
+                                  "Tensor[u64,?,?]", "Reading"}) {
       auto typed = analyze(prefix + "enum Envelope:\n  Empty\n  Value:\n    item:" + fieldType +
                            "\nfn main()->i64:\n  return match Envelope.Empty:\n    "
                            "Envelope.Empty:1\n    Envelope.Value:0\n");
@@ -65,7 +70,8 @@ int main() {
       require(bool(lowered), lowered ? "" : lowered.error());
 #endif
     }
-    require(!analyze("enum Recursive:\n  Value:\n    next:Recursive\nfn main()->i64:\n  return 0\n").ok(),
+    require(!analyze("enum Recursive:\n  Value:\n    next:Recursive\nfn main()->i64:\n  return 0\n")
+                 .ok(),
             "recursive inline enum admitted");
     require(!analyze("type Box:\n  next:Recursive\nenum Recursive:\n  Value:\n    box:Box\n"
                      "fn main()->i64:\n  return 0\n")
@@ -83,8 +89,8 @@ int main() {
     require(bool(loweredRows), loweredRows ? "" : loweredRows.error());
 #endif
     require(analyze("enum Recursive:\n  Empty\n  Value:\n    next:[Recursive]\n"
-                     "fn main()->i64:\n  return 0\n")
-                 .ok(),
+                    "fn main()->i64:\n  return 0\n")
+                .ok(),
             "finite recursive enum-array payload rejected");
     for (const auto &tail :
          {"fn main():\n  return Reading.Value\n",
@@ -97,16 +103,20 @@ int main() {
           "fn main():\n  return Reading {measurement:1}\n",
           "fn main():\n  return Reading.Missing with {}\n",
           "fn main():\n  return Reading.Value {measurement:1}.measurement\n",
-          "fn main():\n  return match Reading.Missing:\n    Reading.Value {measurement}:measurement\n",
-          "fn main():\n  return match Reading.Missing:\n    Reading.Missing:1\n    Reading.Missing:2\n    "
+          "fn main():\n  return match Reading.Missing:\n    Reading.Value "
+          "{measurement}:measurement\n",
+          "fn main():\n  return match Reading.Missing:\n    Reading.Missing:1\n    "
+          "Reading.Missing:2\n    "
           "_:3\n",
           "fn main():\n  return match Reading.Missing:\n    _:1\n    Reading.Missing:2\n",
-          "fn main():\n  return match Reading.Missing:\n    Reading.Missing:1\n    Reading.Value:2\n    "
+          "fn main():\n  return match Reading.Missing:\n    Reading.Missing:1\n    "
+          "Reading.Value:2\n    "
           "Reading.Invalid:3\n    _:4\n",
           "fn main():\n  return match Reading.Missing:\n    Reading.Value {reason}:1\n    _:0\n",
           "fn main():\n  return match Reading.Missing:\n    Reading.Value "
           "{measurement:a,measurement:b}:1\n    _:0\n",
-          "fn main():\n  return match Reading.Missing:\n    Reading.Value {measurement}:measurement\n    "
+          "fn main():\n  return match Reading.Missing:\n    Reading.Value "
+          "{measurement}:measurement\n    "
           "_:true\n",
           "enum Other:\n  Missing\nfn take(x:Reading)->i64:\n  return 0\nfn main():\n  return "
           "take(Other.Missing)\n",
@@ -115,21 +125,24 @@ int main() {
           "enum Bad:\n  Item:\n    x:i64\n    x:i64\nfn main()->i64:\n  return 0\n",
           "fn main():\n  return Reading.Missing == Reading.Missing\n"})
       require(!analyze(prefix + tail).ok(), "invalid enum program admitted: " + std::string(tail));
-    require(!analyze("enum Pair:\n  Value:\n    left:i64\n    right:i64\nfn main()->i64:\n  return match "
-                     "Pair.Value {left:1,right:2}:\n    Pair.Value {left:x,right:x}:x\n")
-                 .ok(),
-            "duplicate field binding admitted");
+    require(
+        !analyze(
+             "enum Pair:\n  Value:\n    left:i64\n    right:i64\nfn main()->i64:\n  return match "
+             "Pair.Value {left:1,right:2}:\n    Pair.Value {left:x,right:x}:x\n")
+             .ok(),
+        "duplicate field binding admitted");
     SemanticLimits small;
     small.maxDepth = 3;
-    auto bounded =
-        check(parse(std::make_shared<SourceFile>(
-                  "budget.k",
-                  prefix + "fn main()->i64:\n  return match Reading.Missing:\n    Reading.Missing:1\n    "
-                           "Reading.Value:2\n    Reading.Invalid:3\n")),
-              small);
+    auto bounded = check(
+        parse(std::make_shared<SourceFile>(
+            "budget.k",
+            prefix + "fn main()->i64:\n  return match Reading.Missing:\n    Reading.Missing:1\n    "
+                     "Reading.Value:2\n    Reading.Invalid:3\n")),
+        small);
     require(!bounded.ok(), "enum branch-depth budget was bypassed");
     auto valid = analyze(
-        prefix + "fn main()->i64:\n  return match Reading.Missing:\n    Reading.Missing:42\n    _:0\n");
+        prefix +
+        "fn main()->i64:\n  return match Reading.Missing:\n    Reading.Missing:42\n    _:0\n");
     auto tagForgery = *valid.module;
     for (auto &node : tagForgery.expressions)
       if (auto *record = std::get_if<RecordValue>(&node.operation))

@@ -7,9 +7,10 @@
 #include <stdexcept>
 namespace kalandra {
 // Private component path: source worker admission stays gated.
-std::expected<BackendOutput, std::string>
-lowerTaskNative(const TypedModule &, std::optional<std::string>,
-                ArithmeticMode = ArithmeticMode::Hardware, const CpuTarget & = {});
+std::expected<BackendOutput, std::string> lowerTaskNative(const TypedModule &,
+                                                          std::optional<std::string>,
+                                                          ArithmeticMode = ArithmeticMode::Hardware,
+                                                          const CpuTarget & = {});
 } // namespace kalandra
 using namespace kalandra;
 static const std::string prefix = "enum List:\n  Nil\n  Cons:\n    head:i64\n    tail:List\n";
@@ -43,9 +44,10 @@ int main(int argc, char **argv) {
 #endif
     require(argc == 1, "expected no arguments or source/output LLVM paths");
     (void)argv;
-    auto valid = analyze(prefix + "fn sum(items:List)->i64:\n  return match items:\n    List.Nil:0\n"
-                                  "    List.Cons {head,tail}:head+sum(tail)\nfn main()->i64:\n"
-                                  "  return sum(List.Cons {head:42,tail:List.Nil})\n");
+    auto valid =
+        analyze(prefix + "fn sum(items:List)->i64:\n  return match items:\n    List.Nil:0\n"
+                         "    List.Cons {head,tail}:head+sum(tail)\nfn main()->i64:\n"
+                         "  return sum(List.Cons {head:42,tail:List.Nil})\n");
     if (!valid.ok())
       for (const auto &d : valid.diagnostics)
         std::cerr << renderDiagnostic(*valid.source, d);
@@ -82,25 +84,25 @@ int main(int argc, char **argv) {
                 exported->llvm.find("kalandra_recursive_read_v1") != std::string::npos,
             "recursive native bridge lost its checked nominal reads");
 #endif
-    auto text = analyze(
-        "enum Text:\n  Empty\n  More:\n    text:String\n    next:Text\nfn main()->i64:\n  return 0\n");
+    auto text = analyze("enum Text:\n  Empty\n  More:\n    text:String\n    next:Text\nfn "
+                        "main()->i64:\n  return 0\n");
     require(text.ok(), "recursive String schema rejected");
-    auto collections =
-        analyze("enum Chain:\n  End\n  Link:\n    values:[i64]\n"
-                "    flags:[bool]\n    tensor:Tensor[f64,?,2]\n    names:[String]\n"
-                "    next:Chain\nfn main()->i64:\n  return 0\n");
+    auto collections = analyze("enum Chain:\n  End\n  Link:\n    values:[i64]\n"
+                               "    flags:[bool]\n    tensor:Tensor[f64,?,2]\n    names:[String]\n"
+                               "    next:Chain\nfn main()->i64:\n  return 0\n");
     require(collections.ok() && !numericCapabilityError(*collections.module, NumericTarget::Cpu),
             "recursive numeric/Bool collection schema rejected");
-    auto tree = analyze(
-        "type Tree:\n  children:[Tree]\nfn main()->i64:\n"
-        "  leaf=Tree {children:[]}\n  root=Tree {children:[leaf,leaf]}\n  return length(root.children)\n");
+    auto tree = analyze("type Tree:\n  children:[Tree]\nfn main()->i64:\n"
+                        "  leaf=Tree {children:[]}\n  root=Tree {children:[leaf,leaf]}\n  return "
+                        "length(root.children)\n");
     require(tree.ok(), "array-mediated recursive source rejected");
 #ifndef KALANDRA_RECURSIVE_SOURCE_FRONTEND_ONLY
     require(bool(lowerNative(*tree.module)), "array-mediated source failed native lowering");
 #endif
     auto callable = analyze(
         "enum Chain:\n  End\n  More:\n    apply:fn(i64)->i64\n    next:Chain\n"
-        "fn make(offset:i64)->Chain:\n  return Chain.More {apply:fn(value):return value+offset,next:Chain.End}\n"
+        "fn make(offset:i64)->Chain:\n  return Chain.More {apply:fn(value):return "
+        "value+offset,next:Chain.End}\n"
         "fn main()->i64:\n  chain=make(20)\n  return match chain:\n    Chain.End:0\n    Chain.More "
         "{apply}:apply(22)\n");
     require(callable.ok(), "recursive captured callable source rejected");
@@ -123,8 +125,9 @@ int main(int argc, char **argv) {
                            std::string::npos,
             "recursive function arrays did not use checked ownership bridge");
 #endif
-    for (const auto &source : {"enum Loop:\n  More:\n    next:Loop\nfn main()->i64:\n  return 0\n",
-                               "type A:\n  child:B\ntype B:\n  child:A\nfn main()->i64:\n  return 0\n"}) {
+    for (const auto &source :
+         {"enum Loop:\n  More:\n    next:Loop\nfn main()->i64:\n  return 0\n",
+          "type A:\n  child:B\ntype B:\n  child:A\nfn main()->i64:\n  return 0\n"}) {
       auto failed = analyze(source);
       require(!failed.ok() && !failed.diagnostics.empty(), "infinite recursive schema admitted");
     }
@@ -137,14 +140,15 @@ int main(int argc, char **argv) {
               "recursive fallible callable schema rejected");
     }
     auto worker =
-        analyze(prefix + "fn echo(items:List)->List:\n  return items\nfn main()->i64 ! TaskError:\n  return "
-                         "item=try parallel:\n    try await spawn echo(List.Nil)\n  return match item:\n  return "
-                         "  List.Nil:42\n    List.Cons {head}:head\n");
+        analyze(prefix + "fn echo(items:List)->List:\n  return items\nfn main()->i64 ! "
+                         "TaskError:\n  item=try parallel:\n    try await spawn echo(List.Nil)\n  "
+                         "return match item:\n    List.Nil:42\n    List.Cons {head}:head\n");
     require(worker.ok() && bool(continuation::plan(*worker.module)),
             "recursive source worker rejected");
     for (const auto &tail :
          {"fn main()->i64:\n  return match List.Nil:\n    List.Cons {head}:head\n",
-          "fn main()->i64:\n  return match List.Nil:\n    List.Nil:0\n    List.Nil:1\n    List.Cons:2\n"})
+          "fn main()->i64:\n  return match List.Nil:\n    List.Nil:0\n    List.Nil:1\n    "
+          "List.Cons:2\n"})
       require(!analyze(prefix + tail).ok(), "invalid recursive match admitted");
     for (unsigned mutation = 0; mutation < 4; ++mutation) {
       auto forged = *valid.module;

@@ -35,12 +35,13 @@ int main(int argc, char **argv) {
     write("base/math.k", "export fn next(n:i64)->i64:\n  return n+1\n");
     write("lib/public.k",
           "export from \"./types.k\" import Row as Item\nfrom \"numbers\" import next\nfn "
-          "helper(text:String)->String:\n  return text+\"!\"\nexport fn update(item:Item)->Item:\n  return item "
+          "helper(text:String)->String:\n  return text+\"!\"\nexport fn update(item:Item)->Item:\n "
+          " return item "
           "with {names:map(item.names,fn(text):return helper(text)),value:next(item.value)}\n");
     std::vector<ModulePackage> packages = {
         {"library", (root / "lib/public.k").string()},
         {"numbers", fs::relative(root / "base/math.k", fs::current_path()).string()}};
-    auto parsed = load("from \"library\" import Item, update\nfn main()->[String] ! TaskError:\n  return "
+    auto parsed = load("from \"library\" import Item, update\nfn main()->[String] ! TaskError:\n  "
                        "original=Item {names:[\"é\"],value:2}\n  changed=try parallel:\n    try "
                        "await spawn update(original)\n  return changed.names\n",
                        packages);
@@ -63,10 +64,11 @@ int main(int argc, char **argv) {
     require(bool(retired) && !retired->ok(), "retired root extension bypassed through symlink");
     auto more = packages;
     more.push_back({"alias", (root / "lib/public.k").string()});
-    auto diamond = check(load("from \"library\" import Item as A\nfrom \"alias\" import Item as "
-                              "B\nfrom \"../lib/types.k\" import Row\nfn same(a:A)->B:\n  return a\nfn "
-                              "main():\n  return same(Row {names:[],value:1}).value\n",
-                              more));
+    auto diamond =
+        check(load("from \"library\" import Item as A\nfrom \"alias\" import Item as "
+                   "B\nfrom \"../lib/types.k\" import Row\nfn same(a:A)->B:\n  return a\nfn "
+                   "main():\n  return same(Row {names:[],value:1}).value\n",
+                   more));
     require(diamond.ok() && diamond.module->records.size() == 1,
             "package aliases/relative diamond cloned identity");
     auto missing = load("from \"unknown\" import anything\nfn main():\n  return 0\n", packages);
@@ -86,7 +88,8 @@ int main(int argc, char **argv) {
     auto cycle = load("from \"self\" import main\nexport fn main():\n  return 0\n",
                       {{"self", (root / "app/main.k").string()}});
     require(!cycle.ok() && cycle.diagnostics[0].code == "M003", "package cycle admitted");
-    auto limited = load("from \"library\" import Item\nfn main():\n  return 0\n", packages, {128, 0});
+    auto limited =
+        load("from \"library\" import Item\nfn main():\n  return 0\n", packages, {128, 0});
     require(!limited.ok() && limited.diagnostics[0].code == "M004", "package depth ignored");
     auto count = load("fn main():\n  return 0\n", more, {2, 32});
     require(!count.ok() && count.diagnostics[0].code == "M004", "mapping count unbounded");

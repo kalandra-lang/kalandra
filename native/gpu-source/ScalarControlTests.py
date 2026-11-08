@@ -60,11 +60,11 @@ results.append({'case':'tensor-helper-composition','expected':270,'status':'comp
 print('tensor-helper-composition',results[-1]['status'],flush=True)
 for name,(helper,call) in fault_cases().items():
  d=a.root/name;d.mkdir(exist_ok=True)
- cpu=d/'cpu.k';cpu.write_text(helper+'fn main()->i64:\n  '+call+'\n')
+ cpu=d/'cpu.k';cpu.write_text(helper+'fn main()->i64:\n  return '+call+'\n')
  run([a.compiler,cpu,*flags,'-o',d/('cpu'+suffix)])
  reference=subprocess.run([str(d/('cpu'+suffix))],capture_output=True,text=True,timeout=30)
  assert reference.returncode!=0 and not reference.stdout,(name,reference)
- gpu=d/'gpu.k';gpu.write_text(helper+'fn main()->i64 ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n    try await spawn '+call+' on gpu\n')
+ gpu=d/'gpu.k';gpu.write_text(helper+'fn main()->i64 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    try await spawn '+call+' on gpu\n')
  bundle=d/'device';run([a.compiler,gpu,'--target',a.backend,'--arithmetic','hardware',*flags,'-o',bundle])
  if not a.compile_only:
   result=subprocess.run([str(bundle/('program'+suffix))],capture_output=True,text=True,timeout=30)

@@ -20,8 +20,8 @@ int main(int argc, char **argv) {
     for (auto element : {"i32", "u32", "i64", "u64", "f32", "f64", "bool"}) {
       const std::string type(element), literal = type == "bool" ? "true" : "1";
       auto result = analyze("type Box:\n  value:" + type + "\nfn make(value:" + type +
-                            ")->Box:\n  Box {value:value}\nfn main():\n  first=make(" + literal +
-                            ")\n  second=first with {value:" + literal + "}\n  second.value\n");
+                            ")->Box:\n  return Box {value:value}\nfn main():\n  first=make(" + literal +
+                            ")\n  second=first with {value:" + literal + "}\n  return second.value\n");
       require(result.ok(), "record field type rejected: " + type);
       require(result.module->records.size() == 1, "record declaration lost");
       require(dumpTypedIR(*result.module).find("record Box") != std::string::npos,
@@ -34,54 +34,58 @@ int main(int argc, char **argv) {
               "record was not lowered through aggregate MLIR");
 #endif
     }
-    for (auto source : {"type Point:\n  x:i64\nfn main():\n  return (Point {x:1} with {}).x\n",
-                        "type Point:\n  x:i64\nfn main():\n  p=Point {x:1}\n  q=if true: p with "
-                        "{x:2}\n  else: p\n  return q.x+p.x\n",
-                        "type Point:\n  x:i64\nfn project(x:i64):\n  return Point {x:x}.x\nfn main():\n  return "
-                        "return map([1,2],project)\n",
-                        "type Point:\n  x:i64\nfn main():\n  return map([1,2],fn(x):return Point {x:x}.x)\n",
-                        "fn main():\n  return Point {x:1}.x\ntype Point:\n  x:i64\n"}) {
+    for (auto source :
+         {"type Point:\n  x:i64\nfn main():\n  return (Point {x:1} with {}).x\n",
+          "type Point:\n  x:i64\nfn main():\n  p=Point {x:1}\n  q=if true: p with "
+          "{x:2}\n  else: p\n  return q.x+p.x\n",
+          "type Point:\n  x:i64\nfn project(x:i64):\n  return Point {x:x}.x\nfn main():\n  return "
+          "map([1,2],project)\n",
+          "type Point:\n  x:i64\nfn main():\n  return map([1,2],fn(x):return Point {x:x}.x)\n",
+          "fn main():\n  return Point {x:1}.x\ntype Point:\n  x:i64\n"}) {
       auto result = analyze(source);
       require(result.ok(), "valid record expression rejected");
 #ifndef KALANDRA_RECORD_FRONTEND_ONLY
       require(bool(lowerNative(*result.module)), "valid record lowering failed");
 #endif
     }
-    for (auto tail : {"fn main():\n  return Point {x:1}\n", // missing y
-                      "fn main():\n  return Point {x:1,y:2,z:3}\n",
-                      "fn main():\n  return Point {x:1,x:2,y:3}\n",
-                      "fn main():\n  return Point {x:true,y:2}\n",
-                      "fn main():\n  return Point {x:i32(1),y:2}\n",
-                      "fn main():\n  return Unknown {x:1}\n",
-                      "fn main():\n  return Point {x:1,y:2}.z\n",
-                      "fn main():\n  return 1.x\n",
-                      "fn main():\n  return 1 with {x:2}\n",
-                      "fn main():\n  return Point {x:1,y:2} with {z:3}\n",
-                      "fn main():\n  return Point {x:1,y:2} with {x:3,x:4}\n",
-                      "fn main():\n  return Point {x:1,y:2} with {x:true}\n",
-                      "fn main():\n  Point=1\n  return Point {x:1,y:2}\n",
-                      "type Point:\n  z:i64\nfn main():\n  return 1\n",
-                      "fn Point():\n  return 1\nfn main():\n  return 0\n",
-                      "type Other:\n  x:i64\n  y:i64\nfn take(p:Point):\n  return p.x\nfn main():\n  return "
-                      "take(Other {x:1,y:2})\n",
-                      "type Other:\n  x:i64\n  y:i64\nfn main():\n  return if true: Point {x:1,y:2}\n  "
-                      "else: Other {x:1,y:2}\n",
-                      "fn main():\n  p=Point {x:1,y:2}\n  p.x=3\n  p.x\n",
-                      "fn main():\n  return Point(1,2)\n",
-                      "fn main():\n  return Point {x:1,y:2}==Point {x:1,y:2}\n",
-                      "fn main():\n  return Point {x:1,y:2}+Point {x:1,y:2}\n",
-                      "fn main():\n  return parallel:\n    work=spawn read(Point {x:1,y:2})\n    "
-                      "work.x\nfn read(p:Point):\n  return p\n",
-                      "fn make()->Point ! TaskError:\n  return Point {x:1,y:2}\nfn main():\n  return make().x\n"})
+    for (auto tail :
+         {"fn main():\n  return Point {x:1}\n", // missing y
+          "fn main():\n  return Point {x:1,y:2,z:3}\n",
+          "fn main():\n  return Point {x:1,x:2,y:3}\n",
+          "fn main():\n  return Point {x:true,y:2}\n",
+          "fn main():\n  return Point {x:i32(1),y:2}\n",
+          "fn main():\n  return Unknown {x:1}\n",
+          "fn main():\n  return Point {x:1,y:2}.z\n",
+          "fn main():\n  return 1.x\n",
+          "fn main():\n  return 1 with {x:2}\n",
+          "fn main():\n  return Point {x:1,y:2} with {z:3}\n",
+          "fn main():\n  return Point {x:1,y:2} with {x:3,x:4}\n",
+          "fn main():\n  return Point {x:1,y:2} with {x:true}\n",
+          "fn main():\n  Point=1\n  return Point {x:1,y:2}\n",
+          "type Point:\n  z:i64\nfn main():\n  return 1\n",
+          "fn Point():\n  return 1\nfn main():\n  return 0\n",
+          "type Other:\n  x:i64\n  y:i64\nfn take(p:Point):\n  return p.x\nfn main():\n  return "
+          "take(Other {x:1,y:2})\n",
+          "type Other:\n  x:i64\n  y:i64\nfn main():\n  return if true: Point {x:1,y:2}\n  "
+          "else: Other {x:1,y:2}\n",
+          "fn main():\n  p=Point {x:1,y:2}\n  p.x=3\n  p.x\n",
+          "fn main():\n  return Point(1,2)\n",
+          "fn main():\n  return Point {x:1,y:2}==Point {x:1,y:2}\n",
+          "fn main():\n  return Point {x:1,y:2}+Point {x:1,y:2}\n",
+          "fn main():\n  return parallel:\n    work=spawn read(Point {x:1,y:2})\n    "
+          "work.x\nfn read(p:Point):\n  return p\n",
+          "fn make()->Point ! TaskError:\n  return Point {x:1,y:2}\nfn main():\n  return "
+          "make().x\n"})
       require(!analyze(declaration + tail).ok(),
               "invalid record program admitted: " + std::string(tail));
-    for (auto source :
-         {"type Bad:\n  x:i64\n  x:f64\nfn main():\n  return 0\n",
-          "type i64:\n  x:i64\nfn main():\n  return 0\n",
-          "type Bad:\n  x:Tensor[bool,2]\nfn main():\n  return 0\n",
-          "type Bad:\n  x:Bad\nfn main():\n  return 0\n", "type Bad:\n  with:i64\nfn main():\n  return 0\n",
-          "type Bad:\n  x:Missing\nfn main():\n  return 0\n",
-          "export type Bad\n  x:i64\nfn main():\n  return 0\n", "type Bad:\n  x:i64\nfn with():\n  return 0\n"})
+    for (auto source : {"type Bad:\n  x:i64\n  x:f64\nfn main():\n  return 0\n",
+                        "type i64:\n  x:i64\nfn main():\n  return 0\n",
+                        "type Bad:\n  x:Tensor[bool,2]\nfn main():\n  return 0\n",
+                        "type Bad:\n  x:Bad\nfn main():\n  return 0\n",
+                        "type Bad:\n  with:i64\nfn main():\n  return 0\n",
+                        "type Bad:\n  x:Missing\nfn main():\n  return 0\n",
+                        "export type Bad\n  x:i64\nfn main():\n  return 0\n",
+                        "type Bad:\n  x:i64\nfn with():\n  return 0\n"})
       require(!analyze(source).ok(), "invalid declaration admitted");
     require(analyze("type Flags:\n  values:[bool]\nfn main():\n  return 0\n").ok(),
             "Bool-array record declaration rejected");
@@ -160,8 +164,8 @@ int main(int argc, char **argv) {
       require(bool(parsed), "cannot load module fixture");
       return check(std::move(*parsed));
     };
-    write("a.k",
-          declaration + "export fn make():\n  return Point {x:1,y:2}\nexport fn take(p:Point):\n  return p.x\n");
+    write("a.k", declaration + "export fn make():\n  return Point {x:1,y:2}\nexport fn "
+                               "take(p:Point):\n  return p.x\n");
     write("b.k", declaration + "export fn make():\n  return Point {x:3,y:4}\n");
     write(
         "main.k",
@@ -172,7 +176,7 @@ int main(int argc, char **argv) {
     require(bool(lowerNative(*module.module)), "imported record lowering failed");
 #endif
     write("main.k", "from \"./a.k\" import take\nfrom \"./b.k\" import "
-                           "make\nfn main():\n  return take(make())\n");
+                    "make\nfn main():\n  return take(make())\n");
     require(!loaded("main.k").ok(), "distinct same-spelling module records unified");
     write("main.k", "from \"./a.k\" import Point\nfn main():\n  return 0\n");
     require(!loaded("main.k").ok(), "type export silently enabled");

@@ -29,22 +29,23 @@ int main(int argc, char **argv) {
   try {
     root = fs::absolute(argv[1]);
     fs::create_directories(root);
-    write("core.k", "export type Row:\n  names:[String]\n  value:i64\ntype Secret:\n  "
-                           "flag:bool\nfn helper(n:i64)->i64:\n  return n+1\nexport fn make()->Row:\n "
-                           " return Row {names:[\"é\"],value:2}\nexport fn step(row:Row)->Row:\n  return row "
-                           "with {value:helper(row.value)}\n");
+    write("core.k",
+          "export type Row:\n  names:[String]\n  value:i64\ntype Secret:\n  "
+          "flag:bool\nfn helper(n:i64)->i64:\n  return n+1\nexport fn make()->Row:\n "
+          " return Row {names:[\"é\"],value:2}\nexport fn step(row:Row)->Row:\n  return row "
+          "with {value:helper(row.value)}\n");
     write("facade.k",
           "export from \"./core.k\" import Row as Item, make as create, step as advance\n");
-    write("public.k",
-          "export from \"./facade.k\" import Item as Entry, create, advance\n");
+    write("public.k", "export from \"./facade.k\" import Item as Entry, create, advance\n");
     write("private.k", "from \"./core.k\" import Row as Item, make\n");
     write("other.k", "export type Row:\n  names:[String]\n  value:i64\n");
     const std::string imports = "from \"./public.k\" import Entry, create, advance\nfrom "
                                 "\"./core.k\" import Row\n";
     auto good = analyze(
-        imports + "fn local(value:Entry)->Row:\n  return advance(value)\nfn main()->i64 ! TaskError:\n  return "
-                  "changed=try parallel:\n    work=spawn local(create())\n    first=try await "
-                  "work\n    again=try await work\n    again\n  return changed.value\n");
+        imports +
+        "fn local(value:Entry)->Row:\n  return advance(value)\nfn main()->i64 ! TaskError:\n  "
+        "changed=try parallel:\n    work=spawn local(create())\n    first=try await work\n    "
+        "again=try await work\n    again\n  return changed.value\n");
     if (!good.ok())
       for (const auto &d : good.diagnostics)
         std::cerr << renderDiagnostic(*good.source, d);
@@ -55,9 +56,9 @@ int main(int argc, char **argv) {
     auto lowered = lowerNative(*good.module);
     require(bool(lowered), lowered ? "" : lowered.error());
 #endif
-    auto constructors =
-        analyze("from \"./public.k\" import Entry\nexport type Box:\n  row:Entry\nfn "
-                "main()->[String]:\n  return Box {row:Entry {names:[\"kept\"],value:4}}.row.names\n");
+    auto constructors = analyze(
+        "from \"./public.k\" import Entry\nexport type Box:\n  row:Entry\nfn "
+        "main()->[String]:\n  return Box {row:Entry {names:[\"kept\"],value:4}}.row.names\n");
     require(constructors.ok(), "reexported constructors/fields rejected");
     for (const auto &source :
          {"from \"./facade.k\" import Row\nfn main():\n  return 0\n",
@@ -75,10 +76,12 @@ int main(int argc, char **argv) {
           "export from \"./core.k\" import Row as i64\nfn main():\n  return 0\n",
           "export from \"./core.k\" import make as bool\nfn main():\n  return 0\n",
           "from \"./public.k\" import Entry, create\nfrom \"./other.k\" import "
-          "Row\nfn accept(value:Row)->Row:\n  return value\nfn main():\n  return accept(create()).value\n"})
+          "Row\nfn accept(value:Row)->Row:\n  return value\nfn main():\n  return "
+          "accept(create()).value\n"})
       require(!analyze(source).ok(), "invalid/private/colliding reexport admitted");
-    auto local = analyze("type Box:\n  row:Entry\nexport from \"./public.k\" import Entry, "
-                         "create, advance\nfn main():\n  return Box {row:advance(create())}.row.value\n");
+    auto local =
+        analyze("type Box:\n  row:Entry\nexport from \"./public.k\" import Entry, "
+                "create, advance\nfn main():\n  return Box {row:advance(create())}.row.value\n");
     require(local.ok(), "local reexport use or order-independent field lookup failed");
     write("entry.k", "export fn main():\n  return 7\n");
     write("entry-public.k", "export from \"./entry.k\" import main\n");
@@ -93,22 +96,20 @@ int main(int argc, char **argv) {
     require(bool(placed) && check(std::move(*placed), {}, {.placement = true}).ok(),
             "placement-aware checking rejected an ordinary CPU reexport graph");
     // A diamond through two public facades still ends at one original declaration.
-    write("second.k",
-          "export from \"./core.k\" import Row as Other, make as build\n");
-    auto diamond =
-        analyze("from \"./second.k\" import Other, build\nfrom \"./public.k\" import "
-                "Entry\nfn same(row:Other)->Entry:\n  return row\nfn main():\n  return same(build()).value\n");
+    write("second.k", "export from \"./core.k\" import Row as Other, make as build\n");
+    auto diamond = analyze("from \"./second.k\" import Other, build\nfrom \"./public.k\" import "
+                           "Entry\nfn same(row:Other)->Entry:\n  return row\nfn main():\n  return "
+                           "same(build()).value\n");
     require(diamond.ok() && diamond.module->records.size() == 2, "diamond cloned original type");
     write("cycle.k", "export from \"./main.k\" import main\n");
-    require(!analyze("export from \"./cycle.k\" import main\n").ok(),
-            "reexport cycle admitted");
-    for (const auto &text : {"export from \"./core.k\" import\n",
-                             "export from \"./core.k\" import make as\n",
-                             "export from \"./core.k\" import make,\n"})
+    require(!analyze("export from \"./cycle.k\" import main\n").ok(), "reexport cycle admitted");
+    for (const auto &text :
+         {"export from \"./core.k\" import\n", "export from \"./core.k\" import make as\n",
+          "export from \"./core.k\" import make,\n"})
       require(!parse(std::make_shared<SourceFile>("bad.k", text)).ok(),
               "malformed reexport parsed");
-    auto parsed = parse(std::make_shared<SourceFile>(
-        "memory.k", "export from \"./core.k\" import Row\n"));
+    auto parsed =
+        parse(std::make_shared<SourceFile>("memory.k", "export from \"./core.k\" import Row\n"));
     require(parsed.ok() && parsed.module.imports[0].exported, "export import flag lost");
     require(!check(std::move(parsed)).ok(), "unloaded reexport admitted");
     // Even a forged cyclic graph must stop rather than recurse indefinitely.

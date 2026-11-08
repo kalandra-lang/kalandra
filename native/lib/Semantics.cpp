@@ -3003,12 +3003,6 @@ private:
         }
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
-        if (!output_.symbols[*symbol].reassignable) {
-          if (auto known = intConstants_.find(*value); known != intConstants_.end())
-            intBindings_[*symbol] = known->second;
-          if (auto known = floatConstants_.find(*value); known != floatConstants_.end())
-            floatBindings_.insert_or_assign(*symbol, known->second);
-        }
       }
       statements.push_back({statement.span, symbol, *value});
       result = value;
@@ -3109,7 +3103,7 @@ private:
     scope->handler = handler;
     frame.returns = scope;
     std::vector<TypedStatement> checked;
-    auto completed = suite(frame, body, {}, checked, introduced, true);
+    auto completed = suite(frame, body, {}, checked, introduced, true, !handler);
     if (!completed && !body.empty())
       return {};
     if (!frame.stopped) {
@@ -3611,7 +3605,7 @@ private:
                                std::optional<ValueType> context,
                                std::vector<TypedStatement> &statements,
                                const std::unordered_set<std::string> &introduced = {},
-                               bool statementBody = false) {
+                               bool statementBody = false, bool functionBody = false) {
     auto bindings = introduced;
     std::optional<ValueId> result;
     for (std::size_t index = 0; index < body.size(); ++index) {
@@ -3659,7 +3653,7 @@ private:
         }
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
-        if (!output_.symbols[*symbol].reassignable) {
+        if (functionBody && !output_.symbols[*symbol].reassignable) {
           if (auto known = intConstants_.find(*value); known != intConstants_.end())
             intBindings_[*symbol] = known->second;
           if (auto known = floatConstants_.find(*value); known != floatConstants_.end())

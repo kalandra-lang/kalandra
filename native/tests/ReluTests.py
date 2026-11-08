@@ -24,7 +24,7 @@ def run(args):
 # Invalid uses must fail without replacing an existing executable.
 for label,expression in [('scalar','relu(2)'),('array','relu([1,2])'),('boolean','relu(true)'),('missing','relu()'),('extra','relu(tensor([1,2]),tensor([3,4]))')]:
  path=a.output/('invalid-'+label+'.k');binary=path.with_suffix('')
- path.write_text('fn main()->i64:\n  '+expression+'\n');binary.write_bytes(b'preserve-existing-output')
+ path.write_text('fn main()->i64:\n  return '+expression+'\n');binary.write_bytes(b'preserve-existing-output')
  result=subprocess.run([str(compiler),str(path),'-o',str(binary)],capture_output=True,text=True,timeout=60)
  expected='relu expects 1 arguments' if label in ('missing','extra') else 'relu requires a tensor'
  assert result.returncode!=0 and expected in result.stderr,(label,result.stdout,result.stderr)

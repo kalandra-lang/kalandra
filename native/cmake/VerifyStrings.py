@@ -34,7 +34,7 @@ cases = [(literal(c['text']),c['text']) for c in fixtures['text_cases']]
 cases += [(c['source'],c['decoded']) for c in fixtures['valid_literal_cases']]
 cases += [(r'"\u{7f}\u{80}\u{7ff}\u{800}\u{ffff}\u{10000}"', ''.join(map(chr,[0x7f,0x80,0x7ff,0x800,0xffff,0x10000])))]
 for index,(spelling,decoded) in enumerate(cases):
-    exe=compile('literal-'+str(index),'fn identity(value:String)->String:\n  value\nfn main()->String:\n  identity('+spelling+')\n')
+    exe=compile('literal-'+str(index),'fn identity(value:String)->String:\n  return value\nfn main()->String:\n  return identity('+spelling+')\n')
     run([exe],decoded.encode()+b'\n')
 
 helper = output/'text.k'
@@ -85,10 +85,10 @@ operation_cases = list(fixtures['equality_cases']) + [
 for index,case in enumerate(operation_cases):
     for operator,invert in [('==',False),('!=',True)]:
         name='equal-'+str(index)+('ne' if invert else 'eq')
-        exe=compile(name,'fn same(a:String,b:String)->bool:\n  return a '+operator+' b\nfn main()->bool:\n  same('+literal(case['left'])+','+literal(case['right'])+')\n')
+        exe=compile(name,'fn same(a:String,b:String)->bool:\n  return a '+operator+' b\nfn main()->bool:\n  return same('+literal(case['left'])+','+literal(case['right'])+')\n')
         run([exe],b'true\n' if case['equal'] != invert else b'false\n')
 for index,case in enumerate(fixtures['concatenation_cases']):
-    exe=compile('concat-'+str(index),'fn append(a:String,b:String)->String:\n  a+b\nfn main()->String:\n  append('+literal(case['left'])+','+literal(case['right'])+')\n')
+    exe=compile('concat-'+str(index),'fn append(a:String,b:String)->String:\n  return a+b\nfn main()->String:\n  return append('+literal(case['left'])+','+literal(case['right'])+')\n')
     run([exe],case['result'].encode()+b'\n')
 
 (output/'operations.k').write_text('export fn append(a:String,b:String)->String:\n  return a+b\n')
@@ -111,7 +111,7 @@ for name,expr,expected in [
     ('short-and','false and explode(0)=="x"',b'false\n'),
     ('short-or','true or explode(0)=="x"',b'true\n'),
 ]:
-    exe=compile(name,'fn explode(value:i64)->String:\n  fault=1/value\n  "x"\nfn main()->bool:\n  '+expr+'\n')
+    exe=compile(name,'fn explode(value:i64)->String:\n  fault=1/value\n  return "x"\nfn main()->bool:\n  return '+expr+'\n')
     run([exe],expected)
 exe=compile('fault-order','fn explode(value:i64)->String:\n  fault=1/value\n  return "x"\nfn main()->String:\n  return explode(0)+explode(1)\n')
 result=subprocess.run([exe],capture_output=True)

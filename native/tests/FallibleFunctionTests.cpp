@@ -14,55 +14,78 @@ CheckResult analyze(std::string source) {
 void positive() {
   for (const auto *source :
        {"error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail "
-        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
-        "{value:21}\n  return value*3\nfn choose(flag:bool)->fn(i64)->i64 ! E:\n  return if flag:checked\n  "
-        "else:other\nfn main()->i64:\n  f=choose(true)\n  return f(0) catch fn(error):\n    return match "
+        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail "
+        "E.Bad "
+        "{value:21}\n  return value*3\nfn choose(flag:bool)->fn(i64)->i64 ! E:\n  return if "
+        "flag:checked\n  "
+        "else:other\nfn main()->i64:\n  f=choose(true)\n  return f(0) catch fn(error):\n    return "
+        "match "
         "error:\n      E.Bad {value}:value\n",
         "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail "
-        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
+        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail "
+        "E.Bad "
         "{value:21}\n  return value*3\nfn double(value:i64)->i64:\n  return value*2\nfn "
-        "create(flag:bool)->(fn(i64)->i64) ! E:\n  if flag:fail E.Bad {value:42}\n  return double\nfn "
+        "create(flag:bool)->(fn(i64)->i64) ! E:\n  if flag:fail E.Bad {value:42}\n  return "
+        "double\nfn "
         "main()->i64:\n  factory=create\n  f=tryFactory(factory)\n  return f(21)\nfn "
-        "tryFactory(factory:fn(bool)->(fn(i64)->i64) ! E)->fn(i64)->i64:\n  return factory(true) catch "
+        "tryFactory(factory:fn(bool)->(fn(i64)->i64) ! E)->fn(i64)->i64:\n  return factory(true) "
+        "catch "
         "fn(error):return double\n",
         "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail "
-        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
-        "{value:21}\n  return value*3\nfn create(flag:bool)->(fn(i64)->i64 ! E) ! E:\n  if flag:fail "
+        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail "
+        "E.Bad "
+        "{value:21}\n  return value*3\nfn create(flag:bool)->(fn(i64)->i64 ! E) ! E:\n  if "
+        "flag:fail "
         "E.Bad {value:42}\n  return checked\nfn run()->i64 ! E:\n  factory=create\n  f=try "
-        "factory(false)\n  return try f(0)\nfn main()->i64:\n  return run() catch fn(error):\n    return match error:\n "
+        "factory(false)\n  return try f(0)\nfn main()->i64:\n  return run() catch fn(error):\n    "
+        "return match error:\n "
         "     E.Bad {value}:value\n",
         "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail "
-        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
+        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail "
+        "E.Bad "
         "{value:21}\n  return value*3\nfn recover(value:i64)->i64:\n  return checked(value) catch "
         "fn(error):return 42\nfn main()->i64:\n  f=recover\n  result=map([0,21],f)\n  "
         "return result[0]+result[1]-42\n",
         "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail "
-        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
-        "{value:21}\n  return value*3\nfn worker(value:i64)->i64 ! E:\n  f=checked\n  return try f(value)\nfn "
-        "run()->i64 ! (E | TaskError):\n  return try parallel:\n    task=spawn worker(0)\n    try await "
-        "task\nfn main()->i64:\n  return run() catch fn(error):\n    return match error:\n      E.Bad "
+        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail "
+        "E.Bad "
+        "{value:21}\n  return value*3\nfn worker(value:i64)->i64 ! E:\n  f=checked\n  return try "
+        "f(value)\nfn "
+        "run()->i64 ! (E | TaskError):\n  return try parallel:\n    task=spawn worker(0)\n    try "
+        "await "
+        "task\nfn main()->i64:\n  return run() catch fn(error):\n    return match error:\n      "
+        "E.Bad "
         "{value}:value\n      _:0\n",
         "type Row:\n  text:String\n  values:[i64]\nerror E:\n  Bad:\n    row:Row\nfn "
         "checked(value:i64)->[i64] ! E:\n  if value==0:fail E.Bad {row:Row "
         "{text:\"é\"+\"!\",values:[20,20]}}\n  return [value]\nfn main()->i64:\n  f=checked\n  "
         "result=f(0) catch fn(error):\n    return match error:\n      E.Bad "
         "{row}:[row.values[0]+row.values[1]+length(row.text)]\n  return result[0]\n",
-        "error E:\n  Bad\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail E.Bad\n  return value\ntype "
-        "Alias=E | E\nfn apply(value:i64,f:fn(i64)->i64 ! Alias)->i64 ! E:\n  return try f(value)\nfn "
+        "error E:\n  Bad\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail E.Bad\n  return "
+        "value\ntype "
+        "Alias=E | E\nfn apply(value:i64,f:fn(i64)->i64 ! Alias)->i64 ! E:\n  return try "
+        "f(value)\nfn "
         "main()->i64:\n  return apply(42,checked) catch fn(error):return 0\n",
-        "fn checked(value:i64)->i64 ! TaskError:\n  return value\nfn main()->i64:\n  f=checked\n  return f(42) "
+        "fn checked(value:i64)->i64 ! TaskError:\n  return value\nfn main()->i64:\n  f=checked\n  "
+        "return f(42) "
         "catch fn(error):return 0\n",
         "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail "
-        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
+        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail "
+        "E.Bad "
         "{value:21}\n  return value*3\nfn main()->i64 ! E:\n  f=checked\n  return try f(21)\n",
         "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail "
-        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
-        "{value:21}\n  return value*3\nfn main()->i64:\n  f=checked\n  result=21->f()\n  return result catch "
+        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail "
+        "E.Bad "
+        "{value:21}\n  return value*3\nfn main()->i64:\n  f=checked\n  result=21->f()\n  return "
+        "result catch "
         "fn(error):return 0\n",
         "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail "
-        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
-        "{value:21}\n  return value*3\nfn main()->i64:\n  f=checked\n  result=f(0)\n  first=result catch "
-        "fn(error):return 21\n  second=result catch fn(error):return 21\n  return first+second\n"}) {
+        "E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail "
+        "E.Bad "
+        "{value:21}\n  return value*3\nfn main()->i64:\n  f=checked\n  result=f(0)\n  first=result "
+        "catch "
+        "fn(error):return 21\n  second=result catch fn(error):return 21\n  return "
+        "first+second\n"}) {
     auto result = analyze(source);
     if (!result.ok())
       for (const auto &diagnostic : result.diagnostics)
@@ -79,26 +102,27 @@ void positive() {
   }
 }
 void negative() {
-  const std::string base = "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if "
-                           "value==0:fail E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! "
-                           "E:\n  if value==0:fail E.Bad {value:21}\n  return value*3\n";
-  require(
-      analyze(
-          base +
-          "fn use(value:i64,f:fn(i64)->i64 ! E)->i64 ! E:\n  return try f(value)\n"
-          "fn forward(f:fn(i64)->i64 ! E)->i64 ! (E | TaskError):\n  return try parallel:\n    try await "
-          "spawn use(0,f)\n"
-          "fn main()->i64 ! (E | TaskError):\n  return try forward(checked)\n")
-          .ok(),
-      "fallible callable parameter forwarding rejected");
+  const std::string base =
+      "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if "
+      "value==0:fail E.Bad {value:42}\n  return value*2\nfn other(value:i64)->i64 ! "
+      "E:\n  if value==0:fail E.Bad {value:21}\n  return value*3\n";
+  require(analyze(base + "fn use(value:i64,f:fn(i64)->i64 ! E)->i64 ! E:\n  return try f(value)\n"
+                         "fn forward(f:fn(i64)->i64 ! E)->i64 ! (E | TaskError):\n  return try "
+                         "parallel:\n    try await "
+                         "spawn use(0,f)\n"
+                         "fn main()->i64 ! (E | TaskError):\n  return try forward(checked)\n")
+              .ok(),
+          "fallible callable parameter forwarding rejected");
   // Coordinating callees may now flow through a synchronous catch wrapper;
   // the continuation planner tracks that effect through the function value.
-  auto coordinating = analyze(base +
-      "fn worker(value:i64)->i64 ! (E | TaskError):\n  return try parallel:\n    try await spawn other(value)\n"
-      "fn hidden(value:i64)->i64:\n  return worker(value) catch fn(error):return 0\n"
-      "fn main()->i64:\n  f=hidden\n  return f(1)\n");
+  auto coordinating =
+      analyze(base + "fn worker(value:i64)->i64 ! (E | TaskError):\n  return try parallel:\n    "
+                     "try await spawn other(value)\n"
+                     "fn hidden(value:i64)->i64:\n  return worker(value) catch fn(error):return 0\n"
+                     "fn main()->i64:\n  f=hidden\n  return f(1)\n");
   require(coordinating.ok(), "coordinating catch wrapper rejected");
-  require(bool(continuation::plan(*coordinating.module)), "coordinating catch wrapper was not planned");
+  require(bool(continuation::plan(*coordinating.module)),
+          "coordinating catch wrapper was not planned");
 #ifndef KALANDRA_FUNCTION_FRONTEND_ONLY
   require(bool(lowerNative(*coordinating.module)), "coordinating catch wrapper was not lowered");
 #endif
@@ -110,18 +134,21 @@ void negative() {
         "fn main()->i64:\n  f=checked\n  return f() catch fn(error):return 0\n",
         "fn use(f:fn(i64)->i64 ! Missing)->i64:\n  return 0\nfn main()->i64:\n  return 0\n",
         "fn main()->i64:\n  f=checked\n  result=map([1],f)\n  return result[0]\n",
-        "fn create()->(fn(i64)->i64 ! E) ! E:\n  fail E.Bad {value:42}\nfn main()->i64:\n  return "
+        "fn create()->(fn(i64)->i64 ! E) ! E:\n  fail E.Bad {value:42}\nfn main()->i64:\n  "
         "f=create()\n  return f(1) catch fn(error):return 0\n",
-        "fn use(f:fn(i64)->i64 ! E)->i64 ! E:\n  return try f(1)\nfn main()->i64:\n  return use(1) catch "
+        "fn use(f:fn(i64)->i64 ! E)->i64 ! E:\n  return try f(1)\nfn main()->i64:\n  return use(1) "
+        "catch "
         "fn(error):return 0\n"}) {
     auto result = analyze(base + source);
-    require(!result.ok(), std::string("invalid channel, call or execution boundary accepted: ") + source);
+    require(!result.ok(),
+            std::string("invalid channel, call or execution boundary accepted: ") + source);
   }
 }
 void forged() {
   auto result = analyze(
       "error E:\n  Bad:\n    value:i64\nfn checked(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
-      "{value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad {value:21}\n "
+      "{value:42}\n  return value*2\nfn other(value:i64)->i64 ! E:\n  if value==0:fail E.Bad "
+      "{value:21}\n "
       " return value*3\nfn main()->i64:\n  f=checked\n  return f(0) catch fn(error):return 42\n");
   require(result.ok(), "forged IR fixture rejected");
   for (unsigned mode = 0; mode < 9; ++mode) {
