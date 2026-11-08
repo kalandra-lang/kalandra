@@ -1,18 +1,18 @@
-fn total(values: Tensor[float32, ?]) -> float32:
-  reduceSum(values)
+fn total(values: Tensor[f32, ?]) -> f32:
+  return reduceSum(values)
 
-fn finish(value: float32, extra: float32) -> float32:
-  value + extra
+fn finish(value: f32, extra: f32) -> f32:
+  return value + extra
 
-fn combine(left: Tensor[float32, ?], right: Tensor[float32, ?]) -> Tensor[float32, ?]:
+fn combine(left: Tensor[f32, ?], right: Tensor[f32, ?]) -> Tensor[f32, ?]:
   product = left * right
-  product + left
+  return product + left
 
-fn main() -> float32 ! TaskError:
-  try parallel:
+fn main() -> f32 ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    left: Tensor[float32, 3] = tensor([1, 2, 3])
-    right: Tensor[float32, 3] = tensor([4, 5, 6])
+    left: Tensor[f32, 3] = tensor([1, 2, 3])
+    right: Tensor[f32, 3] = tensor([4, 5, 6])
     baseline = total(left)
     leftCopy = transfer(left, gpu)
     rightCopy = transfer(right, gpu)

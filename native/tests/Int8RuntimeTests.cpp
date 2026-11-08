@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     kalandra::runtime::Invocation ctx;
     auto result = _mlir_ciface_kalandra_test_entry(Cell(x), Cell(y), &ctx);
     if (ctx.status() != (invalid ? 4 : 0) || int(result) != (invalid ? 0 : expected) ||
-        (invalid && (ctx.line() != 2 || ctx.column() != 3)) || ctx.allocations()) {
+        (invalid && (ctx.line() != 2 || ctx.column() != 10)) || ctx.allocations()) {
       std::cerr << op << "(" << x << "," << y << "): " << int(result) << " expected " << expected
                 << " status " << ctx.status() << '\n';
       return false;
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
       }
     }
   }
-  std::cout << (UNSIGNED_VALUE ? "uint" : "int") << INTEGER_BITS << " " << op << ": " << cases
+  std::cout << (UNSIGNED_VALUE ? "u64" : "i64") << INTEGER_BITS << " " << op << ": " << cases
             << (INTEGER_BITS == 8 ? " exhaustive pairs, " : " all-value/boundary/random cases, ")
             << faults << " checked faults passed\n";
 }

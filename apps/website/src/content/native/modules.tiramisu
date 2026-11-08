@@ -6,16 +6,16 @@ h2 { "Export a function" }
 
 In math.k:
 
-codeblock { language = kalandra, """export fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """export fn double(value: i64) -> i64:
+  return value * 2
 """ }
 
 In main.k in the same directory:
 
 codeblock { language = kalandra, """from "./math.k" import double as twice
 
-fn main() -> int:
-  twice(21)
+fn main() -> i64:
+  return twice(21)
 """ }
 
 codeblock { language = bash, """kalandra-check main.k

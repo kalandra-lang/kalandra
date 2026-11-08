@@ -22,8 +22,8 @@ variants = qualified_variants(variants, a.compiler)
 if sys.platform != 'win32':
     variants.append(('thread-sanitized', '--thread-sanitize',
                      ['-O1', '-g', '-fsanitize=thread', '-fno-omit-frame-pointer']))
-types = {**{s+str(w):'std::'+s+str(w)+'_t' for s in ('int','uint') for w in (8,16,32,64)},
-         'float32':'float', 'float64':'double', 'Bool':'bool'}
+types = {**{s+str(w):'std::'+s+str(w)+'_t' for s in ('i64','u64') for w in (8,16,32,64)},
+         'f32':'f64', 'f64':'double', 'bool':'bool'}
 compilers = [('current', a.compiler)]
 if a.baseline: compilers.insert(0, ('baseline', a.baseline))
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -39,8 +39,8 @@ def run(command):
     return r.stdout
 for numeric,ctype in types.items():
     source = a.output/(numeric+'.k')
-    op = '==' if numeric == 'Bool' else '+'
-    source.write_text(f'fn tree(v:{numeric},n:int)->{numeric}:\n  if n==0:v\n  else:tree(v,n-1){op}tree(v,n-1)\nfn main()->{numeric}:\n  tree('+('true' if numeric=='Bool' else '1')+',3)\n')
+    op = '==' if numeric == 'bool' else '+'
+    source.write_text(f'fn tree(v:{numeric},n:i64)->{numeric}:\n  if n==0:v\n  else:tree(v,n-1){op}tree(v,n-1)\nfn main()->{numeric}:\n  tree('+('true' if numeric=='bool' else '1')+',3)\n')
     for name,flag,flags in variants:
         outputs = []
         for version,compiler in compilers:
@@ -60,15 +60,15 @@ for numeric,ctype in types.items():
 # A bit-pattern oracle can miss a C return-extension bug: its own narrowing
 # truncates the incorrect high register bits. Independently promote every
 # narrow value immediately at the foreign call site, in every build mode.
-for numeric in ('int8', 'uint8', 'int16', 'uint16', 'Bool'):
+for numeric in ('i8', 'u8', 'i16', 'u16', 'bool'):
     source = a.output / (numeric + '-abi.k')
-    source.write_text(f'fn identity(value:{numeric})->{numeric}:\n  value\nfn main()->int:\n  0\n')
+    source.write_text(f'fn identity(value:{numeric})->{numeric}:\n  value\nfn main()->i64:\n  0\n')
     for name, flag, flags in variants:
         binary = a.output / (numeric + '-abi-' + name + '-current' + ('.exe' if sys.platform == 'win32' else ''))
         ir = binary.with_suffix('.ll')
         run([a.compiler, source, '--test-entry', 'identity', '--emit-llvm', ir, flag,
              '-o', binary.with_name(binary.stem + '-standalone' + binary.suffix)])
-        attribute = 'signext' if numeric.startswith('int') else 'zeroext'
+        attribute = 'signext' if numeric.startswith('i') else 'zeroext'
         assert f'define {attribute} i' in ir.read_text(), 'missing narrow C return attribute'
         runtime = a.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
             'kalandra-native-runtime' + ('-' + name if 'sanitized' in name else '') +

@@ -24,14 +24,14 @@ int main(int argc, char **argv) {
       require(bool(out), "fixture write failed");
     };
     const std::string library =
-        "export fn scale(value:int):\n  value*2\nexport type Box:\n  value:int\nexport error "
+        "export fn scale(value:i64):\n  return value*2\nexport type Box:\n  value:i64\nexport error "
         "Problem:\n  Bad\nexport type Trouble=Problem\n";
     write("library.k", library);
     const std::string facade = "export from \"./library.k\" import scale as publicScale, Box as "
                                "PublicBox, Trouble as PublicError\n";
     write("facade.k", facade);
     const std::string caller = "from \"./facade.k\" import publicScale as twice, PublicBox as "
-                               "LocalBox, PublicError as LocalError\nfn main():\n  twice(21)\n";
+                               "LocalBox, PublicError as LocalError\nfn main():\n  return twice(21)\n";
     write("main.k", caller);
     const auto path = (root / "main.k").string();
     const auto syntax = [&] {
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
     auto hover = lsp::hoverInfo(syntax(), path, caller.find("LocalBox"));
     require(hover && hover->text == "type LocalBox", "record alias hover");
     hover = lsp::hoverInfo(syntax(), path, caller.find("twice"));
-    require(hover && hover->text == "fn twice(value: int64) -> int64", "function alias hover");
+    require(hover && hover->text == "fn twice(value: i64) -> i64", "function alias hover");
     // Union aliases have declaration identity, but do not pretend to be nominal records.
     require(!lsp::hoverInfo(syntax(), path, caller.find("LocalError")), "invented alias hover");
     auto imported = lsp::definition(syntax(), path, caller.find("twice"));
@@ -78,12 +78,12 @@ int main(int argc, char **argv) {
             "alias metadata lost");
     require(imported.has_value(), "function target absent");
     // Import declarations without uses still remain references, including re-exports.
-    write("main.k", caller.substr(0, caller.find("fn main")) + "fn main():\n  0\n");
+    write("main.k", caller.substr(0, caller.find("fn main")) + "fn main():\n  return 0\n");
     auto refs = lsp::references(syntax(), *imported, false);
     require(refs && refs->size() == 4, "unused import origins lost");
     const std::string typed = "from \"./facade.k\" import PublicBox as LocalBox\nfn "
-                              "identity(value:LocalBox)->LocalBox:\n  value with "
-                              "{value:value.value}\nfn main():\n  identity(LocalBox {value:2})\n";
+                              "identity(value:LocalBox)->LocalBox:\n  return value with "
+                              "{value:value.value}\nfn main():\n  return identity(LocalBox {value:2})\n";
     write("main.k", typed);
     const auto importedType = lsp::definition(syntax(), path, typed.find("value:LocalBox") + 6);
     require(importedType && importedType->source->slice(importedType->span) == "Box",
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
     require(field && field->source->path() == (root / "library.k").string() &&
                 field->span.begin == library.find("value:int", library.find("type Box")),
             "imported update field target");
-    write("main.k", "from \"./library.k\" import missing\nfn main():\n  0\n");
+    write("main.k", "from \"./library.k\" import missing\nfn main():\n  return 0\n");
     require(!lsp::definition(syntax(), path, 27), "invalid import leaked partial navigation");
     std::cout << "Native import origins: functions, records, error aliases, re-exports, alias "
                  "metadata, unused imports and failure isolation passed\n";

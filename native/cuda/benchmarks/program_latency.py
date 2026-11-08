@@ -29,13 +29,13 @@ if a.prepare:
         row='['+','.join('1' for _ in range(size))+']'
         matrix='['+','.join(row for _ in range(size))+']'
         source=a.output/f'matrix-{size}.k'
-        source.write_text(f'''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  matmul(a,b)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+        source.write_text(f'''fn work(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return matmul(a,b)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,{size},{size}]=tensor({matrix})
-    b:Tensor[float32,{size},{size}]=tensor({matrix})
+    a:Tensor[f32,{size},{size}]=tensor({matrix})
+    b:Tensor[f32,{size},{size}]=tensor({matrix})
     x=try await transfer(a,gpu)
     y=try await transfer(b,gpu)
     result=try await spawn work(x,y) on gpu

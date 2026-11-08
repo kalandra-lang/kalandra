@@ -1,14 +1,14 @@
 type Outcome:
-  error:fn(int)->int
-fn unsafe(error:fn(int)->int)->fn(int)->int:
+  error:fn(i64)->i64
+fn unsafe(error:fn(i64)->i64)->fn(i64)->i64:
   outcome=Outcome {error:error}
-  fn(value:int):
-    outcome.error(value)
-fn consume(error:fn(int)->int)->int ! TaskError:
-  input:[int]=[]
+  return fn(value:i64):
+    return outcome.error(value)
+fn consume(error:fn(i64)->i64)->i64 ! TaskError:
+  input:[i64]=[]
   f=unsafe(error)
-  try parallel:
+  return try parallel:
     values=try await spawn map(input,f)
     length(values)
-fn main()->int:
-  42
+fn main()->i64:
+  return 42

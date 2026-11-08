@@ -51,13 +51,13 @@ int main(int argc, char **argv) {
                                    std::to_string(version) + "}\n");
     }
     const std::string telemetry =
-        "from \"geometry\" import Item, next\nexport fn compute(n:int64)->int64:\n  "
-        "next(Item {value:n}).value\nexport fn take(item:Item)->int64:\n  item.value\n";
+        "from \"geometry\" import Item, next\nexport fn compute(n:i64)->i64:\n  return "
+        "next(Item {value:n}).value\nexport fn take(item:Item)->i64:\n  return item.value\n";
     write("telemetry/public.k", telemetry);
     const std::string main =
         "from \"geometry\" import Item, next\nfrom \"telemetry\" import compute\n"
-        "fn main()->[int64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n"
-        "  [next(Item {value:10}).value,old]\n";
+        "fn main()->[i64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n"
+        "  return [next(Item {value:10}).value,old]\n";
     write("app/main.k", main);
     write("app/kalandra.toml", "format=1\n[project]\nentry='main.k'\n");
     auto project = loadNativeProject((root / "app/kalandra.toml").string());
@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
     auto aliases = graph;
     aliases[0].dependencies.push_back({"alias", 1});
     write("app/main.k", "from \"geometry\" import Item as A\nfrom \"alias\" import Item as B\n"
-                        "fn same(a:A)->B:\n  a\nfn main():\n  same(A {value:1}).value\n");
+                        "fn same(a:A)->B:\n  return a\nfn main():\n  return same(A {value:1}).value\n");
     auto shared = check(load(aliases));
     require(shared.ok() && shared.module->records.size() == 1, "shared node cloned types");
     // Identical physical source files with different owners must NOT merge.
@@ -119,9 +119,9 @@ int main(int argc, char **argv) {
     distinct.back().identity = "other-repository@commit2";
     distinct[0].dependencies.push_back({"alias", 4});
     const std::string same = "from \"geometry\" import Item as A\nfrom \"alias\" import Item as B\n"
-                             "fn same(a:A)->B:\n  a\nfn main():\n  same(A {value:1}).value\n";
+                             "fn same(a:A)->B:\n  return a\nfn main():\n  return same(A {value:1}).value\n";
     write("app/main.k", "from \"geometry\" import Item as A\nfrom \"alias\" import Item as B\n"
-                        "fn main():\n  [A {value:1}.value,B {value:2}.value]\n");
+                        "fn main():\n  return [A {value:1}.value,B {value:2}.value]\n");
     auto separate = load(distinct);
     require(separate.ok() && separate.module.source->parts().size() == 5,
             "same-path owners failed to coexist");
@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
     auto mismatch = check(load(distinct));
     require(!mismatch.ok(), "different owners sharing a physical path merged nominal types");
     write("app/main.k", "from \"geometry\" import Item\nfrom \"telemetry\" import take\n"
-                        "fn main():\n  take(Item {value:1})\n");
+                        "fn main():\n  return take(Item {value:1})\n");
     require(!check(load(graph)).ok(), "cross-version record passed to library");
     write("app/main.k", main);
     // Only the declaring owner's aliases are visible, including local mappings.
@@ -147,9 +147,9 @@ int main(int argc, char **argv) {
             "caller alias leaked or diagnostic lost original location");
     privateAlias[2].localPackages.push_back({"geometry", (root / "geometry1/public.k").string()});
     reject(privateAlias, "M007"); // Local maps cannot bypass a managed root.
-    write("telemetry/helper.k", "export fn value()->int64:\n  7\n");
+    write("telemetry/helper.k", "export fn value()->i64:\n  return 7\n");
     write("telemetry/public.k",
-          "from \"private\" import value\nexport fn compute(n:int64)->int64:\n  value()+n\n");
+          "from \"private\" import value\nexport fn compute(n:i64)->i64:\n  return value()+n\n");
     privateAlias[2].localPackages = {{"private", (root / "telemetry/helper.k").string()}};
     require(check(load(privateAlias)).ok(), "package-local file mapping failed");
     write("telemetry/public.k", telemetry);
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
     auto enumGraph = aliases;
     enumGraph[1].entry = (root / "geometry2/enum.k").string();
     write("app/main.k", "from \"geometry\" import Flag as A\nfrom \"alias\" import Flag as B\n"
-                        "fn same(a:A)->B:\n  a\nfn main():\n  same(A.On)\n");
+                        "fn same(a:A)->B:\n  return a\nfn main():\n  return same(A.On)\n");
     require(check(load(enumGraph)).ok(), "shared enum family split");
     enumGraph.push_back(enumGraph[1]);
     enumGraph.back().identity = "other-enum-repository";
@@ -179,13 +179,13 @@ int main(int argc, char **argv) {
         {(root / "geometry1/types.k").string(), "export type Item:\n  value:int64\n"}};
     require(check(load(graph, {}, overlays)).ok(), "scoped overlay failed");
     write("geometry1/public.k", "export from \"./unsaved.k\" import Item\nexport fn "
-                                "next(item:Item)->Item:\n  item with {value:item.value+1}\n");
+                                "next(item:Item)->Item:\n  return item with {value:item.value+1}\n");
     overlays = {{(root / "geometry1/unsaved.k").string(), "export type Item:\n  value:int64\n"}};
     require(check(load(graph, {}, overlays)).ok(), "unsaved package overlay failed");
     fs::remove(root / "geometry1/unsaved.k", error);
     write("geometry1/public.k",
           "export from \"./types.k\" import Item\nexport fn next(item:Item)->Item:\n"
-          "  item with {value:item.value+1}\n");
+          "  return item with {value:item.value+1}\n");
     auto malformed = graph;
     malformed[3].dependencies = {{"cycle", 2}};
     reject(malformed, "M007");

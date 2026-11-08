@@ -7,21 +7,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-SOURCE = '''fn tree(value:float64,n:int)->float64:
-  if n == 0:value
+SOURCE = '''fn tree(value:f64,n:i64)->f64:
+  return if n == 0:value
   else:tree(value*0.5,n-1)+tree(value*(-0.25),n-1)
-fn divide(value:float64,n:int,d:int)->float64:
-  if n == 0:float64(int64(value)/d)
+fn divide(value:f64,n:i64,d:i64)->f64:
+  return if n == 0:f64(i64(value)/d)
   else:divide(value,n-1,d)+0.0
-fn rounded(value:float64,n:int)->float64:
-  if n == 0:value*value-1
+fn rounded(value:f64,n:i64)->f64:
+  return if n == 0:value*value-1
   else:rounded(value*0.5,n-1)+rounded(value*(-0.25),n-1)
-fn run(value:float64,n:int,kind:int,d:int)->float64:
-  if kind == 0:tree(value,n)
+fn run(value:f64,n:i64,kind:i64,d:i64)->f64:
+  return if kind == 0:tree(value,n)
   else:
     if kind == 1:divide(value,n,d)
     else:rounded(value,n)
-fn main()->float64:
+fn main()->f64:
   run(1.3,5,0,1)
 '''
 
@@ -32,12 +32,12 @@ def main():
     p.add_argument('--clang', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--arithmetic', choices=['hardware', 'software'], default='hardware')
-    p.add_argument('--numeric', choices=['float32', 'float64'], default='float64')
+    p.add_argument('--numeric', choices=['f32', 'f64'], default='f64')
     a = p.parse_args()
     a.output.mkdir(parents=True, exist_ok=True)
     root = Path(__file__).resolve().parents[2]
     path = a.output / 'source.k'
-    path.write_text(SOURCE.replace('float64', a.numeric))
+    path.write_text(SOURCE.replace('f64', a.numeric))
     def run(args):
         r = subprocess.run(list(map(str, args)), capture_output=True, text=True, timeout=240)
         assert r.returncode == 0, (args, r.returncode, r.stdout[-1000:], r.stderr[-3000:])
@@ -67,7 +67,7 @@ def main():
                 'kalandra-native-runtime' + ('-' + name if 'sanitized' in name else '') +
                 ('.lib' if sys.platform == 'win32' else '.a'))
             run([a.clang, '-std=c++23', '-Wno-override-module', '-ffp-contract=off', '-pthread',
-                 *flags, *(['-DFLOAT32'] if a.numeric == 'float32' else []),
+                 *flags, *(['-DFLOAT32'] if a.numeric == 'f32' else []),
                  *(['-fms-runtime-lib=static'] if sys.platform == 'win32' else []),
                  root / 'native/tests/CheckedInliningRuntimeTests.cpp', ir, runtime, '-o', binary])
             r = run([binary])

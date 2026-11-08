@@ -35,7 +35,7 @@ foreach(VARIANT IN ITEMS debug sanitized thread-sanitized)
   endif()
   kalandra_install_runtime(KALANDRA${SUFFIX}_RUNTIME ${CORE})
   foreach(PAIR IN ITEMS "INT32|int32" "UINT32|uint32" "INT64|int64" "UINT64|uint64"
-      "FLOAT64|float64" "STRING|string" "BOOL|bool" "COLLECTION|collection" "STRING_ARRAY|string-array")
+      "FLOAT64|float64" "STRING|string" "BOOL|bool" "UNIT|unit" "COLLECTION|collection" "STRING_ARRAY|string-array")
     string(REPLACE "|" ";" FIELDS "${PAIR}")
     list(GET FIELDS 0 LABEL)
     list(GET FIELDS 1 STEM)

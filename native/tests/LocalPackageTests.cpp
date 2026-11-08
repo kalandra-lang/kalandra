@@ -32,17 +32,17 @@ int main(int argc, char **argv) {
     root = fs::absolute(argv[1]);
     fs::create_directories(root);
     write("lib/types.k", "export type Row:\n  names:[String]\n  value:int64\n");
-    write("base/math.k", "export fn next(n:int64)->int64:\n  n+1\n");
+    write("base/math.k", "export fn next(n:i64)->i64:\n  return n+1\n");
     write("lib/public.k",
           "export from \"./types.k\" import Row as Item\nfrom \"numbers\" import next\nfn "
-          "helper(text:String)->String:\n  text+\"!\"\nexport fn update(item:Item)->Item:\n  item "
-          "with {names:map(item.names,fn(text):helper(text)),value:next(item.value)}\n");
+          "helper(text:String)->String:\n  return text+\"!\"\nexport fn update(item:Item)->Item:\n  return item "
+          "with {names:map(item.names,fn(text):return helper(text)),value:next(item.value)}\n");
     std::vector<ModulePackage> packages = {
         {"library", (root / "lib/public.k").string()},
         {"numbers", fs::relative(root / "base/math.k", fs::current_path()).string()}};
     auto parsed = load("from \"library\" import Item, update\nfn main()->[String] ! TaskError:\n  "
                        "original=Item {names:[\"é\"],value:2}\n  changed=try parallel:\n    try "
-                       "await spawn update(original)\n  changed.names\n",
+                       "await spawn update(original)\n  return changed.names\n",
                        packages);
     require(parsed.ok() && parsed.module.source->parts().size() == 4,
             "package graph loading failed");
@@ -64,39 +64,39 @@ int main(int argc, char **argv) {
     auto more = packages;
     more.push_back({"alias", (root / "lib/public.k").string()});
     auto diamond = check(load("from \"library\" import Item as A\nfrom \"alias\" import Item as "
-                              "B\nfrom \"../lib/types.k\" import Row\nfn same(a:A)->B:\n  a\nfn "
-                              "main():\n  same(Row {names:[],value:1}).value\n",
+                              "B\nfrom \"../lib/types.k\" import Row\nfn same(a:A)->B:\n  return a\nfn "
+                              "main():\n  return same(Row {names:[],value:1}).value\n",
                               more));
     require(diamond.ok() && diamond.module->records.size() == 1,
             "package aliases/relative diamond cloned identity");
-    auto missing = load("from \"unknown\" import anything\nfn main():\n  0\n", packages);
+    auto missing = load("from \"unknown\" import anything\nfn main():\n  return 0\n", packages);
     require(!missing.ok() && missing.diagnostics[0].code == "M005",
             "unknown package guessed a filesystem path");
     for (auto config : {std::vector<ModulePackage>{{"bad.name", "file.k"}},
                         std::vector<ModulePackage>{{"valid", "file.kalandra"}},
                         std::vector<ModulePackage>{{"same", "a.k"}, {"same", "b.k"}}}) {
-      auto bad = load("fn main():\n  0\n", config);
+      auto bad = load("fn main():\n  return 0\n", config);
       require(!bad.ok() && bad.diagnostics[0].code == "M005", "invalid mapping admitted");
     }
-    require(load("fn main():\n  0\n", {{"unused", (root / "missing.k").string()}}).ok(),
+    require(load("fn main():\n  return 0\n", {{"unused", (root / "missing.k").string()}}).ok(),
             "unused mapping loaded a file");
-    auto used = load("from \"missing\" import value\nfn main():\n  0\n",
+    auto used = load("from \"missing\" import value\nfn main():\n  return 0\n",
                      {{"missing", (root / "missing.k").string()}});
     require(!used.ok() && used.diagnostics[0].code == "M002", "missing used entry admitted");
-    auto cycle = load("from \"self\" import main\nexport fn main():\n  0\n",
+    auto cycle = load("from \"self\" import main\nexport fn main():\n  return 0\n",
                       {{"self", (root / "app/main.k").string()}});
     require(!cycle.ok() && cycle.diagnostics[0].code == "M003", "package cycle admitted");
-    auto limited = load("from \"library\" import Item\nfn main():\n  0\n", packages, {128, 0});
+    auto limited = load("from \"library\" import Item\nfn main():\n  return 0\n", packages, {128, 0});
     require(!limited.ok() && limited.diagnostics[0].code == "M004", "package depth ignored");
-    auto count = load("fn main():\n  0\n", more, {2, 32});
+    auto count = load("fn main():\n  return 0\n", more, {2, 32});
     require(!count.ok() && count.diagnostics[0].code == "M004", "mapping count unbounded");
-    auto files = load("from \"library\" import Item\nfn main():\n  0\n", packages, {2, 32});
+    auto files = load("from \"library\" import Item\nfn main():\n  return 0\n", packages, {2, 32});
     require(!files.ok() && files.diagnostics[0].code == "M004", "package graph file limit ignored");
-    auto placed = load("from \"library\" import Item\nfn main():\n  0\n", packages);
+    auto placed = load("from \"library\" import Item\nfn main():\n  return 0\n", packages);
     require(!check(std::move(placed), {}, {.placement = true}).ok(),
             "packages enabled GPU modules");
-    write("bad.k", "export fn bad():\n  missing()\n");
-    auto bad = check(load("from \"broken\" import bad\nfn main():\n  bad()\n",
+    write("bad.k", "export fn bad():\n  return missing()\n");
+    auto bad = check(load("from \"broken\" import bad\nfn main():\n  return bad()\n",
                           {{"broken", (root / "bad.k").string()}}));
     require(!bad.ok() && renderDiagnostic(*bad.source, bad.diagnostics[0])
                                  .find((root / "bad.k").string() + ":2:") != std::string::npos,

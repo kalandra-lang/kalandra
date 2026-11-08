@@ -80,8 +80,8 @@ int main(int argc, char **argv) {
     require(packed.digest == current.digest && packed.identity != current.identity,
             "packed repository content/identity incorrect");
     write(root / "main.k", "from \"geometry\" import Item, next\nfrom \"telemetry\" import "
-                           "compute\nfn main()->[int64] ! TaskError:\n  old=try parallel:\n    try "
-                           "await spawn compute(10)\n  [next(Item {value:10}).value,old]\n");
+                           "compute\nfn main()->[i64] ! TaskError:\n  old=try parallel:\n    try "
+                           "await spawn compute(10)\n  return [next(Item {value:10}).value,old]\n");
     std::vector<PackageNode> graph = {{"workspace",
                                        root.string(),
                                        (root / "main.k").string(),

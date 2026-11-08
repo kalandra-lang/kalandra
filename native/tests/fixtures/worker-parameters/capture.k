@@ -1,10 +1,10 @@
-fn double(value:int)->int:
-  value*2
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
-fn wrap(f:fn(int)->int)->fn(int)->int:
-  fn(value:int):f(value)
-fn main()->int ! TaskError:
+fn double(value:i64)->i64:
+  return value*2
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
+fn wrap(f:fn(i64)->i64)->fn(i64)->i64:
+  return fn(value:i64):return f(value)
+fn main()->i64 ! TaskError:
   f=wrap(double)
-  try parallel:
+  return try parallel:
     try await spawn apply(21,f)

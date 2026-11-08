@@ -32,8 +32,8 @@ def commit(repo):
 
 repo = initialize("repository")
 (repo / "kalandra.toml").write_text("format=1\n[package]\nname='geometry'\nversion='0.1.0'\nentry='public.k'\n")
-(repo / "types.k").write_text("export type Item:\n  value:int64\n")
-public = 'export from "./types.k" import Item\nexport fn next(item:Item)->Item:\n  item with {value:item.value+1}\n'
+(repo / "types.k").write_text("export type Item:\n  value:i64\n")
+public = 'export from "./types.k" import Item\nexport fn next(item:Item)->Item:\n  return item with {value:item.value+1}\n'
 (repo / "public.k").write_text(public)
 (repo / "literal.txt").write_text("$Format:%H$\n")
 (repo / "retained.txt").write_text("retained\n")
@@ -50,7 +50,7 @@ subprocess.run(["/usr/bin/git", "clone", "--bare", "--no-hardlinks", str(repo), 
 git(root / "bare", "repack", "-ad")
 telemetry = initialize("telemetry")
 (telemetry / "kalandra.toml").write_text("format=1\n[package]\nname='telemetry'\nversion='1.0.0'\nentry='public.k'\n")
-(telemetry / "public.k").write_text('from "geometry" import Item, next\nexport fn compute(n:int64)->int64:\n  next(Item {value:n}).value\n')
+(telemetry / "public.k").write_text('from "geometry" import Item, next\nexport fn compute(n:i64)->i64:\n  return next(Item {value:n}).value\n')
 third = commit(telemetry)
 (repo / "link.k").symlink_to("public.k")
 symlink = commit(repo)

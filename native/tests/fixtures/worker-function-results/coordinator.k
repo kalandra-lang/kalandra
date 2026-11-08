@@ -1,10 +1,10 @@
-fn make(offset:int)->fn(int)->int:
+fn make(offset:i64)->fn(i64)->i64:
   values=[offset]
-  fn(value:int):values[0]+value
-fn coordinate(offset:int)->(fn(int)->int) ! TaskError:
-  try parallel:
+  return fn(value:i64):return values[0]+value
+fn coordinate(offset:i64)->(fn(i64)->i64) ! TaskError:
+  return try parallel:
     try await spawn make(offset)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   f=try parallel:
     try await spawn coordinate(40)
-  f(2)
+  return f(2)

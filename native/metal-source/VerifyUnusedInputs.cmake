@@ -64,7 +64,7 @@ foreach(EMPTY IN ITEMS no yes)
   if(EMPTY STREQUAL "yes")
     string(REPLACE "Tensor[float32, 3] = tensor([1, 2, 3])" "Tensor[float32, 0] = tensor([])" CONTENT "${CONTENT}")
     string(REPLACE "Tensor[float32, 3] = tensor([4, 5, 6])" "Tensor[float32, 0] = tensor([])" CONTENT "${CONTENT}")
-    string(REPLACE "fn main() -> Tensor[float32, 3]" "fn main() -> Tensor[float32, 0]" CONTENT "${CONTENT}")
+    string(REPLACE "fn main() -> Tensor[f32, 3]" "fn main() -> Tensor[f32, 0]" CONTENT "${CONTENT}")
   endif()
   file(WRITE "${OUTPUT_DIR}/dynamic-${EMPTY}.k" "${CONTENT}")
   execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/dynamic-${EMPTY}.k" --target metal

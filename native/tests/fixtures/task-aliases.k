@@ -1,8 +1,8 @@
-fn identity(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  values
+fn identity(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return values
 
-fn main() -> float32 ! TaskError:
-  input: Tensor[float32, 2, 2] = tensor([[1, 2], [3, 4]])
+fn main() -> f32 ! TaskError:
+  input: Tensor[f32, 2, 2] = tensor([[1, 2], [3, 4]])
   output = try parallel:
     first = spawn identity(input)
     second = spawn identity(input)
@@ -10,4 +10,4 @@ fn main() -> float32 ! TaskError:
     b = try await second
     reduceSum(a) + reduceSum(b)
     a
-  reduceSum(output) + reduceSum(input)
+  return reduceSum(output) + reduceSum(input)

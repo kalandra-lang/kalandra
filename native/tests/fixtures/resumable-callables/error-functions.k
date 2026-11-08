@@ -1,17 +1,17 @@
 error E:
   Bad:
-    callback:fn(int)->int ! TaskError
-fn double(value:int)->int:
-  value*2
-fn run(value:int)->int ! TaskError:
-  try parallel:
+    callback:fn(i64)->i64 ! TaskError
+fn double(value:i64)->i64:
+  return value*2
+fn run(value:i64)->i64 ! TaskError:
+  return try parallel:
     try await spawn double(value)
-fn raise()->int ! E:
+fn raise()->i64 ! E:
   fail E.Bad {callback:run}
-fn main()->int ! (E | TaskError):
-  try parallel:
+fn main()->i64 ! (E | TaskError):
+  return try parallel:
     try (await spawn raise() catch fn(error):
-      match error:
+      return match error:
         E.Bad {callback}:try callback(21)
         _:0
     )

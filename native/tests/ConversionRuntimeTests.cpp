@@ -52,7 +52,7 @@ int main() {
                                     std::isnan(value));
 #endif
           if (context.status() != (valid ? 0 : 4) || !sameBits ||
-              (!valid && (context.line() != 2 || context.column() != 3))) {
+              (!valid && (context.line() != 2 || context.column() != 10))) {
             std::cerr << describeNumeric(source)->name << " -> "
                       << describeNumeric(destination)->name << " input " << std::hex << inputs[i]
                       << " result " << bits << " expected " << expected[i].bits << std::dec

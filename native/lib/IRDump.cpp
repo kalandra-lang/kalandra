@@ -1,4 +1,5 @@
 #include "ErrorFamilies.h"
+#include "NonCompleting.h"
 #include "RecordLayout.h"
 #include "RecursiveAdmission.h"
 #include "kalandra/Continuation.h"
@@ -89,8 +90,11 @@ std::string describeType(const ValueType &type) {
     const auto name = type.array ? "[" + type.recordName + "]" : type.recordName;
     return (type.task ? "task<" + name + ">" : name) + (type.fallible ? " ! TaskError" : "");
   }
+  if (type.builtin == BuiltinValue::Unit)
+    return std::string(type.task ? "task<" : "") + (type.array ? "[unit]" : "unit") +
+           (type.task ? ">" : "") + (type.fallible ? " ! TaskError" : "");
   if (type.builtin == BuiltinValue::Bool)
-    return std::string(type.task ? "task<" : "") + (type.array ? "[Bool]" : "Bool") +
+    return std::string(type.task ? "task<" : "") + (type.array ? "[bool]" : "bool") +
            (type.task ? ">" : "") + (type.fallible ? " ! TaskError" : "");
   if (type.builtin == BuiltinValue::Device)
     return type.device ? "Device[gpu:" + std::to_string(*type.device) + "]" : "Device[cpu]";
@@ -102,7 +106,7 @@ std::string describeType(const ValueType &type) {
            : type.builtin == BuiltinValue::FaultKind ? "FaultKind"
                                                      : "String";
   const auto description = describeNumeric(type.element);
-  const auto name = description ? std::string(description->name) : "<invalid numeric type>";
+  const auto name = description ? std::string(description->sourceName) : "<invalid numeric type>";
   if (type.array)
     return std::string(type.task ? "task<[" : "[") + name + (type.task ? "]>" : "]") +
            (type.fallible ? " ! TaskError" : "");
@@ -128,6 +132,7 @@ std::string describeType(const ValueType &type) {
 }
 std::optional<std::string> numericCapabilityError(const TypedModule &module, NumericTarget target,
                                                   bool mixedPlacement) {
+  const auto nonCompleting = nonCompletingValues(module);
   if (mixedPlacement && target != NumericTarget::Cpu)
     return "mixed placement validation requires CPU host types";
   if (auto error = recursiveProgramError(module, mixedPlacement))
@@ -172,8 +177,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
                        : numericScalarArithmeticAvailable(type.element, target)))
       return {};
     const auto description = describeNumeric(type.element);
-    return "numeric type '" + (description ? std::string(description->name) : "<invalid>") + "'" +
-           (type.tensor ? " tensor arithmetic" : "") + " is not implemented by the " +
+    return "numeric type '" + (description ? std::string(description->sourceName) : "<invalid>") +
+           "'" + (type.tensor ? " tensor arithmetic" : "") + " is not implemented by the " +
            (target == NumericTarget::Cpu ? "CPU" : "Apple GPU") + " backend";
   };
   const auto sameArray = [](const ValueType &a, const ValueType &b) {
@@ -230,11 +235,10 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       return "local reassignment currently requires CPU execution";
     if (symbol.reassignable &&
         (symbol.owner >= module.functions.size() ||
-         (symbol.type.array
-              ? (!symbol.type.tensor || symbol.type.shape.size() != 1 ||
-                 (symbol.type.builtin != BuiltinValue::Numeric &&
-                  symbol.type.builtin != BuiltinValue::Bool))
-              : (symbol.type.tensor || !symbol.type.shape.empty())) ||
+         (symbol.type.array ? (!symbol.type.tensor || symbol.type.shape.size() != 1 ||
+                               (symbol.type.builtin != BuiltinValue::Numeric &&
+                                symbol.type.builtin != BuiltinValue::Bool))
+                            : (symbol.type.tensor || !symbol.type.shape.empty())) ||
          symbol.type.task || symbol.type.fallible || symbol.type.device ||
          (symbol.type.builtin != BuiltinValue::Numeric &&
           symbol.type.builtin != BuiltinValue::Bool)))
@@ -296,10 +300,18 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       const auto &condition = module.expressions[loop->condition].type;
       if (condition.builtin != BuiltinValue::Bool || condition.tensor || condition.task ||
           condition.fallible || condition.device ||
-          (!loop->normalResult && !loop->collecting &&
+          (!loop->normalResult && !loop->collecting && !loop->functionBoundary &&
+           !nonCompleting[&expression - module.expressions.data()] &&
            (expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
             expression.type.task || expression.type.fallible)))
         return "while requires a completed CPU Bool condition and a valid result";
+      if (loop->functionBoundary) {
+        const auto *literal =
+            std::get_if<BoolLiteral>(&module.expressions[loop->condition].operation);
+        if (!literal || !literal->value || !loop->transfers || loop->collecting ||
+            loop->normalResult || !loop->whenDone.empty() || loop->exitValues.empty())
+          return "invalid function return boundary";
+      }
       for (const auto *body : {&loop->initial, &loop->iteration, &loop->body, &loop->whenDone})
         for (const auto &statement : *body)
           if (statement.value >= module.expressions.size() ||
@@ -467,7 +479,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
         return "error narrowing requires a strict completed family subset";
     }
     const auto sameResult = [&](ValueId id) {
-      return sameArray(expression.type, module.expressions[id].type);
+      return nonCompleting[id] || sameArray(expression.type, module.expressions[id].type);
     };
     const bool collectionMismatch = std::visit(
         [&](const auto &op) {
@@ -540,9 +552,11 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
                     !validUtf8(literal->value)))
       return "String literal requires valid UTF-8 and String identity";
     if (std::holds_alternative<BoolLiteral>(expression.operation) &&
-        (expression.type.builtin != BuiltinValue::Bool || expression.type.tensor ||
-         expression.type.array || expression.type.task || expression.type.fallible ||
-         expression.type.device || !expression.type.shape.empty()))
+        (!isBooleanStorage(expression.type) || expression.type.tensor || expression.type.array ||
+         expression.type.task || expression.type.fallible || expression.type.device ||
+         !expression.type.shape.empty() ||
+         (expression.type.builtin == BuiltinValue::Unit &&
+          std::get<BoolLiteral>(expression.operation).value)))
       return "Boolean literal requires a completed CPU scalar Bool";
     if (const auto *literal = std::get_if<TensorLiteral>(&expression.operation)) {
       if (expression.type.array) {
@@ -582,6 +596,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
           choice->whenFalse.empty())
         return "conditional requires a completed CPU Bool and two result branches";
       for (auto result : {choice->trueResult, choice->falseResult}) {
+        if (nonCompleting[result])
+          continue;
         const auto &type = module.expressions[result].type;
         if (type.task || type.builtin == BuiltinValue::Device ||
             type.builtin != expression.type.builtin || type.tensor != expression.type.tensor ||
@@ -689,7 +705,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       };
       const bool numeric = a.builtin == BuiltinValue::Numeric &&
                            b.builtin == BuiltinValue::Numeric && a.element == b.element;
-      const bool boolean = a.builtin == BuiltinValue::Bool && b.builtin == BuiltinValue::Bool &&
+      const bool boolean = isBooleanStorage(a) && a.builtin == b.builtin &&
                            (comparison->operation == ComparisonKind::Equal ||
                             comparison->operation == ComparisonKind::NotEqual);
       const bool string = a.builtin == BuiltinValue::String && b.builtin == BuiltinValue::String &&
@@ -723,9 +739,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       if (sort->input >= module.expressions.size())
         return "array sorting references an invalid operand";
       const auto &a = module.expressions[sort->input].type;
-      if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 ||
-          a.task || a.fallible || a.device ||
-          (a.builtin != BuiltinValue::Numeric && a.builtin != BuiltinValue::Bool) ||
+      if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 || a.task ||
+          a.fallible || a.device || (a.builtin != BuiltinValue::Numeric && !isBooleanStorage(a)) ||
           !sameFunctionValueType(a, expression.type))
         return "array sorting requires unchanged completed CPU numeric or Bool array identity";
     }
@@ -744,9 +759,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
         return !t.tensor && !t.array && !t.task && !t.fallible && !t.device && t.shape.empty();
       };
       if (target != NumericTarget::Cpu || !a.array || !a.tensor || a.shape.size() != 1 || a.task ||
-          a.fallible || a.device ||
-          (a.builtin != BuiltinValue::Numeric && a.builtin != BuiltinValue::Bool) || !scalar(i) ||
-          i.builtin != BuiltinValue::Numeric || !isInteger(i.element))
+          a.fallible || a.device || (a.builtin != BuiltinValue::Numeric && !isBooleanStorage(a)) ||
+          !scalar(i) || i.builtin != BuiltinValue::Numeric || !isInteger(i.element))
         return "array assignment requires flat CPU numeric or Bool storage and an integer index";
       if (store) {
         const auto &value = module.expressions[store->value].type;
@@ -904,7 +918,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       }
       const auto scalar = [](const ValueType &type) {
         return (type.builtin == BuiltinValue::Numeric || type.builtin == BuiltinValue::Record ||
-                type.builtin == BuiltinValue::Bool || type.builtin == BuiltinValue::String ||
+                isBooleanStorage(type) || type.builtin == BuiltinValue::String ||
                 type.builtin == BuiltinValue::Function) &&
                !type.tensor && !type.task && !type.fallible && !type.device && !type.array &&
                type.shape.empty();
@@ -918,7 +932,7 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
         const auto &actual = module.expressions[map->captures[i]].type;
         const auto &formal = module.symbols[fn.parameters[i + 1]].type;
         if (actual.task || actual.fallible || actual.device ||
-            (actual.builtin != BuiltinValue::Numeric && actual.builtin != BuiltinValue::Bool &&
+            (actual.builtin != BuiltinValue::Numeric && !isBooleanStorage(actual) &&
              actual.builtin != BuiltinValue::Record && actual.builtin != BuiltinValue::String &&
              actual.builtin != BuiltinValue::Function) ||
             (actual.builtin == BuiltinValue::Function && !sameFunctionValueType(actual, formal)) ||
@@ -970,9 +984,9 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
       const auto &input = module.expressions[transform->input].type;
       const auto &output = expression.type;
       if (!input.tensor || input.array || input.task || input.fallible || input.shape.size() != 2 ||
-          !output.tensor || output.array || output.task || output.fallible || output.shape.size() != 2 ||
-          input.builtin != BuiltinValue::Numeric || output.builtin != BuiltinValue::Numeric ||
-          input.element != output.element)
+          !output.tensor || output.array || output.task || output.fallible ||
+          output.shape.size() != 2 || input.builtin != BuiltinValue::Numeric ||
+          output.builtin != BuiltinValue::Numeric || input.element != output.element)
         return "tensor transforms require matching rank-two numeric storage";
       const bool transpose = transform->kind == TensorTransformKind::Transpose;
       for (unsigned axis = 0; axis < 2; ++axis) {
@@ -980,7 +994,8 @@ std::optional<std::string> numericCapabilityError(const TypedModule &module, Num
         if (a.constant != b.constant || a.identity != b.identity)
           return "tensor transform result shape differs";
       }
-      if (!transpose && input.element != NumericType::Float32 && input.element != NumericType::Float64)
+      if (!transpose && input.element != NumericType::Float32 &&
+          input.element != NumericType::Float64)
         return "row math requires floating-point elements";
       if (target != NumericTarget::Cpu && !transpose && input.element != NumericType::Float32)
         return "GPU row math currently requires float32";

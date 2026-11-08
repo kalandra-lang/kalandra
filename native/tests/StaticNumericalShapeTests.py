@@ -18,7 +18,7 @@ def run(args):
 variants = ['-O0', '-O2', '--sanitize']
 if sys.platform != 'win32':
     variants.append('--thread-sanitize')
-for numeric in ('float32', 'float64'):
+for numeric in ('f32', 'f64'):
     cases = [
         ('documentation', f'''fn main()->{numeric}:
   a:Tensor[{numeric},1,2]=tensor([[2,3]])
@@ -38,8 +38,8 @@ for numeric in ('float32', 'float64'):
   a:Tensor[{numeric},0]=tensor([])
   reduceSum(a*3+1)
 ''', '0'),
-        ('packed', f'''fn ones(n:int)->[{numeric}]:
-  if n == 0:[1]
+        ('packed', f'''fn ones(n:i64)->[{numeric}]:
+  return if n == 0:[1]
   else:
     part=ones(n-1)
     concat(part,part)

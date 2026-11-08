@@ -1,12 +1,12 @@
-fn combine(left: Tensor[float32, ?], right: Tensor[float32, ?]) -> Tensor[float32, ?]:
+fn combine(left: Tensor[f32, ?], right: Tensor[f32, ?]) -> Tensor[f32, ?]:
   product = left * right
-  product + left
+  return product + left
 
-fn main() -> Tensor[float32, 3] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, 3] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    left: Tensor[float32, 3] = tensor([1, 2, 3])
-    right: Tensor[float32, 3] = tensor([4, 5, 6])
+    left: Tensor[f32, 3] = tensor([1, 2, 3])
+    right: Tensor[f32, 3] = tensor([4, 5, 6])
     leftCopy = transfer(left, gpu)
     rightCopy = transfer(right, gpu)
     deviceLeft = try await leftCopy

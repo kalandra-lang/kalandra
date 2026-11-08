@@ -1,15 +1,15 @@
-fn normalize(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
+fn normalize(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
   total = reduceSum(values)
-  denominator: float32 = if total == 0:
+  denominator: f32 = if total == 0:
     1
   else:
     total
-  values / denominator
+  return values / denominator
 
-fn main() -> Tensor[float32, ?] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, ?] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    values: Tensor[float32, 2] = tensor([0, 0])
+    values: Tensor[f32, 2] = tensor([0, 0])
     input = try await transfer(values, gpu)
     result = try await spawn normalize(input) on gpu
     try await transfer(result, devices.cpu())

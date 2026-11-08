@@ -23,7 +23,7 @@ def run(command):
     assert not any(x in result.stderr for x in ('AddressSanitizer','ThreadSanitizer','runtime error:')),result.stderr
     return result.stdout
 source=a.root/'byte.k'
-source.write_text('fn byte(n:uint8)->uint8:\n  n\nfn main()->uint8 ! TaskError:\n'
+source.write_text('fn byte(n:u8)->u8:\n  n\nfn main()->u8 ! TaskError:\n'
                   '  try parallel:\n    gpu=devices.gpu()\n    try await spawn byte(uint8(1)) on gpu\n')
 bundle=a.root/'byte'
 run([a.compiler.resolve(),source,'--target',a.backend,'-O2','-o',bundle])

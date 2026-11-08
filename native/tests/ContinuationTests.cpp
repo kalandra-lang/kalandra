@@ -162,12 +162,12 @@ int main(int argc, char **argv) {
               "CPU plan contains target-only operations");
       ++fixtures;
     }
-    auto helpers = analyze("fn numeric(x:float32) -> float32:\n  x*2\n"
-                           "fn leaf(x:float32) -> float32 ! TaskError:\n  try parallel:\n"
+    auto helpers = analyze("fn numeric(x:f32) -> f32:\n  return x*2\n"
+                           "fn leaf(x:f32) -> f32 ! TaskError:\n  return try parallel:\n"
                            "    try await spawn numeric(x)\n"
-                           "fn recovered(x:float32) -> float32:\n  leaf(x) catch fn(error): 0\n"
-                           "fn wrapper(x:float32) -> float32:\n  recovered(x)\n"
-                           "fn main() -> float32:\n  wrapper(3)\n",
+                           "fn recovered(x:f32) -> f32:\n  return leaf(x) catch fn(error): return 0\n"
+                           "fn wrapper(x:f32) -> f32:\n  return recovered(x)\n"
+                           "fn main() -> f32:\n  return wrapper(3)\n",
                            true);
     require(helpers.ok(), "helper effects fixture checking failed");
     const auto effects = resumableFunctions(*helpers.module);
@@ -181,8 +181,8 @@ int main(int argc, char **argv) {
                     helperPlan->plans[4]->code,
                     [](const auto &op) { return op.code == Code::Call && op.target != 0; }),
             "resumable helper escaped into a synchronous dispatch");
-    auto spawnedHelper = analyze("fn leaf() -> float32 ! TaskError:\n  try parallel:\n    1\n"
-                                 "fn main() -> float32 ! TaskError:\n  try parallel:\n"
+    auto spawnedHelper = analyze("fn leaf() -> f32 ! TaskError:\n  return try parallel:\n    1\n"
+                                 "fn main() -> f32 ! TaskError:\n  return try parallel:\n"
                                  "    try await spawn leaf()\n",
                                  true);
     require(spawnedHelper.ok(), "spawned helper checking failed");
@@ -191,8 +191,8 @@ int main(int argc, char **argv) {
                 scheduled->plans[0]->parameters.empty(),
             "resumable child plan missing");
     verify(*scheduled);
-    auto gpuHelper = analyze("fn leaf() -> float32 ! TaskError:\n  try parallel:\n    1\n"
-                             "fn main() -> float32 ! TaskError:\n  try parallel:\n"
+    auto gpuHelper = analyze("fn leaf() -> f32 ! TaskError:\n  return try parallel:\n    1\n"
+                             "fn main() -> f32 ! TaskError:\n  return try parallel:\n"
                              "    try await spawn leaf() on devices.gpu()\n",
                              true);
     require(gpuHelper.ok(), "placed helper checking failed");
@@ -200,8 +200,8 @@ int main(int argc, char **argv) {
     require(!unsupported && unsupported.error().find("resumable helpers require CPU placement") !=
                                 std::string::npos,
             "resumable control flow admitted as a GPU shader");
-    auto recursive = analyze("fn loop(x:float32) -> float32:\n  loop(x)\nfn main() -> float32 ! "
-                             "TaskError:\n  try parallel:\n    try await spawn loop(1)\n");
+    auto recursive = analyze("fn loop(x:f32) -> f32:\n  return loop(x)\nfn main() -> f32 ! "
+                             "TaskError:\n  return try parallel:\n    try await spawn loop(1)\n");
     require(recursive.ok(), "recursive CPU fixture rejected");
     auto recursivePlan = plan(*recursive.module);
     require(bool(recursivePlan), "recursive CPU calls were expanded instead of planned");
@@ -225,14 +225,14 @@ int main(int argc, char **argv) {
     require(backedge, "fallback lost checked recursive execution");
     verify(*legacyPlan);
     auto builtin =
-        analyze("fn main() -> float32 ! TaskError:\n  try parallel:\n    data:Tensor[float32,2] = "
+        analyze("fn main() -> f32 ! TaskError:\n  return try parallel:\n    data:Tensor[f32,2] = "
                 "tensor([1,2])\n    try await spawn reduceSum(data)\n");
     require(builtin.ok(), "builtin fixture checking failed");
     auto result = plan(*builtin.module);
     require(bool(result) && result->plans.size() == 2, "builtin child plan missing");
     verify(*result);
     auto projected =
-        analyze("type Row:\n  value:int\nfn main()->int:\n  row=Row {value:42}\n  row.value\n");
+        analyze("type Row:\n  value:i64\nfn main()->i64:\n  row=Row {value:42}\n  return row.value\n");
     require(projected.ok(), "record projection plan source rejected");
     for (bool preserved : {false, true}) {
       auto planned = plan(*projected.module, {.preserveCalls = preserved});
@@ -249,9 +249,9 @@ int main(int argc, char **argv) {
       require(found, "record field projection missing from plan");
       verify(*planned);
     }
-    auto narrowed = analyze("error A:\n  Retry:\n    code:int\nerror B:\n  Other:\n    code:int\n"
-                            "fn source()->int ! (A | B):\n  fail A.Retry {code:1}\n"
-                            "fn main()->int ! B:\n  source() catch fn(error):\n    match error:\n"
+    auto narrowed = analyze("error A:\n  Retry:\n    code:i64\nerror B:\n  Other:\n    code:i64\n"
+                            "fn source()->i64 ! (A | B):\n  fail A.Retry {code:1}\n"
+                            "fn main()->i64 ! B:\n  return source() catch fn(error):\n    return match error:\n"
                             "      A.Retry {code}:code\n      _:fail error\n");
     require(narrowed.ok(), "error narrowing plan source rejected");
     for (bool preserved : {false, true}) {
@@ -270,8 +270,8 @@ int main(int argc, char **argv) {
       require(found, "error narrowing missing from plan");
       verify(*planned);
     }
-    std::string large = "fn main() -> float32 ! TaskError:\n  try parallel:\n    "
-                        "data:Tensor[float32,21000]=tensor([";
+    std::string large = "fn main() -> f32 ! TaskError:\n  try parallel:\n    "
+                        "data:Tensor[f32,21000]=tensor([";
     for (unsigned i = 0; i < 21000; ++i)
       large += i ? ",1" : "1";
     large += "])\n    reduceSum(data)\n";
@@ -281,8 +281,8 @@ int main(int argc, char **argv) {
     require(bool(embedded) && embedded->plans[0]->slots.size() < 20,
             "embedded constants consumed continuation frame slots");
     verify(*embedded);
-    auto factory = analyze("fn make(n:int)->fn(int)->int:\n  fn(v:int):v+n\n"
-                           "fn main()->int:\n  callback=make(3)\n  callback(2)\n");
+    auto factory = analyze("fn make(n:i64)->fn(i64)->i64:\n  return fn(v:i64):return v+n\n"
+                           "fn main()->i64:\n  callback=make(3)\n  return callback(2)\n");
     require(factory.ok(), "host callable factory source rejected");
     auto sharedClosures = plan(*factory.module, {.preserveCalls = true, .valueScopes = true});
     require(bool(sharedClosures), "shared host callable projection failed");
@@ -298,8 +298,8 @@ int main(int argc, char **argv) {
                                   return std::holds_alternative<FunctionReference>(node.operation);
                                 }),
             "host callable projection lost factory environment metadata");
-    auto mapped = analyze("fn main()->int:\n  values=generate(4,fn(i):i+1)\n"
-                          "  changed=map(values,fn(v):v*2)\n  length(changed)\n");
+    auto mapped = analyze("fn main()->i64:\n  values=generate(4,fn(i):return i+1)\n"
+                          "  changed=map(values,fn(v):return v*2)\n  return length(changed)\n");
     require(mapped.ok(), "device map planning source rejected");
     auto ordinaryMap = plan(*mapped.module, {.nativeSubgraphs = false});
     auto deviceMap = plan(*mapped.module, {.nativeSubgraphs = false,

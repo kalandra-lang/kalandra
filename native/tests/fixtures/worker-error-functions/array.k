@@ -1,14 +1,14 @@
 error E:
   Retry:
-    callbacks:[fn(int)->int]
-fn failer()->int ! E:
+    callbacks:[fn(i64)->i64]
+fn failer()->i64 ! E:
   numbers=[40]
-  fail E.Retry {callbacks:[fn(value:int):numbers[0]+value]}
-fn run()->int ! (E | TaskError):
-  try parallel:
+  fail E.Retry {callbacks:[fn(value:i64):return numbers[0]+value]}
+fn run()->i64 ! (E | TaskError):
+  return try parallel:
     try await spawn failer()
-fn main()->int ! TaskError:
-  run() catch fn(error):
-    match error:
+fn main()->i64 ! TaskError:
+  return run() catch fn(error):
+    return match error:
       E.Retry {callbacks}:callbacks[0](2)
       _:fail error

@@ -10,11 +10,11 @@ parser.add_argument('--root',type=Path,required=True)
 parser.add_argument('--variant',choices=('debug','optimized','sanitized','thread-sanitized'))
 args=parser.parse_args();args.root.mkdir(parents=True,exist_ok=True)
 flags=[] if not args.variant else ['--target','metal',{'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[args.variant]]
-names=('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')
+names=('i8','u8','i16','u16','i32','u32','i64','u64','f32','f64')
 widths=(8,8,16,16,32,32,64,64,32,64)
 for name,width in ((n,w) for n,w in zip(names,widths)):
   for case in ('values','empty','empty-fault'):
-    if case=='empty-fault' and name.startswith('float'):continue
+    if case=='empty-fault' and name.startswith('f'):continue
     empty=case!='values'
     params=','.join(f'a{i}:Tensor[{name},?]' for i in range(30))
     expression='+'.join(f'a{i}' for i in range(30))
@@ -22,7 +22,7 @@ for name,width in ((n,w) for n,w in zip(names,widths)):
     params+=f',scale:{name}'
     text=f'''fn operation({params})->Tensor[{name},?]:
   {body}
-fn increment(value:int32)->int32:
+fn increment(value:i32)->i32:
   value+1
 fn main()->Tensor[{name},?] ! TaskError:
   try parallel:
@@ -47,7 +47,7 @@ fn main()->Tensor[{name},?] ! TaskError:
     assert '@kalandra_fn_0(' not in cpu and '@_mlir_ciface_kalandra_cpu_0(' not in cpu
     assert '@_mlir_ciface_kalandra_cpu_1(' in cpu
     if args.variant:
-        bits=int.from_bytes(struct.pack('<f' if width==32 else '<d',30),'little') if name.startswith('float') else 30
+        bits=int.from_bytes(struct.pack('<f' if width==32 else '<d',30),'little') if name.startswith('f') else 30
         expected='[]\n' if empty else f'[{bits:0{width//4}x}]\n'
         for workers in (1,2,4):
             ran=subprocess.run([destination/'program'],capture_output=True,text=True,timeout=60,env=os.environ|{'KALANDRA_WORKERS':str(workers)})

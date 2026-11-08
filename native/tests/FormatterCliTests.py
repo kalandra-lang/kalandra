@@ -13,9 +13,9 @@ def run(*args):
 
 with tempfile.TemporaryDirectory(dir=root) as directory:
     path = Path(directory) / "program.k"
-    source = b"fn main( ):\r\n    1+2\r\n"
+    source = b'fn main( ):\r\n    return 1+2\r\n'
     path.write_bytes(source)
-    expected = b"fn main():\n  1 + 2\n"
+    expected = b'fn main():\n  return 1 + 2\n'
     result = run(path)
     assert result.returncode == 0 and result.stdout == expected and result.stderr == b"", result
     assert path.read_bytes() == source, "printing formatted source changed the file"

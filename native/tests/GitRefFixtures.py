@@ -44,14 +44,14 @@ def repository(name, text, dependencies=''):
     (path / 'public.k').write_text(text)
     return path, commit(path)
 
-geometry, first = repository('geometry source λ', 'export fn next(n:int64)->int64:\n  n+1\n')
+geometry, first = repository('geometry source λ', 'export fn next(n:i64)->i64:\n  return n+1\n')
 git(geometry, 'tag', '-a', 'release', first, '-m', 'release')
 git(geometry, 'tag', '-a', 'nested', 'release', '-m', 'nested')
 git(geometry, 'tag', 'light', first)
 git(geometry, 'branch', 'feature/next', first)
 git(geometry, 'branch', 'collision', first)
 git(geometry, 'tag', 'collision', first)
-(geometry / 'public.k').write_text('export fn next(n:int64)->int64:\n  n+2\n')
+(geometry / 'public.k').write_text('export fn next(n:i64)->i64:\n  return n+2\n')
 second = commit(geometry)
 blob = git(geometry, 'rev-parse', first + ':public.k')
 git(geometry, 'tag', 'blob', blob)
@@ -104,14 +104,14 @@ shutil.copytree(geometry, copy_repo, symlinks=True)
 (copy_repo / '.git/packed-refs').unlink()
 (copy_repo / '.git/packed-refs').symlink_to(geometry / '.git/packed-refs')
 resolve('main', repo=copy_repo)
-parent, third = repository('parent', 'from "geometry" import next\nexport fn compute(n:int64)->int64:\n  next(n)\n', request('geometry', geometry, 'release'))
+parent, third = repository('parent', 'from "geometry" import next\nexport fn compute(n:i64)->i64:\n  return next(n)\n', request('geometry', geometry, 'release'))
 app = root / 'application'
 app.mkdir()
 manifest = app / 'kalandra.toml'
 base = "format=1\n[project]\nentry='main.k'\n[dependencies]\n"
 requests = request('geometry', geometry, 'main') + request('again', geometry, 'main') + request('parent', parent, third)
 manifest.write_text(base + requests)
-(app / 'main.k').write_text('from "geometry" import next\nfrom "parent" import compute\nfn main()->[int64] ! TaskError:\n  value=try parallel:\n    try await spawn compute(10)\n  [next(10),value]\n')
+(app / 'main.k').write_text('from "geometry" import next\nfrom "parent" import compute\nfn main()->[i64] ! TaskError:\n  value=try parallel:\n    try await spawn compute(10)\n  return [next(10),value]\n')
 run(args.api, 'project', manifest, '-', '-', '-', 'normal')
 lock = app / 'kalandra.lock'
 active = lock.read_bytes()
@@ -123,14 +123,14 @@ assert roots['again']['commit'] == second
 parent_lock = next(item for item in data['packages'] if item['commit'] == third)
 assert parent_lock['dependencies'][0]['rev'] == 'release' and parent_lock['dependencies'][0]['commit'] == first
 # Both sources move, but all existing source requests stay pinned.
-(geometry / 'public.k').write_text('export fn next(n:int64)->int64:\n  n+3\n')
+(geometry / 'public.k').write_text('export fn next(n:i64)->i64:\n  return n+3\n')
 fourth = commit(geometry)
 git(geometry, 'update-ref', 'refs/tags/release', fourth)
 for options in [[], ['--frozen'], ['--offline']]:
     run(args.compiler, 'install', '--project', manifest, *options)
     assert lock.read_bytes() == active
 # Adding an unrelated root preserves both root and private transitive pins.
-other, other_commit = repository('other', 'export fn value()->int64:\n  9\n')
+other, other_commit = repository('other', 'export fn value()->i64:\n  return 9\n')
 manifest.write_text(base + requests + request('other', other, other_commit))
 for options in [['--frozen'], ['--offline']]:
     run(args.compiler, 'install', '--project', manifest, *options, ok=False)
@@ -165,8 +165,8 @@ manifest.write_text(original + request('ambiguous', geometry, 'collision'))
 assert b'ambiguous' in run(args.api, 'project', manifest, '-', '-', '-', 'normal', ok=False).stderr
 assert lock.read_bytes() == before
 manifest.write_text(original)
-cycle_a, _ = repository('cycle-a', 'export fn unused()->int64:\n  1\n', request('b', root / 'cycle-b', 'main'))
-cycle_b, _ = repository('cycle-b', 'export fn unused()->int64:\n  1\n', request('a', cycle_a, 'main'))
+cycle_a, _ = repository('cycle-a', 'export fn unused()->i64:\n  return 1\n', request('b', root / 'cycle-b', 'main'))
+cycle_b, _ = repository('cycle-b', 'export fn unused()->i64:\n  return 1\n', request('a', cycle_a, 'main'))
 manifest.write_text(original + request('cycle', cycle_a, 'main'))
 assert b'cycle' in run(args.api, 'project', manifest, '-', '-', '-', 'normal', ok=False).stderr
 assert lock.read_bytes() == before

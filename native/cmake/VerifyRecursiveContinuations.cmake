@@ -35,47 +35,47 @@ function(EXPECT NAME EXPECTED)
     message(FATAL_ERROR "${NAME}: expected ${EXPECTED}, got ${OUTPUT}")
   endif()
 endfunction()
-set(PREFIX "enum List:\n  Nil\n  Cons:\n    head:int\n    tail:List\n")
-set(SUM "fn sum(items:List)->int:\n  match items:\n    List.Nil:0\n    List.Cons {head,tail}:head+sum(tail)\n")
-COMPILE(shared "${PREFIX}${SUM}fn main()->int:\n  tail=List.Cons {head:3,tail:List.Nil}\n  left=List.Cons {head:10,tail:tail}\n  right=List.Cons {head:20,tail:tail}\n  sum(left)+sum(right)+sum(tail)\n")
+set(PREFIX "enum List:\n  Nil\n  Cons:\n    head:i64\n    tail:List\n")
+set(SUM "fn sum(items:List)->i64:\n  return match items:\n    List.Nil:0\n    List.Cons {head,tail}:head+sum(tail)\n")
+COMPILE(shared "${PREFIX}${SUM}fn main()->i64:\n  tail=List.Cons {head:3,tail:List.Nil}\n  left=List.Cons {head:10,tail:tail}\n  right=List.Cons {head:20,tail:tail}\n  sum(left)+sum(right)+sum(tail)\n")
 EXPECT(shared 39)
-COMPILE(returned "${PREFIX}${SUM}fn make(n:int)->List:\n  if n==0:List.Nil\n  else:List.Cons {head:n,tail:make(n-1)}\nfn main()->int:\n  sum(make(32))\n")
+COMPILE(returned "${PREFIX}${SUM}fn make(n:i64)->List:\n  if n==0:List.Nil\n  else:List.Cons {head:n,tail:make(n-1)}\nfn main()->i64:\n  sum(make(32))\n")
 EXPECT(returned 528)
-COMPILE(match-return "${PREFIX}${SUM}fn tail(items:List)->List:\n  match items:\n    List.Nil:List.Nil\n    List.Cons {tail}:tail\nfn main()->int:\n  sum(tail(List.Cons {head:10,tail:List.Cons {head:42,tail:List.Nil}}))\n")
+COMPILE(match-return "${PREFIX}${SUM}fn tail(items:List)->List:\n  match items:\n    List.Nil:List.Nil\n    List.Cons {tail}:tail\nfn main()->i64:\n  sum(tail(List.Cons {head:10,tail:List.Cons {head:42,tail:List.Nil}}))\n")
 EXPECT(match-return 42)
 COMPILE(owned [=[enum Chain:
   End
   More:
     text:String
-    values:[int]
+    values:[i64]
     next:Chain
-fn inspect(chain:Chain)->int:
+fn inspect(chain:Chain)->i64:
   match chain:
     Chain.End:0
     Chain.More {text,values,next}:length(text)+values[0]+inspect(next)
-fn main()->int:
+fn main()->i64:
   tail=Chain.More {text:"é",values:[20],next:Chain.End}
   root=Chain.More {text:"a",values:[20],next:tail}
-  inspect(root)
+  return inspect(root)
 ]=])
 EXPECT(owned 42)
 COMPILE(tree [=[type Tree:
   name:String
   children:[Tree]
-fn main()->int:
+fn main()->i64:
   leaf=Tree {name:"é",children:[]}
   root=Tree {name:"root",children:[leaf,leaf]}
-  length(root.children)+length(root.children[0].name)+length(root.name)
+  return length(root.children)+length(root.children[0].name)+length(root.name)
 ]=])
 EXPECT(tree 7)
 COMPILE(callable [=[enum Chain:
   End
   More:
-    apply:fn(int)->int
+    apply:fn(i64)->i64
     next:Chain
 fn make(text:String)->Chain:
-  Chain.More {apply:fn(value:int):value+length(text),next:Chain.End}
-fn main()->int:
+  Chain.More {apply:fn(value:i64):value+length(text),next:Chain.End}
+fn main()->i64:
   chain=make("é")
   match chain:
     Chain.End:0
@@ -85,19 +85,19 @@ EXPECT(callable 42)
 COMPILE(function-array [=[enum Chain:
   End
   More:
-    callbacks:[fn(int)->int]
+    callbacks:[fn(i64)->i64]
     next:Chain
-fn make(offset:int)->Chain:
-  add=fn(value:int):value+offset
+fn make(offset:i64)->Chain:
+  add=fn(value:i64):value+offset
   Chain.More {callbacks:[add,add],next:Chain.End}
-fn main()->int:
+fn main()->i64:
   match make(20):
     Chain.End:0
     Chain.More {callbacks}:callbacks[0](1)+callbacks[1](1)
 ]=])
 EXPECT(function-array 42)
-COMPILE(fault "${PREFIX}fn bad(x:int)->int:\n  1/x\nfn main()->int:\n  item=List.Cons {head:1,tail:List.Nil}\n  match item:\n    List.Nil:0\n    List.Cons:bad(0)\n")
-COMPILE(call-limit "${PREFIX}fn loop(n:int)->int:\n  loop(n+1)+n\nfn main()->int:\n  loop(0)\n")
+COMPILE(fault "${PREFIX}fn bad(x:i64)->i64:\n  return 1/x\nfn main()->i64:\n  item=List.Cons {head:1,tail:List.Nil}\n  return match item:\n    List.Nil:0\n    List.Cons:bad(0)\n")
+COMPILE(call-limit "${PREFIX}fn loop(n:i64)->i64:\n  return loop(n+1)+n\nfn main()->i64:\n  return loop(0)\n")
 foreach(NAME IN ITEMS fault call-limit)
   if(NAME STREQUAL "fault")
     set(EXPECTED_FAULT ArithmeticFault)

@@ -1,6 +1,6 @@
 #include "NumericProgram.h"
-#include "DeviceTensorResultMap.h"
 #include "../gpu-source/AggregateLayout.h"
+#include "DeviceTensorResultMap.h"
 #include "TensorTransformShader.h"
 #include <algorithm>
 #include <functional>
@@ -158,7 +158,7 @@ class Builder {
     NumericShaderOptions options;
     options.arithmetic = arithmetic_;
     options.nativeFloat64Conversions = nativeFloat64Conversions_;
-    options.boolResult = ref.type.builtin == BuiltinValue::Bool;
+    options.boolResult = isBooleanStorage(ref.type);
     std::vector<std::uint8_t> roles;
     NumericProgramInstruction instruction{NumericProgramKind::Map};
     for (auto symbol : tensors) {
@@ -347,20 +347,20 @@ class Builder {
       reject(fn.declaration, "recursive GPU numerical helper expansion");
     if (arguments.size() != fn.parameters.size())
       reject(fn.declaration, "numerical helper capture count mismatch");
-    const bool aggregate = aggregateEnvelope_ && &fn == &root &&
-                           deviceInlineRecordValue(fn.resultType);
+    const bool aggregate =
+        aggregateEnvelope_ && &fn == &root && deviceInlineRecordValue(fn.resultType);
     const auto graph = &fn == &root ? graphParameter_ : std::nullopt;
     if (fn.resultType.array || aggregate || graph || usesScalarControl(input, function)) {
       const bool tensorResult = fn.resultType.tensor && !fn.resultType.array;
-      auto shader =
-          emitScalarControlShader(input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph,
-                                  &fn == &root ? graphResultLayouts_ : std::span<const DeviceGraphExportLayout>{},
-                                  graph ? graphPeers_ : std::span<const std::size_t>{},
-                                  &fn == &root ? closureImports_ : std::span<const DeviceClosureImport>{});
+      auto shader = emitScalarControlShader(
+          input, function, arithmetic_, nativeFloat64Conversions_, aggregate, graph,
+          &fn == &root ? graphResultLayouts_ : std::span<const DeviceGraphExportLayout>{},
+          graph ? graphPeers_ : std::span<const std::size_t>{},
+          &fn == &root ? closureImports_ : std::span<const DeviceClosureImport>{});
       if (!shader)
         throw Rejected{shader.error()};
       NumericProgramInstruction op{shader->deviceStorage ? NumericProgramKind::DeviceControl
-                                                          : NumericProgramKind::ScalarControl};
+                                                         : NumericProgramKind::ScalarControl};
       for (std::size_t i = 0; i < arguments.size(); ++i)
         if (!graph || std::ranges::find(graphPeers_, i) == graphPeers_.end())
           op.inputs.push_back(*force(arguments[i]).buffer);
@@ -442,7 +442,7 @@ class Builder {
         return found->second;
       const auto &node = input.expressions.at(id);
       if (node.type.task || node.type.fallible || node.type.array || node.type.errorRecord ||
-          (node.type.builtin != BuiltinValue::Numeric && node.type.builtin != BuiltinValue::Bool) ||
+          (node.type.builtin != BuiltinValue::Numeric && !isBooleanStorage(node.type)) ||
           (node.type.tensor && node.type.shape.size() > 8))
         reject(node.span, "unsupported typed GPU numerical program value");
       Ref out{0, node.type};
@@ -551,15 +551,18 @@ public:
           std::span<const std::size_t> graphPeers,
           std::span<const DeviceClosureImport> closureImports)
       : arithmetic_(arithmetic), nativeFloat64Conversions_(nativeFloat64Conversions),
-        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter), graphPeers_(graphPeers), graphResultLayouts_(graphResultLayouts), closureImports_(closureImports), input(module),
-        root(module.functions.at(id)) {
+        aggregateEnvelope_(aggregateEnvelope), graphParameter_(graphParameter),
+        graphPeers_(graphPeers), graphResultLayouts_(graphResultLayouts),
+        closureImports_(closureImports), input(module), root(module.functions.at(id)) {
     normalized.source = input.source;
   }
   NumericProgram run(FunctionId id) {
     if (!(aggregateEnvelope_ && deviceInlineRecordValue(root.resultType)) &&
         ((root.resultType.builtin != BuiltinValue::Numeric &&
-         !(root.resultType.builtin == BuiltinValue::Bool && (!root.resultType.tensor || root.resultType.array))) ||
-        (root.resultType.array && root.resultType.shape.size() != 1) || root.resultType.task || root.resultType.fallible))
+          !(isBooleanStorage(root.resultType) &&
+            (!root.resultType.tensor || root.resultType.array))) ||
+         (root.resultType.array && root.resultType.shape.size() != 1) || root.resultType.task ||
+         root.resultType.fallible))
       reject(root.declaration,
              "GPU numerical program requires a numeric/Bool scalar or numeric tensor result");
     std::vector<Ref> args;
@@ -582,7 +585,7 @@ public:
         continue;
       }
       if ((type.builtin != BuiltinValue::Numeric &&
-           !(type.builtin == BuiltinValue::Bool && (!type.tensor || type.array))) ||
+           !(isBooleanStorage(type) && (!type.tensor || type.array))) ||
           (type.array && type.shape.size() != 1) || type.task || type.fallible)
         reject(root.declaration,
                "GPU numerical programs capture numeric/Bool scalars and resident numeric tensors");
@@ -602,17 +605,17 @@ public:
   }
 };
 } // namespace
-std::expected<NumericProgram, Diagnostic> emitNumericProgram(const TypedModule &input,
-                                                             FunctionId function,
-                                                             ArithmeticMode arithmetic,
-                                                             bool nativeFloat64Conversions,
-                                                             bool aggregateEnvelope,
-                                                             std::optional<std::size_t> graphParameter,
-                                                             std::span<const DeviceGraphExportLayout> graphResultLayouts,
-          std::span<const std::size_t> graphPeers,
-          std::span<const DeviceClosureImport> closureImports) {
+std::expected<NumericProgram, Diagnostic>
+emitNumericProgram(const TypedModule &input, FunctionId function, ArithmeticMode arithmetic,
+                   bool nativeFloat64Conversions, bool aggregateEnvelope,
+                   std::optional<std::size_t> graphParameter,
+                   std::span<const DeviceGraphExportLayout> graphResultLayouts,
+                   std::span<const std::size_t> graphPeers,
+                   std::span<const DeviceClosureImport> closureImports) {
   try {
-    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope, graphParameter, graphResultLayouts, graphPeers, closureImports).run(function);
+    return Builder(input, function, arithmetic, nativeFloat64Conversions, aggregateEnvelope,
+                   graphParameter, graphResultLayouts, graphPeers, closureImports)
+        .run(function);
   } catch (const Rejected &error) {
     return std::unexpected(error.diagnostic);
   }

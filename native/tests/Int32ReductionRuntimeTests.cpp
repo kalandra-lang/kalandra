@@ -93,7 +93,7 @@ static bool verify(std::vector<Cell> values, std::array<std::int64_t, Rank> shap
   ++cases;
   faults += code != 0;
   if (context.status() != code || (!code && result != expected) || (code && result != 0) ||
-      (code == 4 && (context.line() != 2 || context.column() != 3)) || storage != before) {
+      (code == 4 && (context.line() != 2 || context.column() != 10)) || storage != before) {
     std::cerr << "rank " << TENSOR_RANK << " case " << cases << " status " << context.status()
               << " expected " << code << " result " << result << " reference " << expected << '\n';
     return false;

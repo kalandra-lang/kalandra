@@ -16,13 +16,13 @@ args.output = args.output.resolve()
 args.output.mkdir(parents=True, exist_ok=True)
 repo = Path(__file__).resolve().parents[3]
 matrix = args.output/'matrix.k'
-matrix.write_text('''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  matmul(a,b)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+matrix.write_text('''fn work(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return matmul(a,b)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,2,3]=tensor([[1,2,3],[4,5,6]])
-    b:Tensor[float32,3,2]=tensor([[1,0],[0,1],[1,1]])
+    a:Tensor[f32,2,3]=tensor([[1,2,3],[4,5,6]])
+    b:Tensor[f32,3,2]=tensor([[1,0],[0,1],[1,1]])
     left=try await transfer(a,gpu)
     right=try await transfer(b,gpu)
     result=try await spawn work(left,right) on gpu

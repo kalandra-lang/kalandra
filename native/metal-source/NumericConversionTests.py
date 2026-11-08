@@ -12,7 +12,7 @@ parser.add_argument('--variant',choices=('debug','optimized','sanitized','thread
 args=parser.parse_args()
 args.root.mkdir(parents=True,exist_ok=True)
 flags=[] if not args.variant else ['--target','metal',{'debug':'-O0','optimized':'-O2','sanitized':'--sanitize','thread-sanitized':'--thread-sanitize'}[args.variant]]
-names=('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')
+names=('i8','u8','i16','u16','i32','u32','i64','u64','f32','f64')
 widths=(8,8,16,16,32,32,64,64,32,64)
 programs=0
 
@@ -21,7 +21,7 @@ def check(source,target,kind='map',fault=False):
     width=widths[names.index(target)]
     scalar=kind=='scalar'
     empty=kind=='empty'
-    rank=8 if target=='float64' and not scalar else 1
+    rank=8 if target=='f64' and not scalar else 1
     shape=','.join(['?']*rank)
     argument=f'value:{source}' if scalar else f'values:Tensor[{source},{shape}],extra:{target}'
     result=target if scalar else f'Tensor[{target},{shape}]'
@@ -40,7 +40,7 @@ def check(source,target,kind='map',fault=False):
                       '    resident=try await transfer(values,gpu)\n')
         arguments='resident,'+('1e40' if fault else '1')
     text=(f'fn operation({argument})->{result}:\n'+''.join('  '+line+'\n' for line in body.splitlines())+
-          f'fn main()->{result} ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n'+construction+
+          f'fn main()->{result} ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n'+construction+
           f'    work=spawn operation({arguments}) on gpu\n    answer=try await work\n'+
           ('    answer\n' if scalar else '    try await transfer(answer,devices.cpu())\n'))
     path,destination=args.root/f'{source}-{target}-{kind}.k',args.root/f'{source}-{target}-{kind}'
@@ -49,7 +49,7 @@ def check(source,target,kind='map',fault=False):
     assert built.returncode==0,(path,built.returncode,built.stdout,built.stderr)
     if args.variant:
         def bits(value):
-            return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little') if target.startswith('float') else value
+            return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little') if target.startswith('f') else value
         values=[] if empty else [4] if scalar else [2,3,4]
         words=','.join(f'{bits(v):0{width//4}x}' for v in values)
         output=(words if scalar else '['+words+']')+'\n'
@@ -67,10 +67,10 @@ for source in names:
         # The algorithm proof independently executes every pair in all three
         # numerical modes. Full source coverage runs in debug; additional build
         # modes exercise every source/destination width through the float64 hub.
-        if not args.variant or args.variant=='debug' or 'float64' in (source,target):
+        if not args.variant or args.variant=='debug' or 'f64' in (source,target):
             check(source,target)
 for source,target in zip(names,names[1:]+names[:1]):
     check(source,target,'scalar')
-check('float64','int8','empty')
-check('float64','int8','empty',fault=True)
+check('f64','i8','empty')
+check('f64','i8','empty',fault=True)
 print(f'Typed GPU conversions: {programs} programs, heterogeneous packed/64-bit inputs, scalar packets, rank-eight outputs and empty checked faults passed')

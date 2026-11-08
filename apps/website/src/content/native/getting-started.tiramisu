@@ -10,8 +10,8 @@ h2 { "Run your first program" }
 
 Create an empty working directory and save the following in main.k:
 
-codeblock { language = kalandra, """fn main() -> int:
-  6 * 7
+codeblock { language = kalandra, """fn main() -> i64:
+  return 6 * 7
 """ }
 
 Open a terminal in that directory. On macOS or Linux, run:
@@ -58,14 +58,14 @@ The files are kalandra.toml, src/main.k and src/math.k. The entry module src/mai
 
 codeblock { language = kalandra, """from "./math.k" import double
 
-fn main() -> [int] ! TaskError:
-  try parallelMap([1, 2, 3], double)
+fn main() -> [i64] ! TaskError:
+  return try parallelMap([1, 2, 3], double)
 """ }
 
 The sibling src/math.k exports the function:
 
-codeblock { language = kalandra, """export fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """export fn double(value: i64) -> i64:
+  return value * 2
 """ }
 
 parallelMap preserves input order. TaskError represents failures of the parallel work; try propagates them from main instead of ignoring them. The tutorial introduces ordinary calls and arrays before explaining tasks and errors. Installing a GPU-enabled compiler does not move this CPU program to the GPU.

@@ -51,19 +51,19 @@ cases = {name: ((fixtures / (name + '.k')).read_text(), expected)
                                 ('tasks', 2538), ('functional', 239),
                                 ('recovery', 27), ('empty', 210), ('loops', 20160),
                                 ('yields', 62), ('yield-recovery', 42)]}
-for numeric in ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32',
-                'uint64', 'float32', 'float64'):
+for numeric in ('i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32',
+                'u64', 'f32', 'f64'):
     cases['element-' + numeric] = (f'''fn twice(values:Tensor[{numeric},?])->Tensor[{numeric},?]:
-  values+values
+  return values+values
 fn update(mut values:[{numeric}])->[{numeric}]:
   for index in range(length(values)):
     if index==0:
       values[index]={numeric}(7)
     else:
       continue
-  values
-fn main()->int ! TaskError:
-  try parallel:
+  return values
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=[{numeric}(3),{numeric}(1),{numeric}(2)]
     original=tensor(values)
     alias=update(values)
@@ -74,30 +74,30 @@ fn main()->int ! TaskError:
     resident=try await transfer(original,gpu)
     work=spawn twice(resident) on gpu
     host=try await transfer(try await work,devices.cpu())
-    int(reduceSum(host))+int(alias[0])*100+int(values[0])*10+length(values)
+    i64(reduceSum(host))+i64(alias[0])*100+i64(values[0])*10+length(values)
 ''', 806)
-    if numeric in ('float32', 'uint64'):
+    if numeric in ('f32', 'u64'):
         source, _ = cases['element-' + numeric]
         remote = f'''fn fresh(values:[{numeric}])->[{numeric}]:
   result=sorted(values)
   result[0]={numeric}(7)
   result
 fn remote(values:[{numeric}])->[{numeric}] ! TaskError:
-  try parallel:
+  return try parallel:
     try await spawn fresh(values) on devices.cpu()
 '''
-        source = source.replace('fn main()->int ! TaskError:', remote + 'fn main()->int ! TaskError:')
+        source = source.replace('fn main()->i64 ! TaskError:', remote + 'fn main()->i64 ! TaskError:')
         source = source.replace('    alias=update(values)',
                                 '    alias=update(values)\n    checkpoint=try await spawn remote(values) on devices.cpu()')
         source = source.replace('+length(values)', '+length(values)+int(checkpoint[0])')
         cases['element-' + numeric] = source, 813
 
-cases['kernel-local-mutation'] = ('''fn edit(values:Tensor[int,?])->Tensor[int,?]:
+cases['kernel-local-mutation'] = ('''fn edit(values:Tensor[i64,?])->Tensor[i64,?]:
   items=array(values)
   items[0]=7
-  tensor(items)
-fn main()->int ! TaskError:
-  try parallel:
+  return tensor(items)
+fn main()->i64 ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
     resident=try await transfer(tensor([1,2,3]),gpu)
     work=spawn edit(resident) on gpu
@@ -127,10 +127,10 @@ for name, (source, expected) in cases.items():
 
 # The same proof must apply before every backend's host lowering. Rejection
 # must leave an existing output directory untouched.
-read_only = '''fn read(values:[int])->int:
-  values[0]
-fn main()->int ! TaskError:
-  try parallel:
+read_only = '''fn read(values:[i64])->i64:
+  return values[0]
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=[3,1,2]
     alias=values
     task=spawn read(values) on devices.cpu()
@@ -139,11 +139,11 @@ fn main()->int ! TaskError:
 '''
 for name, source, diagnostic in (
     ('active-reader', read_only, 'S077'),
-    ('read-only-parameter', '''fn edit(values:[int])->int:
+    ('read-only-parameter', '''fn edit(values:[i64])->i64:
   values[0]=7
-  values[0]
-fn main()->int ! TaskError:
-  edit([1])
+  return values[0]
+fn main()->i64 ! TaskError:
+  return edit([1])
 ''', 'S077'),
 ):
     path, destination = args.root / (name + '.k'), args.root / name

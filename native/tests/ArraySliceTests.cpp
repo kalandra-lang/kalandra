@@ -14,11 +14,11 @@ int main() {
   try {
     const std::string record = "type Row:\n  text:[String]\n  values:[int]\n";
     for (auto element :
-         {"int32", "uint32", "int64", "uint64", "float32", "float64", "Bool", "String", "Row"})
-      for (auto bound : {"int32", "uint32", "int64", "uint64"}) {
+         {"i32", "u32", "i64", "u64", "f32", "f64", "bool", "String", "Row"})
+      for (auto bound : {"i32", "u32", "i64", "u64"}) {
         auto result =
             analyze(record + "fn part(values:[" + element + "],start:" + bound + ",end:" + bound +
-                    ")->[" + element + "]:\n  slice(values,start,end)\nfn main()->int:\n  0\n");
+                    ")->[" + element + "]:\n  slice(values,start,end)\nfn main()->i64:\n  0\n");
         require(result.ok(), "valid array/bound combination rejected");
         const auto id = result.module->functions[0].result;
         require(std::holds_alternative<ArraySlice>(result.module->expressions[id].operation),
@@ -34,13 +34,13 @@ int main() {
 #endif
       }
     for (const auto *source :
-         {"fn main()->[float32]:\n  slice([],0,0)\n", "fn main()->[float32]:\n  slice([1,2],0,1)\n",
-          "fn main():\n  [1,2,3]->slice(1,3)->map(fn(x):x*2)\n",
-          "fn main()->[Bool]:\n  slice([true,false],2,2)\n",
-          "fn main()->[String]:\n  slice([\"é\",\"👩\"],0,2)\n",
-          "fn main()->[int] ! TaskError:\n  try parallel:\n    work=spawn slice([1,2,3],1,3)\n    "
-          "a=try await work\n    b=try await work\n    map(a,fn(x):b[0]+x)\n",
-          "fn main():\n  slice(\"é👩\",0,1)\n"}) {
+         {"fn main()->[f32]:\n  return slice([],0,0)\n", "fn main()->[f32]:\n  return slice([1,2],0,1)\n",
+          "fn main():\n  return [1,2,3]->slice(1,3)->map(fn(x):return x*2)\n",
+          "fn main()->[bool]:\n  return slice([true,false],2,2)\n",
+          "fn main()->[String]:\n  return slice([\"é\",\"👩\"],0,2)\n",
+          "fn main()->[i64] ! TaskError:\n  return try parallel:\n    work=spawn slice([1,2,3],1,3)\n    "
+          "a=try await work\n    b=try await work\n    map(a,fn(x):return b[0]+x)\n",
+          "fn main():\n  return slice(\"é👩\",0,1)\n"}) {
       auto result = analyze(source);
       require(result.ok(), std::string("valid slice rejected: ") + source);
       require(bool(continuation::plan(*result.module)), "slice composition failed");
@@ -50,18 +50,18 @@ int main() {
 #endif
     }
     for (const auto *source :
-         {"fn main():\n  slice([1,2],-1,1)\n", "fn main():\n  slice([1,2],0,3)\n",
-          "fn main():\n  slice([1,2],2,1)\n", "fn main():\n  slice([1],2,2)\n",
-          "fn main():\n  slice([1],0,uint(18446744073709551615))\n",
-          "fn main():\n  slice([1],true,1)\n", "fn main():\n  slice([1],0,1.0)\n",
-          "fn main():\n  slice(tensor([1]),0,1)\n", "fn main():\n  slice([1],0)\n",
-          "fn main():\n  slice([],0,0)\n", "fn main():\n  slice([1],0,0)[0]\n",
-          "fn main()->[float32]:\n  values=[1,2]\n  slice(values,0,1)\n",
-          "fn main():\n  slice([\"a\"],0,1)->tensor()\n"})
+         {"fn main():\n  return slice([1,2],-1,1)\n", "fn main():\n  return slice([1,2],0,3)\n",
+          "fn main():\n  return slice([1,2],2,1)\n", "fn main():\n  return slice([1],2,2)\n",
+          "fn main():\n  return slice([1],0,u64(18446744073709551615))\n",
+          "fn main():\n  return slice([1],true,1)\n", "fn main():\n  return slice([1],0,1.0)\n",
+          "fn main():\n  return slice(tensor([1]),0,1)\n", "fn main():\n  return slice([1],0)\n",
+          "fn main():\n  return slice([],0,0)\n", "fn main():\n  return slice([1],0,0)[0]\n",
+          "fn main()->[f32]:\n  values=[1,2]\n  return slice(values,0,1)\n",
+          "fn main():\n  return slice([\"a\"],0,1)->tensor()\n"})
       require(!analyze(source).ok(), std::string("invalid slice accepted: ") + source);
     for (unsigned mode = 0; mode < 12; ++mode) {
-      auto result = analyze("fn part(values:[int],start:int,end:int)->[int]:\n  "
-                            "slice(values,start,end)\nfn main()->int:\n  0\n");
+      auto result = analyze("fn part(values:[i64],start:i64,end:i64)->[i64]:\n  return "
+                            "slice(values,start,end)\nfn main()->i64:\n  return 0\n");
       auto &node = result.module->expressions[result.module->functions[0].result];
       auto &op = std::get<ArraySlice>(node.operation);
       if (mode == 0)

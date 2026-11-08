@@ -13,49 +13,49 @@ CheckResult analyze(std::string text) {
   return check(parse(std::make_shared<SourceFile>("function-values.k", std::move(text))));
 }
 const std::string functions =
-    "fn double(value:int)->int:\n  value*2\n"
-    "fn triple(value:int)->int:\n  value*3\n"
-    "fn apply(value:int,transform:fn(int)->int)->int:\n  transform(value)\n"
-    "fn choose(flag:Bool)->fn(int)->int:\n  if flag:double\n  else:triple\n";
+    "fn double(value:i64)->i64:\n  return value*2\n"
+    "fn triple(value:i64)->i64:\n  return value*3\n"
+    "fn apply(value:i64,transform:fn(i64)->i64)->i64:\n  return transform(value)\n"
+    "fn choose(flag:bool)->fn(i64)->i64:\n  return if flag:double\n  else:triple\n";
 void positive() {
   for (const auto *body :
-       {"fn coordinate(value:int)->int:\n  run(value) catch fn(error):0\n"
-        "fn run(value:int)->int ! TaskError:\n  try parallel:\n    try await spawn double(value)\n"
-        "fn main()->int:\n  f=coordinate\n  f(1)\n",
-        "fn main()->int:\n  f=double\n  alias:fn(int)->int=f\n  alias(21)\n",
-        "fn main()->int ! TaskError:\n  f=double\n  try parallel:\n    result=try await spawn "
+       {"fn coordinate(value:i64)->i64:\n  return run(value) catch fn(error):return 0\n"
+        "fn run(value:i64)->i64 ! TaskError:\n  return try parallel:\n    try await spawn double(value)\n"
+        "fn main()->i64:\n  f=coordinate\n  return f(1)\n",
+        "fn main()->i64:\n  f=double\n  alias:fn(i64)->i64=f\n  return alias(21)\n",
+        "fn main()->i64 ! TaskError:\n  f=double\n  return try parallel:\n    result=try await spawn "
         "map([1],f)\n    result[0]\n",
-        "fn main()->int:\n  apply(14,choose(false))\n",
-        "fn main()->int:\n  choose(true)(21)\n",
-        "fn main()->int:\n  f=choose(false)\n  14->f\n",
-        "fn main()->int:\n  f=choose(true)\n  values=map([1,2,3],f)\n  values[2]\n",
-        "fn main()->int:\n  f=choose(true)\n  values=map([1,2,3],fn(value):f(value))\n  "
-        "values[2]\n",
-        "fn keep(f:fn(int)->int)->fn(int)->int:\n  f\n"
-        "fn main()->int:\n  keep(choose(false))(14)\n",
-        "fn factory()->fn(Bool)->fn(int)->int:\n  choose\n"
-        "fn main()->int:\n  factory()(false)(14)\n",
-        "fn worker(value:int)->int:\n  f=choose(false)\n  f(value)\n"
-        "fn main()->int ! TaskError:\n  try parallel:\n    try await spawn worker(14)\n",
-        "fn arrays(values:[int])->[int]:\n  values\nfn main()->int:\n  f:fn([int])->[int]=arrays\n "
-        " f([20,22])[0]\n",
-        "fn matrix(values:Tensor[float32,?,?])->Tensor[float32,?,?]:\n  values\nfn main()->int:\n  "
-        "f=matrix\n  result=f(tensor([[1,2]]))\n  0\n",
-        "fn texts(values:[String])->[String]:\n  values\nfn main()->int:\n  f=texts\n  "
+        "fn main()->i64:\n  return apply(14,choose(false))\n",
+        "fn main()->i64:\n  return choose(true)(21)\n",
+        "fn main()->i64:\n  f=choose(false)\n  return 14->f\n",
+        "fn main()->i64:\n  f=choose(true)\n  values=map([1,2,3],f)\n  return values[2]\n",
+        "fn main()->i64:\n  f=choose(true)\n  values=map([1,2,3],fn(value):return f(value))\n  "
+        "return values[2]\n",
+        "fn keep(f:fn(i64)->i64)->fn(i64)->i64:\n  return f\n"
+        "fn main()->i64:\n  return keep(choose(false))(14)\n",
+        "fn factory()->fn(bool)->fn(i64)->i64:\n  return choose\n"
+        "fn main()->i64:\n  return factory()(false)(14)\n",
+        "fn worker(value:i64)->i64:\n  f=choose(false)\n  return f(value)\n"
+        "fn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn worker(14)\n",
+        "fn arrays(values:[i64])->[i64]:\n  return values\nfn main()->i64:\n  f:fn([i64])->[i64]=arrays\n "
+        " return f([20,22])[0]\n",
+        "fn matrix(values:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  return values\nfn main()->i64:\n  "
+        "f=matrix\n  result=f(tensor([[1,2]]))\n  return 0\n",
+        "fn texts(values:[String])->[String]:\n  return values\nfn main()->i64:\n  f=texts\n  return "
         "length(f([\"é\"])[0])\n",
-        "fn flags(values:[Bool])->[Bool]:\n  values\nfn main()->int:\n  f=flags\n  if "
+        "fn flags(values:[bool])->[bool]:\n  return values\nfn main()->i64:\n  f=flags\n  return if "
         "f([true])[0]:42\n  else:0\n",
-        "type Row:\n  value:int\nfn rows(values:[Row])->[Row]:\n  values\nfn main()->int:\n  "
-        "f=rows\n  f([Row {value:42}])[0].value\n",
-        "fn arrays(values:[int])->[int]:\n  values\nfn worker(values:[int])->[int]:\n  f=arrays\n  "
-        "f(values)\nfn main()->int ! TaskError:\n  try parallel:\n    work=spawn worker([42])\n    "
+        "type Row:\n  value:i64\nfn rows(values:[Row])->[Row]:\n  return values\nfn main()->i64:\n  "
+        "f=rows\n  return f([Row {value:42}])[0].value\n",
+        "fn arrays(values:[i64])->[i64]:\n  return values\nfn worker(values:[i64])->[i64]:\n  f=arrays\n  return "
+        "f(values)\nfn main()->i64 ! TaskError:\n  return try parallel:\n    work=spawn worker([42])\n    "
         "result=try await work\n    result[0]\n",
-        "fn pair(value:int):\n  [value,value]\nfn three(value:int):\n  [value,value,value]\nfn "
-        "select(flag:Bool)->fn(int)->[int]:\n  if flag:pair\n  else:three\nfn main()->int:\n  "
-        "f:fn(int)->[int]=select(false)\n  result=f(14)\n  result[0]+result[1]+result[2]\n",
-        "fn keep(values:Tensor[int])->Tensor[int]:\n  values\nfn scalar(value:int):\n  "
-        "reshape(tensor([value]),[])\nfn main()->int:\n  f=keep\n  g=scalar\n  f(g(42))[]\n",
-        "fn answer()->int:\n  42\nfn main()->int:\n  f=answer\n  f()\n"}) {
+        "fn pair(value:i64):\n  return [value,value]\nfn three(value:i64):\n  return [value,value,value]\nfn "
+        "select(flag:bool)->fn(i64)->[i64]:\n  return if flag:pair\n  else:three\nfn main()->i64:\n  "
+        "f:fn(i64)->[i64]=select(false)\n  result=f(14)\n  return result[0]+result[1]+result[2]\n",
+        "fn keep(values:Tensor[i64])->Tensor[i64]:\n  return values\nfn scalar(value:i64):\n  return "
+        "reshape(tensor([value]),[])\nfn main()->i64:\n  f=keep\n  g=scalar\n  return f(g(42))[]\n",
+        "fn answer()->i64:\n  return 42\nfn main()->i64:\n  f=answer\n  return f()\n"}) {
     auto checked = analyze(functions + body);
     if (!checked.ok())
       for (const auto &diagnostic : checked.diagnostics)
@@ -73,19 +73,19 @@ void positive() {
   }
 }
 void mutationContracts() {
-  const std::string declarations = "fn inspect(mut values:[int])->int:\n  length(values)\n"
-                                   "fn read(values:[int])->int:\n  length(values)\n";
+  const std::string declarations = "fn inspect(mut values:[i64])->i64:\n  return length(values)\n"
+                                   "fn read(values:[i64])->i64:\n  return length(values)\n";
   for (const auto *body : {
-           "fn main()->int:\n  f:fn(mut [int])->int=inspect\n  f([42])\n",
-           "fn main()->int:\n  f:fn(mut [int])->int=fn(mut values):length(values)\n  f([42])\n",
-           "fn factory()->fn(mut [int])->int:\n  inspect\nfn main()->int:\n  factory()([42])\n",
-           "type Editor:\n  edit:fn(mut [int])->int\nfn main()->int:\n  "
-           "editor=Editor {edit:inspect}\n  editor.edit([42])\n",
-           "fn main()->int:\n  callbacks:[fn(mut [int])->int]=[inspect]\n  callbacks[0]([42])\n",
-           "fn capture(mut values:[int])->fn()->int:\n  fn():length(values)\n"
-           "fn main()->int:\n  capture([42])()\n",
-           "fn flags(mut values:[Bool])->int:\n  length(values)\n"
-           "fn main()->int:\n  flags([true])\n",
+           "fn main()->i64:\n  f:fn(mut [i64])->i64=inspect\n  return f([42])\n",
+           "fn main()->i64:\n  f:fn(mut [i64])->i64=fn(mut values):return length(values)\n  return f([42])\n",
+           "fn factory()->fn(mut [i64])->i64:\n  return inspect\nfn main()->i64:\n  return factory()([42])\n",
+           "type Editor:\n  edit:fn(mut [i64])->i64\nfn main()->i64:\n  "
+           "editor=Editor {edit:inspect}\n  return editor.edit([42])\n",
+           "fn main()->i64:\n  callbacks:[fn(mut [i64])->i64]=[inspect]\n  return callbacks[0]([42])\n",
+           "fn capture(mut values:[i64])->fn()->i64:\n  return fn():return length(values)\n"
+           "fn main()->i64:\n  return capture([42])()\n",
+           "fn flags(mut values:[bool])->i64:\n  return length(values)\n"
+           "fn main()->i64:\n  return flags([true])\n",
        }) {
     auto checked = analyze(declarations + body);
     require(checked.ok(), "valid mutating array contract rejected");
@@ -98,20 +98,20 @@ void mutationContracts() {
                 "capture inherited caller write permission");
   }
   for (const auto *body : {
-           "fn main()->int:\n  f:fn([int])->int=inspect\n  0\n",
-           "fn main()->int:\n  f:fn(mut [int])->int=read\n  0\n",
-           "fn main()->int:\n  callbacks=[inspect,read]\n  0\n",
-           "fn main()->int:\n  f:fn(mut [int])->int=fn(values):length(values)\n  0\n",
-           "fn bad(mut value:int)->int:\n  value\nfn main()->int:\n  0\n",
-           "fn bad(mut value:[String])->int:\n  length(value)\nfn main()->int:\n  0\n",
-           "fn bad(mut value:Tensor[int,2])->int:\n  0\nfn main()->int:\n  0\n",
-           "fn main()->int:\n  f:fn(mut int)->int=read\n  0\n",
-           "fn main()->int:\n  f:fn(mut [String])->int=read\n  0\n",
+           "fn main()->i64:\n  f:fn([i64])->i64=inspect\n  return 0\n",
+           "fn main()->i64:\n  f:fn(mut [i64])->i64=read\n  return 0\n",
+           "fn main()->i64:\n  callbacks=[inspect,read]\n  return 0\n",
+           "fn main()->i64:\n  f:fn(mut [i64])->i64=fn(values):return length(values)\n  return 0\n",
+           "fn bad(mut value:i64)->i64:\n  return value\nfn main()->i64:\n  return 0\n",
+           "fn bad(mut value:[String])->i64:\n  return length(value)\nfn main()->i64:\n  return 0\n",
+           "fn bad(mut value:Tensor[i64,2])->i64:\n  return 0\nfn main()->i64:\n  return 0\n",
+           "fn main()->i64:\n  f:fn(mut i64)->i64=read\n  return 0\n",
+           "fn main()->i64:\n  f:fn(mut [String])->i64=read\n  return 0\n",
        })
     require(!analyze(declarations + body).ok(),
             "mut contract erased or unsupported storage admitted");
 
-  auto checked = analyze(declarations + "fn main()->int:\n  f=inspect\n  0\n");
+  auto checked = analyze(declarations + "fn main()->i64:\n  f=inspect\n  return 0\n");
   require(checked.ok(), "mut signature forgery fixture rejected");
   bool forged = false;
   for (auto &expression : checked.module->expressions)
@@ -128,37 +128,37 @@ void mutationContracts() {
 }
 void negative() {
   for (const auto *body :
-       {"fn main()->int:\n  f:fn(float)->float=double\n  0\n",
-        "fn main()->int:\n  f=double\n  f()\n", "fn main()->int:\n  f=double\n  f(\"bad\")\n",
-        "fn main()->int:\n  f=double\n  f(1,2)\n",
-        "fn bad(value:float)->float:\n  value\n"
-        "fn main()->int:\n  f=if true:double\n  else:bad\n  0\n",
-        "fn main()->int:\n  f=fn(value):value+1\n  f(1)\n",
-        "type Holder:\n  callback:fn(int)->int\nfn main()->int:\n  holder=Holder {callback:0}\n  "
-        "0\n",
-        "fn main()->int:\n  values=[double,fn(value:float):value]\n  0\n",
+       {"fn main()->i64:\n  f:fn(f64)->f64=double\n  return 0\n",
+        "fn main()->i64:\n  f=double\n  return f()\n", "fn main()->i64:\n  f=double\n  return f(\"bad\")\n",
+        "fn main()->i64:\n  f=double\n  return f(1,2)\n",
+        "fn bad(value:f64)->f64:\n  return value\n"
+        "fn main()->i64:\n  f=if true:double\n  else:bad\n  return 0\n",
+        "fn main()->i64:\n  f=fn(value):return value+1\n  return f(1)\n",
+        "type Holder:\n  callback:fn(i64)->i64\nfn main()->i64:\n  holder=Holder {callback:0}\n  "
+        "return 0\n",
+        "fn main()->i64:\n  values=[double,fn(value:f64):return value]\n  return 0\n",
 
-        "fn arrays(values:[int])->[int]:\n  values\nfn main()->int:\n  "
-        "f:fn(Tensor[int,?])->[int]=arrays\n  0\n",
-        "fn matrix(values:Tensor[int,2])->Tensor[int,2]:\n  values\nfn main()->int:\n  "
-        "f:fn(Tensor[int,?])->Tensor[int,2]=matrix\n  0\n",
-        "fn matrix(values:Tensor[int,2])->Tensor[int,2]:\n  values\nfn main()->int:\n  f=matrix\n  "
-        "result=f(tensor([1,2,3]))\n  0\n",
-        "fn matrix(values:Tensor[int,?,?])->Tensor[int,?,?]:\n  values\nfn main()->int:\n  "
-        "f=matrix\n  result=f(tensor([1,2]))\n  0\n",
-        "fn texts(values:[String])->[String]:\n  values\nfn main()->int:\n  f=texts\n  "
-        "result=f([1])\n  0\n",
-        "type A:\n  value:int\ntype B:\n  value:int\nfn arrays(values:[A])->[A]:\n  values\nfn "
-        "main()->int:\n  f:fn([B])->[B]=arrays\n  0\n",
-        "type A:\n  value:int\ntype B:\n  value:int\n"
-        "fn read(value:A)->int:\n  value.value\n"
-        "fn main()->int:\n  f:fn(B)->int=read\n  0\n"}) {
+        "fn arrays(values:[i64])->[i64]:\n  return values\nfn main()->i64:\n  "
+        "f:fn(Tensor[i64,?])->[i64]=arrays\n  return 0\n",
+        "fn matrix(values:Tensor[i64,2])->Tensor[i64,2]:\n  return values\nfn main()->i64:\n  "
+        "f:fn(Tensor[i64,?])->Tensor[i64,2]=matrix\n  return 0\n",
+        "fn matrix(values:Tensor[i64,2])->Tensor[i64,2]:\n  return values\nfn main()->i64:\n  f=matrix\n  "
+        "result=f(tensor([1,2,3]))\n  return 0\n",
+        "fn matrix(values:Tensor[i64,?,?])->Tensor[i64,?,?]:\n  return values\nfn main()->i64:\n  "
+        "f=matrix\n  result=f(tensor([1,2]))\n  return 0\n",
+        "fn texts(values:[String])->[String]:\n  return values\nfn main()->i64:\n  f=texts\n  "
+        "result=f([1])\n  return 0\n",
+        "type A:\n  value:i64\ntype B:\n  value:i64\nfn arrays(values:[A])->[A]:\n  return values\nfn "
+        "main()->i64:\n  f:fn([B])->[B]=arrays\n  return 0\n",
+        "type A:\n  value:i64\ntype B:\n  value:i64\n"
+        "fn read(value:A)->i64:\n  return value.value\n"
+        "fn main()->i64:\n  f:fn(B)->i64=read\n  return 0\n"}) {
     auto checked = analyze(functions + body);
     require(!checked.ok(), "invalid signature, capture or execution boundary accepted");
   }
 }
 void forged() {
-  auto checked = analyze(functions + "fn main()->int:\n  f=double\n  f(21)\n");
+  auto checked = analyze(functions + "fn main()->i64:\n  f=double\n  return f(21)\n");
   require(checked.ok(), "forged IR fixture rejected");
   for (unsigned mode = 0; mode < 10; ++mode) {
     auto module = *checked.module;
@@ -203,8 +203,8 @@ void forged() {
 }
 void collectionShapes() {
   auto checked =
-      analyze("fn varying(value:int)->Tensor[int,?]:\n  if value==0:tensor([1])\n"
-              "  else:tensor([2,3])\nfn main()->int:\n  f=varying\n  a=f(0)\n  b=f(1)\n  0\n");
+      analyze("fn varying(value:i64)->Tensor[i64,?]:\n  return if value==0:tensor([1])\n"
+              "  else:tensor([2,3])\nfn main()->i64:\n  f=varying\n  a=f(0)\n  b=f(1)\n  return 0\n");
   require(checked.ok(), "dynamic callable result fixture rejected");
   std::vector<ExtentId> extents;
   for (const auto &expression : checked.module->expressions)
@@ -215,8 +215,8 @@ void collectionShapes() {
     }
   require(extents.size() == 2 && extents[0] && extents[1] && extents[0] != extents[1],
           "indirect results falsely share a dynamic shape identity");
-  auto arrays = analyze("fn copy(values:[int])->[int]:\n  values\n"
-                        "fn main()->int:\n  f=copy\n  result=f([20,22])\n  result[0]\n");
+  auto arrays = analyze("fn copy(values:[i64])->[i64]:\n  return values\n"
+                        "fn main()->i64:\n  f=copy\n  result=f([20,22])\n  return result[0]\n");
   require(arrays.ok(), "collection IR fixture rejected");
   for (unsigned mode = 0; mode < 7; ++mode) {
     auto module = *arrays.module;

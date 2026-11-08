@@ -1,21 +1,21 @@
-fn choose(a: Tensor[float32, 3], b: Tensor[float32, 3], factor: float32) -> Tensor[float32, 3]:
-  if factor > 0:
+fn choose(a: Tensor[f32, 3], b: Tensor[f32, 3], factor: f32) -> Tensor[f32, 3]:
+  return if factor > 0:
     a * factor
   else:
     b / factor
 
-fn normalize(a: Tensor[float32, 3], b: Tensor[float32, 3], threshold: float32) -> Tensor[float32, 3]:
+fn normalize(a: Tensor[f32, 3], b: Tensor[f32, 3], threshold: f32) -> Tensor[f32, 3]:
   total = reduceSum(a)
-  if total > threshold:
+  return if total > threshold:
     a / total
   else:
     b * threshold
 
-fn main() -> Tensor[float32, 3] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, 3] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    a: Tensor[float32, 3] = tensor([1, 2, 3])
-    b: Tensor[float32, 3] = tensor([4, 5, 6])
+    a: Tensor[f32, 3] = tensor([1, 2, 3])
+    b: Tensor[f32, 3] = tensor([4, 5, 6])
     x = try await transfer(a, gpu)
     y = try await transfer(b, gpu)
     first = try await spawn choose(x, y, 2) on gpu

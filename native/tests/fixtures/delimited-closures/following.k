@@ -1,7 +1,7 @@
-fn main()->int:
-  offset:int=10
+fn main()->i64:
+  offset:i64=10
   values=map([10,12],fn(value):
     shifted=value+offset
-    shifted
+    return shifted
   )
-  values[0]+values[1]
+  return values[0]+values[1]

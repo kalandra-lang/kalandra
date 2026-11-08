@@ -1,11 +1,11 @@
 error E:
   Bad
-fn factory()->fn(int)->int ! E:
-  descend
-fn descend(n:int)->int ! E:
+fn factory()->fn(i64)->i64 ! E:
+  return descend
+fn descend(n:i64)->i64 ! E:
   if n==0:fail E.Bad
   next=factory()
-  try next(n-1)
-fn main()->int:
+  return try next(n-1)
+fn main()->i64:
   callback=factory()
-  callback(20) catch fn(error):42
+  return callback(20) catch fn(error):return 42

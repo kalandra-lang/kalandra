@@ -27,8 +27,8 @@ def run(command, expected=0, output=None, env=None):
 
 cases = 0
 for rank in range(3, 9):
-    dynamic = "Tensor[float32," + ",".join(["?"] * rank) + "]"
-    fixed = "Tensor[float32," + ",".join(["1"] * (rank - 1) + ["3"]) + "]"
+    dynamic = "Tensor[f32," + ",".join(["?"] * rank) + "]"
+    fixed = "Tensor[f32," + ",".join(["1"] * (rank - 1) + ["3"]) + "]"
     data = "[1,2,3]"
     for _ in range(rank - 1):
         data = "[" + data + "]"
@@ -42,7 +42,7 @@ for rank in range(3, 9):
         ("empty-feedback", "values / reduceSum(values)", False, "[]\n"),
         ("choice", "if reduceSum(values) > 0:\n    values + 1\n  else:\n    values - 1", False, "[40000000,40400000,40800000]\n"),
     ):
-        result = "float32" if scalar else dynamic
+        result = "f32" if scalar else dynamic
         literal, dimensions = data, fixed
         if name.startswith("empty-"):
             literal = "[]"
@@ -73,7 +73,7 @@ for rank in range(3, 9):
     other = "[[1],[2],[3]]"
     for _ in range(rank - 2):
         other = "[" + other + "]"
-    other_type = "Tensor[float32," + ",".join(["1"] * (rank - 2) + ["3", "1"]) + "]"
+    other_type = "Tensor[f32," + ",".join(["1"] * (rank - 2) + ["3", "1"]) + "]"
     source = (f"fn identity(values:{dynamic})->{dynamic}:\n  values\n"
               f"fn add(a:{dynamic},b:{dynamic})->{dynamic}:\n  a+b\n"
               f"fn main()->{dynamic} ! TaskError:\n  try parallel:\n"

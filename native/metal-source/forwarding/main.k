@@ -1,12 +1,12 @@
 from "./public.k" import project, reversed, total, square
 from "./operations.k" import vectorTotal
 
-fn main() -> float32 ! TaskError:
-  try parallel:
+fn main() -> f32 ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    input: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
-    weights: Tensor[float32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])
-    vector: Tensor[float32, 3] = tensor([1, 2, 3])
+    input: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    weights: Tensor[f32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])
+    vector: Tensor[f32, 3] = tensor([1, 2, 3])
     a = try await transfer(input, gpu)
     b = try await transfer(weights, gpu)
     v = try await transfer(vector, gpu)

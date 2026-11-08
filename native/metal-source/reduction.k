@@ -1,18 +1,18 @@
-fn total(values: Tensor[float32, ?]) -> float32:
-  reduceSum(values)
+fn total(values: Tensor[f32, ?]) -> f32:
+  return reduceSum(values)
 
-fn scale(values: Tensor[float32, ?], factor: float32) -> Tensor[float32, ?]:
-  values * factor
+fn scale(values: Tensor[f32, ?], factor: f32) -> Tensor[f32, ?]:
+  return values * factor
 
-fn finish(value: float32) -> float32:
-  value + 1
+fn finish(value: f32) -> f32:
+  return value + 1
 
-fn matrixTotal(values: Tensor[float32, ?, ?]) -> float32:
-  reduceSum(values)
+fn matrixTotal(values: Tensor[f32, ?, ?]) -> f32:
+  return reduceSum(values)
 
-fn main() -> float32 ! TaskError:
-  try parallel:
-    values: Tensor[float32, 5] = tensor([1, 2, 3, 4, 5])
+fn main() -> f32 ! TaskError:
+  return try parallel:
+    values: Tensor[f32, 5] = tensor([1, 2, 3, 4, 5])
     local = total(values)
     gpu = devices.gpu()
     uploaded = try await transfer(values, gpu)

@@ -52,7 +52,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_FAIL_ALLOC_AT=2
 if(NOT "${STATUS}" STREQUAL "88" OR NOT STDOUT STREQUAL "" OR NOT STDERR MATCHES "TaskError.Fault")
   message(FATAL_ERROR "Nested fallible task did not preserve TaskError: ${STATUS}: ${STDOUT}${STDERR}")
 endif()
-set(QUOTA_SOURCE "fn identity(x: float32) -> float32:\n  x\nfn main() -> float32 ! TaskError:\n  try parallel:\n")
+set(QUOTA_SOURCE "fn identity(x: f32) -> f32:\n  return x\nfn main() -> f32 ! TaskError:\n  return try parallel:\n")
 foreach(INDEX RANGE 0 128)
   string(APPEND QUOTA_SOURCE "    job${INDEX} = spawn identity(1)\n")
 endforeach()

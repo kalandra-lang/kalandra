@@ -27,16 +27,16 @@ entry = "src/public.k"
 
 Save the public module as geometry/src/public.k:
 
-codeblock { language = kalandra, """export fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """export fn double(value: i64) -> i64:
+  return value * 2
 """ }
 
 Save the application as my-app/src/main.k:
 
 codeblock { language = kalandra, """from "geometry" import double
 
-fn main() -> int:
-  double(21)
+fn main() -> i64:
+  return double(21)
 """ }
 
 Initialize a local Git repository, commit its files, then write the application manifest with the library's canonical absolute path. The identity settings apply only to this example commit:

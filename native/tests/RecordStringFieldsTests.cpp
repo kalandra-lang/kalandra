@@ -15,17 +15,17 @@ int main() {
     const std::string decl =
         "type Inner:\n  text:String\n  count:int\ntype Box:\n  inner:Inner\n  copy:String\n";
     for (const auto *body :
-         {"fn echo(box:Box)->Box:\n  box\nfn main():\n  echo(Box {inner:Inner "
+         {"fn echo(box:Box)->Box:\n  return box\nfn main():\n  return echo(Box {inner:Inner "
           "{text:\"é\",count:1},copy:\"\"}).inner.text\n",
-          "fn make()->Box:\n  Box {inner:Inner {text:\"سلام\",count:1},copy:\"👩\\0\"}\nfn "
-          "change(box:Box)->Box:\n  box with {inner:box.inner with "
+          "fn make()->Box:\n  return Box {inner:Inner {text:\"سلام\",count:1},copy:\"👩\\0\"}\nfn "
+          "change(box:Box)->Box:\n  return box with {inner:box.inner with "
           "{text:box.inner.text+\"!\"}}\nfn main()->String ! TaskError:\n  box=try parallel:\n    "
-          "try await spawn change(make())\n  box.inner.text\n",
+          "try await spawn change(make())\n  return box.inner.text\n",
           "fn main():\n  box=Box {inner:Inner {text:\"a\",count:1},copy:\"b\"}\n  "
-          "map([1,2],fn(x):length(box.inner.text)+x)\n",
-          "fn echo(rows:[Box])->[Box]:\n  map(rows,fn(box):box with {copy:box.inner.text})\nfn "
-          "main()->int ! TaskError:\n  rows=try parallel:\n    try await spawn echo([Box "
-          "{inner:Inner {text:\"é\",count:1},copy:\"\"}])\n  length(rows[0].copy)\n"}) {
+          "return map([1,2],fn(x):return length(box.inner.text)+x)\n",
+          "fn echo(rows:[Box])->[Box]:\n  return map(rows,fn(box):return box with {copy:box.inner.text})\nfn "
+          "main()->i64 ! TaskError:\n  rows=try parallel:\n    try await spawn echo([Box "
+          "{inner:Inner {text:\"é\",count:1},copy:\"\"}])\n  return length(rows[0].copy)\n"}) {
       auto value = analyze(decl + body);
       if (!value.ok())
         for (const auto &d : value.diagnostics)
@@ -43,14 +43,14 @@ int main() {
 #endif
     }
     for (const auto *source :
-         {"type Row:\n  text:String\nfn main():\n  Row {text:1}\n",
-          "type Row:\n  text:String\nfn main():\n  Row {text:true}\n",
-          "type Row:\n  text:String\nfn main():\n  row=Row {text:\"a\"}\n  row with {text:[1]}\n",
-          "type Row:\n  text:String\nfn main():\n  Row {}\n",
-          "type Row:\n  text:Tensor[String,2]\nfn main():\n  0\n",
-          "type Row:\n  text:String\n  next:Row\nfn main():\n  0\n"})
+         {"type Row:\n  text:String\nfn main():\n  return Row {text:1}\n",
+          "type Row:\n  text:String\nfn main():\n  return Row {text:true}\n",
+          "type Row:\n  text:String\nfn main():\n  row=Row {text:\"a\"}\n  return row with {text:[1]}\n",
+          "type Row:\n  text:String\nfn main():\n  return Row {}\n",
+          "type Row:\n  text:Tensor[String,2]\nfn main():\n  return 0\n",
+          "type Row:\n  text:String\n  next:Row\nfn main():\n  return 0\n"})
       require(!analyze(source).ok(), "invalid String field or String-element array admitted");
-    const std::string simple = "type Row:\n  text:String\nfn main():\n  0\n";
+    const std::string simple = "type Row:\n  text:String\nfn main():\n  return 0\n";
     auto valid = analyze(simple);
     require(valid.ok() && hasOrdinaryStrings(*valid.module), "unused String schema not tracked");
     for (unsigned mode = 0; mode < 8; ++mode) {

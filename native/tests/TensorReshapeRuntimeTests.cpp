@@ -149,7 +149,7 @@ static void verify(InputShape inputShape, OutputShape outputShape, unsigned layo
     if (expected) {
       require(!output.allocated && !output.aligned, "failed reshape exposed partial tensor");
       if (error) {
-        require(context.line() == 2 && context.column() == 3, "reshape validation lost source");
+        require(context.line() == 2 && context.column() == 10, "reshape validation lost source");
         require(!context.allocations(), "reshape validated after allocation");
       }
     } else {

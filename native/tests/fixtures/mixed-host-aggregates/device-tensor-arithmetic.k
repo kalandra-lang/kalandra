@@ -1,4 +1,4 @@
-fn entry(n:int)->int:
+fn entry(n:i64)->i64:
   raw=[7,11,17,19]
   columns=4/n
   grid=tensor(raw,[n,columns])
@@ -7,16 +7,16 @@ fn entry(n:int)->int:
   flat=array(rotated)
   flat[0]=99
   dims=shape(grid)
-  grid[0,0]+rotated[0,0]+flat[0]+dims[0]*10+dims[1]
-fn run(n:int)->int ! TaskError:
-  try parallel:
+  return grid[0,0]+rotated[0,0]+flat[0]+dims[0]*10+dims[1]
+fn run(n:i64)->i64 ! TaskError:
+  return try parallel:
     try await spawn entry(n) on devices.gpu()
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   invalid=run(3) catch fn(error):
-    match error:
+    return match error:
       TaskError.Fault {kind}:
         match kind:
           FaultKind.Shape:1000
           _:0
       _:0
-  (try run(1))+(try run(2))+(try run(4))+invalid
+  return (try run(1))+(try run(2))+(try run(4))+invalid

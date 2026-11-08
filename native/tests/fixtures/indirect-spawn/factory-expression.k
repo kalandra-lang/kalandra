@@ -1,8 +1,8 @@
-fn double(value:int)->int:
-  value*2
-fn make(offset:int)->fn(int)->int:
+fn double(value:i64)->i64:
+  return value*2
+fn make(offset:i64)->fn(i64)->i64:
   values=[offset]
-  fn(value:int):values[0]+value
-fn main()->int ! TaskError:
-  try parallel:
+  return fn(value:i64):return values[0]+value
+fn main()->i64 ! TaskError:
+  return try parallel:
     try await spawn make(40)(2)

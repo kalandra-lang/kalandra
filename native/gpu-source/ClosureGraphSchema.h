@@ -106,8 +106,7 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
         : deviceTensorValue(type)
             ? runtime::DeviceHeapBlockABI::tensorLayout(type.element, type.shape.size())
         : type.record ? runtime::DeviceHeapBlockABI::nominalLayout(*type.record, type.array)
-                      : runtime::DeviceArrayWireABI::layout(type.element,
-                                                            type.builtin == BuiltinValue::Bool));
+                      : runtime::DeviceArrayWireABI::layout(type.element, isBooleanStorage(type)));
     return out.graph.layouts.size();
   };
   for (const auto &root : roots) {
@@ -117,7 +116,7 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
     out.graph.roots.push_back(id);
   }
   const auto scalarRule = [](const ValueType &type) {
-    if (type.builtin == BuiltinValue::Bool)
+    if (isBooleanStorage(type))
       return runtime::DeviceGraphCell{1};
     const auto bits = describeNumeric(type.element)->bits;
     return runtime::DeviceGraphCell{bits == 64 ? UINT64_MAX : (UINT64_C(1) << bits) - 1};
@@ -168,7 +167,8 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
       auto &cell = cells[first + node.deviceWord];
       cell.nativeOffset = offsets[leaf];
       cell.nativeBytes = field.nativeBytes;
-      if (node.boxed || node.type.array || deviceCallableValue(node.type) || deviceTensorValue(node.type)) {
+      if (node.boxed || node.type.array || deviceCallableValue(node.type) ||
+          deviceTensorValue(node.type)) {
         cell.rule.target = schedule(node.type);
         cell.rule.nullable = node.type.array;
         if (!cell.rule.target)
@@ -256,10 +256,8 @@ planClosureGraphSchema(const TypedModule &input, std::span<const ValueType> root
         stride = native[*element.record].nativeBytes;
         alignment = native[*element.record].nativeAlignment;
       } else {
-        stride =
-            element.builtin == BuiltinValue::Bool ? 1 : describeNumeric(element.element)->bytes();
-        alignment =
-            element.builtin == BuiltinValue::Bool ? 1 : *runtime::numericAlignment(element.element);
+        stride = isBooleanStorage(element) ? 1 : describeNumeric(element.element)->bytes();
+        alignment = isBooleanStorage(element) ? 1 : *runtime::numericAlignment(element.element);
       }
       if (!append(element, 0, stride, cells))
         return reject("closure graph value has unsupported storage or exceeds its work budget");

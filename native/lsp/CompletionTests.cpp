@@ -22,58 +22,58 @@ static bool has(const lsp::CompletionInfo &info, const std::string &name) {
 }
 int main() {
   try {
-    auto loopNames = query("fn main()->int:\n  for item in range(3):\n    it|\n  0\n");
+    auto loopNames = query("fn main()->i64:\n  for item in range(3):\n    it|\n  0\n");
     require(has(loopNames, "item"), "for binding is missing from its body scope");
-    auto loopExit = query("fn main()->int:\n  while true:\n    br|\n  0\n");
+    auto loopExit = query("fn main()->i64:\n  while true:\n    br|\n  0\n");
     require(has(loopExit, "break"), "loop exit keyword completion");
-    auto loopContinue = query("fn main()->int:\n  for item in [1]:\n    cont|\n  0\n");
+    auto loopContinue = query("fn main()->i64:\n  for item in [1]:\n    cont|\n  0\n");
     require(has(loopContinue, "continue"), "loop continue keyword completion");
     auto collectingYield =
-        query("fn main()->[int]:\n  values=for item in range(3):\n    yi|\n  values\n");
+        query("fn main()->[i64]:\n  values=for item in range(3):\n    yi|\n  values\n");
     require(has(collectingYield, "yield"), "collecting loop yield completion");
-    auto outerNames = query("fn main()->int:\n  for item in [1]:\n    item+1\n  it|\n");
+    auto outerNames = query("fn main()->i64:\n  for item in [1]:\n    item+1\n  it|\n");
     require(!has(outerNames, "item"), "for binding escaped its body scope");
 
     auto generator = query("fn main():\n  gen|(4,fn(i):i)\n");
     require(has(generator, "generate"), "generator builtin completion");
-    generator = query("fn main():\n  offset=3\n  generate(4,fn(index:int): off|)\n");
+    generator = query("fn main():\n  offset=3\n  generate(4,fn(index:i64): off|)\n");
     require(has(generator, "offset"), "generator callback capture completion");
     auto info = query("fn main():\n  earlier = 2\n  ear|ly\n  later = 3\n  later\n");
     require(has(info, "earlier") && info.names.size() == 1, "partial prefix and suffix");
     require(info.replacement.end - info.replacement.begin == 5, "whole identifier replacement");
     info = query(
-        "fn helper(value:int):\n  value\nfn main():\n  earlier = 2\n  |\n  later = 3\n  later\n");
+        "fn helper(value:i64):\n  value\nfn main():\n  earlier = 2\n  |\n  later = 3\n  later\n");
     require(has(info, "earlier") && has(info, "helper") && !has(info, "later"), "binding order");
-    info = query("fn helper(value:int):\n  val|\nfn main():\n  0\n");
+    info = query("fn helper(value:i64):\n  val|\nfn main():\n  0\n");
     require(has(info, "value") && info.names[0].kind == ScopeNameKind::Parameter, "parameter");
-    info = query("fn helper(value:int):\n  value\nfn main():\n  hel|(2)\n");
+    info = query("fn helper(value:i64):\n  value\nfn main():\n  hel|(2)\n");
     require(has(info, "helper"), "call callee");
-    info = query("fn helper(value:int):\n  value\nfn main():\n  2 -> hel|\n");
+    info = query("fn helper(value:i64):\n  value\nfn main():\n  2 -> hel|\n");
     require(has(info, "helper"), "pipeline callee");
     info =
-        query("fn main():\n  earlier = 1\n  values = [1, 2]\n  map(values, fn(value:int): ear|)\n");
+        query("fn main():\n  earlier = 1\n  values = [1, 2]\n  map(values, fn(value:i64): ear|)\n");
     require(has(info, "earlier"), "lambda captures");
     info = query(
         "fn main():\n  visible = 1\n  if true:\n    hidden = 1\n    hidden\n  else:\n    |\n");
     require(has(info, "visible") && !has(info, "hidden"), "branch isolation");
-    info = query("fn helper(value:int):\n  value\nfn main():\n  map([1,2], hel|)\n");
+    info = query("fn helper(value:i64):\n  value\nfn main():\n  map([1,2], hel|)\n");
     require(has(info, "helper"), "named map callback");
-    info = query("fn helper(value:int):\n  value\nfn main():\n  helper = 2\n  hel|\n");
+    info = query("fn helper(value:i64):\n  value\nfn main():\n  helper = 2\n  hel|\n");
     require(info.names.size() == 1 && info.names[0].kind == ScopeNameKind::Variable,
             "local shadows function");
-    info = query("fn main():\n  value = 1\n  map([1,2], fn(value:int): val|)\n");
+    info = query("fn main():\n  value = 1\n  map([1,2], fn(value:i64): val|)\n");
     require(info.names.size() == 1 && info.names[0].kind == ScopeNameKind::Parameter,
             "lambda parameter shadows capture");
-    info = query("enum Choice:\n  Some:\n    value:int\n  Other\nfn inspect(choice:Choice):\n"
+    info = query("enum Choice:\n  Some:\n    value:i64\n  Other\nfn inspect(choice:Choice):\n"
                  "  match choice:\n    Choice.Some {value:item}:\n      ite|\n"
                  "    Choice.Other: 0\nfn main():\n  0\n");
     require(has(info, "item"), "match binding");
     info = query("fn main():\n  parallel:\n    available = 1\n    av|\n");
     require(has(info, "available"), "parallel suite");
-    info = query("type Point:\n  value:int\nfn main():\n  Poi|\n");
+    info = query("type Point:\n  value:i64\nfn main():\n  Poi|\n");
     require(info.names.size() == 1 && info.names[0].kind == ScopeNameKind::Type,
             "nominal constructor name");
-    const std::string broken = "fn main():\n  earlier=1\n  missing\n";
+    const std::string broken = "fn main():\n  earlier=1\n  return missing\n";
     const auto site = broken.find("missing");
     ScopeCompletion scope{{site, site + 7}, "ear", {}, false, false};
     auto checked =
@@ -82,42 +82,42 @@ int main() {
             "scope names must not publish partial IR");
     info = query("fn main():\n  broken = unknown\n  bro|\n");
     require(info.names.empty(), "prior errors fail closed");
-    require(query("fn main():\n  value = 1\n  \"val|\"\n").names.empty(), "string position");
-    require(query("fn main():\n  value = 1\n  # val|\n  value\n").names.empty(),
+    require(query("fn main():\n  value = 1\n  return \"val|\"\n").names.empty(), "string position");
+    require(query("fn main():\n  value = 1\n  # val|\n  return value\n").names.empty(),
             "comment position");
     require(query("fn main():\n  value = 1\n  value.val|\n").names.empty(), "member not lexical");
-    info = query("type Point:\n  x:int\n  y:int\nfn main():\n  p=Point {x:1,y:2}\n  p.|\n");
+    info = query("type Point:\n  x:i64\n  y:i64\nfn main():\n  p=Point {x:1,y:2}\n  p.|\n");
     require(info.names.size() == 2 && info.names[0].name == "x" && info.names[1].name == "y" &&
                 info.names[0].kind == ScopeNameKind::Field,
             "completed record fields at a dot");
-    info = query("type Box:\n  value:int\nfn main():\n  b=Box {value:1}\n  b.val|ue\n");
+    info = query("type Box:\n  value:i64\nfn main():\n  b=Box {value:1}\n  b.val|ue\n");
     require(info.names.size() == 1 && has(info, "value") &&
                 info.replacement.end - info.replacement.begin == 5,
             "member prefix replaces whole suffix");
-    info = query("type Inner:\n  value:int\ntype Outer:\n  inner:Inner\n"
+    info = query("type Inner:\n  value:i64\ntype Outer:\n  inner:Inner\n"
                  "fn main():\n  o=Outer {inner:Inner {value:1}}\n  o.inner.|\n");
     require(info.names.size() == 1 && has(info, "value"), "nested receiver");
-    info = query("type Box:\n  value:int\nfn make():\n  Box {value:1}\nfn main():\n  make().|\n");
+    info = query("type Box:\n  value:i64\nfn make():\n  Box {value:1}\nfn main():\n  make().|\n");
     require(info.names.size() == 1 && has(info, "value"), "call result receiver");
-    info = query("type Box:\n  value:int\nfn main():\n  boxes=[Box {value:1}]\n  boxes[0].|\n");
+    info = query("type Box:\n  value:i64\nfn main():\n  boxes=[Box {value:1}]\n  boxes[0].|\n");
     require(info.names.size() == 1 && has(info, "value"), "indexed record receiver");
-    info = query("type Box:\n  value:int\nfn inspect(b:Box):\n  map([1],fn(item:int):b.|)\nfn "
+    info = query("type Box:\n  value:i64\nfn inspect(b:Box):\n  map([1],fn(item:i64):b.|)\nfn "
                  "main():\n  0\n");
     require(info.names.size() == 1 && has(info, "value"), "captured record receiver");
     require(
-        query("type Box:\n  value:int\nfn main():\n  b=Box {value:1}\n  broken=unknown\n  b.|\n")
+        query("type Box:\n  value:i64\nfn main():\n  b=Box {value:1}\n  broken=unknown\n  b.|\n")
             .names.empty(),
         "prior errors block member names");
-    require(query("type Box:\n  value:int\nfn main():\n  b=Box {value:1}\n  b.missing.|\n")
+    require(query("type Box:\n  value:i64\nfn main():\n  b=Box {value:1}\n  b.missing.|\n")
                 .names.empty(),
             "invalid receiver chain fails closed");
-    require(query("enum Choice:\n  Some:\n    value:int\n  Other\nfn inspect(c:Choice):\n  c.|\nfn "
+    require(query("enum Choice:\n  Some:\n    value:i64\n  Other\nfn inspect(c:Choice):\n  c.|\nfn "
                   "main():\n  0\n")
                 .names.empty(),
             "unmatched enum payloads stay hidden");
     // A requested member snapshot still never publishes partial typed IR.
     const std::string member =
-        "type Box:\n  value:int\nfn main():\n  b=Box {value:1}\n  b.missing\n";
+        "type Box:\n  value:i64\nfn main():\n  b=Box {value:1}\n  return b.missing\n";
     const auto memberSite = member.find("missing");
     ScopeCompletion members{{memberSite, memberSite + 7}, "", {}, false, false};
     auto failed = check(parse(std::make_shared<const SourceFile>("members.k", member)), {},
@@ -127,7 +127,7 @@ int main() {
             "member names do not expose partial IR");
     require(query("fn main():\n  missing(|\n").names.empty(),
             "unknown callee provides no completion after recovery");
-    const std::string combine = "fn combine(left:int,right:int)->int:\n  left+right\n";
+    const std::string combine = "fn combine(left:i64,right:i64)->i64:\n  return left+right\n";
     info = query(combine + "fn main():\n  value=2\n  combine(va|\n");
     require(info.names.size() == 1 && has(info, "value"), "first argument in trailing open call");
     require(info.replacement.end - info.replacement.begin == 2,
@@ -143,11 +143,11 @@ int main() {
     info = query(combine + "fn main():\n  value=2\n  callback=combine\n  callback(va|\n");
     require(has(info, "value"), "bound callback with missing later parameters");
     info = query(combine +
-                 "fn make()->fn(int,int)->int:\n  combine\nfn main():\n  value=2\n  make()(va|\n");
+                 "fn make()->fn(i64,i64)->i64:\n  combine\nfn main():\n  value=2\n  make()(va|\n");
     require(has(info, "value"), "factory result with missing later parameters");
     info = query(combine + "fn main():\n  value=2\n  1 -> combine(va|\n");
     require(has(info, "value"), "piped open call");
-    info = query(combine + "type Reading:\n  value:int\nfn main():\n  reading=Reading {value:2}\n  "
+    info = query(combine + "type Reading:\n  value:i64\nfn main():\n  reading=Reading {value:2}\n  "
                            "combine(reading.va|\n");
     require(info.names.size() == 1 && has(info, "value") &&
                 info.names[0].kind == ScopeNameKind::Field,
@@ -160,7 +160,7 @@ int main() {
             "unknown callee blocks open-call completion");
     require(query(combine + "fn main():\n  value=2\n  callback=1\n  callback(va|\n").names.empty(),
             "noncallable value blocks open-call completion");
-    require(query("fn broken(a:int,b:int)->int:\n  missing\nfn main():\n  value=2\n  broken(va|\n")
+    require(query("fn broken(a:i64,b:i64)->i64:\n  missing\nfn main():\n  value=2\n  broken(va|\n")
                 .names.empty(),
             "invalid named callee body blocks completion");
     info = query(combine + "fn main():\n  value=2\n  combine(va|Suffix\n");
@@ -176,65 +176,65 @@ int main() {
             "mismatched delimiters rejected");
     require(query(combine + "fn main():\n  value=2\n  ((((((((combine(va|\n").names.empty(),
             "eight-parenthesis recovery bound retained");
-    info = query("fn inspect(value: int|Suffix):\n  0\nfn main():\n  0\n");
-    require(info.names.size() == 5 && has(info, "int") && has(info, "int8") && has(info, "int64") &&
+    info = query("fn inspect(value: i64|Suffix):\n  0\nfn main():\n  0\n");
+    require(info.names.size() == 5 && has(info, "i64") && has(info, "i8") && has(info, "i64") &&
                 info.names[0].kind == ScopeNameKind::Type,
             "parameter numeric types and aliases");
     require(info.replacement.end - info.replacement.begin == 9,
             "type completion replaces identifier suffix");
-    info = query("type Reading:\n  value:int\nenum Choice:\n  None\nfn make()->Rea|Suffix:\n  "
+    info = query("type Reading:\n  value:i64\nenum Choice:\n  None\nfn make()->Rea|Suffix:\n  "
                  "0\nfn main():\n  0\n");
     require(info.names.size() == 1 && has(info, "Reading"), "nominal return type");
-    info = query("type Reading:\n  value:int\nfn main():\n  Reading=2\n  value:Rea|=0\n  0\n");
+    info = query("type Reading:\n  value:i64\nfn main():\n  Reading=2\n  value:Rea|=0\n  0\n");
     require(info.names.size() == 1 && has(info, "Reading") &&
                 info.names[0].kind == ScopeNameKind::Type,
             "annotation uses type namespace despite value shadow");
     info = query("type Reading:\n  value: flo|Suffix\nfn main():\n  0\n");
-    require(info.names.size() == 3 && has(info, "float32") && has(info, "float64") &&
-                has(info, "float"),
+    require(info.names.size() == 3 && has(info, "f32") && has(info, "f64") &&
+                has(info, "f64"),
             "record field types");
-    info = query("enum Choice:\n  Some:\n    value: uint|\n  None\nfn main():\n  0\n");
-    require(info.names.size() == 5 && has(info, "uint64"), "enum payload field types");
+    info = query("enum Choice:\n  Some:\n    value: u64|\n  None\nfn main():\n  0\n");
+    require(info.names.size() == 5 && has(info, "u64"), "enum payload field types");
     info = query("fn inspect(values:[Bo|]):\n  0\nfn main():\n  0\n");
-    require(info.names.size() == 1 && has(info, "Bool"), "array element type");
+    require(info.names.size() == 1 && has(info, "bool"), "array element type");
     info = query("fn inspect(values:[|]):\n  0\nfn main():\n  0\n");
-    require(has(info, "String") && has(info, "int32") && !has(info, "TaskError") &&
+    require(has(info, "String") && has(info, "i32") && !has(info, "TaskError") &&
                 !has(info, "Tensor"),
             "array suggestions exclude unsupported nested containers and TaskError");
     info = query(
-        "type Reading:\n  value:int\nfn inspect(values:Tensor[|,?]):\n  0\nfn main():\n  0\n");
-    require(info.names.size() == 13 && has(info, "float32") && !has(info, "Bool") &&
+        "type Reading:\n  value:i64\nfn inspect(values:Tensor[|,?]):\n  0\nfn main():\n  0\n");
+    require(info.names.size() == 13 && has(info, "f32") && !has(info, "bool") &&
                 !has(info, "Reading"),
             "tensor element slot offers only numeric types");
-    info = query("fn inspect(callback:fn(in|)->int):\n  0\nfn main():\n  0\n");
-    require(has(info, "int32") && info.names.size() == 5, "nested callable parameter type");
-    info = query("fn inspect(callback:fn(int)->flo|):\n  0\nfn main():\n  0\n");
-    require(has(info, "float32") && info.names.size() == 3, "nested callable return type");
+    info = query("fn inspect(callback:fn(in|)->i64):\n  0\nfn main():\n  0\n");
+    require(has(info, "i32") && info.names.size() == 5, "nested callable parameter type");
+    info = query("fn inspect(callback:fn(i64)->flo|):\n  0\nfn main():\n  0\n");
+    require(has(info, "f32") && info.names.size() == 3, "nested callable return type");
     info = query("fn main():\n  callback=fn(value: ui|):value\n  0\n");
-    require(has(info, "uint32") && info.names.size() == 5, "anonymous parameter annotation");
+    require(has(info, "u32") && info.names.size() == 5, "anonymous parameter annotation");
     info = query("fn main():\n  if true:\n    value: in|=1\n    0\n  else:\n    0\n");
-    require(has(info, "int8"), "nested suite binding annotation");
-    info = query("fn helper(value:int):\n  value\nfn main(value: |):\n  0\n");
-    require(has(info, "Bool") && has(info, "Tensor") && has(info, "TaskError") &&
+    require(has(info, "i8"), "nested suite binding annotation");
+    info = query("fn helper(value:i64):\n  value\nfn main(value: |):\n  0\n");
+    require(has(info, "bool") && has(info, "Tensor") && has(info, "TaskError") &&
                 !has(info, "helper") && !has(info, "value"),
             "empty annotation offers only type names");
     require(query("fn main():\n  broken=missing\n  value:in|=1\n  0\n").names.empty(),
             "earlier semantic errors block type completion");
-    require(query("fn main(value:int) ! Ba|:\n  value\n").names.empty(),
+    require(query("fn main(value:i64) ! Ba|:\n  value\n").names.empty(),
             "unknown error prefix has no candidates");
     const std::string errors = "error ParseError:\n  Bad\nerror ReadError:\n  Missing\n"
                                "type Problem = ParseError | ReadError\n"
                                "type Plain:\n  value:int\nenum Ordinary:\n  Case\n";
-    info = query(errors + "fn inspect()->int ! Pa|Suffix:\n  0\nfn main():\n  0\n");
+    info = query(errors + "fn inspect()->i64 ! Pa|Suffix:\n  0\nfn main():\n  0\n");
     require(info.names.size() == 1 && has(info, "ParseError") &&
                 info.names[0].kind == ScopeNameKind::Type,
             "declared function error channel");
-    info = query(errors + "fn inspect()->int ! |:\n  0\nfn main():\n  0\n");
+    info = query(errors + "fn inspect()->i64 ! |:\n  0\nfn main():\n  0\n");
     require(info.names.size() == 4 && has(info, "ParseError") && has(info, "ReadError") &&
                 has(info, "Problem") && has(info, "TaskError") && !has(info, "Plain") &&
-                !has(info, "int"),
+                !has(info, "i64"),
             "error channel offers only error families and aliases");
-    info = query(errors + "fn inspect()->int ! (ParseError | Re|):\n  0\nfn main():\n  0\n");
+    info = query(errors + "fn inspect()->i64 ! (ParseError | Re|):\n  0\nfn main():\n  0\n");
     require(info.names.size() == 1 && has(info, "ReadError"), "union channel member");
     info = query(errors + "type Combined = P|\nfn main():\n  0\n");
     require(info.names.size() == 2 && has(info, "ParseError") && has(info, "Problem"),
@@ -242,27 +242,27 @@ int main() {
     info = query(errors + "type Combined = |\nfn main():\n  0\n");
     require(has(info, "Problem") && has(info, "TaskError") && !has(info, "Combined"),
             "currently resolving alias is excluded from its own completion");
-    info = query(errors + "fn inspect(callback:fn(int)->int ! P|):\n  0\nfn main():\n  0\n");
+    info = query(errors + "fn inspect(callback:fn(i64)->i64 ! P|):\n  0\nfn main():\n  0\n");
     require(has(info, "Problem") && has(info, "ParseError"), "nested callable channel");
     info = query(errors +
-                 "fn make()->(fn(int)->int ! Re|):\n  fn(value:int):value\nfn main():\n  0\n");
+                 "fn make()->(fn(i64)->i64 ! Re|):\n  fn(value:i64):value\nfn main():\n  0\n");
     require(info.names.size() == 1 && has(info, "ReadError"), "returned callable channel");
-    info = query(errors + "fn main():\n  callback=fn(value:int)->int ! Pa|:value\n  0\n");
+    info = query(errors + "fn main():\n  callback=fn(value:i64)->i64 ! Pa|:value\n  0\n");
     require(info.names.size() == 1 && has(info, "ParseError"), "anonymous error channel");
     info = query(errors +
-                 "fn main():\n  ParseError=2\n  callback=fn(value:int)->int ! Pa|:value\n  0\n");
+                 "fn main():\n  ParseError=2\n  callback=fn(value:i64)->i64 ! Pa|:value\n  0\n");
     require(info.names.size() == 1 && has(info, "ParseError"),
             "error type namespace independent from values");
     require(query(errors +
-                  "fn main():\n  broken=missing\n  callback=fn(value:int)->int ! Pa|:value\n  0\n")
+                  "fn main():\n  broken=missing\n  callback=fn(value:i64)->i64 ! Pa|:value\n  0\n")
                 .names.empty(),
             "earlier binding error blocks anonymous channel suggestions");
-    require(has(query(errors + "fn inspect()->int ! Pa|\n"), "ParseError"),
+    require(has(query(errors + "fn inspect()->i64 ! Pa|\n"), "ParseError"),
             "unfinished declaration retains checked error names");
     std::string manyErrors;
     for (int i = 0; i < 300; ++i)
       manyErrors += "error Error" + std::to_string(1000 + i).substr(1) + ":\n  Bad\n";
-    info = query(manyErrors + "fn inspect()->int ! Error|:\n  0\nfn main():\n  0\n");
+    info = query(manyErrors + "fn inspect()->i64 ! Error|:\n  0\nfn main():\n  0\n");
     require(info.names.size() == 256 && info.incomplete, "bounded error-channel list");
     std::string manyTypes;
     for (int i = 0; i < 300; ++i) {
@@ -311,7 +311,7 @@ int main() {
     require(query(choices + "fn main():\n  Choice=1\n  Choice.|\n").names.empty(),
             "local shadows enum family");
     info =
-        query(choices + "type Box:\n  value:int\nfn main():\n  Choice=Box {value:1}\n  Choice.|\n");
+        query(choices + "type Box:\n  value:i64\nfn main():\n  Choice=Box {value:1}\n  Choice.|\n");
     require(info.names.size() == 1 && has(info, "value") &&
                 info.names[0].kind == ScopeNameKind::Field,
             "record binding shadows enum type");
@@ -351,18 +351,18 @@ int main() {
     info = query(point + "fn main():\n  Point { |:0, y:2 }\n");
     require(info.names.size() == 1 && has(info, "x") && !info.appendFieldColon,
             "exclude later supplied label and preserve colon");
-    info = query("type Box:\n  value:int\nfn main():\n  Box { va|lue:1 }\n");
+    info = query("type Box:\n  value:i64\nfn main():\n  Box { va|lue:1 }\n");
     require(info.names.size() == 1 && has(info, "value") && !info.appendFieldColon &&
                 info.replacement.end - info.replacement.begin == 5,
             "constructor suffix edit");
-    info = query("type Box:\n  value:int\nfn main():\n  Box { va|: }\n");
+    info = query("type Box:\n  value:i64\nfn main():\n  Box { va|: }\n");
     require(info.names.size() == 1 && has(info, "value") && !info.appendFieldColon,
             "missing value probe preserves existing colon");
     info = query(point + "fn main():\n  p=Point {x:1,y:2}\n  p with { | }\n");
     require(info.names.size() == 2 && info.appendFieldColon, "immutable update labels");
     info = query(point + "type Outer:\n  inner:Point\nfn main():\n  Outer {inner:Point { | }}\n");
     require(info.names.size() == 2 && has(info, "x") && !has(info, "inner"), "nested labels");
-    info = query("enum Pick:\n  Some:\n    value:int\n  Other:\n    hidden:int\nfn main():\n  "
+    info = query("enum Pick:\n  Some:\n    value:i64\n  Other:\n    hidden:i64\nfn main():\n  "
                  "Pick.Some { | }\n");
     require(info.names.size() == 1 && has(info, "value") && !has(info, "hidden"),
             "selected payload labels");
@@ -370,10 +370,10 @@ int main() {
             "prior field errors fail closed");
     require(query(point + "fn main():\n  Point=1\n  Point { | }\n").names.empty(),
             "shadowed constructor labels");
-    require(query("enum Pick:\n  Some:\n    value:int\nfn main():\n  Pick.Missing { | }\n")
+    require(query("enum Pick:\n  Some:\n    value:i64\nfn main():\n  Pick.Missing { | }\n")
                 .names.empty(),
             "unknown case labels fail closed");
-    info = query("type Box:\n  value:int\nfn main():\n  earlier=1\n  Box {value:ear|}\n");
+    info = query("type Box:\n  value:i64\nfn main():\n  earlier=1\n  Box {value:ear|}\n");
     require(has(info, "earlier") && !info.appendFieldColon, "initializer value remains lexical");
     require(query("fn main():\n  1 with { | }\n").names.empty(), "invalid update receiver");
     require(has(query(point + "fn main():\n  Point { |\n"), "x"),
@@ -416,7 +416,7 @@ int main() {
                 .names.empty(),
             "invalid pattern case has no labels");
     info = query(
-        "error Problem:\n  Bad:\n    code:int\nerror Other:\n  Worse\ntype Both = Problem | Other\n"
+        "error Problem:\n  Bad:\n    code:i64\nerror Other:\n  Worse\ntype Both = Problem | Other\n"
         "fn inspect(e:Both):\n  match e:\n    Problem.Bad {co|}: 0\n    Other.Worse: 1\n"
         "fn main():\n  0\n");
     require(info.names.size() == 1 && has(info, "code"), "error union pattern payload labels");
@@ -442,8 +442,8 @@ int main() {
                                 {{(root / "completion-exports.k").string(), library}});
     };
     const std::string publicLibrary =
-        "export fn double(v:int):\n  v*2\nfn hidden():\n  0\n"
-        "export type Box:\n  value:int\nexport error Problem:\n  Bad\n"
+        "export fn double(v:i64):\n  return v*2\nfn hidden():\n  return 0\n"
+        "export type Box:\n  value:i64\nexport error Problem:\n  Bad\n"
         "export type Failure = Problem | TaskError\n";
     info =
         importQuery("from \"./completion-exports.k\" import |\nfn main():\n  0\n", publicLibrary);
@@ -477,24 +477,24 @@ int main() {
                                 std::move(overlays));
     };
     std::vector<SourceOverlay> pathOverlays{
-        {(pathRoot / "math.k").string(), "export fn double(v:int):\n  v*2\n"},
+        {(pathRoot / "math.k").string(), "export fn double(v:i64):\n  return v*2\n"},
         {(pathRoot / "other.k").string(), ""},
         {(pathRoot / ".hidden.k").string(), ""},
         {(pathRoot / "main.k").string(), ""},
         {(pathRoot / "foreign" / "hidden.k").string(), ""}};
-    info = pathQuery("from \"./ma|Suffix.k\" import double\nfn main():\n  0\n", pathOverlays);
+    info = pathQuery("from \"./ma|Suffix.k\" import double\nfn main():\n  return 0\n", pathOverlays);
     require(info.names.size() == 1 && has(info, "./math.k") &&
                 info.names[0].kind == ScopeNameKind::File &&
                 info.replacement.end - info.replacement.begin == 12,
             "unsaved path completion replaces the full inner string: " +
                 std::to_string(info.names.size()) + " candidates, span " +
                 std::to_string(info.replacement.end - info.replacement.begin));
-    info = pathQuery("export from \"./|\" import double\nfn main():\n  0\n", pathOverlays);
+    info = pathQuery("export from \"./|\" import double\nfn main():\n  return 0\n", pathOverlays);
     require(info.names.size() == 2 && has(info, "./math.k") && has(info, "./other.k"),
             "unsaved public import path candidates and exclusions");
-    require(pathQuery("fn main():\n  \"./ma|\"\n", pathOverlays).names.empty(),
+    require(pathQuery("fn main():\n  return \"./ma|\"\n", pathOverlays).names.empty(),
             "ordinary strings are not import paths");
-    require(pathQuery("from \"ma|\" import double\nfn main():\n  0\n", pathOverlays).names.empty(),
+    require(pathQuery("from \"ma|\" import double\nfn main():\n  return 0\n", pathOverlays).names.empty(),
             "bare package names are not relative path candidates");
     require(pathQuery("from \"./ma|", pathOverlays).names.empty(),
             "unterminated import strings are not repaired");
@@ -502,31 +502,31 @@ int main() {
             "path completion requires parsed import syntax");
     std::vector<SourceOverlay> tooManyPaths(ModuleLimits{}.maxFiles + 1,
                                             {(pathRoot / "math.k").string(), ""});
-    require(pathQuery("from \"./|\" import double\nfn main():\n  0\n", tooManyPaths).names.empty(),
+    require(pathQuery("from \"./|\" import double\nfn main():\n  return 0\n", tooManyPaths).names.empty(),
             "path overlays retain the module file budget");
-    info = query("fn entry():\n  ma|Suffix([1,2], fn(v:int):v*2)\n");
+    info = query("fn entry():\n  ma|Suffix([1,2], fn(v:i64):v*2)\n");
     require(info.names.size() == 2 && has(info, "map") && has(info, "matmul") &&
                 info.names[0].kind == ScopeNameKind::Function &&
                 info.replacement.end - info.replacement.begin == 8,
             "builtin callee names and full suffix replacement");
-    info = query("fn entry():\n  [1,2] -> par|Suffix(fn(v:int):v*2)\n");
+    info = query("fn entry():\n  [1,2] -> par|Suffix(fn(v:i64):v*2)\n");
     require(info.names.size() == 1 && has(info, "parallelMap"), "piped builtin call target");
     info = query("fn entry():\n  [1,2] -> le|\n");
     require(info.names.size() == 1 && has(info, "length"), "bare piped builtin target");
     info = query("fn entry():\n  in|Suffix(1)\n");
-    require(info.names.size() == 5 && has(info, "int") && has(info, "int8") && has(info, "int64"),
+    require(info.names.size() == 5 && has(info, "i64") && has(info, "i8") && has(info, "i64"),
             "numeric conversion call targets reuse concrete widths and aliases");
     require(has(query("fn entry():\n  ma|\n"), "match") &&
                 !has(query("fn entry():\n  ma|\n"), "matmul"),
             "expression keywords are suggested without call-only builtins");
     require(!has(query("fn entry():\n  map([1,2], ma|)\n"), "map"),
             "builtin call forms are not first-class map callbacks");
-    info = query("fn entry():\n  map=fn(v:int):v*2\n  ma|(1)\n");
+    info = query("fn entry():\n  map=fn(v:i64):v*2\n  ma|(1)\n");
     require(info.names.size() == 2 && info.names[0].name == "map" &&
                 info.names[0].kind == ScopeNameKind::Variable,
             "lexical function binding hides builtin item");
-    info = query("fn examine(int32:int):\n  in|Suffix(1)\nfn entry():\n  0\n");
-    require(info.names.size() == 5 && info.names[2].name == "int32" &&
+    info = query("fn examine(i32:i64):\n  in|Suffix(1)\nfn entry():\n  0\n");
+    require(info.names.size() == 5 && info.names[2].name == "i32" &&
                 info.names[2].kind == ScopeNameKind::Parameter,
             "lexical numeric-name shadow retains its own kind");
     require(query("fn entry():\n  missing\n  ma|([1,2])\n").names.empty(),
@@ -553,7 +553,7 @@ int main() {
             "device selector completion requires placement mode");
     require(query("fn main():\n  devices=1\n  target=devices.g|()\n  0\n", placement).names.empty(),
             "local devices shadow suppresses selectors");
-    require(query("fn inspect(devices:int):\n  devices.g|()\nfn main():\n  0\n", placement)
+    require(query("fn inspect(devices:i64):\n  devices.g|()\nfn main():\n  0\n", placement)
                 .names.empty(),
             "parameter devices shadow suppresses selectors");
     require(query("fn main():\n  missing\n  target=devices.g|()\n  0\n", placement).names.empty(),
@@ -563,7 +563,7 @@ int main() {
     info = query("fn main():\n  target=devices.g|()\n  missing\n", placement);
     require(info.names.size() == 1 && has(info, "gpu"), "later errors do not erase selector names");
     const std::string transferStart =
-        "fn main()->int ! TaskError:\n  try parallel:\n    values=tensor([1,2])\n";
+        "fn main()->i64 ! TaskError:\n  try parallel:\n    values=tensor([1,2])\n";
     const std::string transferCall =
         "    resident=try await tra|Suffix(values,devices.gpu(1))\n"
         "    host=try await transfer(resident,devices.cpu())\n    reduceSum(host)\n";
@@ -613,7 +613,7 @@ int main() {
     require(info.names.size() == 1 && has(info, "transfer") &&
                 info.names[0].kind == ScopeNameKind::Variable,
             "local transfer binding keeps its own item kind");
-    info = query("fn transfer(value:int):\n  value\nfn main():\n  transf|(1)\n");
+    info = query("fn transfer(value:i64):\n  value\nfn main():\n  transf|(1)\n");
     require(info.names.size() == 1 && has(info, "transfer") &&
                 info.names[0].kind == ScopeNameKind::Function,
             "CPU-mode source functions retain normal transfer completion");
@@ -627,14 +627,14 @@ int main() {
             "callee completion preserves complete arguments before appending trailing parentheses");
     info = query(combine + "fn main():\n  com|(1,combine(2,3\n");
     require(has(info, "combine"), "nested missing call parentheses at EOF");
-    info = query("fn main():\n  [1,2] -> ma|Suffix(fn(v:int):v*2\n");
+    info = query("fn main():\n  [1,2] -> ma|Suffix(fn(v:i64):v*2\n");
     require(has(info, "map") && has(info, "matmul"), "builtin pipeline callee recovery");
     info = query("fn main():\n  target=devices.g|Suffix(1\n  0\n", placement);
     require(info.names.empty(), "later statements do not become hidden selector arguments");
     info = query("fn main():\n  (devices.g|Suffix(1\n", placement);
     require(has(info, "gpu"), "qualified selector callee retains member-only replacement");
-    info = query("type Box:\n  callback:fn(int)->int\nfn main():\n"
-                 "  box=Box {callback:fn(v:int):v+1}\n  box.ca|Suffix(2\n");
+    info = query("type Box:\n  callback:fn(i64)->i64\nfn main():\n"
+                 "  box=Box {callback:fn(v:i64):v+1}\n  box.ca|Suffix(2\n");
     require(has(info, "callback") && info.names[0].kind == ScopeNameKind::Field,
             "checked record callee member completion in open call");
     require(query(combine + "fn main():\n  unknown.ca|Suffix(1,2\n").names.empty(),
@@ -681,7 +681,7 @@ int main() {
     require(has(info, "value"), "earlier argument suffix before later supplied arguments");
     info = query(combine + "fn main():\n  value=2\n  combine(1,2+va|Suffix\n");
     require(has(info, "value"), "arithmetic argument suffix receives EOF completion");
-    const std::string triple = "fn triple(first:int,second:int,third:int):\n  first+second+third\n";
+    const std::string triple = "fn triple(first:i64,second:i64,third:i64):\n  return first+second+third\n";
     info = query(triple + "fn main():\n  value=1\n  triple(va|Suffix,2\n");
     require(info.names.size() == 1 && has(info, "value") &&
                 info.replacement.end - info.replacement.begin == 8,
@@ -730,7 +730,7 @@ int main() {
     require(info.names.size() == 1 && has(info, "value") &&
                 info.names[0].kind == ScopeNameKind::Field,
             "arithmetic field suffix requires checked record receiver");
-    const std::string boolConsumer = "fn choose(value:Bool):\n  value\n";
+    const std::string boolConsumer = "fn choose(value:bool):\n  return value\n";
     for (const auto *operation : {"==", "!=", "<", ">", "<=", ">="}) {
       info = query(boolConsumer + "fn main():\n  value=2\n  choose(1" + std::string(operation) +
                    "va|Suffix\n");

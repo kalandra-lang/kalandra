@@ -1,19 +1,19 @@
-fn total() -> float32 ! TaskError:
-  try parallel:
+fn total() -> f32 ! TaskError:
+  return try parallel:
     work = spawn compute()
     try await work
 
-fn compute() -> float32:
-  data: Tensor[float32, 2] = tensor([1, 2])
-  reduceSum(data)
+fn compute() -> f32:
+  data: Tensor[f32, 2] = tensor([1, 2])
+  return reduceSum(data)
 
-fn success() -> float32 ! TaskError:
-  9
+fn success() -> f32 ! TaskError:
+  return 9
 
-fn main() -> float32:
+fn main() -> f32:
   result = total()
   forwarded = result catch fn(error):
     try success()
-    99
-  recovered = forwarded catch fn(error): 40
-  recovered + 2
+    return 99
+  recovered = forwarded catch fn(error): return 40
+  return recovered + 2

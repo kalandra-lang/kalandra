@@ -14,7 +14,7 @@ p.add_argument('--compile-only',action='store_true')
 p.add_argument('--relu-only',action='store_true')
 p.add_argument('--quick',action='store_true',help='Identity and binary64 boundary pairs for hosted artifact qualification')
 a=p.parse_args();a.output=a.output.resolve();a.output.mkdir(parents=True,exist_ok=True)
-types=('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')
+types=('i8','u8','i16','u16','i32','u32','i64','u64','f32','f64')
 checks=0;programs=0
 
 def qualify(name,source,mode,values,destination,fault=0,disable_native_float64=False):
@@ -32,9 +32,9 @@ def qualify(name,source,mode,values,destination,fault=0,disable_native_float64=F
     assert not built.returncode,(output,built.stderr[-4000:])
     programs+=1
     if a.compile_only:return
-    width=32 if destination=='float32' else 64 if destination=='float64' else int(destination.removeprefix('u').removeprefix('int'))
+    width=32 if destination=='f32' else 64 if destination=='f64' else int(destination.removeprefix('u').removeprefix('i'))
     def bits(value):
-        if destination.startswith('float'):
+        if destination.startswith('f'):
             return int.from_bytes(struct.pack('<f' if width==32 else '<d',float(value)),'little')
         return int(value)&((1<<width)-1)
     expected='['+','.join(f'{bits(x):0{width//4}x}' for x in values)+']\n'
@@ -52,13 +52,13 @@ def qualify(name,source,mode,values,destination,fault=0,disable_native_float64=F
 if not a.relu_only:
     for source in types:
         for destination in types:
-            if a.quick and source!=destination and 'float64' not in (source,destination):continue
+            if a.quick and source!=destination and 'f64' not in (source,destination):continue
             values=[1,2,3] if source.startswith('u') or destination.startswith('u') else [-3,0,5]
-            if source.startswith('float'):values=[1.25,2.5,3.75] if destination.startswith('u') else [-3.25,.5,5.75]
+            if source.startswith('f'):values=[1.25,2.5,3.75] if destination.startswith('u') else [-3.25,.5,5.75]
             text=f'''fn work(x:Tensor[{source},?,?,?])->Tensor[{destination},?,?,?]:
-  {destination}(x)
+  return {destination}(x)
 fn main()->Tensor[{destination},?,?,?] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     x:Tensor[{source},1,1,3]=tensor([[{values}]])
     resident=try await transfer(x,gpu)
@@ -70,38 +70,38 @@ fn main()->Tensor[{destination},?,?,?] ! TaskError:
             for mode in ('hardware','hardware-with-software-fallback'):
                 qualify(source+'-to-'+destination,text,mode,values,destination)
         print('PASS:',source,'complete source pairs',flush=True)
-    for destination in ('int8','uint64','float32'):
-        text=f'''fn work(x:Tensor[float64,?])->Tensor[{destination},?]:
-  {destination}(x)
+    for destination in ('i8','u64','f32'):
+        text=f'''fn work(x:Tensor[f64,?])->Tensor[{destination},?]:
+  return {destination}(x)
 fn main()->Tensor[{destination},?] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
-    x:Tensor[float64,1]=tensor([1e300])
+    x:Tensor[f64,1]=tensor([1e300])
     resident=try await transfer(x,gpu)
     result=try await spawn work(resident) on gpu
     try await transfer(result,devices.cpu())
 '''
         for mode in ('hardware','software','hardware-with-software-fallback'):
             qualify('invalid-float64-to-'+destination,text,mode,[],destination,4)
-    text='''fn work(x:Tensor[float64,?,?],scale:float64)->Tensor[int8,?,?]:
-  int8(x)+int8(scale)
-fn main()->Tensor[int8,?,?] ! TaskError:
-  try parallel:
+    text='''fn work(x:Tensor[f64,?,?],scale:f64)->Tensor[i8,?,?]:
+  return i8(x)+i8(scale)
+fn main()->Tensor[i8,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    x:Tensor[float64,1,0]=tensor([[]])
+    x:Tensor[f64,1,0]=tensor([[]])
     resident=try await transfer(x,gpu)
     result=try await spawn work(resident,1e300) on gpu
     try await transfer(result,devices.cpu())
 '''
     for mode in ('hardware','software','hardware-with-software-fallback'):
-        qualify('invalid-uniform-before-empty',text,mode,[],'int8',4)
+        qualify('invalid-uniform-before-empty',text,mode,[],'i8',4)
 for numeric in types:
-    values=[1,2,3] if numeric.startswith('u') else [-0.0,-3.25,.5] if numeric.startswith('float') else [-3,0,5]
+    values=[1,2,3] if numeric.startswith('u') else [-0.0,-3.25,.5] if numeric.startswith('f') else [-3,0,5]
     expected=[x if x>0 else 0 for x in values]
     text=f'''fn work(x:Tensor[{numeric},?,?,?])->Tensor[{numeric},?,?,?]:
   relu(x)
 fn main()->Tensor[{numeric},?,?,?] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     x:Tensor[{numeric},1,1,3]=tensor([[{values}]])
     resident=try await transfer(x,gpu)

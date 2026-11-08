@@ -19,11 +19,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'packaging'))
 from WindowsPlatform import MACHINES, pe_machine
 
-SOURCE = '''fn work(value:int,rounds:int)->int:
-  if rounds==0:value
+SOURCE = '''fn work(value:i64,rounds:i64)->i64:
+  return if rounds==0:value
   else:work((value*13+7)%1000003,rounds-1)
-fn main()->int:
-  work(17,1000000)
+fn main()->i64:
+  return work(17,1000000)
 '''
 REFERENCE = '''#include <cstdint>
 extern "C" [[gnu::noinline]] std::int64_t reference(std::int64_t value, std::int64_t rounds) {

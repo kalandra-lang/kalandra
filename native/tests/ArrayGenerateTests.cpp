@@ -24,14 +24,14 @@ static void valid(const std::string &text) {
 }
 int main() {
   try {
-    for (auto type : {"int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64",
-                      "float32", "float64"}) {
+    for (auto type : {"i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64",
+                      "f32", "f64"}) {
       const auto convert = std::string(type);
-      valid("fn make(n:int):\n  bias=3\n  generate(n,fn(i): " + convert +
-            "(i%17+bias))\nfn main()->int:\n  length(make(37))\n");
-      valid("fn cell(i:int)->" + convert + ":\n  " + convert +
-            "(i%17)\nfn main()->int:\n  length(12 -> generate(cell))\n");
-      valid("fn main()->int:\n  offset=3\n  callback=fn(i:int): " + convert +
+      valid("fn make(n:i64):\n  bias=3\n  generate(n,fn(i): " + convert +
+            "(i%17+bias))\nfn main()->i64:\n  length(make(37))\n");
+      valid("fn cell(i:i64)->" + convert + ":\n  " + convert +
+            "(i%17)\nfn main()->i64:\n  length(12 -> generate(cell))\n");
+      valid("fn main()->i64:\n  offset=3\n  callback=fn(i:i64): " + convert +
             "(i+offset)\n  length(generate(0,callback))\n");
     }
     for (auto body : {"generate(4,fn(i): i*2)", "generate(4,fn(i:int)->Bool: i<2)",
@@ -39,15 +39,15 @@ int main() {
                       "generate(3,fn(i): fn(x:int): x+i)", "generate(0,fn(i): 1/i)",
                       "generate(3,fn(i): length(generate(i,fn(j): i+j)))",
                       "callback=make(2)\n  generate(4,callback)", "generate(3,callbacks[0])"})
-      valid("type Item:\n  value:int\nfn make(offset:int)->fn(int)->int:\n  fn(i:int): i+offset\n"
-            "fn identity(i:int)->int:\n  i\nfn run():\n  callbacks=[identity]\n  " +
-            std::string(body) + "\nfn main()->int:\n  0\n");
-    valid("fn run(n:int)->[int]:\n  generate(n,fn(i): i*3)\n"
-          "fn main()->int ! TaskError:\n  try parallel:\n    pending=spawn run(5)\n"
+      valid("type Item:\n  value:i64\nfn make(offset:i64)->fn(i64)->i64:\n  return fn(i:i64): return i+offset\n"
+            "fn identity(i:i64)->i64:\n  return i\nfn run():\n  callbacks=[identity]\n  " +
+            std::string(body) + "\nfn main()->i64:\n  return 0\n");
+    valid("fn run(n:i64)->[i64]:\n  return generate(n,fn(i): return i*3)\n"
+          "fn main()->i64 ! TaskError:\n  return try parallel:\n    pending=spawn run(5)\n"
           "    values=try await pending\n    values[4]\n");
     valid(
-        "fn main()->int ! TaskError:\n  try parallel:\n"
-        "    pending=spawn generate(5,fn(i): i*3)\n    values=try await pending\n    values[4]\n");
+        "fn main()->i64 ! TaskError:\n  return try parallel:\n"
+        "    pending=spawn generate(5,fn(i): return i*3)\n    values=try await pending\n    values[4]\n");
     for (auto body :
          {"generate(-1,fn(i): i)", "generate(1.0,fn(i): i)", "generate(uint32(2),fn(i): i)",
           "generate(true,fn(i): i)", "generate([1],fn(i): i)", "generate(2,fn(): 0)",
@@ -56,24 +56,24 @@ int main() {
           "generate(2,fn(i): i,fn(i): i)", "generate(2,fn(i)->int ! TaskError: i)",
           "generate(2,fn(i): spawn identity(i))"})
       require(
-          !analyze("fn identity(i:int)->int:\n  i\nfn main():\n  " + std::string(body) + "\n").ok(),
+          !analyze("fn identity(i:i64)->i64:\n  i\nfn main():\n  " + std::string(body) + "\n").ok(),
           "invalid generator accepted: " + std::string(body));
-    require(!analyze("fn identity(i:int)->int:\n  i\n"
-                     "fn suspend(i:int)->int ! TaskError:\n  try parallel:\n"
-                     "    try await spawn identity(i)\nfn main()->int:\n"
-                     "  length(generate(3,fn(i): suspend(i) catch fn(e): 0))\n")
+    require(!analyze("fn identity(i:i64)->i64:\n  return i\n"
+                     "fn suspend(i:i64)->i64 ! TaskError:\n  return try parallel:\n"
+                     "    try await spawn identity(i)\nfn main()->i64:\n"
+                     "  return length(generate(3,fn(i): return suspend(i) catch fn(e): return 0))\n")
                  .ok(),
             "transitively suspending generator callback accepted");
-    valid("fn main()->[int]:\n  values=[1,2,3]\n  copy(values)\n");
-    valid("fn main()->[int]:\n  copy([])\n");
-    valid("fn main()->[Bool] ! TaskError:\n  try parallel:\n"
+    valid("fn main()->[i64]:\n  values=[1,2,3]\n  return copy(values)\n");
+    valid("fn main()->[i64]:\n  return copy([])\n");
+    valid("fn main()->[bool] ! TaskError:\n  return try parallel:\n"
           "    try await spawn copy([true,false])\n");
-    valid("fn main()->[String]:\n  copy([\"hello\",\"world\"])\n");
+    valid("fn main()->[String]:\n  return copy([\"hello\",\"world\"])\n");
     for (auto body : {"copy(1)", "copy(\"hello\")", "copy(tensor([1,2]))", "copy()",
                       "copy([1],[2])", "copy([Item {value:1}])", "copy([fn(i:int): i])"})
-      require(!analyze("type Item:\n  value:int\nfn main():\n  " + std::string(body) + "\n").ok(),
+      require(!analyze("type Item:\n  value:i64\nfn main():\n  " + std::string(body) + "\n").ok(),
               "unsupported copy accepted");
-    auto typed = analyze("fn main()->int:\n  length(generate(4,fn(i): i+1))\n");
+    auto typed = analyze("fn main()->i64:\n  return length(generate(4,fn(i): return i+1))\n");
     require(typed.ok(), "generator metadata fixture failed");
     ValueId generator = 0;
     for (ValueId i = 0; i < typed.module->expressions.size(); ++i)

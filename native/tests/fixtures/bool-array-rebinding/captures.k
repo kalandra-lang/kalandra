@@ -1,10 +1,10 @@
-fn main()->[Bool]:
+fn main()->[bool]:
   original=[true,false]
-  f=fn()->[Bool]:
+  f=fn()->[bool]:
     original=sorted(original)
     original[0]=true
-    original
+    return original
   first=f()
   first[1]=false
   second=f()
-  [first[1],second[1],original[0],original[1]]
+  return [first[1],second[1],original[0],original[1]]

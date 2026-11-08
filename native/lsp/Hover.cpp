@@ -154,9 +154,9 @@ std::optional<SignatureInfo> callableSignature(const TypedModule &module, const 
 bool hasBuiltinSignature(std::string_view name) {
   return name == "length" || name == "byteLength" || name == "shape" || name == "slice" ||
          name == "concat" || name == "relu" || name == "reduceSum" || name == "matmul" ||
-         name == "copy" || name == "sort" || name == "sorted" || name == "generate" || name == "array" || name == "map" ||
-         name == "parallelMap" || name == "transfer" || name == "devices.cpu" ||
-         name == "devices.gpu" || resolveNumeric(name).has_value();
+         name == "copy" || name == "sort" || name == "sorted" || name == "generate" ||
+         name == "array" || name == "map" || name == "parallelMap" || name == "transfer" ||
+         name == "devices.cpu" || name == "devices.gpu" || resolveNumeric(name).has_value();
 }
 std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceSpan call,
                                               std::string_view name, std::size_t active,
@@ -196,7 +196,7 @@ std::optional<SignatureInfo> builtinSignature(const TypedModule &module, SourceS
         // Selection indices are checked uint32 literals, not lowered scalar operands.
         // Describe the checked call arity rather than invent an optional-argument type.
         selectorIndex = ValueType{};
-        selectorIndex->element = *resolveNumeric("uint32");
+        selectorIndex->element = *resolveNumeric("u32");
         labels = {"index"};
       }
     } else if (const auto *transfer = std::get_if<Transfer>(&expression.operation);

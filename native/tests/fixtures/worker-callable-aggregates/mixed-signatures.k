@@ -1,10 +1,10 @@
 type Job:
-  numbers:[fn(int)->int]
-  strings:[fn(String)->int]
-fn apply(job:Job)->int:
-  job.numbers[0](2)+job.strings[0]("hi")
-fn main()->int ! TaskError:
+  numbers:[fn(i64)->i64]
+  strings:[fn(String)->i64]
+fn apply(job:Job)->i64:
+  return job.numbers[0](2)+job.strings[0]("hi")
+fn main()->i64 ! TaskError:
   values=[38]
-  job=Job {numbers:[fn(value):values[0]+value],strings:[fn(value):length(value)]}
-  try parallel:
+  job=Job {numbers:[fn(value):return values[0]+value],strings:[fn(value):return length(value)]}
+  return try parallel:
     try await spawn apply(job)

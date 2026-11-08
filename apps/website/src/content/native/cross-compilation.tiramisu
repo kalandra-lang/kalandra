@@ -21,20 +21,20 @@ h2 { "A shared example" }
 
 Save this program as compute.k:
 
-codeblock { language = kalandra, """fn count(n: int, total: int) -> int:
-  if n == 0:
+codeblock { language = kalandra, """fn count(n: i64, total: i64) -> i64:
+  return if n == 0:
     total
   else:
     count(n - 1, total + 1)
 
-fn fib(n: int) -> int:
-  if n < 2:
+fn fib(n: i64) -> i64:
+  return if n < 2:
     n
   else:
     fib(n - 1) + fib(n - 2)
 
-fn main() -> int:
-  count(1000, 0) + fib(12)
+fn main() -> i64:
+  return count(1000, 0) + fib(12)
 """ }
 
 h2 { "Build for macOS" }

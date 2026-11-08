@@ -22,8 +22,8 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None):
     result=name if total else f'Tensor[{name},?,?]'
     expression='matmul(a,b)'
     if total: expression='reduceSum('+expression+')'
-    source=(f'fn operation(a:Tensor[{name},?,?],b:Tensor[{name},?,?])->{result}:\n  {expression}\n'
-            f'fn main()->{result} ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n'
+    source=(f'fn operation(a:Tensor[{name},?,?],b:Tensor[{name},?,?])->{result}:\n  return {expression}\n'
+            f'fn main()->{result} ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n'
             f'    a:Tensor[{name},{m},{k}]={literal_a}\n    b:Tensor[{name},{k},{n}]={literal_b}\n'
             '    x=try await transfer(a,gpu)\n    y=try await transfer(b,gpu)\n'
             '    answer=try await spawn operation(x,y) on gpu\n'+
@@ -34,7 +34,7 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None):
     assert built.returncode==0,(path,built.stdout,built.stderr)
     if args.variant:
         def bits(value):
-            if name.startswith('float'):
+            if name.startswith('f'):
                 return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little')
             return value & ((1<<width)-1)
         words=','.join(f'{bits(v):0{width//4}x}' for v in expected)
@@ -48,24 +48,24 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None):
                 assert ran.returncode==0 and ran.stdout==output and all(line.endswith('Metal API Validation Enabled') for line in ran.stderr.splitlines()),(path,ran,output)
     programs+=1
 
-for name,width in (('int8',8),('uint8',8),('int16',16),('uint16',16),('int32',32),('uint32',32),('int64',64),('uint64',64),('float32',32),('float64',64)):
+for name,width in (('i8',8),('u8',8),('i16',16),('u16',16),('i32',32),('u32',32),('i64',64),('u64',64),('f32',32),('f64',64)):
     a,b=[[1,2,1],[2,1,2]],[[1,2],[2,1],[1,2]]
     check(name,width,'odd',a,b,[6,6,6,9])
     check(name,width,'resident-sum',a,b,[27],total=True)
     # Empty geometry is independent of signedness. TSan retains each storage
     # width and both float layouts; the other modes run all ten empty schemas.
-    if args.variant!='thread-sanitized' or name in ('int8','int16','int32','float32','float64'):
+    if args.variant!='thread-sanitized' or name in ('i8','i16','i32','f32','f64'):
         check(name,width,'zero-k',[[],[]],[],[0,0,0,0],columns=2)
         check(name,width,'zero-k-sum',[[],[]],[],[0],columns=2,total=True)
         check(name,width,'zero-rows',[],[[1,2],[3,4]],[])
         check(name,width,'zero-rows-sum',[],[[1,2],[3,4]],[0],total=True)
         check(name,width,'zero-columns',[[1,2],[3,4]],[[],[]],[])
         check(name,width,'zero-columns-sum',[[1,2],[3,4]],[[],[]],[0],total=True)
-    if name.startswith('float'):
+    if name.startswith('f'):
         boundary=1 << (24 if width==32 else 53)
         check(name,width,'balanced',[[boundary,1,-boundary,1,1]],[[1],[1],[1],[1],[1]],[2])
     else:
-        maximum=(1 << (width if name.startswith('uint') else width-1))-1
+        maximum=(1 << (width if name.startswith('u') else width-1))-1
         check(name,width,'product-overflow',[[maximum]],[[2]],[],fault=True)
         check(name,width,'tree-overflow',[[maximum,1]],[[1],[1]],[],fault=True)
 print(f'Typed GPU matrices: {programs} programs, ten numeric types, odd inner extents, resident sums, exact rounding and checked products/trees passed')

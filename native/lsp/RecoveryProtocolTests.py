@@ -14,12 +14,12 @@ with tempfile.TemporaryDirectory(dir=root) as temporary:
     folder = Path(temporary).resolve()
     path = folder / 'unfinished é.k'
     helper = folder / 'helper.k'
-    helper_text = 'export type Box:\n  value:int\nexport fn add(left:int,right:int)->int:\n  left\n'
+    helper_text = 'export type Box:\n  value:i64\nexport fn add(left:i64,right:i64)->i64:\n  return left\n'
     helper.write_text(helper_text)
     client = Client(server)
     client.init(signature_offsets=True)
     base = ('from "./helper.k" import add, Box\n'
-            'fn consume(values:[int])->int:\n  length(values)\n'
+            'fn consume(values:[i64])->i64:\n  return length(values)\n'
             'fn main():\n  greeting="😀"\n  value=2\n  values=[1,2]\n')
     version = 0
     def install(marked):
@@ -48,7 +48,7 @@ with tempfile.TemporaryDirectory(dir=root) as temporary:
         text, offset, pos, report = install(base + '  ' + body + '\n')
         hint = client.signature(path, *pos)['result']
         assert hint and hint['activeParameter'] == 1, (body,hint)
-        assert 'right: int64' in hint['signatures'][0]['label']
+        assert 'right: i64' in hint['signatures'][0]['label']
         assert not publications(client.barrier()), 'signature changed diagnostics'
     for body in ('add(missing,va|', 'missing(1,va|', 'add(1,missing+va|'):
         text, offset, pos, report = install(base + '  ' + body + '\n')
@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory(dir=root) as temporary:
     client.barrier()
     text, offset, pos, _ = install('from "./helper.k" import Box\nfn inspect(box:Box):\n  box.va|\nfn main():\n  0\n')
     assert any(i['label']=='value' for i in client.completion(path,*pos)['result']['items'])
-    updated = helper_text.replace('right:int','right:String').replace('value:int','values:int')
+    updated = helper_text.replace('right:i64','right:String').replace('value:i64','values:i64')
     client.change(helper, updated, 2)
     client.barrier()
     assert any(i['label']=='values' for i in client.completion(path,*pos)['result']['items'])
@@ -70,7 +70,7 @@ with tempfile.TemporaryDirectory(dir=root) as temporary:
     assert hint and 'right: String' in hint['signatures'][0]['label'],hint
     assert helper.read_text()==helper_text and not path.exists()
     # Finishing the actual document clears errors through normal strict checking.
-    client.change(path, 'fn main()->int:\n  42\n', version+1)
+    client.change(path, 'fn main()->i64:\n  return 42\n', version+1)
     assert not publications(client.barrier())[path.as_uri()]['diagnostics']
     client.finish()
 print('Unfinished-code protocol: collections/control/compound signatures, malformed boundaries, UTF-16, live imports, strict diagnostics, immutable buffers and no stale queries passed')

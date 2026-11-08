@@ -1,24 +1,24 @@
 meta { title = "Numbers and conversions", description = "Choose numeric types and understand checked arithmetic.", order = 2, group = "Language reference" }
 
-Kalandra has ten native numeric types. Signed integers are int8, int16, int32 and int64; unsigned integers are uint8, uint16, uint32 and uint64. The floating-point types are float32 and float64.
+Kalandra has ten native numeric types. Signed integers are i8, i16, i32 and i64; unsigned integers are u8, u16, u32 and u64. The floating-point types are f32 and f64.
 
-h2 { "Aliases and literal context" }
+h2 { "Widths and literal context" }
 
-Across targets, int means int64, uint means uint64 and float means float64. These aliases are not pointer-sized. Whole-number literals normally infer int, and decimal or exponent literals normally infer float. An explicit annotation supplies the literal context:
+Numeric type names specify their width on every target. Whole-number literals normally infer i64, and decimal or exponent literals normally infer f64. An explicit annotation supplies the literal context:
 
-codeblock { language = kalandra, """fn main() -> int32:
-  left: int32 = 20
-  right: int32 = 22
-  left + right
+codeblock { language = kalandra, """fn main() -> i32:
+  left: i32 = 20
+  right: i32 = 22
+  return left + right
 """ }
 
-This returns 42 as an int32. Already typed values do not silently promote to a common numeric type. Convert deliberately when crossing widths or integer/floating families.
+This returns 42 as an i32. Already typed values do not silently promote to a common numeric type. Convert deliberately when crossing widths or integer/floating families.
 
 h2 { "Explicit conversion" }
 
-codeblock { language = kalandra, """fn main() -> int32:
-  sample: float64 = 42.75
-  int32(sample)
+codeblock { language = kalandra, """fn main() -> i32:
+  sample: f64 = 42.75
+  return i32(sample)
 """ }
 
 This returns 42. Float-to-integer conversion truncates toward zero and fails for NaN, infinity or an out-of-range result. Integer-to-integer conversion checks the destination range. Integer-to-float and float narrowing follow the specified rounding rules rather than promising exact representation for every input.
@@ -37,9 +37,9 @@ list {
 
 h2 { "Arithmetic execution policy" }
 
-CPU float32 and float64 arithmetic use hardware floating-point instructions by default. Floating comparisons and checked conversions also use hardware where supported. Integer overflow and conversion range checks remain enabled.
+CPU f32 and f64 arithmetic use hardware floating-point instructions by default. Floating comparisons and checked conversions also use hardware where supported. Integer overflow and conversion range checks remain enabled.
 
-Use --arithmetic software to select the strict integer-based floating implementation. Hardware mode follows the target floating environment and does not promise identical subnormal, NaN or rounding behavior across all devices. reduceSum keeps its balanced order, and ordinary scalar and elementwise operations keep separate multiply/add behavior. Hardware GPU float32 matmul may use fused and reordered accumulation unless you select --matmul-policy fixed-tree; CPU matmul retains its fixed tree under either policy. -O2 does not enable generic fast math.
+Use --arithmetic software to select the strict integer-based floating implementation. Hardware mode follows the target floating environment and does not promise identical subnormal, NaN or rounding behavior across all devices. reduceSum keeps its balanced order, and ordinary scalar and elementwise operations keep separate multiply/add behavior. Hardware GPU f32 matmul may use fused and reordered accumulation unless you select --matmul-policy fixed-tree; CPU matmul retains its fixed tree under either policy. -O2 does not enable generic fast math.
 
 list {
   link { url = "/docs/numeric-functions", "Every numeric conversion and its destination range" }

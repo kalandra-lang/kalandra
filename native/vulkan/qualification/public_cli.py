@@ -22,16 +22,16 @@ for policy in ('hardware', 'software', 'hardware-with-software-fallback'):
         cases.append(('placed-'+policy+optimization, [placed], policy, optimization, [5, 12, 21], 'f', 0))
 cases.append(('mixed-cpu', [repo/'native/metal-source/cpu-spawn.k'], 'hardware', '-O2', [52, 54, 64, 66], 'f', 0))
 for label, numeric, shape, expression, values, expected, fmt, fault in [
-    ('transpose', 'int64', '2,2', 'transpose(x)', '[[1,2],[3,4]]', [1, 3, 2, 4], 'q', 0),
-    ('softmax', 'float32', '1,2', 'softmaxRows(x)', '[[0,0]]', [.5, .5], 'f', 0),
-    ('separate-rounding', 'float32', '1', '(x*0.9998779296875)-1', '[1.0001220703125]', [0], 'f', 0),
-    ('overflow', 'int8', '2', 'x+1', '[127,0]', [], 'b', 4)]:
+    ('transpose', 'i64', '2,2', 'transpose(x)', '[[1,2],[3,4]]', [1, 3, 2, 4], 'q', 0),
+    ('softmax', 'f32', '1,2', 'softmaxRows(x)', '[[0,0]]', [.5, .5], 'f', 0),
+    ('separate-rounding', 'f32', '1', '(x*0.9998779296875)-1', '[1.0001220703125]', [0], 'f', 0),
+    ('overflow', 'i8', '2', 'x+1', '[127,0]', [], 'b', 4)]:
     source = args.output/(label+'.k')
     rank = ','.join('?' for _ in shape.split(','))
     source.write_text(f'''fn work(x:Tensor[{numeric},{rank}])->Tensor[{numeric},{rank}]:
-  {expression}
+  return {expression}
 fn main()->Tensor[{numeric},{rank}] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     x:Tensor[{numeric},{shape}]=tensor({values})
     resident=try await transfer(x,gpu)
@@ -45,13 +45,13 @@ project.mkdir(exist_ok=True)
 (project/'kalandra.toml').write_text("format = 1\n[project]\nentry = 'main.k'\n")
 cases.append(('project', ['--project', project/'kalandra.toml'], 'hardware', '-O2', [5, 12, 21], 'f', 0))
 matrix_source = args.output/'matrix.k'
-matrix_source.write_text('''fn work(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  matmul(a,b)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+matrix_source.write_text('''fn work(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return matmul(a,b)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,2,3]=tensor([[1,2,3],[4,5,6]])
-    b:Tensor[float32,3,2]=tensor([[1,0],[0,1],[1,1]])
+    a:Tensor[f32,2,3]=tensor([[1,2,3],[4,5,6]])
+    b:Tensor[f32,3,2]=tensor([[1,0],[0,1],[1,1]])
     left=try await transfer(a,gpu)
     right=try await transfer(b,gpu)
     result=try await spawn work(left,right) on gpu

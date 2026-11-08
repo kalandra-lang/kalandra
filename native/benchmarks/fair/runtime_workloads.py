@@ -70,12 +70,12 @@ def main():
             for mode in ('direct','scheduled'):
                 name = f'{mode}-{rounds}'
                 fixed = build/(name+'.k')
-                scheduled = '''\nfn scheduled(seed:int,rounds:int)->float64 ! TaskError:
+                scheduled = '''\nfn scheduled(seed:i64,rounds:i64)->f64 ! TaskError:
   try parallel:
     work=spawn closure(seed,rounds)
     try await work
 ''' if mode == 'scheduled' else ''
-                fixed.write_text(source.read_text().split('fn main()')[0]+scheduled+'\nfn main()->float64'+
+                fixed.write_text(source.read_text().split('fn main()')[0]+scheduled+'\nfn main()->f64'+
                     (' ! TaskError' if mode == 'scheduled' else '')+':\n  '+
                     ('try scheduled' if mode == 'scheduled' else 'closure')+f'(17,{rounds})\n')
                 ir = build/(name+'.ll')

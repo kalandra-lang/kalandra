@@ -1,11 +1,11 @@
-fn apply(callback:fn(fn(int)->int,int)->int)->int:
-  callback(fn(value:int):value*2,21)
-fn main()->int:
-  apply(fn(
-    callback:fn(int)->int,
+fn apply(callback:fn(fn(i64)->i64,i64)->i64)->i64:
+  return callback(fn(value:i64):return value*2,21)
+fn main()->i64:
+  return apply(fn(
+    callback:fn(i64)->i64,
     value:
-           int
-  )->int:
+           i64
+  )->i64:
     total=callback(value)
-    total
+    return total
   )

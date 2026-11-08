@@ -1,13 +1,13 @@
-fn add(value:int,offset:int)->int:
-  value+offset
-fn make(offset:int)->(fn(int)->int ! TaskError):
-  fn(value:int)->int ! TaskError:
-    try parallel:
+fn add(value:i64,offset:i64)->i64:
+  return value+offset
+fn make(offset:i64)->(fn(i64)->i64 ! TaskError):
+  return fn(value:i64)->i64 ! TaskError:
+    return try parallel:
       try await spawn add(value,offset)
-fn wrap(f:fn(int)->int ! TaskError)->(fn(int)->int ! TaskError):
-  fn(value:int)->int ! TaskError:
-    try f(value)
-fn main()->int ! TaskError:
+fn wrap(f:fn(i64)->i64 ! TaskError)->(fn(i64)->i64 ! TaskError):
+  return fn(value:i64)->i64 ! TaskError:
+    return try f(value)
+fn main()->i64 ! TaskError:
   f=wrap(make(20))
-  try parallel:
+  return try parallel:
     try await spawn f(22)

@@ -1,11 +1,11 @@
-fn replace(mut values:[Bool])->Bool:
+fn replace(mut values:[bool])->bool:
   saved=values
   values[0]=if true:
     values=[true,false]
     false
   else:true
-  not saved[0] and values[0]
-fn main()->Bool:
+  return not saved[0] and values[0]
+fn main()->bool:
   original=[true]
   result=replace(original)
-  result and not original[0]
+  return result and not original[0]

@@ -33,7 +33,7 @@ run(negative-zero "${SINGLE}" "80000000" --thread-sanitize)
 string(REPLACE "    finish(result)" "    next = try await spawn scale(uploaded, result) on gpu\n    final = try await spawn total(next) on gpu\n    finish(final)" CHAIN "${SOURCE}")
 run(chained "${CHAIN}" "43e18000" -O2)
 # Matrices reduce in flat row-major order, including pairs that cross row boundaries.
-set(MATRIX "fn total(values: Tensor[float32, ?, ?]) -> float32:\n  reduceSum(values)\n\nfn forward(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:\n  values\n\nfn main() -> float32 ! TaskError:\n  try parallel:\n    values: Tensor[float32, 2, 3] = tensor([[1e20, 1, -1e20], [1, 1, 1]])\n    gpu = devices.gpu()\n    uploaded = try await transfer(forward(values), gpu)\n    alias = uploaded\n    work = spawn total(alias) on gpu\n    result = try await work\n    repeated = try await work\n    repeated\n")
+set(MATRIX "fn total(values: Tensor[f32, ?, ?]) -> f32:\n  return reduceSum(values)\n\nfn forward(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:\n  return values\n\nfn main() -> f32 ! TaskError:\n  return try parallel:\n    values: Tensor[f32, 2, 3] = tensor([[1e20, 1, -1e20], [1, 1, 1]])\n    gpu = devices.gpu()\n    uploaded = try await transfer(forward(values), gpu)\n    alias = uploaded\n    work = spawn total(alias) on gpu\n    result = try await work\n    repeated = try await work\n    repeated\n")
 run(matrix "${MATRIX}" "40000000" -O2)
 string(REPLACE "Tensor[float32, 2, 3] = tensor([[1e20, 1, -1e20], [1, 1, 1]])" "Tensor[float32, 0, 3] = tensor([], [0, 3])" EMPTY_MATRIX "${MATRIX}")
 run(matrix-empty-rows "${EMPTY_MATRIX}" "00000000" --sanitize)

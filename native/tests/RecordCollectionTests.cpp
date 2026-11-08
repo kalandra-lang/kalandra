@@ -12,7 +12,7 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    for (auto element : {"int32", "uint32", "int64", "uint64", "float32", "float64"}) {
+    for (auto element : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
       const auto type = std::string(element);
       auto result = analyze("type Envelope:\n  data:Data\ntype Data:\n  values:[" + type +
                             "]\n  matrix:Tensor[" + type +
@@ -58,17 +58,17 @@ int main() {
       }
     }
     for (auto text :
-         {"type Bad:\n  field:Tensor[Bool,2]\nfn main():\n  0\n",
-          "type Box:\n  field:[int]\nfn main():\n  Box {field:tensor([1,2])}.field\n",
-          "type Box:\n  field:Tensor[int,2]\nfn main():\n  Box {field:[1,2]}.field\n",
-          "type Box:\n  field:Tensor[int,2]\nfn main():\n  Box {field:tensor([1,2,3])}.field\n",
-          "type Box:\n  field:[int]\nfn main():\n  Box {field:[float32(1)]}.field\n"})
+         {"type Bad:\n  field:Tensor[bool,2]\nfn main():\n  return 0\n",
+          "type Box:\n  field:[i64]\nfn main():\n  return Box {field:tensor([1,2])}.field\n",
+          "type Box:\n  field:Tensor[i64,2]\nfn main():\n  return Box {field:[1,2]}.field\n",
+          "type Box:\n  field:Tensor[i64,2]\nfn main():\n  return Box {field:tensor([1,2,3])}.field\n",
+          "type Box:\n  field:[i64]\nfn main():\n  return Box {field:[f32(1)]}.field\n"})
       require(!analyze(text).ok(), std::string("invalid collection field program admitted: ") + text);
-    require(analyze("type Box:\n  field:[Box]\nfn main()->int:\n  value=Box {field:[]}\n  length(value.field)\n").ok(),
+    require(analyze("type Box:\n  field:[Box]\nfn main()->i64:\n  value=Box {field:[]}\n  return length(value.field)\n").ok(),
             "recursive collection field program rejected");
     auto shapes =
-        analyze("type Box:\n  field:[int]\nfn make(values:[int])->Box:\n  Box {field:values}\nfn "
-                "main():\n  a=make([1])\n  b=make([2,3])\n  length(a.field)+length(b.field)\n");
+        analyze("type Box:\n  field:[i64]\nfn make(values:[i64])->Box:\n  return Box {field:values}\nfn "
+                "main():\n  a=make([1])\n  b=make([2,3])\n  return length(a.field)+length(b.field)\n");
     require(shapes.ok(), "dynamic field program rejected");
     std::set<std::uint64_t> identities;
     for (const auto &expression : shapes.module->expressions)

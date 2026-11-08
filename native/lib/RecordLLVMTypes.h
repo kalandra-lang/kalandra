@@ -36,7 +36,7 @@ lowerRecordTypes(const TypedModule &module, mlir::MLIRContext &context,
       } else if (type.builtin == BuiltinValue::String) {
         fields.push_back(
             mlir::LLVM::LLVMStructType::getLiteral(&context, {ptr, ptr, builder.getI64Type()}));
-      } else if (type.builtin == BuiltinValue::Bool) {
+      } else if (isBooleanStorage(type)) {
         fields.push_back(builder.getI1Type());
       } else if (isInteger(type.element)) {
         fields.push_back(builder.getIntegerType(describeNumeric(type.element)->bits));

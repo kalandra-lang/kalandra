@@ -13,7 +13,7 @@ static CheckResult analyze(const std::string &text, SemanticLimits limits = {}) 
 }
 static void accepted(const std::string &body, NumericType element,
                      std::vector<std::uint64_t> shape) {
-  auto typed = analyze("fn probe():\n" + body + "\nfn main()->int64:\n  0\n");
+  auto typed = analyze("fn probe():\n" + body + "\nfn main()->i64:\n  return 0\n");
   if (!typed.ok())
     throw std::runtime_error(renderDiagnostic(*typed.source, typed.diagnostics.front()));
   const auto &type = typed.module->functions[0].resultType;
@@ -76,28 +76,28 @@ int main() {
                                       [&](const auto &d) { return d.code == test.code; }),
               std::string("missing expected diagnostic: ") + test.body);
     }
-    auto typed = analyze("fn probe(work:int64):\n  tensor([work,2.0])\n");
+    auto typed = analyze("fn probe(work:i64):\n  return tensor([work,2.0])\n");
     require(!typed.ok() && typed.source->location(typed.diagnostics[0].span.begin) ==
                                std::pair<std::size_t, std::size_t>{2, 16},
             "mixed element diagnostic location lost");
     auto joined =
-        analyze("fn choose(flag:Bool):\n  if flag:\n    tensor([1])\n  else:\n    tensor([2,3])\n");
+        analyze("fn choose(flag:bool):\n  return if flag:\n    tensor([1])\n  else:\n    tensor([2,3])\n");
     require(joined.ok() && joined.module->functions[0].resultType.tensor &&
                 joined.module->functions[0].resultType.element == NumericType::Int64 &&
                 joined.module->functions[0].resultType.shape.size() == 1 &&
                 !joined.module->functions[0].resultType.shape[0].constant,
             "inferred branch shape join lost");
     for (auto source :
-         {"fn identity(x:int64)->int64:\n  x\nfn main() ! TaskError:\n  try parallel:\n    "
+         {"fn identity(x:i64)->i64:\n  return x\nfn main() ! TaskError:\n  return try parallel:\n    "
           "work=spawn identity(1)\n    values=tensor([work])\n    try await work\n",
-          "fn identity(x:int64)->int64:\n  x\nfn main() ! TaskError:\n  try parallel:\n    "
+          "fn identity(x:i64)->i64:\n  return x\nfn main() ! TaskError:\n  return try parallel:\n    "
           "work=spawn identity(1)\n    values=tensor([await work])\n    0\n"}) {
       auto rejected = analyze(source);
       require(!rejected.ok(), "incomplete task/error accepted as inferred tensor data");
     }
     SemanticLimits limits;
     limits.maxTensorElements = 2;
-    require(!analyze("fn main():\n  tensor([1,2,3])\n", limits).ok(), "element budget bypassed");
+    require(!analyze("fn main():\n  return tensor([1,2,3])\n", limits).ok(), "element budget bypassed");
     std::cout
         << "tensor inference: default types, explicit context, six numeric identities, shapes, "
            "strict mixed-type rejection, source locations and bounded input passed\n";

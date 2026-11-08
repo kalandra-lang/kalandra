@@ -1,15 +1,15 @@
 type Outcome:
-  error:fn(int)->int
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
-fn wrap(error:fn(int)->int)->fn(int)->int:
+  error:fn(i64)->i64
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
+fn wrap(error:fn(i64)->i64)->fn(i64)->i64:
   outcome=Outcome {error:error}
-  fn(value:int):
-    outcome.error(value)
-fn forward(f:fn(int)->int)->int ! TaskError:
-  try parallel:
+  return fn(value:i64):
+    return outcome.error(value)
+fn forward(f:fn(i64)->i64)->i64 ! TaskError:
+  return try parallel:
     try await spawn apply(42,f)
-fn run(error:fn(int)->int)->int ! TaskError:
-  try forward(wrap(error))
-fn main()->int:
-  42
+fn run(error:fn(i64)->i64)->i64 ! TaskError:
+  return try forward(wrap(error))
+fn main()->i64:
+  return 42

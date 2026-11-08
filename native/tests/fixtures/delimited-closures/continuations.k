@@ -1,13 +1,13 @@
 type Box:
-  fn:int
-fn sum(a:int,b:int)->int:
-  a+b
-fn main()->int:
+  fn:i64
+fn sum(a:i64,b:i64)->i64:
+  return a+b
+fn main()->i64:
   box=Box {
     fn:
              20,
   }
-  sum(
+  return sum(
        box.fn,
   22
   )

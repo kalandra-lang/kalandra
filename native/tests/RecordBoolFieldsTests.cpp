@@ -15,20 +15,20 @@ int main() {
     const std::string decl =
         "type Box:\n  data:Data\n  numbers:[int]\ntype Data:\n  flags:[Bool]\n  enabled:Bool\n";
     for (const auto *body :
-         {"fn main()->[Bool]:\n  Box {data:Data "
+         {"fn main()->[bool]:\n  return Box {data:Data "
           "{flags:[true,false],enabled:true},numbers:[1]}.data.flags\n",
-          "fn main()->[Bool]:\n  Box {data:Data {flags:[],enabled:false},numbers:[]}.data.flags\n",
-          "fn change(p:Box)->Box:\n  p with {data:p.data with {flags:map(p.data.flags,fn(flag):not "
-          "flag)}}\nfn main()->[Bool] ! TaskError:\n  p=Box {data:Data "
+          "fn main()->[bool]:\n  return Box {data:Data {flags:[],enabled:false},numbers:[]}.data.flags\n",
+          "fn change(p:Box)->Box:\n  return p with {data:p.data with {flags:map(p.data.flags,fn(flag):return not "
+          "flag)}}\nfn main()->[bool] ! TaskError:\n  p=Box {data:Data "
           "{flags:[true,false],enabled:true},numbers:[1]}\n  result=try parallel:\n    try await "
-          "spawn change(p)\n  result.data.flags\n",
-          "fn make()->[Box]:\n  [Box {data:Data {flags:[true],enabled:true},numbers:[1]}]\nfn "
-          "main()->[Bool] ! TaskError:\n  rows=try parallel:\n    try await spawn make()\n  "
-          "map(rows,fn(row):row.data.flags[0])\n",
-          "fn selected(flag:Bool,n:int)->int:\n  if flag:n\n  else:0\nfn main()->[int] ! "
-          "TaskError:\n  p=Box {data:Data {flags:[true],enabled:true},numbers:[1]}\n  try "
+          "spawn change(p)\n  return result.data.flags\n",
+          "fn make()->[Box]:\n  return [Box {data:Data {flags:[true],enabled:true},numbers:[1]}]\nfn "
+          "main()->[bool] ! TaskError:\n  rows=try parallel:\n    try await spawn make()\n  "
+          "return map(rows,fn(row):return row.data.flags[0])\n",
+          "fn selected(flag:bool,n:i64)->i64:\n  return if flag:n\n  else:0\nfn main()->[i64] ! "
+          "TaskError:\n  p=Box {data:Data {flags:[true],enabled:true},numbers:[1]}\n  return try "
           "parallel:\n    try await spawn "
-          "map(p.numbers,fn(value):selected(p.data.flags[0],value))\n"}) {
+          "map(p.numbers,fn(value):return selected(p.data.flags[0],value))\n"}) {
       auto result = analyze(decl + body);
       require(result.ok(), "valid Bool field rejected: " + std::string(body));
       require(!numericCapabilityError(*result.module, NumericTarget::Cpu),
@@ -41,17 +41,17 @@ int main() {
       require(bool(lowered), lowered ? "" : lowered.error());
 #endif
     }
-    for (const auto *body : {"type Bad:\n  values:Tensor[Bool,2]\nfn main():\n  0\n",
-                             "type Bad:\n  values:[[Bool]]\nfn main():\n  0\n",
-                             "type Box:\n  values:[Bool]\nfn main():\n  Box {values:[1]}\n",
-                             "type Box:\n  values:[Bool]\nfn main():\n  Box {values:true}\n",
-                             "type Box:\n  values:[Bool]\nfn main():\n  p=Box {values:[true]}\n  p "
+    for (const auto *body : {"type Bad:\n  values:Tensor[bool,2]\nfn main():\n  return 0\n",
+                             "type Bad:\n  values:[[bool]]\nfn main():\n  0\n",
+                             "type Box:\n  values:[bool]\nfn main():\n  return Box {values:[1]}\n",
+                             "type Box:\n  values:[bool]\nfn main():\n  return Box {values:true}\n",
+                             "type Box:\n  values:[bool]\nfn main():\n  p=Box {values:[true]}\n  return p "
                              "with {values:[1]}\n",
-                             "type Box:\n  values:[Box]\nfn main():\n  Box {values:[true]}\n"})
+                             "type Box:\n  values:[Box]\nfn main():\n  return Box {values:[true]}\n"})
       require(!analyze(body).ok(), "invalid Bool field admitted");
     auto valid = analyze(
-        "type Box:\n  flags:[Bool]\nfn make(flags:[Bool])->Box:\n  Box {flags:flags}\nfn main():\n "
-        " p=make([true])\n  q=make([false,true])\n  length(p.flags)+length(q.flags)\n");
+        "type Box:\n  flags:[bool]\nfn make(flags:[bool])->Box:\n  return Box {flags:flags}\nfn main():\n "
+        " p=make([true])\n  q=make([false,true])\n  return length(p.flags)+length(q.flags)\n");
     require(valid.ok(), "Bool field freshness fixture rejected");
     std::vector<ExtentId> reads;
     for (const auto &e : valid.module->expressions)

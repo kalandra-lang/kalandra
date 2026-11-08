@@ -1,8 +1,8 @@
-fn double(value:int)->int:
-  value*2
-fn make()->fn(int)->int:
-  double
-fn main()->int ! TaskError:
+fn double(value:i64)->i64:
+  return value*2
+fn make()->fn(i64)->i64:
+  return double
+fn main()->i64 ! TaskError:
   f=try parallel:
     try await spawn make()
-  f(21)
+  return f(21)

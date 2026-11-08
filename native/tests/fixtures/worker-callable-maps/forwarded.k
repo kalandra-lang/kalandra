@@ -1,8 +1,8 @@
-fn double(value:int)->int:
-  value*2
-fn process(values:[int],callback:fn(int)->int)->[int] ! TaskError:
-  try parallel:
+fn double(value:i64)->i64:
+  return value*2
+fn process(values:[i64],callback:fn(i64)->i64)->[i64] ! TaskError:
+  return try parallel:
     try await spawn map(values,callback)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   values=try process([21],double)
-  values[0]
+  return values[0]

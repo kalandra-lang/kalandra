@@ -96,8 +96,8 @@ int main() {
     require(programs == 24 && !hero.empty() && !nested.empty(), "missing fixture catalog");
     for (const auto &[text, code] : std::vector<std::pair<std::string, std::string>>{
              {"fn main():\n  map([1],fn(v):\n  )\n", "P002"},
-             {"fn main():\n  map([1],fn(v):\n    result=v+1\n  )\n", "P007"},
-             {"fn main():\n  map([1],fn(v):\n    if v>0:\n      v\n  )\n", "P007"},
+             {"fn main():\n  return map([1],fn(v):\n    result=v+1\n  )\n", "P007"},
+             {"fn main():\n  return map([1],fn(v):\n    return if v>0:\n      v\n  )\n", "P007"},
              {"fn main():\n  map([1],fn(v):\n    v)\n", "L016"},
              {"fn main():\n  map([1],fn(v):\n    v\n    )\n", "L016"},
              {"fn main():\n  map([1],fn(v):\n    x=v+1\n   x\n  )\n", "L008"},
@@ -107,9 +107,9 @@ int main() {
       const auto result = parse(source(text));
       require(!result.ok() && has(result.diagnostics, code), "suite diagnostic changed");
     }
-    require(!check(parse(source("fn main()->int:\n  result=map([1],fn(v):\n    hidden=v+1\n    hidden\n  )\n  hidden\n"))).ok(),
+    require(!check(parse(source("fn main()->i64:\n  result=map([1],fn(v):\n    hidden=v+1\n    return hidden\n  )\n  return hidden\n"))).ok(),
             "callback-local declaration escaped its scope");
-    require(check(parse(source("fn main()->int:\n  result=map([1],fn(v):\n    v=v+1\n    v\n  )\n  result[0]\n"))).ok(),
+    require(check(parse(source("fn main()->i64:\n  result=map([1],fn(v):\n    v=v+1\n    return v\n  )\n  return result[0]\n"))).ok(),
             "private scalar callback parameter could not be reassigned");
     SyntaxLimits limits;
     limits.maxTokens = 16;
@@ -131,7 +131,7 @@ int main() {
     limits.maxDiagnostics = 2;
     unsigned prefixes = 0;
     for (const auto &text :
-         {hero, nested, std::string("fn main():\n  (fn(v):\n    \"é🙂\"\n  )\n")})
+         {hero, nested, std::string("fn main():\n  return (fn(v):\n    return \"é🙂\"\n  )\n")})
       for (std::size_t length = 0; length <= text.size(); ++length) {
         const auto prefix = text.substr(0, length);
         const auto tokens = lex(source(prefix), limits);

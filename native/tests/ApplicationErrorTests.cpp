@@ -15,29 +15,29 @@ int main() {
     const std::string decl =
         "error InputError:\n  Empty\n  Bad:\n    count:int\n    reason:String\n"
         "enum Ordinary:\n  Empty\nerror OtherError:\n  Bad\n";
-    auto inferred = analyze(decl + "fn checked(x:int) ! InputError:\n  x+1\n"
-                                   "fn main()->int ! InputError:\n  try checked(1)\n");
+    auto inferred = analyze(decl + "fn checked(x:i64) ! InputError:\n  return x+1\n"
+                                   "fn main()->i64 ! InputError:\n  return try checked(1)\n");
     require(inferred.ok() && inferred.module->functions[0].resultType.errorRecord == 0,
             "inferred success type lost its explicit application channel");
     for (const auto *body :
-         {"fn main()->int ! InputError:\n  if true:\n    42\n  1\n",
-          "fn checked(x:int)->int ! InputError:\n  if x==0:\n    fail InputError.Empty\n  x+1\n"
-          "fn main()->int:\n  checked(0) catch fn(error):\n    match error:\n      "
+         {"fn main()->i64 ! InputError:\n  if true:\n    42\n  return 1\n",
+          "fn checked(x:i64)->i64 ! InputError:\n  if x==0:\n    fail InputError.Empty\n  return x+1\n"
+          "fn main()->i64:\n  return checked(0) catch fn(error):\n    return match error:\n      "
           "InputError.Empty:42\n      InputError.Bad {count}:count\n",
-          "fn checked(x:int)->int ! InputError:\n  if x==0:fail InputError.Bad "
+          "fn checked(x:i64)->i64 ! InputError:\n  return if x==0:fail InputError.Bad "
           "{count:x,reason:\"bad\"}\n  else:x\n"
-          "fn relay(x:int)->int ! InputError:\n  n=try checked(x)\n  n+1\nfn main()->int:\n  "
-          "relay(0) catch fn(error):0\n",
-          "fn original()->int ! InputError:\n  fail InputError.Empty\n"
-          "fn convert()->int ! OtherError:\n  original() catch fn(error):fail OtherError.Bad\n"
-          "fn main()->int:\n  convert() catch fn(error):42\n",
-          "fn explain(error:InputError)->String:\n  match error:\n    InputError.Empty:\"empty\"\n "
+          "fn relay(x:i64)->i64 ! InputError:\n  n=try checked(x)\n  return n+1\nfn main()->i64:\n  return "
+          "relay(0) catch fn(error):return 0\n",
+          "fn original()->i64 ! InputError:\n  fail InputError.Empty\n"
+          "fn convert()->i64 ! OtherError:\n  return original() catch fn(error):fail OtherError.Bad\n"
+          "fn main()->i64:\n  return convert() catch fn(error):return 42\n",
+          "fn explain(error:InputError)->String:\n  return match error:\n    InputError.Empty:\"empty\"\n "
           "   InputError.Bad {reason}:reason\n"
-          "fn main()->String:\n  explain(InputError.Bad {count:1,reason:\"bad\"})\n",
-          "fn local(x:int)->int ! InputError:\n  if x==0:\n    reason=\"bad\"+\" input\"\n    fail "
-          "InputError.Bad {count:x,reason:reason}\n  x\n"
-          "fn worker()->int:\n  local(0) catch fn(error):42\n"
-          "fn main()->int ! TaskError:\n  try parallel:\n    try await spawn worker()\n"}) {
+          "fn main()->String:\n  return explain(InputError.Bad {count:1,reason:\"bad\"})\n",
+          "fn local(x:i64)->i64 ! InputError:\n  if x==0:\n    reason=\"bad\"+\" input\"\n    fail "
+          "InputError.Bad {count:x,reason:reason}\n  return x\n"
+          "fn worker()->i64:\n  return local(0) catch fn(error):return 42\n"
+          "fn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn worker()\n"}) {
       auto result = analyze(decl + body);
       if (!result.ok())
         for (const auto &d : result.diagnostics)
@@ -52,28 +52,28 @@ int main() {
 #endif
     }
     for (const auto *body :
-         {"fn main()->int ! Ordinary:\n  1\n",
-          "fn main()->int ! InputError:\n  fail Ordinary.Empty\n",
-          "fn main()->int ! InputError:\n  fail OtherError.Bad\n",
-          "fn bad()->int ! InputError:\n  fail InputError.Empty\nfn main()->int:\n  try bad()\n",
-          "fn bad()->int ! InputError:\n  fail InputError.Empty\nfn main()->int ! OtherError:\n  "
-          "try bad()\n",
-          "fn bad()->int ! InputError:\n  fail InputError.Empty\nfn main()->int:\n  "
-          "ignored=bad()\n  42\n",
-          "fn bad()->int ! InputError:\n  fail InputError.Empty\nfn main()->int:\n  bad() catch "
-          "fn(error):\n    match error:\n      InputError.Bad:0\n",
-          "fn bad()->int ! InputError:\n  fail InputError.Empty\nfn main()->int ! TaskError:\n  "
+         {"fn main()->i64 ! Ordinary:\n  return 1\n",
+          "fn main()->i64 ! InputError:\n  fail Ordinary.Empty\n",
+          "fn main()->i64 ! InputError:\n  fail OtherError.Bad\n",
+          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64:\n  return try bad()\n",
+          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64 ! OtherError:\n  "
+          "return try bad()\n",
+          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64:\n  "
+          "ignored=bad()\n  return 42\n",
+          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64:\n  return bad() catch "
+          "fn(error):\n    return match error:\n      InputError.Bad:0\n",
+          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64 ! TaskError:\n  return "
           "try parallel:\n    try await spawn bad()\n",
-          "fn bad()->int ! InputError:\n  fail InputError.Empty\nfn main()->int ! TaskError:\n  "
+          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64 ! TaskError:\n  return "
           "try parallel:\n    try bad()\n",
-          "fn main()->int ! InputError:\n  result=if true:\n    fail InputError.Empty\n  1\n",
-          "fn main()->int ! InputError:\n  if true:\n    fail InputError.Empty\n",
-          "fn main()->int ! InputError:\n  if 1:\n    fail InputError.Empty\n  1\n",
-          "fn main()->int ! InputError | TaskError:\n  1\n"})
+          "fn main()->i64 ! InputError:\n  result=if true:\n    fail InputError.Empty\n  return 1\n",
+          "fn main()->i64 ! InputError:\n  return if true:\n    fail InputError.Empty\n",
+          "fn main()->i64 ! InputError:\n  if 1:\n    fail InputError.Empty\n  return 1\n",
+          "fn main()->i64 ! InputError | TaskError:\n  1\n"})
       require(!analyze(decl + body).ok(),
               "invalid/unsupported error program admitted: " + std::string(body));
-    auto valid = analyze(decl + "fn get()->int ! InputError:\n  fail InputError.Empty\n"
-                                "fn main()->int:\n  get() catch fn(error):42\n");
+    auto valid = analyze(decl + "fn get()->i64 ! InputError:\n  fail InputError.Empty\n"
+                                "fn main()->i64:\n  return get() catch fn(error):return 42\n");
     require(valid.ok(), "metadata fixture rejected");
     for (unsigned mode = 0; mode < 4; ++mode) {
       auto forged = *valid.module;
@@ -92,8 +92,8 @@ int main() {
       require(bool(numericCapabilityError(forged, NumericTarget::Cpu)),
               "invalid error metadata admitted");
     }
-    auto guarded = analyze(decl + "fn checked(x:Bool)->int ! InputError:\n  if x:\n"
-                                  "    fail InputError.Empty\n  42\nfn main()->int:\n  0\n");
+    auto guarded = analyze(decl + "fn checked(x:bool)->i64 ! InputError:\n  if x:\n"
+                                  "    fail InputError.Empty\n  return 42\nfn main()->i64:\n  return 0\n");
     require(guarded.ok(), "guard metadata fixture rejected");
     for (unsigned mode = 0; mode < 3; ++mode) {
       auto forged = *guarded.module;

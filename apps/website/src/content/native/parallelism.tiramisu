@@ -4,11 +4,11 @@ Use CPU tasks when independent work can run concurrently. You will need the ordi
 
 h2 { "Start independent work before awaiting" }
 
-codeblock { language = kalandra, """fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """fn double(value: i64) -> i64:
+  return value * 2
 
-fn main() -> int ! TaskError:
-  try parallel:
+fn main() -> i64 ! TaskError:
+  return try parallel:
     left = spawn double(10)
     right = spawn double(11)
     a = try await left
@@ -30,9 +30,9 @@ list {
 
 h2 { "Map an array in parallel" }
 
-codeblock { language = kalandra, """fn main() -> [int] ! TaskError:
+codeblock { language = kalandra, """fn main() -> [i64] ! TaskError:
   factor = 2
-  try parallelMap([1, 2, 3], fn(value: int): value * factor)
+  return try parallelMap([1, 2, 3], fn(value: i64): return value * factor)
 """ }
 
 This returns [2, 4, 6]. parallelMap returns results in input order and can change the element type under the supported callback rules. map remains sequential. Scheduling a map call with spawn creates a task containing one sequential mapping loop; it does not turn each element into an independent task.

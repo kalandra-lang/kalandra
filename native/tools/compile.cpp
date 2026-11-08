@@ -1,7 +1,7 @@
 #include "../lib/NativeSanitizerFrames.h"
 #include "../lib/OrdinaryMain.h"
-#include "CrossToolchain.h"
 #include "../lib/PlatformFileSystem.h"
+#include "CrossToolchain.h"
 #include "kalandra/Backend.h"
 #include "kalandra/PackageInstall.h"
 #include "kalandra/Project.h"
@@ -109,15 +109,19 @@ int main(int argc, char **argv) {
         return 2;
       }
       toolchainPath = argv[++i];
-    } else if (option == "--platform" || option == "--sysroot" ||
-               option == "--gcc-directory" || option == "--library-directory") {
+    } else if (option == "--platform" || option == "--sysroot" || option == "--gcc-directory" ||
+               option == "--library-directory") {
       if (i + 1 >= argc || std::string_view(argv[i + 1]).empty() ||
           std::string_view(argv[i + 1]).starts_with("--")) {
-        std::cerr << "incomplete CPU platform option: " << option << '\n'; return 2;
+        std::cerr << "incomplete CPU platform option: " << option << '\n';
+        return 2;
       }
       const std::string value = argv[++i];
       if (option == "--platform") {
-        if (!platform.empty()) { std::cerr << "one --platform is allowed\n"; return 2; }
+        if (!platform.empty()) {
+          std::cerr << "one --platform is allowed\n";
+          return 2;
+        }
         platform = value;
       } else if (option == "--library-directory") {
         if (!platformOptions.get("libraryDirectories"))
@@ -125,7 +129,10 @@ int main(int argc, char **argv) {
         platformOptions.getArray("libraryDirectories")->push_back(value);
       } else {
         const auto key = option == "--sysroot" ? "sysroot" : "gccDirectory";
-        if (platformOptions.get(key)) { std::cerr << "duplicate CPU SDK option\n"; return 2; }
+        if (platformOptions.get(key)) {
+          std::cerr << "duplicate CPU SDK option\n";
+          return 2;
+        }
         platformOptions[key] = value;
       }
     } else if (option == "--target") {
@@ -144,29 +151,36 @@ int main(int argc, char **argv) {
         filtered.push_back(argv[++i]);
     }
   }
-  if ((!platform.empty() && !toolchainPath.empty()) || (platform.empty() && !platformOptions.empty())) {
-    std::cerr << "choose --platform with SDK flags, or --toolchain with its profile\n"; return 2;
+  if ((!platform.empty() && !toolchainPath.empty()) ||
+      (platform.empty() && !platformOptions.empty())) {
+    std::cerr << "choose --platform with SDK flags, or --toolchain with its profile\n";
+    return 2;
   }
   if (!platform.empty()) {
-    const std::map<std::string, std::string> triples{
-        {"linux-x86_64", "x86_64-unknown-linux-gnu"}, {"linux-arm64", "aarch64-unknown-linux-gnu"},
-        {"windows-x86_64", "x86_64-pc-windows-msvc"}, {"windows-arm64", "aarch64-pc-windows-msvc"},
-        {"macos-arm64", "arm64-apple-macosx26.0.0"}};
+    const std::map<std::string, std::string> triples{{"linux-x86_64", "x86_64-unknown-linux-gnu"},
+                                                     {"linux-arm64", "aarch64-unknown-linux-gnu"},
+                                                     {"windows-x86_64", "x86_64-pc-windows-msvc"},
+                                                     {"windows-arm64", "aarch64-pc-windows-msvc"},
+                                                     {"macos-arm64", "arm64-apple-macosx26.0.0"}};
     auto found = triples.find(platform);
-    if (found == triples.end()) { std::cerr << "unsupported CPU platform: " << platform << '\n'; return 2; }
+    if (found == triples.end()) {
+      std::cerr << "unsupported CPU platform: " << platform << '\n';
+      return 2;
+    }
     platformOptions["format"] = 1;
     platformOptions["target"] = found->second;
   }
   const bool selectedCpuToolchain = !toolchainPath.empty() || !platform.empty();
   if ((target == "metal" || target == "vulkan" || target == "cuda") && selectedCpuToolchain) {
-    std::cerr << "--toolchain selects a CPU ABI and cannot be combined with --target " << target << '\n';
+    std::cerr << "--toolchain selects a CPU ABI and cannot be combined with --target " << target
+              << '\n';
     return 2;
   }
   if (target == "cuda") {
 #ifdef KALANDRA_HAS_CUDA_SOURCE
     char build[] = "--build";
     if (std::none_of(filtered.begin() + 1, filtered.end(),
-                    [](const char *argument) { return std::string_view(argument) == "--build"; }))
+                     [](const char *argument) { return std::string_view(argument) == "--build"; }))
       filtered.push_back(build);
     return kalandra::compileCudaCommand(static_cast<int>(filtered.size()), filtered.data());
 #else
@@ -225,7 +239,9 @@ int main(int argc, char **argv) {
            "hardware|software|hardware-with-software-fallback] [--sanitize|--thread-sanitize] "
            "[--matmul-policy optimized|fixed-tree] "
            "[-O0|-O2] [--target "
-           "cpu|metal|vulkan|cuda] [--toolchain profile.json | --platform os-architecture [--sysroot path] [--gcc-directory path] [--library-directory path ...]] [--package name=path.k ...] [--project manifest.toml instead of source]\n"
+           "cpu|metal|vulkan|cuda] [--toolchain profile.json | --platform os-architecture "
+           "[--sysroot path] [--gcc-directory path] [--library-directory path ...]] [--package "
+           "name=path.k ...] [--project manifest.toml instead of source]\n"
            "       kalandra new directory\n";
     return 2;
   }
@@ -315,7 +331,8 @@ int main(int argc, char **argv) {
     return 2;
   }
   if (selectedCpuToolchain && (sanitize || threadSanitize)) {
-    std::cerr << "cross-toolchain sanitizer modes are not yet qualified; use normal or optimized builds\n";
+    std::cerr << "cross-toolchain sanitizer modes are not yet qualified; use normal or optimized "
+                 "builds\n";
     return 2;
   }
   if (sanitize && threadSanitize) {
@@ -408,7 +425,10 @@ int main(int argc, char **argv) {
   std::error_code resourceError;
   const auto executable = std::filesystem::canonical(
       llvm::sys::fs::getMainExecutable(argv[0], &executableAnchor), resourceError);
-  if (resourceError) { std::cerr << "cannot locate compiler executable\n"; return 1; }
+  if (resourceError) {
+    std::cerr << "cannot locate compiler executable\n";
+    return 1;
+  }
   const auto hostPrefix = executable.parent_path().parent_path();
   std::optional<kalandra::CrossToolchain> cross;
   // Installed compilers resolve only their adjacent private runtime resources.
@@ -443,14 +463,19 @@ int main(int argc, char **argv) {
 #endif
   if (selectedCpuToolchain) {
     auto loaded = kalandra::loadCrossToolchain(
-        platform.empty() ? std::filesystem::path(toolchainPath) : std::filesystem::current_path() / "command-line-toolchain.json",
-        clang, hostPrefix, platform.empty() ? std::optional<llvm::json::Object>{}
-                                           : std::optional<llvm::json::Object>(std::move(platformOptions)));
-    if (!loaded) { std::cerr << "CPU toolchain: " << loaded.error() << '\n'; return 2; }
+        platform.empty() ? std::filesystem::path(toolchainPath)
+                         : std::filesystem::current_path() / "command-line-toolchain.json",
+        clang, hostPrefix,
+        platform.empty() ? std::optional<llvm::json::Object>{}
+                         : std::optional<llvm::json::Object>(std::move(platformOptions)));
+    if (!loaded) {
+      std::cerr << "CPU toolchain: " << loaded.error() << '\n';
+      return 2;
+    }
     cross = std::move(*loaded);
   }
   auto lowered = kalandra::lowerNative(*typed.module, testEntry, {}, arithmetic, false,
-      cross ? cross->target : kalandra::CpuTarget{});
+                                       cross ? cross->target : kalandra::CpuTarget{});
   if (!lowered) {
     std::cerr << "native lowering: " << lowered.error() << '\n';
     return 1;
@@ -530,9 +555,17 @@ int main(int argc, char **argv) {
                                           ? runtimePath(KALANDRA_BOOL_THREAD_SANITIZED_ENTRY)
                                       : sanitize ? runtimePath(KALANDRA_BOOL_SANITIZED_ENTRY)
                                                  : runtimePath(KALANDRA_BOOL_ENTRY));
+  if (scalarMain && main->resultType.builtin == kalandra::BuiltinValue::Unit)
+    archives.insert(archives.begin(), threadSanitize
+                                          ? runtimePath(KALANDRA_UNIT_THREAD_SANITIZED_ENTRY)
+                                      : sanitize ? runtimePath(KALANDRA_UNIT_SANITIZED_ENTRY)
+                                                 : runtimePath(KALANDRA_UNIT_ENTRY));
   if (cross && cross->windows()) {
     auto builtins = cross->windowsBuiltins();
-    if (!builtins) { std::cerr << "CPU toolchain: " << builtins.error() << '\n'; return 2; }
+    if (!builtins) {
+      std::cerr << "CPU toolchain: " << builtins.error() << '\n';
+      return 2;
+    }
     archives.push_back(builtins->string());
   }
   for (const auto &archive : archives) {
@@ -545,7 +578,8 @@ int main(int argc, char **argv) {
   if (cross)
     for (const auto &archive : archives)
       if (auto error = cross->verifyArchive(archive)) {
-        std::cerr << "CPU toolchain: " << *error << '\n'; return 2;
+        std::cerr << "CPU toolchain: " << *error << '\n';
+        return 2;
       }
   if (!mlirPath.empty() && !write(mlirPath, lowered->mlir)) {
     std::cerr << "cannot write MLIR\n";
@@ -599,7 +633,8 @@ int main(int argc, char **argv) {
   // Keep that name stable while staging atomically on the destination volume.
   llvm::SmallString<256> linkedDirectory;
   if (auto error = llvm::sys::fs::createUniqueDirectory(
-          std::filesystem::absolute(output.parent_path() / ".kalandra-link").string(), linkedDirectory)) {
+          std::filesystem::absolute(output.parent_path() / ".kalandra-link").string(),
+          linkedDirectory)) {
     std::cerr << "cannot create output: " << error.message() << '\n';
     return 1;
   }
@@ -615,12 +650,12 @@ int main(int argc, char **argv) {
     command.insert(command.end(), flags.begin(), flags.end());
   } else {
 #ifdef _WIN32
-  command.push_back("-fms-runtime-lib=static");
-  command.push_back("--rtlib=compiler-rt");
+    command.push_back("-fms-runtime-lib=static");
+    command.push_back("--rtlib=compiler-rt");
 #else
-  command.push_back("-pthread");
+    command.push_back("-pthread");
 #ifdef __APPLE__
-  command.push_back("-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM);
+    command.push_back("-mmacosx-version-min=" KALANDRA_NATIVE_MACOS_MINIMUM);
 #endif
 #endif
   }
@@ -636,16 +671,17 @@ int main(int argc, char **argv) {
   std::string error;
   auto environment = cross ? kalandra::crossToolEnvironment() : std::vector<std::string>{};
   std::vector<llvm::StringRef> env(environment.begin(), environment.end());
-  const auto status = llvm::sys::ExecuteAndWait(command[0], invocation,
-      cross ? std::optional<llvm::ArrayRef<llvm::StringRef>>(env) : std::nullopt,
-      {}, 0, 0, &error);
+  const auto status = llvm::sys::ExecuteAndWait(
+      command[0], invocation,
+      cross ? std::optional<llvm::ArrayRef<llvm::StringRef>>(env) : std::nullopt, {}, 0, 0, &error);
   if (status != 0) {
     std::cerr << "native link failed: " << error << '\n';
     return 1;
   }
   if (cross)
     if (auto failure = cross->verifyOutput(std::string(linkedOutput))) {
-      std::cerr << "CPU toolchain: " << *failure << '\n'; return 1;
+      std::cerr << "CPU toolchain: " << *failure << '\n';
+      return 1;
     }
   const auto publishError =
       kalandra::detail::replaceFile(std::filesystem::path(std::string(linkedOutput)), output);

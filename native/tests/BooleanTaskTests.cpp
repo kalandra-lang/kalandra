@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
   if (published)
     check(std::uint64_t(std::bit_cast<Raw>(out.value)) == expected,
           "value changed after owners destroyed");
-  std::cout << "Boolean task " << "Bool" << " workers " << workers << " mode " << mode
+  std::cout << "Boolean task " << "bool" << " workers " << workers << " mode " << mode
             << " allocation " << attempt
             << ": exact bits, typed cached layouts and settled owners passed\n";
 }

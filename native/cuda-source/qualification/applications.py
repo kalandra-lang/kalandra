@@ -21,14 +21,14 @@ repo=Path(__file__).resolve().parents[3]
 program_name='program.exe' if os.name=='nt' else 'program'
 base=(repo/'native/metal-source/placed.k').read_text()
 cases=[]
-for numeric in ('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64'):
-    source=a.output/(numeric+'.k');source.write_text(base.replace('float32',numeric))
+for numeric in ('i8','u8','i16','u16','i32','u32','i64','u64','f32','f64'):
+    source=a.output/(numeric+'.k');source.write_text(base.replace('f32',numeric))
     cases.append((numeric,source,numeric,[5,12,21],True))
 for name,values,tensor in [('cpu-spawn',[52,54,64,66],True),('matmul',[163],False),('reduction',[31],False),
                          ('recovery',[180],False),('tensor-feedback',[.5,1,1.5],True),
                          ('scalar-control',[41/246,82/246,123/246],True)]:
-    cases.append((name,repo/'native/metal-source'/f'{name}.k','float32',values,tensor))
-cases.append(('checked-fault',Path(__file__).with_name('checked-fault.k'),'int8',[42],True))
+    cases.append((name,repo/'native/metal-source'/f'{name}.k','f32',values,tensor))
+cases.append(('checked-fault',Path(__file__).with_name('checked-fault.k'),'i8',[42],True))
 records=[];failures=[];builds=[]
 for policy in ('hardware','software','hardware-with-software-fallback'):
   for name,source,numeric,values,tensor in cases:
@@ -45,9 +45,9 @@ for policy in ('hardware','software','hardware-with-software-fallback'):
       record={'case':name,'policy':policy,'stage':'build','status':built.returncode};records.append(record);failures.append(record)
     else:
       assert (out/program_name).is_file() and list(out.glob('*.ptx')),out
-      width=32 if numeric=='float32' else 64 if numeric=='float64' else int(numeric.removeprefix('u').removeprefix('int'))
+      width=32 if numeric=='f32' else 64 if numeric=='f64' else int(numeric.removeprefix('u').removeprefix('i'))
       def bits(value):
-        return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little') if numeric.startswith('float') else value
+        return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little') if numeric.startswith('f') else value
       payload=','.join(f'{bits(v):0{width//4}x}' for v in values)
       expected=('['+payload+']' if tensor else payload)+'\n'
       for workers in ((1,2,4) if a.execute else ()):

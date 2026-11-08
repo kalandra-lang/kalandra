@@ -5,13 +5,13 @@ p=argparse.ArgumentParser();p.add_argument('--compiler',type=Path,required=True)
 a.output.mkdir(parents=True,exist_ok=True)
 root=Path(__file__).resolve().parents[2]
 source=a.output/'fast.k'
-source.write_text('''fn tree(x:int,depth:int)->int:
-  if depth == 0:
+source.write_text('''fn tree(x:i64,depth:i64)->i64:
+  return if depth == 0:
     x
   else:
     tree(x*2,depth-1)+tree(x*2+1,depth-1)
-fn main()->int:
-  tree(17,5)
+fn main()->i64:
+  return tree(17,5)
 ''')
 def run(args):
  r=subprocess.run(list(map(str,args)),capture_output=True,text=True,timeout=180)

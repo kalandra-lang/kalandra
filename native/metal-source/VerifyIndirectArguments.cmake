@@ -73,7 +73,7 @@ file(READ "${OUTPUT_DIR}/bad/host.cpp" SENTINEL)
 if(STATUS EQUAL 0 OR NOT ERROR MATCHES "S033" OR NOT SENTINEL STREQUAL "sentinel")
   message(FATAL_ERROR "Last input static shape diagnostic: ${ERROR}")
 endif()
-set(FORWARD "fn forward(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:\n  values\n\n")
+set(FORWARD "fn forward(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:\n  return values\n\n")
 string(REPLACE "transfer(n, gpu)" "transfer(forward(n), gpu)" BAD "${BAD}")
 file(WRITE "${OUTPUT_DIR}/dynamic.k" "${FORWARD}${BAD}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/dynamic.k" --target metal

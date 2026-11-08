@@ -52,7 +52,7 @@ def qualify(root, destination, metal_execute=False):
             assert assessed.returncode == 0 or (assessed.returncode == 3 and 'the code is valid but does not seem to be an app' in binary_assessment), binary_assessment
             run(['/usr/bin/codesign', '--verify', '--deep', '--strict', binary])
             source = directory / 'source λ.k'
-            source.write_text('fn main()->int:\n  42\n')
+            source.write_text('fn main()->i64:\n  return 42\n')
             run([prefix / 'bin/kalandra-check', source])
             if kind == 'metal' and metal_execute:
                 acceptance = directory / 'physical GPU acceptance'

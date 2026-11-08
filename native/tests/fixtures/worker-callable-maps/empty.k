@@ -1,8 +1,8 @@
-fn double(value:int)->int:
-  value*2
-fn main()->int ! TaskError:
-  inputs:[int]=[]
+fn double(value:i64)->i64:
+  return value*2
+fn main()->i64 ! TaskError:
+  inputs:[i64]=[]
   f=double
-  try parallel:
+  return try parallel:
     values=try await spawn map(inputs,f)
     length(values)+42

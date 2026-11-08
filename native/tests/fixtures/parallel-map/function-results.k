@@ -1,3 +1,3 @@
-fn main()->int ! TaskError:
-  callbacks=try parallelMap([40],fn(offset):fn(value:int):offset+value)
-  callbacks[0](2)
+fn main()->i64 ! TaskError:
+  callbacks=try parallelMap([40],fn(offset):return fn(value:i64):return offset+value)
+  return callbacks[0](2)

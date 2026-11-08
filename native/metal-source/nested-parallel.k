@@ -1,19 +1,19 @@
-fn total(values: Tensor[float32, ?]) -> float32:
-  reduceSum(values)
+fn total(values: Tensor[f32, ?]) -> f32:
+  return reduceSum(values)
 
-fn shift(values: Tensor[float32, ?], offset: float32) -> Tensor[float32, ?]:
-  values + offset
+fn shift(values: Tensor[f32, ?], offset: f32) -> Tensor[f32, ?]:
+  return values + offset
 
-fn scale(values: Tensor[float32, ?], factor: float32) -> Tensor[float32, ?]:
-  values * factor
+fn scale(values: Tensor[f32, ?], factor: f32) -> Tensor[f32, ?]:
+  return values * factor
 
-fn main() -> float32 ! TaskError:
-  try parallel:
-    values: Tensor[float32, 3] = tensor([1, 2, 3])
+fn main() -> f32 ! TaskError:
+  return try parallel:
+    values: Tensor[f32, 3] = tensor([1, 2, 3])
     pending = spawn total(values)
     gpu = devices.gpu()
     resident = try parallel:
-      values: Tensor[float32, 3] = tensor([4, 5, 6])
+      values: Tensor[f32, 3] = tensor([4, 5, 6])
       host = try parallel:
         moved = spawn shift(values, 1)
         try await moved

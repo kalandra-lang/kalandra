@@ -9,12 +9,12 @@ inline llvm::Function *addOrdinaryMain(llvm::Module &module) {
   using namespace llvm;
   if (module.getFunction("main"))
     return nullptr;
-  const char *names[] = {"entry",        "float64_entry", "bool_entry",  "int32_entry",
-                         "uint32_entry", "int64_entry",   "uint64_entry"};
+  const char *names[] = {"entry",        "float64_entry", "bool_entry",   "int32_entry",
+                         "uint32_entry", "int64_entry",   "uint64_entry", "unit_entry"};
   llvm::Function *entry = nullptr;
   unsigned kind = 0;
   bool direct = false;
-  for (; kind < 7; ++kind) {
+  for (; kind < std::size(names); ++kind) {
     entry = module.getFunction(std::string("_mlir_ciface_kalandra_") + names[kind] +
                                "_ordinary_direct_v1");
     if (entry && entry->hasFnAttribute("kalandra.ordinary.direct") && entry->arg_empty()) {

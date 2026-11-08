@@ -1,15 +1,15 @@
 error E:
   Bad:
-    value:int
-fn double(value:int)->int:
-  value*2
-fn run(value:int)->int ! (E | TaskError):
+    value:i64
+fn double(value:i64)->i64:
+  return value*2
+fn run(value:i64)->i64 ! (E | TaskError):
   if value==0:fail E.Bad {value:42}
-  try parallel:
+  return try parallel:
     try await spawn double(value)
-fn main()->int:
+fn main()->i64:
   f=run
-  f(0) catch fn(error):
-    match error:
+  return f(0) catch fn(error):
+    return match error:
       E.Bad {value}:value
       _:0

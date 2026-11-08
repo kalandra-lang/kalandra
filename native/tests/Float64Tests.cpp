@@ -26,7 +26,7 @@ int main() {
           Literal{"1.7976931348623157e308", 0x7fefffffffffffff},
           Literal{"2.2250738585072014e-308", 0x0010000000000000},
           Literal{"4.9406564584124654e-324", 1}, Literal{"1e-4000", 0}}) {
-      auto typed = analyze(std::string("fn main() -> float:\n  ") + test.text + "\n");
+      auto typed = analyze(std::string("fn main() -> f64:\n  ") + test.text + "\n");
       require(typed.ok(), test.text);
       auto value = typed.module->functions[0].result;
       require(typed.module->expressions[value].type.element == NumericType::Float64 &&
@@ -43,21 +43,21 @@ int main() {
       const char *text;
       const char *code;
     };
-    for (auto test : {Invalid{"fn main() -> float64:\n  1.8e308\n", "S015"},
-                      Invalid{"fn main():\n  -1e9999\n", "S015"},
-                      Invalid{"fn main() -> float:\n  1 % 2\n", "S019"},
-                      Invalid{"fn f(x:float64,y:float32) -> float:\n  x+y\n", "S010"},
-                      Invalid{"fn f(x:float64) -> float32:\n  x\n", "S010"},
-                      Invalid{"fn f(x:float32) -> float64:\n  x\n", "S010"},
-                      Invalid{"fn f(x:int64) -> float:\n  x\n", "S010"},
-                      Invalid{"fn main() -> float:\n  x=1\n  x\n", "S010"},
-                      Invalid{"fn f(x:Tensor[float16,2]) -> float:\n  0\n", "S003"},
-                      Invalid{"fn main() -> Tensor[float16,2]:\n  tensor([1,2])\n", "S003"}}) {
+    for (auto test : {Invalid{"fn main() -> f64:\n  return 1.8e308\n", "S015"},
+                      Invalid{"fn main():\n  return -1e9999\n", "S015"},
+                      Invalid{"fn main() -> f64:\n  return 1 % 2\n", "S019"},
+                      Invalid{"fn f(x:f64,y:f32) -> f64:\n  return x+y\n", "S010"},
+                      Invalid{"fn f(x:f64) -> f32:\n  return x\n", "S010"},
+                      Invalid{"fn f(x:f32) -> f64:\n  return x\n", "S010"},
+                      Invalid{"fn f(x:i64) -> f64:\n  return x\n", "S010"},
+                      Invalid{"fn main() -> f64:\n  x=1\n  return x\n", "S010"},
+                      Invalid{"fn f(x:Tensor[float16,2]) -> f64:\n  return 0\n", "S003"},
+                      Invalid{"fn main() -> Tensor[float16,2]:\n  return tensor([1,2])\n", "S003"}}) {
       auto typed = analyze(test.text);
       require(!typed.ok() && typed.diagnostics[0].code == test.code, test.text);
     }
-    auto typed = analyze("fn math(a:float64,b:float64) -> float64:\n  -(a+b)*b/a\nfn main() -> "
-                         "float:\n  math(1.5,2)\n");
+    auto typed = analyze("fn math(a:f64,b:f64) -> f64:\n  return -(a+b)*b/a\nfn main() -> "
+                         "f64:\n  return math(1.5,2)\n");
     require(typed.ok(), "ordinary binary64 functions rejected");
     auto dump = dumpTypedIR(*typed.module);
     require(dump.find("f64.bits") != std::string::npos &&
@@ -85,7 +85,7 @@ int main() {
 #endif
     require(!numericCapabilityError(*typed.module, NumericTarget::AppleGpu),
             "binary64 GPU numerical capability rejected");
-    auto task = analyze("fn identity(x:float) -> float:\n  x\nfn main() -> float ! TaskError:\n  "
+    auto task = analyze("fn identity(x:f64) -> f64:\n  return x\nfn main() -> f64 ! TaskError:\n  return "
                         "try parallel:\n    try await spawn identity(1.0000000000000002)\n");
     require(task.ok(), "float64 worker call rejected");
     auto planned = continuation::plan(*task.module);

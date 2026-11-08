@@ -15,32 +15,32 @@ int main() {
   try {
     const std::string types = "error A:\n  Bad:\n    text:String\nerror B:\n  Missing\n"
                               "type Mixed=A | TaskError\ntype Only=TaskError | TaskError\n";
-    const std::string legacy = "fn divide(x:int)->int:\n  1/x\nfn legacy(x:int)->int ! TaskError:\n"
-                               "  try parallel:\n    try await spawn divide(x)\n";
+    const std::string legacy = "fn divide(x:i64)->i64:\n  return 1/x\nfn legacy(x:i64)->i64 ! TaskError:\n"
+                               "  return try parallel:\n    try await spawn divide(x)\n";
     const std::string work =
-        "fn work(x:int)->int ! Mixed:\n  if x==0:fail A.Bad {text:\"bad\"}\n  try legacy(x-1)\n";
+        "fn work(x:i64)->i64 ! Mixed:\n  if x==0:fail A.Bad {text:\"bad\"}\n  return try legacy(x-1)\n";
     const std::string match =
-        "fn main()->int:\n  work(1) catch fn(error):\n    match error:\n"
+        "fn main()->i64:\n  return work(1) catch fn(error):\n    return match error:\n"
         "      A.Bad {text}:length(text)\n      TaskError.Fault {kind,message}:\n"
         "        match kind:\n          FaultKind.Arithmetic:length(message)\n          _:0\n"
         "      TaskError.Cancelled:1\n      TaskError.DeadlineExceeded:2\n"
         "      TaskError.AdmissionRejected {reason}:length(reason)\n";
     for (const auto &program :
-         {types + legacy + work + match, types + legacy + "fn main()->int ! Mixed:\n  legacy(0)\n",
-          types + legacy + "fn main()->int ! (TaskError | A | B):\n  try legacy(0)\n",
-          types + legacy + "fn main()->int ! Only:\n  try legacy(0)\n",
-          types + legacy + "fn main()->int ! Mixed:\n  legacy(0) catch fn(error):fail error\n",
-          types + legacy + work + "fn main()->int ! Mixed:\n  work(1) catch fn(error):fail error\n",
+         {types + legacy + work + match, types + legacy + "fn main()->i64 ! Mixed:\n  return legacy(0)\n",
+          types + legacy + "fn main()->i64 ! (TaskError | A | B):\n  return try legacy(0)\n",
+          types + legacy + "fn main()->i64 ! Only:\n  return try legacy(0)\n",
+          types + legacy + "fn main()->i64 ! Mixed:\n  return legacy(0) catch fn(error):fail error\n",
+          types + legacy + work + "fn main()->i64 ! Mixed:\n  return work(1) catch fn(error):fail error\n",
           types + legacy +
-              "fn main()->int ! Mixed:\n  if true:legacy(0)\n  else:fail A.Bad {text:\"bad\"}\n",
+              "fn main()->i64 ! Mixed:\n  return if true:legacy(0)\n  else:fail A.Bad {text:\"bad\"}\n",
           types + legacy +
-              "fn main()->int ! Mixed:\n  legacy(1) catch fn(error):\n    if true:fail error\n    "
+              "fn main()->i64 ! Mixed:\n  return legacy(1) catch fn(error):\n    if true:fail error\n    "
               "fail A.Bad {text:\"bad\"}\n",
           types + legacy + work +
-              "fn main()->int ! Mixed:\n  try parallel:\n    try await spawn work(1)\n",
-          types + legacy + work + "fn main()->int ! Mixed:\n  try parallel:\n    try work(1)\n",
+              "fn main()->i64 ! Mixed:\n  return try parallel:\n    try await spawn work(1)\n",
+          types + legacy + work + "fn main()->i64 ! Mixed:\n  return try parallel:\n    try work(1)\n",
           types + legacy +
-              "fn forward(error:Only)->int ! Mixed:\n  fail error\nfn main()->int:\n  0\n"}) {
+              "fn forward(error:Only)->i64 ! Mixed:\n  fail error\nfn main()->i64:\n  return 0\n"}) {
       auto result = analyze(program);
       if (!result.ok())
         for (const auto &d : result.diagnostics)
@@ -53,16 +53,16 @@ int main() {
 #endif
     }
     for (const auto *body :
-         {"fn main()->int ! A:\n  try legacy(0)\n", "fn main()->int ! TaskError:\n  try work(0)\n",
-          "fn main()->int ! A:\n  work(1)\n",
-          "fn main()->int:\n  work(1) catch fn(error):\n    match error:\n      A.Bad:1\n      "
+         {"fn main()->i64 ! A:\n  return try legacy(0)\n", "fn main()->i64 ! TaskError:\n  return try work(0)\n",
+          "fn main()->i64 ! A:\n  return work(1)\n",
+          "fn main()->i64:\n  return work(1) catch fn(error):\n    return match error:\n      A.Bad:1\n      "
           "TaskError.Fault:2\n",
-          "fn main()->int:\n  work(1) catch fn(error):\n    match error:\n      "
+          "fn main()->i64:\n  return work(1) catch fn(error):\n    return match error:\n      "
           "TaskError.Cancelled {reason}:1\n      _:2\n",
-          "fn main()->int:\n  work(1) catch fn(error):\n    match error:\n      TaskError.Fault "
+          "fn main()->i64:\n  return work(1) catch fn(error):\n    return match error:\n      TaskError.Fault "
           "{reason}:1\n      _:2\n",
-          "fn main()->int ! A:\n  try parallel:\n    try await spawn work(1)\n",
-          "fn main()->int ! A:\n  try parallel:\n    try work(1)\n"})
+          "fn main()->i64 ! A:\n  return try parallel:\n    try await spawn work(1)\n",
+          "fn main()->i64 ! A:\n  return try parallel:\n    try work(1)\n"})
       require(!analyze(types + legacy + work + body).ok(), "invalid mixed channel admitted");
     auto checked = analyze(types + legacy + work + match);
     require(checked.ok(), "metadata fixture rejected");

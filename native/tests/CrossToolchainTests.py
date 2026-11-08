@@ -13,7 +13,7 @@ a.compiler = a.compiler.resolve()
 with tempfile.TemporaryDirectory(prefix='kalandra toolchain validation ') as folder:
     root = Path(folder)
     source = root / 'source.k'
-    source.write_text('fn main()->int:\n  42\n')
+    source.write_text('fn main()->i64:\n  return 42\n')
     executable, ir = root / 'output', root / 'output.ll'
     executable.write_bytes(b'executable sentinel')
     ir.write_bytes(b'IR sentinel')

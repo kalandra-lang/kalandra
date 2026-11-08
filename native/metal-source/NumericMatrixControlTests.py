@@ -26,8 +26,8 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None,exp
     literal_b=f'tensor({b})' if b else f'tensor([],[0,{n}])'
     result=name if total else f'Tensor[{name},?,?]'
     if total: expression='reduceSum('+expression+')'
-    source=(f'fn operation(a:Tensor[{name},?,?],b:Tensor[{name},?,?])->{result}:\n  {expression}\n'
-            f'fn main()->{result} ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n'
+    source=(f'fn operation(a:Tensor[{name},?,?],b:Tensor[{name},?,?])->{result}:\n  return {expression}\n'
+            f'fn main()->{result} ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n'
             f'    a:Tensor[{name},{m},{k}]={literal_a}\n    b:Tensor[{name},{k},{n}]={literal_b}\n'
             '    x=try await transfer(a,gpu)\n    y=try await transfer(b,gpu)\n'
             '    answer=try await spawn operation(x,y) on gpu\n'+
@@ -38,7 +38,7 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None,exp
     assert built.returncode==0,(path,built.stdout,built.stderr)
     if args.variant:
         def bits(value):
-            if name.startswith('float'):
+            if name.startswith('f'):
                 return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little')
             return value & ((1<<width)-1)
         words=','.join(f'{bits(v):0{width//4}x}' for v in expected)
@@ -54,7 +54,7 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None,exp
             (destination/'expected.json').write_text(json.dumps({'stdout':output,'fault':fault_code if fault else 0})+'\n')
     programs+=1
 
-for name,width in (('int8',8),('uint8',8),('int16',16),('uint16',16),('int32',32),('uint32',32),('int64',64),('uint64',64),('float32',32),('float64',64)):
+for name,width in (('i8',8),('u8',8),('i16',16),('u16',16),('i32',32),('u32',32),('i64',64),('u64',64),('f32',32),('f64',64)):
     a,b=[[1,2,1],[1,1,1]],[[1,1],[1,1],[1,1]]
     check(name,width,'post-skipped-shape',a,b,[4,4,3,3],expression='product=matmul(a,b)\n  if reduceSum(product)>0:\n    product\n  else:\n    product+a')
     check(name,width,'post-selected-shape',a,b,[],expression='product=matmul(a,b)\n  if reduceSum(product)==0:\n    product\n  else:\n    product+a',fault=True,fault_code=1)

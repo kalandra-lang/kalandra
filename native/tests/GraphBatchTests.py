@@ -26,12 +26,12 @@ assert 'matrix_graph_stages=4' in (bundle / 'manifest.txt').read_text()
 assert 'kalandra_matmul_hardware_tiled' in (bundle / 'kernel0.metal').read_text()
 assert 'kalandra_matmul_fused_tiled' in (bundle / 'kernel0-map1.metal').read_text()
 scalar_source = args.output / 'scalar.k'
-scalar_source.write_text('''fn scaled(a:Tensor[float32,?,?],b:Tensor[float32,?,?],scale:float32)->Tensor[float32,?,?]:
+scalar_source.write_text('''fn scaled(a:Tensor[f32,?,?],b:Tensor[f32,?,?],scale:f32)->Tensor[f32,?,?]:
   first=matmul(a,b)*scale
-  matmul(first,b)*scale
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
-    x:Tensor[float32,2,2]=tensor([[1,0],[0,1]])
+  return matmul(first,b)*scale
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
+    x:Tensor[f32,2,2]=tensor([[1,0],[0,1]])
     gpu=devices.gpu()
     a=try await transfer(x,gpu)
     value=try await spawn scaled(a,a,0.5) on gpu
@@ -41,11 +41,11 @@ scalar = args.output / 'scalar'
 run([compiler, scalar_source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', scalar])
 assert 'kalandra_matmul_fused_tiled' in (scalar / 'kernel0-map1.metal').read_text()
 fallback_source = args.output / 'fallback.k'
-fallback_source.write_text('''fn activate(a:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  relu(a)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
-    x:Tensor[float32,2,2]=tensor([[1,0],[0,1]])
+fallback_source.write_text('''fn activate(a:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return relu(a)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
+    x:Tensor[f32,2,2]=tensor([[1,0],[0,1]])
     gpu=devices.gpu()
     a=try await transfer(x,gpu)
     value=try await spawn activate(a) on gpu
@@ -55,11 +55,11 @@ fallback = args.output / 'fallback'
 run([compiler, fallback_source, '--target', 'metal', '--arithmetic', 'hardware', '-O2', '-o', fallback])
 assert 'kalandra_matmul_fused_' not in (fallback / 'kernel0.metal').read_text()
 indirect_source = args.output / 'indirect.k'
-tensor = 'Tensor[float32,?,?]'
+tensor = 'Tensor[f32,?,?]'
 parameters = [f'c{i}:'+tensor for i in range(31)]
 indirect_source.write_text('fn combine('+','.join(parameters)+')->'+tensor+':\n  '+
     '+'.join(f'c{i}' for i in range(31))+'\nfn main()->'+tensor+' ! TaskError:\n'
-    '  try parallel:\n    x:Tensor[float32,2,2]=tensor([[1,1],[1,1]])\n'
+    '  try parallel:\n    x:Tensor[f32,2,2]=tensor([[1,1],[1,1]])\n'
     '    gpu=devices.gpu()\n    a=try await transfer(x,gpu)\n'
     '    value=try await spawn combine('+','.join(['a']*31)+') on gpu\n'
     '    try await transfer(value,devices.cpu())\n')

@@ -10,9 +10,9 @@ void require(bool condition, const char *message) {
   if (!condition)
     throw std::runtime_error(message);
 }
-static_assert(resolveNumeric("int") == NumericType::Int64);
-static_assert(resolveNumeric("uint") == NumericType::UInt64);
-static_assert(resolveNumeric("float") == NumericType::Float64);
+static_assert(resolveNumeric("i64") == NumericType::Int64);
+static_assert(resolveNumeric("u64") == NumericType::UInt64);
+static_assert(resolveNumeric("f64") == NumericType::Float64);
 static_assert(checkedNumericBytes(NumericType::UInt8, 3) == 3);
 static_assert(checkedNumericBytes(NumericType::Float64, 3) == 24);
 static_assert(!checkedNumericBytes(NumericType::Float64, UINT64_MAX));
@@ -26,7 +26,7 @@ int main() {
     for (auto description : numericTypes) {
       require(names.insert(description.name).second && identities.insert(description.type).second,
               "duplicate numeric identity/name");
-      require(resolveNumeric(description.name) == description.type &&
+      require(resolveNumeric(description.sourceName) == description.type &&
                   describeNumeric(description.type)->bits == description.bits,
               "numeric catalogue does not round-trip");
       const auto bytes = description.bytes();
@@ -43,12 +43,12 @@ int main() {
       type.element = description.type;
       require(describeType(type) == description.name, "scalar type lost numeric identity");
       type.task = type.fallible = true;
-      require(describeType(type) == "task<" + std::string(description.name) + "> ! TaskError",
+      require(describeType(type) == "task<" + std::string(description.sourceName) + "> ! TaskError",
               "task/error type lost numeric identity");
       type.tensor = true;
       type.shape = {{3, 0}};
       require(describeType(type) ==
-                  "Tensor[" + std::string(description.name) + ", 3] task ! TaskError",
+                  "Tensor[" + std::string(description.sourceName) + ", 3] task ! TaskError",
               "tensor type lost numeric identity");
       for (auto target : {NumericTarget::Cpu, NumericTarget::AppleGpu})
         require(numericArithmeticAvailable(description.type, target) ==
@@ -69,7 +69,7 @@ int main() {
                   numericReductionAvailable(description.type, NumericTarget::AppleGpu),
               "reduction capability lost numeric identity");
       require(numericScalarArithmeticAvailable(description.type, NumericTarget::Cpu) &&
-                  analyze("fn main() -> " + std::string(description.name) + ":\n  1\n").ok(),
+                  analyze("fn main() -> " + std::string(description.sourceName) + ":\n  1\n").ok(),
               "accepted CPU scalar type rejected");
       require(numericScalarArithmeticAvailable(description.type, NumericTarget::AppleGpu),
               "typed GPU arithmetic identity rejected");
@@ -89,8 +89,8 @@ int main() {
     require(numericArithmeticAvailable(*m::storageNumericType(m::Format::UInt32),
                                        NumericTarget::AppleGpu),
             "checked integer shader identity rejected");
-    auto numeric = analyze("fn twice(x:float32) -> float32:\n  -x * -2\n"
-                           "fn main() -> float32:\n  twice(3)\n");
+    auto numeric = analyze("fn twice(x:f32) -> f32:\n  return -x * -2\n"
+                           "fn main() -> f32:\n  return twice(3)\n");
     require(numeric.ok(), "float32 source rejected");
     require(!numericCapabilityError(*numeric.module, NumericTarget::Cpu),
             "float32 capability lost");
@@ -119,9 +119,9 @@ int main() {
       require(bool(numericCapabilityError(forged, NumericTarget::Cpu)) && !failure,
               "backend accepted unsupported numeric identity or malformed narrow literal");
     }
-    auto task = analyze("fn identity(values:Tensor[float32,?]) -> Tensor[float32,?]:\n  values\n"
-                        "fn main() -> float32 ! TaskError:\n  try parallel:\n"
-                        "    values:Tensor[float32,2] = tensor([1,2])\n"
+    auto task = analyze("fn identity(values:Tensor[f32,?]) -> Tensor[f32,?]:\n  return values\n"
+                        "fn main() -> f32 ! TaskError:\n  return try parallel:\n"
+                        "    values:Tensor[f32,2] = tensor([1,2])\n"
                         "    copied = try await spawn identity(values)\n    reduceSum(copied)\n");
     require(task.ok(), "task typing regressed");
     auto typed = *task.module;
@@ -147,9 +147,9 @@ int main() {
     require(!rejectedTask && rejectedTask.error().find("<invalid>") != std::string::npos,
             "task backend accepted invalid numeric IR");
     auto realTask =
-        analyze("fn identity(values:Tensor[float,?]) -> Tensor[float,?]:\n  values\n"
-                "fn main() -> float ! TaskError:\n  try parallel:\n"
-                "    values:Tensor[float,2] = tensor([1.0000000000000002,-0.0])\n"
+        analyze("fn identity(values:Tensor[f64,?]) -> Tensor[f64,?]:\n  return values\n"
+                "fn main() -> f64 ! TaskError:\n  return try parallel:\n"
+                "    values:Tensor[f64,2] = tensor([1.0000000000000002,-0.0])\n"
                 "    copied = try await spawn identity(values)\n    reduceSum(copied)\n");
     require(realTask.ok() && bool(lowerNative(*realTask.module)),
             "task backend rejected supported float64 reduction");

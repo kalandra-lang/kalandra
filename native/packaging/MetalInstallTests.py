@@ -64,7 +64,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     run([compiler, "new", starter], cwd)
     run([compiler, "--project", starter / "kalandra.toml", "-o", cwd / "starter program"], cwd)
     assert run([cwd / "starter program"], cwd).stdout.strip() == "[2, 4, 6]"
-    (cwd / "cpu.k").write_text("fn main() -> int:\n  42\n")
+    (cwd / "cpu.k").write_text('fn main() -> i64:\n  return 42\n')
     run([compiler, cwd / "cpu.k", "-o", cwd / "cpu"], cwd)
     assert run([cwd / "cpu"], cwd).stdout.strip() == "42"
     source = cwd / "placed.k"
@@ -74,7 +74,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     # The installed compiler must compile direct native transform kernels and
     # its relocated private Metal.h must find the transform type declaration.
     transform_source = cwd / "row-transform.k"
-    transform_source.write_text("fn work(x:Tensor[float32,?,?])->float32:\n  reduceSum(transpose(softmaxRows(x)))\nfn main()->float32 ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n    x:Tensor[float32,2,3]=tensor([[1,2,3],[-1,0,1]])\n    a=try await transfer(x,gpu)\n    try await spawn work(a) on gpu\n")
+    transform_source.write_text('fn work(x:Tensor[f32,?,?])->f32:\n  return reduceSum(transpose(softmaxRows(x)))\nfn main()->f32 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    x:Tensor[f32,2,3]=tensor([[1,2,3],[-1,0,1]])\n    a=try await transfer(x,gpu)\n    try await spawn work(a) on gpu\n')
     transform_app = cwd / "transform application"
     run([compiler, transform_source, "--target", "metal", "--arithmetic", "hardware", "-O2", "-o", transform_app], cwd)
     assert run([transform_app / "program"], cwd).stdout.strip() == "40000000"
@@ -142,14 +142,14 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
     assert run([tensor_return_app / "program"], cwd).stdout.strip() == "000000000000000a"
     applications.append((tensor_return_app, "000000000000000a"))
     result_source = cwd / "device array results.k"
-    result_source.write_text("""fn ordered(values:[int])->[int]:
-  sorted(values)
-fn identity(flags:[Bool])->[Bool]:
-  flags
-fn main()->int ! TaskError:
-  values:[int]=[9,2,5]
-  flags:[Bool]=[true,false]
-  try parallel:
+    result_source.write_text("""fn ordered(values:[i64])->[i64]:
+  return sorted(values)
+fn identity(flags:[bool])->[bool]:
+  return flags
+fn main()->i64 ! TaskError:
+  values:[i64]=[9,2,5]
+  flags:[bool]=[true,false]
+  return try parallel:
     gpu=devices.gpu()
     result=try await spawn ordered(values) on gpu
     result[0]=7
@@ -165,11 +165,11 @@ fn main()->int ! TaskError:
     assert run([result_app / "program"], cwd).stdout.strip() == "0000000000000010"
     applications.append((result_app, "0000000000000010"))
     collection_source = cwd / "array main.k"
-    collection_source.write_text("""fn work(values:[int])->[int]:
-  sorted(values)
-fn main()->[int] ! TaskError:
-  values:[int]=[9,2,5]
-  try parallel:
+    collection_source.write_text("""fn work(values:[i64])->[i64]:
+  return sorted(values)
+fn main()->[i64] ! TaskError:
+  values:[i64]=[9,2,5]
+  return try parallel:
     gpu=devices.gpu()
     try await spawn work(values) on gpu
 """)
@@ -359,19 +359,19 @@ fn main()->[int] ! TaskError:
     applications.append((choice_app, "41400000"))
     # Every numeric type traverses resident reductions, selected stages,
     # conversion and a rank-eight feedback map in the relocated compiler.
-    numeric_names = ("int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float32", "float64")
+    numeric_names = ("i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64")
     for numeric in numeric_names:
         typed_source = cwd / f"typed-{numeric}.k"
-        typed_source.write_text(f"""fn increment(value:int32)->int32:
-  value+1
-fn operation(values:Tensor[{numeric},?,?,?,?,?,?,?,?],scale:{numeric})->float64:
+        typed_source.write_text(f"""fn increment(value:i32)->i32:
+  return value+1
+fn operation(values:Tensor[{numeric},?,?,?,?,?,?,?,?],scale:{numeric})->f64:
   amount=reduceSum(values)
-  if scale==1:
-    float64(reduceSum(values+amount))
+  return if scale==1:
+    f64(reduceSum(values+amount))
   else:
-    float64(reduceSum(values)/scale)
-fn main()->float64 ! TaskError:
-  try parallel:
+    f64(reduceSum(values)/scale)
+fn main()->f64 ! TaskError:
+  return try parallel:
     worker=spawn increment(0)
     gpu=devices.gpu()
     values:Tensor[{numeric},1,1,1,1,1,1,1,3]=tensor([[[[[[[[1,2,3]]]]]]]])
@@ -386,17 +386,17 @@ fn main()->float64 ! TaskError:
             assert run([typed_app / "program"], cwd).stdout.strip() == "4038000000000000"
             applications.append((typed_app, "4038000000000000"))
     matrix_control_source = cwd / "selected matrix shapes.k"
-    matrix_control_source.write_text("""fn operation(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
+    matrix_control_source.write_text("""fn operation(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:
   product=matmul(a,b)
-  if reduceSum(product)>0:
+  return if reduceSum(product)>0:
     product
   else:
     product+a
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,2,3]=tensor([[1,2,1],[1,1,1]])
-    b:Tensor[float32,3,2]=tensor([[1,1],[1,1],[1,1]])
+    a:Tensor[f32,2,3]=tensor([[1,2,1],[1,1,1]])
+    b:Tensor[f32,3,2]=tensor([[1,1],[1,1],[1,1]])
     x=try await transfer(a,gpu)
     y=try await transfer(b,gpu)
     answer=try await spawn operation(x,y) on gpu

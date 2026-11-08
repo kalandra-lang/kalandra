@@ -5,13 +5,13 @@ Use type for a named record with fields, and enum for a value that is one of sev
 h2 { "Construct and update a record" }
 
 codeblock { language = kalandra, """type Point:
-  x: int
-  y: int
+  x: i64
+  y: i64
 
-fn main() -> int:
+fn main() -> i64:
   original = Point { x: 2, y: 3 }
   moved = original with { x: 12 }
-  original.x + moved.x + moved.y
+  return original.x + moved.x + moved.y
 """ }
 
 This returns 17: original.x is 2, moved.x is 12 and moved.y is 3. Field initializer order follows source order. A with expression produces a new record; original remains unchanged. All required fields must be supplied once with compatible types. Records can contain supported Strings, collections, nested records or enums, and function values; the contained values are kept alive automatically. Copying a record preserves the backing aliases of its array fields. Use copy on an array field when the new record needs independent element storage.
@@ -21,22 +21,22 @@ h2 { "Represent alternatives" }
 codeblock { language = kalandra, """enum Reading:
   Missing
   Value:
-    measurement: int
+    measurement: i64
 
-fn readOrDefault(reading: Reading) -> int:
-  match reading:
+fn readOrDefault(reading: Reading) -> i64:
+  return match reading:
     Reading.Missing: 0
     Reading.Value { measurement }: measurement
 
-fn main() -> int:
-  readOrDefault(Reading.Value { measurement: 42 })
+fn main() -> i64:
+  return readOrDefault(Reading.Value { measurement: 42 })
 """ }
 
 This returns 42. Only the selected alternative exists as a language value. Read its payload by matching that variant. A final _ branch may handle remaining alternatives; missing, repeated and unreachable cases are diagnosed. Enum values do not gain record-style updates or implicit numeric ordinals.
 
 h2 { "Cross calls and workers" }
 
-Records and enums keep their contained values alive automatically and can be passed through supported CPU worker tasks. Importing a declaration under a different name does not create a new type. GPU helpers can construct and pass local nonrecursive records/enums containing numeric/Bool scalars, numeric/Bool arrays and nested records. GPU task entry arguments and results cannot be records or enums; keep those values inside the placed helper.
+Records and enums keep their contained values alive automatically and can be passed through supported CPU worker tasks. Importing a declaration under a different name does not create a new type. GPU helpers can construct and pass local nonrecursive records/enums containing numeric/bool scalars, numeric/bool arrays and nested records. GPU task entry arguments and results cannot be records or enums; keep those values inside the placed helper.
 
 list {
   link { url = "/docs/errors", "Declare application-error alternatives" },

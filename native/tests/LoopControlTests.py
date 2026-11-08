@@ -46,7 +46,7 @@ def main():
         records.append(dict(case=name, rejected=True))
         print('PASS rejection', name, flush=True)
     source = args.output / 'zero-step.k'
-    source.write_text('fn zero()->int:\n  0\nfn main()->int:\n  for i in range(0,0,zero()):\n    i+1\n  42\n')
+    source.write_text('fn zero()->i64:\n  return 0\nfn main()->i64:\n  for i in range(0,0,zero()):\n    i+1\n  return 42\n')
     output = args.output / 'zero-step'
     result = invoke([args.compiler, source, '-o', output, *flags])
     assert result.returncode == 0, result.stderr

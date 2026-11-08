@@ -1,15 +1,15 @@
 error E:
   Bad:
-    value:int
+    value:i64
 error Other:
   Bad
-fn descend(n:int)->int ! (E | Other):
+fn descend(n:i64)->i64 ! (E | Other):
   if n==0:fail E.Bad {value:42}
   if n<0:fail Other.Bad
-  try descend(n-1)
-fn main()->int:
+  return try descend(n-1)
+fn main()->i64:
   callback=descend
-  callback(20) catch fn(error):
-    match error:
+  return callback(20) catch fn(error):
+    return match error:
       E.Bad {value}:value
       Other.Bad:0

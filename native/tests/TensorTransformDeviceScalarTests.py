@@ -12,18 +12,18 @@ def run(command,success=True):
     result=subprocess.run(list(map(str,command)),text=True,capture_output=True,timeout=180)
     assert (result.returncode==0)==success,(command,result.returncode,result.stdout,result.stderr)
     return result
-valid='''fn work(x:Tensor[float32,?,?])->Tensor[float32,?,?]:
+valid='''fn work(x:Tensor[f32,?,?])->Tensor[f32,?,?]:
   rmsNormRows(x,reduceSum(x*x)+0.00001)
 '''
-cpu='''fn main()->float32:
-  x:Tensor[float32,2,3]=tensor([[1,2,3],[4,5,6]])
+cpu='''fn main()->f32:
+  x:Tensor[f32,2,3]=tensor([[1,2,3],[4,5,6]])
   reduceSum(work(x))
 '''
-gpu='''fn main()->float32 ! TaskError:
-  try parallel:
+gpu='''fn main()->f32 ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
     cpu=devices.cpu()
-    x:Tensor[float32,2,3]=tensor([[1,2,3],[4,5,6]])
+    x:Tensor[f32,2,3]=tensor([[1,2,3],[4,5,6]])
     a=try await transfer(x,gpu)
     b=try await spawn work(a) on gpu
     result=try await transfer(b,cpu)
@@ -47,7 +47,7 @@ for name,flag in variants:
         else:assert int(result.stdout.strip(),16)==expected,(name,expected,result.stdout)
     print(name+': source-computed device epsilon, scalar-buffer roles and arithmetic failure passed',flush=True)
 # Reject unsupported row arithmetic explicitly; transpose remains available.
-for numeric,mode in [('float64','hardware'),('float32','software')]:
-    path=args.output/f'rejected-{numeric}-{mode}.k';path.write_text((valid.replace('reduceSum(x*x)+0.00001','0.00001')+gpu).replace('float32',numeric))
+for numeric,mode in [('f64','hardware'),('f32','software')]:
+    path=args.output/f'rejected-{numeric}-{mode}.k';path.write_text((valid.replace('reduceSum(x*x)+0.00001','0.00001')+gpu).replace('f32',numeric))
     result=run([args.compiler,path,'--target','metal','--arithmetic',mode,'-O2','-o',args.output/'rejected'],False)
-    assert 'error[G001]' in result.stderr and ('float32' in result.stderr or 'no hardware float64 arithmetic' in result.stderr),result.stderr
+    assert 'error[G001]' in result.stderr and ('f32' in result.stderr or 'no hardware float64 arithmetic' in result.stderr),result.stderr

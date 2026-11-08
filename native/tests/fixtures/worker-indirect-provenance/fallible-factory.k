@@ -1,15 +1,15 @@
-fn double(value:int)->int:
-  value*2
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
+fn double(value:i64)->i64:
+  return value*2
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
 error E:
   Bad:
-    value:int
-fn make(flag:Bool)->(fn(int)->int) ! E:
+    value:i64
+fn make(flag:bool)->(fn(i64)->i64) ! E:
   if flag:fail E.Bad {value:1}
-  double
-fn main()->int ! (E | TaskError):
+  return double
+fn main()->i64 ! (E | TaskError):
   factory=make
   f=try factory(false)
-  try parallel:
+  return try parallel:
     try await spawn apply(21,f)

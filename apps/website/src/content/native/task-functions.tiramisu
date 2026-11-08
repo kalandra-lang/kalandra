@@ -23,9 +23,9 @@ h2 { "devices.gpu" }
 
 code { "devices.gpu() -> GPU device selector" }
 
-code { "devices.gpu(index: constant uint32 literal) -> GPU device selector" }
+code { "devices.gpu(index: constant u32 literal) -> GPU device selector" }
 
-Select a GPU exposed by the selected backend; the omitted index is zero. An explicit index must be a nonnegative integer literal fitting uint32, not a runtime expression. A selector does not guarantee that a device exists: dispatch or transfer can fail on unavailable hardware. Available with placement checking and GPU-enabled compilation. Selecting a device does not move tensors or make arbitrary functions eligible for GPU execution.
+Select a GPU exposed by the selected backend; the omitted index is zero. An explicit index must be a nonnegative integer literal fitting u32, not a runtime expression. A selector does not guarantee that a device exists: dispatch or transfer can fail on unavailable hardware. Available with placement checking and GPU-enabled compilation. Selecting a device does not move tensors or make arbitrary functions eligible for GPU execution.
 
 h2 { "transfer" }
 
@@ -35,30 +35,30 @@ Start an explicit tensor transfer owned by the surrounding parallel scope. Use t
 
 h2 { "CPU example" }
 
-codeblock { language = kalandra, """fn double(value: int) -> int:
-  value * 2
+codeblock { language = kalandra, """fn double(value: i64) -> i64:
+  return value * 2
 
-fn main() -> [int] ! TaskError:
-  try parallelMap([2, 4], double)
+fn main() -> [i64] ! TaskError:
+  return try parallelMap([2, 4], double)
 """ }
 The result is [4, 8].
 
 h2 { "GPU example" }
 
-codeblock { language = kalandra, """fn total(values: Tensor[float32, ?]) -> float32:
-  reduceSum(values)
+codeblock { language = kalandra, """fn total(values: Tensor[f32, ?]) -> f32:
+  return reduceSum(values)
 
-fn main() -> float32 ! TaskError:
-  try parallel:
+fn main() -> f32 ! TaskError:
+  return try parallel:
     cpu = devices.cpu()
     gpu = devices.gpu(0)
-    values: Tensor[float32, 2] = tensor([20, 22])
+    values: Tensor[f32, 2] = tensor([20, 22])
     resident = try await transfer(values, gpu)
     roundTrip = try await transfer(resident, cpu)
     uploaded = try await transfer(roundTrip, gpu)
     try await spawn total(uploaded) on gpu
 """ }
-Compile this program with the Metal commands in the GPU guide. Its numerical result is 42; the Metal entry displays 42280000, the float32 result bits. The extra round trip demonstrates both transfer directions; omit it when your application does not need host access.
+Compile this program with the Metal commands in the GPU guide. Its numerical result is 42; the Metal entry displays 42280000, the f32 result bits. The extra round trip demonstrates both transfer directions; omit it when your application does not need host access.
 
 list {
   link { url = "/docs/gpu", "Compile and run GPU programs" },

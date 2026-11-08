@@ -1,8 +1,8 @@
-fn double(value:int)->int:
-  value*2
+fn double(value:i64)->i64:
+  return value*2
 type Job:
-  run:fn(int)->int
-fn main()->int ! TaskError:
+  run:fn(i64)->i64
+fn main()->i64 ! TaskError:
   job=Job {run:double}
-  try parallel:
+  return try parallel:
     try await spawn job.run(21)

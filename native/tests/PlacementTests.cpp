@@ -31,22 +31,22 @@ void reject(const std::string &source, std::string_view code, SemanticLimits lim
   ++rejectedCases;
 }
 const std::string helpers =
-    R"(fn scale(values:Tensor[float32,?], factor:float32) -> Tensor[float32,?]:
-  values*factor
+    R"(fn scale(values:Tensor[f32,?], factor:f32) -> Tensor[f32,?]:
+  return values*factor
 
-fn total(values:Tensor[float32,?]) -> float32:
-  reduceSum(values)
+fn total(values:Tensor[f32,?]) -> f32:
+  return reduceSum(values)
 
-fn fixed(values:Tensor[float32,2]) -> float32:
-  reduceSum(values)
+fn fixed(values:Tensor[f32,2]) -> f32:
+  return reduceSum(values)
 
-fn forward(values:Tensor[float32,?]) -> Tensor[float32,?]:
-  values
+fn forward(values:Tensor[f32,?]) -> Tensor[f32,?]:
+  return values
 
 )";
-const std::string start = helpers + R"(fn main() -> float32 ! TaskError:
+const std::string start = helpers + R"(fn main() -> f32 ! TaskError:
   try parallel:
-    values:Tensor[float32,3] = tensor([1,2,3])
+    values:Tensor[f32,3] = tensor([1,2,3])
     cpu=devices.cpu()
     gpu=devices.gpu()
     input=try await transfer(values,gpu)
@@ -160,16 +160,16 @@ void contracts() {
     }
   require(found, "missing fixed-shape child call");
   for (const auto &source :
-       {std::string("fn main() -> Tensor[float32,0,3]:\n  tensor([], [0,3])\n"),
-        std::string("fn main() -> Tensor[float32,2,3]:\n  tensor([1,2,3,4,5,6], [2,3])\n"),
-        std::string("fn main() -> Tensor[float32]:\n  tensor([2], [])\n")}) {
+       {std::string("fn main() -> Tensor[f32,0,3]:\n  return tensor([], [0,3])\n"),
+        std::string("fn main() -> Tensor[f32,2,3]:\n  return tensor([1,2,3,4,5,6], [2,3])\n"),
+        std::string("fn main() -> Tensor[f32]:\n  return tensor([2], [])\n")}) {
     auto literal = analyze(source);
     accepted(literal);
     require(bool(lowerNative(*literal.module, {}, {"main"})),
             "explicit shape did not reuse CPU tensor lowering");
   }
   auto selector =
-      analyze("fn main() -> float32:\n  gpu=devices.gpu(4294967295)\n  alias=gpu\n  0\n");
+      analyze("fn main() -> f32:\n  gpu=devices.gpu(4294967295)\n  alias=gpu\n  return 0\n");
   accepted(selector);
   verify(*selector.module);
   require(dumpTypedIR(*selector.module).find("Device[gpu:4294967295]") != std::string::npos,
@@ -178,15 +178,15 @@ void contracts() {
     if (std::holds_alternative<SymbolRead>(e.operation))
       require(e.type.device == UINT32_MAX, "selector alias lost its identity");
   // Even explicit CPU selectors may not be silently erased by the old lowerer.
-  auto cpu = analyze("fn main() -> float32:\n  cpu=devices.cpu()\n  0\n");
+  auto cpu = analyze("fn main() -> f32:\n  cpu=devices.cpu()\n  return 0\n");
   accepted(cpu);
   require(!lowerNative(*cpu.module), "CPU selector erased by backend");
   auto ordinary = check(parse(std::make_shared<SourceFile>(
-      "cpu.k", helpers + "fn main() -> float32:\n  total(tensor([1,2]))\n")));
+      "cpu.k", helpers + "fn main() -> f32:\n  return total(tensor([1,2]))\n")));
   accepted(ordinary);
   require(bool(lowerNative(*ordinary.module)), "parameter literal context regressed");
   auto cpuSource =
-      helpers + "fn main() -> float32:\n  data:Tensor[float32,2] = tensor([1,2])\n  total(data)\n";
+      helpers + "fn main() -> f32:\n  data:Tensor[f32,2] = tensor([1,2])\n  return total(data)\n";
   ordinary = check(parse(std::make_shared<SourceFile>("cpu.k", cpuSource)));
   accepted(ordinary);
   require(!hasPlacement(*ordinary.module), "ordinary CPU IR changed kind");
@@ -198,11 +198,11 @@ void contracts() {
 void failures() {
   for (const auto *selector : {"devices.cpu()", "devices.gpu()"}) {
     const std::string target = selector;
-    reject("fn double(value:int)->int:\n  value*2\nfn main()->int ! TaskError:\n"
+    reject("fn double(value:i64)->i64:\n  value*2\nfn main()->i64 ! TaskError:\n"
            "  f=double\n  try parallel:\n    try await spawn f(21) on " +
                target + "\n",
            "S074");
-    reject("fn double(value:int)->int:\n  value*2\nfn main()->int ! TaskError:\n"
+    reject("fn double(value:i64)->i64:\n  value*2\nfn main()->i64 ! TaskError:\n"
            "  functions=[double]\n  try parallel:\n    try await spawn functions[0](21) on " +
                target + "\n",
            "S074");
@@ -226,17 +226,17 @@ void failures() {
   reject(start + "    try await spawn total(values) on devices.gpu(1,2)\n", "S027");
   for (const auto *index : {"-1", "1.5", "1e0", "4294967296", "cpu"})
     reject(start + "    selected=devices.gpu(" + index + ")\n    0\n", "S046");
-  reject("fn main() -> float32:\n  devices:float32=1\n  gpu=devices.gpu()\n  0\n", "S030");
-  reject("fn devices() -> float32:\n  0\n", "S049");
-  reject("fn transfer() -> float32:\n  0\n", "S049");
+  reject("fn main() -> f32:\n  devices:f32=1\n  gpu=devices.gpu()\n  return 0\n", "S030");
+  reject("fn devices() -> f32:\n  return 0\n", "S049");
+  reject("fn transfer() -> f32:\n  return 0\n", "S049");
   reject(start + "    transfer:float32=1\n    try await transfer(values,gpu)\n", "S030");
-  reject("fn main() -> float32 ! TaskError:\n  data:Tensor[float32,1] = tensor([1])\n  try await "
+  reject("fn main() -> f32 ! TaskError:\n  data:Tensor[f32,1] = tensor([1])\n  return try await "
          "transfer(data,devices.gpu())\n",
          "S037");
   reject(start + "    ignored=parallel:\n      gpu\n    0\n", "S035");
-  reject(helpers + R"(fn main() -> Tensor[float32,3] ! TaskError:
-  try parallel:
-    data:Tensor[float32,3] = tensor([1,2,3])
+  reject(helpers + R"(fn main() -> Tensor[f32,3] ! TaskError:
+  return try parallel:
+    data:Tensor[f32,3] = tensor([1,2,3])
     try await transfer(data,devices.gpu())
 )",
          "S047");
@@ -247,16 +247,16 @@ void failures() {
     reduceSum(host)
 )",
          "S047");
-  reject("fn main() -> float32:\n  value=1.5\n  value\n", "S010");
-  reject("fn main() -> Tensor[float32,0,3]:\n  tensor([])\n", "S010");
-  reject("fn main() -> Tensor[float32,2,3]:\n  tensor([1,2,3], [2,3])\n", "S050");
-  reject("fn main() -> Tensor[float32,1,2]:\n  tensor([[1,2]], [1,2])\n", "S050");
-  reject("fn main() -> Tensor[float32,1]:\n  tensor([1], [-1])\n", "S050");
-  reject("fn main() -> Tensor[float32,1]:\n  tensor([1], [1.0])\n", "S050");
-  reject("fn main() -> Tensor[float32,1]:\n  tensor([1], [18446744073709551616])\n", "S050");
-  reject("fn main() -> Tensor[float32,?]:\n  tensor([], [9223372036854775808])\n", "S001");
-  reject("fn main() -> Tensor[float32,?,?]:\n  tensor([], [9223372036854775807,2])\n", "S002");
-  reject("fn main() -> Tensor[float32,0,?,?]:\n  tensor([], [0,9223372036854775807,2])\n", "S002");
+  reject("fn main() -> f32:\n  value=1.5\n  return value\n", "S010");
+  reject("fn main() -> Tensor[f32,0,3]:\n  return tensor([])\n", "S010");
+  reject("fn main() -> Tensor[f32,2,3]:\n  return tensor([1,2,3], [2,3])\n", "S050");
+  reject("fn main() -> Tensor[f32,1,2]:\n  return tensor([[1,2]], [1,2])\n", "S050");
+  reject("fn main() -> Tensor[f32,1]:\n  return tensor([1], [-1])\n", "S050");
+  reject("fn main() -> Tensor[f32,1]:\n  return tensor([1], [1.0])\n", "S050");
+  reject("fn main() -> Tensor[f32,1]:\n  return tensor([1], [18446744073709551616])\n", "S050");
+  reject("fn main() -> Tensor[f32,?]:\n  return tensor([], [9223372036854775808])\n", "S001");
+  reject("fn main() -> Tensor[f32,?,?]:\n  return tensor([], [9223372036854775807,2])\n", "S002");
+  reject("fn main() -> Tensor[f32,0,?,?]:\n  return tensor([], [0,9223372036854775807,2])\n", "S002");
   auto limits = SemanticLimits{};
   limits.maxValues = 3;
   reject(start + "    reduceSum(values)\n", "S009", limits);

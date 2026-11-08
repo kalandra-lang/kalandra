@@ -1,7 +1,7 @@
-fn entry(rows:int)->int:
+fn entry(rows:i64)->i64:
   cells=[7,11,17,19]
   grid=tensor(cells,[rows,4/rows])
-  grid[0,0]
-fn main()->int ! TaskError:
-  try parallel:
+  return grid[0,0]
+fn main()->i64 ! TaskError:
+  return try parallel:
     try await spawn entry(2) on devices.gpu()

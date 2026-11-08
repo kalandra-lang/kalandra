@@ -17,19 +17,19 @@ int main() {
     const std::string decl = "type Row:\n  name:String\n  values:[int]\nenum Item:\n  Empty\n"
                              "  Value:\n    rows:[Row]\ntype Box:\n  items:[Item]\n  rows:[Row]\n";
     for (const auto *body :
-         {"type Recursive:\n  rows:[Recursive]\nfn main()->int:\n  0\n",
-          "enum Recursive:\n  Empty\n  Value:\n    rows:[Recursive]\nfn main()->int:\n  0\n",
-          "type First:\n  rows:[Second]\ntype Second:\n  parent:First\nfn main()->int:\n  0\n",
-          "fn main()->int:\n  p=Box {items:[],rows:[]}\n  length(p.rows)+length(p.items)\n",
-          "fn main()->int:\n  p=Item.Value {rows:[Row {name:\"é\",values:[1,2]}]}\n"
-          "  match p:\n    Item.Empty:0\n    Item.Value {rows}:rows[0].values[1]\n",
-          "fn echo(p:Box)->Box:\n  p\nfn main()->int ! TaskError:\n"
+         {"type Recursive:\n  rows:[Recursive]\nfn main()->i64:\n  return 0\n",
+          "enum Recursive:\n  Empty\n  Value:\n    rows:[Recursive]\nfn main()->i64:\n  return 0\n",
+          "type First:\n  rows:[Second]\ntype Second:\n  parent:First\nfn main()->i64:\n  return 0\n",
+          "fn main()->i64:\n  p=Box {items:[],rows:[]}\n  return length(p.rows)+length(p.items)\n",
+          "fn main()->i64:\n  p=Item.Value {rows:[Row {name:\"é\",values:[1,2]}]}\n"
+          "  return match p:\n    Item.Empty:0\n    Item.Value {rows}:rows[0].values[1]\n",
+          "fn echo(p:Box)->Box:\n  return p\nfn main()->i64 ! TaskError:\n"
           "  p=try parallel:\n    try await spawn echo(Box {items:[Item.Empty],rows:[]})\n"
-          "  match p.items[0]:\n    Item.Empty:1\n    _:0\n",
-          "fn main()->int:\n  row=Row {name:\"hi\",values:[2]}\n"
+          "  return match p.items[0]:\n    Item.Empty:1\n    _:0\n",
+          "fn main()->i64:\n  row=Row {name:\"hi\",values:[2]}\n"
           "  a=Box {items:[Item.Value {rows:[row]}],rows:[row]}\n"
-          "  b=a with {rows:map(a.rows,fn(r):r with {name:r.name+\"!\"})}\n"
-          "  length(b.rows[0].name)+length(a.rows[0].name)\n"}) {
+          "  b=a with {rows:map(a.rows,fn(r):return r with {name:r.name+\"!\"})}\n"
+          "  return length(b.rows[0].name)+length(a.rows[0].name)\n"}) {
       auto checked = analyze(decl + body);
       if (!checked.ok())
         for (const auto &d : checked.diagnostics)
@@ -45,20 +45,20 @@ int main() {
 #endif
     }
     for (const auto *body :
-         {"fn main():\n  Item.Value {rows:[Item.Empty]}\n",
-          "fn main():\n  Box {items:[Row {name:\"\",values:[]}],rows:[]}\n",
-          "type Bad:\n  rows:Tensor[Row,2]\nfn main()->int:\n  0\n",
-          "type Bad:\n  rows:[[Row]]\nfn main()->int:\n  0\n"})
+         {"fn main():\n  return Item.Value {rows:[Item.Empty]}\n",
+          "fn main():\n  return Box {items:[Row {name:\"\",values:[]}],rows:[]}\n",
+          "type Bad:\n  rows:Tensor[Row,2]\nfn main()->i64:\n  return 0\n",
+          "type Bad:\n  rows:[[Row]]\nfn main()->i64:\n  0\n"})
       require(!analyze(decl + body).ok(), "invalid array-field program admitted");
-    auto valid = analyze(decl + "fn main()->int:\n  length(Box {items:[],rows:[]}.rows)\n");
+    auto valid = analyze(decl + "fn main()->i64:\n  return length(Box {items:[],rows:[]}.rows)\n");
     require(valid.ok(), "field metadata fixture rejected");
     require(recordInlineUnits(*valid.module, 2) == 10,
             "record-array fields must count descriptors rather than inline elements");
     auto lengths =
-        analyze(decl + "fn first(p:Item)->int:\n  match p:\n    Item.Empty:0\n"
-                       "    Item.Value {rows}:length(rows)\nfn second(p:Item)->int:\n"
-                       "  match p:\n    Item.Empty:0\n    Item.Value {rows}:length(rows)\n"
-                       "fn main()->int:\n  0\n");
+        analyze(decl + "fn first(p:Item)->i64:\n  return match p:\n    Item.Empty:0\n"
+                       "    Item.Value {rows}:length(rows)\nfn second(p:Item)->i64:\n"
+                       "  return match p:\n    Item.Empty:0\n    Item.Value {rows}:length(rows)\n"
+                       "fn main()->i64:\n  return 0\n");
     require(lengths.ok(), "payload extent fixture rejected");
     std::set<ExtentId> extents;
     unsigned reads = 0;

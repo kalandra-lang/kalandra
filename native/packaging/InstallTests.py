@@ -38,9 +38,9 @@ with tempfile.TemporaryDirectory(dir=root, prefix="install ") as temporary, temp
     assert not (direct / "bin/kalandra").exists()
     project = cwd / "project"
     project.mkdir()
-    source = "from \"math\" import double\nfn main() -> int:\n  double(21)\n"
+    source = 'from "math" import double\nfn main() -> i64:\n  return double(21)\n'
     (project / "main.k").write_text(source)
-    (project / "library.k").write_text("export fn double(value: int) -> int:\n  value * 2\n")
+    (project / "library.k").write_text('export fn double(value: i64) -> i64:\n  return value * 2\n')
     manifest = project / "kalandra.toml"
     manifest.write_text('format=1\n[project]\nentry="main.k"\n[packages]\nmath="library.k"\n')
     result = run([direct / "bin/kalandra-check", "--diagnostics=json", "--project", manifest], cwd)

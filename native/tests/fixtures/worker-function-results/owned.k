@@ -1,10 +1,10 @@
 type Box:
   text:String
-  values:[int]
-fn make()->fn(int)->int:
+  values:[i64]
+fn make()->fn(i64)->i64:
   box=Box {text:"é🙂",values:[20,20]}
-  fn(value:int):length(box.text)+box.values[0]+box.values[1]+value
-fn main()->int ! TaskError:
+  return fn(value:i64):return length(box.text)+box.values[0]+box.values[1]+value
+fn main()->i64 ! TaskError:
   f=try parallel:
     try await spawn make()
-  f(0)
+  return f(0)

@@ -29,20 +29,20 @@ int main(int argc, char **argv) {
   try {
     root = fs::absolute(argv[1]);
     fs::create_directories(root);
-    write("types.k", "export type Row:\n  names:[String]\n  value:int64\ntype Secret:\n  "
-                            "flag:Bool\nexport fn make()->Row:\n  Row {names:[\"é\"],value:2}\n");
+    write("types.k", "export type Row:\n  names:[String]\n  value:i64\ntype Secret:\n  "
+                            "flag:bool\nexport fn make()->Row:\n  return Row {names:[\"é\"],value:2}\n");
     write("other.k", "export type Row:\n  names:[String]\n  value:int64\n");
     write("wrapper.k", "from \"./types.k\" import Row\nexport type Box:\n  "
-                              "row:Row\nexport fn box(row:Row)->Box:\n  Box {row:row}\n");
+                              "row:Row\nexport fn box(row:Row)->Box:\n  return Box {row:row}\n");
     write("alias.k", "from \"./types.k\" import Row as Renamed\n");
     const std::string imports = "from \"./types.k\" import Row as R, Row as Same, "
                                 "make\nfrom \"./wrapper.k\" import Box, box\n";
     auto good = analyze(
-        imports + "fn identity(row:Same)->R:\n  row\nfn update(value:Box)->Box:\n  value with "
-                  "{row:identity(value.row) with {names:map(value.row.names,fn(s):s+\"!\")}}\nfn "
+        imports + "fn identity(row:Same)->R:\n  return row\nfn update(value:Box)->Box:\n  return value with "
+                  "{row:identity(value.row) with {names:map(value.row.names,fn(s):return s+\"!\")}}\nfn "
                   "main()->[String] ! TaskError:\n  result=try parallel:\n    work=spawn "
                   "update(box(make()))\n    first=try await work\n    again=try await work\n    "
-                  "again\n  result.row.names\n");
+                  "again\n  return result.row.names\n");
     if (!good.ok())
       for (const auto &d : good.diagnostics)
         std::cerr << renderDiagnostic(*good.source, d);
@@ -54,30 +54,30 @@ int main(int argc, char **argv) {
     require(bool(lowered), lowered ? "" : lowered.error());
 #endif
     for (const auto &source :
-         {"from \"./types.k\" import Secret\nfn main():\n  0\n",
-          "from \"./alias.k\" import Renamed\nfn main():\n  0\n",
-          "from \"./types.k\" import Row\ntype Row:\n  n:int\nfn main():\n  0\n",
-          "from \"./types.k\" import Row\nfn Row():\n  0\nfn main():\n  0\n",
-          "from \"./types.k\" import Row, Row\nfn main():\n  0\n",
-          "from \"./types.k\" import Row, make as Row\nfn main():\n  0\n",
-          "from \"./types.k\" import make as Row, Row\nfn main():\n  0\n",
-          "from \"./types.k\" import Row as String\nfn main():\n  0\n",
-          "from \"./types.k\" import Row as Tensor\nfn main():\n  0\n",
-          "from \"./types.k\" import Row as int64\nfn main():\n  0\n",
-          "from \"./types.k\" import Row as with\nfn main():\n  0\n",
+         {"from \"./types.k\" import Secret\nfn main():\n  return 0\n",
+          "from \"./alias.k\" import Renamed\nfn main():\n  return 0\n",
+          "from \"./types.k\" import Row\ntype Row:\n  n:i64\nfn main():\n  return 0\n",
+          "from \"./types.k\" import Row\nfn Row():\n  return 0\nfn main():\n  return 0\n",
+          "from \"./types.k\" import Row, Row\nfn main():\n  return 0\n",
+          "from \"./types.k\" import Row, make as Row\nfn main():\n  return 0\n",
+          "from \"./types.k\" import make as Row, Row\nfn main():\n  return 0\n",
+          "from \"./types.k\" import Row as String\nfn main():\n  return 0\n",
+          "from \"./types.k\" import Row as Tensor\nfn main():\n  return 0\n",
+          "from \"./types.k\" import Row as i64\nfn main():\n  return 0\n",
+          "from \"./types.k\" import Row as with\nfn main():\n  return 0\n",
           "from \"./types.k\" import Row as A, make\nfrom \"./other.k\" import Row "
-          "as B\nfn use(value:B)->B:\n  value\nfn main():\n  use(make()).value\n",
-          "from \"./types.k\" import make\nfn use(value:Row):\n  value\nfn main():\n  "
-          "0\n"}) {
+          "as B\nfn use(value:B)->B:\n  return value\nfn main():\n  return use(make()).value\n",
+          "from \"./types.k\" import make\nfn use(value:Row):\n  return value\nfn main():\n  "
+          "return 0\n"}) {
       auto bad = analyze(source);
       require(!bad.ok(), "invalid visibility/identity/collision admitted");
     }
     write("private-nested.k",
-          "export type Outer:\n  inner:Inner\ntype Inner:\n  flag:Bool\nexport fn make()->Outer:\n "
-          " Outer {inner:Inner {flag:true}}\n");
+          "export type Outer:\n  inner:Inner\ntype Inner:\n  flag:bool\nexport fn make()->Outer:\n "
+          " return Outer {inner:Inner {flag:true}}\n");
     auto privateField =
         analyze("from \"./private-nested.k\" import Outer, make\nfn "
-                "use(value:Outer)->Bool:\n  value.inner.flag\nfn main():\n  use(make())\n");
+                "use(value:Outer)->bool:\n  return value.inner.flag\nfn main():\n  return use(make())\n");
     require(privateField.ok(), "private nested field lost its declaration context");
     // Type-only diamonds and symlinks still refer to the canonical declaration.
     std::error_code error;
@@ -85,18 +85,18 @@ int main(int argc, char **argv) {
     fs::create_symlink(root / "types.k", root / "symlink.k");
     auto diamond =
         analyze("from \"./types.k\" import Row as A\nfrom \"./symlink.k\" import Row "
-                "as B\nfn same(x:A)->B:\n  x\nfn main():\n  same(A {names:[],value:1}).value\n");
+                "as B\nfn same(x:A)->B:\n  return x\nfn main():\n  return same(A {names:[],value:1}).value\n");
     require(diamond.ok() && diamond.module->records.size() == 2, "canonical type identity lost");
     auto parsed = parse(std::make_shared<SourceFile>(
-        "export.k", "export type Row:\n  n:int\nfn main():\n  0\n"));
+        "export.k", "export type Row:\n  n:i64\nfn main():\n  return 0\n"));
     require(parsed.ok() && parsed.module.records[0].exported, "export flag missing");
     write("cycle.k", "from \"./main.k\" import Box\nexport type Item:\n  n:int\n");
     auto cycle = analyze(
-        "from \"./cycle.k\" import Item\nexport type Box:\n  item:Item\nfn main():\n  0\n");
+        "from \"./cycle.k\" import Item\nexport type Box:\n  item:Item\nfn main():\n  return 0\n");
     require(!cycle.ok(), "type-only cycle admitted");
     write("loop.k",
           "from \"./types.k\" import Row\nexport type Loop:\n  next:Loop\n");
-    require(!analyze("from \"./loop.k\" import Loop\nfn main():\n  0\n").ok(),
+    require(!analyze("from \"./loop.k\" import Loop\nfn main():\n  return 0\n").ok(),
             "exported recursive layout admitted");
     std::cout << "type exports: aliases, nominal identity, field/signature resolution, private "
                  "names, collision order, canonical graphs and cycles passed\n";

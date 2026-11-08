@@ -1,5 +1,5 @@
-fn double(value:int)->int:
-  value*2
-fn main()->int ! TaskError:
+fn double(value:i64)->i64:
+  return value*2
+fn main()->i64 ! TaskError:
   values=try ([21] -> parallelMap(double))
-  values[0]
+  return values[0]

@@ -19,8 +19,8 @@ int main(int argc, char **argv) {
     fs::create_directories(root);
     const auto main = (root / "main.k").string();
     const auto lib = (root / "café.k").string();
-    const std::string caller = "from \"./café.k\" import value\nfn main()->int:\n  value()\n";
-    const std::string good = "export fn value()->int:\n  42\n";
+    const std::string caller = "from \"./café.k\" import value\nfn main()->i64:\n  return value()\n";
+    const std::string good = "export fn value()->i64:\n  return 42\n";
     std::ofstream(main) << caller;
     std::ofstream(lib) << good;
     const auto analyze = [&](std::span<const SourceOverlay> overlays, SyntaxLimits syntax = {},
@@ -36,9 +36,9 @@ int main(int argc, char **argv) {
       require(!result.ok() && result.diagnostics[0].code == code, std::string("expected ") + code);
     };
     require(analyze({}).ok(), "disk baseline failed");
-    std::vector<SourceOverlay> overlays{{lib, "export fn value()->String:\n  \"😀é\"\n"}};
+    std::vector<SourceOverlay> overlays{{lib, "export fn value()->String:\n  return \"😀é\"\n"}};
     require(!analyze(overlays).ok(), "unsaved export signature did not recheck importer");
-    overlays.push_back({main, "from \"./café.k\" import value\nfn main()->String:\n  value()\n"});
+    overlays.push_back({main, "from \"./café.k\" import value\nfn main()->String:\n  return value()\n"});
     auto snapshot = analyze(overlays);
     require(snapshot.ok(), "multiple unsaved buffers did not compose");
     overlays.clear();
@@ -51,22 +51,22 @@ int main(int argc, char **argv) {
     require(std::string(std::istreambuf_iterator<char>(originalMain), {}) == caller &&
                 std::string(std::istreambuf_iterator<char>(originalLib), {}) == good,
             "unsaved contents were written to disk");
-    overlays = {{lib, "export fn value()->String:\n  \"😀é\" + missing\n"}};
+    overlays = {{lib, "export fn value()->String:\n  return \"😀é\" + missing\n"}};
     auto broken = analyze(overlays);
     auto json = renderDiagnosticsJson(broken.source.get(), broken.diagnostics);
     require(!broken.ok() && json.find("café.k") != std::string::npos &&
                 json.find("\"character\":10") != std::string::npos,
             "unsaved dependency lost original Unicode position");
-    overlays = {{main, "from \"./new/sub.k\" import value\nfn main()->int:\n  value()\n"},
+    overlays = {{main, "from \"./new/sub.k\" import value\nfn main()->i64:\n  return value()\n"},
                 {(root / "new/sub.k").string(), good}};
     require(analyze(overlays).ok(), "new unsaved dependency failed");
     require(!fs::exists(root / "new/sub.k"), "overlay wrote an unsaved file");
     const auto newRoot = (root / "unsaved.k").string();
-    const SourceOverlay virtualRoot{newRoot, "fn main()->int:\n  1\n"};
+    const SourceOverlay virtualRoot{newRoot, "fn main()->i64:\n  return 1\n"};
     auto virtualParsed = loadModules(newRoot, {}, {}, {}, {&virtualRoot, 1});
     require(virtualParsed && check(std::move(*virtualParsed)).ok(), "new unsaved root failed");
     require(!fs::exists(newRoot), "unsaved root was written");
-    overlays = {{main, "from \"math\" import value\nfn main()->int:\n  value()\n"},
+    overlays = {{main, "from \"math\" import value\nfn main()->i64:\n  return value()\n"},
                 {(root / "package.k").string(), good}};
     const ModulePackage package{"math", (root / "package.k").string()};
     require(analyze(overlays, {}, {}, {&package, 1}).ok(), "unsaved package entry failed");
@@ -77,10 +77,10 @@ int main(int argc, char **argv) {
     fs::create_symlink(lib, root / "alias.k");
     overlays = {{(root / "alias.k").string(), good}, {lib, good}};
     rejects(overlays, "M006");
-    overlays = {{(root / "alias.k").string(), "export fn value()->int:\n  missing\n"}};
+    overlays = {{(root / "alias.k").string(), "export fn value()->i64:\n  return missing\n"}};
     rejects(overlays, "S016");
-    overlays = {{main, "from \"./café.k\" import value\nexport fn main()->int:\n  value()\n"},
-                {lib, "from \"./main.k\" import main\nexport fn value()->int:\n  main()\n"}};
+    overlays = {{main, "from \"./café.k\" import value\nexport fn main()->i64:\n  return value()\n"},
+                {lib, "from \"./main.k\" import main\nexport fn value()->i64:\n  return main()\n"}};
     rejects(overlays, "M003");
     rejects(overlays, "M004", {}, ModuleLimits{1, 32});
     rejects(overlays, "M004", {}, ModuleLimits{128, 0});
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
     small.maxSourceBytes = good.size();
     overlays = {{lib, good}};
     rejects(overlays, "M004", small); // Includes the graph separator byte.
-    overlays = {{lib, "export fn value()->int:\n  1\n"}};
+    overlays = {{lib, "export fn value()->i64:\n  return 1\n"}};
     small.maxSourceBytes = overlays[0].text.size() + 1;
     rejects(overlays, "M004", small); // Overlay fits, full disk/overlay graph does not.
     overlays = {{(root / "unused.k").string(), good}};

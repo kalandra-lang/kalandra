@@ -9,152 +9,152 @@ function(QUALIFY NAME SOURCE RANK SCENARIO)
     RUN_OK("${OUTPUT_DIR}/${NAME}-harness" "${WORKERS}" "${SCENARIO}" 0)
   endforeach()
 endfunction()
-QUALIFY(exact [=[fn identity(values:Tensor[float,?]) -> Tensor[float,?]:
-  values
-fn probe() -> Tensor[float,?] ! TaskError:
-  values:Tensor[float,4] = tensor([-0.0,1.0000000000000002,4.9406564584124654e-324,1.7976931348623157e308])
-  try parallel:
+QUALIFY(exact [=[fn identity(values:Tensor[f64,?]) -> Tensor[f64,?]:
+  return values
+fn probe() -> Tensor[f64,?] ! TaskError:
+  values:Tensor[f64,4] = tensor([-0.0,1.0000000000000002,4.9406564584124654e-324,1.7976931348623157e308])
+  return try parallel:
     first = spawn identity(values)
     alias = first
     completed = try await first
     again = try await alias
     try await spawn identity(again)
-fn main() -> float:
-  0
+fn main() -> f64:
+  return 0
 ]=] 1 1)
-QUALIFY(nested [=[fn shift(values:Tensor[float,?,?],amount:float) -> Tensor[float,?,?]:
-  values + amount
-fn nested(values:Tensor[float,?,?]) -> Tensor[float,?,?] ! TaskError:
+QUALIFY(nested [=[fn shift(values:Tensor[f64,?,?],amount:f64) -> Tensor[f64,?,?]:
+  return values + amount
+fn nested(values:Tensor[f64,?,?]) -> Tensor[f64,?,?] ! TaskError:
   adjusted = values + 1
-  try parallel:
+  return try parallel:
     first = spawn shift(adjusted,1)
     alias = first
     completed = try await first
     again = try await alias
     completed + (again - completed)
-fn probe() -> Tensor[float,?,?] ! TaskError:
-  values:Tensor[float,2,2] = tensor([[9007199254740990.0,10],[100,200]])
-  try parallel:
+fn probe() -> Tensor[f64,?,?] ! TaskError:
+  values:Tensor[f64,2,2] = tensor([[9007199254740990.0,10],[100,200]])
+  return try parallel:
     work = spawn nested(values)
     try await work
-fn main() -> float:
-  0
+fn main() -> f64:
+  return 0
 ]=] 2 2)
-QUALIFY(rankzero [=[fn shift(values:Tensor[float],amount:float) -> Tensor[float]:
-  values + amount
-fn combine(a:Tensor[float],b:Tensor[float]) -> Tensor[float]:
-  a+b
-fn probe() -> Tensor[float] ! TaskError:
-  values:Tensor[float] = tensor(9007199254740992.0)
-  try parallel:
+QUALIFY(rankzero [=[fn shift(values:Tensor[f64],amount:f64) -> Tensor[f64]:
+  return values + amount
+fn combine(a:Tensor[f64],b:Tensor[f64]) -> Tensor[f64]:
+  return a+b
+fn probe() -> Tensor[f64] ! TaskError:
+  values:Tensor[f64] = tensor(9007199254740992.0)
+  return try parallel:
     work = spawn shift(values,2)
     first = try await work
     again = try await work
     try await spawn combine(first,again)
-fn main() -> float:
-  0
+fn main() -> f64:
+  return 0
 ]=] 0 0)
-QUALIFY(rankthree [=[fn twice(values:Tensor[float,?,?,?]) -> Tensor[float,?,?,?]:
-  values + values
-fn probe() -> Tensor[float,?,?,?] ! TaskError:
-  values:Tensor[float,2,1,2] = tensor([1,2,3,4],[2,1,2])
-  try parallel:
+QUALIFY(rankthree [=[fn twice(values:Tensor[f64,?,?,?]) -> Tensor[f64,?,?,?]:
+  return values + values
+fn probe() -> Tensor[f64,?,?,?] ! TaskError:
+  values:Tensor[f64,2,1,2] = tensor([1,2,3,4],[2,1,2])
+  return try parallel:
     try await spawn twice(values)
-fn main() -> float:
-  0
+fn main() -> f64:
+  return 0
 ]=] 3 3)
-QUALIFY(empty [=[fn divide(values:Tensor[float,?,?]) -> Tensor[float,?,?]:
-  values / 0
-fn probe() -> Tensor[float,?,?] ! TaskError:
-  values:Tensor[float,2,0] = tensor([],[2,0])
-  try parallel:
+QUALIFY(empty [=[fn divide(values:Tensor[f64,?,?]) -> Tensor[f64,?,?]:
+  return values / 0
+fn probe() -> Tensor[f64,?,?] ! TaskError:
+  values:Tensor[f64,2,0] = tensor([],[2,0])
+  return try parallel:
     try await spawn divide(values)
-fn main() -> float:
-  0
+fn main() -> f64:
+  return 0
 ]=] 2 4)
-QUALIFY(ieee [=[fn identity(values:Tensor[float,?]) -> Tensor[float,?]:
-  values
-fn produce(values:Tensor[float,?]) -> Tensor[float,?]:
-  tensor([1.0/0.0,-1.0/0.0,0.0/0.0,-0.0])
-fn probe() -> Tensor[float,?] ! TaskError:
-  input:Tensor[float,4] = tensor([1,-1,0,-0.0])
-  try parallel:
+QUALIFY(ieee [=[fn identity(values:Tensor[f64,?]) -> Tensor[f64,?]:
+  return values
+fn produce(values:Tensor[f64,?]) -> Tensor[f64,?]:
+  return tensor([1.0/0.0,-1.0/0.0,0.0/0.0,-0.0])
+fn probe() -> Tensor[f64,?] ! TaskError:
+  input:Tensor[f64,4] = tensor([1,-1,0,-0.0])
+  return try parallel:
     try await spawn produce(input)
-fn main() -> float:
-  0
+fn main() -> f64:
+  return 0
 ]=] 1 9)
-QUALIFY(recovery [=[fn identity(values:Tensor[float,?]) -> Tensor[float,?]:
-  values
-fn overflow(value:int64) -> int64:
-  value + 1
-fn batch(values:Tensor[float,?]) -> Tensor[float,?] ! TaskError:
-  try parallel:
+QUALIFY(recovery [=[fn identity(values:Tensor[f64,?]) -> Tensor[f64,?]:
+  return values
+fn overflow(value:i64) -> i64:
+  return value + 1
+fn batch(values:Tensor[f64,?]) -> Tensor[f64,?] ! TaskError:
+  return try parallel:
     bad = spawn overflow(9223372036854775807)
     sibling = spawn identity(values)
     try await bad
     try await sibling
-fn probe() -> Tensor[float,?] ! TaskError:
-  original:Tensor[float,2] = tensor([1.0000000000000002,-0.0])
+fn probe() -> Tensor[f64,?] ! TaskError:
+  original:Tensor[f64,2] = tensor([1.0000000000000002,-0.0])
   result = batch(original)
-  recovered = result catch fn(error): original
-  try parallel:
+  recovered = result catch fn(error): return original
+  return try parallel:
     work = spawn identity(recovered)
     first = try await work
     try await work
-fn main() -> float:
-  0
+fn main() -> f64:
+  return 0
 ]=] 1 5)
-QUALIFY(shape-recovery [=[fn identity(values:Tensor[float,?]) -> Tensor[float,?]:
-  values
-fn coordinate(values:Tensor[float,?]) -> Tensor[float,?] ! TaskError:
-  try parallel:
+QUALIFY(shape-recovery [=[fn identity(values:Tensor[f64,?]) -> Tensor[f64,?]:
+  return values
+fn coordinate(values:Tensor[f64,?]) -> Tensor[f64,?] ! TaskError:
+  return try parallel:
     try await spawn identity(values)
-fn invalidShape(seed:float) -> Tensor[float,2] ! TaskError:
-  values:Tensor[float,1] = tensor([9])
-  fallback:Tensor[float,2] = tensor([1,2])
+fn invalidShape(seed:f64) -> Tensor[f64,2] ! TaskError:
+  values:Tensor[f64,1] = tensor([9])
+  fallback:Tensor[f64,2] = tensor([1,2])
   result = coordinate(values)
-  recovered = result catch fn(error): fallback
-  checked:Tensor[float,2] = recovered
-  checked
-fn batch() -> Tensor[float,2] ! TaskError:
-  try parallel:
+  recovered = result catch fn(error): return fallback
+  checked:Tensor[f64,2] = recovered
+  return checked
+fn batch() -> Tensor[f64,2] ! TaskError:
+  return try parallel:
     try await spawn invalidShape(0)
-fn probe() -> Tensor[float,?] ! TaskError:
-  original:Tensor[float,2] = tensor([1.0000000000000002,-0.0])
+fn probe() -> Tensor[f64,?] ! TaskError:
+  original:Tensor[f64,2] = tensor([1.0000000000000002,-0.0])
   result = batch()
-  recovered = result catch fn(error): original
-  try parallel:
+  recovered = result catch fn(error): return original
+  return try parallel:
     work = spawn identity(recovered)
     first = try await work
     try await work
-fn main() -> float:
-  0
+fn main() -> f64:
+  return 0
 ]=] 1 5)
-QUALIFY(shape-fault [=[fn identity(values:Tensor[float,?]) -> Tensor[float,?]:
-  values
-fn coordinate(values:Tensor[float,?]) -> Tensor[float,?] ! TaskError:
-  try parallel:
+QUALIFY(shape-fault [=[fn identity(values:Tensor[f64,?]) -> Tensor[f64,?]:
+  return values
+fn coordinate(values:Tensor[f64,?]) -> Tensor[f64,?] ! TaskError:
+  return try parallel:
     try await spawn identity(values)
-fn probe() -> Tensor[float,2] ! TaskError:
-  values:Tensor[float,1] = tensor([9])
-  fallback:Tensor[float,2] = tensor([1,2])
+fn probe() -> Tensor[f64,2] ! TaskError:
+  values:Tensor[f64,1] = tensor([9])
+  fallback:Tensor[f64,2] = tensor([1,2])
   result = coordinate(values)
-  recovered = result catch fn(error): fallback
-  checked:Tensor[float,2] = recovered
-  checked
-fn main() -> float:
-  0
+  recovered = result catch fn(error): return fallback
+  checked:Tensor[f64,2] = recovered
+  return checked
+fn main() -> f64:
+  return 0
 ]=] 1 6)
 file(READ "${SOURCE_DIR}/tests/fixtures/task-float64-tensor-mixed.k" MIXED)
 QUALIFY(mixed "${MIXED}" 1 1)
 file(READ "${OUTPUT_DIR}/mixed.ll" IR)
-foreach(TYPE IN ITEMS float64 uint64 int64 uint32 int32)
+foreach(TYPE IN ITEMS f64 u64 i64 u32 i32)
   if(NOT IR MATCHES "value.layout.tensor.${TYPE}.1" OR NOT IR MATCHES "result.tensor.${TYPE}.1")
     message(FATAL_ERROR "Missing distinct ${TYPE} layout")
   endif()
 endforeach()
 if(NOT IR MATCHES "value.layout.tensor1" OR NOT IR MATCHES "result.tensor1" OR NOT IR MATCHES "value.layout.scalar.float64")
-  message(FATAL_ERROR "Mixed packet lost float32 or scalar float64")
+  message(FATAL_ERROR "Mixed packet lost f32 or scalar f64")
 endif()
 foreach(WORKERS IN ITEMS 1 2 4)
   foreach(MODE IN ITEMS 1 2 4)

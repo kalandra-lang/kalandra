@@ -88,7 +88,7 @@ string(REPLACE "Tensor[float32, 2, 3] = tensor([[2, 3, 4], [5, 6, 7]])"
 reject(third-shape "${BAD}" "S033")
 string(REPLACE "spawn blend(da, 1, db, 1, dc," "spawn blend(da, 1, db, 1, c," BAD "${SOURCE}")
 reject(third-residency "${BAD}" "S047")
-set(FORWARD "fn forward(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:\n  values\n\n")
+set(FORWARD "fn forward(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:\n  return values\n\n")
 string(REPLACE "Tensor[float32, 2, 3] = tensor([[2, 3, 4], [5, 6, 7]])"
   "Tensor[float32, 3, 2] = tensor([[2, 3], [4, 5], [6, 7]])" BAD "${GPU_ONLY}")
 string(REPLACE "transfer(c, gpu)" "transfer(forward(c), gpu)" BAD "${BAD}")

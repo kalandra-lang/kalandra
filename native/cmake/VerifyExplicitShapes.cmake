@@ -1,5 +1,5 @@
 file(MAKE_DIRECTORY "${OUTPUT_DIR}")
-file(WRITE "${OUTPUT_DIR}/shape.k" "fn identity(values:Tensor[float32,?,?]) -> Tensor[float32,?,?]:\n  values\n\nfn main() -> float32:\n  emptyRows:Tensor[float32,0,3] = tensor([], [0,3])\n  emptyColumns:Tensor[float32,3,0] = tensor([], [3,0])\n  left:Tensor[float32,2,3] = tensor([1,2,3,4,5,6], [2,3])\n  right:Tensor[float32,3,2] = tensor([1,2,3,4,5,6], [3,2])\n  scalar:Tensor[float32] = tensor([2], [])\n  alias=identity(emptyRows)\n  reduceSum(matmul(left,right))+reduceSum(alias)+reduceSum(emptyColumns)+reduceSum(scalar)\n")
+file(WRITE "${OUTPUT_DIR}/shape.k" "fn identity(values:Tensor[f32,?,?]) -> Tensor[f32,?,?]:\n  return values\n\nfn main() -> f32:\n  emptyRows:Tensor[f32,0,3] = tensor([], [0,3])\n  emptyColumns:Tensor[f32,3,0] = tensor([], [3,0])\n  left:Tensor[f32,2,3] = tensor([1,2,3,4,5,6], [2,3])\n  right:Tensor[f32,3,2] = tensor([1,2,3,4,5,6], [3,2])\n  scalar:Tensor[f32] = tensor([2], [])\n  alias=identity(emptyRows)\n  reduceSum(matmul(left,right))+reduceSum(alias)+reduceSum(emptyColumns)+reduceSum(scalar)\n")
 foreach(VARIANT IN ITEMS debug optimized sanitized thread-sanitized)
   if(VARIANT STREQUAL "debug")
     set(FLAG -O0)

@@ -24,10 +24,10 @@ def main():
                                            '-fno-sanitize-recover=all'])]
     if sys.platform != 'win32':
         variants.append(('thread-sanitized', '--thread-sanitize', ['-O1', '-g', '-fsanitize=thread']))
-    integers = ['int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64']
-    pairs = [(source, destination) for source in integers for destination in ['float32', 'float64']]
-    pairs.append(('float32', 'float64'))
-    types = integers + ['float32', 'float64']
+    integers = ['i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64']
+    pairs = [(source, destination) for source in integers for destination in ['f32', 'f64']]
+    pairs.append(('f32', 'f64'))
+    types = integers + ['f32', 'f64']
     results = []
     for variant, flag, flags in variants:
         runtime = a.compiler.parent / (('' if sys.platform == 'win32' else 'lib') +
@@ -38,7 +38,7 @@ def main():
         for source, destination in ([] if a.tensor_only else pairs):
             name = f'{variant}-{source}-{destination}'
             path = a.output / (name + '.k')
-            path.write_text(f'fn convert(value:{source})->{destination}:\n  {destination}(value)\nfn main()->int:\n  0\n')
+            path.write_text(f'fn convert(value:{source})->{destination}:\n  {destination}(value)\nfn main()->i64:\n  0\n')
             binary = a.output / name
             ir = binary.with_suffix('.ll')
             policy = 'hardware-with-software-fallback' if variant == 'sanitized' else 'hardware'
@@ -46,7 +46,7 @@ def main():
                  '--emit-llvm', ir, '-o', str(binary) + '-standalone'])
             text = '\n'.join(line for line in ir.read_text().splitlines()
                              if not line.startswith('target datalayout'))
-            operation = 'fpext' if source == 'float32' else 'uitofp' if source.startswith('u') else 'sitofp'
+            operation = 'fpext' if source == 'f32' else 'uitofp' if source.startswith('u') else 'sitofp'
             assert operation in text and 'i128' not in text, name
             run([a.clang, '-std=c++23', '-Wno-override-module', '-ffp-contract=off', '-pthread',
                  *flags, '-DTOTAL_HARDWARE_CAST', f'-DSOURCE_TYPE={types.index(source)}',
@@ -55,12 +55,12 @@ def main():
             result = run([binary])
             results.append(dict(variant=variant, source=source, destination=destination, result=result))
             print(variant + ': ' + result, flush=True)
-        for source, destination in [('int8', 'float32'), ('uint64', 'float64'), ('float32', 'float64')]:
+        for source, destination in [('i8', 'f32'), ('u64', 'f64'), ('f32', 'f64')]:
             for rank in range(4):
                 name = f'{variant}-tensor-{source}-{destination}-{rank}'
                 path = a.output / (name + '.k')
                 shape = ',?' * rank
-                path.write_text(f'fn convert(value:Tensor[{source}{shape}])->Tensor[{destination}{shape}]:\n  {destination}(value)\nfn main()->int:\n  0\n')
+                path.write_text(f'fn convert(value:Tensor[{source}{shape}])->Tensor[{destination}{shape}]:\n  {destination}(value)\nfn main()->i64:\n  0\n')
                 binary = a.output / name
                 ir = binary.with_suffix('.ll')
                 run([a.compiler, path, '--test-entry', 'convert', flag, '--emit-llvm', ir,

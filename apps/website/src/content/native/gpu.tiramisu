@@ -4,7 +4,7 @@ Kalandra uses one source language for CPU functions and eligible GPU numerical f
 
 h2 { "Before you begin" }
 
-Install a package that includes the backend you want, plus its system prerequisites. This example uses float32 so it needs no software-arithmetic fallback. Save it as main.k. The same source works with the backend-specific commands below; no user-written shader is required.
+Install a package that includes the backend you want, plus its system prerequisites. This example uses f32 so it needs no software-arithmetic fallback. Save it as main.k. The same source works with the backend-specific commands below; no user-written shader is required.
 
 list {
   link { url = "/docs/installation", "GPU package and system prerequisites" },
@@ -13,14 +13,14 @@ list {
 
 h2 { "Transfer, dispatch and observe" }
 
-codeblock { language = kalandra, """fn project(input: Tensor[float32, ?, ?], weights: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  matmul(input, weights)
+codeblock { language = kalandra, """fn project(input: Tensor[f32, ?, ?], weights: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return matmul(input, weights)
 
-fn main() -> float32 ! TaskError:
-  try parallel:
+fn main() -> f32 ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    input: Tensor[float32, 1, 2] = tensor([[2, 3]])
-    weights: Tensor[float32, 2, 1] = tensor([[4], [5]])
+    input: Tensor[f32, 1, 2] = tensor([[2, 3]])
+    weights: Tensor[f32, 2, 1] = tensor([[4], [5]])
     a = try await transfer(input, gpu)
     b = try await transfer(weights, gpu)
     work = spawn project(a, b) on gpu
@@ -48,7 +48,7 @@ codeblock { language = bash, """kalandra main.k --target metal -O2 -o app
 ./app/program
 """ }
 
-For this example the numerical result is 23. The Metal executable displays this float32 result as hexadecimal IEEE-754 bits: 41b80000. This represents 23, not an integer result. The executable's result display is separate from a general-purpose printing API.
+For this example the numerical result is 23. The Metal executable displays this f32 result as hexadecimal IEEE-754 bits: 41b80000. This represents 23, not an integer result. The executable's result display is separate from a general-purpose printing API.
 
 The output is an application directory containing program and its metallib resources. Keep them together when moving the application. The generated application can run without the compiler distribution; compatible hardware and system frameworks remain required.
 
@@ -62,9 +62,9 @@ codeblock { language = bash, """kalandra main.k --target vulkan -O2 -o app
 
 GPU compilation requires system C++23 development headers in addition to the compiler's private tools. Execution requires the system Vulkan loader and a compatible physical GPU driver. Keep the generated executable and its SPIR-V resources together. This backend does not provide Raspberry Pi VideoCore acceleration or imply support for every Vulkan device. Linux RTX 5090 and Intel ARL are the current physical qualification devices; Windows GPU execution remains unqualified.
 
-Vulkan currently defaults to fixed-tree matmul. Select --matmul-policy optimized explicitly to use the full-float32 tiled matrix kernel. Its private right-operand transpose consumes an extra GPU buffer and dispatch within the normal resource limits. Matrix optimization does not enable fast math for ordinary elementwise expressions.
+Vulkan currently defaults to fixed-tree matmul. Select --matmul-policy optimized explicitly to use the full-f32 tiled matrix kernel. Its private right-operand transpose consumes an extra GPU buffer and dispatch within the normal resource limits. Matrix optimization does not enable fast math for ordinary elementwise expressions.
 
-Native float64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel float64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Intel kernels without float64 division remain native. Fallback applies to float64 arithmetic for the selected kernel as a whole while retaining native float32; it is not chosen separately for each instruction. Missing or malformed shader resources are errors, not reasons to select software arithmetic. Hardware-only mode never silently selects software.
+Native f64 depends on the device. NVIDIA RTX 5090 passes the native four-operation edge corpus. Intel f64 division currently reports an unsupported capability; select --arithmetic hardware-with-software-fallback to permit the integer GPU companion. Intel kernels without f64 division remain native. Fallback applies to f64 arithmetic for the selected kernel as a whole while retaining native f32; it is not chosen separately for each instruction. Missing or malformed shader resources are errors, not reasons to select software arithmetic. Hardware-only mode never silently selects software.
 
 h2 { "Experimental Linux CUDA backend" }
 
@@ -76,9 +76,9 @@ codeblock { language = bash, """kalandra main.k --target cuda -O2 -o app
 
 The initial hardware qualification target is Linux x86-64 with an NVIDIA RTX 5090. The compiler emits an application directory containing program, PTX modules, required companions and third-party notices. Deploy the complete directory. Execution requires a compatible NVIDIA driver with PTX 9.2 support. An installed standalone CUDA compiler requires system C++23 development headers but no CUDA toolkit; building the compiler itself needs CUDA development headers and NVRTC. Older drivers and other NVIDIA GPUs are not yet qualified. macOS continues to use Metal.
 
-CUDA supports the same ten numeric types and ranks zero through eight. Float32 and float64 arithmetic use hardware instructions by default. The explicit software and hardware-with-software-fallback policies retain their normal meaning; a malformed module or driver fault never triggers a numerical fallback.
+CUDA supports the same ten numeric types and ranks zero through eight. Float32 and f64 arithmetic use hardware instructions by default. The explicit software and hardware-with-software-fallback policies retain their normal meaning; a malformed module or driver fault never triggers a numerical fallback.
 
-Matrix products default to fixed-tree. Explicit --matmul-policy optimized permits full-float32 fused multiply-add and a different accumulation order. Eligible aligned shapes use audited BSD-3-Clause CUTLASS SIMT kernels with bounded temporary workspace and deterministic contraction partitions. Other shapes, including empty dimensions and contraction tails, use a fixed-tree GPU companion. There is no CPU, TF32, half-precision or cuBLAS substitution. Unlike the Vulkan tiled implementation, the CUDA tiled kernel consumes both source operands in row-major order.
+Matrix products default to fixed-tree. Explicit --matmul-policy optimized permits full-f32 fused multiply-add and a different accumulation order. Eligible aligned shapes use audited BSD-3-Clause CUTLASS SIMT kernels with bounded temporary workspace and deterministic contraction partitions. Other shapes, including empty dimensions and contraction tails, use a fixed-tree GPU companion. There is no CPU, TF32, half-precision or cuBLAS substitution. Unlike the Vulkan tiled implementation, the CUDA tiled kernel consumes both source operands in row-major order.
 
 Submitted device work retains its inputs, outputs and temporary storage through actual completion. Cancellation takes effect at completed stage boundaries; it does not reset the GPU or interrupt another process. The sanitizer CLI variants are not available for CUDA.
 
@@ -100,7 +100,7 @@ Host coordination and CPU workers remain separate from shader execution even whe
 
 h2 { "Numerical and control scope" }
 
-GPU numerical programs support all ten native numeric types, dense ranks zero through eight, rank-two matmul, balanced reduceSum, explicit conversions and resident numerical functions and supported control flow. Float32 uses hardware arithmetic by default. Metal float64 GPU arithmetic requires --arithmetic hardware-with-software-fallback; CPU float64 remains on hardware under that policy. --arithmetic software selects the strict software implementation. GPU helpers also support local arrays, eligible records and enums, recursive calls and closures with supported captures, including eligible callbacks created on the CPU and passed to GPU tasks. GPU tasks can return eligible arrays and aggregates to the CPU, or return tensors that stay resident on the GPU. GPU functions can raise and handle declared application errors. A caller can recover from an escaping application error after awaiting the task. Host resources stay on the CPU. See the numerical guide for the complete CPU/device capability table.
+GPU numerical programs support all ten native numeric types, dense ranks zero through eight, rank-two matmul, balanced reduceSum, explicit conversions and resident numerical functions and supported control flow. Float32 uses hardware arithmetic by default. Metal f64 GPU arithmetic requires --arithmetic hardware-with-software-fallback; CPU f64 remains on hardware under that policy. --arithmetic software selects the strict software implementation. GPU helpers also support local arrays, eligible records and enums, recursive calls and closures with supported captures, including eligible callbacks created on the CPU and passed to GPU tasks. GPU tasks can return eligible arrays and aggregates to the CPU, or return tensors that stay resident on the GPU. GPU functions can raise and handle declared application errors. A caller can recover from an escaping application error after awaiting the task. Host resources stay on the CPU. See the numerical guide for the complete CPU/device capability table.
 
 list {
   link { url = "/docs/gpu-numerics", "Read the numerical contract and graph example" },

@@ -59,7 +59,7 @@ endfunction()
 
 string(FIND "${SOURCE}" "fn main()" MAIN)
 string(SUBSTRING "${SOURCE}" 0 ${MAIN} FUNCTIONS)
-set(START "fn main() -> float32 ! TaskError:\n  try parallel:\n    gpu = devices.gpu()\n")
+set(START "fn main() -> f32 ! TaskError:\n  try parallel:\n    gpu = devices.gpu()\n")
 # Numeric-only scopes still join; an outer annotation supplies literal context.
 set(BODY "    host: Tensor[float32,3] = try parallel:\n      tensor([1,2,3])\n    result: float32 = try parallel:\n      1\n    input = try await transfer(host,gpu)\n    resident = try await spawn scale(input,result) on gpu\n    output = try await transfer(resident,devices.cpu())\n    reduceSum(output)\n")
 build_run(context "${FUNCTIONS}${START}${BODY}" "40c00000\n" --sanitize)
@@ -67,7 +67,7 @@ string(REPLACE "float32,3" "float32,0" EMPTY "${BODY}")
 string(REPLACE "tensor([1,2,3])" "tensor([])" EMPTY "${EMPTY}")
 build_run(empty "${FUNCTIONS}${START}${EMPTY}" "00000000\n" --sanitize)
 # Completed host tensors may escape several scopes and become the main result.
-set(TENSOR "fn main() -> Tensor[float32,3] ! TaskError:\n  try parallel:\n    gpu = devices.gpu()\n    host: Tensor[float32,3] = try parallel:\n      nested: Tensor[float32,3] = try parallel:\n        tensor([1,2,3])\n      try await spawn shift(nested,1)\n    input = try await transfer(host,gpu)\n    resident = try await spawn scale(input,2) on gpu\n    try parallel:\n      try await transfer(resident,devices.cpu())\n")
+set(TENSOR "fn main() -> Tensor[f32,3] ! TaskError:\n  return try parallel:\n    gpu = devices.gpu()\n    host: Tensor[f32,3] = try parallel:\n      nested: Tensor[f32,3] = try parallel:\n        tensor([1,2,3])\n      try await spawn shift(nested,1)\n    input = try await transfer(host,gpu)\n    resident = try await spawn scale(input,2) on gpu\n    try parallel:\n      try await transfer(resident,devices.cpu())\n")
 build_run(tensor "${FUNCTIONS}${TENSOR}" "[40800000,40c00000,41000000]\n" --sanitize)
 string(REPLACE "try await moved" "values" BAD "${SOURCE}")
 reject(unobserved "${BAD}" "S038")
@@ -84,7 +84,7 @@ reject(hidden-upload "${BAD}" "S047")
 string(REPLACE "try await spawn total(host)" "try await spawn total(resident)" BAD "${SOURCE}")
 reject(hidden-download "${BAD}" "explicit transfer")
 # A dynamically checked CPU child fault must settle both inner and outer groups.
-set(FIXED "fn fixed(values:Tensor[float32,2]) -> float32:\n  reduceSum(values)\n\nfn forward(values:Tensor[float32,?]) -> Tensor[float32,?]:\n  values\n\n")
+set(FIXED "fn fixed(values:Tensor[f32,2]) -> f32:\n  return reduceSum(values)\n\nfn forward(values:Tensor[f32,?]) -> Tensor[f32,?]:\n  return values\n\n")
 string(REPLACE "try await spawn total(host)" "try await spawn fixed(forward(host))" BAD "${SOURCE}")
 file(WRITE "${OUTPUT_DIR}/dynamic.k" "${FIXED}${BAD}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/dynamic.k" --target metal

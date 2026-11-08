@@ -25,7 +25,7 @@ static void expect(const std::string &code, const std::string &use, const std::s
 int main() {
   try {
     const std::string basic =
-        "fn twice(value:int):\n  value*2\nfn main():\n  result=twice(21)\n  result\n";
+        "fn twice(value:i64):\n  return value*2\nfn main():\n  result=twice(21)\n  return result\n";
     expect(basic, "value*2", "value:int");
     expect(basic, "twice(21)", "twice(value");
     expect(basic, "result\n", "result=");
@@ -35,34 +35,34 @@ int main() {
     require(!query(basic, 0), "keyword has no definition");
     require(!query(basic, basic.size()), "EOF has no definition");
     const std::string alias =
-        "fn twice(value:int):\n  value*2\nfn main():\n  transform=twice\n  transform(21)\n";
+        "fn twice(value:i64):\n  return value*2\nfn main():\n  transform=twice\n  return transform(21)\n";
     expect(alias, "twice\n", "twice(value");
     expect(alias, "transform(21)", "transform=");
-    const std::string pipeline = "fn twice(value:int):\n  value*2\nfn main():\n  21 -> twice\n";
+    const std::string pipeline = "fn twice(value:i64):\n  return value*2\nfn main():\n  return 21 -> twice\n";
     expect(pipeline, "twice\n", "twice(value");
     const std::string closure =
-        "fn main():\n  offset=1\n  transform=fn(x:int):x+offset\n  transform(2)\n";
+        "fn main():\n  offset=1\n  transform=fn(x:i64):return x+offset\n  return transform(2)\n";
     expect(closure, "offset\n", "offset=");
     expect(closure, "x+offset", "x:int");
-    const std::string nested = "fn outer(value:int):\n  factory=fn():fn(x:int):x+value\n  "
-                               "factory()(2)\nfn main():\n  outer(1)\n";
+    const std::string nested = "fn outer(value:i64):\n  factory=fn():return fn(x:i64):return x+value\n  return "
+                               "factory()(2)\nfn main():\n  return outer(1)\n";
     expect(nested, "value\n", "value:int");
     const std::string shadow =
-        "fn main()->int:\n  value=1\n  if true:\n    value=2\n    value\n  else:\n    value\n";
+        "fn main()->i64:\n  value=1\n  return if true:\n    value=2\n    value\n  else:\n    value\n";
     expect(shadow, "    value\n", "value=1", 4);
     expect(shadow, "value=2", "value=1");
     auto outer = query(shadow, shadow.rfind("value"));
     require(outer && outer->span.begin == shadow.find("value=1"),
             "outer branch binding was shadowed");
     const std::string record =
-        "type Box:\n  value:int\nfn main():\n  box=Box {value:42}\n  box.value\n";
+        "type Box:\n  value:i64\nfn main():\n  box=Box {value:42}\n  return box.value\n";
     expect(record, "box.value", "value:int", 4);
     expect(record, "box.value", "box=", 0);
-    const std::string builtin = "fn main():\n  length([1,2])\n";
+    const std::string builtin = "fn main():\n  return length([1,2])\n";
     require(check(parse(std::make_shared<SourceFile>("definition.k", builtin))).ok(),
             "builtin fixture invalid");
     require(!query(builtin, builtin.find("length")), "builtin wrapper guessed a source definition");
-    const std::string failed = "fn main():\n  missing\n";
+    const std::string failed = "fn main():\n  return missing\n";
     require(!query(failed, failed.find("main")), "failed graph leaked partial definition");
     std::cout
         << "Native definitions: resolved bindings, calls, references, pipelines, nested "

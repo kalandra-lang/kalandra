@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
       vulkan ? parseArithmeticMode(argv[4]) : std::optional{ArithmeticMode::Software};
   if (!arithmetic || (vulkan && std::string_view(argv[5]) != "--vulkan"))
     return 2;
-  auto source = resolveNumeric(argv[1]);
+  auto source = resolveNumericStorage(argv[1]);
   if (!source)
     return 2;
   DialectRegistry registry;

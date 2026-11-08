@@ -28,7 +28,7 @@ async function grammar() {
 }
 test("native grammar colors keywords, types, operators, numbers and comments", async () => {
   const g = await grammar();
-  const line = "fn double(value: int32) -> int32: value * 2 # comment";
+  const line = "fn double(value: i32) -> i32: return value * 2 # comment";
   const result = g.tokenizeLine(line, INITIAL);
   const scope = (needle) =>
     result.tokens
@@ -40,7 +40,7 @@ test("native grammar colors keywords, types, operators, numbers and comments", a
       .scopes.join(" ");
   expect(scope("fn")).toContain("keyword.declaration");
   expect(scope("double")).toContain("entity.name.function");
-  expect(scope("int32")).toContain("storage.type");
+  expect(scope("i32")).toContain("storage.type");
   expect(scope("->")).toContain("keyword.operator");
   expect(scope("2 #")).toContain("constant.numeric");
   expect(scope("# comment")).toContain("comment.line");

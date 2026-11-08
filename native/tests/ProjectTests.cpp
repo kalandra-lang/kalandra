@@ -31,10 +31,10 @@ int main(int argc, char **argv) {
     root = fs::absolute(argv[1]);
     fs::create_directories(root);
     write(root / "project/src/main.k",
-          "from \"geometry\" import Point, total\nfn main()->int ! TaskError:\n  try parallel:\n   "
+          "from \"geometry\" import Point, total\nfn main()->i64 ! TaskError:\n  return try parallel:\n   "
           " try await spawn total(Point {x:20,y:22})\n");
     write(root / "library/public.k",
-          "export type Point:\n  x:int\n  y:int\nexport fn total(p:Point)->int:\n  p.x+p.y\n");
+          "export type Point:\n  x:i64\n  y:i64\nexport fn total(p:Point)->i64:\n  return p.x+p.y\n");
     const std::string valid = "format = 1\n[project]\nentry = 'src/main.k'\n[packages]\ngeometry = "
                               "'../library/public.k'\n";
     auto project = load(valid);

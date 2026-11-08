@@ -1,8 +1,8 @@
-fn double(value:int)->int:
-  value*2
-fn worker(value:int)->int ! TaskError:
+fn double(value:i64)->i64:
+  return value*2
+fn worker(value:i64)->i64 ! TaskError:
   result=try parallelMap([value],double)
-  result[0]
-fn main()->int ! TaskError:
+  return result[0]
+fn main()->i64 ! TaskError:
   values=try parallelMap([10,11],worker)
-  values[0]+values[1]
+  return values[0]+values[1]

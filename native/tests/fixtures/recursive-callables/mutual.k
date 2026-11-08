@@ -1,11 +1,11 @@
 error E:
   Bad
-fn left(n:int)->int ! E:
+fn left(n:i64)->i64 ! E:
   if n==0:fail E.Bad
-  try right(n-1)
-fn right(n:int)->int ! E:
+  return try right(n-1)
+fn right(n:i64)->i64 ! E:
   if n==0:fail E.Bad
-  try left(n-1)
-fn main()->int:
+  return try left(n-1)
+fn main()->i64:
   callback=left
-  callback(21) catch fn(error):42
+  return callback(21) catch fn(error):return 42

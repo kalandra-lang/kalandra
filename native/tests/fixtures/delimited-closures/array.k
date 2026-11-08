@@ -1,11 +1,11 @@
-fn main()->int:
-  offset:int=20
-  callbacks:[fn(int)->int]=[
+fn main()->i64:
+  offset:i64=20
+  callbacks:[fn(i64)->i64]=[
     fn(value):
       total=value+offset
-      total
+      return total
     ,fn(value):
       product=value*offset
-      product
+      return product
   ]
-  callbacks[0](2)+callbacks[1](1)
+  return callbacks[0](2)+callbacks[1](1)

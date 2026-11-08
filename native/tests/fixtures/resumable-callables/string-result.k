@@ -1,9 +1,9 @@
 fn append(value:String)->String:
-  value+"!"
+  return value+"!"
 fn run(value:String)->String ! TaskError:
-  try parallel:
+  return try parallel:
     try await spawn append(value)
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   callback=run
   text=try callback("é")
-  length(text)+40
+  return length(text)+40

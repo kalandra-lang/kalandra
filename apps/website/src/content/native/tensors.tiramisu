@@ -1,50 +1,50 @@
 meta { title = "Tensors and shapes", description = "Construct dense tensors and compose numerical operations.", order = 7, group = "Language reference" }
 
-A Tensor annotation records its numeric element type and dimensions. Tensor[float32, 2, 3] is a two-by-three matrix; a ? dimension accepts a runtime extent. A shape annotation is a checked obligation, not a request to resize data.
+A Tensor annotation records its numeric element type and dimensions. Tensor[f32, 2, 3] is a two-by-three matrix; a ? dimension accepts a runtime extent. A shape annotation is a checked obligation, not a request to resize data.
 
 h2 { "Elementwise arithmetic" }
 
-codeblock { language = kalandra, """fn main() -> float32:
-  values: Tensor[float32, 2, 2] = tensor([[1, 2], [3, 4]])
+codeblock { language = kalandra, """fn main() -> f32:
+  values: Tensor[f32, 2, 2] = tensor([[1, 2], [3, 4]])
   doubled = values * 2
-  reduceSum(doubled)
+  return reduceSum(doubled)
 """ }
 
 This returns 20. Multiplying a tensor by a scalar applies the multiplication to every element. Operations between two tensors require the same complete shape and numeric type; differently shaped tensors are not broadcast automatically.
 
 h2 { "Runtime shape construction" }
 
-codeblock { language = kalandra, """fn main() -> int:
-  values: [int] = [1, 2, 3, 4]
+codeblock { language = kalandra, """fn main() -> i64:
+  values: [i64] = [1, 2, 3, 4]
   matrix = tensor(values, [2, 2])
-  matrix[1, 0]
+  return matrix[1, 0]
 """ }
 
 This returns 3, the first element of the second row. Dimensions are checked and their product must match the number of elements. Tensor indexing reads one scalar with one integer index per dimension. shape(tensor) returns its dimension array, and reshape preserves numeric identity and row-major logical order while checking the requested element count.
 
 h2 { "Matrix products and reductions" }
 
-codeblock { language = kalandra, """fn main() -> float32:
-  left: Tensor[float32, 1, 2] = tensor([[2, 3]])
-  right: Tensor[float32, 2, 1] = tensor([[4], [5]])
-  reduceSum(matmul(left, right))
+codeblock { language = kalandra, """fn main() -> f32:
+  left: Tensor[f32, 1, 2] = tensor([[2, 3]])
+  right: Tensor[f32, 2, 1] = tensor([[4], [5]])
+  return reduceSum(matmul(left, right))
 """ }
 
 This returns 23. matmul multiplies rank-two tensors with matching inner dimensions. reduceSum follows a balanced adjacent-pair tree, rather than an arbitrary sequential or reassociated sum. Integer products and sums remain checked.
 
-CPU matmul uses the fixed balanced contraction tree. GPU float32 accumulation depends on the backend and --matmul-policy. A different accumulation order can change floating-point rounding; neither policy guarantees exact real arithmetic. The numerical guide explains when to choose each policy.
+CPU matmul uses the fixed balanced contraction tree. GPU f32 accumulation depends on the backend and --matmul-policy. A different accumulation order can change floating-point rounding; neither policy guarantees exact real arithmetic. The numerical guide explains when to choose each policy.
 
 h2 { "ReLU activation" }
 
-codeblock { language = kalandra, """fn main() -> float32:
-  values: Tensor[float32, 2, 2] = tensor([[-3, 2], [-1, 4]])
+codeblock { language = kalandra, """fn main() -> f32:
+  values: Tensor[f32, 2, 2] = tensor([[-3, 2], [-1, 4]])
   activated = relu(values)
-  reduceSum(activated)
+  return reduceSum(activated)
 """ }
 
 This returns 6. relu(values) applies rectified linear activation to every element and preserves the tensor's shape and numeric type. It supports all ten numeric types and ranks zero through eight on CPU and the GPU backends. It accepts a tensor, not a scalar or array. Inputs remain immutable.
 
-Negative values become zero; positive values remain unchanged. ReLU also works on unsigned tensors, where it leaves every value unchanged. The function reference describes signed zeros, NaNs and infinities. ReLU itself needs no floating arithmetic; surrounding float64 calculations on Metal may still require explicit software fallback.
+Negative values become zero; positive values remain unchanged. ReLU also works on unsigned tensors, where it leaves every value unchanged. The function reference describes signed zeros, NaNs and infinities. ReLU itself needs no floating arithmetic; surrounding f64 calculations on Metal may still require explicit software fallback.
 
 Compose relu(matmul(input, weights) + bias) inside an eligible GPU function. Bias must have the complete output shape; implicit row or column broadcasting is not provided. Keep tensors resident between operations and read back only the final result when possible.
 
@@ -52,10 +52,10 @@ h2 { "Transpose a matrix" }
 
 transpose swaps the two dimensions of a rank-two tensor. It preserves the exact bits of every cell, including integer values, signed zero, and NaN payloads. All ten numeric types are supported on CPU and the GPU backends; transpose performs no floating arithmetic.
 
-codeblock { language = kalandra, """fn main() -> int64:
-  values: Tensor[int64, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+codeblock { language = kalandra, """fn main() -> i64:
+  values: Tensor[i64, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
   swapped = transpose(values)
-  swapped[2, 1]
+  return swapped[2, 1]
 """ }
 
 This returns 6. The original shape is [2, 3] and the transposed shape is [3, 2].
@@ -64,23 +64,23 @@ h2 { "Normalize rows" }
 
 softmaxRows converts each row of scores into probabilities with the same shape. For ordinary finite inputs, each output row sums to approximately one:
 
-codeblock { language = kalandra, """fn main() -> float32:
-  scores: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [-1, 0, 1]])
+codeblock { language = kalandra, """fn main() -> f32:
+  scores: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [-1, 0, 1]])
   probabilities = softmaxRows(scores)
-  reduceSum(probabilities)
+  return reduceSum(probabilities)
 """ }
 
 This returns 2 because there are two rows of probabilities.
 
 rmsNormRows(values, epsilon) divides each cell by sqrt(mean(square(row)) + epsilon). Epsilon must be a finite, strictly positive scalar of the same numeric type; invalid epsilon causes an arithmetic failure even for an empty tensor. This primitive has unit gain. Multiply by an explicitly shaped gain tensor when a model requires learned scaling.
 
-codeblock { language = kalandra, """fn main() -> float64:
-  values: Tensor[float64, 1, 2] = tensor([[3, 4]])
+codeblock { language = kalandra, """fn main() -> f64:
+  values: Tensor[f64, 1, 2] = tensor([[3, 4]])
   normalized = rmsNormRows(values, 0.00001)
-  reduceSum(normalized)
+  return reduceSum(normalized)
 """ }
 
-This returns approximately 1.9798981953632135. Both row operations accept rank-two float32 or float64 tensors on the CPU with hardware arithmetic. GPU row operations accept hardware float32 only. Software arithmetic and GPU float64 row operations are not supported. Results are approximate and need not be bit-identical across devices; see the function reference for exceptional values and exact input requirements.
+This returns approximately 1.9798981953632135. Both row operations accept rank-two f32 or f64 tensors on the CPU with hardware arithmetic. GPU row operations accept hardware f32 only. Software arithmetic and GPU f64 row operations are not supported. Results are approximate and need not be bit-identical across devices; see the function reference for exceptional values and exact input requirements.
 
 h2 { "Move to a GPU" }
 

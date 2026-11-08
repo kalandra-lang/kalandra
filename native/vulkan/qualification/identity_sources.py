@@ -16,12 +16,12 @@ records = []
 for policy in ('hardware', 'software'):
     root = a.output/policy
     root.mkdir(parents=True, exist_ok=True)
-    for numeric in ('int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64', 'float32', 'float64'):
+    for numeric in ('i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64', 'f32', 'f64'):
         source = root/(numeric+'.k')
         source.write_text(f'''fn identity(x:Tensor[{numeric},?])->Tensor[{numeric},?]:
-  x
+  return x
 fn main()->Tensor[{numeric},?] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     values:Tensor[{numeric},3]=tensor([0,1,2])
     resident=try await transfer(values,gpu)
@@ -35,8 +35,8 @@ fn main()->Tensor[{numeric},?] ! TaskError:
         assert not result.returncode, (numeric, policy, result.stderr[-4000:])
         assert (output/'kernel0.spv').is_file()
         if a.execute:
-            width = 32 if numeric == 'float32' else 64 if numeric == 'float64' else int(numeric.removeprefix('u').removeprefix('int'))
-            bits = lambda value: int.from_bytes(struct.pack('<f' if width == 32 else '<d', value), 'little') if numeric.startswith('float') else value
+            width = 32 if numeric == 'f32' else 64 if numeric == 'f64' else int(numeric.removeprefix('u').removeprefix('i'))
+            bits = lambda value: int.from_bytes(struct.pack('<f' if width == 32 else '<d', value), 'little') if numeric.startswith('f') else value
             expected = '['+','.join(f'{bits(value):0{width//4}x}' for value in (0, 1, 2))+']\n'
             for device in ('nvidia', 'intel'):
                 for workers in (1, 2, 4):

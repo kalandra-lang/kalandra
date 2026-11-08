@@ -1,14 +1,14 @@
-fn double(value:int)->int:
-  value*2
-fn make(offset:int)->fn(int)->int:
+fn double(value:i64)->i64:
+  return value*2
+fn make(offset:i64)->fn(i64)->i64:
   values=[offset]
-  fn(value:int):values[0]+value
-fn main()->int ! TaskError:
+  return fn(value:i64):return values[0]+value
+fn main()->i64 ! TaskError:
   factory=make
   f=try parallel:
     task=spawn factory(40)
     first=try await task
     second=try await task
     second
-  try parallel:
+  return try parallel:
     try await spawn f(2)

@@ -25,10 +25,10 @@ string(REPLACE "    host = try compute(values,factor)\n    reduceSum(host)" "   
 build_run(outside-main-scope "${UNWRAPPED}" "43340000\n")
 string(FIND "${SOURCE}" "fn recover(" HELPERS_START)
 string(SUBSTRING "${SOURCE}" ${HELPERS_START} -1 HELPERS)
-set(NO_OUTER "fn main() -> Tensor[float32,?] ! TaskError:\n  try compute(tensor([1,2,3]),30)\n\n${HELPERS}")
+set(NO_OUTER "fn main() -> Tensor[f32,?] ! TaskError:\n  return try compute(tensor([1,2,3]),30)\n\n${HELPERS}")
 build_run(helper-owned-scope "${NO_OUTER}" "[41f00000,42700000,42b40000]\n")
-string(REPLACE "fn attempt(values:Tensor[float32,?]) -> float32 ! TaskError:\n  try parallel:"
-  "fn attempt(values:Tensor[float32,?]) -> float32 ! TaskError:\n  parallel:" DEFERRED "${SOURCE}")
+string(REPLACE "fn attempt(values:Tensor[f32,?]) -> f32 ! TaskError:\n  try parallel:"
+  "fn attempt(values:Tensor[f32,?]) -> f32 ! TaskError:\n  parallel:" DEFERRED "${SOURCE}")
 build_run(deferred-error "${DEFERRED}" "43340000\n")
 execute_process(COMMAND "${CHECKER}" --placement --dump-plan "${OUTPUT_DIR}/recovered.k"
   RESULT_VARIABLE STATUS OUTPUT_VARIABLE PLAN ERROR_VARIABLE ERROR)

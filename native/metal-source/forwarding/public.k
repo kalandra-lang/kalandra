@@ -1,21 +1,21 @@
 from "./operations.k" import project as multiply, total as sum
 
-fn matrixIdentity(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  values
+fn matrixIdentity(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return values
 
-fn scalarIdentity(value: float32) -> float32:
-  value
+fn scalarIdentity(value: f32) -> f32:
+  return value
 
-export fn project(input: Tensor[float32, 2, 3], weights: Tensor[float32, 3, 2]) -> Tensor[float32, 2, 2]:
+export fn project(input: Tensor[f32, 2, 3], weights: Tensor[f32, 3, 2]) -> Tensor[f32, 2, 2]:
   result = multiply(matrixIdentity(input), weights)
-  matrixIdentity(result)
+  return matrixIdentity(result)
 
-export fn reversed(weights: Tensor[float32, 3, 2], input: Tensor[float32, 2, 3]) -> Tensor[float32, 2, 2]:
-  project(input, weights)
+export fn reversed(weights: Tensor[f32, 3, 2], input: Tensor[f32, 2, 3]) -> Tensor[f32, 2, 2]:
+  return project(input, weights)
 
-export fn total(values: Tensor[float32, 2, 2]) -> float32:
+export fn total(values: Tensor[f32, 2, 2]) -> f32:
   value = sum(values)
-  scalarIdentity(value)
+  return scalarIdentity(value)
 
-export fn square(ignored: Tensor[float32, ?, ?], input: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  multiply(input, input)
+export fn square(ignored: Tensor[f32, ?, ?], input: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return multiply(input, input)

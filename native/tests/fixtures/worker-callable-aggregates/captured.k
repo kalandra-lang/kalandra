@@ -1,13 +1,13 @@
 type Job:
-  callbacks:[fn(int)->int]
-fn apply(value:int,f:fn(int)->int)->int:
-  f(value)
-fn make()->fn(int)->int:
+  callbacks:[fn(i64)->i64]
+fn apply(value:i64,f:fn(i64)->i64)->i64:
+  return f(value)
+fn make()->fn(i64)->i64:
   values=[40]
-  job=Job {callbacks:[fn(value):values[0]+value]}
-  fn(value:int):job.callbacks[0](value)
-fn main()->int ! TaskError:
+  job=Job {callbacks:[fn(value):return values[0]+value]}
+  return fn(value:i64):return job.callbacks[0](value)
+fn main()->i64 ! TaskError:
   f=try parallel:
     try await spawn make()
-  try parallel:
+  return try parallel:
     try await spawn apply(2,f)

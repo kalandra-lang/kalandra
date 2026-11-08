@@ -15,7 +15,7 @@ int main() {
   try {
     const std::string declaration =
         "type Scene:\n  position:Point\n  enabled:Bool\ntype Point:\n  x:int\n  y:int\n";
-    for (auto element : {"int32", "uint32", "int64", "uint64", "float32", "float64"}) {
+    for (auto element : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
       const std::string type(element);
       auto source =
           "type Envelope:\n  data:Reading\n  generation:int32\ntype Reading:\n  position:Point\n  "
@@ -40,29 +40,29 @@ int main() {
 #endif
     }
     for (auto body : {"fn main():\n  p=Scene {position:Point {x:2,y:3},enabled:true}\n  q=p with "
-                      "{position:p.position with {x:12}}\n  q.position.x+p.position.x\n",
-                      "fn make(x:int)->Scene:\n  Scene {position:Point {x:x,y:1},enabled:true}\nfn "
-                      "main():\n  map([1,2,3],fn(x):make(x).position.x)\n",
-                      "fn choose(flag:Bool)->Scene:\n  if flag: Scene {position:Point "
+                      "{position:p.position with {x:12}}\n  return q.position.x+p.position.x\n",
+                      "fn make(x:i64)->Scene:\n  return Scene {position:Point {x:x,y:1},enabled:true}\nfn "
+                      "main():\n  return map([1,2,3],fn(x):return make(x).position.x)\n",
+                      "fn choose(flag:bool)->Scene:\n  return if flag: Scene {position:Point "
                       "{x:1,y:2},enabled:true}\n  else: Scene {position:Point "
-                      "{x:3,y:4},enabled:false}\nfn main():\n  choose(false).position.x\n"})
+                      "{x:3,y:4},enabled:false}\nfn main():\n  return choose(false).position.x\n"})
       require(analyze(declaration + body).ok(), "valid nested record expression rejected");
     for (auto body :
-         {"type Other:\n  x:int\n  y:int\nfn main():\n  Scene {position:Other "
+         {"type Other:\n  x:i64\n  y:i64\nfn main():\n  return Scene {position:Other "
           "{x:1,y:2},enabled:true}\n",
-          "fn main():\n  Scene {position:1,enabled:true}\n",
-          "fn main():\n  Scene {position:Point {x:1},enabled:true}\n",
-          "fn main():\n  p=Scene {position:Point {x:1,y:2},enabled:true}\n  p with "
+          "fn main():\n  return Scene {position:1,enabled:true}\n",
+          "fn main():\n  return Scene {position:Point {x:1},enabled:true}\n",
+          "fn main():\n  p=Scene {position:Point {x:1,y:2},enabled:true}\n  return p with "
           "{position:p.enabled}\n",
           "fn main():\n  p=Scene {position:Point {x:1,y:2},enabled:true}\n  p with "
           "{position.x:4}\n",
           "fn main():\n  p=Scene {position:Point {x:1,y:2},enabled:true}\n  p.position.x=4\n  p\n",
-          "fn main():\n  Scene {position:Point {x:1,y:2},enabled:true}.position.missing\n"})
+          "fn main():\n  return Scene {position:Point {x:1,y:2},enabled:true}.position.missing\n"})
       require(!analyze(declaration + body).ok(), "invalid nested construction/update admitted");
     for (auto cycle : {"type A:\n  child:A\n", "type A:\n  child:B\ntype B:\n  child:A\n",
                        "type Leaf:\n  value:int\ntype A:\n  leaf:Leaf\n  child:B\ntype B:\n  "
                        "child:C\ntype C:\n  child:A\n"}) {
-      auto result = analyze(std::string(cycle) + "fn main():\n  0\n");
+      auto result = analyze(std::string(cycle) + "fn main():\n  return 0\n");
       require(!result.ok() && result.diagnostics[0].code == "S068" &&
                   result.diagnostics[0].message.find("cycle") != std::string::npos,
               "record storage cycle not diagnosed");
@@ -78,11 +78,11 @@ int main() {
       if (depth == 2 || depth == 3) {
         auto limits = SemanticLimits{};
         limits.maxDepth = 3;
-        require(analyze(chain + "fn main():\n  0\n", limits).ok() == (depth == 2),
+        require(analyze(chain + "fn main():\n  return 0\n", limits).ok() == (depth == 2),
                 "cached nesting depth miscounted");
       }
     }
-    require(!analyze(chain + "fn main():\n  0\n").ok(), "default nesting resource bound ignored");
+    require(!analyze(chain + "fn main():\n  return 0\n").ok(), "default nesting resource bound ignored");
     std::string dag = "type R0:\n  value:int\n";
     for (unsigned depth = 1; depth <= 19; ++depth) {
       const auto child = "R" + std::to_string(depth - 1);
@@ -90,14 +90,14 @@ int main() {
       if (depth == 3 || depth == 4) {
         auto limits = SemanticLimits{};
         limits.maxValues = 8;
-        require(analyze(dag + "fn main():\n  0\n", limits).ok() == (depth == 3),
+        require(analyze(dag + "fn main():\n  return 0\n", limits).ok() == (depth == 3),
                 "shared child expanded-leaf budget miscounted");
       }
     }
-    require(!analyze(dag + "fn main():\n  0\n").ok(),
+    require(!analyze(dag + "fn main():\n  return 0\n").ok(),
             "default expanded-field resource bound ignored");
     auto valid = analyze(
-        declaration + "fn main():\n  Scene {position:Point {x:1,y:2},enabled:true}.position.x\n");
+        declaration + "fn main():\n  return Scene {position:Point {x:1,y:2},enabled:true}.position.x\n");
     require(valid.ok(), "nested IR fixture rejected");
     for (unsigned mutation = 0; mutation < 10; ++mutation) {
       auto forged = *valid.module;

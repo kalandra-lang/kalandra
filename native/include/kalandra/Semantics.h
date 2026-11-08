@@ -14,7 +14,17 @@ struct Extent {
   ExtentId identity =
       0; // Nonzero identity for a dynamic extent, never an implicit equality of '?'.
 };
-enum class BuiltinValue { Numeric, TaskError, FaultKind, String, Device, Bool, Record, Function };
+enum class BuiltinValue {
+  Numeric,
+  TaskError,
+  FaultKind,
+  String,
+  Device,
+  Bool,
+  Record,
+  Function,
+  Unit
+};
 struct FunctionSignature;
 struct ValueType {
   // Ranked collection storage. Tensors have value semantics; rank-one arrays
@@ -36,6 +46,11 @@ struct ValueType {
   std::string recordName = {}; // User-facing spelling; identity is the table index above.
   std::shared_ptr<const FunctionSignature> callable = {};
 };
+// unit uses a canonical zero bit in physical value layouts. Its semantic
+// identity remains distinct from bool, including in callable signatures.
+inline bool isBooleanStorage(const ValueType &type) {
+  return type.builtin == BuiltinValue::Bool || type.builtin == BuiltinValue::Unit;
+}
 struct FunctionSignature {
   std::vector<ValueType> parameters;
   ValueType result;
@@ -74,7 +89,8 @@ functionValueTargets(const struct TypedModule &, std::span<const ValueId>,
 [[nodiscard]] bool sameFunctionValueType(const ValueType &, const ValueType &,
                                          std::size_t depth = 0);
 [[nodiscard]] std::optional<std::string> functionValueCapabilityError(const struct TypedModule &,
-                                                                      NumericTarget, bool mixedPlacement = false);
+                                                                      NumericTarget,
+                                                                      bool mixedPlacement = false);
 [[nodiscard]] bool containsFunctionStorage(const struct TypedModule &, const ValueType &);
 // CPU data captures supported by the first worker closure-environment copy.
 [[nodiscard]] bool workerClosureCaptureTypeSupported(const struct TypedModule &, const ValueType &);
@@ -92,9 +108,7 @@ struct FunctionInvoke {
 inline bool isRecordArray(const ValueType &type) {
   return type.builtin == BuiltinValue::Record && type.array;
 }
-inline bool isBoolArray(const ValueType &type) {
-  return type.builtin == BuiltinValue::Bool && type.array;
-}
+inline bool isBoolArray(const ValueType &type) { return isBooleanStorage(type) && type.array; }
 inline bool isStringArray(const ValueType &type) {
   return type.builtin == BuiltinValue::String && type.array;
 }
@@ -321,6 +335,7 @@ struct WhileOperation {
   std::vector<TypedStatement> initial = {}, iteration = {};
   std::vector<ValueId> exitValues = {};
   bool collecting = false;
+  bool functionBoundary = false;
 };
 struct YieldOperation {
   std::size_t collection;
@@ -411,10 +426,10 @@ struct TypedExpr {
                TensorTransform, ArrayMap, ArrayToTensor, TensorReshape, TensorToArray, ArrayConcat,
                ArraySlice, ArrayIndex, TensorIndex, CollectionQuery, ShapeCheck, DeviceSelection,
                Transfer, TaskOperation, ParallelOperation, ConditionalOperation, WhileOperation,
-               LoopTransferOperation, IntegerRangeOperation, YieldOperation,
-               CatchOperation, MatchOperation, ErrorFieldRead, FailOperation, GuardOperation,
-               RecordValue, RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke,
-               ArrayBoundsCheck, ArrayStore, ArraySort>
+               LoopTransferOperation, IntegerRangeOperation, YieldOperation, CatchOperation,
+               MatchOperation, ErrorFieldRead, FailOperation, GuardOperation, RecordValue,
+               RecordFieldRead, ErrorNarrow, FunctionReference, FunctionInvoke, ArrayBoundsCheck,
+               ArrayStore, ArraySort>
       operation;
 };
 struct ShapeEquality {

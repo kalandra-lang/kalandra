@@ -1,6 +1,6 @@
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   offsets=[40]
-  f=fn(value:int):offsets[0]+value
-  try parallel:
-    values=try await spawn map([2],fn(value):f(value))
+  f=fn(value:i64):return offsets[0]+value
+  return try parallel:
+    values=try await spawn map([2],fn(value):return f(value))
     values[0]

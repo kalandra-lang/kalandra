@@ -1,20 +1,20 @@
-fn scale(values: Tensor[float32, ?, ?], factor: float32) -> Tensor[float32, ?, ?]:
-  values * factor
+fn scale(values: Tensor[f32, ?, ?], factor: f32) -> Tensor[f32, ?, ?]:
+  return values * factor
 
-fn add(left: Tensor[float32, ?, ?], right: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  left + right
+fn add(left: Tensor[f32, ?, ?], right: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return left + right
 
-fn combine(left: Tensor[float32, ?, ?], factor: float32, right: Tensor[float32, ?, ?], bias: float32) -> Tensor[float32, ?, ?]:
+fn combine(left: Tensor[f32, ?, ?], factor: f32, right: Tensor[f32, ?, ?], bias: f32) -> Tensor[f32, ?, ?]:
   product = scale(left, factor)
-  add(product, right) + bias
+  return add(product, right) + bias
 
-fn identity(values: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  values
+fn identity(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return values
 
-fn main() -> Tensor[float32, 2, 3] ! TaskError:
-  try parallel:
-    left: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
-    right: Tensor[float32, 2, 3] = tensor([[7, 8, 9], [10, 11, 12]])
+fn main() -> Tensor[f32, 2, 3] ! TaskError:
+  return try parallel:
+    left: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    right: Tensor[f32, 2, 3] = tensor([[7, 8, 9], [10, 11, 12]])
     local = combine(left, 2, right, 0.5)
     gpu = devices.gpu()
     a = try await transfer(left, gpu)

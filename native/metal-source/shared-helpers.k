@@ -1,20 +1,20 @@
-fn offset(value: float32) -> float32:
-  value * 2 + 0.5
+fn offset(value: f32) -> f32:
+  return value * 2 + 0.5
 
-fn add(left: Tensor[float32, ?], right: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  left + right
+fn add(left: Tensor[f32, ?], right: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return left + right
 
-fn multiply(left: Tensor[float32, ?], right: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  left * right
+fn multiply(left: Tensor[f32, ?], right: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return left * right
 
-fn combine(left: Tensor[float32, ?], right: Tensor[float32, ?]) -> Tensor[float32, ?]:
+fn combine(left: Tensor[f32, ?], right: Tensor[f32, ?]) -> Tensor[f32, ?]:
   product = multiply(left, right)
-  add(product, left) + offset(0)
+  return add(product, left) + offset(0)
 
-fn main() -> Tensor[float32, 3] ! TaskError:
-  try parallel:
-    left: Tensor[float32, 3] = tensor([1, 2, 3])
-    right: Tensor[float32, 3] = tensor([4, 5, 6])
+fn main() -> Tensor[f32, 3] ! TaskError:
+  return try parallel:
+    left: Tensor[f32, 3] = tensor([1, 2, 3])
+    right: Tensor[f32, 3] = tensor([4, 5, 6])
     local = combine(left, right)
     gpu = devices.gpu()
     a = try await transfer(left, gpu)

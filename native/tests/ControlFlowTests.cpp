@@ -12,10 +12,10 @@ static void require(bool condition, const char *message) {
 }
 int main() {
   try {
-    for (auto type : {"Bool", "int32", "uint32", "int64", "uint64", "float32", "float64"}) {
+    for (auto type : {"bool", "i32", "u32", "i64", "u64", "f32", "f64"}) {
       auto typed =
-          analyze("fn choose(flag:Bool,a:" + std::string(type) + ",b:" + type + ")->" + type +
-                  ":\n  if flag:\n    a\n  else:\n    b\nfn main()->Bool:\n  true\n");
+          analyze("fn choose(flag:bool,a:" + std::string(type) + ",b:" + type + ")->" + type +
+                  ":\n  if flag:\n    a\n  else:\n    b\nfn main()->bool:\n  true\n");
       require(typed.ok(), "conditional scalar type rejected");
 #ifndef KALANDRA_CONTROL_FRONTEND_ONLY
       auto native = lowerNative(*typed.module);
@@ -29,32 +29,32 @@ int main() {
     }
     for (
         auto text :
-        {"fn main()->Bool:\n  not false and true or false\n",
-         "fn main()->Bool:\n  true and 1<2 or false\n",
-         "fn main()->int64:\n  if true: 1\n  else: 2\n",
-         "fn main()->int64:\n  if true:\n    if false: 1\n    else: 2\n  else:\n    3\n",
-         "fn main()->int64:\n  x=5\n  y=if true:\n    x=2\n    x\n  else:\n    x=3\n    x\n  x+y\n",
-         "fn choose(flag:Bool)->Tensor[int64,?]:\n  if flag:\n    tensor([1,2])\n  else:\n    "
+        {"fn main()->bool:\n  return not false and true or false\n",
+         "fn main()->bool:\n  return true and 1<2 or false\n",
+         "fn main()->i64:\n  return if true: 1\n  else: 2\n",
+         "fn main()->i64:\n  return if true:\n    if false: 1\n    else: 2\n  else:\n    3\n",
+         "fn main()->i64:\n  x=5\n  y=if true:\n    x=2\n    x\n  else:\n    x=3\n    x\n  return x+y\n",
+         "fn choose(flag:bool)->Tensor[i64,?]:\n  return if flag:\n    tensor([1,2])\n  else:\n    "
          "tensor([3,4,5])\n",
-         "fn value()->Bool:\n  true\nfn main()->Bool ! TaskError:\n  try parallel:\n    work=spawn "
+         "fn value()->bool:\n  return true\nfn main()->bool ! TaskError:\n  return try parallel:\n    work=spawn "
          "value()\n    if true:\n      try await work\n    else:\n      try await work\n"})
       require(analyze(text).ok(), "valid Boolean control flow rejected");
     for (auto text :
-         {"fn main()->int64:\n  if 1: 2\n  else: 3\n", "fn main()->int64:\n  if true:\n    1\n",
-          "fn main()->Bool:\n  true and 1\n", "fn main()->Bool:\n  1 or false\n",
-          "fn main()->Bool:\n  not 1\n", "fn main()->Bool:\n  !true\n",
-          "fn main():\n  if true: 1\n  else: false\n",
-          "fn main()->int64:\n  result=if true:\n    x=1\n    x\n  else:\n    2\n  x\n",
-          "fn main()->Bool:\n  and=false\n  and\n", "fn main()->Bool:\n  true and (1<2<3)\n",
-          "fn value()->Bool:\n  true\nfn main()->Bool ! TaskError:\n  try parallel:\n    "
+         {"fn main()->i64:\n  return if 1: 2\n  else: 3\n", "fn main()->i64:\n  return if true:\n    1\n",
+          "fn main()->bool:\n  return true and 1\n", "fn main()->bool:\n  return 1 or false\n",
+          "fn main()->bool:\n  return not 1\n", "fn main()->bool:\n  !true\n",
+          "fn main():\n  return if true: 1\n  else: false\n",
+          "fn main()->i64:\n  result=if true:\n    x=1\n    x\n  else:\n    2\n  return x\n",
+          "fn main()->bool:\n  and=false\n  and\n", "fn main()->bool:\n  true and (1<2<3)\n",
+          "fn value()->bool:\n  return true\nfn main()->bool ! TaskError:\n  return try parallel:\n    "
           "work=spawn value()\n    if true:\n      try await work\n    else:\n      false\n",
-          "fn value()->Bool:\n  true\nfn main()->Bool ! TaskError:\n  try parallel:\n    "
+          "fn value()->bool:\n  return true\nfn main()->bool ! TaskError:\n  return try parallel:\n    "
           "work=spawn value()\n    true and (try await work)\n",
-          "fn value()->Bool:\n  true\nfn main()->Bool ! TaskError:\n  try parallel:\n    if "
+          "fn value()->bool:\n  return true\nfn main()->bool ! TaskError:\n  return try parallel:\n    if "
           "true:\n      work=spawn value()\n      true\n    else:\n      false\n"})
       require(!analyze(text).ok(), "invalid conditional/task obligation admitted");
 #ifndef KALANDRA_CONTROL_FRONTEND_ONLY
-    auto forged = analyze("fn main()->int64:\n  if true: 1\n  else: 2\n");
+    auto forged = analyze("fn main()->i64:\n  return if true: 1\n  else: 2\n");
     require(forged.ok(), "conditional forge fixture rejected");
     for (auto &expr : forged.module->expressions)
       if (const auto *choice = std::get_if<ConditionalOperation>(&expr.operation))

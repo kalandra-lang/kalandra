@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory(prefix='kalandra-docs-') as temporary:
         if plan['kind'] == 'reject':
             p = subprocess.run([str(TOOLS / 'kalandra-check'), str(directory / 'main.k')],
                                env=ENV, capture_output=True, text=True, timeout=30)
-            assert p.returncode != 0 and 'S010' in p.stderr and 'expected int64, got int32' in p.stderr, p.stderr
+            assert p.returncode != 0 and 'S010' in p.stderr and 'expected i64, got i32' in p.stderr, p.stderr
             return {'page': page, 'block': index, 'kind': 'expected-diagnostic', 'status': 'passed'}
         flags = ['--placement'] if plan['kind'] == 'gpu' else []
         command([TOOLS / 'kalandra-check', *flags, directory / 'main.k'], directory)

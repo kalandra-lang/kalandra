@@ -52,7 +52,7 @@ from BundleELF import audit
 from VersionCheck import verify_package_version
 verify_package_version(prefix);audit(prefix)
 compiler=prefix/'bin/kalandra'
-source=a.root/'cpu.k';source.write_text('fn main()->int32:\n  42\n')
+source=a.root/'cpu.k';source.write_text('fn main()->i32:\n  return 42\n')
 subprocess.run([compiler,source,'-o',a.root/'cpu'],check=True,timeout=90)
 assert subprocess.check_output([a.root/'cpu'],text=True,timeout=30)=='42\n'
 subprocess.run([sys.executable,Path(__file__).with_name('applications.py'),
@@ -119,12 +119,12 @@ subprocess.run(booleans, check=True, timeout=1200)
 
 # Use different source constructs to require the precise missing resource.
 transform=a.root/'transpose.k'
-transform.write_text('''fn work(v:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  transpose(v)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+transform.write_text('''fn work(v:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return transpose(v)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
+    a:Tensor[f32,2,2]=tensor([[1,2],[3,4]])
     x=try await transfer(a,gpu)
     y=try await spawn work(x) on gpu
     try await transfer(y,devices.cpu())

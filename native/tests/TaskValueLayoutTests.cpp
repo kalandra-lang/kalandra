@@ -196,12 +196,12 @@ int main() {
       }
       require(rejected, "unavailable task nominal value layout accepted");
     }
-    auto source = analyze("enum Chain:\n  End\n  More:\n    next:Chain\nfn main()->int:\n  42\n");
+    auto source = analyze("enum Chain:\n  End\n  More:\n    next:Chain\nfn main()->i64:\n  return 42\n");
     require(source.ok() && bool(continuation::plan(*source.module)),
             "checked recursive task planning rejected");
-    auto taskSource = analyze("type Item:\n  text:String\n  value:int\n"
-                              "fn worker(item:Item)->Item:\n  item\nfn main()->int ! TaskError:\n"
-                              "  try parallel:\n    value=try await spawn worker(Item "
+    auto taskSource = analyze("type Item:\n  text:String\n  value:i64\n"
+                              "fn worker(item:Item)->Item:\n  return item\nfn main()->i64 ! TaskError:\n"
+                              "  return try parallel:\n    value=try await spawn worker(Item "
                               "{text:\"é\",value:42})\n    value.value\n");
     require(taskSource.ok(), "ordinary task source rejected");
     auto taskTypes = agree(*taskSource.module);

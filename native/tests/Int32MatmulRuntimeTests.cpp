@@ -126,7 +126,7 @@ static bool verify(std::int64_t rows, std::int64_t inner, std::int64_t columns, 
   if (code) {
     if (result.allocated)
       return reject("partial tensor published");
-    if (code == 4 && (context.line() != 2 || context.column() != 3))
+    if (code == 4 && (context.line() != 2 || context.column() != 10))
       return reject("fault source lost");
   } else {
     if (!cellsCorrect())

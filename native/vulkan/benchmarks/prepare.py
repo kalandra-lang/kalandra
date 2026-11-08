@@ -17,22 +17,22 @@ compiler=a.build/'native/kalandra'
 def run(command):
     subprocess.run(list(map(str,command)),check=True,timeout=240)
 source=a.output/'cpu.k'
-source.write_text('''fn product(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  matmul(a,b)
-fn main()->int32:
-  0
+source.write_text('''fn product(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return matmul(a,b)
+fn main()->i32:
+  return 0
 ''')
 ir=a.output/'cpu.ll'
 run([compiler,source,'--test-entry','product','--arithmetic','hardware','--emit-llvm',ir,'-O2','-o',a.output/'cpu-standalone'])
 assert 'define void @_mlir_ciface_kalandra_test_entry(ptr' in ir.read_text(), 'Check tensor-result C ABI before linking client'
 source=a.output/'gpu.k'
-source.write_text('''fn product(a:Tensor[float32,?,?],b:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  matmul(a,b)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+source.write_text('''fn product(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return matmul(a,b)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
-    b:Tensor[float32,2,2]=tensor([[2,1],[0,3]])
+    a:Tensor[f32,2,2]=tensor([[1,2],[3,4]])
+    b:Tensor[f32,2,2]=tensor([[2,1],[0,3]])
     x=try await transfer(a,gpu)
     y=try await transfer(b,gpu)
     result=try await spawn product(x,y) on gpu

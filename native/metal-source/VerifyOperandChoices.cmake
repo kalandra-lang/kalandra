@@ -65,7 +65,7 @@ endif()
 # Cover the single-matmul + reduction admission path and scalar epilogue.
 string(REPLACE "-> Tensor[float32, 2, 2]:" "-> float32:" SUM "${SOURCE}")
 string(REPLACE "  matmul(left, right)" "  reduceSum(matmul(left, right)) * 2" SUM "${SUM}")
-string(REPLACE "fn main() -> Tensor[float32, ?, ?]" "fn main() -> float32" SUM "${SUM}")
+string(REPLACE "fn main() -> Tensor[f32, ?, ?]" "fn main() -> f32" SUM "${SUM}")
 string(REPLACE "    try await transfer(cached, devices.cpu())" "    cached" SUM "${SUM}")
 compile(sum "${SUM}")
 # Dynamic operands need unconditional equality contracts, independently per side.
@@ -74,7 +74,7 @@ string(REPLACE "Tensor[float32, 3, 2]" "Tensor[float32, ?, ?]" DYNAMIC "${DYNAMI
 string(REPLACE "  if factor > 1:" "  aligned = a + b + c\n  if factor > 1:" DYNAMIC "${DYNAMIC}")
 string(REPLACE "  right = if factor > 0:" "  aligned = x + y\n  right = if factor > 0:" DYNAMIC "${DYNAMIC}")
 compile(dynamic "${DYNAMIC}")
-set(FORWARD "fn forward(a:Tensor[float32,?,?])->Tensor[float32,?,?]:\n  a\n")
+set(FORWARD "fn forward(a:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  return a\n")
 string(REPLACE "transfer(c, gpu)" "transfer(forward(c), gpu)" MISMATCH "${DYNAMIC}")
 string(REPLACE "tensor([[3, 4, 5], [6, 7, 8]])" "tensor([[3, 4], [5, 6], [7, 8]])" MISMATCH "${MISMATCH}")
 compile(mismatch "${FORWARD}${MISMATCH}")

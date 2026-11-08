@@ -151,7 +151,7 @@ static void verify(std::array<std::int64_t, Rank> shape, unsigned layout, unsign
       require(std::bit_cast<Raw>(output) == std::bit_cast<Raw>(original[physical]),
               "tensor read changed exact bits or descriptor addressing");
     else {
-      require(context.line() == 2 && context.column() == 3 && std::bit_cast<Raw>(output) == 0,
+      require(context.line() == 2 && context.column() == 10 && std::bit_cast<Raw>(output) == 0,
               "tensor bounds source/result changed");
       ++faults;
     }

@@ -1,13 +1,13 @@
 enum Choice:
   Some
-fn even(n:int)->Bool:
-  match Choice.Some:
+fn even(n:i64)->bool:
+  return match Choice.Some:
     Choice.Some:
       if n==0:
         true
       else:
         not even(n-1)
-fn main()->int:
+fn main()->i64:
   callback=even
-  if callback(20):42
+  return if callback(20):42
   else:0

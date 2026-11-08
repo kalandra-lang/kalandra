@@ -46,11 +46,11 @@ int main(int argc, char **argv) {
     return 2;
   try {
     const std::string code =
-        "enum Choice:\n  Empty\n  Some:\n    value:int\n  Other:\n    value:int\nenum Separate:\n  "
-        "Some:\n    value:int\nfn inspect(choice:Choice,value:int)->int:\n  match choice:\n    "
-        "Choice.Some {value:item}:\n      read=fn():item\n      read()\n    Choice.Other "
+        "enum Choice:\n  Empty\n  Some:\n    value:i64\n  Other:\n    value:i64\nenum Separate:\n  "
+        "Some:\n    value:i64\nfn inspect(choice:Choice,value:i64)->i64:\n  return match choice:\n    "
+        "Choice.Some {value:item}:\n      read=fn():return item\n      read()\n    Choice.Other "
         "{value}:value\n    Choice.Empty:value\nfn main():\n  extra=Choice.Other {value:1}\n  "
-        "inspect(Choice.Some {value:42},0)\n";
+        "return inspect(Choice.Some {value:42},0)\n";
     auto checked = check(syntax(code));
     if (!checked.ok())
       for (const auto &d : checked.diagnostics)
@@ -91,8 +91,8 @@ int main(int argc, char **argv) {
     // A union copies layouts, but pattern cases/fields still identify original declarations.
     const std::string errors =
         "error A:\n  Bad:\n    text:String\nerror B:\n  Bad:\n    text:String\ntype Both=A | B\nfn "
-        "inspect(error:Both)->int:\n  match error:\n    A.Bad {text:message}:length(message)\n    "
-        "B.Bad {text}:length(text)\nfn main():\n  issue=A.Bad {text:\"bad\"}\n  0\n";
+        "inspect(error:Both)->i64:\n  return match error:\n    A.Bad {text:message}:length(message)\n    "
+        "B.Bad {text}:length(text)\nfn main():\n  issue=A.Bad {text:\"bad\"}\n  return 0\n";
     definition(errors, errors.find("A.Bad") + 2, errors.find("Bad:"));
     definition(errors, errors.find("B.Bad") + 2, errors.find("Bad:", errors.find("Bad:") + 1));
     definition(errors, errors.find("text:message"), errors.find("text:String"));
@@ -102,9 +102,9 @@ int main(int argc, char **argv) {
     definition(errors, errors.rfind("length(text)") + 7, shortError);
     references(errors, errors.find("text:String", errors.find("text:String") + 1), 1);
     const std::string builtins =
-        "fn explain(error:TaskError)->int:\n  match error:\n    TaskError.Fault {kind,message}:\n  "
+        "fn explain(error:TaskError)->i64:\n  return match error:\n    TaskError.Fault {kind,message}:\n  "
         "    match kind:\n        FaultKind.Bounds:length(message)\n        _:0\n    _:0\nfn "
-        "main():\n  0\n";
+        "main():\n  return 0\n";
     auto builtin = check(syntax(builtins));
     require(builtin.ok(), "builtin pattern fixture invalid");
     require(!lsp::definition(syntax(builtins), "enum-tokens.k", builtins.find("Fault {")),
@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
     const auto message = builtins.find("message}");
     definition(builtins, builtins.find("message)"), message);
     references(builtins, message, 1);
-    const std::string invalid = "enum E:\n  A\nfn main():\n  match E.A:\n    E.Missing:0\n";
+    const std::string invalid = "enum E:\n  A\nfn main():\n  return match E.A:\n    E.Missing:0\n";
     require(!lsp::definition(syntax(invalid), "enum-tokens.k", invalid.find("Missing")),
             "failed match leaked navigation");
     require(!lsp::definition(syntax(code), "enum-tokens.k", code.find("enum")),
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
     write("library.k", library);
     write("facade.k", "export from \"./library.k\" import Choice as PublicChoice\n");
     const std::string caller =
-        "from \"./facade.k\" import PublicChoice as LocalChoice\nfn main()->int:\n  match "
+        "from \"./facade.k\" import PublicChoice as LocalChoice\nfn main()->i64:\n  return match "
         "LocalChoice.Some {value:7}:\n    LocalChoice.Some {value:bound}:bound\n    _:0\n";
     write("main.k", caller);
     const auto load = [&] {

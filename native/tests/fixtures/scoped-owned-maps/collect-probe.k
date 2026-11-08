@@ -1,14 +1,14 @@
 type Job:
-  run: fn(int) -> int
-  data: [int]
-fn make(value: int) -> Job:
+  run: fn(i64) -> i64
+  data: [i64]
+fn make(value: i64) -> Job:
   saved = [value, value + 1]
-  Job {run: fn(delta: int): saved[0] + delta, data: saved}
+  return Job {run: fn(delta: i64): return saved[0] + delta, data: saved}
 type LoopResult:
-  value: int
-fn read(a: [int]) -> int:
-  a[0]
-fn probe(n: int, faultAt: int) -> LoopResult ! TaskError:
+  value: i64
+fn read(a: [i64]) -> i64:
+  return a[0]
+fn probe(n: i64, faultAt: i64) -> LoopResult ! TaskError:
   a = [7, 8]
   saved = a
   index = 0
@@ -30,6 +30,6 @@ fn probe(n: int, faultAt: int) -> LoopResult ! TaskError:
       zero = 0
       total = total + 1 / zero
     index = index + 1
-  LoopResult {value: saved[0] + total + a[0] + length(a)}
-fn main() -> int:
-  0
+  return LoopResult {value: saved[0] + total + a[0] + length(a)}
+fn main() -> i64:
+  return 0

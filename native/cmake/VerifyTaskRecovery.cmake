@@ -62,7 +62,7 @@ foreach(NAME IN ITEMS task-handler-fault task-recovery)
   endif()
 endforeach()
 # Real admission rejection: the group settles before this outer handler runs.
-set(SOURCE "fn identity(x: float32) -> float32:\n  x\nfn main() -> float32:\n  result = parallel:\n")
+set(SOURCE "fn identity(x: f32) -> f32:\n  x\nfn main() -> f32:\n  result = parallel:\n")
 foreach(INDEX RANGE 0 128)
   string(APPEND SOURCE "    job${INDEX} = spawn identity(1)\n")
 endforeach()

@@ -135,7 +135,7 @@ inline std::optional<Diagnostic> recordFieldError(const TypedModule &module) {
         if (!type.record || *type.record >= module.records.size())
           return fail("invalid nested record declaration identity", field.declaration);
       } else if (type.record ||
-                 (type.builtin != BuiltinValue::Bool && type.builtin != BuiltinValue::String &&
+                 (!isBooleanStorage(type) && type.builtin != BuiltinValue::String &&
                   type.builtin != BuiltinValue::TaskError &&
                   type.builtin != BuiltinValue::Function &&
                   (type.builtin != BuiltinValue::Numeric ||

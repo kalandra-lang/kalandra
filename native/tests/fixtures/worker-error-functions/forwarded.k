@@ -1,16 +1,16 @@
 error E:
   Retry:
-    callback:fn(int)->int
-fn failer(offset:int)->int ! E:
+    callback:fn(i64)->i64
+fn failer(offset:i64)->i64 ! E:
   numbers=[offset]
-  fail E.Retry {callback:fn(value:int):numbers[0]+value}
-fn worker(offset:int)->int ! E:
-  try failer(offset)
-fn run()->int ! (E | TaskError):
-  try parallel:
+  fail E.Retry {callback:fn(value:i64):return numbers[0]+value}
+fn worker(offset:i64)->i64 ! E:
+  return try failer(offset)
+fn run()->i64 ! (E | TaskError):
+  return try parallel:
     try await spawn worker(40)
-fn main()->int ! TaskError:
-  run() catch fn(error):
-    match error:
+fn main()->i64 ! TaskError:
+  return run() catch fn(error):
+    return match error:
       E.Retry {callback}:callback(2)
       _:fail error

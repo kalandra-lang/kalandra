@@ -93,7 +93,7 @@ def qualify_prefix(prefix, kind, runtime, build=None, metal_execute=False):
     forbidden = execute(["/bin/cat", repository / "LICENSE"], expected=1)
     assert "Operation not permitted" in forbidden.stderr, forbidden.stderr
     source = runtime / "main.k"
-    source.write_text("fn main() -> int:\n  42\n")
+    source.write_text('fn main() -> i64:\n  return 42\n')
     assert "Parsed" in execute([prefix / "bin/kalandra-parse", source]).stdout
     assert json.loads(execute([prefix / "bin/kalandra-check", "--diagnostics=json", source]).stdout)["ok"]
     execute([prefix / "bin/kalandra-fmt", "--check", source])
@@ -112,16 +112,16 @@ def qualify_prefix(prefix, kind, runtime, build=None, metal_execute=False):
         link = runtime / "compiler symlink"
         link.symlink_to(compiler)
         cases = [(kind, "42", "42") for kind in
-                 ("int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64")]
-        cases += [("float32", "1.5", "1.5"), ("float64", "1.5", "1.5"),
-                  ("Bool", "true", "true"), ("String", '"bundled"', "bundled"),
-                  ("[int]", "[1, 2]", "[1, 2]"), ("[String]", '["bundled"]', '["bundled"]')]
+                 ("i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64")]
+        cases += [("f32", "1.5", "1.5"), ("f64", "1.5", "1.5"),
+                  ("bool", "true", "true"), ("String", '"bundled"', "bundled"),
+                  ("[i64]", "[1, 2]", "[1, 2]"), ("[String]", '["bundled"]', '["bundled"]')]
         for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
             for returned, body, expected in cases:
                 source.write_text(f"fn main() -> {returned}:\n  {body}\n")
                 execute([link, source, "-o", executable, "-O2", *mode])
                 assert execute([executable]).stdout.strip() == expected
-            source.write_text("fn double(value:int)->int:\n  value*2\nfn main()->int ! TaskError:\n"
+            source.write_text("fn double(value:i64)->i64:\n  value*2\nfn main()->i64 ! TaskError:\n"
                               "  values=try parallelMap([21],double)\n  values[0]\n")
             execute([compiler, source, "-o", executable, *mode])
             assert execute([executable]).stdout.strip() == "42"
@@ -146,17 +146,17 @@ def qualify_prefix(prefix, kind, runtime, build=None, metal_execute=False):
         info = json.loads((prefix / "share/kalandra-native-metal/toolchain.json").read_text())
         assert info["spirvCross"] == info["spirvTools"] == info["clang"] == "bundled"
         applications = []
-        for numeric in ("int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float32", "float64"):
-            source.write_text(f"""fn increment(value:int32)->int32:
-  value+1
-fn operation(values:Tensor[{numeric},?,?,?,?,?,?,?,?],scale:{numeric})->float64:
+        for numeric in ("i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64"):
+            source.write_text(f"""fn increment(value:i32)->i32:
+  return value+1
+fn operation(values:Tensor[{numeric},?,?,?,?,?,?,?,?],scale:{numeric})->f64:
   amount=reduceSum(values)
-  if scale==1:
-    float64(reduceSum(values+amount))
+  return if scale==1:
+    f64(reduceSum(values+amount))
   else:
-    float64(reduceSum(values)/scale)
-fn main()->float64 ! TaskError:
-  try parallel:
+    f64(reduceSum(values)/scale)
+fn main()->f64 ! TaskError:
+  return try parallel:
     worker=spawn increment(0)
     gpu=devices.gpu()
     values:Tensor[{numeric},1,1,1,1,1,1,1,3]=tensor([[[[[[[[1,2,3]]]]]]]])

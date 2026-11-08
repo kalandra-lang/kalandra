@@ -1,12 +1,12 @@
 error MathError:
   Negative
-fn factorial(n:int)->int ! MathError:
+fn factorial(n:i64)->i64 ! MathError:
   if n<0:fail MathError.Negative
-  if n<=1:
+  return if n<=1:
     1
   else:
     previous=try factorial(n-1)
     n*previous
-fn main()->int:
+fn main()->i64:
   callback=factorial
-  callback(5) catch fn(error):0
+  return callback(5) catch fn(error):return 0

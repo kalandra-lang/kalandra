@@ -9,8 +9,8 @@ endforeach()
 file(READ "${SOURCE_DIR}/../docs/design/fixtures/worker-function-results.k" GUIDE)
 COMPILE(guide "${GUIDE}")
 EXPECT(guide 42)
-foreach(TYPE IN ITEMS int8 uint8 int16 uint16 int32 uint32 int64 uint64 float32 float64)
-  COMPILE("width-${TYPE}" "fn make(offset:${TYPE})->fn(${TYPE})->${TYPE}:\n  values:[${TYPE}]=[offset]\n  fn(value:${TYPE}):values[0]+value\nfn main()->${TYPE} ! TaskError:\n  f=try parallel:\n    try await spawn make(40)\n  f(2)\n")
+foreach(TYPE IN ITEMS i8 u8 i16 u16 i32 u32 i64 u64 f32 f64)
+  COMPILE("width-${TYPE}" "fn make(offset:${TYPE})->fn(${TYPE})->${TYPE}:\n  values:[${TYPE}]=[offset]\n  return fn(value:${TYPE}):return values[0]+value\nfn main()->${TYPE} ! TaskError:\n  f=try parallel:\n    try await spawn make(40)\n  return f(2)\n")
   EXPECT("width-${TYPE}" 42)
 endforeach()
 file(APPEND "${OUTPUT_DIR}/raw.ll" "\n@kalandra_result_test_entry = constant ptr @task.entry.0\n")
@@ -42,8 +42,8 @@ foreach(NAME IN ITEMS cached nested owned)
   endforeach()
 endforeach()
 set(PROMOTED
-  "fn make(functions:[fn(int)->int])->fn(int)->int:\n  fn(value:int):functions[0](value)\nfn main()->int ! TaskError:\n  f=try parallel:\n    try await spawn make([fn(value:int):value])\n  f(42)\n"
-  "fn double(value:int)->int:\n  value*2\nfn forward(f:fn(int)->int)->fn(int)->int:\n  f\nfn main()->int ! TaskError:\n  f=try parallel:\n    try await spawn forward(double)\n  f(21)\n"
+  "fn make(functions:[fn(i64)->i64])->fn(i64)->i64:\n  return fn(value:i64):return functions[0](value)\nfn main()->i64 ! TaskError:\n  f=try parallel:\n    try await spawn make([fn(value:i64):return value])\n  return f(42)\n"
+  "fn double(value:i64)->i64:\n  return value*2\nfn forward(f:fn(i64)->i64)->fn(i64)->i64:\n  return f\nfn main()->i64 ! TaskError:\n  f=try parallel:\n    try await spawn forward(double)\n  return f(21)\n"
 )
 set(INDEX 0)
 foreach(TEXT IN LISTS PROMOTED)
@@ -52,7 +52,7 @@ foreach(TEXT IN LISTS PROMOTED)
   EXPECT("parameter-${INDEX}" 42)
 endforeach()
 set(REJECTIONS
-  "error E:\n  Bad:\n    callback:fn(int)->int\nfn make(callback:fn(int)->int)->(fn(int)->int) ! E:\n  fail E.Bad {callback:callback}\nfn submit(callback:fn(int)->int)->int ! (E | TaskError):\n  f=try parallel:\n    try await spawn make(callback)\n  f(21)\nfn main()->int:\n  42\n")
+  "error E:\n  Bad:\n    callback:fn(i64)->i64\nfn make(callback:fn(i64)->i64)->(fn(i64)->i64) ! E:\n  fail E.Bad {callback:callback}\nfn submit(callback:fn(i64)->i64)->i64 ! (E | TaskError):\n  f=try parallel:\n    try await spawn make(callback)\n  return f(21)\nfn main()->i64:\n  return 42\n")
 set(INDEX 0)
 foreach(TEXT IN LISTS REJECTIONS)
   math(EXPR INDEX "${INDEX}+1")

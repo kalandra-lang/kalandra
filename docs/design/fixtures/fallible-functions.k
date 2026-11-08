@@ -1,17 +1,17 @@
 error InputError:
   Invalid:
-    value: int
+    value: i64
 
-fn checked(value: int) -> int ! InputError:
+fn checked(value: i64) -> i64 ! InputError:
   if value == 0:
     fail InputError.Invalid {value: 42}
-  value * 2
+  return value * 2
 
-fn apply(value: int, transform: fn(int) -> int ! InputError) -> int ! InputError:
-  try transform(value)
+fn apply(value: i64, transform: fn(i64) -> i64 ! InputError) -> i64 ! InputError:
+  return try transform(value)
 
-export fn main() -> int:
+export fn main() -> i64:
   transform = checked
-  apply(0, transform) catch fn(error):
-    match error:
+  return apply(0, transform) catch fn(error):
+    return match error:
       InputError.Invalid {value}: value

@@ -27,9 +27,9 @@ def run(command, env=None):
     return r.stdout.strip()
 
 cases = {}
-for typ in ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64', 'Bool'):
+for typ in ('i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64', 'bool'):
     for alias in (False, True):
-        boolean = typ == 'Bool'
+        boolean = typ == 'bool'
         initial = 'true,false,true' if boolean else '1,2,3'
         changed = 'false' if boolean else '9'
         expected = (False if alias else True) if boolean else (9 if alias else 1)
@@ -39,54 +39,54 @@ for typ in ('int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uin
             f'  values:[{typ}]=[{initial}]\n', 'work(values)',
             f'    result[0]={changed}\n    values[0]\n', typ, expected)
 for name, typ, value, expected in (
-    ('min-i64', 'int64', '-9223372036854775808', -9223372036854775808),
-    ('max-u64', 'uint64', '18446744073709551615', 18446744073709551615),
-    ('min-i8', 'int8', '-128', -128),
-    ('negative-zero-f32', 'float32', '-0.0', -0.0),
-    ('negative-zero-f64', 'float64', '-0.0', -0.0),
+    ('min-i64', 'i64', '-9223372036854775808', -9223372036854775808),
+    ('max-u64', 'u64', '18446744073709551615', 18446744073709551615),
+    ('min-i8', 'i8', '-128', -128),
+    ('negative-zero-f32', 'f32', '-0.0', -0.0),
+    ('negative-zero-f64', 'f64', '-0.0', -0.0),
 ):
     cases[name] = (f'fn work(values:[{typ}])->[{typ}]:\n  copy(values)\n',
                    f'  values:[{typ}]=[{value}]\n', 'work(values)', '    result[0]\n', typ, expected)
-cases['zero-input-filter-generator'] = ('''fn work(n:int)->[int]:
-  for i in range(n):
+cases['zero-input-filter-generator'] = ('''fn work(n:i64)->[i64]:
+  return for i in range(n):
     if i%2==0:
       yield i*3
-''', '', 'work(10)', '    result[0]+result[1]+result[2]+result[3]+result[4]\n', 'int', 60)
-cases['multi-page-generator'] = ('''fn work(n:int)->[int]:
-  for i in range(n):
+''', '', 'work(10)', '    result[0]+result[1]+result[2]+result[3]+result[4]\n', 'i64', 60)
+cases['multi-page-generator'] = ('''fn work(n:i64)->[i64]:
+  return for i in range(n):
     yield i*2+1
-''', '', 'work(17000)', '    result[0]+result[8191]+result[8192]+result[16999]\n', 'int', 66768)
-cases['multi-page-capture-copy'] = ('''fn work(values:[int])->[int]:
-  copy(values)
+''', '', 'work(17000)', '    result[0]+result[8191]+result[8192]+result[16999]\n', 'i64', 66768)
+cases['multi-page-capture-copy'] = ('''fn work(values:[i64])->[i64]:
+  return copy(values)
 ''', '  values=for i in range(17000):\n    yield i\n', 'work(values)',
-    '    result[0]+result[8191]+result[8192]+result[16999]\n', 'int', 33382)
+    '    result[0]+result[8191]+result[8192]+result[16999]\n', 'i64', 33382)
 for alias in (False, True):
-    cases['conditional-' + ('alias' if alias else 'copy')] = ('''fn work(values:[int],flag:Bool)->[int]:
-  if flag:
+    cases['conditional-' + ('alias' if alias else 'copy')] = ('''fn work(values:[i64],flag:bool)->[i64]:
+  return if flag:
     values
   else:
     copy(values)
-''', '  values:[int]=[1,2,3]\n', f'work(values,{str(alias).lower()})',
-        '    result[0]=7\n    values[0]\n', 'int', 7 if alias else 1)
-cases['empty-copy'] = ('''fn work(values:[int])->[int]:
-  copy(values)
-''', '  values:[int]=[]\n', 'work(values)', '    length(result)\n', 'int', 0)
-cases['empty-bool-alias'] = ('''fn work(values:[Bool])->[Bool]:
-  values
-''', '  values:[Bool]=[]\n', 'work(values)', '    length(result)\n', 'int', 0)
+''', '  values:[i64]=[1,2,3]\n', f'work(values,{str(alias).lower()})',
+        '    result[0]=7\n    values[0]\n', 'i64', 7 if alias else 1)
+cases['empty-copy'] = ('''fn work(values:[i64])->[i64]:
+  return copy(values)
+''', '  values:[i64]=[]\n', 'work(values)', '    length(result)\n', 'i64', 0)
+cases['empty-bool-alias'] = ('''fn work(values:[bool])->[bool]:
+  return values
+''', '  values:[bool]=[]\n', 'work(values)', '    length(result)\n', 'i64', 0)
 cases['record-held-capture-after-gc'] = ('''type Box:
-  values:[int]
-fn work(values:[int])->[int]:
+  values:[i64]
+fn work(values:[i64])->[i64]:
   box=Box {values:values}
   for i in range(1000):
     temporary=[i,1]
     _=temporary[0]
-  box.values
-''', '  values:[int]=[1,2,3]\n', 'work(values)', '    result[0]=7\n    values[0]\n', 'int', 7)
-cases['sorted-result'] = ('''fn work(values:[int])->[int]:
-  sorted(values)
-''', '  values:[int]=[9,2,5]\n', 'work(values)',
-    '    result[0]*1000+result[1]*100+result[2]*10+values[0]\n', 'int', 2599)
+  return box.values
+''', '  values:[i64]=[1,2,3]\n', 'work(values)', '    result[0]=7\n    values[0]\n', 'i64', 7)
+cases['sorted-result'] = ('''fn work(values:[i64])->[i64]:
+  return sorted(values)
+''', '  values:[i64]=[9,2,5]\n', 'work(values)',
+    '    result[0]*1000+result[1]*100+result[2]*10+values[0]\n', 'i64', 2599)
 total_cases = len(cases)
 assert not set(a.case) - cases.keys(), a.case
 if a.case:
@@ -101,34 +101,34 @@ for name, (helper, setup, call, body, typ, expected) in cases.items():
     cpu = root / ('cpu' + suffix)
     run([a.compiler, cpu_source, *flags, '-o', cpu])
     raw = run([cpu])
-    if typ == 'Bool':
+    if typ == 'bool':
         assert raw in ('true', 'false'), (name, 'CPU Bool encoding', raw)
-    value = (raw == 'true') if typ == 'Bool' else float(raw) if typ.startswith('float') else int(raw)
+    value = (raw == 'true') if typ == 'bool' else float(raw) if typ.startswith('f') else int(raw)
     assert value == expected, (name, 'CPU oracle', raw, expected)
-    if typ.startswith('float'):
+    if typ.startswith('f'):
         assert struct.pack('<d', value) == struct.pack('<d', expected), (name, 'CPU float bits', raw)
     source = root / 'gpu.k'
     source.write_text(helper + f'fn main()->{typ} ! TaskError:\n' + setup +
                       '  try parallel:\n    gpu=devices.gpu()\n    result=try await spawn ' + call + ' on gpu\n' + body)
     bundle = root / 'device'
-    arithmetic = 'hardware-with-software-fallback' if a.backend == 'metal' and typ == 'float64' else 'hardware'
+    arithmetic = 'hardware-with-software-fallback' if a.backend == 'metal' and typ == 'f64' else 'hardware'
     run([a.compiler, source, '--target', a.backend, '--arithmetic', arithmetic, *flags, '-o', bundle])
     assert 'DeviceArrayResultJob<' in (bundle / 'host.cpp').read_text(), name
     outputs = []
     for workers in (() if a.compile_only else ('1', '4')):
         output = run([bundle / ('program' + suffix)], dict(os.environ, KALANDRA_WORKERS=workers))
-        if typ == 'Bool':
+        if typ == 'bool':
             assert output in ('true', 'false'), (name, output)
             value = output == 'true'
         else:
             bits = int(output, 16)
-            width = 32 if typ == 'float32' else 64 if typ in ('float64', 'int', 'uint') else int(typ.lstrip('uint'))
-            if typ.startswith('float'):
+            width = 32 if typ == 'f32' else 64 if typ in ('f64', 'i64', 'u64') else int(typ.lstrip('u64'))
+            if typ.startswith('f'):
                 fmt = '<f' if width == 32 else '<d'
                 value = struct.unpack(fmt, bits.to_bytes(width // 8, 'little'))[0]
                 assert struct.pack(fmt, value) == struct.pack(fmt, expected), (name, output)
             else:
-                value = bits - (1 << width) if typ.startswith('int') and bits & (1 << (width - 1)) else bits
+                value = bits - (1 << width) if typ.startswith('i') and bits & (1 << (width - 1)) else bits
         assert value == expected, (name, workers, output, expected)
         outputs.append(output)
     results.append({'case': name, 'status': 'compiled' if a.compile_only else 'passed', 'outputs': outputs})
@@ -140,9 +140,9 @@ negatives = {
 }
 for name, (returned, read) in negatives.items():
     source = a.root / (name + '.k')
-    source.write_text('fn work(values:[int])->[int]:\n  ' + returned +
-                      '\nfn reader(values:[int])->int:\n  values[0]\n' +
-                      'fn main()->int ! TaskError:\n  values:[int]=[1,2,3]\n  try parallel:\n' +
+    source.write_text('fn work(values:[i64])->[i64]:\n  ' + returned +
+                      '\nfn reader(values:[i64])->i64:\n  return values[0]\n' +
+                      'fn main()->i64 ! TaskError:\n  values:[i64]=[1,2,3]\n  try parallel:\n' +
                       '    gpu=devices.gpu()\n    result=try await spawn work(values) on gpu\n' +
                       '    alias=result\n    pending=spawn reader(' + read + ')\n' +
                       '    alias[0]=7\n    try await pending\n')

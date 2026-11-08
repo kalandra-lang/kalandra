@@ -57,7 +57,7 @@ verify_package_version(prefix)
 audit(prefix)
 compiler = prefix/'bin/kalandra'
 source = a.root/'cpu.k'
-source.write_text('fn main()->int32:\n  42\n')
+source.write_text('fn main()->i32:\n  return 42\n')
 subprocess.run([compiler, source, '-o', a.root/'cpu'], check=True, timeout=60)
 assert subprocess.check_output([a.root/'cpu'], text=True, timeout=30) == '42\n'
 script = Path(__file__).with_name('public_cli.py')

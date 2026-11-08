@@ -1,14 +1,14 @@
 enum Choice:
   Empty
   Some
-fn count(n:int)->int:
-  match Choice.Some:
+fn count(n:i64)->i64:
+  return match Choice.Some:
     Choice.Empty:0
     Choice.Some:
       if n==0:
         22
       else:
         count(n-1)+1
-fn main()->int:
+fn main()->i64:
   callback=count
-  callback(20)
+  return callback(20)

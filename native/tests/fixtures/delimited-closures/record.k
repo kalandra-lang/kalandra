@@ -1,9 +1,9 @@
 type Box:
-  callback:fn(int)->int
-fn main()->int:
-  offset:int=20
+  callback:fn(i64)->i64
+fn main()->i64:
+  offset:i64=20
   box=Box {callback:fn(value):
     total=value+offset
-    total
+    return total
   }
-  box.callback(22)
+  return box.callback(22)

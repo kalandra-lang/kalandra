@@ -13,18 +13,18 @@ static CheckResult analyze(const std::string &text) {
 int main() {
   try {
     for (const auto *source :
-         {"fn main()->int8:\n  -128\n", "fn main()->uint8:\n  255\n",
-          "fn main()->int8:\n  x:int8=120\n  x+7\n",
-          "fn f(x:int8,y:int8)->int8:\n  x+y\nfn main()->int8:\n  f(20,22)\n",
-          "fn main()->uint8:\n  uint8(255)\n",
-          "fn f(x:int8)->int:\n  int(x)\nfn main()->int:\n  f(-128)\n",
-          "fn f(x:float)->int8:\n  int8(x)\nfn main()->int8:\n  f(-12.9)\n",
-          "fn main()->int8 ! TaskError:\n  try parallel:\n    x:int8=-128\n    try await spawn "
-          "int8(int(x))\n",
-          "fn f(x:uint8)->uint8:\n  if x>10:x-1\n  else:x+1\nfn main()->uint8 ! TaskError:\n  try "
+         {"fn main()->i8:\n  return -128\n", "fn main()->u8:\n  return 255\n",
+          "fn main()->i8:\n  x:i8=120\n  return x+7\n",
+          "fn f(x:i8,y:i8)->i8:\n  return x+y\nfn main()->i8:\n  return f(20,22)\n",
+          "fn main()->u8:\n  return u8(255)\n",
+          "fn f(x:i8)->i64:\n  return i64(x)\nfn main()->i64:\n  return f(-128)\n",
+          "fn f(x:f64)->i8:\n  return i8(x)\nfn main()->i8:\n  return f(-12.9)\n",
+          "fn main()->i8 ! TaskError:\n  return try parallel:\n    x:i8=-128\n    try await spawn "
+          "i8(i64(x))\n",
+          "fn f(x:u8)->u8:\n  return if x>10:x-1\n  else:x+1\nfn main()->u8 ! TaskError:\n  return try "
           "parallel:\n    work=spawn f(255)\n    a=try await work\n    b=try await work\n    b\n",
-          "fn get(i:uint8)->String:\n  [\"a\",\"é\"][i]\nfn main()->String:\n  get(1)\n",
-          "fn get(i:int8)->String:\n  slice(\"aé\",i,2)\nfn main()->String:\n  get(1)\n"}) {
+          "fn get(i:u8)->String:\n  return [\"a\",\"é\"][i]\nfn main()->String:\n  return get(1)\n",
+          "fn get(i:i8)->String:\n  return slice(\"aé\",i,2)\nfn main()->String:\n  return get(1)\n"}) {
       auto result = analyze(source);
       if (!result.ok())
         for (const auto &d : result.diagnostics)
@@ -40,21 +40,21 @@ int main() {
     }
     for (const auto *value :
          {"128", "-129", "127+1", "-128-1", "64*2", "-(-128)", "-128/-1", "1/0", "1.0"})
-      require(!analyze(std::string("fn main()->int8:\n  ") + value + "\n").ok(),
+      require(!analyze(std::string("fn main()->i8:\n  ") + value + "\n").ok(),
               "invalid signed byte accepted");
     for (const auto *value : {"256", "-1", "255+1", "0-1", "128*2", "-uint8(1)", "1%0"})
-      require(!analyze(std::string("fn main()->uint8:\n  ") + value + "\n").ok(),
+      require(!analyze(std::string("fn main()->u8:\n  ") + value + "\n").ok(),
               "invalid unsigned byte accepted");
     for (const auto *source :
-         {"fn main()->int8:\n  value=1\n  value\n", "fn main()->int8:\n  int8(128)\n",
-          "fn main()->uint8:\n  uint8(-1)\n",
-          "fn bad(a:int8,b:uint8):\n  a+b\nfn main()->int:\n  0\n", "fn main()->int128:\n  1\n",
-          "fn main()->Tensor[float16,1]:\n  tensor([1])\n", "fn main():\n  uint8([1])\n",
-          "type Row:\n  value:Tensor[float16,1]\nfn main()->int:\n  0\n",
-          "fn main():\n  int64(map([1],fn(x):int8(x)))\n"})
+         {"fn main()->i8:\n  value=1\n  return value\n", "fn main()->i8:\n  return i8(128)\n",
+          "fn main()->u8:\n  return u8(-1)\n",
+          "fn bad(a:i8,b:u8):\n  return a+b\nfn main()->i64:\n  return 0\n", "fn main()->int128:\n  return 1\n",
+          "fn main()->Tensor[float16,1]:\n  return tensor([1])\n", "fn main():\n  return u8([1])\n",
+          "type Row:\n  value:Tensor[float16,1]\nfn main()->i64:\n  return 0\n",
+          "fn main():\n  return i64(map([1],fn(x):return i8(x)))\n"})
       require(!analyze(source).ok(), std::string("unsupported int8 surface accepted: ") + source);
     for (unsigned mode = 0; mode < 4; ++mode) {
-      auto forged = analyze("fn main()->int8:\n  1\n");
+      auto forged = analyze("fn main()->i8:\n  return 1\n");
       auto &node = forged.module->expressions[forged.module->functions[0].result];
       if (mode == 0)
         node.operation = Int32Literal{128};

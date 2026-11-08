@@ -161,7 +161,7 @@ string(REPLACE "value * 2" "missing(value)" BAD "${LIBRARY}")
 file(WRITE "${ROOT}/kernels/arithmetic.k" "${BAD}")
 reject(diagnostic "arithmetic.k:2:[0-9]+:" "${ROOT}/main.k")
 file(WRITE "${ROOT}/kernels/arithmetic.k" "${LIBRARY}")
-file(WRITE "${ROOT}/cycle.k" "from \"./cycle.k\" import x\nexport fn x()->float32:\n  0\n")
+file(WRITE "${ROOT}/cycle.k" "from \"./cycle.k\" import x\nexport fn x()->f32:\n  return 0\n")
 reject(cycle M003 "${ROOT}/cycle.k")
 reject(duplicate-package "duplicate local package" "${ROOT}/main.k" --package "math=unused.k" --package "math=unused.k")
 

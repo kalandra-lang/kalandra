@@ -1,23 +1,23 @@
 enum Choice:
   Empty
   Some:
-    run:fn(int)->int
-fn make(offset:int)->[fn(int)->int]:
+    run:fn(i64)->i64
+fn make(offset:i64)->[fn(i64)->i64]:
   values=[offset]
-  [fn(value):values[0]+value,fn(value):values[0]-value]
-fn makeChoice(offset:int)->Choice:
+  return [fn(value):return values[0]+value,fn(value):return values[0]-value]
+fn makeChoice(offset:i64)->Choice:
   values=[offset]
-  Choice.Some {run:fn(value:int):values[0]+value}
-fn makeCaptured()->fn(int)->int:
-  callbacks:[fn(int)->int]=[fn(value):value+40]
-  fn(value:int):callbacks[0](value)
-fn makeWords()->[fn(String)->int]:
-  [fn(text):length(text)]
-fn apply(callbacks:[fn(int)->int])->int:
-  callbacks[0](2)
-fn main()->int ! TaskError:
+  return Choice.Some {run:fn(value:i64):return values[0]+value}
+fn makeCaptured()->fn(i64)->i64:
+  callbacks:[fn(i64)->i64]=[fn(value):return value+40]
+  return fn(value:i64):return callbacks[0](value)
+fn makeWords()->[fn(String)->i64]:
+  return [fn(text):return length(text)]
+fn apply(callbacks:[fn(i64)->i64])->i64:
+  return callbacks[0](2)
+fn main()->i64 ! TaskError:
   extra=makeCaptured()
   extra(2)
   callbacks=try parallel:
     try await spawn make(21)
-  callbacks[0](2)+callbacks[1](2)
+  return callbacks[0](2)+callbacks[1](2)

@@ -1,8 +1,8 @@
-fn double(value: int) -> int:
-  value * 2
+fn double(value: i64) -> i64:
+  return value * 2
 
-fn main() -> int ! TaskError:
+fn main() -> i64 ! TaskError:
   transform = double
-  try parallel:
+  return try parallel:
     work = spawn transform(21)
     try await work

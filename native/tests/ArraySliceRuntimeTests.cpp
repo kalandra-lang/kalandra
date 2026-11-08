@@ -80,7 +80,7 @@ int main() {
                         "empty slice descriptor is not canonical");
             } else {
               ++faults;
-              require(context.line() == 2 && context.column() == 3 && !context.allocations(),
+              require(context.line() == 2 && context.column() == 10 && !context.allocations(),
                       "bad range allocated or lost source location");
               require(!output.allocated && !output.aligned && !output.sizes[0],
                       "fault published partial output");

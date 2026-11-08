@@ -37,21 +37,21 @@ def execute(path, expected, gpu):
 def write_cases(root):
     root.mkdir()
     for size in (32, 1024, 8192):
-        collection = f"""fn work(n:int)->[int]:
-  for i in range(n):
+        collection = f"""fn work(n:i64)->[i64]:
+  return for i in range(n):
     if i%3==0:
       yield i+7
-fn main()->int ! TaskError:
-  try parallel:
+fn main()->i64 ! TaskError:
+  return try parallel:
     values=try await spawn work({size}) on devices.gpu()
     length(values)+values[0]+values[length(values)-1]
 """
-        tensor = f"""fn work(values:Tensor[int, ?])->int:
+        tensor = f"""fn work(values:Tensor[i64, ?])->i64:
   result=0
   for i in range({size}):
     result=result+values[i]
   result
-fn main()->int ! TaskError:
+fn main()->i64 ! TaskError:
   values=tensor(generate({size},fn(i):i%7))
   try parallel:
     gpu=devices.gpu()

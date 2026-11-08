@@ -111,6 +111,14 @@
     },
     {
       "kind": "cpu",
+      "expected": ""
+    },
+    {
+      "kind": "cpu",
+      "expected": "42"
+    },
+    {
+      "kind": "cpu",
       "expected": "42"
     },
     {
@@ -241,7 +249,7 @@
   "numeric-functions": [
     {
       "kind": "cpu",
-      "expected": "[42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42]"
+      "expected": "[42, 42, 42, 42, 42, 42, 42, 42, 42, 42]"
     },
     {
       "kind": "cpu",

@@ -215,6 +215,10 @@ struct WhileExpr {
 struct YieldExpr {
   ExprId operand;
 };
+struct ReturnExpr {
+  std::optional<ExprId> value;
+};
+struct UnitExpr {};
 struct LoopTransferExpr {
   bool continuing;
   std::optional<ExprId> value;
@@ -256,7 +260,7 @@ struct Expr {
   std::variant<NameExpr, NumberExpr, StringExpr, UnaryExpr, BinaryExpr, ComparisonExpr, CallExpr,
                ArrayExpr, IndexExpr, TaskExpr, ParallelExpr, ConditionalExpr, LogicalExpr,
                CatchExpr, MatchExpr, FailExpr, LambdaExpr, RecordExpr, FieldExpr, WhileExpr,
-               ArraySetExpr, LoopTransferExpr, ForExpr, YieldExpr>
+               ArraySetExpr, LoopTransferExpr, ForExpr, YieldExpr, ReturnExpr, UnitExpr>
       value;
 };
 struct Statement {

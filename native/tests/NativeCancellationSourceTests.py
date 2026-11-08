@@ -16,12 +16,12 @@ a.output.mkdir(parents=True, exist_ok=True)
 root = Path(__file__).resolve().parents[2]
 source = a.output / 'source.k'
 source.write_text((root / 'native/tests/fixtures/cancellation-workloads.k').read_text().replace(
-    'fn main()->float64:\n  tail(17,100)', '''fn run(kind:int,n:int)->float64:
-  if kind==0:tail(17,n)
+    'fn main()->f64:\n  return tail(17,100)', '''fn run(kind:i64,n:i64)->f64:
+  return if kind==0:tail(17,n)
   else:
     if kind==1:mutual(17,n)
     else:owned(17,n)
-fn main()->float64:
+fn main()->f64:
   run(0,100)'''))
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 compiler_sha = sha(a.compiler)

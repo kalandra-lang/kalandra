@@ -25,7 +25,7 @@ int main() {
       // Field resolution must not depend on placement of the alias declaration.
       for (bool forward : {false, true}) {
         auto result = analyze((forward ? std::string(declaration) + types : types + declaration) +
-                              "fn echo(box:Box)->Box:\n  box\nfn main()->int:\n  0\n");
+                              "fn echo(box:Box)->Box:\n  return box\nfn main()->i64:\n  return 0\n");
         if (!result.ok())
           for (const auto &d : result.diagnostics)
             std::cerr << renderDiagnostic(*result.source, d);
@@ -42,7 +42,7 @@ int main() {
           "Missing\n",
           "type Box:\n  causes:[E]\ntype E=A | B\nerror A:\n  Bad:\n    boxes:[Box]\nerror B:\n  "
           "Missing\n"}) {
-      auto checked = analyze(std::string(program) + "fn main()->int:\n  0\n");
+      auto checked = analyze(std::string(program) + "fn main()->i64:\n  return 0\n");
       require(checked.ok() && bool(continuation::plan(*checked.module)),
               "finite recursive error-alias payload rejected");
 #ifndef KALANDRA_ERROR_PAYLOAD_FRONTEND_ONLY
@@ -59,16 +59,16 @@ int main() {
           "Missing\nerror B:\n  Other\n",
           "type Box:\n  value:Box\n", "type Box:\n  value:Inner\ntype Inner:\n  value:Box\n",
           "type Box:\n  cause:E\ntype E=A | B\nerror A:\n  Missing\nerror B:\n  Other\nfn "
-          "bad()->Box:\n  Box {cause:A.Missing}\n"})
-      require(!analyze(std::string(program) + "fn main()->int:\n  0\n").ok(),
+          "bad()->Box:\n  return Box {cause:A.Missing}\n"})
+      require(!analyze(std::string(program) + "fn main()->i64:\n  return 0\n").ok(),
               "invalid/cyclic alias payload admitted");
     // Error-value fields are completed data, never an implicit result channel.
-    require(!analyze(types + "type Box:\n  cause:Both\nfn bad()->int ! Both:\n  fail A.Bad "
-                             "{text:\"bad\",values:[]}\nfn main()->Box:\n  Box {cause:bad()}\n")
+    require(!analyze(types + "type Box:\n  cause:Both\nfn bad()->i64 ! Both:\n  fail A.Bad "
+                             "{text:\"bad\",values:[]}\nfn main()->Box:\n  return Box {cause:bad()}\n")
                  .ok(),
             "fallible result used as payload data");
-    auto checked = analyze(types + "type Box:\n  cause:Only\nfn echo(box:Box)->Box:\n  box\n"
-                                   "fn main()->int:\n  0\n");
+    auto checked = analyze(types + "type Box:\n  cause:Only\nfn echo(box:Box)->Box:\n  return box\n"
+                                   "fn main()->i64:\n  return 0\n");
     require(checked.ok(), "TaskError field metadata fixture rejected");
     for (int mode = 0; mode < 5; ++mode) {
       auto forged = *checked.module;

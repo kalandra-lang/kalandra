@@ -99,7 +99,7 @@ static bool verify(std::array<std::int64_t, Rank> shape, std::vector<std::int32_
   if (expectedCode) {
     if (result.allocated)
       return reject("partial result published");
-    if (expectedCode == 4 && (context.line() != 2 || context.column() != 3))
+    if (expectedCode == 4 && (context.line() != 2 || context.column() != 10))
       return reject("fault location lost");
   } else {
     if constexpr (Rank > 0) {

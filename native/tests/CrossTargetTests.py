@@ -6,40 +6,40 @@ import re
 import subprocess
 
 SOURCES = {
-    'calls': '''fn count(n:int,a:int)->int:
-  if n==0:a
+    'calls': '''fn count(n:i64,a:i64)->i64:
+  return if n==0:a
   else:count(n-1,a+1)
-fn fib(n:int)->int:
-  if n<2:n
+fn fib(n:i64)->i64:
+  return if n<2:n
   else:fib(n-1)+fib(n-2)
-fn main()->int:
-  count(1000,0)+fib(12)
+fn main()->i64:
+  return count(1000,0)+fib(12)
 ''',
-    'captures': '''fn make(offset:int)->fn(int)->int:
-  fn(value:int):value+offset
-fn walk(n:int,a:int,f:fn(int)->int)->int:
-  if n==0:a
+    'captures': '''fn make(offset:i64)->fn(i64)->i64:
+  return fn(value:i64):return value+offset
+fn walk(n:i64,a:i64,f:fn(i64)->i64)->i64:
+  return if n==0:a
   else:walk(n-1,f(a),f)
-fn main()->int:
-  walk(1000,0,make(3))
+fn main()->i64:
+  return walk(1000,0,make(3))
 ''',
-    'tasks': '''fn double(value:int)->int:
-  value*2
-fn main()->[int] ! TaskError:
-  try parallelMap([1,2,3],double)
+    'tasks': '''fn double(value:i64)->i64:
+  return value*2
+fn main()->[i64] ! TaskError:
+  return try parallelMap([1,2,3],double)
 ''',
     'records': '''type Cell:
-  value:int
-  flag:Bool
-fn main()->int:
+  value:i64
+  flag:bool
+fn main()->i64:
   cells=[Cell {value:3,flag:true},Cell {value:4,flag:false}]
-  cells[0].value+cells[1].value
+  return cells[0].value+cells[1].value
 ''',
-    'floating': '''fn series(n:int)->float64:
-  if n==0:1.0
+    'floating': '''fn series(n:i64)->f64:
+  return if n==0:1.0
   else:series(n-1)*1.000000001+0.25
-fn main()->float64:
-  series(100)
+fn main()->f64:
+  return series(100)
 ''',
 }
 TARGETS = ['x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu',

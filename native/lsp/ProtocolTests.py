@@ -27,12 +27,12 @@ def invalid_stream(data, expected=2):
 with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     root = Path(temp).resolve()
     main = root / 'new space#é.k'
-    good = "fn main()->int:\n  42\n"
+    good = 'fn main()->i64:\n  return 42\n'
     client = Client()
     assert client.rpc("textDocument/hover", {})["error"]["code"] == -32002
     client.init()
     assert client.rpc("initialize", {})["error"]["code"] == -32600
-    client.open(main, 'fn main()->String:\n  "😀é" + missing\n')
+    client.open(main, 'fn main()->String:\n  return "😀é" + missing\n')
     pub = publications(client.barrier())[main.as_uri()]
     assert pub["version"] == 1
     diagnostic = pub["diagnostics"][0]
@@ -69,7 +69,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # Incremental UTF-16 edits over CRLF, sequential ranges and transactional rollback.
     client = Client()
     client.init()
-    client.open(main, 'fn main()->String:\r\n  "😀é" + missing\r\n')
+    client.open(main, 'fn main()->String:\r\n  return "😀é" + missing\r\n')
     client.barrier()
     client.edits(main, [edit(1, 3, 5, "猫", rangeLength=2), edit(1, 9, 16, '"ok"')], 2)
     assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
@@ -106,9 +106,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Open dependencies, changed export signatures, deduplication and close-to-disk.
     lib = root / "lib.k"
-    lib.write_text("export fn value()->int:\n  42\n")
+    lib.write_text('export fn value()->i64:\n  return 42\n')
     main = root / "main.k"
-    caller = 'from "./lib.k" import value\nfn main()->int:\n  value()\n'
+    caller = 'from "./lib.k" import value\nfn main()->i64:\n  return value()\n'
     client = Client()
     client.init()
     client.open(lib, lib.read_text())
@@ -116,28 +116,28 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
     client.edits(lib, [edit(0, 19, 22, "String"), edit(1, 2, 4, '"text"')], 2)
     assert publications(client.barrier())[main.as_uri()]["diagnostics"]
-    client.change(main, caller.replace("->int", "->String"), 2)
+    client.change(main, caller.replace("->i64", "->String"), 2)
     assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
-    client.change(lib, 'export fn value()->String:\n  missing\n', 3)
+    client.change(lib, 'export fn value()->String:\n  return missing\n', 3)
     pub = publications(client.barrier())[lib.as_uri()]
     assert len(pub["diagnostics"]) == 1 and pub["version"] == 3
     client.close(lib)
     pubs = publications(client.barrier())
     assert pubs[main.as_uri()]["diagnostics"]  # Reverts to int from disk.
     assert not pubs[lib.as_uri()]["diagnostics"] and "version" not in pubs[lib.as_uri()]
-    assert lib.read_text() == "export fn value()->int:\n  42\n"
+    assert lib.read_text() == 'export fn value()->i64:\n  return 42\n'
     client.close(main)
     assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
     client.finish()
 
     # Diagnostics in unopened imports, then clearing when an unsaved import fixes it.
-    lib.write_text("export fn value()->int:\n  missing\n")
+    lib.write_text('export fn value()->i64:\n  return missing\n')
     client = Client()
     client.init()
     client.open(main, caller)
     pubs = publications(client.barrier())
     assert pubs[lib.as_uri()]["diagnostics"] and "version" not in pubs[lib.as_uri()]
-    client.open(lib, "export fn value()->int:\n  42\n")
+    client.open(lib, 'export fn value()->i64:\n  return 42\n')
     assert not publications(client.barrier())[lib.as_uri()]["diagnostics"]
     client.close(main)
     client.close(lib)
@@ -145,8 +145,8 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.finish()
 
     # Placement mode uses the shared checker without accessing GPU hardware.
-    placement = ("fn double(x:float32)->float32:\n  x*2\n"
-                 "fn main()->float32 ! TaskError:\n  try parallel:\n"
+    placement = ('fn double(x:f32)->f32:\n  return x*2\n'
+                 "fn main()->f32 ! TaskError:\n  try parallel:\n"
                  "    try await spawn double(2) on devices.gpu()\n")
     for args, expected_error in (((), True), (("--placement",), False)):
         client = Client(*args)
@@ -157,9 +157,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # A CPU-created closure is legal at GPU placement; its captured array stays
     # read-locked through aliases until the task has been awaited.
-    closure = ("fn apply(callback:fn(int)->int)->int:\n  callback(1)\n"
-               "fn main()->int ! TaskError:\n  values=[7,11]\n"
-               "  alias=values\n  callback=fn(n:int):n+values[0]\n  try parallel:\n"
+    closure = ('fn apply(callback:fn(i64)->i64)->i64:\n  return callback(1)\n'
+               "fn main()->i64 ! TaskError:\n  values=[7,11]\n"
+               "  alias=values\n  callback=fn(n:i64):n+values[0]\n  try parallel:\n"
                "    pending=spawn apply(callback) on devices.gpu()\n"
                "    result=try await pending\n    alias[0]=99\n    result\n")
     for source, rejected in ((closure, False),
@@ -176,10 +176,10 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         client.finish()
 
     # Local device records use the same typed admission and nominal hover data.
-    device_record = ("type Row:\n  value:int\n  enabled:Bool\n"
-                     "fn work(n:int)->int:\n  row=Row {value:n,enabled:true}\n"
+    device_record = ("type Row:\n  value:i64\n  enabled:bool\n"
+                     "fn work(n:i64)->i64:\n  row=Row {value:n,enabled:true}\n"
                      "  if row.enabled:row.value\n  else:0\n"
-                     "fn main()->int ! TaskError:\n  try parallel:\n"
+                     "fn main()->i64 ! TaskError:\n  try parallel:\n"
                      "    try await spawn work(42) on devices.gpu()\n")
     client = Client("--placement")
     client.init()
@@ -191,14 +191,14 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # CPU-owned data may coexist with device work; that does not make the
     # recursive/String storage a device value. Checking never probes hardware.
     for owned_record in (
-        'type Message:\n  text:String\nfn make()->Message:\n  Message {text:"Kalandra"}\n'
-        'fn size(message:Message)->int:\n  length(message.text)\n'
-        'fn work(n:int)->int:\n  n\nfn main()->int ! TaskError:\n  value=make()\n'
+        'type Message:\n  text:String\nfn make()->Message:\n  return Message {text:"Kalandra"}\n'
+        'fn size(message:Message)->i64:\n  return length(message.text)\n'
+        'fn work(n:i64)->i64:\n  return n\nfn main()->i64 ! TaskError:\n  value=make()\n'
         '  try parallel:\n    try await spawn work(size(value)) on devices.gpu()\n',
-        'enum Link:\n  End\n  Next:\n    value:int\n    tail:Link\n'
-        'fn size(link:Link)->int:\n  match link:\n    Link.End:0\n'
+        'enum Link:\n  End\n  Next:\n    value:i64\n    tail:Link\n'
+        'fn size(link:Link)->i64:\n  return match link:\n    Link.End:0\n'
         '    Link.Next {value,tail}:value+size(tail)\n'
-        'fn work(n:int)->int:\n  n\nfn main()->int ! TaskError:\n'
+        'fn work(n:i64)->i64:\n  n\nfn main()->i64 ! TaskError:\n'
         '  value=Link.Next {value:42,tail:Link.End}\n  try parallel:\n'
         '    try await spawn work(size(value)) on devices.gpu()\n',
     ):
@@ -215,31 +215,31 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Device-local arrays and ordered collectors share the ordinary array type
     # and access diagnostics. Editor checking never initializes a GPU driver.
-    device_arrays = ("fn work(n:int)->int:\n"
+    device_arrays = ("fn work(n:i64)->i64:\n"
                      "  values=for i in range(n):\n    if i%2==1:\n      yield i\n"
                      "  snapshot=copy(values)\n"
                      "  if length(values)>0:\n    values[0]=99\n  length(snapshot)\n"
-                     "fn main()->int ! TaskError:\n  try parallel:\n"
+                     "fn main()->i64 ! TaskError:\n  try parallel:\n"
                      "    try await spawn work(10) on devices.gpu()\n")
     client = Client("--placement")
     client.init()
     client.open(main, device_arrays)
     assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
-    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "snapshot: [int64]"
+    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "snapshot: [i64]"
     client.finish()
 
-    device_boolean = ("fn predicate(flag:Bool)->Bool:\n  flag\n"
-                      "fn main()->Bool ! TaskError:\n  try parallel:\n"
+    device_boolean = ('fn predicate(flag:bool)->bool:\n  return flag\n'
+                      "fn main()->bool ! TaskError:\n  try parallel:\n"
                       "    result=try await spawn predicate(true) on devices.gpu()\n    result\n")
     client = Client("--placement")
     client.init()
     client.open(main, device_boolean)
     assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
-    assert client.hover(main, 4, 6)["result"]["contents"]["value"] == "result: Bool"
+    assert client.hover(main, 4, 6)["result"]["contents"]["value"] == "result: bool"
     client.finish()
 
     # Explicit project package mappings and no startup source execution.
-    lib.write_text("export fn value()->int:\n  42\n")
+    lib.write_text('export fn value()->i64:\n  return 42\n')
     manifest = root / "kalandra.toml"
     manifest.write_text('format=1\n[project]\nentry="main.k"\n[packages]\nmath="lib.k"\n')
     main.write_text(caller.replace('"./lib.k"', '"math"'))
@@ -247,7 +247,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.init()
     client.open(main, main.read_text())
     assert not publications(client.barrier())[main.as_uri()]["diagnostics"]
-    client.change(main, "fn main()->int:\n  missing\n", 2)
+    client.change(main, 'fn main()->i64:\n  return missing\n', 2)
     assert publications(client.barrier())[main.as_uri()]["diagnostics"]
     client.finish()
 
@@ -256,7 +256,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.init()
     local_uri = main.as_uri().replace("file:///", "file://localhost/")
     client.send("textDocument/didOpen", {"textDocument": {"uri": local_uri,
-        "languageId": "kalandra", "version": 1, "text": "fn main()->int:\n  missing\n"}})
+        "languageId": "kalandra", "version": 1, "text": 'fn main()->i64:\n  return missing\n'}})
     assert publications(client.barrier())[local_uri]["diagnostics"]
     client.send("textDocument/didClose", {"textDocument": {"uri": local_uri}})
     assert not publications(client.barrier())[local_uri]["diagnostics"]
@@ -296,26 +296,26 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert not client.process.stderr.read()
 
     # Hover reflects checked types, open-buffer changes and exact UTF-16 token ranges.
-    source = "fn double(value:int):\n  value*2\nfn main():\n  number=21\n  double(number)\n"
+    source = 'fn double(value:i64):\n  return value*2\nfn main():\n  number=21\n  return double(number)\n'
     client = Client()
     client.init()
     client.open(main, source)
     result = client.hover(main, 0, 4)["result"]
-    assert result["contents"] == {"kind": "plaintext", "value": "fn double(value: int64) -> int64"}
+    assert result["contents"] == {"kind": "plaintext", "value": "fn double(value: i64) -> i64"}
     assert result["range"] == {"start": {"line": 0, "character": 3}, "end": {"line": 0, "character": 9}}
-    assert client.hover(main, 3, 3)["result"]["contents"]["value"] == "number: int64"
-    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "fn double(value: int64) -> int64"
+    assert client.hover(main, 3, 3)["result"]["contents"]["value"] == "number: i64"
+    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "fn double(value: i64) -> i64"
     assert client.hover(main, 1, 0)["result"] is None  # Whitespace.
     assert client.hover(main, 0, 0)["result"] is None  # Keyword.
     assert client.hover(main, 999, 0)["result"] is None
     assert client.hover(main, 0, -1)["error"]["code"] == -32602
     assert client.rpc("textDocument/hover", {})["error"]["code"] == -32602
-    client.edits(main, [edit(3, 11, 11, ".5"), edit(0, 16, 19, "float")], 2)
-    assert client.hover(main, 3, 3)["result"]["contents"]["value"] == "number: float64"
-    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "fn double(value: float64) -> float64"
-    client.change(main, "fn main():\n  unknown\n", 3)
+    client.edits(main, [edit(3, 11, 11, ".5"), edit(0, 16, 19, "f64")], 2)
+    assert client.hover(main, 3, 3)["result"]["contents"]["value"] == "number: f64"
+    assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "fn double(value: f64) -> f64"
+    client.change(main, 'fn main():\n  return unknown\n', 3)
     assert client.hover(main, 0, 4)["result"] is None  # No stale/partial typed IR.
-    client.change(main, 'fn main()->String:\r\n  text="😀é"\r\n  text\r\n', 4)
+    client.change(main, 'fn main()->String:\r\n  text="😀é"\r\n  return text\r\n', 4)
     result = client.hover(main, 1, 10)["result"]  # Inside the string after the emoji.
     assert result["contents"]["value"] == "String"
     assert result["range"] == {"start": {"line": 1, "character": 7}, "end": {"line": 1, "character": 12}}
@@ -326,17 +326,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.finish()
 
     # Imported alias calls resolve to the compiler target, with current unsaved exports.
-    lib.write_text("export fn scale(value:int):\n  value*2\n")
-    caller = 'from "./lib.k" import scale as twice\nfn main():\n  twice(21)\n'
+    lib.write_text('export fn scale(value:i64):\n  return value*2\n')
+    caller = 'from "./lib.k" import scale as twice\nfn main():\n  return twice(21)\n'
     client = Client()
     client.init(["markdown", "plaintext"])
     client.open(main, caller)
     hover = client.hover(main, 2, 3)["result"]
-    assert hover["contents"] == {"kind": "markdown", "value": "```kalandra\nfn twice(value: int64) -> int64\n```"}
-    client.open(lib, "export fn scale(value:float):\n  value*2\n")
-    assert "float64" in client.hover(main, 2, 3)["result"]["contents"]["value"]
+    assert hover["contents"] == {"kind": "markdown", "value": "```kalandra\nfn twice(value: i64) -> i64\n```"}
+    client.open(lib, 'export fn scale(value:f64):\n  return value*2\n')
+    assert "f64" in client.hover(main, 2, 3)["result"]["contents"]["value"]
     client.edits(main, [edit(2, 10, 10, ".5")], 2)
-    assert "float64" in client.hover(main, 2, 3)["result"]["contents"]["value"]
+    assert "f64" in client.hover(main, 2, 3)["result"]["contents"]["value"]
     client.close(lib)
     assert client.hover(main, 2, 3)["result"] is None
     client.finish()
@@ -344,23 +344,23 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # Definition locations follow checked symbol identity and current source offsets.
     client = Client()
     client.init()
-    source = "fn twice(value:int):\n  value*2\nfn main():\n  transform=twice\n  transform(21)\n"
+    source = 'fn twice(value:i64):\n  return value*2\nfn main():\n  transform=twice\n  return transform(21)\n'
     client.open(main, source)
     target = client.definition(main, 1, 3)["result"]
     assert target == {"uri": main.as_uri(), "range": {"start": {"line": 0, "character": 9},
                                                         "end": {"line": 0, "character": 14}}}
     assert client.definition(main, 3, 14)["result"]["range"]["start"] == {"line": 0, "character": 3}
     assert client.definition(main, 4, 4)["result"]["range"]["start"] == {"line": 3, "character": 2}
-    client.change(main, 'fn main()->String:\r\n  text="é"\r\n  "😀" + text\r\n', 2)
+    client.change(main, 'fn main()->String:\r\n  text="é"\r\n  return "😀" + text\r\n', 2)
     assert client.definition(main, 2, 10)["result"]["range"]["start"] == {"line": 1, "character": 2}
     assert client.definition(main, 2, 4)["result"] is None  # Inside the emoji's surrogate pair.
     assert client.definition(main, 1, 8)["result"] is None  # String literal.
     assert client.definition(main, 999, 0)["result"] is None
     assert client.definition(main, 0, -1)["error"]["code"] == -32602
     assert client.rpc("textDocument/definition", {})["error"]["code"] == -32602
-    client.change(main, "fn main():\n  value=1\n  callback=fn(x:int):x+value\n  callback(2)\n", 3)
+    client.change(main, 'fn main():\n  value=1\n  callback=fn(x:i64):return x+value\n  return callback(2)\n', 3)
     assert client.definition(main, 2, 25)["result"]["range"]["start"] == {"line": 1, "character": 2}
-    client.change(main, "fn main():\n  missing\n", 4)
+    client.change(main, 'fn main():\n  return missing\n', 4)
     assert client.definition(main, 0, 4)["result"] is None
     client.close(main)
     assert client.definition(main, 0, 4)["result"] is None
@@ -369,7 +369,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # References distinguish lexical identities and honor declaration filtering.
     client = Client()
     client.init()
-    source = "fn main()->int:\n  value=1\n  if true:\n    value=2\n    value\n  else:\n    value\n"
+    source = 'fn main()->i64:\n  value=1\n  return if true:\n    value=2\n    value\n  else:\n    value\n'
     client.open(main, source)
     refs = client.references(main, 1, 3)["result"]
     assert [r["range"]["start"] for r in refs] == [
@@ -383,7 +383,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     for context in ({}, {"includeDeclaration": 1}, {"includeDeclaration": "true"}):
         assert client.rpc("textDocument/references", {"textDocument": {"uri": main.as_uri()},
             "position": {"line": 1, "character": 3}, "context": context})["error"]["code"] == -32602
-    client.change(main, 'fn main()->String:\r\n  text="é"\r\n  "😀" + text\r\n', 2)
+    client.change(main, 'fn main()->String:\r\n  text="é"\r\n  return "😀" + text\r\n', 2)
     refs = client.references(main, 1, 3)["result"]
     assert refs == [{"uri": main.as_uri(), "range": {"start": {"line": 2, "character": 9},
                                                       "end": {"line": 2, "character": 13}}}]
@@ -395,9 +395,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # Nominal annotations, constructors and update labels use checked source identities.
     client = Client()
     client.init()
-    types = ("type Point:\n  x:int\ntype Other:\n  x:int\n"
-             "fn copy(point:Point)->Point:\n  point with {x:point.x+1}\n"
-             "fn main()->Point:\n  value:Point=Point {x:2}\n  copy(value)\n")
+    types = ("type Point:\n  x:i64\ntype Other:\n  x:i64\n"
+             'fn copy(point:Point)->Point:\n  return point with {x:point.x+1}\n'
+             'fn main()->Point:\n  value:Point=Point {x:2}\n  return copy(value)\n')
     client.open(main, types)
     line = types.splitlines()[7]
     target = {"uri": main.as_uri(), "range": {"start": {"line": 0, "character": 5},
@@ -412,21 +412,21 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert field["range"]["start"] == {"line": 1, "character": 2}
     refs = client.references(main, 7, label)["result"]
     assert len(refs) == 3 and {r["range"]["start"]["line"] for r in refs} == {5, 7}
-    assert client.hover(main, 7, label)["result"]["contents"]["value"] == "x: int64"
+    assert client.hover(main, 7, label)["result"]["contents"]["value"] == "x: i64"
     assert client.definition(main, 1, 4)["result"] is None  # Builtin type has no source declaration.
     client.edits(main, [edit(0, 0, 0, "# 😀\r\n")], 2)
     assert client.definition(main, 8, label)["result"]["range"]["start"]["line"] == 2
-    client.change(main, "type Point:\n  x:int\nfn main():\n  Point {bad:1}\n", 3)
+    client.change(main, 'type Point:\n  x:i64\nfn main():\n  return Point {bad:1}\n', 3)
     assert client.definition(main, 3, 3)["result"] is None
     client.finish()
 
     # Enum cases and shorthand pattern tokens retain both field and local roles.
     client = Client()
     client.init()
-    enum = ("enum Signal:\n  Off\n  Sample:\n    value:int\n"
-            "fn read(signal:Signal)->int:\n  match signal:\n"
+    enum = ("enum Signal:\n  Off\n  Sample:\n    value:i64\n"
+            "fn read(signal:Signal)->i64:\n  match signal:\n"
             "    Signal.Sample {value}:value\n    Signal.Off:0\n"
-            "fn main():\n  read(Signal.Sample {value:2})\n")
+            'fn main():\n  return read(Signal.Sample {value:2})\n')
     client.open(main, enum)
     pattern = enum.splitlines()[6]
     case = pattern.index("Sample")
@@ -441,7 +441,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.definition(main, 6, label)["result"] == binding
     assert len(client.references(main, 6, label)["result"]) == 1
     assert len(client.references(main, 3, 5)["result"]) == 2  # Field label includes shorthand.
-    assert client.hover(main, 6, label)["result"]["contents"]["value"] == "value: int64"
+    assert client.hover(main, 6, label)["result"]["contents"]["value"] == "value: i64"
     explicit = enum.replace("{value}:value", "{value:item}:item")
     client.change(main, explicit, 2)
     field = client.definition(main, 6, label)["result"]
@@ -455,11 +455,11 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Imported enum case and payload origins follow an unsaved library's source URI.
     enum_lib = root / "enum space#é.k"
-    enum_text = "export enum Signal:\n  Off\n  Sample:\n    value:int\n"
+    enum_text = "export enum Signal:\n  Off\n  Sample:\n    value:i64\n"
     enum_lib.write_text(enum_text)
     enum_facade = root / "enum-public.k"
     enum_facade.write_text('export from "./enum space#é.k" import Signal as PublicSignal\n')
-    enum_caller = ('from "./enum-public.k" import PublicSignal as S\nfn main()->int:\n'
+    enum_caller = ('from "./enum-public.k" import PublicSignal as S\nfn main()->i64:\n'
                    '  match S.Sample {value:2}:\n    S.Sample {value:item}:item\n    _:0\n')
     client = Client()
     client.init()
@@ -482,12 +482,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # A same-spelled local function cannot steal a re-exported alias's destination.
     leaf = root / "deep space#é.k"
-    original = "export fn scale(value:int):\n  value*2\n"
+    original = 'export fn scale(value:i64):\n  return value*2\n'
     leaf.write_text(original)
     facade = root / "public.k"
     facade.write_text('export from "./deep space#é.k" import scale as advertised\n')
     caller = ('from "./public.k" import advertised as twice\n'
-              'fn scale(value:String):\n  value\nfn main():\n  twice(21)\n')
+              'fn scale(value:String):\n  return value\nfn main():\n  return twice(21)\n')
     client = Client()
     client.init()
     client.open(main, caller)
@@ -501,11 +501,11 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.definition(main, 0, caller.index("twice"))["result"] == target
     assert "fn twice(" in client.hover(main, 0, caller.index("twice"))["result"]["contents"]["value"]
     other = root / "other.k"
-    client.open(other, 'from "./public.k" import advertised\nfn main():\n  advertised(3)\n')
+    client.open(other, 'from "./public.k" import advertised\nfn main():\n  return advertised(3)\n')
     refs = client.references(main, 4, 4)["result"]
     assert {r["uri"] for r in refs} == {main.as_uri(), other.as_uri(), facade.as_uri()}
     assert len(refs) == 7  # Shared dependency occurrences are deduplicated.
-    client.change(other, "fn main():\n  missing\n", 2)
+    client.change(other, 'fn main():\n  return missing\n', 2)
     assert client.references(main, 4, 4)["error"]["code"] == -32803
     client.close(other)
     local_uri = leaf.as_uri().replace("file:///", "file://localhost/")
@@ -541,17 +541,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     workspace.mkdir()
     (workspace / "nested").mkdir()
     ws_lib = workspace / "lib.k"
-    ws_source = "export fn twice(value:int):\n  value*2\n"
+    ws_source = 'export fn twice(value:i64):\n  return value*2\n'
     ws_lib.write_text(ws_source)
     first = workspace / "first.k"
-    first_source = 'from "./lib.k" import twice\nfn main():\n  twice(1)\n'
+    first_source = 'from "./lib.k" import twice\nfn main():\n  return twice(1)\n'
     first.write_text(first_source)
     second = workspace / "nested" / "second.k"
     second.write_text(first_source.replace('"./lib.k"', '"../lib.k"'))
     sibling = root / "workspace-other"
     sibling.mkdir()
     broken = sibling / "bad.k"
-    broken.write_text("fn main():\n  unknown\n")
+    broken.write_text('fn main():\n  return unknown\n')
     folders = [{"uri": workspace.as_uri(), "name": "project"},
                {"uri": sibling.as_uri(), "name": "other"}]
     client = Client()
@@ -569,7 +569,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert len(client.references(ws_lib, 0, 11)["result"]) == 6
     added.unlink()
     assert len(client.references(ws_lib, 0, 11)["result"]) == 4
-    first.write_text("fn main():\n  missing\n")
+    first.write_text('fn main():\n  return missing\n')
     first_uri = first.as_uri().replace("file:///", "file://localhost/")
     client.send("textDocument/didOpen", {"textDocument": {"uri": first_uri,
         "languageId": "kalandra", "version": 1, "text": first_source}})
@@ -578,14 +578,14 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.send("textDocument/didClose", {"textDocument": {"uri": first_uri}})
     assert client.references(ws_lib, 0, 11)["error"]["code"] == -32803
     first.write_text(first_source)
-    client.change(ws_lib, "export fn twice(value:String):\n  value\n", 2)
+    client.change(ws_lib, 'export fn twice(value:String):\n  return value\n', 2)
     assert client.references(ws_lib, 0, 11)["error"]["code"] == -32803
     client.change(ws_lib, ws_source, 3)
     for excluded in (".git", ".hg", ".svn", "node_modules", "build", "dist", "target",
                      ".cache", ".svelte-kit", ".vercel"):
         directory = workspace / excluded
         directory.mkdir()
-        (directory / "bad.k").write_text("fn main():\n  unknown\n")
+        (directory / "bad.k").write_text('fn main():\n  return unknown\n')
     (workspace / "external-link").symlink_to(sibling, target_is_directory=True)
     (workspace / "file-link.k").symlink_to(broken)
     assert len(client.references(ws_lib, 0, 11)["result"]) == 4
@@ -602,7 +602,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.open(ws_lib, ws_source)
     assert len(client.references(ws_lib, 0, 11)["result"]) == 4
     outside = root / "standalone.k"
-    standalone = "fn only()->int:\n  1\nfn main():\n  only()\n"
+    standalone = 'fn only()->i64:\n  return 1\nfn main():\n  return only()\n'
     client.open(outside, standalone)
     assert len(client.references(outside, 0, 4)["result"]) == 1  # Outside configured roots: own graph only.
     client.finish()
@@ -614,7 +614,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     island_lib.write_text(ws_source)
     (nested_workspace / "caller.k").write_text(first_source)
     outer_bad = workspace / "bad.k"
-    outer_bad.write_text("fn main():\n  missing\n")
+    outer_bad.write_text('fn main():\n  return missing\n')
     client = Client()
     client.init(workspaceFolders=[folders[0], {"uri": nested_workspace.as_uri(), "name": "nested"}])
     client.open(island_lib, ws_source)
@@ -685,9 +685,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     rename_root = root / "rename-unicode"
     rename_root.mkdir()
     rename_file = rename_root / "main.k"
-    disk = "fn main():\n  0\n"
+    disk = 'fn main():\n  return 0\n'
     rename_file.write_text(disk)
-    rename_text = '# 😀\r\nfn main()->String:\r\n  value="é"\r\n  "😀" + value\r\n'
+    rename_text = '# 😀\r\nfn main()->String:\r\n  value="é"\r\n  return "😀" + value\r\n'
     rename_uri = rename_file.as_uri().replace("file:///", "file://localhost/")
     client = Client()
     client.init(rename=True, rootUri=rename_root.as_uri())
@@ -705,7 +705,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert rename_file.read_text() == disk
     assert client.prepare_rename(rename_uri, 3, 10)["result"] == prepared  # Proposal did not mutate state.
     assert client.rename(rename_uri, 3, 10, "value")["result"] == {"documentChanges": []}
-    for invalid in ("", "fn", "String", "float32", "_", "main", "é", "a b", "9name"):
+    for invalid in ("", "fn", "String", "f32", "_", "main", "é", "a b", "9name"):
         assert client.rename(rename_uri, 3, 10, invalid)["error"]["code"] == -32602
     assert client.prepare_rename(rename_uri, 1, 4)["result"] is None  # main entry.
     assert client.prepare_rename(rename_uri, 1, 0)["result"] is None  # keyword.
@@ -741,12 +741,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     alias_root = root / "rename-aliases"
     alias_root.mkdir()
     alias_sources = {
-        "lib.k": "export fn scale(value:int):\n  value*2\n",
+        "lib.k": 'export fn scale(value:i64):\n  return value*2\n',
         "facade.k": 'export from "./lib.k" import scale as publicScale\n',
         "relay.k": 'export from "./facade.k" import publicScale\n',
-        "main.k": 'from "./relay.k" import publicScale as localScale\nfn main():\n  localScale(2)\n',
-        "unopened.k": 'from "./lib.k" import scale\nfn main():\n  scale(2)\n',
-        "same.k": 'from "./lib.k" import scale as scale\nfn main():\n  scale(2)\n'}
+        "main.k": 'from "./relay.k" import publicScale as localScale\nfn main():\n  return localScale(2)\n',
+        "unopened.k": 'from "./lib.k" import scale\nfn main():\n  return scale(2)\n',
+        "same.k": 'from "./lib.k" import scale as scale\nfn main():\n  return scale(2)\n'}
     for file, text in alias_sources.items():
         (alias_root/file).write_text(text)
     alias_uris = {(alias_root/file).as_uri(): text for file, text in alias_sources.items()}
@@ -784,7 +784,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     pattern_root = root / "rename-patterns"
     pattern_root.mkdir()
     pattern_file = pattern_root / "main.k"
-    pattern_source = ('enum Box:\n  Some:\n    value:int\nfn read(box:Box)->int:\n'
+    pattern_source = ('enum Box:\n  Some:\n    value:i64\nfn read(box:Box)->i64:\n'
                       '  match box:\n    Box.Some {value}:value\nfn main():\n  read(Box.Some {value:2})\n')
     pattern_file.write_text(pattern_source)
     client = Client()
@@ -803,7 +803,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     capture_root = root / "rename-capture"
     capture_root.mkdir()
     capture_file = capture_root/"main.k"
-    capture_source = "fn main():\n  value=1\n  read=fn(other:int):value+other\n  read(2)\n"
+    capture_source = 'fn main():\n  value=1\n  read=fn(other:i64):return value+other\n  read(2)\n'
     capture_file.write_text(capture_source)
     client = Client()
     client.init(rename=True, rootUri=capture_root.as_uri())
@@ -819,12 +819,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     completion_root = Path(temp) / "completion"
     completion_root.mkdir()
     library = completion_root / "library.k"
-    library.write_text("export fn hidden(value:int):\n  value\n")
+    library.write_text('export fn hidden(value:i64):\n  return value\n')
     document = completion_root / "main.k"
     client = Client()
     client.init()
     text = ('from "./library.k" import hidden as publicName\n'
-            'fn main():\n  earlier = 1\n  pubSuffix\n')
+            'fn main():\n  earlier = 1\n  return pubSuffix\n')
     client.open(document, text)
     client.barrier()
     result = client.completion(document, 3, 5)["result"]
@@ -836,7 +836,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         "start": {"line": 3, "character": 2}, "end": {"line": 3, "character": 11}}}, item
     assert not document.exists(), "completion wrote the unsaved document"
     assert not client.barrier(), "completion published probe diagnostics"
-    client.open(library, "export fn changed(value:int):\n  value\n")
+    client.open(library, 'export fn changed(value:i64):\n  return value\n')
     client.barrier()
     assert client.completion(document, 3, 5)["result"]["items"] == [], "stale import suggestions"
     client.close(library)
@@ -844,7 +844,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.completion(document, 3, 5)["result"]["items"][0]["label"] == "publicName"
     # Astral Unicode before a cursor must not shift the UTF-16 replacement edit.
     # Use a preceding String argument instead of an unsupported statement separator.
-    text = 'fn join(text:String, value:int):\n  value\nfn main():\n  earlier = 2\n  join("😀", earSuffix)\n'
+    text = 'fn join(text:String, value:i64):\n  return value\nfn main():\n  earlier = 2\n  return join("😀", earSuffix)\n'
     client.change(document, text, 2)
     client.barrier()
     result = client.completion(document, 4, 16)["result"]
@@ -856,10 +856,10 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.rpc("textDocument/completion", {"textDocument": {"uri": document.as_uri()},
         "position": {"line": -1, "character": 0}})["error"]["code"] == -32602
     # Record fields use current imported declarations and UTF-16 member edits.
-    library.write_text("export type Box:\n  value:int\n")
+    library.write_text("export type Box:\n  value:i64\n")
     text = ('from "./library.k" import Box\n'
-            'fn join(text:String, value:int):\n  value\n'
-            'fn main():\n  box=Box {value:1}\n  join("😀", box.vaSuffix)\n')
+            'fn join(text:String, value:i64):\n  return value\n'
+            'fn main():\n  box=Box {value:1}\n  return join("😀", box.vaSuffix)\n')
     client.change(document, text, 3)
     client.barrier()
     member_line = text.splitlines()[5]
@@ -872,7 +872,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         "start": {"line": 5, "character": start},
         "end": {"line": 5, "character": start + len("vaSuffix")}}}, field
     assert not client.barrier(), "member probe leaked diagnostics"
-    client.open(library, "export type Box:\n  changed:int\n")
+    client.open(library, "export type Box:\n  changed:i64\n")
     client.barrier()
     assert client.completion(document, 5, start + 2)["result"]["items"] == [], "stale member declaration"
     client.change(document, text.replace("{value:1}", "{changed:1}").replace("vaSuffix", "chSuffix"), 4)
@@ -881,9 +881,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.close(library)
     client.barrier()
     # Enum constructors and match patterns use the same current nominal declaration.
-    library.write_text("export enum Choice:\n  Some:\n    value:int\n  Other\n")
+    library.write_text("export enum Choice:\n  Some:\n    value:i64\n  Other\n")
     text = ('from "./library.k" import Choice as Pick\n'
-            'fn main():\n  Pick.SoSuffix {value:1}\n')
+            'fn main():\n  return Pick.SoSuffix {value:1}\n')
     client.change(document, text, 5)
     client.barrier()
     result = client.completion(document, 2, 9)["result"]
@@ -895,7 +895,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert not client.barrier(), "enum probe leaked diagnostics"
     text = ('from "./library.k" import Choice as Pick\n'
             'fn inspect(c:Pick):\n  match c:\n    Pick.Other: 0\n    Pick.: 1\n'
-            'fn main():\n  0\n')
+            'fn main():\n  return 0\n')
     client.change(document, text, 6)
     client.barrier()
     assert [item["label"] for item in client.completion(document, 4, 9)["result"]["items"]] == ["Some"]
@@ -905,9 +905,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.close(library)
     client.barrier()
     # Named construction labels add a colon only when absent, without dummy values.
-    library.write_text("export type Box:\n  value:int\n  other:int\n")
+    library.write_text("export type Box:\n  value:i64\n  other:i64\n")
     text = ('from "./library.k" import Box\n'
-            'fn join(text:String,value:Box):\n  value\n'
+            'fn join(text:String,value:Box):\n  return value\n'
             'fn main():\n  join("😀", Box { vaSuffix, other:2 })\n')
     client.change(document, text, 7)
     client.barrier()
@@ -925,15 +925,15 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(document, text.replace("vaSuffix", "vaSuffix:1"), 8)
     client.barrier()
     assert client.completion(document, 4, start + 2)["result"]["items"][0]["textEdit"]["newText"] == "value"
-    client.open(library, "export type Box:\n  variable:int\n  other:int\n")
+    client.open(library, "export type Box:\n  variable:i64\n  other:i64\n")
     client.barrier()
     assert [item["label"] for item in client.completion(document, 4, start + 2)["result"]["items"]] == ["variable"]
     client.close(library)
     client.barrier()
     # Pattern labels preserve shorthand and explicit local binder names.
-    library.write_text("export enum Choice:\n  Some:\n    value:int\n    count:int\n  Other\n")
+    library.write_text("export enum Choice:\n  Some:\n    value:i64\n    count:i64\n  Other\n")
     text = ('from "./library.k" import Choice as Pick\n'
-            'fn inspect(p:Pick):\n  match p:\n    Pick.Some {vaSuffix, count:total}: 0\n'
+            'fn inspect(p:Pick):\n  return match p:\n    Pick.Some {vaSuffix, count:total}: 0\n'
             '    Pick.Other: 0\nfn main():\n  0\n')
     client.change(document, text, 9)
     client.barrier()
@@ -948,7 +948,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.completion(document, 3, start + 2)["result"]["items"][0]["textEdit"]["newText"] == "value"
     assert client.completion(document, 3, start + 11)["result"]["items"] == []
     assert not client.barrier(), "pattern probe leaked diagnostics"
-    client.open(library, "export enum Choice:\n  Some:\n    variable:int\n    count:int\n  Other\n")
+    client.open(library, "export enum Choice:\n  Some:\n    variable:i64\n    count:i64\n  Other\n")
     client.barrier()
     assert [item["label"] for item in client.completion(document, 3, start + 2)["result"]["items"]] == ["variable"]
     client.close(library)
@@ -962,24 +962,24 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # Signature help uses checked imported signatures and current unsaved graphs.
     signature_document = Path(temp) / "signature.k"
     signature_library = Path(temp) / "signatures.k"
-    library_text = "export fn combine(text:String,left:int,right:int)->int:\n  left+right\n"
+    library_text = 'export fn combine(text:String,left:i64,right:i64)->i64:\n  return left+right\n'
     signature_library.write_text(library_text)
     client = Client()
     client.init()
     text = ('from "./signatures.k" import combine as join\n'
-            'fn main():\n  join("😀",1,2)\n')
+            'fn main():\n  return join("😀",1,2)\n')
     client.open(signature_document, text)
     client.barrier()
     line = text.splitlines()[2]
     cursor = len(line[:line.index(",2") + 1].encode("utf-16-le")) // 2
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result == {"signatures": [{"label": "fn join(text: String, left: int64, right: int64) -> int64",
-        "parameters": [{"label": "text: String"}, {"label": "left: int64"}, {"label": "right: int64"}]}],
+    assert result == {"signatures": [{"label": "fn join(text: String, left: i64, right: i64) -> i64",
+        "parameters": [{"label": "text: String"}, {"label": "left: i64"}, {"label": "right: i64"}]}],
         "activeSignature": 0, "activeParameter": 2}, result
     assert not client.barrier(), "signature query leaked diagnostics"
     client.open(signature_library, library_text.replace("right", "amount"))
     client.barrier()
-    assert "amount: int64" in client.signature(signature_document, 2, cursor)["result"]["signatures"][0]["label"]
+    assert "amount: i64" in client.signature(signature_document, 2, cursor)["result"]["signatures"][0]["label"]
     client.change(signature_library, library_text.replace("left+right", "missing"), 2)
     client.barrier()
     assert client.signature(signature_document, 2, cursor)["result"] is None
@@ -991,7 +991,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.signature(signature_document, 2, cursor)["result"] is None
     # Recovery applies only at the trailing cursor, never by hiding later source.
     recovered = client.signature(signature_document, 2, cursor + 1)["result"]
-    assert recovered["activeParameter"] == 2 and "right: int64" in recovered["signatures"][0]["label"], recovered
+    assert recovered["activeParameter"] == 2 and "right: i64" in recovered["signatures"][0]["label"], recovered
     assert not client.barrier(), "recovery query published synthetic diagnostics"
     client.change(signature_document, text.replace(',2)', ','), 3)
     client.barrier()
@@ -1009,47 +1009,47 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     client = Client()
     client.init(signature_offsets=True)
-    text = 'fn add(a:int,b:int)->int:\n  a+b\nfn main():\n  f=add\n  f(1,2)\n'
+    text = 'fn add(a:i64,b:i64)->i64:\n  return a+b\nfn main():\n  f=add\n  return f(1,2)\n'
     client.open(signature_document, text)
     client.barrier()
     result = client.signature(signature_document, 4, 6)["result"]
     assert result["activeParameter"] == 1
-    assert result["signatures"][0] == {"label": "fn f(int64, int64) -> int64",
+    assert result["signatures"][0] == {"label": "fn f(i64, i64) -> i64",
         "parameters": [{"label": [5, 10]}, {"label": [12, 17]}]}, result
     client.finish()
 
     # Higher-order calls use the checked invocation's callee type, not the factory's signature.
     higher_library = Path(temp) / "higher-order.k"
-    higher_text = "export fn make()->fn(int,int)->int:\n  fn(a:int,b:int):a+b\n"
+    higher_text = 'export fn make()->fn(i64,i64)->i64:\n  return fn(a:i64,b:i64):return a+b\n'
     higher_library.write_text(higher_text)
     client = Client()
     client.init(signature_offsets=True)
     text = ('from "./higher-order.k" import make as factory\n'
-            'fn main():\n  factory()(1,2)\n')
+            'fn main():\n  return factory()(1,2)\n')
     client.open(signature_document, text)
     client.barrier()
     cursor = text.splitlines()[2].index(",2") + 1
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result == {"signatures": [{"label": "fn(int64, int64) -> int64",
+    assert result == {"signatures": [{"label": "fn(i64, i64) -> i64",
         "parameters": [{"label": [3, 8]}, {"label": [10, 15]}]}],
         "activeSignature": 0, "activeParameter": 1}, result
     assert not client.barrier(), "higher-order query published diagnostics"
-    client.open(higher_library, higher_text.replace("int", "uint"))
+    client.open(higher_library, higher_text.replace("i64", "u64"))
     client.barrier()
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result["signatures"][0]["label"] == "fn(uint64, uint64) -> uint64", result
+    assert result["signatures"][0]["label"] == "fn(u64, u64) -> u64", result
     client.change(higher_library, higher_text.replace("a+b", "missing"), 2)
     client.barrier()
     assert client.signature(signature_document, 2, cursor)["result"] is None
     client.close(higher_library)
     client.barrier()
     text = ('from "./higher-order.k" import make as factory\n'
-            'fn main():\n  callbacks=[factory()]\n  callbacks[0](1,2)\n')
+            'fn main():\n  callbacks=[factory()]\n  return callbacks[0](1,2)\n')
     client.change(signature_document, text, 2)
     client.barrier()
     cursor = text.splitlines()[3].index(",2") + 1
     result = client.signature(signature_document, 3, cursor)["result"]
-    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(int64, int64) -> int64", result
+    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(i64, i64) -> i64", result
     client.change(signature_document, text.replace("callbacks[0]", "callbacks[2]"), 3)
     client.barrier()
     assert client.signature(signature_document, 3, cursor)["result"] is None
@@ -1064,10 +1064,10 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     cursor = len(recovered_text.splitlines()[2])
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result["signatures"][0]["label"] == "fn(int64, int64) -> int64", result
-    client.open(higher_library, higher_text.replace("int", "uint"))
+    assert result["signatures"][0]["label"] == "fn(i64, i64) -> i64", result
+    client.open(higher_library, higher_text.replace("i64", "u64"))
     client.barrier()
-    assert client.signature(signature_document, 2, cursor)["result"]["signatures"][0]["label"] == "fn(uint64, uint64) -> uint64"
+    assert client.signature(signature_document, 2, cursor)["result"]["signatures"][0]["label"] == "fn(u64, u64) -> u64"
     client.change(higher_library, higher_text.replace("a+b", "missing"), 2)
     client.barrier()
     assert client.signature(signature_document, 2, cursor)["result"] is None
@@ -1081,16 +1081,16 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client = Client()
     client.init(signature_offsets=True)
     partial_text = ('from "./higher-order.k" import make as factory\n'
-                    'fn main():\n  factory()(1,)\n')
+                    'fn main():\n  return factory()(1,)\n')
     client.open(signature_document, partial_text)
     client.barrier()
     cursor = partial_text.splitlines()[2].index(",)") + 1
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(int64, int64) -> int64", result
+    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(i64, i64) -> i64", result
     assert not client.barrier(), "missing-argument snapshot changed published diagnostics"
-    client.open(higher_library, higher_text.replace("int", "uint"))
+    client.open(higher_library, higher_text.replace("i64", "u64"))
     client.barrier()
-    assert "uint64" in client.signature(signature_document, 2, cursor)["result"]["signatures"][0]["label"]
+    assert "u64" in client.signature(signature_document, 2, cursor)["result"]["signatures"][0]["label"]
     client.change(signature_document, partial_text.replace("(1,)", '("bad",)'), 2)
     client.barrier()
     bad_cursor = partial_text.splitlines()[2].index(",)") + 5
@@ -1101,17 +1101,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client = Client()
     client.init(signature_offsets=True)
     editing_text = ('from "./higher-order.k" import make as factory\n'
-                    'fn main():\n  factory()(1, vaSuffix)\n')
+                    'fn main():\n  return factory()(1, vaSuffix)\n')
     client.open(signature_document, editing_text)
     client.barrier()
     cursor = editing_text.splitlines()[2].index("vaSuffix") + 2
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(int64, int64) -> int64", result
+    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(i64, i64) -> i64", result
     assert client.hover(signature_document, 2, cursor)["result"] is None, "signature projection escaped into ordinary analysis"
     assert not client.barrier(), "editing-name projection published diagnostics"
-    client.open(higher_library, higher_text.replace("int", "uint"))
+    client.open(higher_library, higher_text.replace("i64", "u64"))
     client.barrier()
-    assert "uint64" in client.signature(signature_document, 2, cursor)["result"]["signatures"][0]["label"]
+    assert "u64" in client.signature(signature_document, 2, cursor)["result"]["signatures"][0]["label"]
     broken_prefix = editing_text.replace("(1,", "(missing,")
     client.change(signature_document, broken_prefix, 2)
     client.barrier()
@@ -1120,13 +1120,13 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(signature_document, editing_text.replace(", vaSuffix)", ", vaSuffix"), 3)
     client.barrier()
     end_cursor = len(editing_text.splitlines()[2]) - 1
-    assert "uint64" in client.signature(signature_document, 2, end_cursor)["result"]["signatures"][0]["label"]
+    assert "u64" in client.signature(signature_document, 2, end_cursor)["result"]["signatures"][0]["label"]
     assert not signature_document.exists() and higher_library.read_text() == higher_text
     client.finish()
 
     # Name completion shares bounded trailing-call recovery with signature help.
     call_library = Path(temp) / "completion-call.k"
-    call_library_text = "export fn combine(left:int,right:int)->int:\n  left+right\n"
+    call_library_text = 'export fn combine(left:i64,right:i64)->i64:\n  return left+right\n'
     call_library.write_text(call_library_text)
     client = Client()
     client.init()
@@ -1147,7 +1147,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(call_library, call_library_text, 2)
     client.barrier()
     assert client.completion(signature_document, 3, 13)["result"]["items"][0]["label"] == "earlier"
-    unicode_call = ('fn join(text:String,left:int,right:int)->int:\n  left+right\n'
+    unicode_call = ('fn join(text:String,left:i64,right:i64)->i64:\n  return left+right\n'
                     'fn main():\n  earlier=2\n  join("😀", ear\n')
     client.change(signature_document, unicode_call, 2)
     client.barrier()
@@ -1166,7 +1166,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # A final member name may be incomplete, but its receiver must still check.
     receiver_library = Path(temp) / "signature-record.k"
-    receiver_text = "export type Reading:\n  value:int\n"
+    receiver_text = "export type Reading:\n  value:i64\n"
     receiver_library.write_text(receiver_text)
     client = Client()
     client.init(signature_offsets=True)
@@ -1179,10 +1179,10 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     line = member_text.splitlines()[5]
     cursor = len(line[:line.index("vaSuffix") + 2].encode("utf-16-le")) // 2
     result = client.signature(signature_document, 5, cursor)["result"]
-    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(int64, int64) -> int64", result
+    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(i64, i64) -> i64", result
     assert client.hover(signature_document, 5, cursor)["result"] is None
     assert not client.barrier(), "member signature query published diagnostic replacements"
-    client.open(receiver_library, receiver_text.replace("value:int", "other:int"))
+    client.open(receiver_library, receiver_text.replace("value:i64", "other:i64"))
     client.barrier()
     assert client.signature(signature_document, 5, cursor)["result"] is None, "invalid receiver constructor was hidden"
     client.change(receiver_library, receiver_text, 2)
@@ -1196,7 +1196,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     opened = member_text.replace("reading.vaSuffix)", "reading.vaSuffix")
     client.change(signature_document, opened, 3)
     client.barrier()
-    assert client.signature(signature_document, 5, cursor)["result"]["signatures"][0]["label"] == "fn(int64, int64) -> int64", "EOF repair preserves the field suffix and validated factory callee"
+    assert client.signature(signature_document, 5, cursor)["result"]["signatures"][0]["label"] == "fn(i64, i64) -> i64", "EOF repair preserves the field suffix and validated factory callee"
     end_cursor = len(opened.splitlines()[5])
     assert client.signature(signature_document, 5, end_cursor)["result"] is not None
     empty = member_text.replace("reading.vaSuffix", "reading.")
@@ -1204,13 +1204,13 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     empty_cursor = empty.splitlines()[5].index("reading.") + len("reading.")
     result = client.signature(signature_document, 5, empty_cursor)["result"]
-    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(int64, int64) -> int64", result
+    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == "fn(i64, i64) -> i64", result
     assert client.hover(signature_document, 5, empty_cursor)["result"] is None
     assert not client.barrier(), "empty-field recovery published replacement diagnostics"
-    client.open(higher_library, higher_text.replace("int", "uint"))
+    client.open(higher_library, higher_text.replace("i64", "u64"))
     client.barrier()
-    assert "uint64" in client.signature(signature_document, 5, empty_cursor)["result"]["signatures"][0]["label"]
-    client.change(receiver_library, receiver_text.replace("value:int", "other:int"), 3)
+    assert "u64" in client.signature(signature_document, 5, empty_cursor)["result"]["signatures"][0]["label"]
+    client.change(receiver_library, receiver_text.replace("value:i64", "other:i64"), 3)
     client.barrier()
     assert client.signature(signature_document, 5, empty_cursor)["result"] is None
     client.change(receiver_library, receiver_text, 4)
@@ -1229,12 +1229,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Annotation completion follows only the current module's type namespace.
     type_library = Path(temp) / "type-completion.k"
-    type_library_text = "export type Reading:\n  value:int\ntype Hidden:\n  value:int\n"
+    type_library_text = "export type Reading:\n  value:i64\ntype Hidden:\n  value:i64\n"
     type_library.write_text(type_library_text)
     client = Client()
     client.init()
     type_text = ('from "./type-completion.k" import Reading as Sample\n'
-                 'fn inspect(value:SaSuffix):\n  0\nfn main():\n  0\n')
+                 'fn inspect(value:SaSuffix):\n  return 0\nfn main():\n  return 0\n')
     client.open(signature_document, type_text)
     client.barrier()
     start = type_text.splitlines()[1].index("SaSuffix")
@@ -1254,17 +1254,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(signature_document, type_text.replace("SaSuffix", "Sample"), 2)
     assert not publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     assert client.hover(signature_document, 1, start+2)["result"] is not None
-    tensor_type = 'fn inspect(values:Tensor[floSuffix,?]):\n  0\nfn main():\n  0\n'
+    tensor_type = 'fn inspect(values:Tensor[floSuffix,?]):\n  return 0\nfn main():\n  return 0\n'
     client.change(signature_document, tensor_type, 3)
     client.barrier()
     result = client.completion(signature_document, 0, tensor_type.splitlines()[0].index("floSuffix")+3)["result"]
-    assert [item["label"] for item in result["items"]] == ["float","float32","float64"], result
+    assert [item["label"] for item in result["items"]] == ["f64","f32","f64"], result
     array_type = 'fn inspect(values:[]):\n  0\nfn main():\n  0\n'
     client.change(signature_document, array_type, 4)
     client.barrier()
     result = client.completion(signature_document, 0, array_type.splitlines()[0].index("]"))["result"]
     labels = [item["label"] for item in result["items"]]
-    assert "Bool" in labels and "String" in labels and "int8" in labels
+    assert "bool" in labels and "String" in labels and "i8" in labels
     assert not any(name in labels for name in ["TaskError","Tensor","Hidden","Reading","Sample"]), labels
     assert not signature_document.exists() and type_library.read_text() == type_library_text
     client.finish()
@@ -1273,12 +1273,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     channel_library = Path(temp) / "channel-completion.k"
     channel_library_text = ('export error ParseError:\n  Invalid\nerror Hidden:\n  Bad\n'
                             'export type Problem = ParseError | TaskError\n'
-                            'export type Plain:\n  value:int\n')
+                            'export type Plain:\n  value:i64\n')
     channel_library.write_text(channel_library_text)
     client = Client()
     client.init()
     channel_imports = 'from "./channel-completion.k" import ParseError as Parse, Problem as Failure, Plain\n'
-    channel_text = channel_imports + 'fn inspect()->int ! FaSuffix:\n  0\nfn main():\n  0\n'
+    channel_text = channel_imports + 'fn inspect()->i64 ! FaSuffix:\n  return 0\nfn main():\n  return 0\n'
     client.open(signature_document, channel_text)
     client.barrier()
     start = channel_text.splitlines()[1].index("FaSuffix")
@@ -1297,7 +1297,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.completion(signature_document, 1, start+2)["result"]["items"][0]["label"] == "Failure"
     client.change(signature_document, channel_text.replace("FaSuffix","Failure"), 2)
     assert not publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
-    union_text = channel_imports + 'fn inspect()->int ! (Parse | ):\n  0\nfn main():\n  0\n'
+    union_text = channel_imports + 'fn inspect()->i64 ! (Parse | ):\n  0\nfn main():\n  0\n'
     client.change(signature_document, union_text, 3)
     client.barrier()
     cursor = union_text.splitlines()[1].index("):")
@@ -1313,8 +1313,8 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Import-name completion uses public declarations and resolved re-export names.
     exports_library = Path(temp) / "exports-completion.k"
-    exports_text = ('export fn double(v:int):\n  v*2\nfn hidden():\n  0\n'
-                    'export type Box:\n  value:int\nexport error Problem:\n  Bad\n'
+    exports_text = ('export fn double(v:i64):\n  return v*2\nfn hidden():\n  return 0\n'
+                    'export type Box:\n  value:i64\nexport error Problem:\n  Bad\n'
                     'export type Failure = Problem | TaskError\n')
     exports_library.write_text(exports_text)
     facade = Path(temp) / "facade-completion.k"
@@ -1323,7 +1323,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     facade.write_text(facade_text)
     client = Client()
     client.init()
-    import_text = 'from "./facade-completion.k" import twSuffix as run\nfn main():\n  0\n'
+    import_text = 'from "./facade-completion.k" import twSuffix as run\nfn main():\n  return 0\n'
     client.open(signature_document, import_text)
     client.barrier()
     start = import_text.splitlines()[0].index("twSuffix")
@@ -1365,9 +1365,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     path_root = root / "path-candidates"
     path_root.mkdir()
     path_document = path_root / "main.k"
-    path_disk = 'fn main():\n  0\n'
+    path_disk = 'fn main():\n  return 0\n'
     path_document.write_text(path_disk)
-    math_text = 'export fn double(v:int):\n  v*2\n'
+    math_text = 'export fn double(v:i64):\n  return v*2\n'
     (path_root / "math.k").write_text(math_text)
     (path_root / "math😀.k").write_text(math_text)
     (path_root / "notes.txt").write_text("not Kalandra")
@@ -1382,7 +1382,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     (path_root / "linked-folder").symlink_to(path_root / "nested", target_is_directory=True)
     client = Client()
     client.init()
-    path_text = 'from "./ma😀Suffix.k" import double as twice\nfn main():\n  twice(21)\n'
+    path_text = 'from "./ma😀Suffix.k" import double as twice\nfn main():\n  return twice(21)\n'
     client.open(path_document, path_text)
     client.barrier()
     result = client.completion(path_document, 0, len('from "./ma'))["result"]
@@ -1396,18 +1396,18 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(path_document, path_text.replace('./ma😀Suffix.k','./math.k'), 2)
     assert not publications(client.barrier())[path_document.as_uri()]["diagnostics"]
     assert client.hover(path_document, 2, 4)["result"] is not None
-    empty_path = 'export from "./" import double\nfn main():\n  0\n'
+    empty_path = 'export from "./" import double\nfn main():\n  return 0\n'
     client.change(path_document, empty_path, 3)
     client.barrier()
     result = client.completion(path_document, 0, len('export from "./'))["result"]
     assert [(item["label"],item["kind"]) for item in result["items"]] == [
         ("./math.k",17),("./math😀.k",17),("./nested/",19)], result
-    nested_path = 'from "./nested/heSuffix.k" import double\nfn main():\n  0\n'
+    nested_path = 'from "./nested/heSuffix.k" import double\nfn main():\n  return 0\n'
     client.change(path_document, nested_path, 4)
     client.barrier()
     result = client.completion(path_document, 0, len('from "./nested/he'))["result"]
     assert [item["label"] for item in result["items"]] == ["./nested/helper.k"], result
-    parent_path = 'from "../maSuffix.k" import double\nfn main():\n  0\n'
+    parent_path = 'from "../maSuffix.k" import double\nfn main():\n  return 0\n'
     nested_document = path_root / "nested" / "main.k"
     client.open(nested_document, parent_path)
     client.barrier()
@@ -1416,7 +1416,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     virtual = path_root / "virtual.k"
     client.open(virtual, math_text)
     client.barrier()
-    client.change(path_document, 'from "./vi" import double\nfn main():\n  0\n', 5)
+    client.change(path_document, 'from "./vi" import double\nfn main():\n  return 0\n', 5)
     client.barrier()
     result = client.completion(path_document, 0, len('from "./vi'))["result"]
     assert [item["label"] for item in result["items"]] == ["./virtual.k"], result
@@ -1425,7 +1425,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # The sorted result limit is independent of filesystem iteration order.
     for i in range(300):
         (path_root / f"candidate{i:03}.k").write_text("invalid source is not read")
-    bounded_path = 'from "./candidate" import double\nfn main():\n  0\n'
+    bounded_path = 'from "./candidate" import double\nfn main():\n  return 0\n'
     client.change(path_document, bounded_path, 6)
     client.barrier()
     result = client.completion(path_document, 0, len('from "./candidate'))["result"]
@@ -1445,17 +1445,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client = Client()
     client.init(signature_offsets=True)
     builtin_cases = [
-        ('fn main():\n  length(|[1,2])\n', 'fn length(input: [int64]) -> int64', 0),
-        ('fn main():\n  byteLength(|"😀")\n', 'fn byteLength(input: String) -> int64', 0),
-        ('fn main():\n  shape(|tensor([1,2]))\n', 'fn shape(input: Tensor[int64, 2]) -> [int64]', 0),
+        ('fn main():\n  length(|[1,2])\n', 'fn length(input: [i64]) -> i64', 0),
+        ('fn main():\n  byteLength(|"😀")\n', 'fn byteLength(input: String) -> i64', 0),
+        ('fn main():\n  shape(|tensor([1,2]))\n', 'fn shape(input: Tensor[i64, 2]) -> [i64]', 0),
         ('fn main():\n  slice([1,2,3],0,|2)\n',
-         'fn slice(input: [int64], start: int64, end: int64) -> [int64]', 2),
+         'fn slice(input: [i64], start: i64, end: i64) -> [i64]', 2),
         ('fn main():\n  "😀abc" -> slice(0,|2)\n',
-         'fn slice(input: String, start: int64, end: int64) -> String', 2),
+         'fn slice(input: String, start: i64, end: i64) -> String', 2),
         ('fn main():\n  concat([true],|[false])\n',
-         'fn concat(left: [Bool], right: [Bool]) -> [Bool]', 1),
+         'fn concat(left: [bool], right: [bool]) -> [bool]', 1),
     ]
-    client.open(signature_document, 'fn main():\n  0\n')
+    client.open(signature_document, 'fn main():\n  return 0\n')
     client.barrier()
     version = 1
     for marked, expected, active in builtin_cases:
@@ -1473,67 +1473,67 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
             assert 0 <= start < end <= len(expected) and ':' in expected[start:end], result
         assert not client.barrier(), "builtin signature published diagnostics"
     version += 1
-    client.change(signature_document, 'fn main():\n  length(42)\n', version)
+    client.change(signature_document, 'fn main():\n  return length(42)\n', version)
     before = publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     assert before and client.signature(signature_document, 1, 9)["result"] is None
     assert not client.barrier(), "invalid builtin signature changed diagnostics"
     signature_values = Path(temp) / "signature-values.k"
-    signature_values_text = 'export fn read()->String:\n  "abc"\n'
+    signature_values_text = 'export fn read()->String:\n  return "abc"\n'
     signature_values.write_text(signature_values_text)
     version += 1
-    imported_builtin = 'from "./signature-values.k" import read\nfn main():\n  length(read())\n'
+    imported_builtin = 'from "./signature-values.k" import read\nfn main():\n  return length(read())\n'
     client.change(signature_document, imported_builtin, version)
     assert not publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
-    assert client.signature(signature_document, 2, 9)["result"]["signatures"][0]["label"] == 'fn length(input: String) -> int64'
-    client.open(signature_values, 'export fn read()->[int32]:\n  [1,2]\n')
+    assert client.signature(signature_document, 2, 9)["result"]["signatures"][0]["label"] == 'fn length(input: String) -> i64'
+    client.open(signature_values, 'export fn read()->[i32]:\n  return [1,2]\n')
     client.barrier()
-    assert client.signature(signature_document, 2, 9)["result"]["signatures"][0]["label"] == 'fn length(input: [int32]) -> int64'
-    client.change(signature_values, 'export fn read()->String:\n  missing\n', 2)
+    assert client.signature(signature_document, 2, 9)["result"]["signatures"][0]["label"] == 'fn length(input: [i32]) -> i64'
+    client.change(signature_values, 'export fn read()->String:\n  return missing\n', 2)
     client.barrier()
     assert client.signature(signature_document, 2, 9)["result"] is None
     client.change(signature_values, signature_values_text, 3)
     client.barrier()
-    assert client.signature(signature_document, 2, 9)["result"]["signatures"][0]["label"] == 'fn length(input: String) -> int64'
+    assert client.signature(signature_document, 2, 9)["result"]["signatures"][0]["label"] == 'fn length(input: String) -> i64'
     assert not signature_document.exists() and signature_values.read_text() == signature_values_text
     client.finish()
 
     # A missing concat operand derives its contract from the checked first array.
     client = Client()
     client.init(signature_offsets=True)
-    incomplete_concat = 'fn main():\n  values:[int32]=[1,2]\n  concat(values,\n'
+    incomplete_concat = 'fn main():\n  values:[i32]=[1,2]\n  concat(values,\n'
     client.open(signature_document, incomplete_concat)
     before = publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     assert before and any(d["code"] == "L005" for d in before), before
     result = client.signature(signature_document, 2, len(incomplete_concat.splitlines()[2]))["result"]
-    expected = 'fn concat(left: [int32], right: [int32]) -> [int32]'
+    expected = 'fn concat(left: [i32], right: [i32]) -> [i32]'
     assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == expected, result
     labels = result["signatures"][0]["parameters"]
-    assert [expected[p["label"][0]:p["label"][1]] for p in labels] == ["left: [int32]", "right: [int32]"]
+    assert [expected[p["label"][0]:p["label"][1]] for p in labels] == ["left: [i32]", "right: [i32]"]
     assert not client.barrier(), "missing concat guidance replaced the actual syntax diagnostic"
-    partial_concat = 'fn main():\n  concat([true], riSuffix)\n'
+    partial_concat = 'fn main():\n  return concat([true], riSuffix)\n'
     client.change(signature_document, partial_concat, 2)
     before = publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     assert before and any(d["code"] == "S016" for d in before), before
     cursor = partial_concat.splitlines()[1].index('riSuffix') + 2
     result = client.signature(signature_document, 1, cursor)["result"]
-    assert result["signatures"][0]["label"] == 'fn concat(left: [Bool], right: [Bool]) -> [Bool]', result
+    assert result["signatures"][0]["label"] == 'fn concat(left: [bool], right: [bool]) -> [bool]', result
     assert client.hover(signature_document, 1, cursor)["result"] is None
     assert not client.barrier(), "editing-hole concat guidance published diagnostics"
-    client.change(signature_document, 'fn main():\n  [true] -> concat()\n', 3)
+    client.change(signature_document, 'fn main():\n  return [true] -> concat()\n', 3)
     client.barrier()
     result = client.signature(signature_document, 1, len('  [true] -> concat('))["result"]
-    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == 'fn concat(left: [Bool], right: [Bool]) -> [Bool]', result
+    assert result["activeParameter"] == 1 and result["signatures"][0]["label"] == 'fn concat(left: [bool], right: [bool]) -> [bool]', result
     hint_library = Path(temp) / 'concat-hints.k'
-    hint_library_text = 'export type Box:\n  value:int\n'
+    hint_library_text = 'export type Box:\n  value:i64\n'
     hint_library.write_text(hint_library_text)
     imported_concat = ('from "./concat-hints.k" import Box as Parcel\n'
-                       'fn main():\n  concat([Parcel {value:1}],)\n')
+                       'fn main():\n  return concat([Parcel {value:1}],)\n')
     client.change(signature_document, imported_concat, 4)
     client.barrier()
     cursor = imported_concat.splitlines()[2].index(',') + 1
     result = client.signature(signature_document, 2, cursor)["result"]
     assert result["signatures"][0]["label"] == 'fn concat(left: [Box], right: [Box]) -> [Box]', result
-    client.open(hint_library, hint_library_text.replace('value:int','value:String'))
+    client.open(hint_library, hint_library_text.replace('value:i64','value:String'))
     client.barrier()
     assert client.signature(signature_document, 2, cursor)["result"] is None
     client.change(hint_library, hint_library_text, 2)
@@ -1545,7 +1545,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # Compiler builtin names appear at call targets, not first-class value positions.
     client = Client()
     client.init()
-    builtin_completion = 'fn main():\n  coSuffix([1],[2])\n'
+    builtin_completion = 'fn main():\n  return coSuffix([1],[2])\n'
     client.open(signature_document, builtin_completion)
     client.barrier()
     start = builtin_completion.splitlines()[1].index('coSuffix')
@@ -1558,29 +1558,29 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     accepted = builtin_completion.replace('coSuffix','concat')
     client.change(signature_document, accepted, 2)
     assert not publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
-    conversion = 'fn main():\n  floSuffix(1)\n'
+    conversion = 'fn main():\n  return floSuffix(1)\n'
     client.change(signature_document, conversion, 3)
     client.barrier()
     start = conversion.splitlines()[1].index('floSuffix')
     result = client.completion(signature_document, 1, start+3)["result"]
-    assert [item["label"] for item in result["items"]] == ["float","float32","float64"], result
+    assert [item["label"] for item in result["items"]] == ["f64","f32","f64"], result
     assert all(item["kind"] == 3 for item in result["items"]), result
-    client.change(signature_document, conversion.replace('floSuffix','float32'), 4)
+    client.change(signature_document, conversion.replace('floSuffix','f32'), 4)
     assert not publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
-    piped = 'fn main():\n  [1,2] -> parSuffix(fn(v:int):v*2)\n'
+    piped = 'fn main():\n  return [1,2] -> parSuffix(fn(v:i64):return v*2)\n'
     client.change(signature_document, piped, 5)
     client.barrier()
     result = client.completion(signature_document, 1, piped.splitlines()[1].index('parSuffix')+3)["result"]
     assert [item["label"] for item in result["items"]] == ["parallelMap"], result
-    ordinary = 'fn main():\n  coSuffix\n'
+    ordinary = 'fn main():\n  return coSuffix\n'
     client.change(signature_document, ordinary, 6)
     client.barrier()
     assert client.completion(signature_document, 1, 4)["result"]["items"] == []
-    callback = 'fn main():\n  map([1,2],coSuffix)\n'
+    callback = 'fn main():\n  return map([1,2],coSuffix)\n'
     client.change(signature_document, callback, 7)
     client.barrier()
     assert client.completion(signature_document, 1, callback.splitlines()[1].index('coSuffix')+2)["result"]["items"] == []
-    shadowed = 'fn main():\n  concat=fn(v:int):v*2\n  coSuffix(1)\n'
+    shadowed = 'fn main():\n  concat=fn(v:i64):return v*2\n  return coSuffix(1)\n'
     client.change(signature_document, shadowed, 8)
     client.barrier()
     result = client.completion(signature_document, 2, 4)["result"]
@@ -1593,17 +1593,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client = Client()
     client.init(signature_offsets=True)
     numeric_cases = [
-        ('fn main():\n  float32(|1)\n', 'fn float32(input: int64) -> float32'),
-        ('fn main():\n  uint(|int16(1))\n', 'fn uint(input: int16) -> uint64'),
-        ('fn main():\n  float(|int8(1))\n', 'fn float(input: int8) -> float64'),
-        ('fn main():\n  int16(|tensor([1,2],[1,2]))\n',
-         'fn int16(input: Tensor[int64, 1, 2]) -> Tensor[int16, 1, 2]'),
-        ('fn convert(v:Tensor[float32,?,2]):\n  float64(v|)\nfn main():\n  0\n',
-         'fn float64(input: Tensor[float32, ?, 2]) -> Tensor[float64, ?, 2]'),
-        ('fn main():\n  1 -> float32(|)\n', 'fn float32(input: int64) -> float32'),
-        ('fn main():\n  float32=fn(v:int):v+1\n  float32(|2)\n', 'fn float32(int64) -> int64'),
+        ('fn main():\n  f32(|1)\n', 'fn f32(input: i64) -> f32'),
+        ('fn main():\n  u64(|i16(1))\n', 'fn u64(input: i16) -> u64'),
+        ('fn main():\n  f64(|i8(1))\n', 'fn f64(input: i8) -> f64'),
+        ('fn main():\n  i16(|tensor([1,2],[1,2]))\n',
+         'fn i16(input: Tensor[i64, 1, 2]) -> Tensor[i16, 1, 2]'),
+        ('fn convert(v:Tensor[f32,?,2]):\n  f64(v|)\nfn main():\n  0\n',
+         'fn f64(input: Tensor[f32, ?, 2]) -> Tensor[f64, ?, 2]'),
+        ('fn main():\n  1 -> f32(|)\n', 'fn f32(input: i64) -> f32'),
+        ('fn main():\n  f32=fn(v:i64):v+1\n  f32(|2)\n', 'fn f32(i64) -> i64'),
     ]
-    client.open(signature_document, 'fn main():\n  0\n')
+    client.open(signature_document, 'fn main():\n  return 0\n')
     client.barrier()
     version = 1
     for marked, expected in numeric_cases:
@@ -1617,7 +1617,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         result = client.signature(signature_document, line, character)["result"]
         assert result["signatures"][0]["label"] == expected and result["activeParameter"] == 0, result
         start, end = result["signatures"][0]["parameters"][0]["label"]
-        assert expected[start:end] == ("int64" if 'float32(int64)' in expected else expected[expected.index('input:'):expected.rfind(') ->')]), result
+        assert expected[start:end] == ("i64" if 'float32(int64)' in expected else expected[expected.index('input:'):expected.rfind(') ->')]), result
         assert not client.barrier(), "numeric signature leaked diagnostics"
     for invalid in ['int8(300)', 'float32([1,2])', 'float32(true)']:
         version += 1
@@ -1628,17 +1628,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         assert client.signature(signature_document, 1, text.splitlines()[1].index('(')+1)["result"] is None
         assert not client.barrier(), "invalid numeric hint changed diagnostics"
     numeric_library = Path(temp) / 'numeric-signatures.k'
-    numeric_library_text = 'export fn read()->float32:\n  float32(1)\n'
+    numeric_library_text = 'export fn read()->f32:\n  return f32(1)\n'
     numeric_library.write_text(numeric_library_text)
     version += 1
-    imported_numeric = 'from "./numeric-signatures.k" import read\nfn main():\n  float64(read())\n'
+    imported_numeric = 'from "./numeric-signatures.k" import read\nfn main():\n  return f64(read())\n'
     client.change(signature_document, imported_numeric, version)
     client.barrier()
-    assert client.signature(signature_document, 2, 10)["result"]["signatures"][0]["label"] == 'fn float64(input: float32) -> float64'
-    client.open(numeric_library, 'export fn read()->int16:\n  int16(1)\n')
+    assert client.signature(signature_document, 2, 10)["result"]["signatures"][0]["label"] == 'fn f64(input: f32) -> f64'
+    client.open(numeric_library, 'export fn read()->i16:\n  return i16(1)\n')
     client.barrier()
-    assert client.signature(signature_document, 2, 10)["result"]["signatures"][0]["label"] == 'fn float64(input: int16) -> float64'
-    client.change(numeric_library, 'export fn read()->String:\n  "bad"\n', 2)
+    assert client.signature(signature_document, 2, 10)["result"]["signatures"][0]["label"] == 'fn f64(input: i16) -> f64'
+    client.change(numeric_library, 'export fn read()->String:\n  return "bad"\n', 2)
     client.barrier()
     assert client.signature(signature_document, 2, 10)["result"] is None
     client.change(numeric_library, numeric_library_text, 3)
@@ -1652,17 +1652,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.init(signature_offsets=True)
     tensor_cases = [
         ('fn main():\n  reduceSum(|tensor([1,2]))\n',
-         'fn reduceSum(input: Tensor[int64, 2]) -> int64', 0),
+         'fn reduceSum(input: Tensor[i64, 2]) -> i64', 0),
         ('fn main():\n  array(|tensor([7],[]))\n',
-         'fn array(input: Tensor[int64]) -> [int64]', 0),
+         'fn array(input: Tensor[i64]) -> [i64]', 0),
         ('fn main():\n  matmul(tensor([1,2],[1,2]),|tensor([3,4],[2,1]))\n',
-         'fn matmul(left: Tensor[int64, 1, 2], right: Tensor[int64, 2, 1]) -> Tensor[int64, 1, 1]', 1),
+         'fn matmul(left: Tensor[i64, 1, 2], right: Tensor[i64, 2, 1]) -> Tensor[i64, 1, 1]', 1),
         ('fn main():\n  tensor([1,2],[1,2]) -> matmul(|tensor([3,4],[2,1]))\n',
-         'fn matmul(left: Tensor[int64, 1, 2], right: Tensor[int64, 2, 1]) -> Tensor[int64, 1, 1]', 1),
-        ('fn multiply(a:Tensor[float32,?,3],b:Tensor[float32,3,?]):\n  matmul(a,|b)\nfn main():\n  0\n',
-         'fn matmul(left: Tensor[float32, ?, 3], right: Tensor[float32, 3, ?]) -> Tensor[float32, ?, ?]', 1),
+         'fn matmul(left: Tensor[i64, 1, 2], right: Tensor[i64, 2, 1]) -> Tensor[i64, 1, 1]', 1),
+        ('fn multiply(a:Tensor[f32,?,3],b:Tensor[f32,3,?]):\n  matmul(a,|b)\nfn main():\n  0\n',
+         'fn matmul(left: Tensor[f32, ?, 3], right: Tensor[f32, 3, ?]) -> Tensor[f32, ?, ?]', 1),
     ]
-    client.open(signature_document, 'fn main():\n  0\n')
+    client.open(signature_document, 'fn main():\n  return 0\n')
     client.barrier()
     version = 1
     for marked, expected, active in tensor_cases:
@@ -1682,7 +1682,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
             assert 0 <= start < end <= len(expected) and ':' in expected[start:end], result
         assert not client.barrier(), "tensor signature published probe diagnostics"
     matrix_library = Path(temp) / 'matrix-signatures.k'
-    matrix_library_text = 'export fn read()->Tensor[int64,1,2]:\n  tensor([1,2],[1,2])\n'
+    matrix_library_text = 'export fn read()->Tensor[i64,1,2]:\n  return tensor([1,2],[1,2])\n'
     matrix_library.write_text(matrix_library_text)
     version += 1
     imported_matrix = ('from "./matrix-signatures.k" import read\nfn main():\n'
@@ -1691,12 +1691,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     cursor = imported_matrix.splitlines()[2].index(',')+1
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result["signatures"][0]["label"].endswith('-> Tensor[int64, 1, 1]'), result
-    client.open(matrix_library, 'export fn read()->Tensor[int64,2,2]:\n  tensor([1,2,3,4],[2,2])\n')
+    assert result["signatures"][0]["label"].endswith('-> Tensor[i64, 1, 1]'), result
+    client.open(matrix_library, 'export fn read()->Tensor[i64,2,2]:\n  return tensor([1,2,3,4],[2,2])\n')
     client.barrier()
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result["signatures"][0]["label"] == 'fn matmul(left: Tensor[int64, 2, 2], right: Tensor[int64, 2, 1]) -> Tensor[int64, 2, 1]', result
-    client.change(matrix_library, 'export fn read()->Tensor[int64,1,3]:\n  tensor([1,2,3],[1,3])\n', 2)
+    assert result["signatures"][0]["label"] == 'fn matmul(left: Tensor[i64, 2, 2], right: Tensor[i64, 2, 1]) -> Tensor[i64, 2, 1]', result
+    client.change(matrix_library, 'export fn read()->Tensor[i64,1,3]:\n  return tensor([1,2,3],[1,3])\n', 2)
     diagnostics = publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     assert any(d["code"] == 'S029' for d in diagnostics), diagnostics
     assert client.signature(signature_document, 2, cursor)["result"] is None
@@ -1712,18 +1712,18 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.init(signature_offsets=True)
     map_cases = [
         ('fn main():\n  map([1,2],|fn(v):v>0)\n',
-         'fn map(input: [int64], callback: fn(int64) -> Bool) -> [Bool]'),
-        ('fn main():\n  offset=3\n  callback=fn(v:int):v+offset\n  map([1,2],|callback)\n',
-         'fn map(input: [int64], callback: fn(int64) -> int64) -> [int64]'),
+         'fn map(input: [i64], callback: fn(i64) -> bool) -> [bool]'),
+        ('fn main():\n  offset=3\n  callback=fn(v:i64):v+offset\n  map([1,2],|callback)\n',
+         'fn map(input: [i64], callback: fn(i64) -> i64) -> [i64]'),
         ('fn main():\n  [1,2] -> map(|fn(v):v*2)\n',
-         'fn map(input: [int64], callback: fn(int64) -> int64) -> [int64]'),
-        ('fn main()->[int] ! TaskError:\n  try parallelMap([1,2],|fn(v):v*2)\n',
-         'fn parallelMap(input: [int64], callback: fn(int64) -> int64) -> [int64] ! TaskError'),
-        ('error Bad:\n  Failed\nfn checked(v:int)->int ! Bad:\n  v\n'
-         'fn main()->[int] ! (Bad | TaskError):\n  try parallelMap([1,2],|checked)\n',
-         'fn parallelMap(input: [int64], callback: fn(int64) -> int64 ! Bad) -> [int64] ! Bad | TaskError'),
+         'fn map(input: [i64], callback: fn(i64) -> i64) -> [i64]'),
+        ('fn main()->[i64] ! TaskError:\n  try parallelMap([1,2],|fn(v):v*2)\n',
+         'fn parallelMap(input: [i64], callback: fn(i64) -> i64) -> [i64] ! TaskError'),
+        ('error Bad:\n  Failed\nfn checked(v:i64)->i64 ! Bad:\n  return v\n'
+         'fn main()->[i64] ! (Bad | TaskError):\n  try parallelMap([1,2],|checked)\n',
+         'fn parallelMap(input: [i64], callback: fn(i64) -> i64 ! Bad) -> [i64] ! Bad | TaskError'),
     ]
-    client.open(signature_document, 'fn main():\n  0\n')
+    client.open(signature_document, 'fn main():\n  return 0\n')
     client.barrier()
     version = 1
     for marked, expected in map_cases:
@@ -1743,20 +1743,20 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         assert expected[start:end].startswith('callback: fn('), result
         assert not client.barrier(), "map hint published diagnostics"
     callback_library = Path(temp) / 'map-signatures.k'
-    callback_library_text = 'export fn convert(v:int)->float32:\n  float32(v)\n'
+    callback_library_text = 'export fn convert(v:i64)->f32:\n  return f32(v)\n'
     callback_library.write_text(callback_library_text)
     version += 1
-    imported_map = 'from "./map-signatures.k" import convert\nfn main():\n  map([1,2],convert)\n'
+    imported_map = 'from "./map-signatures.k" import convert\nfn main():\n  return map([1,2],convert)\n'
     client.change(signature_document, imported_map, version)
     client.barrier()
     cursor = imported_map.splitlines()[2].index(',')+1
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result["signatures"][0]["label"] == 'fn map(input: [int64], callback: fn(int64) -> float32) -> [float32]', result
-    client.open(callback_library, 'export fn convert(v:int)->Bool:\n  v>0\n')
+    assert result["signatures"][0]["label"] == 'fn map(input: [i64], callback: fn(i64) -> f32) -> [f32]', result
+    client.open(callback_library, 'export fn convert(v:i64)->bool:\n  return v>0\n')
     client.barrier()
     result = client.signature(signature_document, 2, cursor)["result"]
-    assert result["signatures"][0]["label"] == 'fn map(input: [int64], callback: fn(int64) -> Bool) -> [Bool]', result
-    client.change(callback_library, 'export fn convert(v:int)->Bool:\n  missing\n', 2)
+    assert result["signatures"][0]["label"] == 'fn map(input: [i64], callback: fn(i64) -> bool) -> [bool]', result
+    client.change(callback_library, 'export fn convert(v:i64)->bool:\n  return missing\n', 2)
     client.barrier()
     assert client.signature(signature_document, 2, cursor)["result"] is None
     client.change(callback_library, callback_library_text, 3)
@@ -1769,15 +1769,15 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client = Client()
     client.init(formats=["plaintext"])
     builtin_hover_cases = [
-        ('fn main():\n  length([1,2])\n', 'length', 'fn length(input: [int64]) -> int64'),
-        ('fn main():\n  [1,2] -> length\n', 'length', 'fn length(input: [int64]) -> int64'),
-        ('fn main():\n  "😀abc" -> slice(0,1)\n', 'slice',
-         'fn slice(input: String, start: int64, end: int64) -> String'),
-        ('fn main():\n  float32(1)\n', 'float32', 'fn float32(input: int64) -> float32'),
-        ('fn main()->[int] ! TaskError:\n  offset=3\n  try parallelMap([1,2],fn(v):v+offset)\n', 'parallelMap',
-         'fn parallelMap(input: [int64], callback: fn(int64) -> int64) -> [int64] ! TaskError'),
+        ('fn main():\n  return length([1,2])\n', 'length', 'fn length(input: [i64]) -> i64'),
+        ('fn main():\n  return [1,2] -> length\n', 'length', 'fn length(input: [i64]) -> i64'),
+        ('fn main():\n  return "😀abc" -> slice(0,1)\n', 'slice',
+         'fn slice(input: String, start: i64, end: i64) -> String'),
+        ('fn main():\n  return f32(1)\n', 'f32', 'fn f32(input: i64) -> f32'),
+        ('fn main()->[i64] ! TaskError:\n  offset=3\n  return try parallelMap([1,2],fn(v):return v+offset)\n', 'parallelMap',
+         'fn parallelMap(input: [i64], callback: fn(i64) -> i64) -> [i64] ! TaskError'),
     ]
-    client.open(signature_document, 'fn main():\n  0\n')
+    client.open(signature_document, 'fn main():\n  return 0\n')
     client.barrier()
     version = 1
     for text, name, expected in builtin_hover_cases:
@@ -1792,24 +1792,24 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
             "start":{"line":line,"character":start},"end":{"line":line,"character":start+len(name)}}}, result
         assert not client.barrier(), "builtin hover published probe diagnostics"
     hover_library = Path(temp) / 'builtin-hover.k'
-    hover_library_text = 'export fn read()->String:\n  "abc"\n'
+    hover_library_text = 'export fn read()->String:\n  return "abc"\n'
     hover_library.write_text(hover_library_text)
     version += 1
-    imported_hover = 'from "./builtin-hover.k" import read\nfn main():\n  length(read())\n'
+    imported_hover = 'from "./builtin-hover.k" import read\nfn main():\n  return length(read())\n'
     client.change(signature_document, imported_hover, version)
     client.barrier()
-    assert client.hover(signature_document, 2, 3)["result"]["contents"]["value"] == 'fn length(input: String) -> int64'
-    client.open(hover_library, 'export fn read()->[int32]:\n  [1,2]\n')
+    assert client.hover(signature_document, 2, 3)["result"]["contents"]["value"] == 'fn length(input: String) -> i64'
+    client.open(hover_library, 'export fn read()->[i32]:\n  return [1,2]\n')
     client.barrier()
-    assert client.hover(signature_document, 2, 3)["result"]["contents"]["value"] == 'fn length(input: [int32]) -> int64'
-    client.change(hover_library, 'export fn read()->String:\n  missing\n', 2)
+    assert client.hover(signature_document, 2, 3)["result"]["contents"]["value"] == 'fn length(input: [i32]) -> i64'
+    client.change(hover_library, 'export fn read()->String:\n  return missing\n', 2)
     client.barrier()
     assert client.hover(signature_document, 2, 3)["result"] is None
     client.change(hover_library, hover_library_text, 3)
     client.barrier()
     assert client.hover(signature_document, 2, 3)["result"] is not None
     version += 1
-    client.change(signature_document, 'fn main():\n  concat([1],)\n', version)
+    client.change(signature_document, 'fn main():\n  return concat([1],)\n', version)
     diagnostics = publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     assert diagnostics and any(d["code"] == 'S027' for d in diagnostics), diagnostics
     assert client.hover(signature_document, 1, 3)["result"] is None
@@ -1818,14 +1818,14 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.finish()
     client = Client()
     client.init(formats=["markdown"])
-    client.open(signature_document, 'fn main():\n  float32(1)\n')
+    client.open(signature_document, 'fn main():\n  return f32(1)\n')
     client.barrier()
     result = client.hover(signature_document, 1, 3)["result"]
-    assert result["contents"] == {"kind":"markdown","value":'```kalandra\nfn float32(input: int64) -> float32\n```'}, result
+    assert result["contents"] == {"kind":"markdown","value":'```kalandra\nfn f32(input: i64) -> f32\n```'}, result
     client.finish()
 
     # Device-selector completion is placement-gated and performs no hardware query.
-    selector_text = 'fn main():\n  target=devices.gSuffix(1)\n  0\n'
+    selector_text = 'fn main():\n  target=devices.gSuffix(1)\n  return 0\n'
     client = Client('--placement')
     client.init()
     client.open(signature_document, selector_text)
@@ -1853,12 +1853,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     result = client.completion(signature_document, 1, len(bare_selector.splitlines()[1]))["result"]
     assert [item["label"] for item in result["items"]] == ["cpu","gpu"], result
-    shadow_selector = 'fn main():\n  devices=1\n  target=devices.gSuffix()\n  0\n'
+    shadow_selector = 'fn main():\n  devices=1\n  target=devices.gSuffix()\n  return 0\n'
     client.change(signature_document, shadow_selector, 6)
     client.barrier()
     assert client.completion(signature_document, 2, shadow_selector.splitlines()[2].index('gSuffix')+1)["result"]["items"] == []
     selector_library = Path(temp) / 'selector-completion.k'
-    selector_library_text = 'export fn choose():\n  target=devices.gpu()\n  0\n'
+    selector_library_text = 'export fn choose():\n  target=devices.gpu()\n  return 0\n'
     selector_library.write_text(selector_library_text)
     imported_selector = ('from "./selector-completion.k" import choose\nfn main():\n'
                          '  target=devices.gSuffix()\n  choose()\n')
@@ -1877,15 +1877,15 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # Transfer guidance uses checked placement IR, without enumerating hardware.
     client = Client('--placement')
     client.init(formats=['markdown'], signature_offsets=True)
-    transfer_text = ('# 👩\nfn main()->int ! TaskError:\n  try parallel:\n'
+    transfer_text = ('# 👩\nfn main()->i64 ! TaskError:\n  try parallel:\n'
                      '    values=tensor([1,2])\n'
                      '    resident=try await transfer(values,devices.gpu(1))\n'
                      '    host=try await transfer(resident,devices.cpu())\n    reduceSum(host)\n')
     client.open(signature_document, transfer_text)
     assert not publications(client.barrier())[signature_document.as_uri()]['diagnostics']
     transfer_labels = [
-        'fn transfer(input: Tensor[int64, 2], target: Device[gpu:1]) -> task<Tensor[int64, 2] on gpu:1>',
-        'fn transfer(input: Tensor[int64, 2] on gpu:1, target: Device[cpu]) -> task<Tensor[int64, 2]>',
+        'fn transfer(input: Tensor[i64, 2], target: Device[gpu:1]) -> task<Tensor[i64, 2] on gpu:1>',
+        'fn transfer(input: Tensor[i64, 2] on gpu:1, target: Device[cpu]) -> task<Tensor[i64, 2]>',
     ]
     for line, expected in zip([4,5], transfer_labels):
         text_line = transfer_text.splitlines()[line]
@@ -1924,10 +1924,10 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Complete a transfer call name only in an owning placement group.
     transfer_library = Path(temp) / 'transfer-completion.k'
-    transfer_library_text = 'export fn read():\n  tensor([1,2])\n'
+    transfer_library_text = 'export fn read():\n  return tensor([1,2])\n'
     transfer_library.write_text(transfer_library_text)
     transfer_completion_text = ('# 👩\nfrom "./transfer-completion.k" import read\n'
-                                'fn main()->int ! TaskError:\n  try parallel:\n'
+                                'fn main()->i64 ! TaskError:\n  try parallel:\n'
                                 '    values=read()\n'
                                 '    resident=try await traSuffix(values,devices.gpu(1))\n'
                                 '    host=try await transfer(resident,devices.cpu())\n    reduceSum(host)\n')
@@ -1949,16 +1949,16 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(signature_document, applied, 2)
     assert not publications(client.barrier())[signature_document.as_uri()]['diagnostics']
     assert 'Device[gpu:1]' in client.hover(signature_document, 5, start+1)['result']['contents']['value']
-    client.open(transfer_library, 'export fn read():\n  tensor([3,4,5])\n')
+    client.open(transfer_library, 'export fn read():\n  return tensor([3,4,5])\n')
     assert not publications(client.barrier())[signature_document.as_uri()]['diagnostics']
-    assert 'Tensor[int64, 3]' in client.hover(signature_document, 5, start+1)['result']['contents']['value']
+    assert 'Tensor[i64, 3]' in client.hover(signature_document, 5, start+1)['result']['contents']['value']
     client.change(signature_document, transfer_completion_text, 3)
     client.barrier()
     assert client.completion(signature_document, 5, start+3)['result']['items'][0]['label'] == 'transfer'
     for version, text in enumerate([
-            'fn main():\n  traSuffix(tensor([1]),devices.gpu())\n',
-            'fn main()->int ! TaskError:\n  try parallel:\n    spawn traSuffix(tensor([1]),devices.gpu())\n',
-            'fn main()->int ! TaskError:\n  try parallel:\n    traSuffix\n',
+            'fn main():\n  return traSuffix(tensor([1]),devices.gpu())\n',
+            'fn main()->i64 ! TaskError:\n  return try parallel:\n    spawn traSuffix(tensor([1]),devices.gpu())\n',
+            'fn main()->i64 ! TaskError:\n  return try parallel:\n    traSuffix\n',
         ], 4):
         client.change(signature_document, text, version)
         client.barrier()
@@ -1979,17 +1979,17 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Device-selector guidance follows checked call arity and exact selection.
     selector_hint_library = Path(temp) / 'selector-guidance.k'
-    selector_hint_library_text = 'export fn choose():\n  other=devices.gpu(4)\n  0\n'
+    selector_hint_library_text = 'export fn choose():\n  other=devices.gpu(4)\n  return 0\n'
     selector_hint_library.write_text(selector_hint_library_text)
     client = Client('--placement')
     client.init(formats=['plaintext'], signature_offsets=True)
-    client.open(signature_document, 'fn main():\n  0\n')
+    client.open(signature_document, 'fn main():\n  return 0\n')
     client.barrier()
     for version, (form, expected, parameters) in enumerate([
             ('devices.cpu()', 'fn devices.cpu() -> Device[cpu]', []),
             ('devices.gpu()', 'fn devices.gpu() -> Device[gpu:0]', []),
-            ('devices.gpu(1)', 'fn devices.gpu(index: uint32) -> Device[gpu:1]', ['index: uint32']),
-            ('devices.gpu(4294967295)', 'fn devices.gpu(index: uint32) -> Device[gpu:4294967295]', ['index: uint32']),
+            ('devices.gpu(1)', 'fn devices.gpu(index: u32) -> Device[gpu:1]', ['index: u32']),
+            ('devices.gpu(4294967295)', 'fn devices.gpu(index: u32) -> Device[gpu:4294967295]', ['index: u32']),
         ], 2):
         text = ('# 👩\nfrom "./selector-guidance.k" import choose\nfn main():\n  target='+form+'\n  choose()\n')
         client.change(signature_document, text, version)
@@ -2005,7 +2005,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         assert [expected[p['label'][0]:p['label'][1]] for p in labels] == parameters, result
         assert result.get('activeParameter') == (0 if parameters else None), result
         assert not client.barrier(), 'selector guidance published diagnostics'
-    invalid_selector = 'fn main():\n  index=1\n  target=devices.gpu(index)\n  0\n'
+    invalid_selector = 'fn main():\n  index=1\n  target=devices.gpu(index)\n  return 0\n'
     client.change(signature_document, invalid_selector, 6)
     assert publications(client.barrier())[signature_document.as_uri()]['diagnostics']
     assert client.hover(signature_document,2,18)['result'] is None
@@ -2013,11 +2013,11 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.finish()
     client = Client('--placement')
     client.init(formats=['markdown'])
-    text = 'fn main():\n  target=devices.gpu(1)\n  0\n'
+    text = 'fn main():\n  target=devices.gpu(1)\n  return 0\n'
     client.open(signature_document,text)
     assert not publications(client.barrier())[signature_document.as_uri()]['diagnostics']
     assert client.hover(signature_document,1,18)['result']['contents'] == {
-        'kind':'markdown','value':'```kalandra\nfn devices.gpu(index: uint32) -> Device[gpu:1]\n```'}
+        'kind':'markdown','value':'```kalandra\nfn devices.gpu(index: u32) -> Device[gpu:1]\n```'}
     client.finish()
     client = Client()
     client.init()
@@ -2030,7 +2030,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Callee-name completion can append bounded missing parentheses at EOF.
     callee_library = Path(temp) / 'open-callee.k'
-    callee_library_text = 'export fn combine(left:int,right:int):\n  left+right\n'
+    callee_library_text = 'export fn combine(left:i64,right:i64):\n  return left+right\n'
     callee_library.write_text(callee_library_text)
     callee_text = ('# 👩\nfrom "./open-callee.k" import combine as calculate\n'
                    'fn main():\n  calSuffix(1,2\n')
@@ -2056,7 +2056,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(signature_document,completed,3)
     assert not publications(client.barrier())[signature_document.as_uri()]['diagnostics']
     assert client.hover(signature_document,3,4)['result'] is not None
-    client.open(callee_library,'export fn combine(left:String,right:String):\n  left+right\n')
+    client.open(callee_library,'export fn combine(left:String,right:String):\n  return left+right\n')
     client.barrier()
     client.change(signature_document,callee_text,4)
     client.barrier()
@@ -2073,9 +2073,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Final argument suffixes use EOF-only repair and checked prefix/receiver context.
     argument_library = Path(temp) / 'argument-suffix.k'
-    argument_library_text = ('export type Reading:\n  value:int\n'
-                             'export fn read():\n  Reading {value:2}\n'
-                             'export fn combine(left:int,right:int):\n  left+right\n')
+    argument_library_text = ('export type Reading:\n  value:i64\n'
+                             'export fn read():\n  return Reading {value:2}\n'
+                             'export fn combine(left:i64,right:i64):\n  return left+right\n')
     argument_library.write_text(argument_library_text)
     argument_text = ('from "./argument-suffix.k" import read, combine\nfn main():\n'
                      '  reading=read()\n  combine(1,reading.vaSuffix\n')
@@ -2090,7 +2090,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     item=result['items'][0]
     assert item['textEdit']=={'newText':'value','range':{
         'start':{'line':3,'character':start},'end':{'line':3,'character':start+8}}}, item
-    assert client.signature(signature_document,3,start+2)['result']['signatures'][0]['label'] == 'fn combine(left: int64, right: int64) -> int64'
+    assert client.signature(signature_document,3,start+2)['result']['signatures'][0]['label'] == 'fn combine(left: i64, right: i64) -> i64'
     assert client.hover(signature_document,3,start+1)['result'] is None
     assert not client.barrier(), 'argument suffix recovery published probe diagnostics'
     applied = apply_workspace_edit({'documentChanges':[{'textDocument':{'uri':signature_document.as_uri()},
@@ -2120,9 +2120,9 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Signature help preserves final name/member suffixes with EOF-only repair.
     signature_suffix_library = Path(temp) / 'signature-suffix.k'
-    signature_suffix_library_text = ('export type Reading:\n  value:int\n'
-                                     'export fn read():\n  Reading {value:2}\n'
-                                     'export fn combine(left:int,right:int):\n  right\n')
+    signature_suffix_library_text = ('export type Reading:\n  value:i64\n'
+                                     'export fn read():\n  return Reading {value:2}\n'
+                                     'export fn combine(left:i64,right:i64):\n  right\n')
     signature_suffix_library.write_text(signature_suffix_library_text)
     suffix_text = ('# 👩\nfrom "./signature-suffix.k" import read, combine as calculate\n'
                    'fn main():\n  reading=read()\n  calculate(1,reading.vaSuffix\n')
@@ -2133,16 +2133,16 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert diagnostics and any(d['code']=='L005' for d in diagnostics), diagnostics
     character=suffix_text.splitlines()[4].index('vaSuffix')+2
     result=client.signature(signature_document,4,character)['result']
-    expected='fn calculate(left: int64, right: int64) -> int64'
+    expected='fn calculate(left: i64, right: i64) -> i64'
     assert result['signatures'][0]['label']==expected and result['activeParameter']==1, result
     begin,end=result['signatures'][0]['parameters'][1]['label']
-    assert expected[begin:end]=='right: int64', result
+    assert expected[begin:end]=='right: i64', result
     assert client.hover(signature_document,4,4)['result'] is None
     assert not client.barrier(), 'signature EOF suffix repair published diagnostics'
-    client.open(signature_suffix_library,signature_suffix_library_text.replace('right:int','right:float32'))
+    client.open(signature_suffix_library,signature_suffix_library_text.replace('right:i64','right:f32'))
     client.barrier()
     result=client.signature(signature_document,4,character)['result']
-    assert result['signatures'][0]['label']=='fn calculate(left: int64, right: float32) -> float32', result
+    assert result['signatures'][0]['label']=='fn calculate(left: i64, right: f32) -> f32', result
     for version,text in enumerate([
             suffix_text.replace('calculate(1,','calculate("bad",'),
             suffix_text.replace('reading.vaSuffix','missing.vaSuffix'),
@@ -2157,8 +2157,8 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Earlier argument completion validates callee/prefix even with missing later parameters.
     earlier_library=Path(temp)/'earlier-arguments.k'
-    earlier_library_text=('export type Reading:\n  value:int\nexport fn read():\n  Reading {value:1}\n'
-                          'export fn triple(first:int,second:int,third:int):\n  first+second+third\n')
+    earlier_library_text=('export type Reading:\n  value:i64\nexport fn read():\n  return Reading {value:1}\n'
+                          'export fn triple(first:i64,second:i64,third:i64):\n  return first+second+third\n')
     earlier_library.write_text(earlier_library_text)
     earlier_text=('from "./earlier-arguments.k" import read, triple\nfn main():\n'
                   '  reading=read()\n  triple(reading.vaSuffix,2\n')
@@ -2199,8 +2199,8 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Earlier signature slots preserve later arguments in the syntax and snapshot only the prefix.
     earlier_signature_library=Path(temp)/'earlier-signatures.k'
-    earlier_signature_library_text=('export type Reading:\n  value:int\nexport fn read():\n  Reading {value:1}\n'
-                                    'export fn triple(first:int,second:int,third:int):\n  first\n')
+    earlier_signature_library_text=('export type Reading:\n  value:i64\nexport fn read():\n  return Reading {value:1}\n'
+                                    'export fn triple(first:i64,second:i64,third:i64):\n  return first\n')
     earlier_signature_library.write_text(earlier_signature_library_text)
     earlier_signature_text=('from "./earlier-signatures.k" import read, triple as calculate\nfn main():\n'
                            '  reading=read()\n  calculate(reading.vaSuffix,2\n')
@@ -2211,10 +2211,10 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert before and any(d['code']=='L005' for d in before),before
     position=earlier_signature_text.splitlines()[3].index('vaSuffix')+2
     result=client.signature(signature_document,3,position)['result']
-    label='fn calculate(first: int64, second: int64, third: int64) -> int64'
+    label='fn calculate(first: i64, second: i64, third: i64) -> i64'
     assert result['signatures'][0]['label']==label and result['activeParameter']==0,result
     begin,end=result['signatures'][0]['parameters'][0]['label']
-    assert label[begin:end]=='first: int64',result
+    assert label[begin:end]=='first: i64',result
     assert client.hover(signature_document,3,position)['result'] is None
     assert not client.barrier(),'earlier signature query published internal diagnostics'
     balanced=earlier_signature_text.rstrip()+',3)\n'
@@ -2223,10 +2223,10 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert real and not any('signature snapshot' in d['message'] for d in real),real
     assert client.signature(signature_document,3,position)['result']['activeParameter']==0
     assert not client.barrier(),'balanced signature query changed actual diagnostics'
-    client.open(earlier_signature_library,earlier_signature_library_text.replace('first:int','first:float32'))
+    client.open(earlier_signature_library,earlier_signature_library_text.replace('first:i64','first:f32'))
     client.barrier()
     result=client.signature(signature_document,3,position)['result']
-    assert result['signatures'][0]['label']=='fn calculate(first: float32, second: int64, third: int64) -> float32',result
+    assert result['signatures'][0]['label']=='fn calculate(first: f32, second: i64, third: i64) -> f32',result
     invalid_receiver=balanced.replace('reading.vaSuffix','missing.vaSuffix')
     client.change(signature_document,invalid_receiver,3)
     client.barrier()
@@ -2236,8 +2236,8 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Empty earlier field slots require checked receiver projection before a comma.
     empty_earlier_library=Path(temp)/'empty-earlier-fields.k'
-    empty_earlier_library_text=('export type Reading:\n  value:int\nexport fn read():\n  Reading {value:2}\n'
-                                'export fn combine(left:int,right:int):\n  left+right\n')
+    empty_earlier_library_text=('export type Reading:\n  value:i64\nexport fn read():\n  return Reading {value:2}\n'
+                                'export fn combine(left:i64,right:i64):\n  return left+right\n')
     empty_earlier_library.write_text(empty_earlier_library_text)
     empty_earlier_text=('from "./empty-earlier-fields.k" import read, combine as calculate\nfn main():\n'
                         '  reading=read()\n  calculate(reading.,2)\n')
@@ -2248,22 +2248,22 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert before, 'actual empty field must retain parser diagnostic'
     position=empty_earlier_text.splitlines()[3].index('reading.')+len('reading.')
     result=client.signature(signature_document,3,position)['result']
-    expected='fn calculate(left: int64, right: int64) -> int64'
+    expected='fn calculate(left: i64, right: i64) -> i64'
     assert result['signatures'][0]['label']==expected and result['activeParameter']==0,result
     begin,end=result['signatures'][0]['parameters'][0]['label']
-    assert expected[begin:end]=='left: int64',result
+    assert expected[begin:end]=='left: i64',result
     assert '__kalandra' not in str(result),result
     assert client.hover(signature_document,3,position)['result'] is None
     assert not client.barrier(),'empty earlier field query published probe diagnostics'
     client.change(signature_document,empty_earlier_text.replace('reading.,','reading.value,'),2)
     assert not publications(client.barrier())[signature_document.as_uri()]['diagnostics']
-    client.open(empty_earlier_library,empty_earlier_library_text.replace('left:int,right:int','left:uint32,right:uint32'))
+    client.open(empty_earlier_library,empty_earlier_library_text.replace('left:i64,right:i64','left:u32,right:u32'))
     client.barrier()
     opened=empty_earlier_text.replace('reading.,2)','reading.,2')
     client.change(signature_document,opened,3)
     assert publications(client.barrier())[signature_document.as_uri()]['diagnostics']
     result=client.signature(signature_document,3,position)['result']
-    assert result['signatures'][0]['label']=='fn calculate(left: uint32, right: uint32) -> uint32',result
+    assert result['signatures'][0]['label']=='fn calculate(left: u32, right: u32) -> u32',result
     unknown=opened.replace('reading.,','missing.,')
     client.change(signature_document,unknown,4)
     client.barrier()
@@ -2273,8 +2273,8 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Arithmetic argument completion preserves the whole expression during EOF repair.
     expression_library=Path(temp)/'expression-completion.k'
-    expression_library_text=('export type Reading:\n  value:int\nexport fn read():\n  Reading {value:2}\n'
-                             'export fn combine(left:int,right:int):\n  left+right\n')
+    expression_library_text=('export type Reading:\n  value:i64\nexport fn read():\n  return Reading {value:2}\n'
+                             'export fn combine(left:i64,right:i64):\n  return left+right\n')
     expression_library.write_text(expression_library_text)
     expression_text=('from "./expression-completion.k" import read, combine\nfn main():\n'
                      '  reading=read()\n  combine(1,2*reading.vaSuffix\n')
@@ -2314,12 +2314,12 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Format the current buffer only; the client independently applies the edit.
     formatter = Path(temp) / "format.k"
-    disk = b"fn main():\n  99\n"
+    disk = b'fn main():\n  return 99\n'
     formatter.write_bytes(disk)
     client = Client()
     client.init()
-    text = '# 👩\r\nfn main( ):\r\n    "😀"'
-    expected = '# 👩\nfn main():\n  "😀"\n'
+    text = '# 👩\r\nfn main( ):\r\n    return "😀"'
+    expected = '# 👩\nfn main():\n  return "😀"\n'
     client.open(formatter, text)
     client.barrier()
     edits = client.formatting(formatter)["result"]
@@ -2338,11 +2338,11 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     assert client.formatting(formatter)["result"] == [], "invalid source offered edits"
     # Formatting is syntax-only; imports need not be available to format a file.
-    client.change(formatter, 'from "./missing.k" import helper\nfn main():\n    helper( 1 )\n', 4)
+    client.change(formatter, 'from "./missing.k" import helper\nfn main():\n    return helper( 1 )\n', 4)
     client.barrier()
     edits = client.formatting(formatter)["result"]
     assert len(edits) == 1 and edits[0]["newText"].endswith('  helper(1)\n')
-    client.change(formatter, 'fn main():\n  devices . gpu(1)\n', 5)
+    client.change(formatter, 'fn main():\n  return devices . gpu(1)\n', 5)
     client.barrier()
     assert client.formatting(formatter)["error"]["code"] == -32803, "verification refusal lost"
     client.change(formatter, '', 6)

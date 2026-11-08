@@ -49,12 +49,12 @@ for name,fmt,wire,width in types:
     for op in ops:
         operation=('transpose','softmaxRows','rmsNormRows')[op]
         signature=f'fn work(x:Tensor[{language},?,?]'+(f',epsilon:{language}' if op==2 else '')+f')->Tensor[{language},?,?]:\n  {operation}(x'+(',epsilon' if op==2 else '')+')\n'
-        cpu_source=args.output/f'{name}-{operation}.k';cpu_source.write_text(signature+'fn main()->int64:\n  0\n')
+        cpu_source=args.output/f'{name}-{operation}.k';cpu_source.write_text(signature+'fn main()->i64:\n  return 0\n')
         bundle=args.output/f'{name}-{operation}-bundle'
         if args.gpu:
             source=args.output/f'{name}-{operation}-gpu.k'
             source.write_text(signature+f'''fn main()->Tensor[{language},?,?] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     cpu=devices.cpu()
     x:Tensor[{language},2,3]=tensor([[1,2,3],[4,5,6]])

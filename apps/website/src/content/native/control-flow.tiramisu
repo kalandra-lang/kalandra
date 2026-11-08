@@ -1,27 +1,27 @@
 meta { title = "Conditions, loops and matching", description = "Choose values, iterate over arrays and ranges, and exit loops safely.", order = 4, group = "Language reference" }
 
-Bool has the values true and false. Comparisons return Bool. Use not, and and or for Boolean logic. and and or evaluate only the operands needed to determine the result.
+bool has the values true and false. Comparisons return bool. Use not, and and or for Boolean logic. and and or evaluate only the operands needed to determine the result.
 
 h2 { "Select a result" }
 
-codeblock { language = kalandra, """fn clampLow(value: int, minimum: int) -> int:
-  if value < minimum:
+codeblock { language = kalandra, """fn clampLow(value: i64, minimum: i64) -> i64:
+  return if value < minimum:
     minimum
   else:
     value
 
-fn main() -> int:
-  clampLow(12, 42)
+fn main() -> i64:
+  return clampLow(12, 42)
 """ }
 
 This returns 42. A general if expression needs both branches and a compatible result type. Only the selected branch executes, and bindings introduced in it stay within that branch. A non-final validation guard may omit else when its body ends in an explicit fail.
 
 h2 { "Combine conditions" }
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   value = 42
   valid = value >= 0 and value < 100
-  if valid and not false:
+  return if valid and not false:
     value
   else:
     0
@@ -31,9 +31,9 @@ This also returns 42. Write separate comparisons joined with and. Ungrouped chai
 
 h2 { "Update local state in a loop" }
 
-Numeric and Bool scalars can be reassigned without a mut declaration. Numeric and Bool array bindings can also be reassigned in CPU functions, including across task waits and expected-error handling. Their lengths may change; their element type stays fixed. A while statement reevaluates its Bool condition before each iteration. It may run zero times. In statement form, supply the function result separately after the loop. To obtain a value from a loop, use the expression form described below.
+Numeric and bool scalars can be reassigned without a mut declaration. Numeric and bool array bindings can also be reassigned in CPU functions, including across task waits and expected-error handling. Their lengths may change; their element type stays fixed. A while statement reevaluates its bool condition before each iteration. It may run zero times. In statement form, supply the function result separately after the loop. To obtain a value from a loop, use the expression form described below.
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   index = 0
   total = 0
   while index < 5:
@@ -42,35 +42,35 @@ codeblock { language = kalandra, """fn main() -> int:
     else:
       total = total + 10
     index = index + 1
-  total
+  return total
 """ }
 
-This returns 23. A statement if may omit else; a value-producing if still needs both branches. Assignment to an existing scalar changes that binding; a new name introduced in a branch or iteration stays in that scope. Reassignment preserves the scalar type. Checked numeric/Bool array element writes are described in the array tutorial. break exits the nearest loop; continue skips the rest of its body and starts the next iteration.
+This returns 23. A statement if may omit else; a value-producing if still needs both branches. Assignment to an existing scalar changes that binding; a new name introduced in a branch or iteration stays in that scope. Reassignment preserves the scalar type. Checked numeric/bool array element writes are described in the array tutorial. break exits the nearest loop; continue skips the rest of its body and starts the next iteration.
 
 h2 { "Iterate over an array" }
 
 for visits array elements in index order. It evaluates the array expression once and keeps that storage alive until iteration finishes. Replacing the original binding does not change which array is visited. Writes to writable elements remain visible to subsequent reads. The iteration binding is local to the body and does not replace an outer binding with the same name.
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   total = 0
   for value in [1, 2, 3, 4]:
     if value == 2:
       continue
     total = total + value
-  total
+  return total
 """ }
 
-This returns 8. continue advances to the next element. A bare break would end this statement loop immediately. for accepts CPU arrays, including arrays of Bool, Strings, records and function values. Use an explicit conversion to an array when starting from a numerical tensor.
+This returns 8. continue advances to the next element. A bare break would end this statement loop immediately. for accepts CPU arrays, including arrays of bool, Strings, records and function values. Use an explicit conversion to an array when starting from a numerical tensor.
 
 h2 { "Iterate over an integer range" }
 
-Use range(stop), range(start, stop), or range(start, stop, step) as a for iterable. These forms are allocation-free loop syntax; they do not construct an array or a reusable iterator value. Arguments are completed int values, evaluated once from left to right. The default start is zero and the default step is one. The stop is exclusive. A negative step counts downward; a direction that cannot reach the stop produces no iterations. A zero step produces a checked arithmetic fault, including for an otherwise empty range. Advancing beyond the int limits ends the range without wrapping around.
+Use range(stop), range(start, stop), or range(start, stop, step) as a for iterable. These forms are allocation-free loop syntax; they do not construct an array or a reusable iterator value. Arguments are completed i64 values, evaluated once from left to right. The default start is zero and the default step is one. The stop is exclusive. A negative step counts downward; a direction that cannot reach the stop produces no iterations. A zero step produces a checked arithmetic fault, including for an otherwise empty range. Advancing beyond the i64 limits ends the range without wrapping around.
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   total = 0
   for index in range(5, -2, -2):
     total = total + index
-  total
+  return total
 """ }
 
 This returns 8, from 5 + 3 + 1 - 1. Reassigning index inside the body changes that iteration's local value; it does not change the next range value.
@@ -79,28 +79,28 @@ h2 { "Build an array with yield" }
 
 A for or while expression containing yield builds an array. Each executed yield appends one value in execution order. You can filter values with if, skip an iteration with continue, or stop with a bare break. Values yielded before continue or break remain in the result. A collecting loop has no else result and does not accept break value.
 
-codeblock { language = kalandra, """fn main() -> [int]:
+codeblock { language = kalandra, """fn main() -> [i64]:
   squares = for value in [3, -2, 7, 0]:
     if value > 0:
       yield value * value
-  squares
+  return squares
 """ }
 
 This returns [9, 49]. All yielded values must have the same element type. A type annotation on the result supplies the element type for numeric literals. If no yield executes, the result is an empty array of that type. The loop runs eagerly before the assignment completes; yield does not suspend execution or create a lazy generator.
 
 Nested statement loops contribute to the enclosing collecting expression. This lets one traversal produce zero, one or several values per iteration.
 
-codeblock { language = kalandra, """fn main() -> [int]:
+codeblock { language = kalandra, """fn main() -> [i64]:
   results = for row in range(4):
     for value in range(row):
       if value % 2 == 0:
         yield row * 10 + value
-  results
+  return results
 """ }
 
 This returns [10, 20, 30, 32]. break and continue still target the nearest loop. Assigning a nested loop expression to a separate binding creates a separate result array; its yields do not append to the outer result. A function or callback cannot yield into its caller's loop.
 
-codeblock { language = kalandra, """fn main() -> [int]:
+codeblock { language = kalandra, """fn main() -> [i64]:
   index = 0
   values = while index < 6:
     index = index + 1
@@ -110,10 +110,10 @@ codeblock { language = kalandra, """fn main() -> [int]:
     if index == 4:
       break
     yield index * 10
-  values
+  return values
 """ }
 
-This returns [1, 10, 3, 30, 4]. yield accepts the supported array element types: numeric scalars, Bool, Strings, records and functions. Array and tensor elements are not supported. Values must be completed and on the CPU; await tasks and handle expected errors before yielding their results. Yielding does not settle other tasks created in the iteration. Cancellation, faults and resource exhaustion abort construction without returning a partial array.
+This returns [1, 10, 3, 30, 4]. yield accepts the supported array element types: numeric scalars, bool, Strings, records and functions. Array and tensor elements are not supported. Values must be completed and on the CPU; await tasks and handle expected errors before yielding their results. Yielding does not settle other tasks created in the iteration. Cancellation, faults and resource exhaustion abort construction without returning a partial array.
 
 The result has fresh array storage. Owned elements retain their ordinary aliasing rules: yielding a record does not duplicate arrays referenced by its fields. Existing read locks and mutation permissions still apply. Use generate for an indexed construction with a known count, map to transform an existing array, or a collecting loop when filtering, nested traversal or early exits make the construction clearer.
 
@@ -121,8 +121,8 @@ h2 { "Get a value from a loop" }
 
 For a single result rather than a yielded array, both while and for support an else suite that supplies its result when iteration finishes normally, including when the body never runs. break value ends the nearest loop and supplies its result instead; that path skips else. Every break and the else result must have compatible types. There is no implicit last-iteration result, and continue never supplies a value.
 
-codeblock { language = kalandra, """fn main() -> int:
-  for value in [3, 7, 9]:
+codeblock { language = kalandra, """fn main() -> i64:
+  return for value in [3, 7, 9]:
     if value > 5:
       break value
   else:
@@ -131,7 +131,7 @@ codeblock { language = kalandra, """fn main() -> int:
 
 This returns 7. The same search over an empty array would return 0. Statement and collecting loops use bare break; a single-result expression loop uses break value.
 
-codeblock { language = kalandra, """fn main() -> int:
+codeblock { language = kalandra, """fn main() -> i64:
   index = 0
   result = while index < 10:
     index = index + 1
@@ -139,7 +139,7 @@ codeblock { language = kalandra, """fn main() -> int:
       break index * 10
   else:
     7
-  result + index
+  return result + index
 """ }
 
 This returns 44. The else suite runs only after a false condition or exhausted iterable, never after break, a propagated error, a checked fault or cancellation. Loop expressions may return any supported completed value, including arrays, Strings, records, functions and tensors. Existing type, ownership and residency rules still apply.

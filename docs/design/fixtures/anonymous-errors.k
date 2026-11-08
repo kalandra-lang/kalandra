@@ -1,12 +1,12 @@
 error E:
   Bad:
-    value:int
-export fn main()->int:
-  offset:int=42
-  validate=fn(value:int)->int ! E:
+    value:i64
+export fn main()->i64:
+  offset:i64=42
+  validate=fn(value:i64)->i64 ! E:
     if value<0:
       fail E.Bad {value:offset}
-    value+offset
-  validate(-1) catch fn(error):
-    match error:
+    return value+offset
+  return validate(-1) catch fn(error):
+    return match error:
       E.Bad {value}:value

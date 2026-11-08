@@ -35,13 +35,13 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
         run('/usr/bin/git', '-C', str(repo), 'init', '--template=', '--initial-branch=main')
     geometry_manifest = geometry / 'kalandra.toml'
     geometry_manifest.write_text("format=1\n[package]\nname='geometry'\nversion='0.1.0'\nentry='public.k'\n")
-    old_text = 'export fn measure(value:int64)->int64:\n  value+1\n'
+    old_text = 'export fn measure(value:i64)->i64:\n  return value+1\n'
     (geometry / 'public.k').write_text(old_text)
     old = commit(geometry)
     geometry_manifest.write_text(geometry_manifest.read_text().replace('0.1.0', '0.2.0'))
-    (geometry / 'public.k').write_text(old_text.replace('int64', 'float32'))
+    (geometry / 'public.k').write_text(old_text.replace('i64', 'f32'))
     new = commit(geometry)
-    library_text = 'from "geometry" import measure\nexport fn compute(value:int64)->int64:\n  measure(value)\n'
+    library_text = 'from "geometry" import measure\nexport fn compute(value:i64)->i64:\n  return measure(value)\n'
     (library / 'public.k').write_text(library_text)
     (library / 'kalandra.toml').write_text("format=1\n[package]\nname='library'\nversion='1.0.0'\nentry='public.k'\n[dependencies]\n" + request('geometry', geometry, old))
     wrapper = commit(library)
@@ -50,9 +50,9 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     configuration = "format=1\n[project]\nentry='main.k'\n[dependencies]\n" + request('geometry', geometry, new) + request('library', library, wrapper)
     manifest.write_text(configuration)
     main = app / 'main.k'
-    good = 'from "geometry" import measure\nfrom "library" import compute\nfn main()->int64:\n  result=compute(10)\n  result\n'
+    good = 'from "geometry" import measure\nfrom "library" import compute\nfn main()->i64:\n  result=compute(10)\n  result\n'
     # An invalid saved buffer must be replaceable before the root is parsed.
-    (app / 'other.k').write_text('from "library" import compute\nfn other()->int64:\n  compute(1)\n')
+    (app / 'other.k').write_text('from "library" import compute\nfn other()->i64:\n  return compute(1)\n')
     main.write_text(good)
     run(compiler, 'install', '--project', str(manifest))
     main.write_text('broken disk source\n')
@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     snapshots = list((app / '.kalandra/snapshots').glob('*/source/public.k'))
     old_source = next(p for p in snapshots if p.read_text() == old_text)
     wrapper_source = next(p for p in snapshots if p.read_text() == library_text)
-    new_source = next(p for p in snapshots if 'float32' in p.read_text())
+    new_source = next(p for p in snapshots if 'f32' in p.read_text())
     before = {p.relative_to(app): p.read_bytes() for p in app.rglob('*') if p.is_file()}
     # No repository or network is needed by editor analysis.
     shutil.rmtree(geometry)
@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     client.init(rename=True, rootUri=app.as_uri())
     client.open(main, good)
     assert publications(client.barrier())[main.as_uri()]['diagnostics'] == []
-    assert 'int64' in str(client.hover(main, 3, 10)['result'])
+    assert 'i64' in str(client.hover(main, 3, 10)['result'])
     target = client.definition(main, 3, 10)['result']
     assert target['uri'] == wrapper_source.as_uri(), target
     # Workspace discovery must skip .kalandra, and the private int64 version
@@ -80,7 +80,7 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     client.open(wrapper_source, library_text)
     client.barrier()
     assert client.definition(wrapper_source, 2, 4)['result']['uri'] == old_source.as_uri()
-    assert 'int64' in str(client.hover(wrapper_source, 2, 4)['result'])
+    assert 'i64' in str(client.hover(wrapper_source, 2, 4)['result'])
     assert client.definition(main, 0, 25)['result']['uri'] == new_source.as_uri()
     refs = client.references(main, 3, 10, True)['result']
     assert {v['uri'] for v in refs} == {main.as_uri(), (app / 'other.k').as_uri(), wrapper_source.as_uri()}, refs
@@ -113,7 +113,7 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     names=client.completion(main,4,cursor)['result']['items']
     assert [(item['label'],item['kind']) for item in names]==[('result',6)],names
     hint=client.signature(main,4,cursor)['result']
-    assert hint and hint['activeParameter']==0 and 'value: int64' in hint['signatures'][0]['label'],hint
+    assert hint and hint['activeParameter']==0 and 'value: i64' in hint['signatures'][0]['label'],hint
     assert not client.barrier(), 'recovery query published diagnostics'
     client.change(main,good,8)
     assert publications(client.barrier())[main.as_uri()]['diagnostics']==[]

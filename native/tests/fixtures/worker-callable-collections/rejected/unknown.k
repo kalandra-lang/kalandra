@@ -1,5 +1,5 @@
-fn consume(callbacks:[fn(int)->int])->int ! TaskError:
-  try parallel:
+fn consume(callbacks:[fn(i64)->i64])->i64 ! TaskError:
+  return try parallel:
     try await spawn length(callbacks)
-fn main()->int:
-  42
+fn main()->i64:
+  return 42

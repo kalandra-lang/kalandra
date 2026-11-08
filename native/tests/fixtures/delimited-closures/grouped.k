@@ -1,5 +1,5 @@
-fn main()->int:
-  (fn(value:int):
+fn main()->i64:
+  return (fn(value:i64):
     total=value+1
-    total*2
+    return total*2
   )(20)

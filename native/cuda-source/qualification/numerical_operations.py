@@ -18,16 +18,16 @@ a.output.mkdir(parents=True,exist_ok=False)
 records=[]
 left=[[1,2,3],[0,2,1]];right=[[2,1],[1,3],[0,2]]
 product=[sum(left[i][t]*right[t][j] for t in range(3)) for i in range(2) for j in range(2)]
-for numeric in ('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64'):
-  width=32 if numeric=='float32' else 64 if numeric=='float64' else int(numeric.removeprefix('u').removeprefix('int'))
+for numeric in ('i8','u8','i16','u16','i32','u32','i64','u64','f32','f64'):
+  width=32 if numeric=='f32' else 64 if numeric=='f64' else int(numeric.removeprefix('u').removeprefix('i'))
   def bits(value):
-    return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little') if numeric.startswith('float') else value
+    return int.from_bytes(struct.pack('<f' if width==32 else '<d',value),'little') if numeric.startswith('f') else value
   for operation in ('matrix','reduction','reduction-tail'):
     if operation=='matrix':
       source=f'''fn work(a:Tensor[{numeric},?,?],b:Tensor[{numeric},?,?])->Tensor[{numeric},?,?]:
-  matmul(a,b)
+  return matmul(a,b)
 fn main()->Tensor[{numeric},?,?] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     a:Tensor[{numeric},2,3]=tensor({left})
     b:Tensor[{numeric},3,2]=tensor({right})
@@ -40,9 +40,9 @@ fn main()->Tensor[{numeric},?,?] ! TaskError:
     else:
       values=list(range(1,6)) if operation=='reduction' else [0]*256+[5]
       source=f'''fn work(a:Tensor[{numeric},?])->{numeric}:
-  reduceSum(a)
+  return reduceSum(a)
 fn main()->{numeric} ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     a:Tensor[{numeric},{len(values)}]=tensor({values})
     x=try await transfer(a,gpu)

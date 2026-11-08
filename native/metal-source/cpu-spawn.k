@@ -1,22 +1,22 @@
-fn project(input: Tensor[float32, ?, ?], weights: Tensor[float32, ?, ?]) -> Tensor[float32, ?, ?]:
-  matmul(input, weights)
+fn project(input: Tensor[f32, ?, ?], weights: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:
+  return matmul(input, weights)
 
-fn total(values: Tensor[float32, ?, ?]) -> float32:
-  reduceSum(values)
+fn total(values: Tensor[f32, ?, ?]) -> f32:
+  return reduceSum(values)
 
-fn shift(values: Tensor[float32, ?, ?], offset: float32) -> Tensor[float32, ?, ?]:
-  values + offset
+fn shift(values: Tensor[f32, ?, ?], offset: f32) -> Tensor[f32, ?, ?]:
+  return values + offset
 
-fn fixed(values: Tensor[float32, 2, 3]) -> float32:
-  reduceSum(values)
+fn fixed(values: Tensor[f32, 2, 3]) -> f32:
+  return reduceSum(values)
 
-fn scale(values: Tensor[float32, ?, ?], factor: float32) -> Tensor[float32, ?, ?]:
-  values * factor
+fn scale(values: Tensor[f32, ?, ?], factor: f32) -> Tensor[f32, ?, ?]:
+  return values * factor
 
-fn main() -> Tensor[float32, 2, 2] ! TaskError:
-  try parallel:
-    left: Tensor[float32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
-    weights: Tensor[float32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])
+fn main() -> Tensor[f32, 2, 2] ! TaskError:
+  return try parallel:
+    left: Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6]])
+    weights: Tensor[f32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])
     cpu = devices.cpu()
     destination = cpu
     projection = spawn project(left, weights)

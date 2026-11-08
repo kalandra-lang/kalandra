@@ -13,12 +13,12 @@ modes=[('debug',[],['-O0'],'native-runtime'),('optimized',['-O2'],['-O2'],'task-
 modes=qualified_variants(modes,a.compiler)
 if windows:modes=[mode for mode in modes if mode[0]!='thread-sanitized']
 fixtures={
- 'index':('int64','std::int64_t',5,'  a=[seed,seed+1]\n  a[index]'),
- 'map':('int64','std::int64_t',5,'  a=[seed,seed+1]\n  b=map(a,fn(value:int):value/index)\n  b[0]+b[1]'),
- 'replay':('int64','std::int64_t',5,'  a=[seed,seed+1]\n  b=[seed+2,seed+3]\n  c=[seed+4,seed+5]\n  d=[seed+6,seed+7]\n  e=[seed+8,seed+9]\n  a[index]+b[0]+c[0]+d[0]+e[0]'),
- 'nan':('float64','double',1,'  a=[float64(seed),float64(index)]\n  a[0]/a[1]'),
- 'bool':('Bool','bool',2,'  a=[seed,index]\n  a[0] == a[1]'),
- 'minimum':('int64','std::int64_t',5,'  a=[seed,index]\n  a[0]'),
+ 'index':('i64','std::int64_t',5,'  a=[seed,seed+1]\n  a[index]'),
+ 'map':('i64','std::int64_t',5,'  a=[seed,seed+1]\n  b=map(a,fn(value:i64):value/index)\n  b[0]+b[1]'),
+ 'replay':('i64','std::int64_t',5,'  a=[seed,seed+1]\n  b=[seed+2,seed+3]\n  c=[seed+4,seed+5]\n  d=[seed+6,seed+7]\n  e=[seed+8,seed+9]\n  a[index]+b[0]+c[0]+d[0]+e[0]'),
+ 'nan':('f64','double',1,'  a=[f64(seed),f64(index)]\n  a[0]/a[1]'),
+ 'bool':('bool','bool',2,'  a=[seed,index]\n  a[0] == a[1]'),
+ 'minimum':('i64','std::int64_t',5,'  a=[seed,index]\n  a[0]'),
 }
 driver=r'''
 #include "FAULT"
@@ -31,7 +31,7 @@ extern "C" T _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
 extern "C" T _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::runtime::OrdinaryFault*);
 extern "C" std::int32_t kalandra_ordinary_finish_v1(std::uint64_t,std::int32_t,const kalandra::runtime::OrdinaryFault*) noexcept;
 template<class V> std::uint64_t bits(V value){if constexpr(std::is_floating_point_v<V>)return std::bit_cast<std::uint64_t>(value);else return static_cast<std::uint64_t>(value);}
-int main(int argc,char **argv){if(argc!=3)return 2;I a=std::strtoll(argv[1],nullptr,10),b=std::strtoll(argv[2],nullptr,10);kalandra::runtime::OrdinaryFault fault{};
+i64 main(i64 argc,char **argv){if(argc!=3)return 2;I a=std::strtoll(argv[1],nullptr,10),b=std::strtoll(argv[2],nullptr,10);kalandra::runtime::OrdinaryFault fault{};
 #if defined(DIRECT)
  auto value=_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(a,b);
 #else
@@ -44,7 +44,7 @@ values=[(0,0),(17,0),(17,1),(17,2),(17,-1),(-2**63,0),(2**63-1,1),(1,1)]
 records=[]
 for mode,extra,flags,library in modes:
  for fixture,(lang,cpp,kind,body) in fixtures.items():
-  name=f'{mode}-{fixture}';src=a.output/(name+'.k');ir=a.output/(name+'.ll');src.write_text(f'fn value(seed:int64,index:int64)->{lang}:\n{body}\nfn main()->{lang}:\n  value(17,1)\n')
+  name=f'{mode}-{fixture}';src=a.output/(name+'.k');ir=a.output/(name+'.ll');src.write_text(f'fn value(seed:i64,index:i64)->{lang}:\n{body}\nfn main()->{lang}:\n  value(17,1)\n')
   run([a.compiler,src,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'+suffix),*extra])
   text=ir.read_text();assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in text,name
   # These fixtures must actually exercise private buffers/replay, not only a

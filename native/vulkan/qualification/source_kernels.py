@@ -15,14 +15,14 @@ p.add_argument('--arithmetic',choices=('hardware','software','hardware-with-soft
 p.add_argument('--operation', choices=('map', 'relu', 'reduce', 'matmul', 'scalar'), default='map')
 a=p.parse_args()
 a.output.mkdir(parents=True,exist_ok=True)
-types=('int8','uint8','int16','uint16','int32','uint32','int64','uint64','float32','float64')
+types=('i8','u8','i16','u16','i32','u32','i64','u64','f32','f64')
 for name in types:
     source=a.output/(name+'.k')
     if a.operation in ('map','relu'):
         source.write_text(f'''fn operation(v:Tensor[{name},?])->Tensor[{name},?]:
-  {'relu(v)' if a.operation=='relu' else 'v*2+3'}
+  return {'relu(v)' if a.operation=='relu' else 'v*2+3'}
 fn main()->Tensor[{name},3] ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     v:Tensor[{name},3]=tensor([1,2,3])
     resident=try await transfer(v,gpu)
@@ -32,20 +32,20 @@ fn main()->Tensor[{name},3] ! TaskError:
     elif a.operation == 'reduce':
         source.write_text(f'''fn operation(v:Tensor[{name},?])->{name}:
   reduceSum(v)
-fn main()->int32:
-  0
+fn main()->i32:
+  return 0
 ''')
     elif a.operation == 'matmul':
         source.write_text(f'''fn operation(a:Tensor[{name},?,?],b:Tensor[{name},?,?])->Tensor[{name},?,?]:
-  matmul(a,b)
-fn main()->int32:
-  0
+  return matmul(a,b)
+fn main()->i32:
+  return 0
 ''')
     else:
         source.write_text(f'''fn operation(v:{name})->{name}:
-  v*2+3
-fn main()->int32:
-  0
+  return v*2+3
+fn main()->i32:
+  return 0
 ''')
     directory=a.output/name
     subprocess.run([str(a.compiler),str(source),'operation',str(directory),a.arithmetic],check=True)

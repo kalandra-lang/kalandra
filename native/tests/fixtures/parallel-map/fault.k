@@ -1,11 +1,11 @@
-fn divide(value:int)->int:
-  1/value
-fn run()->int ! TaskError:
+fn divide(value:i64)->i64:
+  return 1/value
+fn run()->i64 ! TaskError:
   values=try parallelMap([1,0,2],divide)
-  values[0]
-fn main()->int ! TaskError:
-  run() catch fn(error):
-    match error:
+  return values[0]
+fn main()->i64 ! TaskError:
+  return run() catch fn(error):
+    return match error:
       TaskError.Fault {kind}:
         match kind:
           FaultKind.Arithmetic:42

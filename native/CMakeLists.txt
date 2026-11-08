@@ -1403,6 +1403,11 @@ endforeach()
 if(BUILD_TESTING)
   add_test(NAME native-cross-toolchain-validation COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/CrossToolchainTests.py" --compiler "$<TARGET_FILE:kalandra>")
+  add_test(NAME native-explicit-returns
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/ExplicitReturnTests.py"
+      --compiler "$<TARGET_FILE:kalandra>" --checker "$<TARGET_FILE:kalandra-check>"
+      --output "${CMAKE_CURRENT_BINARY_DIR}/explicit-returns")
+  set_tests_properties(native-explicit-returns PROPERTIES TIMEOUT 900)
   add_test(NAME native-cli-version COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/VersionTests.py"
     "${KALANDRA_VERSION}" "$<TARGET_FILE:kalandra>" "$<TARGET_FILE:kalandra-check>"

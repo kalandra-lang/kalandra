@@ -11,12 +11,12 @@ for arithmetic in ('hardware', 'software'):
     for terms in (1, 17):
         source = args.output / f'{arithmetic}-{terms}.k'
         expression = 'values*scale' + '+scale'*terms
-        source.write_text(f"""fn operation(values:Tensor[float32,?,?],scale:float32)->Tensor[float32,?,?]:
-  transpose(transpose({expression}))
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+        source.write_text(f"""fn operation(values:Tensor[f32,?,?],scale:f32)->Tensor[f32,?,?]:
+  return transpose(transpose({expression}))
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    values:Tensor[float32,1,2]=tensor([[1,2]])
+    values:Tensor[f32,1,2]=tensor([[1,2]])
     resident=try await transfer(values,gpu)
     answer=try await spawn operation(resident,0.25) on gpu
     try await transfer(answer,devices.cpu())

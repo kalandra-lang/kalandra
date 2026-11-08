@@ -21,12 +21,12 @@ args.output = args.output.resolve()
 args.output.mkdir(parents=True, exist_ok=True)
 repo = Path(__file__).resolve().parents[3]
 cast = args.output / 'cast.k'
-cast.write_text('''fn work(x:Tensor[float64,?])->Tensor[float32,?]:
-  float32(x)
-fn main()->Tensor[float32,?] ! TaskError:
-  try parallel:
+cast.write_text('''fn work(x:Tensor[f64,?])->Tensor[f32,?]:
+  return f32(x)
+fn main()->Tensor[f32,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    x:Tensor[float64,3]=tensor([-3.25,0.5,5.75])
+    x:Tensor[f64,3]=tensor([-3.25,0.5,5.75])
     resident=try await transfer(x,gpu)
     pending=spawn work(resident) on gpu
     first=try await pending

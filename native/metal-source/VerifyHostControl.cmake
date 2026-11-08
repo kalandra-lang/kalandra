@@ -38,7 +38,7 @@ qualify(false "${FALSE}" "[00000000,3f800000,40000000]\n" 0)
 string(REPLACE "enabled(sum, 0) and not (sum != sum)" "false" CONSTANT "${SOURCE}")
 qualify(constant "${CONSTANT}" "[00000000,3f800000,40000000]\n" 0)
 # Branch-specific dynamic shapes must be checked only on the selected path.
-set(ROUTE "fn add(a:Tensor[float32,?],b:Tensor[float32,?])->Tensor[float32,?]:\n  a+b\nfn route(a:Tensor[float32,?],b:Tensor[float32,?],selected:Bool)->Tensor[float32,?] ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n    x=try await transfer(a,gpu)\n    y=try await transfer(b,gpu)\n    result=if selected:\n      x\n    else:\n      try await spawn add(x,y) on gpu\n    try await transfer(result,devices.cpu())\nfn main()->Tensor[float32,?] ! TaskError:\n  try route(tensor([1,2,3]),tensor([4,5]),true)\n")
+set(ROUTE "fn add(a:Tensor[f32,?],b:Tensor[f32,?])->Tensor[f32,?]:\n  return a+b\nfn route(a:Tensor[f32,?],b:Tensor[f32,?],selected:bool)->Tensor[f32,?] ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    x=try await transfer(a,gpu)\n    y=try await transfer(b,gpu)\n    result=if selected:\n      x\n    else:\n      try await spawn add(x,y) on gpu\n    try await transfer(result,devices.cpu())\nfn main()->Tensor[f32,?] ! TaskError:\n  return try route(tensor([1,2,3]),tensor([4,5]),true)\n")
 qualify(skipped-shape "${ROUTE}" "[3f800000,40000000,40400000]\n" 0)
 string(REPLACE ",true)" ",false)" BAD "${ROUTE}")
 qualify(selected-shape "${BAD}" "" 1)

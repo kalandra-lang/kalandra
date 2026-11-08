@@ -70,7 +70,7 @@ if a.bundled_targets:
     assert set(cpu['crossLinkers']) == {'elf', 'macho', 'coff'}
 compiler = prefix/'bin/kalandra.exe'
 source = root/'cpu.k'
-source.write_text('fn main()->int32:\n  42\n')
+source.write_text('fn main()->i32:\n  return 42\n')
 run([compiler, source, '-o', root/'cpu.exe'])
 assert subprocess.check_output([root/'cpu.exe'], text=True, timeout=30) == '42\n'
 if a.backend == 'cuda':
@@ -134,12 +134,12 @@ checks += ['lib/kalandra/native/headers/gpu-runtime/ProgramDecl.inc']
 checks = [(relative, placed) for relative in checks]
 if a.backend == 'cuda':
     transform = root/'transpose.k'
-    transform.write_text("""fn work(v:Tensor[float32,?,?])->Tensor[float32,?,?]:
-  transpose(v)
-fn main()->Tensor[float32,?,?] ! TaskError:
-  try parallel:
+    transform.write_text("""fn work(v:Tensor[f32,?,?])->Tensor[f32,?,?]:
+  return transpose(v)
+fn main()->Tensor[f32,?,?] ! TaskError:
+  return try parallel:
     gpu=devices.gpu()
-    a:Tensor[float32,2,2]=tensor([[1,2],[3,4]])
+    a:Tensor[f32,2,2]=tensor([[1,2],[3,4]])
     x=try await transfer(a,gpu)
     y=try await spawn work(x) on gpu
     try await transfer(y,devices.cpu())

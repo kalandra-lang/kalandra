@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
     llvm::errs() << "usage: kalandra-metal-integer <numeric type> <gpu.mlir> <cpu.mlir>\n";
     return 2;
   }
-  auto type = resolveNumeric(argv[1]);
+  auto type = resolveNumericStorage(argv[1]);
   if (!type || !isInteger(*type))
     return 2;
   DialectRegistry registry;

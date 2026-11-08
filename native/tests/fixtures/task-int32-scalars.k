@@ -1,17 +1,17 @@
-fn add(a:int32,b:int32) -> int32:
-  a + b
-fn subtract(a:int32,b:int32) -> int32:
-  a - b
-fn multiply(a:int32,b:int32) -> int32:
-  a * b
-fn divide(a:int32,b:int32) -> int32:
-  a / b
-fn remainder(a:int32,b:int32) -> int32:
-  a % b
-fn negate(a:int32) -> int32:
-  -a
-fn main() -> int32 ! TaskError:
-  try parallel:
+fn add(a:i32,b:i32) -> i32:
+  return a + b
+fn subtract(a:i32,b:i32) -> i32:
+  return a - b
+fn multiply(a:i32,b:i32) -> i32:
+  return a * b
+fn divide(a:i32,b:i32) -> i32:
+  return a / b
+fn remainder(a:i32,b:i32) -> i32:
+  return a % b
+fn negate(a:i32) -> i32:
+  return -a
+fn main() -> i32 ! TaskError:
+  return try parallel:
     first = spawn add(2147483646,1)
     alias = first
     second = spawn subtract(-2147483647,1)

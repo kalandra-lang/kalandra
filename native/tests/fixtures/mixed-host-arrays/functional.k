@@ -1,9 +1,9 @@
-fn twice(values:Tensor[int,?])->Tensor[int,?]:
-  values+values
-fn main()->int ! TaskError:
-  try parallel:
+fn twice(values:Tensor[i64,?])->Tensor[i64,?]:
+  return values+values
+fn main()->i64 ! TaskError:
+  return try parallel:
     source=generate(8,fn(i):
-      for candidate in range(8):
+      return for candidate in range(8):
         if candidate==i:
           break 8-candidate
       else:
@@ -11,7 +11,7 @@ fn main()->int ! TaskError:
     )
     saved=source
     source=map(source,fn(value):
-      while true:
+      return while true:
         break value+1
       else:
         0

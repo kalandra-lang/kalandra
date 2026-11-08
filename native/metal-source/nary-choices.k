@@ -1,6 +1,6 @@
-fn choose(a: Tensor[float32, ?], b: Tensor[float32, ?], c: Tensor[float32, ?], factor: float32) -> Tensor[float32, ?]:
+fn choose(a: Tensor[f32, ?], b: Tensor[f32, ?], c: Tensor[f32, ?], factor: f32) -> Tensor[f32, ?]:
   combined = a + b + c
-  if factor > 0:
+  return if factor > 0:
     if factor > 1:
       a * factor
     else:
@@ -8,9 +8,9 @@ fn choose(a: Tensor[float32, ?], b: Tensor[float32, ?], c: Tensor[float32, ?], f
   else:
     c + factor
 
-fn normalize(a: Tensor[float32, ?], b: Tensor[float32, ?], c: Tensor[float32, ?], threshold: float32) -> Tensor[float32, ?]:
+fn normalize(a: Tensor[f32, ?], b: Tensor[f32, ?], c: Tensor[f32, ?], threshold: f32) -> Tensor[f32, ?]:
   total = reduceSum(a + b + c)
-  if total > threshold:
+  return if total > threshold:
     a / total
   else:
     if total < 0:
@@ -18,12 +18,12 @@ fn normalize(a: Tensor[float32, ?], b: Tensor[float32, ?], c: Tensor[float32, ?]
     else:
       c + threshold
 
-fn main() -> Tensor[float32, ?] ! TaskError:
-  try parallel:
+fn main() -> Tensor[f32, ?] ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    a: Tensor[float32, 3] = tensor([1, 2, 3])
-    b: Tensor[float32, 3] = tensor([4, 5, 6])
-    c: Tensor[float32, 3] = tensor([7, 8, 9])
+    a: Tensor[f32, 3] = tensor([1, 2, 3])
+    b: Tensor[f32, 3] = tensor([4, 5, 6])
+    c: Tensor[f32, 3] = tensor([7, 8, 9])
     x = try await transfer(a, gpu)
     y = try await transfer(b, gpu)
     z = try await transfer(c, gpu)

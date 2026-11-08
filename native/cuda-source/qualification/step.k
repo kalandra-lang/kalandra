@@ -1,2 +1,2 @@
-fn step(values:Tensor[float32,?])->Tensor[float32,?]:
-  values + 3
+fn step(values:Tensor[f32,?])->Tensor[f32,?]:
+  return values + 3

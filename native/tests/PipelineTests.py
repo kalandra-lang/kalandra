@@ -55,12 +55,12 @@ for name,flags,runtime in variants:
 
 # Source-level captures at the fusion/direct/argument-buffer boundaries.
 for label,biases,scaled,fused in [('matrix-only',0,False,True),('two-scalars',1,True,True),('last-fused-direct',26,False,True),('staged-direct',27,False,False),('staged-indirect',29,False,False)]:
- tensor='Tensor[float32,?,?]'
- parameters=['a:'+tensor,'b:'+tensor]+[f'c{i}:'+tensor for i in range(biases)]+(['scale:float32','offset:float32'] if scaled else [])
+ tensor='Tensor[f32,?,?]'
+ parameters=['a:'+tensor,'b:'+tensor]+[f'c{i}:'+tensor for i in range(biases)]+(['scale:f32','offset:f32'] if scaled else [])
  expression='matmul(a,b)'+''.join(f'+c{i}' for i in range(biases))
  if scaled:expression='('+expression+')*scale+offset'
- source='fn project('+','.join(parameters)+')->float32:\n  reduceSum(relu('+expression+'))\nfn main()->float32 ! TaskError:\n  try parallel:\n    a:Tensor[float32,2,3]=tensor([[1,1,1],[1,1,1]])\n    b:Tensor[float32,3,2]=tensor([[1,1],[1,1],[1,1]])\n    gpu=devices.gpu()\n    da=try await transfer(a,gpu)\n    db=try await transfer(b,gpu)\n'
- if biases:source+='    bias:Tensor[float32,2,2]=tensor([[1,1],[1,1]])\n    dc=try await transfer(bias,gpu)\n'
+ source='fn project('+','.join(parameters)+')->f32:\n  reduceSum(relu('+expression+'))\nfn main()->f32 ! TaskError:\n  try parallel:\n    a:Tensor[f32,2,3]=tensor([[1,1,1],[1,1,1]])\n    b:Tensor[f32,3,2]=tensor([[1,1],[1,1],[1,1]])\n    gpu=devices.gpu()\n    da=try await transfer(a,gpu)\n    db=try await transfer(b,gpu)\n'
+ if biases:source+='    bias:Tensor[f32,2,2]=tensor([[1,1],[1,1]])\n    dc=try await transfer(bias,gpu)\n'
  args=['da','db']+['dc']*biases+(['2','1'] if scaled else [])
  source+='    try await spawn project('+','.join(args)+') on gpu\n'
  path=a.output/(label+'.k');path.write_text(source)

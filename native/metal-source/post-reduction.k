@@ -1,17 +1,17 @@
-fn adjusted(values: Tensor[float32, ?], shift: float32, factor: float32) -> Tensor[float32, ?]:
-  (values + shift) * factor
+fn adjusted(values: Tensor[f32, ?], shift: f32, factor: f32) -> Tensor[f32, ?]:
+  return (values + shift) * factor
 
-fn finish(value: float32, shift: float32, factor: float32) -> float32:
-  -(value + shift) / factor
+fn finish(value: f32, shift: f32, factor: f32) -> f32:
+  return -(value + shift) / factor
 
-fn total(values: Tensor[float32, ?], shift: float32, factor: float32) -> float32:
+fn total(values: Tensor[f32, ?], shift: f32, factor: f32) -> f32:
   result = reduceSum(adjusted(values, shift, factor))
-  finish(result, shift, factor)
+  return finish(result, shift, factor)
 
-fn main() -> float32 ! TaskError:
-  try parallel:
+fn main() -> f32 ! TaskError:
+  return try parallel:
     gpu = devices.gpu()
-    values: Tensor[float32, 5] = tensor([1, 2, 3, 4, 5])
+    values: Tensor[f32, 5] = tensor([1, 2, 3, 4, 5])
     resident = try await transfer(values, gpu)
     work = spawn total(resident, 2, 2) on gpu
     result = try await work

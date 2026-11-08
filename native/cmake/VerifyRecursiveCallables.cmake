@@ -13,29 +13,29 @@ endforeach()
 file(READ "${SOURCE_DIR}/../docs/design/fixtures/recursive-callables.k" GUIDE)
 COMPILE(guide "${GUIDE}")
 EXPECT(guide 42)
-foreach(TYPE IN ITEMS int8 uint8 int16 uint16 int32 uint32 int64 uint64 float32 float64)
-  COMPILE("width-${TYPE}" "error E:\n  Bad:\n    value:${TYPE}\nfn descend(n:int)->${TYPE} ! E:\n  if n==0:fail E.Bad {value:${TYPE}(42)}\n  try descend(n-1)\nfn main()->${TYPE}:\n  callback=descend\n  callback(20) catch fn(error):\n    match error:\n      E.Bad {value}:value\n")
+foreach(TYPE IN ITEMS i8 u8 i16 u16 i32 u32 i64 u64 f32 f64)
+  COMPILE("width-${TYPE}" "error E:\n  Bad:\n    value:${TYPE}\nfn descend(n:i64)->${TYPE} ! E:\n  if n==0:fail E.Bad {value:${TYPE}(42)}\n  return try descend(n-1)\nfn main()->${TYPE}:\n  callback=descend\n  return callback(20) catch fn(error):\n    return match error:\n      E.Bad {value}:value\n")
   EXPECT("width-${TYPE}" 42)
 endforeach()
 COMPILE(raw [=[error E:
   Bad:
     text:String
-    values:[int]
-fn descend(n:int)->int ! E:
+    values:[i64]
+fn descend(n:i64)->i64 ! E:
   if n==0:fail E.Bad {text:"é"+"!",values:[20,20]}
-  if n<0:
+  return if n<0:
     divisor=n-n
     n/divisor
   else:
     try descend(n-1)
-fn probe(n:int)->int:
+fn probe(n:i64)->i64:
   callback=descend
-  callback(n) catch fn(error):
+  return callback(n) catch fn(error):
     match error:
       E.Bad {text,values}:values[0]+values[1]+length(text)
-fn main()->int:
+fn main()->i64:
   callback=probe
-  probe(20)
+  return probe(20)
 ]=] --test-entry probe)
 EXPECT(raw 42)
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} "${SOURCE_DIR}/tests/RecursiveCallableRuntimeTests.cpp" "${OUTPUT_DIR}/raw.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/context-harness")
@@ -56,7 +56,7 @@ foreach(INDEX RANGE 0 511)
   string(APPEND FIELDS "  f${INDEX}:int\n")
   string(APPEND VALUES "f${INDEX}:input+${INDEX},")
 endforeach()
-file(WRITE "${OUTPUT_DIR}/reject-stack.k" "type Large:\n${FIELDS}fn make(input:int)->Large:\n  Large {${VALUES}}\nfn main()->int:\n  row=make(0)\n  row.f0\n")
+file(WRITE "${OUTPUT_DIR}/reject-stack.k" "type Large:\n${FIELDS}fn make(input:i64)->Large:\n  Large {${VALUES}}\nfn main()->i64:\n  row=make(0)\n  row.f0\n")
 foreach(KIND IN ITEMS binary ll mlir)
   file(WRITE "${OUTPUT_DIR}/reject-stack.${KIND}" "preserve-${KIND}")
 endforeach()

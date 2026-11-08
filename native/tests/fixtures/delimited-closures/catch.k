@@ -1,13 +1,13 @@
 error E:
   Bad:
-    value:int
-fn checked(value:int)->int ! E:
+    value:i64
+fn checked(value:i64)->i64 ! E:
   if value==0:fail E.Bad {value:21}
-  value
-fn main()->int:
+  return value
+fn main()->i64:
   values=map([0,21],fn(value):
-    checked(value) catch fn(error):
-      match error:
+    return checked(value) catch fn(error):
+      return match error:
         E.Bad {value}:value
   )
-  values[0]+values[1]
+  return values[0]+values[1]

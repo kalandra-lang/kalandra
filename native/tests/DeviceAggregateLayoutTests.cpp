@@ -42,7 +42,7 @@ static void checkErrorPayloadLayouts() {
   auto checked = check(parse(std::make_shared<SourceFile>("device-errors.k", R"k(
 error SampleError:
   Invalid:
-    values: [int]
+    values: [i64]
 
 error OtherError:
   Empty
@@ -51,13 +51,13 @@ error TextError:
   Missing:
     name: String
 
-fn sample(values: [int]) -> int ! (SampleError | OtherError):
+fn sample(values: [i64]) -> i64 ! (SampleError | OtherError):
   fail SampleError.Invalid { values: values }
 
-fn text(name: String) -> int ! TextError:
+fn text(name: String) -> i64 ! TextError:
   fail TextError.Missing { name: name }
 
-fn mixed(values: [int]) -> int ! (SampleError | TaskError):
+fn mixed(values: [i64]) -> i64 ! (SampleError | TaskError):
   fail SampleError.Invalid { values: values }
 )k")));
   require(checked.ok(), "device error layout fixture rejected");
@@ -360,20 +360,20 @@ int main() {
 enum Inner:
   Empty
   Data:
-    values:[int]
+    values:[i64]
 enum Outer:
   Empty
   Data:
     inner:Inner
-fn work(value:Outer)->int:
-  match value:
+fn work(value:Outer)->i64:
+  return match value:
     Outer.Empty:0
     Outer.Data {inner}:
       match inner:
         Inner.Empty:1
         Inner.Data {values}:values[0]
 fn produce()->Outer:
-  Outer.Data {inner:Inner.Data {values:[1,2]}}
+  return Outer.Data {inner:Inner.Data {values:[1,2]}}
 )")));
     require(checked.ok(), "nested enum entry fixture rejected");
     normalized = normalizeDeviceAggregateEntry(*checked.module, 0);
@@ -421,16 +421,16 @@ fn produce()->Outer:
             "normalized wrapper omitted the original enum computation");
     auto closureSource = check(parse(std::make_shared<SourceFile>("closure-graph.k", R"k(
 type Batch:
-  run:fn(int)->int
-  values:[int]
+  run:fn(i64)->i64
+  values:[i64]
 fn make()->Batch:
   values=[3,7]
-  inner=fn(n:int):n+values[0]
-  outer=fn(n:int):inner(n)+values[1]
-  Batch {run:outer,values:values}
-fn main()->int:
+  inner=fn(n:i64):return n+values[0]
+  outer=fn(n:i64):return inner(n)+values[1]
+  return Batch {run:outer,values:values}
+fn main()->i64:
   batch=make()
-  batch.run(1)
+  return batch.run(1)
 )k")));
     require(closureSource.ok(), "closure graph source rejected");
     const auto &closureModule = *closureSource.module;

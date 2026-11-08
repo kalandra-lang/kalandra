@@ -12,7 +12,7 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    for (const auto *name : {"int8", "uint8", "int16", "uint16"}) {
+    for (const auto *name : {"i8", "u8", "i16", "u16"}) {
       const std::string type = name;
       const auto element = *resolveNumeric(type);
       require(numericCollectionStorageAvailable(element, NumericTarget::Cpu) &&
@@ -35,8 +35,8 @@ int main() {
                 "{enabled:true,value:1,values:[2,3],text:\"é\"})\n    first=try await work\n    "
                 "again=try await work\n    again.values\n",
             declarations +
-                "fn main()->[int]:\n  rows=[Row {enabled:true,value:1,values:[2,3],text:\"é\"}]\n  "
-                "map(rows,fn(p):int(p.value))\n"}) {
+                "fn main()->[i64]:\n  rows=[Row {enabled:true,value:1,values:[2,3],text:\"é\"}]\n  "
+                "return map(rows,fn(p):return i64(p.value))\n"}) {
         auto result = analyze(source);
         if (!result.ok())
           for (const auto &d : result.diagnostics)

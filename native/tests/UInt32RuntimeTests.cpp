@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
     faults += bad;
     if (context.live() || context.hasTaskError() || context.status() != (bad ? 4 : 0) ||
         (!bad && result != expected) ||
-        (bad && (result != 0 || context.line() != 2 || context.column() != 3))) {
+        (bad && (result != 0 || context.line() != 2 || context.column() != 10))) {
       std::cerr << op << '(' << a << ',' << b << ") result=" << result << " expected="
                 << (bad ? std::string("fault")
                         : std::to_string(static_cast<std::uint64_t>(expected)))
@@ -101,6 +101,6 @@ int main(int argc, char **argv) {
     if (!verify(a, b))
       return 1;
   }
-  std::cout << "uint" << INTEGER_BITS << " " << op << ": " << cases << " runtime inputs, " << faults
+  std::cout << "u64" << INTEGER_BITS << " " << op << ": " << cases << " runtime inputs, " << faults
             << " checked faults passed\n";
 }
