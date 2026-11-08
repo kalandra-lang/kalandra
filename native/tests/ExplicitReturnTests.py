@@ -14,6 +14,21 @@ root = Path(args.output)
 root.mkdir(parents=True, exist_ok=True)
 
 cases = {
+    'handler-closure-array-snapshot': ('''error E:
+  Bad
+fn failer()->i64 ! E:
+  fail E.Bad
+fn work()->i64:
+  values=[20]
+  callback=fn():
+    result=failer() catch fn(error):
+      values=concat(values,[22])
+      return values[1]
+    return length(values)*20+result
+  return callback()
+fn main()->i64:
+  return work()
+''', '42\n'),
     'handler-scalar-snapshot': ('''error E:
   Bad
 fn failer()->i64 ! E:

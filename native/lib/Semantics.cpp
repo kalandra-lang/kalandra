@@ -3769,7 +3769,9 @@ private:
       const auto visible = visibleScalar(nested, label);
       if (!visible)
         continue;
-      const auto origin = lookupSymbol(nested, output_.symbols[*visible].declaration);
+      // Import closure captures using the caller's writes, not the handler's.
+      // A private handler rebind must not make that outer capture mutable.
+      const auto origin = lookupSymbol(frame, output_.symbols[*visible].declaration);
       if (!origin)
         return {};
       const auto captured = output_.symbols[*origin];

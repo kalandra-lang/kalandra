@@ -11,6 +11,19 @@ args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 
 cases = {
+    'handler-closure-array-snapshot': ('''error E:
+  Bad
+fn failer()->i64 ! E:
+  fail E.Bad
+fn work()->i64:
+  values=[20]
+  callback=fn():
+    result=failer() catch fn(error):
+      values=concat(values,[22])
+      return values[1]
+    return length(values)*20+result
+  return callback()
+''', 'i64', False, 42),
     'handler-scalar-snapshot': ('''error E:
   Bad
 fn failer()->i64 ! E:
