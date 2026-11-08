@@ -131,7 +131,7 @@ fn main()->i64 ! TaskError:
     f(21)
 ]=])
 EXPECT(supported-worker-result 42)
-file(WRITE "${OUTPUT_DIR}/reject-final-binding.k" "fn main()->i64:\n  f=fn(value:i64):\n    adjusted=value+1\n  return 42\n")
+file(WRITE "${OUTPUT_DIR}/reject-final-binding.k" "fn main()->i64:\n  f=fn(value:i64):\n    adjusted=value+1\n    adjusted\n  return 42\n")
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/reject-final-binding.k" -o "${OUTPUT_DIR}/reject-final-binding" RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
 if("${STATUS}" STREQUAL "0")
   message(FATAL_ERROR "Invalid block closure accepted: final-binding: ${OUT}${ERR}")

@@ -654,7 +654,7 @@ for name,mutation in [(prefix+name,mutation) for prefix in ('record-','gpu-recor
     root.mkdir(exist_ok=True)
     source=root/'gpu.k'
     target = 'gpu' if name.startswith('gpu-') else 'cpu'
-    source.write_text(common+work+'fn main()->i64 ! TaskError:\n  batch=make(1)\n  alias=batch.values\n  try parallel:\n    pending=spawn score(batch) on devices.'+target+'()\n    '+mutation+'\n    n=try await pending\n    try await spawn work(n) on devices.gpu()\n')
+    source.write_text(common+work+'fn main()->i64 ! TaskError:\n  batch=make(1)\n  alias=batch.values\n  return try parallel:\n    pending=spawn score(batch) on devices.'+target+'()\n    '+mutation+'\n    n=try await pending\n    try await spawn work(n) on devices.gpu()\n')
     r=subprocess.run(list(map(str,[a.compiler,source,'--target',a.backend,'-o',root/'device'])),capture_output=True,text=True,timeout=120)
     assert r.returncode!=0 and 'S077' in r.stderr,(name,r.returncode,r.stdout,r.stderr)
     results.append({'case':'reject-'+name,'status':'rejected','diagnostic':'S077'})
@@ -668,7 +668,7 @@ for mutation in ('values[0]=99', 'sort(values)'):
     path = root/'gpu.k'
     path.write_text('fn work(callback:fn(i64)->i64)->i64:\n  return callback(1)\n'
                     'fn main()->i64 ! TaskError:\n  values=[7,11]\n'
-                    '  callback=fn(n:i64):n+values[0]\n  try parallel:\n'
+                    '  callback=fn(n:i64):return n+values[0]\n  return try parallel:\n'
                     '    pending=spawn work(callback) on devices.gpu()\n    ' + mutation +
                     '\n    try await pending\n')
     r = subprocess.run(list(map(str, [a.compiler, path, '--target', a.backend, '-o', root/'device'])),

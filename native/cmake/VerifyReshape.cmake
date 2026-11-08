@@ -33,7 +33,7 @@ function(RAW TYPE ID RANK KIND FIXED)
     set(DEFINES -DFIXED_RESHAPE=1)
   endif()
   set(NAME "raw-${TYPE}-${RANK}-${KIND}-${FIXED}")
-  COMPILE("${NAME}" "fn reshape(input:[${TYPE}]${PARAMS})${RESULT}:\n  tensor(input,[${SHAPE}])\nfn main()->i64:\n  0\n" --test-entry reshape)
+  COMPILE("${NAME}" "fn reshape(input:[${TYPE}]${PARAMS})${RESULT}:\n  return tensor(input,[${SHAPE}])\nfn main()->i64:\n  return 0\n" --test-entry reshape)
   RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS} "-DNUMERIC_TYPE=${ID}" "-DRESHAPE_RANK=${RANK}" "-DDIMENSION_KIND=${KIND}" ${DEFINES} -isystem "${LLVM_ROOT}/include"
     "${SOURCE_DIR}/tests/ReshapeRuntimeTests.cpp" "${OUTPUT_DIR}/${NAME}.ll" "${RUNTIME}" "-L${LLVM_ROOT}/lib" "-Wl,-rpath,${LLVM_ROOT}/lib" -lLLVM -o "${OUTPUT_DIR}/${NAME}-harness")
   RUN_OK("${OUTPUT_DIR}/${NAME}-harness")

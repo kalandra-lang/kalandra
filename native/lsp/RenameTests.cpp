@@ -155,17 +155,17 @@ int main(int argc, char **argv) {
                 result["relay.k"] == relay,
             "explicit re-export alias not preserved");
     require(result["same.k"].find("import amplify as scale") != std::string::npos &&
-                result["same.k"].find("  scale(2)") != std::string::npos,
+                result["same.k"].find("  return scale(2)") != std::string::npos,
             "identical-spelling explicit alias not preserved");
     result = aliases.success("facade.k", facade.find("publicScale"), "published");
     require(result["lib.k"] == library &&
                 result["relay.k"].find("import published") != std::string::npos &&
                 result["main.k"].find("import published as localScale") != std::string::npos &&
-                result["direct.k"].find("  published(2)") != std::string::npos,
+                result["direct.k"].find("  return published(2)") != std::string::npos,
             "re-export alias propagation");
     result = aliases.success("main.k", caller.rfind("localScale"), "transform");
     require(result["main.k"].find("publicScale as transform") != std::string::npos &&
-                result["main.k"].find("  transform(2)") != std::string::npos &&
+                result["main.k"].find("  return transform(2)") != std::string::npos &&
                 result["lib.k"] == library && result["direct.k"] == direct,
             "local alias rename");
     Fixture records(base, "records",
@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
     require(result["main.k"].find("box.amount") != std::string::npos &&
                 result["main.k"].find("B {amount:2}") != std::string::npos,
             "imported field rename");
-    std::string repeated = "fn main():\n  value=1\n  [";
+    std::string repeated = "fn main():\n  value=1\n  return [";
     for (int i = 0; i < 2000; ++i)
       repeated += (i ? ",value" : "value");
     repeated += "]\n";
@@ -198,7 +198,7 @@ int main(int argc, char **argv) {
     result =
         directExports.success("main.k", directExports.text["main.k"].rfind("scale"), "amplify");
     require(result["wrapper.k"].find("import amplify") != std::string::npos &&
-                result["main.k"].find("  amplify(2)") != std::string::npos &&
+                result["main.k"].find("  return amplify(2)") != std::string::npos &&
                 result["lib.k"].find("fn amplify(") != std::string::npos,
             "transparent export chain rename");
     std::map<std::string, std::string> projectFiles{{"lib.k", library}};

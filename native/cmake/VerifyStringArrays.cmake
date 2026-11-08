@@ -1,5 +1,5 @@
 include("${CMAKE_CURRENT_LIST_DIR}/Float64Driver.cmake")
-COMPILE(literal "fn main()->[String]:\n  [\"\",\"é\",\"👩\",\"a\\0b\",\"quote\\\"\",\"line\\n\",\"slash\\\\\"]\n")
+COMPILE(literal "fn main()->[String]:\n  return [\"\",\"é\",\"👩\",\"a\\0b\",\"quote\\\"\",\"line\\n\",\"slash\\\\\"]\n")
 EXPECT(literal "[\"\", \"é\", \"👩\", \"a\\u0000b\", \"quote\\\"\", \"line\\n\", \"slash\\\\\"]")
 RUN_OK("${OUTPUT_DIR}/literal" --limit 2)
 if(NOT OUTPUT STREQUAL "[\"\", \"é\", ...]\n")

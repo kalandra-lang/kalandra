@@ -23,7 +23,7 @@ int main() {
       if (attempt && attempt <= allocations)
         require(context.status() == 2, "block closure lost allocation failure");
       else
-        require(context.status() == 4 && context.line() == 4 && context.column() == 5,
+        require(context.status() == 4 && context.line() == 4 && context.column() == 12,
                 "block body lost original fault location");
       context.settle();
       require(!context.live() && context.allocations() == context.releases(),

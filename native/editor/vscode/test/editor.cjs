@@ -105,7 +105,7 @@ async function run() {
   assert.equal(main.languageId, "kalandra");
   assert.equal(vscode.workspace.workspaceFolders.length, 2);
   const firstHover = await hover(main, "double(21)");
-  assert.match(hoverText(firstHover), /int64/);
+  assert.match(hoverText(firstHover), /i64/);
   checks.push(
     "Packed VSIX activates for .k and starts the real native server in a multi-root window",
   );
@@ -150,7 +150,7 @@ async function run() {
 
   await replace(
     main,
-    'from "./library.k" import double\nfn main()->int:\n  dou\n',
+    "from \"./library.k\" import double\nfn main()->i64:\n  return dou\n",
   );
   const completion = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -182,13 +182,13 @@ async function run() {
     'from "./completion-library.k" import Box as Crate, Choice as Pick\n';
   let values = await complete(
     completionDocument,
-    imports + "fn main():\n  box=Crate {value:1,other:2}\n  box.va|Suffix\n",
+    imports + "fn main():\n  box=Crate {value:1,other:2}\n  return box.va|Suffix\n",
     "value",
   );
   let item = values.items.find((item) => label(item) === "value");
   assert.equal(item.kind, vscode.CompletionItemKind.Field);
   await applyCompletion(completionDocument, item, "vaSuffix", "value");
-  assert.match(hoverText(await hover(completionDocument, "value\n")), /int64/);
+  assert.match(hoverText(await hover(completionDocument, "value\n")), /i64/);
   await clearDiagnostics(completionDocument);
   checks.push(
     "Imported record-field completion applies the full replacement range in VS Code",
@@ -196,7 +196,7 @@ async function run() {
 
   values = await complete(
     completionDocument,
-    imports + "fn main():\n  Pick.|\n",
+    imports + "fn main():\n  return Pick.|\n",
     "Some",
     ".",
   );
@@ -207,7 +207,7 @@ async function run() {
   );
   values = await complete(
     completionDocument,
-    imports + "fn main():\n  Pick.So|Suffix {value:1,count:2}\n",
+    imports + "fn main():\n  return Pick.So|Suffix {value:1,count:2}\n",
     "Some",
   );
   await applyCompletion(
@@ -216,19 +216,19 @@ async function run() {
     "SoSuffix",
     "Some",
   );
-  assert.match(hoverText(await hover(completionDocument, "value:1")), /int64/);
+  assert.match(hoverText(await hover(completionDocument, "value:1")), /i64/);
   await clearDiagnostics(completionDocument);
   values = await complete(
     completionDocument,
     imports +
-      "fn inspect(p:Pick):\n  match p:\n    Pick.Other: 0\n    Pick.| {value:item}: item\n" +
-      "fn main():\n  0\n",
+      "fn inspect(p:Pick):\n  return match p:\n    Pick.Other: 0\n    Pick.| {value:item}: item\n" +
+      "fn main():\n  return 0\n",
     "Some",
     ".",
   );
   assert.deepEqual(values.items.map(label), ["Some"]);
   await applyCompletion(completionDocument, values.items[0], "", "Some");
-  assert.match(hoverText(await hover(completionDocument, "item}:")), /int64/);
+  assert.match(hoverText(await hover(completionDocument, "item}:")), /i64/);
   await clearDiagnostics(completionDocument);
   checks.push(
     "Enum completion uses EnumMember items and excludes already matched cases in VS Code",
@@ -236,7 +236,7 @@ async function run() {
 
   values = await complete(
     completionDocument,
-    imports + "fn main():\n  Crate {|,other:2}\n",
+    imports + "fn main():\n  return Crate {|,other:2}\n",
     "value",
     "{",
   );
@@ -247,12 +247,12 @@ async function run() {
     completionDocument,
     completionDocument.getText().replace("value: ,", "value:1,"),
   );
-  assert.match(hoverText(await hover(completionDocument, "value:1")), /int64/);
+  assert.match(hoverText(await hover(completionDocument, "value:1")), /i64/);
   await clearDiagnostics(completionDocument);
   values = await complete(
     completionDocument,
     imports +
-      "fn main():\n  box=Crate {value:1,other:2}\n  box with {va|Suffix:3}\n",
+      "fn main():\n  box=Crate {value:1,other:2}\n  return box with {va|Suffix:3}\n",
     "value",
   );
   await applyCompletion(
@@ -261,11 +261,11 @@ async function run() {
     "vaSuffix",
     "value",
   );
-  assert.match(hoverText(await hover(completionDocument, "value:3")), /int64/);
+  assert.match(hoverText(await hover(completionDocument, "value:3")), /i64/);
   await clearDiagnostics(completionDocument);
   values = await complete(
     completionDocument,
-    imports + "fn main():\n  Pick.Some {va|Suffix:1,count:2}\n",
+    imports + "fn main():\n  return Pick.Some {va|Suffix:1,count:2}\n",
     "value",
   );
   assert.deepEqual(values.items.map(label), ["value"]);
@@ -275,7 +275,7 @@ async function run() {
     "vaSuffix",
     "value",
   );
-  assert.match(hoverText(await hover(completionDocument, "value:1")), /int64/);
+  assert.match(hoverText(await hover(completionDocument, "value:1")), /i64/);
   await clearDiagnostics(completionDocument);
   checks.push(
     "Record/update/enum payload labels preserve separators and exclude supplied fields in VS Code",
@@ -283,9 +283,9 @@ async function run() {
 
   const pattern =
     imports +
-    "fn inspect(p:Pick):\n  match p:\n" +
+    "fn inspect(p:Pick):\n  return match p:\n" +
     "    Pick.Some {count:total,va|Suffix}: value+total\n" +
-    "    Pick.Other: 0\nfn main():\n  0\n";
+    "    Pick.Other: 0\nfn main():\n  return 0\n";
   values = await complete(completionDocument, pattern, "value", ",");
   assert.deepEqual(values.items.map(label), ["value"]);
   await applyCompletion(
@@ -296,7 +296,7 @@ async function run() {
   );
   assert.match(
     hoverText(await hover(completionDocument, "value+total")),
-    /int64/,
+    /i64/,
   );
   await clearDiagnostics(completionDocument);
   values = await complete(
@@ -315,7 +315,7 @@ async function run() {
   assert(completionDocument.getText().includes("value:item"));
   assert.match(
     hoverText(await hover(completionDocument, "item+total")),
-    /int64/,
+    /i64/,
   );
   await clearDiagnostics(completionDocument);
   checks.push(
@@ -325,7 +325,7 @@ async function run() {
   await replace(
     completionDocument,
     'from "./completion-library.k" import make as factory\n' +
-      "fn main():\n  factory()(1,2)\n",
+      "fn main():\n  return factory()(1,2)\n",
   );
   let higherSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -338,14 +338,14 @@ async function run() {
   }, "factory-result signature");
   assert.equal(
     higherSignature.signatures[0].label,
-    "fn(int64, int64) -> int64",
+    "fn(i64, i64) -> i64",
   );
   assert.equal(higherSignature.activeParameter, 1);
-  assert.deepEqual(higherSignature.signatures[0].parameters[1].label, [10, 15]);
+  assert.deepEqual(higherSignature.signatures[0].parameters[1].label, [8, 11]);
   await replace(
     completionDocument,
     'from "./completion-library.k" import make as factory\n' +
-      "fn main():\n  callbacks=[factory()]\n  callbacks[0](1,2)\n",
+      "fn main():\n  callbacks=[factory()]\n  return callbacks[0](1,2)\n",
   );
   higherSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -358,7 +358,7 @@ async function run() {
   }, "indexed-callable signature");
   assert.equal(
     higherSignature.signatures[0].label,
-    "fn(int64, int64) -> int64",
+    "fn(i64, i64) -> i64",
   );
   assert.equal(higherSignature.activeParameter, 1);
   checks.push(
@@ -369,11 +369,11 @@ async function run() {
     await vscode.workspace.openTextDocument(completionLibraryUri);
   await replace(
     completionLibrary,
-    completionLibraryDisk.replace("value:int", "variable:int"),
+    completionLibraryDisk.replace("value:i64", "variable:i64"),
   );
   values = await complete(
     completionDocument,
-    imports + "fn main():\n  Crate {va|Suffix:1,other:2}\n",
+    imports + "fn main():\n  return Crate {va|Suffix:1,other:2}\n",
     "variable",
   );
   assert.deepEqual(values.items.map(label), ["variable"]);
@@ -385,7 +385,7 @@ async function run() {
   );
   assert.match(
     hoverText(await hover(completionDocument, "variable:1")),
-    /int64/,
+    /i64/,
   );
   await clearDiagnostics(completionDocument);
   assert.equal(await fs.readFile(completionUri.fsPath, "utf8"), completionDisk);
@@ -411,14 +411,14 @@ async function run() {
   }, "checked signature help");
   assert.equal(
     signature.signatures[0].label,
-    "fn double(value: int64) -> int64",
+    "fn double(value: i64) -> i64",
   );
   const parameterLabel = signature.signatures[0].parameters[0].label;
   assert.equal(
     Array.isArray(parameterLabel)
       ? signature.signatures[0].label.slice(...parameterLabel)
       : parameterLabel,
-    "value: int64",
+    "value: i64",
   );
   assert.equal(signature.activeParameter, 0);
   checks.push(
@@ -426,7 +426,7 @@ async function run() {
   );
   await replace(
     main,
-    'from "./library.k" import double\nfn main()->int:\n  double(21\n',
+    'from "./library.k" import double\nfn main()->i64:\n  return double(21\n',
   );
   const recoveredSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -439,7 +439,7 @@ async function run() {
   }, "unfinished call signature");
   assert.equal(
     recoveredSignature.signatures[0].label,
-    "fn double(value: int64) -> int64",
+    "fn double(value: i64) -> i64",
   );
   assert.equal(recoveredSignature.activeParameter, 0);
   await eventually(
@@ -450,13 +450,13 @@ async function run() {
   assert(main.getText().includes("double(21\n"));
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   await replace(main, mainDisk);
-  assert.match(hoverText(await hover(main, "double(21)")), /int64/);
+  assert.match(hoverText(await hover(main, "double(21)")), /i64/);
   checks.push(
     "Trailing-parenthesis signature recovery preserves the unsaved buffer and its diagnostic in VS Code",
   );
   await replace(
     main,
-    'from "./library.k" import double\nfn main()->int:\n  double(',
+    'from "./library.k" import double\nfn main()->i64:\n  return double(',
   );
   let partialSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -469,12 +469,12 @@ async function run() {
   }, "first missing argument signature");
   assert.equal(
     partialSignature.signatures[0].label,
-    "fn double(value: int64) -> int64",
+    "fn double(value: i64) -> i64",
   );
   assert.equal(partialSignature.activeParameter, 0);
   await replace(
     main,
-    'from "./completion-library.k" import make as factory\nfn main():\n  factory()(1,',
+    'from "./completion-library.k" import make as factory\nfn main():\n  return factory()(1,',
   );
   partialSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -487,19 +487,19 @@ async function run() {
   }, "next missing argument signature");
   assert.equal(
     partialSignature.signatures[0].label,
-    "fn(int64, int64) -> int64",
+    "fn(i64, i64) -> i64",
   );
   assert.equal(partialSignature.activeParameter, 1);
   assert(main.getText().endsWith("factory()(1,"));
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   await replace(main, mainDisk);
-  assert.match(hoverText(await hover(main, "double(21)")), /int64/);
+  assert.match(hoverText(await hover(main, "double(21)")), /i64/);
   checks.push(
     "Missing-argument help shows first and next parameters without inventing source values in VS Code",
   );
   await replace(
     main,
-    'from "./completion-library.k" import make as factory\nfn main():\n  factory()(1, vaSuffix)\n',
+    "from \"./completion-library.k\" import make as factory\nfn main():\n  return factory()(1, vaSuffix)\n",
   );
   const editingSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -511,12 +511,12 @@ async function run() {
   }, "partly typed final identifier argument");
   assert.equal(
     editingSignature.signatures[0].label,
-    "fn(int64, int64) -> int64",
+    "fn(i64, i64) -> i64",
   );
   assert.equal(editingSignature.activeParameter, 1);
   assert.deepEqual(
     editingSignature.signatures[0].parameters[1].label,
-    [10, 15],
+    [8, 11],
   );
   await eventually(
     () =>
@@ -534,13 +534,13 @@ async function run() {
   assert.equal(editingHover?.length || 0, 0);
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   await replace(main, mainDisk);
-  assert.match(hoverText(await hover(main, "double(21)")), /int64/);
+  assert.match(hoverText(await hover(main, "double(21)")), /i64/);
   checks.push(
     "Signature help stays visible while editing a final identifier without changing ordinary diagnostics or hover",
   );
   await replace(
     main,
-    'from "./completion-library.k" import make as factory, Box\nfn main():\n  box=Box {value:1,other:2}\n  factory()(1, box.vaSuffix)\n',
+    "from \"./completion-library.k\" import make as factory, Box\nfn main():\n  box=Box {value:1,other:2}\n  return factory()(1, box.vaSuffix)\n",
   );
   const memberSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -552,7 +552,7 @@ async function run() {
   }, "partly typed final record field argument");
   assert.equal(
     memberSignature.signatures[0].label,
-    "fn(int64, int64) -> int64",
+    "fn(i64, i64) -> i64",
   );
   assert.equal(memberSignature.activeParameter, 1);
   await eventually(
@@ -576,7 +576,7 @@ async function run() {
   );
   await replace(
     main,
-    'from "./completion-library.k" import make as factory, Box\nfn main():\n  box=Box {value:1,other:2}\n  factory()(1, box.)\n',
+    'from "./completion-library.k" import make as factory, Box\nfn main():\n  box=Box {value:1,other:2}\n  return factory()(1, box.)\n',
   );
   const emptyMemberSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -588,7 +588,7 @@ async function run() {
   }, "empty final record field argument");
   assert.equal(
     emptyMemberSignature.signatures[0].label,
-    "fn(int64, int64) -> int64",
+    "fn(i64, i64) -> i64",
   );
   assert.equal(emptyMemberSignature.activeParameter, 1);
   await eventually(
@@ -606,7 +606,7 @@ async function run() {
   );
   const openCallCompletion = await complete(
     main,
-    'from "./completion-library.k" import make as factory\nfn main():\n  value=2\n  factory()(va|',
+    'from "./completion-library.k" import make as factory\nfn main():\n  value=2\n  return factory()(va|',
     "value",
   );
   const valueItem = openCallCompletion.items.find(
@@ -628,7 +628,7 @@ async function run() {
   );
   const typeCompletion = await complete(
     main,
-    'from "./completion-library.k" import Box as Sample\nfn inspect(value:Sa|Suffix):\n  0\nfn main():\n  0\n',
+    "from \"./completion-library.k\" import Box as Sample\nfn inspect(value:Sa|Suffix):\n  return 0\nfn main():\n  return 0\n",
     "Sample",
   );
   const typeItem = typeCompletion.items.find(
@@ -645,7 +645,7 @@ async function run() {
   );
   const channelCompletion = await complete(
     main,
-    'from "./completion-library.k" import Problem as Failure\nfn inspect()->int ! Fa|Suffix:\n  0\nfn main():\n  0\n',
+    "from \"./completion-library.k\" import Problem as Failure\nfn inspect()->i64 ! Fa|Suffix:\n  return 0\nfn main():\n  return 0\n",
     "Failure",
   );
   const channelItem = channelCompletion.items.find(
@@ -663,7 +663,7 @@ async function run() {
   await clearDiagnostics(main);
   const importCompletion = await complete(
     main,
-    'from "./completion-library.k" import ma|Suffix as factory\nfn main():\n  factory()(1,2)\n',
+    "from \"./completion-library.k\" import ma|Suffix as factory\nfn main():\n  return factory()(1,2)\n",
     "make",
   );
   const importItem = importCompletion.items.find(
@@ -681,7 +681,7 @@ async function run() {
   );
   const pathCompletion = await complete(
     main,
-    'from "./lib|Suffix.k" import double as twice\nfn main():\n  twice(21)\n',
+    "from \"./lib|Suffix.k\" import double as twice\nfn main():\n  return twice(21)\n",
     "./library.k",
   );
   const pathItem = pathCompletion.items.find(
@@ -697,7 +697,7 @@ async function run() {
   checks.push(
     "Relative import-path completion replaces only the string contents, preserves the local alias and checks the resulting call",
   );
-  await replace(main, 'fn main():\n  "😀abc" -> slice(0,2)\n');
+  await replace(main, "fn main():\n  return \"😀abc\" -> slice(0,2)\n");
   await clearDiagnostics(main);
   const builtinSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
@@ -707,13 +707,13 @@ async function run() {
       ",",
     );
     return result?.signatures?.[0]?.label ===
-      "fn slice(input: String, start: int64, end: int64) -> String"
+      "fn slice(input: String, start: i64, end: i64) -> String"
       ? result
       : undefined;
   }, "checked String slice signature");
   assert.equal(builtinSignature.activeParameter, 2);
   assert.equal(builtinSignature.signatures[0].parameters.length, 3);
-  assert.equal(main.getText(), 'fn main():\n  "😀abc" -> slice(0,2)\n');
+  assert.equal(main.getText(), "fn main():\n  return \"😀abc\" -> slice(0,2)\n");
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   await replace(main, mainDisk);
   await clearDiagnostics(main);
@@ -721,7 +721,7 @@ async function run() {
     "Collection builtin signature help shows checked String parameters and the piped active argument without changing source",
   );
   const unfinishedConcat =
-    "fn main():\n  values:[int32]=[1,2]\n  concat(values,";
+    "fn main():\n  values:[i32]=[1,2]\n  return concat(values,";
   await replace(main, unfinishedConcat);
   await eventually(
     () =>
@@ -738,7 +738,7 @@ async function run() {
       ",",
     );
     return result?.signatures?.[0]?.label ===
-      "fn concat(left: [int32], right: [int32]) -> [int32]"
+      "fn concat(left: [i32], right: [i32]) -> [i32]"
       ? result
       : undefined;
   }, "missing concat operand signature");
@@ -753,11 +753,11 @@ async function run() {
   await replace(main, mainDisk);
   await clearDiagnostics(main);
   checks.push(
-    "Missing concat operand guidance derives int32 arrays from the checked left operand and preserves the unfinished source and its syntax diagnostic",
+    "Missing concat operand guidance derives i32 arrays from the checked left operand and preserves the unfinished source and its syntax diagnostic",
   );
   const builtinCompletion = await complete(
     main,
-    "fn main():\n  co|Suffix([1],[2])\n",
+    "fn main():\n  return co|Suffix([1],[2])\n",
     "concat",
   );
   const builtinItem = builtinCompletion.items.find(
@@ -768,14 +768,14 @@ async function run() {
   await clearDiagnostics(main);
   const conversionCompletion = await complete(
     main,
-    "fn main():\n  flo|Suffix(1)\n",
-    "float32",
+    "fn main():\n  return f|Suffix(1)\n",
+    "f32",
   );
   const conversionItem = conversionCompletion.items.find(
-    (item) => label(item) === "float32",
+    (item) => label(item) === "f32",
   );
   assert.equal(conversionItem.kind, vscode.CompletionItemKind.Function);
-  await applyCompletion(main, conversionItem, "floSuffix", "float32");
+  await applyCompletion(main, conversionItem, "fSuffix", "f32");
   await clearDiagnostics(main);
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   await replace(main, mainDisk);
@@ -784,18 +784,18 @@ async function run() {
     "Builtin call-target completion applies collection and numeric conversion names as Function items and checks both resulting calls",
   );
   const numericSource =
-    "fn main():\n  values=tensor([1,2],[1,2])\n  float32(values)\n";
+    "fn main():\n  values=tensor([1,2],[1,2])\n  return f32(values)\n";
   await replace(main, numericSource);
   await clearDiagnostics(main);
   const numericSignature = await eventually(async () => {
     const result = await vscode.commands.executeCommand(
       "vscode.executeSignatureHelpProvider",
       mainUri,
-      position(main, "float32(values)", 8),
+      position(main, "f32(values)", 8),
       "(",
     );
     return result?.signatures?.[0]?.label ===
-      "fn float32(input: Tensor[int64, 1, 2]) -> Tensor[float32, 1, 2]"
+      "fn f32(input: Tensor[i64, 1, 2]) -> Tensor[f32, 1, 2]"
       ? result
       : undefined;
   }, "checked tensor numeric conversion signature");
@@ -809,7 +809,7 @@ async function run() {
     "Numeric conversion signature help shows checked source/destination tensor widths and fixed shape without changing source",
   );
   const matrixSource =
-    "fn main():\n  left=tensor([1,2],[1,2])\n  right=tensor([3,4],[2,1])\n  left -> matmul(right)\n";
+    "fn main():\n  left=tensor([1,2],[1,2])\n  right=tensor([3,4],[2,1])\n  return left -> matmul(right)\n";
   await replace(main, matrixSource);
   await clearDiagnostics(main);
   const matrixSignature = await eventually(async () => {
@@ -820,7 +820,7 @@ async function run() {
       "(",
     );
     return result?.signatures?.[0]?.label ===
-      "fn matmul(left: Tensor[int64, 1, 2], right: Tensor[int64, 2, 1]) -> Tensor[int64, 1, 1]"
+      "fn matmul(left: Tensor[i64, 1, 2], right: Tensor[i64, 2, 1]) -> Tensor[i64, 1, 1]"
       ? result
       : undefined;
   }, "checked matrix shape signature");
@@ -834,7 +834,7 @@ async function run() {
     "Tensor builtin signature help shows checked matrix operands/result shapes and the piped right parameter without changing source",
   );
   const parallelSource =
-    "fn main()->[int] ! TaskError:\n  offset=3\n  callback=fn(v:int):v+offset\n  try ([1,2] -> parallelMap(callback))\n";
+    "fn main()->[i64] ! TaskError:\n  offset=3\n  callback=fn(v:i64):return v+offset\n  return try ([1,2] -> parallelMap(callback))\n";
   await replace(main, parallelSource);
   await clearDiagnostics(main);
   const parallelSignature = await eventually(async () => {
@@ -845,7 +845,7 @@ async function run() {
       "(",
     );
     return result?.signatures?.[0]?.label ===
-      "fn parallelMap(input: [int64], callback: fn(int64) -> int64) -> [int64] ! TaskError"
+      "fn parallelMap(input: [i64], callback: fn(i64) -> i64) -> [i64] ! TaskError"
       ? result
       : undefined;
   }, "checked parallel callback signature");
@@ -863,14 +863,14 @@ async function run() {
   const builtinHover = hoverText(await hover(main, "parallelMap(callback)"));
   assert.match(
     builtinHover,
-    /fn parallelMap\(input: \[int64\], callback: fn\(int64\) -> int64\) -> \[int64\] ! TaskError/,
+    /fn parallelMap\(input: \[i64\], callback: fn\(i64\) -> i64\) -> \[i64\] ! TaskError/,
   );
   assert(!builtinHover.includes("offset"));
-  await replace(main, "fn main():\n  float32(1)\n");
+  await replace(main, "fn main():\n  return f32(1)\n");
   await clearDiagnostics(main);
   assert.match(
-    hoverText(await hover(main, "float32(1)")),
-    /fn float32\(input: int64\) -> float32/,
+    hoverText(await hover(main, "f32(1)")),
+    /fn f32\(input: i64\) -> f32/,
   );
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   await replace(main, mainDisk);
@@ -883,7 +883,7 @@ async function run() {
     .update("placement", true, vscode.ConfigurationTarget.Workspace);
   const selectorCompletion = await complete(
     main,
-    "fn main():\n  target=devices.g|Suffix(1)\n  0\n",
+    "fn main():\n  target=devices.g|Suffix(1)\n  return 0\n",
     "gpu",
     ".",
   );
@@ -896,7 +896,7 @@ async function run() {
   assert(main.getText().includes("devices.gpu(1)"));
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   const transferSource =
-    "fn main()->int ! TaskError:\n  try parallel:\n    values=tensor([1,2])\n    resident=try await transfer(values,devices.gpu(1))\n    host=try await transfer(resident,devices.cpu())\n    reduceSum(host)\n";
+    "fn main()->i64 ! TaskError:\n  return try parallel:\n    values=tensor([1,2])\n    resident=try await transfer(values,devices.gpu(1))\n    host=try await transfer(resident,devices.cpu())\n    reduceSum(host)\n";
   const transferCompletions = await complete(
     main,
     transferSource.replace("transfer(values", "tra|Suffix(values"),
@@ -914,7 +914,7 @@ async function run() {
     "Placement-mode transfer completion applies only the call name inside an owning parallel group and checks the resulting program without probing hardware",
   );
   const transferLabel =
-    "fn transfer(input: Tensor[int64, 2], target: Device[gpu:1]) -> task<Tensor[int64, 2] on gpu:1>";
+    "fn transfer(input: Tensor[i64, 2], target: Device[gpu:1]) -> task<Tensor[i64, 2] on gpu:1>";
   assert(
     hoverText(await hover(main, "transfer(values")).includes(transferLabel),
   );
@@ -933,7 +933,7 @@ async function run() {
   assert.equal(transferSignature.signatures[0].parameters.length, 2);
   assert(
     hoverText(await hover(main, "transfer(resident")).includes(
-      "fn transfer(input: Tensor[int64, 2] on gpu:1, target: Device[cpu]) -> task<Tensor[int64, 2]>",
+      "fn transfer(input: Tensor[i64, 2] on gpu:1, target: Device[cpu]) -> task<Tensor[i64, 2]>",
     ),
   );
   assert.equal(main.getText(), transferSource);
@@ -941,7 +941,7 @@ async function run() {
   checks.push(
     "Transfer hover and signature help expose checked tensor shapes, exact GPU/CPU residency and task results without hardware probes or source changes",
   );
-  const gpuSelectorLabel = "fn devices.gpu(index: uint32) -> Device[gpu:1]";
+  const gpuSelectorLabel = "fn devices.gpu(index: u32) -> Device[gpu:1]";
   assert(
     hoverText(await hover(main, "devices.gpu(1)")).includes(gpuSelectorLabel),
   );
@@ -963,7 +963,7 @@ async function run() {
   }, "checked explicit GPU selector signature");
   assert.equal(gpuSelectorSignature.activeParameter, 0);
   assert.equal(gpuSelectorSignature.signatures[0].parameters.length, 1);
-  const defaultSelectorSource = "fn main():\n  target=devices.gpu()\n  0\n";
+  const defaultSelectorSource = "fn main():\n  target=devices.gpu()\n  return 0\n";
   await replace(main, defaultSelectorSource);
   await clearDiagnostics(main);
   assert(
@@ -974,7 +974,7 @@ async function run() {
   assert.equal(main.getText(), defaultSelectorSource);
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   checks.push(
-    "Checked device-selector hover and signature help show CPU, default GPU and explicit uint32 index forms without hardware probes or source writes",
+    "Checked device-selector hover and signature help show CPU, default GPU and explicit u32 index forms without hardware probes or source writes",
   );
   await replace(main, mainDisk);
   await vscode.workspace
@@ -986,7 +986,7 @@ async function run() {
     "Placement-mode device-selector completion edits only the member, preserves the explicit index and checks without probing hardware",
   );
   const openCalleeSource =
-    "fn double(value:int):\n  value*2\nfn main():\n  dou|Suffix(21\n";
+    "fn double(value:i64):\n  return value*2\nfn main():\n  return dou|Suffix(21\n";
   const openCalleeCompletion = await complete(main, openCalleeSource, "double");
   const openCalleeItem = openCalleeCompletion.items.find(
     (item) => label(item) === "double",
@@ -1005,14 +1005,14 @@ async function run() {
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   await replace(main, appliedOpenCallee.trimEnd() + ")\n");
   await clearDiagnostics(main);
-  assert(hoverText(await hover(main, "double(21)")).includes("int64"));
+  assert(hoverText(await hover(main, "double(21)")).includes("i64"));
   checks.push(
     "Callee completion inside an unclosed argument list preserves arguments and the actual delimiter diagnostic, then checks after the user closes the call",
   );
   await replace(main, mainDisk);
   await clearDiagnostics(main);
   const openArgumentSource =
-    "type Reading:\n  value:int\nfn combine(left:int,right:int):\n  left+right\nfn main():\n  reading=Reading {value:2}\n  combine(1,reading.va|Suffix\n";
+    "type Reading:\n  value:i64\nfn combine(left:i64,right:i64):\n  return left+right\nfn main():\n  reading=Reading {value:2}\n  return combine(1,reading.va|Suffix\n";
   const openArgumentCompletion = await complete(
     main,
     openArgumentSource,
@@ -1035,14 +1035,14 @@ async function run() {
   assert.equal(await fs.readFile(mainUri.fsPath, "utf8"), mainDisk);
   await replace(main, appliedOpenArgument.trimEnd() + ")\n");
   await clearDiagnostics(main);
-  assert(hoverText(await hover(main, "value)")).includes("int64"));
+  assert(hoverText(await hover(main, "value)")).includes("i64"));
   checks.push(
     "Final argument field completion replaces the full suffix in an open call while preserving source, receiver and real delimiter diagnostics until explicit closure",
   );
   await replace(main, mainDisk);
   await clearDiagnostics(main);
   const suffixSignatureSource =
-    "fn combine(left:int,right:int):\n  left+right\nfn main():\n  value=2\n  combine(1,vaSuffix\n";
+    "fn combine(left:i64,right:i64):\n  return left+right\nfn main():\n  value=2\n  return combine(1,vaSuffix\n";
   await replace(main, suffixSignatureSource);
   await eventually(
     () =>
@@ -1059,7 +1059,7 @@ async function run() {
       ",",
     );
     return result?.signatures?.[0]?.label ===
-      "fn combine(left: int64, right: int64) -> int64"
+      "fn combine(left: i64, right: i64) -> i64"
       ? result
       : undefined;
   }, "signature help inside final name suffix before missing closing parenthesis");
@@ -1073,7 +1073,7 @@ async function run() {
   await replace(main, mainDisk);
   await clearDiagnostics(main);
   const earlierArgumentSource =
-    "type Reading:\n  value:int\nfn triple(first:int,second:int,third:int):\n  first+second+third\nfn main():\n  reading=Reading {value:1}\n  triple(reading.va|Suffix,2\n";
+    "type Reading:\n  value:i64\nfn triple(first:i64,second:i64,third:i64):\n  return first+second+third\nfn main():\n  reading=Reading {value:1}\n  return triple(reading.va|Suffix,2\n";
   const earlierArgumentCompletion = await complete(
     main,
     earlierArgumentSource,
@@ -1113,7 +1113,7 @@ async function run() {
   await replace(main, mainDisk);
   await clearDiagnostics(main);
   const earlierSignatureSource =
-    "fn triple(first:int,second:int,third:int):\n  first+second+third\nfn main():\n  triple(vaSuffix,2\n";
+    "fn triple(first:i64,second:i64,third:i64):\n  return first+second+third\nfn main():\n  return triple(vaSuffix,2\n";
   await replace(main, earlierSignatureSource);
   await eventually(
     () =>
@@ -1130,7 +1130,7 @@ async function run() {
       "(",
     );
     return result?.signatures?.[0]?.label ===
-      "fn triple(first: int64, second: int64, third: int64) -> int64"
+      "fn triple(first: i64, second: i64, third: i64) -> i64"
       ? result
       : undefined;
   }, "checked earlier signature slot before later supplied and missing arguments");
@@ -1144,7 +1144,7 @@ async function run() {
   await replace(main, mainDisk);
   await clearDiagnostics(main);
   const emptyEarlierSource =
-    "type Reading:\n  value:int\nfn combine(left:int,right:int):\n  left+right\nfn main():\n  reading=Reading {value:2}\n  combine(reading.,2)\n";
+    "type Reading:\n  value:i64\nfn combine(left:i64,right:i64):\n  return left+right\nfn main():\n  reading=Reading {value:2}\n  return combine(reading.,2)\n";
   await replace(main, emptyEarlierSource);
   await eventually(
     () => vscode.languages.getDiagnostics(mainUri).length > 0,
@@ -1158,7 +1158,7 @@ async function run() {
       "(",
     );
     return result?.signatures?.[0]?.label ===
-      "fn combine(left: int64, right: int64) -> int64"
+      "fn combine(left: i64, right: i64) -> i64"
       ? result
       : undefined;
   }, "checked signature for an empty earlier field before comma");
@@ -1177,7 +1177,7 @@ async function run() {
   await replace(main, mainDisk);
   await clearDiagnostics(main);
   const expressionCompletionSource =
-    "fn combine(left:int,right:int):\n  left+right\nfn main():\n  value=2\n  combine(1,2*va|Suffix\n";
+    "fn combine(left:i64,right:i64):\n  return left+right\nfn main():\n  value=2\n  return combine(1,2*va|Suffix\n";
   const expressionCompletions = await complete(
     main,
     expressionCompletionSource,
@@ -1209,11 +1209,11 @@ async function run() {
   await replace(main, mainDisk);
   await clearDiagnostics(main);
   const recoveryBase =
-    "fn add(left:int,right:int)->int:\n  left+right\nfn main():\n  value=2\n  values=[1,2]\n";
+    "fn add(left:i64,right:i64)->i64:\n  return left+right\nfn main():\n  value=2\n  values=[1,2]\n";
   for (const body of [
     "values[va|Suffix",
     "if true:\n    va|Suffix",
-    "map(values,fn(item:int): va|Suffix",
+    "map(values,fn(item:i64): va|Suffix",
   ]) {
     const source = recoveryBase + "  " + body + "\n";
     const items = await complete(main, source, "value");
@@ -1238,7 +1238,7 @@ async function run() {
     return hint?.signatures?.length ? hint : undefined;
   }, "compound unfinished signature");
   assert.equal(compoundHint.activeParameter, 1);
-  assert.match(compoundHint.signatures[0].label, /right: int64/);
+  assert.match(compoundHint.signatures[0].label, /right: i64/);
   assert.equal(main.getText(), compoundSource);
   await eventually(
     () =>
@@ -1265,7 +1265,7 @@ async function run() {
   const library = await vscode.workspace.openTextDocument(libraryUri);
   await replace(
     library,
-    "export fn double(value:float32)->float32:\n  value*2\n",
+    "export fn double(value:f32)->f32:\n  return value*2\n",
   );
   await eventually(
     () =>
@@ -1284,7 +1284,7 @@ async function run() {
   );
 
   const unformatted =
-    'from "./library.k" import double\r\n# 😀\r\nfn main( )->int:\r\n    answer=double(21)\r\n    answer';
+    "from \"./library.k\" import double\r\n# 😀\r\nfn main( )->i64:\r\n    answer=double(21)\r\n    return answer";
   await replace(main, unformatted);
   const edits = await vscode.commands.executeCommand(
     "vscode.executeFormatDocumentProvider",
@@ -1297,7 +1297,7 @@ async function run() {
   assert(await vscode.workspace.applyEdit(formatted));
   assert.equal(
     main.getText(),
-    'from "./library.k" import double\n# 😀\nfn main() -> int:\n  answer = double(21)\n  answer\n',
+    "from \"./library.k\" import double\n# 😀\nfn main() -> i64:\n  answer = double(21)\n  return answer\n",
   );
   await clearDiagnostics(main);
   assert.equal(
@@ -1326,12 +1326,12 @@ async function run() {
     );
   await vscode.commands.executeCommand("kalandra.native.restart");
   await clearDiagnostics(main);
-  assert.match(hoverText(await hover(main, "double(21)")), /int64/);
+  assert.match(hoverText(await hover(main, "double(21)")), /i64/);
   checks.push(
     "Explicit project configuration restarts the native server and resolves package imports",
   );
   await vscode.commands.executeCommand("kalandra.native.restart");
-  assert.match(hoverText(await hover(main, "double(21)")), /int64/);
+  assert.match(hoverText(await hover(main, "double(21)")), /i64/);
   checks.push("Manual server restart restores checked editor features");
   await fs.writeFile(
     process.env.KALANDRA_EDITOR_RESULT,

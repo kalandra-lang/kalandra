@@ -339,17 +339,19 @@ fn main() -> i64 ! TaskError:
     a + b
 ''', '42\n')
 
+cases['unit-callee-effects'] = ('fn bump(mut values: [i64]) -> unit:\n  values[0] = values[0] + 20\nfn finish(mut values: [i64]) -> unit:\n  bump(values)\n  values[1] = values[1] + 22\n  return\nfn work() -> i64:\n  values = [0, 0]\n  finish(values)\n  return values[0] + values[1]\nfn main() -> i64:\n  return work()\n', '42\n')
+
 for name, (source, expected) in cases.items():
     path = root / (name + '.k')
-    path.write_text(source)
+    path.write_text(source, encoding='utf-8')
     binary = root / (name + '.exe')
     for optimization in ('-O0', '-O2'):
         compiled = subprocess.run([args.compiler, str(path), optimization, '-o', str(binary)],
-                                  text=True, capture_output=True, timeout=120)
+                                  text=True, encoding='utf-8', capture_output=True, timeout=120)
         assert compiled.returncode == 0, (name, optimization, compiled.stderr)
         for workers in (1, 4):
             environment = dict(os.environ, KALANDRA_WORKERS=str(workers))
-            result = subprocess.run([str(binary)], env=environment, text=True,
+            result = subprocess.run([str(binary)], env=environment, text=True, encoding='utf-8',
                                     capture_output=True, timeout=30)
             assert (result.returncode, result.stdout, result.stderr) == (0, expected, ''), (
                 name, optimization, workers, result)
@@ -363,7 +365,7 @@ for captured_case in ('error-carried-closure-task', 'tail-owned-callable'):
                            KALANDRA_TEST_FAIL_ALLOC_AT=str(allocation),
                            KALANDRA_TEST_REPORT_CLEANUP='1')
         result = subprocess.run([str(root / (captured_case + '.exe'))], env=environment,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, encoding='utf-8', capture_output=True, timeout=30)
         if result.returncode == 0:
             assert result.stdout == '42\n' and not result.stderr, (allocation, result)
             successful_allocations += 1
@@ -384,9 +386,9 @@ fn main() -> unit ! InputError:
 for optimization in ('-O0', '-O2'):
     binary = root / 'uncaught-unit.exe'
     built = subprocess.run([args.compiler, str(uncaught), optimization, '-o', str(binary)],
-                           text=True, capture_output=True, timeout=120)
+                           text=True, encoding='utf-8', capture_output=True, timeout=120)
     assert built.returncode == 0, built.stderr
-    result = subprocess.run([str(binary)], text=True, capture_output=True, timeout=30)
+    result = subprocess.run([str(binary)], text=True, encoding='utf-8', capture_output=True, timeout=30)
     assert result.returncode == 89 and not result.stdout and result.stderr.strip() == 'InputError.Bad', result
 
 conditional_fault = root / 'conditional-fault.k'
@@ -395,9 +397,9 @@ conditional_fault.write_text(cases['conditional-local-constants'][0].replace(
 for optimization in ('-O0', '-O2'):
     binary = root / 'conditional-fault.exe'
     built = subprocess.run([args.compiler, str(conditional_fault), optimization, '-o', str(binary)],
-                           text=True, capture_output=True, timeout=120)
+                           text=True, encoding='utf-8', capture_output=True, timeout=120)
     assert built.returncode == 0, built.stderr
-    result = subprocess.run([str(binary)], text=True, capture_output=True, timeout=30)
+    result = subprocess.run([str(binary)], text=True, encoding='utf-8', capture_output=True, timeout=30)
     assert result.returncode == 86 and not result.stdout and 'ArithmeticFault' in result.stderr, result
 
 rejected = {
@@ -445,8 +447,8 @@ for old in ('int', 'uint', 'float', 'int32', 'uint32', 'float32', 'Bool'):
     rejected['old-' + old] = f'fn main() -> {old}:\n  return 0\n'
 for name, source in rejected.items():
     path = root / (name + '.k')
-    path.write_text(source)
-    result = subprocess.run([args.checker, str(path)], text=True, capture_output=True, timeout=30)
+    path.write_text(source, encoding='utf-8')
+    result = subprocess.run([args.checker, str(path)], text=True, encoding='utf-8', capture_output=True, timeout=30)
     assert result.returncode != 0, (name, result.stdout)
     expected_code = ('S003' if name.startswith('old-') else {
         'constant-zero': 'S052', 'missing-return': 'S079', 'partial-return': 'S079',

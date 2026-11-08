@@ -45,7 +45,7 @@ int main() {
                                                          : 0),
                 "shape/allocation status or precedence changed");
         if (shapeFailure)
-          require(context.line() == 2 && context.column() == 10,
+          require(context.line() == 2 && context.column() == 17,
                   "array shape failure lost original source location");
         require(!std::memcmp(backing.data(), original.data(), backing.size() * sizeof(Cell)),
                 "constructor mutated borrowed input");
