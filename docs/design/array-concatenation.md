@@ -3,12 +3,12 @@
 `concat(left, right)` returns the left array's elements followed by the right array's elements. Both inputs remain unchanged and available.
 
 ```kalandra
-fn main() -> [int] ! TaskError:
+fn main() -> [i64] ! TaskError:
   first = [10, 20]
   second = [30, 40]
   joined = try parallel:
     try await spawn concat(first, second)
-  slice(joined, 1, 3)
+  return slice(joined, 1, 3)
 ```
 
 This returns `[20, 30]`. Direct calls and pipelines use the same argument order: `first -> concat(second)` means `concat(first, second)`.

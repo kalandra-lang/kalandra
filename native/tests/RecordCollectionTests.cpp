@@ -16,11 +16,11 @@ int main() {
       const auto type = std::string(element);
       auto result = analyze("type Envelope:\n  data:Data\ntype Data:\n  values:[" + type +
                             "]\n  matrix:Tensor[" + type +
-                            ",?,?]\nfn make()->Envelope:\n  Envelope {data:Data "
+                            ",?,?]\nfn make()->Envelope:\n  return Envelope {data:Data "
                             "{values:[1,2],matrix:tensor([[1,2],[3,4]])}}\nfn main()->" +
                             type +
                             ":\n  p=make()\n  q=p with {data:p.data with {values:[3]}}\n  "
-                            "p.data.values[0]+q.data.values[0]\n");
+                            "return p.data.values[0]+q.data.values[0]\n");
       require(result.ok(), "collection declaration/initializer rejected: " + type);
       require(!numericCapabilityError(*result.module, NumericTarget::Cpu),
               "CPU record field rejected");

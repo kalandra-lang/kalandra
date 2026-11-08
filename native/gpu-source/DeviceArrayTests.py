@@ -96,14 +96,14 @@ for name, (helper, call, code) in fault_cases().items():
     root = a.root/name
     root.mkdir(exist_ok=True)
     cpu = root/'cpu.k'
-    cpu.write_text(helper+'fn main()->i64:\n  '+call+'\n')
+    cpu.write_text(helper+'fn main()->i64:\n  return '+call+'\n')
     reference = root/('cpu'+suffix)
     run([a.compiler, cpu, *flags, '-o', reference])
     r = subprocess.run([str(reference)], capture_output=True, text=True, timeout=30)
     assert r.returncode != 0 and not r.stdout, (name, 'CPU', r)
     gpu = root/'gpu.k'
     gpu.write_text(helper+'''fn main()->i64 ! TaskError:
-  try parallel:
+  return try parallel:
     gpu=devices.gpu()
     try await spawn '''+call+' on gpu\n')
     bundle = root/'device'

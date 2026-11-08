@@ -4,16 +4,16 @@ A record field can have type `[Bool]`, including inside a nested record. It foll
 
 ```kalandra
 type Selection:
-  flags: [Bool]
+  flags: [bool]
 
 fn invert(selection: Selection) -> Selection:
-  selection with {flags: map(selection.flags, fn(flag): not flag)}
+  return selection with {flags: map(selection.flags, fn(flag): return not flag)}
 
-fn main() -> [Bool] ! TaskError:
+fn main() -> [bool] ! TaskError:
   original = Selection {flags: [true, false, true]}
   changed = try parallel:
     try await spawn invert(original)
-  changed.flags
+  return changed.flags
 ```
 
 This returns `[false, true, false]`; `original.flags` is unchanged. An empty field receives its type from the declaration: `Selection {flags: []}`.

@@ -18,7 +18,7 @@ int main() {
       for (auto bound : {"i32", "u32", "i64", "u64"}) {
         auto result =
             analyze(record + "fn part(values:[" + element + "],start:" + bound + ",end:" + bound +
-                    ")->[" + element + "]:\n  slice(values,start,end)\nfn main()->i64:\n  return 0\n");
+                    ")->[" + element + "]:\n  return slice(values,start,end)\nfn main()->i64:\n  return 0\n");
         require(result.ok(), "valid array/bound combination rejected");
         const auto id = result.module->functions[0].result;
         require(std::holds_alternative<ArraySlice>(result.module->expressions[id].operation),

@@ -199,11 +199,11 @@ void failures() {
   for (const auto *selector : {"devices.cpu()", "devices.gpu()"}) {
     const std::string target = selector;
     reject("fn double(value:i64)->i64:\n  return value*2\nfn main()->i64 ! TaskError:\n"
-           "  f=double\n  try parallel:\n    try await spawn f(21) on " +
+           "  f=double\n  return try parallel:\n    try await spawn f(21) on " +
                target + "\n",
            "S074");
     reject("fn double(value:i64)->i64:\n  return value*2\nfn main()->i64 ! TaskError:\n"
-           "  functions=[double]\n  try parallel:\n    try await spawn functions[0](21) on " +
+           "  functions=[double]\n  return try parallel:\n    try await spawn functions[0](21) on " +
                target + "\n",
            "S074");
   }

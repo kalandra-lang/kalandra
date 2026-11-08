@@ -7,13 +7,13 @@ type Names:
   values: [String]
 
 fn decorate(names: Names) -> Names:
-  names with {values: map(names.values, fn(text): text + "!")}
+  return names with {values: map(names.values, fn(text): return text + "!")}
 
 fn main() -> [String] ! TaskError:
   original = Names {values: ["north", "south"]}
   changed = try parallel:
     try await spawn decorate(original)
-  [original.values[0], changed.values[0]]
+  return [original.values[0], changed.values[0]]
 ```
 
 This prints `["north", "north!"]`. The update creates a new record and array; the original values remain unchanged. Empty arrays have field type context, so `Names {values: []}` works too.

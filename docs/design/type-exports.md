@@ -9,7 +9,7 @@ export type Job:
   names: [String]
 
 export fn decorate(job: Job) -> Job:
-  job with {names: map(job.names, fn(name): name + "!")}
+  return job with {names: map(job.names, fn(name): return name + "!")}
 ```
 
 `main.k`:
@@ -18,13 +18,13 @@ export fn decorate(job: Job) -> Job:
 from "./jobs.k" import Job as Batch, decorate
 
 fn process(batch: Batch) -> Batch ! TaskError:
-  try parallel:
+  return try parallel:
     try await spawn decorate(batch)
 
 fn main() -> [String] ! TaskError:
   job = Batch {names: ["north", "south"]}
   changed = try process(job)
-  changed.names
+  return changed.names
 ```
 
 The program prints `["north!", "south!"]`. Imported types work in constructors, parameter and return annotations, nested record fields, arrays, maps, immutable updates and local CPU worker calls. All existing field-type and layout rules still apply.

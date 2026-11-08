@@ -9,7 +9,7 @@ export type Job:
   names: [String]
 
 export fn decorate(job: Job) -> Job:
-  job with {names: map(job.names, fn(name): name + "!")}
+  return job with {names: map(job.names, fn(name): return name + "!")}
 ```
 
 `library.k`:
@@ -27,7 +27,7 @@ fn main() -> [String] ! TaskError:
   original = Batch {names: ["north", "south"]}
   changed = try parallel:
     try await spawn process(original)
-  changed.names
+  return changed.names
 ```
 
 The program prints `["north!", "south!"]`. A public module can combine selected declarations from several internal files. The re-exported names also work locally within that public module. Another public module can explicitly re-export them again.

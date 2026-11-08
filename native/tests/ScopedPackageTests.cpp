@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
       const auto dir = "geometry" + std::to_string(version);
       write(dir + "/types.k", "export type Item:\n  value:i64\n");
       write(dir + "/public.k", "export from \"./types.k\" import Item\n"
-                               "export fn next(item:Item)->Item:\n  item with {value:item.value+" +
+                               "export fn next(item:Item)->Item:\n  return item with {value:item.value+" +
                                    std::to_string(version) + "}\n");
     }
     const std::string telemetry =

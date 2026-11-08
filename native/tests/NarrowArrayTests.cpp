@@ -22,16 +22,16 @@ int main() {
       const std::string declarations = "type Row:\n  enabled:bool\n  value:" + type +
                                        "\n  values:[" + type + "]\n  text:String\n";
       for (const auto &source :
-           {"fn main()->[" + type + "]:\n  [1,2,3]\n", "fn main()->[" + type + "]:\n  []\n",
-            "fn increment(x:" + type + ")->" + type + ":\n  x+1\nfn main()->[" + type +
+           {"fn main()->[" + type + "]:\n  return [1,2,3]\n", "fn main()->[" + type + "]:\n  return []\n",
+            "fn increment(x:" + type + ")->" + type + ":\n  return x+1\nfn main()->[" + type +
                 "]:\n  values:[" + type +
-                "]=[1,2,3]\n  values->slice(0,2)->map(increment)->concat([4])\n",
-            "fn main()->[" + type + "]:\n  map([1,2],fn(x):" + type + "(x))\n",
+                "]=[1,2,3]\n  return values->slice(0,2)->map(increment)->concat([4])\n",
+            "fn main()->[" + type + "]:\n  return map([1,2],fn(x):return " + type + "(x))\n",
             declarations +
-                "fn change(p:Row)->Row:\n  p with "
-                "{value:p.value+1,values:map(p.values,fn(x):x+p.value)}\nfn main()->[" +
+                "fn change(p:Row)->Row:\n  return p with "
+                "{value:p.value+1,values:map(p.values,fn(x):return x+p.value)}\nfn main()->[" +
                 type +
-                "] ! TaskError:\n  try parallel:\n    work=spawn change(Row "
+                "] ! TaskError:\n  return try parallel:\n    work=spawn change(Row "
                 "{enabled:true,value:1,values:[2,3],text:\"é\"})\n    first=try await work\n    "
                 "again=try await work\n    again.values\n",
             declarations +
@@ -51,12 +51,12 @@ int main() {
 #endif
       }
       for (const auto &source :
-           {"fn multiply(x:Tensor[" + type + ",?])->Tensor[" + type + ",?,?]:\n  matmul(x,x)\n",
+           {"fn multiply(x:Tensor[" + type + ",?])->Tensor[" + type + ",?,?]:\n  return matmul(x,x)\n",
             "fn main():\n  return " + type + "([1])\n",
-            "fn main()->[" + type + "]:\n  values=[1,2]\n  values\n",
-            "fn main():\n  values:[" + type + "]=[1,2]\n  values+values\n",
-            "fn main():\n  values:[" + type + "]=[1,2]\n  values[2]\n",
-            "fn main():\n  values:[" + type + "]=[1,2]\n  concat(values,[i64(1)])\n"})
+            "fn main()->[" + type + "]:\n  values=[1,2]\n  return values\n",
+            "fn main():\n  values:[" + type + "]=[1,2]\n  return values+values\n",
+            "fn main():\n  values:[" + type + "]=[1,2]\n  return values[2]\n",
+            "fn main():\n  values:[" + type + "]=[1,2]\n  return concat(values,[i64(1)])\n"})
         require(!analyze(source).ok(), "invalid narrow array program accepted: " + source);
     }
     std::cout << "Narrow arrays/records: four exact element widths, maps, captures, workers, "

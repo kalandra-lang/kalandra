@@ -3,12 +3,12 @@
 CPU tensors now support `int8`, `uint8`, `int16` and `uint16` construction and checked elementwise arithmetic. Element types remain distinct; literals can obtain a type from context, but existing values are not implicitly narrowed or promoted.
 
 ```kalandra
-fn twice(values: Tensor[int16, ?, ?]) -> Tensor[int16, ?, ?]:
-  values * 2
+fn twice(values: Tensor[i16, ?, ?]) -> Tensor[i16, ?, ?]:
+  return values * 2
 
-fn main() -> Tensor[int16, ?, ?] ! TaskError:
-  values: Tensor[int16, 2, 2] = tensor([[1, 2], [3, 4]])
-  try parallel:
+fn main() -> Tensor[i16, ?, ?] ! TaskError:
+  values: Tensor[i16, 2, 2] = tensor([[1, 2], [3, 4]])
+  return try parallel:
     try await spawn twice(values)
 ```
 

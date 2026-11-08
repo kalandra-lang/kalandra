@@ -4,20 +4,20 @@ Native CPU records can store immutable numeric arrays and tensors, including ins
 
 ```kalandra
 type Batch:
-  values: [int]
-  weights: Tensor[float32, ?, ?]
+  values: [i64]
+  weights: Tensor[f32, ?, ?]
 
 fn shifted(batch: Batch) -> Batch:
-  batch with { values: map(batch.values, fn(value): value + 10) }
+  return batch with { values: map(batch.values, fn(value): return value + 10) }
 
-fn main() -> [int] ! TaskError:
-  original = Batch { values: [1, 2, 3], weights: tensor([[float32(1), float32(2)]]) }
+fn main() -> [i64] ! TaskError:
+  original = Batch { values: [1, 2, 3], weights: tensor([[f32(1), f32(2)]]) }
   result = try parallel:
     work = spawn shifted(original)
     first = try await work
     again = try await work
     again
-  result.values
+  return result.values
 ```
 
 The result is `[11, 12, 13]`. The original array remains `[1, 2, 3]`. Record construction and updates use named fields; the initializer category and element type must match the declaration. An array does not implicitly become a tensor. Fixed tensor dimensions are checked, with runtime guards when the initializer's dimensions are dynamic. A dynamic declaration describes each instance independently: two `Batch` values need not have equal dimensions.

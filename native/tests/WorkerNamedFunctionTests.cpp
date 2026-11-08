@@ -163,7 +163,7 @@ int main() {
       const std::string query =
           std::string(operation).starts_with("length") ? "values" : "length(values)";
       auto checked = analyze(base +
-                             "fn main()->i64 ! TaskError:\n  callbacks=[double]\n  try parallel:\n "
+                             "fn main()->i64 ! TaskError:\n  callbacks=[double]\n  return try parallel:\n "
                              "   values=try await spawn " +
                              operation + "\n    " + query + "\n");
       require(checked.ok(), "collection provenance mutation fixture rejected");

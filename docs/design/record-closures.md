@@ -4,13 +4,13 @@ Anonymous numeric map callbacks can capture completed immutable CPU records, inc
 
 ```kalandra
 type Calibration:
-  offset: int
-  corrections: [int]
+  offset: i64
+  corrections: [i64]
 
-fn main() -> [int] ! TaskError:
+fn main() -> [i64] ! TaskError:
   calibration = Calibration { offset: 10, corrections: [2] }
-  try parallel:
-    work = spawn map([1, 2, 3], fn(value): value + calibration.offset + calibration.corrections[0])
+  return try parallel:
+    work = spawn map([1, 2, 3], fn(value): return value + calibration.offset + calibration.corrections[0])
     first = try await work
     again = try await work
     again

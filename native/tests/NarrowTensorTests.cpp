@@ -35,17 +35,17 @@ int main() {
 #endif
       }
       for (const auto &s :
-           {"fn product(a:" + tensor + ")->" + tensor + ":\n  matmul(a,a)\nfn main()->i64:\n  return 0\n",
-            "fn f(a:" + tensor + ")->" + type + ":\n  reduceSum(a)\nfn main()->i64:\n  return 0\n",
-            "fn main()->Tensor[" + type + ",2,2]:\n  tensor([[1,2],[3,4]])\n",
-            "fn main()->Tensor[" + type + ",2,0,3]:\n  tensor([],[2,0,3])\n",
+           {"fn product(a:" + tensor + ")->" + tensor + ":\n  return matmul(a,a)\nfn main()->i64:\n  return 0\n",
+            "fn f(a:" + tensor + ")->" + type + ":\n  return reduceSum(a)\nfn main()->i64:\n  return 0\n",
+            "fn main()->Tensor[" + type + ",2,2]:\n  return tensor([[1,2],[3,4]])\n",
+            "fn main()->Tensor[" + type + ",2,0,3]:\n  return tensor([],[2,0,3])\n",
             "fn main()->[" + type + "]:\n  data:[" + type +
-                "]=[1,2,3,4]\n  array(reshape(tensor(data),[2,2]))\n",
+                "]=[1,2,3,4]\n  return array(reshape(tensor(data),[2,2]))\n",
             "type Box:\n  matrix:" + tensor +
-                "\nfn step(p:Box)->Box:\n  p with {matrix:p.matrix+1}\nfn main()->[" + type +
+                "\nfn step(p:Box)->Box:\n  return p with {matrix:p.matrix+1}\nfn main()->[" + type +
                 "] ! TaskError:\n  original=Box {matrix:tensor([[1,2],[3,4]])}\n  p=try "
                 "parallel:\n    work=spawn step(original)\n    first=try await work\n    again=try "
-                "await work\n    again\n  array(p.matrix)\n"}) {
+                "await work\n    again\n  return array(p.matrix)\n"}) {
         auto result = analyze(s);
         if (!result.ok())
           for (const auto &d : result.diagnostics)
@@ -57,11 +57,11 @@ int main() {
         require(bool(lowered), lowered ? "" : lowered.error());
 #endif
       }
-      for (const auto &s : {"fn f(a:Tensor[" + type + ",?])->" + tensor + ":\n  matmul(a,a)\n",
-                            "fn f(a:" + tensor + ",b:Tensor[i64,?,?])->" + tensor + ":\n  a+b\n",
-                            "fn main()->Tensor[" + type + ",2]:\n  tensor([1,2,3])\n"})
+      for (const auto &s : {"fn f(a:Tensor[" + type + ",?])->" + tensor + ":\n  return matmul(a,a)\n",
+                            "fn f(a:" + tensor + ",b:Tensor[i64,?,?])->" + tensor + ":\n  return a+b\n",
+                            "fn main()->Tensor[" + type + ",2]:\n  return tensor([1,2,3])\n"})
         require(!analyze(s).ok(), "unsupported narrow tensor operation admitted: " + s);
-      for (const auto &s : {"fn f(a:" + tensor + ")->Tensor[i64,?,?]:\n  i64(a)\n",
+      for (const auto &s : {"fn f(a:" + tensor + ")->Tensor[i64,?,?]:\n  return i64(a)\n",
                             "fn f(a:Tensor[i64,?,?])->" + tensor + ":\n  return " + type + "(a)\n",
                             "fn f(a:" + tensor + ")->" + tensor + ":\n  return " + type + "(a)\n"}) {
         auto result = analyze(s + "fn main()->i64:\n  return 0\n");

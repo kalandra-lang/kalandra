@@ -113,7 +113,7 @@ int main() {
     require(!resident.ok() && diagnostic, "resident tensor bypassed array construction gate");
     for (auto input : {"Tensor[i64,2,3]", "Tensor[i64,0,?]", "Tensor[i64]"}) {
       auto typed = analyze("fn change(values:" + std::string(input) +
-                           "):\n  array(values)\nfn main()->i64:\n  return 0\n");
+                           "):\n  return array(values)\nfn main()->i64:\n  return 0\n");
       require(typed.ok(), "known count program failed");
       auto expected = std::string(input) == "Tensor[i64,2,3]" ? 6
                       : std::string(input) == "Tensor[i64]"   ? 1

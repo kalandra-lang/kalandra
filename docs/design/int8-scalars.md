@@ -3,11 +3,11 @@
 The native CPU scalar subset now supports `int8` (−128 through 127) and `uint8` (0 through 255). They remain distinct types; `int` and `uint` still mean int64 and uint64.
 
 ```kalandra
-fn increment(value: uint8) -> uint8:
-  value + 1
+fn increment(value: u8) -> u8:
+  return value + 1
 
-fn main() -> uint8 ! TaskError:
-  try parallel:
+fn main() -> u8 ! TaskError:
+  return try parallel:
     try await spawn increment(41)
 ```
 

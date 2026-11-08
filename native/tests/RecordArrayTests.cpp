@@ -17,12 +17,12 @@ int main() {
       auto result =
           analyze("type Reading:\n  data:Data\n  enabled:bool\ntype Data:\n  amount:" + t +
                   "\n  values:[" + t + "]\n  matrix:Tensor[" + t +
-                  ",?,?]\nfn choose(flag:bool,rows:[Reading])->[Reading]:\n  if flag: rows\n  "
+                  ",?,?]\nfn choose(flag:bool,rows:[Reading])->[Reading]:\n  return if flag: rows\n  "
                   "else: []\nfn total(rows:[Reading])->" +
-                  t + ":\n  rows[0].data.amount+rows[0].data.values[0]\nfn main()->" + t +
+                  t + ":\n  return rows[0].data.amount+rows[0].data.values[0]\nfn main()->" + t +
                   " ! TaskError:\n  rows=[Reading {data:Data "
                   "{amount:2,values:[3],matrix:tensor([[1,2]])},enabled:true}]\n  result=try "
-                  "parallel:\n    try await spawn choose(true,rows)\n  total(result)\n");
+                  "parallel:\n    try await spawn choose(true,rows)\n  return total(result)\n");
       require(result.ok(), "record array rejected: " + t);
       require(!numericCapabilityError(*result.module, NumericTarget::Cpu),
               "record array capability gate rejected");
@@ -80,11 +80,11 @@ int main() {
                                 "fn wrap(x:i64)->Point:\n  return Point {x:x,data:[x]}\n"
                                 "fn move(p:Point)->Point:\n  return p with {x:p.x+1}\n";
     for (auto body :
-         {"map([Point {x:1,data:[2]}],extract)", "map([Point {x:1,data:[2]}],fn(p):p.x)",
-          "map([1,2],wrap)", "map([1,2],fn(x):Point {x:x,data:[x]})", "map([],move)",
-          "map([],fn(p:Point)->Point:p)", "map([Point {x:1,data:[2]}],fn(p):Other {x:p.x})",
-          "offset=2\n  map([Point {x:1,data:[2]}],fn(p):p with {x:p.x+offset})"}) {
-      auto mapped = analyze(mapDecl + "fn mapped():\n  return " + body + "\nfn main():\n  return 0\n");
+         {"return map([Point {x:1,data:[2]}],extract)", "return map([Point {x:1,data:[2]}],fn(p):return p.x)",
+          "return map([1,2],wrap)", "return map([1,2],fn(x):return Point {x:x,data:[x]})", "return map([],move)",
+          "return map([],fn(p:Point)->Point:return p)", "return map([Point {x:1,data:[2]}],fn(p):return Other {x:p.x})",
+          "offset=2\n  return map([Point {x:1,data:[2]}],fn(p):return p with {x:p.x+offset})"}) {
+      auto mapped = analyze(mapDecl + "fn mapped():\n  " + body + "\nfn main():\n  return 0\n");
       require(mapped.ok(), "record map frontend rejected: " + std::string(body));
       require(!numericCapabilityError(*mapped.module, NumericTarget::Cpu),
               "record map capability rejected");
@@ -94,8 +94,8 @@ int main() {
 #endif
     }
     for (auto body :
-         {"map([Other {x:1}],move)", "map([1],move)", "map([Point {x:1,data:[2]}],fn(p:Other):p.x)",
-          "map([Point {x:1,data:[2]}],fn(p):p.data)", "map([],fn(p):p.x)"})
+         {"map([Other {x:1}],move)", "map([1],move)", "map([Point {x:1,data:[2]}],fn(p:Other):return p.x)",
+          "map([Point {x:1,data:[2]}],fn(p):return p.data)", "map([],fn(p):return p.x)"})
       require(!analyze(mapDecl + "fn main():\n  return " + body + "\n").ok(),
               "invalid record map accepted");
     auto mapped =
