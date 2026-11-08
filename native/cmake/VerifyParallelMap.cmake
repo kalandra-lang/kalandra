@@ -52,7 +52,7 @@ foreach(PATH IN LISTS REJECTIONS)
 endforeach()
 
 foreach(TYPE IN ITEMS i8 u8 i16 u16 i32 u32 i64 u64 f32 f64)
-  COMPILE("width-${TYPE}" "fn main()->${TYPE} ! TaskError:\n  input:[${TYPE}]=[21]\n  result=try parallelMap(input,fn(value):return value*${TYPE}(2))\n  result[0]\n")
+  COMPILE("width-${TYPE}" "fn main()->${TYPE} ! TaskError:\n  input:[${TYPE}]=[21]\n  result=try parallelMap(input,fn(value):return value*${TYPE}(2))\n  return result[0]\n")
   EXPECT("width-${TYPE}" 42)
 endforeach()
 file(READ "${SOURCE_DIR}/tests/fixtures/parallel-map-probe.k" TEXT)

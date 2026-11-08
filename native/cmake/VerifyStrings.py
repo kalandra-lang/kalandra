@@ -56,7 +56,7 @@ for failure in range(1,9):
 
 for name,returned,expected in [('integer','i64',b'7\n'),('boolean','bool',b'true\n'),('array','[i64]',b'[1, 2]\n')]:
     expr={'integer':'7','boolean':'true','array':'[1,2]'}[name]
-    exe=compile(name,'fn main()->'+returned+':\n  ignored="owned text"\n  '+expr+'\n')
+    exe=compile(name,'fn main()->'+returned+':\n  ignored="owned text"\n  return '+expr+'\n')
     run([exe],expected)
 
 bad_sources=list(fixtures['invalid_literal_sources'])+['"\\u{123456','"a\rb"']

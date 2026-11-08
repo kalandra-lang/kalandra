@@ -22,7 +22,7 @@ fn run(value:f64,n:i64,kind:i64,d:i64)->f64:
     if kind == 1:divide(value,n,d)
     else:rounded(value,n)
 fn main()->f64:
-  run(1.3,5,0,1)
+  return run(1.3,5,0,1)
 '''
 
 def main():

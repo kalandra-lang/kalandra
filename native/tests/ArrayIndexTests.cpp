@@ -15,7 +15,7 @@ int main() {
     for (auto type : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
       for (auto index : {"i32", "u32", "i64", "u64"}) {
         auto typed = analyze("fn get(values:[" + std::string(type) + "],index:" + index + ")->" +
-                             type + ":\n  values[index]\nfn main()->i64:\n  0\n");
+                             type + ":\n  values[index]\nfn main()->i64:\n  return 0\n");
         require(typed.ok(), "valid numeric/index combination rejected");
         auto id = typed.module->functions[0].result;
         require(std::holds_alternative<ArrayIndex>(typed.module->expressions[id].operation),

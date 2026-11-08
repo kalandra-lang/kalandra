@@ -27,7 +27,7 @@ int main() {
     const std::string add = "fn add(left:i64,right:i64)->i64:\n  return left+right\n";
     auto result = query(add + "fn main():\n  add(|1,2)\n");
     require(result && result->label == "fn add(left: i64, right: i64) -> i64" &&
-                result->parameters == std::vector<std::string>{"left: int64", "right: int64"} &&
+                result->parameters == std::vector<std::string>{"left: i64", "right: i64"} &&
                 result->activeParameter == 0,
             "named signature and first argument");
     result = query(add + "fn main():\n  add(1, |2)\n");
@@ -49,7 +49,7 @@ int main() {
     result = query("fn inspect(mut values:[i64])->i64:\n  length(values)\n"
                    "fn main():\n  inspect(|[1])\n");
     require(result && result->label == "fn inspect(mut values: [i64]) -> i64" &&
-                result->parameters == std::vector<std::string>{"mut values: [int64]"},
+                result->parameters == std::vector<std::string>{"mut values: [i64]"},
             "named signature lost mutating access contract");
     result = query("fn inspect(mut values:[i64])->i64:\n  length(values)\n"
                    "fn main():\n  f=inspect\n  f(|[1])\n");
@@ -90,7 +90,7 @@ int main() {
                 result->activeParameter == 0,
             "checked array length signature");
     result = query("fn make()->fn(i64)->i64:\n  fn(n:i64):n\nfn main():\n  make()(|1)\n");
-    require(result && result->label == "fn(int64) -> int64" && result->activeParameter == 0,
+    require(result && result->label == "fn(i64) -> i64" && result->activeParameter == 0,
             "factory result signature rather than factory signature");
     result = query("fn make(offset:i64)->fn(i64,i64)->i64:\n  fn(a:i64,b:i64):a+b+offset\n"
                    "fn main():\n  make(3)(1,|2)\n");
@@ -102,7 +102,7 @@ int main() {
     require(result && result->label == "fn make(offset: i64) -> (fn(i64, i64) -> i64)",
             "factory arguments still show factory signature");
     result = query(add + "fn main():\n  callbacks=[add]\n  callbacks[0](1,|2)\n");
-    require(result && result->label == "fn(int64, int64) -> int64" && result->activeParameter == 1,
+    require(result && result->label == "fn(i64, i64) -> i64" && result->activeParameter == 1,
             "indexed callable signature");
     result = query(add + "fn main():\n  callbacks=[add]\n  1 -> callbacks[0](|2)\n");
     require(result && result->activeParameter == 1, "indexed pipeline implicit parameter");
@@ -110,13 +110,13 @@ int main() {
                    "fn main():\n  1 -> make()(|2)\n");
     require(result && result->activeParameter == 1, "factory pipeline checked invocation span");
     result = query("fn main():\n  (fn(n:i64):n*2)(|3)\n");
-    require(result && result->label == "fn(int64) -> int64", "direct anonymous call signature");
+    require(result && result->label == "fn(i64) -> i64", "direct anonymous call signature");
     result = query("fn make()->[fn(i64)->i64]:\n  [fn(n:i64):n]\n"
                    "fn main():\n  make()[0](|3)\n");
-    require(result && result->label == "fn(int64) -> int64", "indexed factory result signature");
+    require(result && result->label == "fn(i64) -> i64", "indexed factory result signature");
     result = query("error Bad:\n  Failed\nfn make()->fn(i64)->i64 ! Bad:\n  fn(n:i64):n\n"
                    "fn main():\n  make()(|3) catch fn(e):0\n");
-    require(result && result->label == "fn(int64) -> int64 ! Bad",
+    require(result && result->label == "fn(i64) -> i64 ! Bad",
             "returned callable error channel is retained");
     require(!query(add + "fn main():\n  callbacks=[add]\n  callbacks[0](|1)\n"),
             "invalid indexed arguments do not leak signature");
@@ -134,7 +134,7 @@ int main() {
     require(result && result->parameters.empty(), "empty zero-parameter call recovery");
     result = recover("fn make()->fn(i64,i64)->i64:\n  fn(a:i64,b:i64):a+b\n"
                      "fn main():\n  make()(1,2|\n");
-    require(result && result->label == "fn(int64, int64) -> int64", "factory-result recovery");
+    require(result && result->label == "fn(i64, i64) -> i64", "factory-result recovery");
     result = recover(add + "fn main():\n  callbacks=[add]\n  1 -> callbacks[0](2|\n");
     require(result && result->activeParameter == 1, "indexed pipeline recovery");
     result = recover(add + "fn main():\n  add(1,2|)\n");
@@ -150,7 +150,7 @@ int main() {
             "bound callable missing arguments");
     result = recover("fn make()->fn(i64,i64)->i64:\n  fn(a:i64,b:i64):a+b\n"
                      "fn main():\n  make()(1,|\n");
-    require(result && result->label == "fn(int64, int64) -> int64", "factory missing argument");
+    require(result && result->label == "fn(i64, i64) -> i64", "factory missing argument");
     result = recover(add + "fn main():\n  callbacks=[add]\n  1 -> callbacks[0](|\n");
     require(result && result->activeParameter == 1, "indexed pipeline missing argument");
     require(!recover(add + "fn main():\n  add(\"bad\",|\n"),
@@ -162,7 +162,7 @@ int main() {
             "invalid target body blocks named signature snapshot");
     result = recover("type Point:\n  x:i64\nfn inspect(point:Point,n:i64)->i64:\n  point.x+n\n"
                      "fn main():\n  inspect(Point {x:1},|\n");
-    require(result && result->parameters == std::vector<std::string>{"point: Point", "n: int64"},
+    require(result && result->parameters == std::vector<std::string>{"point: Point", "n: i64"},
             "nominal parameter snapshot");
     result = recover("error First:\n  Bad\nerror Second:\n  Bad\n"
                      "fn risky(a:i64,b:i64)->i64 ! (First | Second):\n  a+b\n"
@@ -207,7 +207,7 @@ int main() {
             "recovery has an eight-delimiter bound");
     result = query(add + "fn main():\n  add(1, va|Suffix)\n");
     require(result && result->activeParameter == 1 &&
-                result->parameters == std::vector<std::string>{"left: int64", "right: int64"},
+                result->parameters == std::vector<std::string>{"left: i64", "right: i64"},
             "final partial identifier retains named parameter guidance");
     result = recover(add + "fn main():\n  add(1, val|\n");
     require(result && result->activeParameter == 1, "partial name with trailing open call");
@@ -215,7 +215,7 @@ int main() {
     require(result && result->activeParameter == 0, "first and final bare identifier");
     result = recover("fn make()->fn(i64,i64)->i64:\n  fn(a:i64,b:i64):a+b\n"
                      "fn main():\n  make()(1, val|\n");
-    require(result && result->label == "fn(int64, int64) -> int64",
+    require(result && result->label == "fn(i64, i64) -> i64",
             "factory argument editing hole");
     result = recover(add + "fn main():\n  callbacks=[add]\n  1 -> callbacks[0](val|\n");
     require(result && result->activeParameter == 1, "indexed pipeline argument editing hole");
@@ -231,7 +231,7 @@ int main() {
             "earlier partial argument retains parameter guidance");
     require(!query(add + "fn main():\n  add(1, 2 + va|Suffix)\n"),
             "partial expression is not a bare-name editing hole");
-    const std::string records = "type Reading:\n  value:int\n"
+    const std::string records = "type Reading:\n  value:i64\n"
                                 "type Box:\n  reading:Reading\n";
     result = query(add + records +
                    "fn main():\n  reading=Reading {value:2}\n  add(1, reading.va|Suffix)\n");
@@ -250,7 +250,7 @@ int main() {
     result = query(add + records +
                    "fn make()->fn(i64,i64)->i64:\n  add\n"
                    "fn main():\n  reading=Reading {value:2}\n  make()(1, reading.va|Suffix)\n");
-    require(result && result->label == "fn(int64, int64) -> int64",
+    require(result && result->label == "fn(i64, i64) -> i64",
             "structural callee field editing");
     result = query(add + "type Wrong:\n  value:String\nfn main():\n  reading=Wrong "
                          "{value:\"text\"}\n  add(1, reading.val|ue)\n");
@@ -294,7 +294,7 @@ int main() {
     result = recover(add + records +
                      "fn main():\n  reading=Reading {value:2}\n  callbacks=[add]\n  "
                      "callbacks[0](1, reading.|)\n");
-    require(result && result->label == "fn(int64, int64) -> int64",
+    require(result && result->label == "fn(i64, i64) -> i64",
             "empty field with structural callee");
     require(!recover(add + "fn main():\n  add(1, unknown.|)\n"),
             "unknown empty-field receiver rejected");
@@ -582,7 +582,7 @@ int main() {
                        transferEnd,
                    placement);
     require(result && result->activeParameter == 1 &&
-                result->parameters[0] == "input: Tensor[int64, 2]",
+                result->parameters[0] == "input: Tensor[i64, 2]",
             "piped transfer selects device argument");
     result =
         query(transferStart +
@@ -620,7 +620,7 @@ int main() {
             "omitted GPU index describes checked default selection");
     result = query("fn main():\n  target=devices.gpu(|1)\n  0\n", placement);
     require(result && result->label == "fn devices.gpu(index: u32) -> Device[gpu:1]" &&
-                result->parameters == std::vector<std::string>{"index: uint32"} &&
+                result->parameters == std::vector<std::string>{"index: u32"} &&
                 result->activeParameter == 0,
             "explicit selector index uses its checked literal contract");
     result = query("fn main():\n  target=devices.gpu(|4294967295)\n  0\n", placement);
@@ -652,11 +652,11 @@ int main() {
     require(result && result->activeParameter == 1 && result->parameters.size() == 2,
             "indexed pipeline callable preserves implicit first argument");
     const std::string fieldPrefix =
-        "type Reading:\n  value:int\n" + add + "fn main():\n  reading=Reading {value:2}\n";
+        "type Reading:\n  value:i64\n" + add + "fn main():\n  reading=Reading {value:2}\n";
     result = recover(fieldPrefix + "  add(1,reading.va|Suffix\n");
     require(result && result->activeParameter == 1 && result->label.starts_with("fn add("),
             "record field suffix requires checked receiver projection");
-    result = recover(fieldPrefix + "  concat([int32(1)],reading.va|Suffix\n");
+    result = recover(fieldPrefix + "  concat([i32(1)],reading.va|Suffix\n");
     require(result && result->label == "fn concat(left: [i32], right: [i32]) -> [i32]",
             "existing concat snapshot supports a projected final field suffix");
     require(!recover(add + "fn main():\n  add(\"bad\",va|Suffix\n"),
@@ -725,7 +725,7 @@ int main() {
                 originalChecked.diagnostics[0].code == "S016",
             "ordinary compilation keeps actual unknown argument diagnostics");
     const std::string emptyPrefix =
-        "type Reading:\n  value:int\n" + triple + "fn main():\n  reading=Reading {value:1}\n";
+        "type Reading:\n  value:i64\n" + triple + "fn main():\n  reading=Reading {value:1}\n";
     result = recover(emptyPrefix + "  triple(reading.|,2\n");
     require(result && result->activeParameter == 0 && result->parameters.size() == 3,
             "empty earlier field combines with EOF repair and missing later parameter");

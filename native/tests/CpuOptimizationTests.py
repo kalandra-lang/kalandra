@@ -69,7 +69,7 @@ for numeric in (() if args.matrices_only else ('f32', 'f64')):
     ]
     for name, dims, literal, expected in controls:
         path = args.output / f'{numeric}-{name}.k'
-        path.write_text(f'fn f(a:Tensor[{numeric},{dims}])->{numeric}:\n  reduceSum(a*3+1)\nfn main()->{numeric}:\n  f({literal})\n')
+        path.write_text(f'fn f(a:Tensor[{numeric},{dims}])->{numeric}:\n  return reduceSum(a*3+1)\nfn main()->{numeric}:\n  return f({literal})\n')
         output = path.with_suffix('')
         run([compiler, path, '-O2', '-o', output])
         assert run([output]).strip() == expected

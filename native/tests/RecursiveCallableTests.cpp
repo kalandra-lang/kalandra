@@ -41,12 +41,12 @@ int main() {
     }
     require(programs == 22, "recursive fixture catalog incomplete");
     for (const auto *text :
-         {"fn descend(n:i64):\n  return if n==0:\n    0\n  else:\n    descend(n-1)\nfn main()->i64:\n  "
+         {"fn descend(n:i64):\n  return if n==0:\n    0\n  else:\n    descend(n-1)\nfn main()->i64:\n  return "
           "return 0\n",
           "fn main()->i64:\n  f=fn(n:i64):\n    return if n==0:\n      0\n    else:\n      f(n-1)\n  "
           "return f(20)\n"})
       require(!analyze(text).ok(), "unsupported recursive inference admitted");
-    auto co = analyze("fn leaf(n:i64)->i64:\n  return n\nfn recur(n:i64)->i64 ! TaskError:\n  return if n==0:\n  "
+    auto co = analyze("fn leaf(n:i64)->i64:\n  return n\nfn recur(n:i64)->i64 ! TaskError:\n  return if n==0:\n  return "
                       "  try parallel:\n      try await spawn leaf(n)\n  else:\n    try "
                       "recur(n-1)\nfn main()->i64 ! TaskError:\n  return try recur(20)\n");
     require(co.ok() && bool(continuation::plan(*co.module)), "coordinating recursion rejected");

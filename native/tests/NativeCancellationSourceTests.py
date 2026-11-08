@@ -22,7 +22,7 @@ source.write_text((root / 'native/tests/fixtures/cancellation-workloads.k').read
     if kind==1:mutual(17,n)
     else:owned(17,n)
 fn main()->f64:
-  run(0,100)'''))
+  return run(0,100)'''))
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 compiler_sha = sha(a.compiler)
 variants = [('debug', '-O0', ['-O0']), ('optimized', '-O2', ['-O2']),

@@ -88,9 +88,9 @@ int main(int argc, char **argv) {
     const std::string keywordBinding =
         "error Input:\n  Bad\nfn inspect(error:i64)->i64:\n  return error\nfn main():\n  return inspect(1)\n";
     Fixture keywordName(base, "keyword-binding", {{"main.k", keywordBinding}});
-    result = keywordName.success("main.k", keywordBinding.find("error:int"), "problem");
+    result = keywordName.success("main.k", keywordBinding.find("error:i64"), "problem");
     require(result["main.k"].find("error Input:") != std::string::npos &&
-                result["main.k"].find("inspect(problem:int)") != std::string::npos &&
+                result["main.k"].find("inspect(problem:i64)") != std::string::npos &&
                 result["main.k"].find("  problem\n") != std::string::npos,
             "keyword spelling confused a lexical binding");
     Fixture collision(base, "collision",
@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
         "enum Box:\n  Some:\n    value:i64\nfn read(box:Box)->i64:\n  return match box:\n    Box.Some "
         "{value}:value\nfn main():\n  return read(Box.Some {value:2})\n";
     Fixture patterns(base, "patterns", {{"main.k", pattern}});
-    result = patterns.success("main.k", pattern.find("value:int"), "amount");
+    result = patterns.success("main.k", pattern.find("value:i64"), "amount");
     require(result["main.k"].find("{amount:value}:value") != std::string::npos &&
                 result["main.k"].find("{amount:2}") != std::string::npos,
             "field rename failed to preserve shorthand binding");
@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
                 result["lib.k"] == library && result["direct.k"] == direct,
             "local alias rename");
     Fixture records(base, "records",
-                    {{"lib.k", "export type Box:\n  value:int\n"},
+                    {{"lib.k", "export type Box:\n  value:i64\n"},
                      {"main.k", "from \"./lib.k\" import Box as B\nfn read(box:B)->i64:\n  return "
                                 "box.value\nfn main():\n  return read(B {value:2})\n"}});
     result = records.success("lib.k", records.text["lib.k"].find("Box"), "Container");

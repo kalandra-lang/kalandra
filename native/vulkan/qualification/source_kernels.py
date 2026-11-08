@@ -31,7 +31,7 @@ fn main()->Tensor[{name},3] ! TaskError:
 ''')
     elif a.operation == 'reduce':
         source.write_text(f'''fn operation(v:Tensor[{name},?])->{name}:
-  reduceSum(v)
+  return reduceSum(v)
 fn main()->i32:
   return 0
 ''')

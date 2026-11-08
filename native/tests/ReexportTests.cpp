@@ -38,11 +38,11 @@ int main(int argc, char **argv) {
     write("public.k",
           "export from \"./facade.k\" import Item as Entry, create, advance\n");
     write("private.k", "from \"./core.k\" import Row as Item, make\n");
-    write("other.k", "export type Row:\n  names:[String]\n  value:int64\n");
+    write("other.k", "export type Row:\n  names:[String]\n  value:i64\n");
     const std::string imports = "from \"./public.k\" import Entry, create, advance\nfrom "
                                 "\"./core.k\" import Row\n";
     auto good = analyze(
-        imports + "fn local(value:Entry)->Row:\n  return advance(value)\nfn main()->i64 ! TaskError:\n  "
+        imports + "fn local(value:Entry)->Row:\n  return advance(value)\nfn main()->i64 ! TaskError:\n  return "
                   "changed=try parallel:\n    work=spawn local(create())\n    first=try await "
                   "work\n    again=try await work\n    again\n  return changed.value\n");
     if (!good.ok())

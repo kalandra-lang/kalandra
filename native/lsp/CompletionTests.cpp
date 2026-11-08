@@ -224,7 +224,7 @@ int main() {
             "unknown error prefix has no candidates");
     const std::string errors = "error ParseError:\n  Bad\nerror ReadError:\n  Missing\n"
                                "type Problem = ParseError | ReadError\n"
-                               "type Plain:\n  value:int\nenum Ordinary:\n  Case\n";
+                               "type Plain:\n  value:i64\nenum Ordinary:\n  Case\n";
     info = query(errors + "fn inspect()->i64 ! Pa|Suffix:\n  0\nfn main():\n  0\n");
     require(info.names.size() == 1 && has(info, "ParseError") &&
                 info.names[0].kind == ScopeNameKind::Type,
@@ -267,7 +267,7 @@ int main() {
     std::string manyTypes;
     for (int i = 0; i < 300; ++i) {
       const auto suffix = std::to_string(1000 + i).substr(1);
-      manyTypes += "type Type" + suffix + ":\n  value:int\n";
+      manyTypes += "type Type" + suffix + ":\n  value:i64\n";
     }
     info = query(manyTypes + "fn main(value:Type|):\n  0\n");
     require(info.names.size() == 256 && info.incomplete && has(info, "Type000") &&
@@ -284,12 +284,12 @@ int main() {
     require(info.names.size() == 11 && !info.incomplete, "narrowed list");
     std::string record = "type Many:\n";
     for (int i = 0; i < 300; ++i)
-      record += "  candidate" + std::to_string(i) + ":int\n";
+      record += "  candidate" + std::to_string(i) + ":i64\n";
     info = query(record + "fn inspect(value:Many):\n  value.can|\nfn main():\n  0\n");
     require(info.names.size() == 256 && info.incomplete, "bounded record fields");
     info = query(record + "fn inspect(value:Many):\n  value.candidate29|\nfn main():\n  0\n");
     require(info.names.size() == 11 && !info.incomplete, "narrowed record fields");
-    const std::string choices = "enum Choice:\n  Some:\n    value:int\n  Other\n";
+    const std::string choices = "enum Choice:\n  Some:\n    value:i64\n  Other\n";
     info = query(choices + "fn main():\n  Choice.|\n");
     require(info.names.size() == 2 && info.names[0].name == "Other" &&
                 info.names[1].name == "Some" && info.names[0].kind == ScopeNameKind::EnumCase,
@@ -341,7 +341,7 @@ int main() {
     require(info.names.size() == 256 && info.incomplete, "bounded enum candidates");
     info = query(enumeration + "fn main():\n  Large.Candidate29|\n");
     require(info.names.size() == 11 && !info.incomplete, "narrowed enum candidates");
-    const std::string point = "type Point:\n  x:int\n  y:int\n";
+    const std::string point = "type Point:\n  x:i64\n  y:i64\n";
     info = query(point + "fn main():\n  Point { | }\n");
     require(info.names.size() == 2 && has(info, "x") && has(info, "y") && info.appendFieldColon,
             "empty constructor label");
@@ -384,7 +384,7 @@ int main() {
         query(record + "fn inspect(value:Many):\n  value with { candidate29| }\nfn main():\n  0\n");
     require(info.names.size() == 11 && !info.incomplete, "narrowed label list");
     const std::string patterns =
-        "enum Parcel:\n  Packed:\n    value:int\n    count:int\n    note:int\n  Empty\n";
+        "enum Parcel:\n  Packed:\n    value:i64\n    count:i64\n    note:i64\n  Empty\n";
     const auto patternQuery = [&](const std::string &fields) {
       return query(patterns + "fn inspect(p:Parcel):\n  match p:\n    Parcel.Packed {" + fields +
                    "}: 0\n    Parcel.Empty: 0\nfn main():\n  0\n");
@@ -429,7 +429,7 @@ int main() {
     require(info.names.size() == 1 && has(info, "reason"), "task rejection labels");
     std::string manyPayloads = "enum LargePayload:\n  Some:\n";
     for (int i = 0; i < 300; ++i)
-      manyPayloads += "    candidate" + std::to_string(i) + ":int\n";
+      manyPayloads += "    candidate" + std::to_string(i) + ":i64\n";
     info = query(manyPayloads +
                  "fn inspect(p:LargePayload):\n  match p:\n    LargePayload.Some {|}: 0\n"
                  "fn main():\n  0\n");
@@ -596,7 +596,7 @@ int main() {
                        placement),
                  "transfer"),
             "transfer is not a placed spawn entry");
-    require(!has(query(transferStart + "    callback=fn(v:int):tra|(v,devices.gpu())\n    0\n",
+    require(!has(query(transferStart + "    callback=fn(v:i64):tra|(v,devices.gpu())\n    0\n",
                        placement),
                  "transfer"),
             "a closure does not inherit the enclosing owning group");
@@ -661,7 +661,7 @@ int main() {
     info = query(combine + "fn main():\n  value=2\n  callback=combine\n  callback(1,va|Suffix\n");
     require(has(info, "value"), "checked function-value callee supplies final argument context");
     const std::string openField =
-        "type Reading:\n  value:int\n" + combine +
+        "type Reading:\n  value:i64\n" + combine +
         "fn main():\n  reading=Reading {value:2}\n  combine(1,reading.va|Suffix\n";
     info = query(openField);
     require(info.names.size() == 1 && has(info, "value") &&
@@ -695,7 +695,7 @@ int main() {
     require(has(info, "value"), "indexed callable retains earlier argument completion");
     info = query(triple + "fn main():\n  value=1\n  1 -> triple(va|Suffix,2\n");
     require(has(info, "value"), "pipeline retains implicit argument before edited argument");
-    info = query("type Reading:\n  value:int\n" + triple +
+    info = query("type Reading:\n  value:i64\n" + triple +
                  "fn main():\n  reading=Reading {value:1}\n  triple(reading.va|Suffix,2\n");
     require(info.names.size() == 1 && info.names[0].kind == ScopeNameKind::Field &&
                 has(info, "value"),
@@ -725,7 +725,7 @@ int main() {
     require(has(info, "value"), "nested arithmetic operand completion");
     info = query(combine + "fn main():\n  value=2\n  combine(va|Suffix+3,1\n");
     require(has(info, "value"), "left arithmetic operand preserves later text");
-    info = query("type Reading:\n  value:int\n" + combine +
+    info = query("type Reading:\n  value:i64\n" + combine +
                  "fn main():\n  reading=Reading {value:2}\n  combine(1,2+reading.va|Suffix\n");
     require(info.names.size() == 1 && has(info, "value") &&
                 info.names[0].kind == ScopeNameKind::Field,

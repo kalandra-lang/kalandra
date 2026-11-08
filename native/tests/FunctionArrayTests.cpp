@@ -18,7 +18,7 @@ int main() {
     for (
         const auto *text :
         {"fn worker(value:i64)->i64:\n  return value\nfn coordinate(value:i64)->i64 ! TaskError:\n  return try "
-         "parallel:\n    try await spawn worker(value)\nfn main()->i64:\n  "
+         "parallel:\n    try await spawn worker(value)\nfn main()->i64:\n  return "
          "callbacks=[coordinate]\n  return 0\n",
          "fn double(value:i64)->i64:\n  return value*2\nfn triple(value:i64)->i64:\n  return value*3\nfn "
          "main()->i64:\n  callbacks=[double,triple]\n  return callbacks[0](12)+callbacks[1](6)\n",
@@ -26,10 +26,10 @@ int main() {
          "[fn(value):return value+offset,fn(value):return value*offset]\nfn main()->i64:\n  callbacks=make(20)\n "
          " return callbacks[0](2)+callbacks[1](1)\n",
          "fn make()->[fn(i64)->i64]:\n  text=\"é\"+\"!\"\n  values:[i64]=[20,20]\n  "
-         "return [fn(value):return values[0]+values[1]+length(text)+value]\nfn main()->i64:\n  "
+         "return [fn(value):return values[0]+values[1]+length(text)+value]\nfn main()->i64:\n  return "
          "callbacks=make()\n  return callbacks[0](0)\n",
          "fn main()->i64:\n  callbacks:[fn(i64)->i64]=[]\n  return length(callbacks)+42\n",
-         "fn make(offset:i64)->[fn(i64)->i64]:\n  return [fn(value):return value+offset]\nfn main()->i64:\n  "
+         "fn make(offset:i64)->[fn(i64)->i64]:\n  return [fn(value):return value+offset]\nfn main()->i64:\n  return "
          "callbacks=concat(make(10),make(20))\n  selected=slice(callbacks,1,2)\n  "
          "return selected[0](22)\n",
          "fn main()->i64:\n  callbacks:[fn(i64)->i64]=[fn(value):return value*2,fn(value):return value*3]\n  "
@@ -40,15 +40,15 @@ int main() {
          "callbacks=map([20,21],maker)\n  evaluate=fn(callback:fn(i64)->i64)->i64:return callback(0)\n  "
          "values=map(callbacks,evaluate)\n  return values[0]+values[1]+1\n",
          "fn make(offset:i64)->fn(i64)->i64:\n  return fn(value):return value+offset\nfn "
-         "evaluate(callback:fn(i64)->i64)->i64:\n  return callback(0)\nfn main()->i64:\n  "
+         "evaluate(callback:fn(i64)->i64)->i64:\n  return callback(0)\nfn main()->i64:\n  return "
          "callbacks=map([20,21],make)\n  values=map(callbacks,evaluate)\n  return values[0]+values[1]+1\n",
          "type Config:\n  callbacks:[fn(i64)->i64]\nfn make(offset:i64)->Config:\n  return Config "
          "{callbacks:[fn(value):return value+offset]}\nfn main()->i64:\n  config=make(20)\n  return "
          "config.callbacks[0](22)\n",
-         "enum Choice:\n  Empty\n  Some:\n    callbacks:[fn(i64)->i64]\nfn main()->i64:\n  "
+         "enum Choice:\n  Empty\n  Some:\n    callbacks:[fn(i64)->i64]\nfn main()->i64:\n  return "
          "offset:i64=20\n  choice=Choice.Some {callbacks:[fn(value):return value+offset]}\n  return match "
          "choice:\n    Choice.Empty:0\n    Choice.Some {callbacks}:callbacks[0](22)\n",
-         "error E:\n  Bad:\n    value:i64\nfn make(offset:i64)->[fn(i64)->i64 ! E]:\n  "
+         "error E:\n  Bad:\n    value:i64\nfn make(offset:i64)->[fn(i64)->i64 ! E]:\n  return "
          "validate=fn(value:i64)->i64 ! E:\n    if value==0:fail E.Bad {value:offset}\n    return value\n "
          " return [validate]\nfn main()->i64:\n  callbacks=make(42)\n  return callbacks[0](0) catch fn(error):\n "
          "   return match error:\n      E.Bad {value}:value\n",
@@ -56,7 +56,7 @@ int main() {
          "E.Bad {callbacks:[fn(value):return value+offset]}\nfn main()->i64:\n  return raise(20) catch "
          "fn(error):\n    return match error:\n      E.Bad {callbacks}:callbacks[0](22)\n",
          "fn evaluate(callbacks:[fn(i64)->i64])->i64:\n  return callbacks[0](22)\nfn "
-         "make(offset:i64)->[fn(i64)->i64]:\n  return [fn(value):return value+offset]\nfn main()->i64:\n  "
+         "make(offset:i64)->[fn(i64)->i64]:\n  return [fn(value):return value+offset]\nfn main()->i64:\n  return "
          "factory=make\n  apply=evaluate\n  return apply(factory(20))\n",
          "fn main()->i64:\n  callbacks:[fn(i64)->i64]=[fn(value):return value*2]\n  "
          "run=fn(value:i64):return callbacks[0](value)\n  return run(21)\n",
@@ -66,7 +66,7 @@ int main() {
          "fn worker(offset:i64)->i64:\n  callbacks:[fn(i64)->i64]=[fn(value):return value+offset]\n  return "
          "callbacks[0](22)\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn "
          "worker(20)\n",
-         "fn worker(value:i64)->i64:\n  return value\nfn main()->i64 ! TaskError:\n  "
+         "fn worker(value:i64)->i64:\n  return value\nfn main()->i64 ! TaskError:\n  return "
          "callbacks:[fn(i64)->i64]=[fn(value):return value*2]\n  return try parallel:\n    value=try await spawn "
          "worker(21)\n    callbacks[0](value)\n",
          "fn main()->i64:\n  callbacks:[fn(i64)->i64]=[fn(value):return value*2]\n  first=10 -> "
@@ -141,7 +141,7 @@ int main() {
           "fn main()->i64:\n  callbacks:[[fn(i64)->i64]]=[]\n  0\n",
           "fn main()->i64:\n  callbacks:[fn(i64)->i64]=[fn(value):return value]\n  "
           "value=tensor(callbacks)\n  return 0\n",
-          "type A:\n  value:i64\ntype B:\n  value:i64\nfn main()->i64:\n  "
+          "type A:\n  value:i64\ntype B:\n  value:i64\nfn main()->i64:\n  return "
           "callbacks:[fn(A)->i64]=[fn(value:B):return value.value]\n  return 0\n"})
       require(!analyze(text).ok(), "invalid function array accepted");
     auto separate = analyze(
@@ -202,7 +202,7 @@ int main() {
       require(changed && numericCapabilityError(module, NumericTarget::Cpu).has_value(),
               "forged function array metadata accepted");
     }
-    auto factory = analyze("fn make()->[fn(i64)->i64]:\n  return [fn(value):return value]\nfn main()->i64:\n  "
+    auto factory = analyze("fn make()->[fn(i64)->i64]:\n  return [fn(value):return value]\nfn main()->i64:\n  return "
                            "factory=make\n  callbacks=factory()\n  return callbacks[0](42)\n");
     require(factory.ok(), "array factory metadata fixture rejected");
     auto forgedFactory = *factory.module;
@@ -240,7 +240,7 @@ int main() {
     const auto &parameter = headers.module.functions[0].parameters[0].type;
     require(parameter.array && parameter.function && parameter.function->errorTypes.size() == 1,
             "function array lost nested invocation channel");
-    require(headers.module.source->slice(parameter.span) == "[fn(int)->int ! CallError]",
+    require(headers.module.source->slice(parameter.span) == "[fn(i64)->i64 ! CallError]",
             "function array span lost delimiters");
     require(headers.module.functions[0].result->array &&
                 headers.module.functions[0].result->function &&
@@ -259,7 +259,7 @@ int main() {
     SemanticLimits semanticLimits;
     semanticLimits.maxValues = 6;
     auto budget = check(parse(std::make_shared<SourceFile>(
-                            "budget.k", "fn identity(value:i64)->i64:\n  return value\nfn main()->i64:\n  "
+                            "budget.k", "fn identity(value:i64)->i64:\n  return value\nfn main()->i64:\n  return "
                                         "callbacks=[identity,identity,identity,identity]\n  return 0\n")),
                         semanticLimits);
     require(!budget.ok() &&

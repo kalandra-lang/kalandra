@@ -23,7 +23,7 @@ COMPILE(worker "fn work()->[i64]:\n  a=[3,1,2]\n  return sort(a)\nfn main()->i64
 EXPECT(worker 103)
 message(STATUS "Sorting: ten numeric types/Bool, raw bits/strides, copy isolation, empty arrays and tasks passed")
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}
-  "${SOURCE_DIR}/tests/ArraySortCancellationTests.cpp" "${OUTPUT_DIR}/sort-int64.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/cancellation-harness")
+  "${SOURCE_DIR}/tests/ArraySortCancellationTests.cpp" "${OUTPUT_DIR}/sort-i64.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/cancellation-harness")
 RUN_OK("${OUTPUT_DIR}/cancellation-harness")
 COMPILE(publication "fn run(mut a:[i64],n:i64)->i64:\n  f=fn()->[i64]:return a\n  i=0\n  while i<n:\n    f()[0]=f()[0]+1\n    i=i+1\n  return a[0]\nfn main()->i64:\n  return 0\n" --test-entry run)
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}

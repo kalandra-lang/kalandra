@@ -5,13 +5,13 @@ set(PREFIX [=[enum Chain:
     callbacks:[fn(i64)->i64]
     next:Chain
 fn sum(values:[i64],index:i64)->i64:
-  if index<length(values):values[index]+sum(values,index+1)
+  return if index<length(values):values[index]+sum(values,index+1)
   else:0
 fn total(chain:Chain)->i64:
-  match chain:
+  return match chain:
     Chain.End:0
     Chain.More {callbacks,next}:
-      values=map(callbacks,fn(callback):callback(1))
+      values=map(callbacks,fn(callback):return callback(1))
       sum(values,0)+total(next)
 ]=])
 COMPILE(named "${PREFIX}fn double(value:i64)->i64:\n  return value*2\nfn main()->i64:\n  return total(Chain.More {callbacks:[double,double],next:Chain.End})+38\n")
@@ -34,12 +34,12 @@ enum Link:
   More:
     node:Node
 fn make(offset:i64)->Node:
-  Node {callbacks:[fn(value):value+offset],next:Link.End}
+  return Node {callbacks:[fn(value):return value+offset],next:Link.End}
 fn main()->i64:
   original=make(10)
-  changed=original with {callbacks:concat(original.callbacks,[fn(value:i64):value+20])}
+  changed=original with {callbacks:concat(original.callbacks,[fn(value:i64):return value+20])}
   root=Node {callbacks:[],next:Link.More {node:changed}}
-  match root.next:
+  return match root.next:
     Link.End:0
     Link.More {node}:original.callbacks[0](1)+node.callbacks[1](11)
 ]=])

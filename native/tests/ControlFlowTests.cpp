@@ -15,7 +15,7 @@ int main() {
     for (auto type : {"bool", "i32", "u32", "i64", "u64", "f32", "f64"}) {
       auto typed =
           analyze("fn choose(flag:bool,a:" + std::string(type) + ",b:" + type + ")->" + type +
-                  ":\n  if flag:\n    a\n  else:\n    b\nfn main()->bool:\n  true\n");
+                  ":\n  return if flag:\n    a\n  else:\n    b\nfn main()->bool:\n  return true\n");
       require(typed.ok(), "conditional scalar type rejected");
 #ifndef KALANDRA_CONTROL_FRONTEND_ONLY
       auto native = lowerNative(*typed.module);

@@ -14,7 +14,7 @@ static CheckResult analyze(const std::string &source) {
 }
 int main() {
   try {
-    const std::string decl = "type Row:\n  name:String\n  values:[int]\nenum Item:\n  Empty\n"
+    const std::string decl = "type Row:\n  name:String\n  values:[i64]\nenum Item:\n  Empty\n"
                              "  Value:\n    rows:[Row]\ntype Box:\n  items:[Item]\n  rows:[Row]\n";
     for (const auto *body :
          {"type Recursive:\n  rows:[Recursive]\nfn main()->i64:\n  return 0\n",
@@ -48,7 +48,7 @@ int main() {
          {"fn main():\n  return Item.Value {rows:[Item.Empty]}\n",
           "fn main():\n  return Box {items:[Row {name:\"\",values:[]}],rows:[]}\n",
           "type Bad:\n  rows:Tensor[Row,2]\nfn main()->i64:\n  return 0\n",
-          "type Bad:\n  rows:[[Row]]\nfn main()->i64:\n  0\n"})
+          "type Bad:\n  rows:[[Row]]\nfn main()->i64:\n  return 0\n"})
       require(!analyze(decl + body).ok(), "invalid array-field program admitted");
     auto valid = analyze(decl + "fn main()->i64:\n  return length(Box {items:[],rows:[]}.rows)\n");
     require(valid.ok(), "field metadata fixture rejected");

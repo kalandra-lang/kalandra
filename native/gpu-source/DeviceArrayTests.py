@@ -26,7 +26,7 @@ for name, (helper, call, typ, expected) in cases().items():
     root = a.root/name
     root.mkdir(exist_ok=True)
     cpu = root/'cpu.k'
-    cpu.write_text(helper+f'fn main()->{typ}:\n  {call}\n')
+    cpu.write_text(helper+f'fn main()->{typ}:\n  return {call}\n')
     reference = root/('cpu'+suffix)
     run([a.compiler, cpu, *flags, '-o', reference])
     output = run([reference])

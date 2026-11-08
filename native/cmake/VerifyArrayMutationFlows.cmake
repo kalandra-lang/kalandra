@@ -3,7 +3,7 @@ COMPILE(write-faults "fn failing(n:i64)->i64:\n  return 1/n\nfn edit(mut a:[i64]
 RUN_OK("${CLANGXX}" -std=c++23 -Wall -Wextra -Werror -Wno-override-module ${FLAGS}
   "${SOURCE_DIR}/tests/ArrayMutationFaultTests.cpp" "${OUTPUT_DIR}/write-faults.ll" "${RUNTIME}" -o "${OUTPUT_DIR}/write-faults-harness")
 RUN_OK("${OUTPUT_DIR}/write-faults-harness")
-COMPILE(tensor-isolation "fn main()->i64:\n  a=[1,2]\n  t=tensor(a)\n  b=array(t)\n  a[0]=9\n  b[1]=7\n  reduceSum(t)*100+a[0]*10+b[1]\n")
+COMPILE(tensor-isolation "fn main()->i64:\n  a=[1,2]\n  t=tensor(a)\n  b=array(t)\n  a[0]=9\n  b[1]=7\n  return reduceSum(t)*100+a[0]*10+b[1]\n")
 EXPECT(tensor-isolation 397)
 COMPILE(indirect-alias "fn main()->i64:\n  a=[1,2]\n  f=fn()->[i64]:return a\n  f()[0]=40\n  return a[0]+a[1]\n")
 EXPECT(indirect-alias 42)

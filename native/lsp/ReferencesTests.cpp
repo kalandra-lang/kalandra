@@ -29,15 +29,15 @@ int main() {
   try {
     const std::string basic =
         "fn twice(value:i64):\n  return value*2\nfn main():\n  transform=twice\n  return transform(21)\n";
-    expect(basic, basic.find("value:int"), {basic.find("value*2")});
-    expect(basic, basic.find("value*2"), {basic.find("value:int"), basic.find("value*2")}, true);
+    expect(basic, basic.find("value:i64"), {basic.find("value*2")});
+    expect(basic, basic.find("value*2"), {basic.find("value:i64"), basic.find("value*2")}, true);
     expect(basic, basic.find("twice(value"), {basic.find("twice\n")});
     expect(basic, basic.find("transform="), {basic.find("transform(21)")});
     const std::string calls = "fn twice(value:i64):\n  return value*2\nfn main():\n  return twice(21) -> twice\n";
     expect(calls, calls.find("twice(value"), {calls.find("twice(21)"), calls.rfind("twice")});
     const std::string closure = "fn outer(value:i64):\n  factory=fn():return fn(x:i64):return x+value\n  return "
                                 "factory()(2)+value\nfn main():\n  return outer(1)\n";
-    expect(closure, closure.find("value:int"), {closure.find("value\n"), closure.rfind("value")});
+    expect(closure, closure.find("value:i64"), {closure.find("value\n"), closure.rfind("value")});
     const std::string shadow =
         "fn main()->i64:\n  value=1\n  return if true:\n    value=2\n    value\n  else:\n    value\n";
     expect(shadow, shadow.find("value=1"),
@@ -46,7 +46,7 @@ int main() {
            {shadow.find("value=2"), shadow.find("value\n"), shadow.rfind("value")});
     const std::string field =
         "type Box:\n  value:i64\nfn main():\n  value=Box {value:42}\n  return value.value\n";
-    expect(field, field.find("value:int"), {field.find("value:42"), field.rfind("value")});
+    expect(field, field.find("value:i64"), {field.find("value:42"), field.rfind("value")});
     expect(field, field.find("value=Box"), {field.find("value.value")});
     const std::string unused = "fn unused(value:i64):\n  return 42\nfn main():\n  return 0\n";
     expect(unused, unused.find("unused"), {});

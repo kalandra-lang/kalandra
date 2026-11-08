@@ -22,8 +22,8 @@ int main() {
           input += "]";
         }
         const std::string name = length ? "length" : "shape";
-        auto typed = analyze("fn query(input:" + input + "):\n  " + name +
-                             "(input)\nfn main()->i64:\n  0\n");
+        auto typed = analyze("fn query(input:" + input + "):\n  return " + name +
+                             "(input)\nfn main()->i64:\n  return 0\n");
         require(typed.ok(), "valid query rejected");
         const auto id = typed.module->functions[0].result;
         const auto &node = typed.module->expressions[id];
@@ -72,10 +72,10 @@ int main() {
          {"fn main():\n  values:[f32]=[]\n  return length(values)\n",
           "fn main():\n  return length(shape(tensor(7)))\n",
           "fn main():\n  return shape(tensor([[1,2],[3,4]]))[1]\n", "fn main():\n  return [1,2,3] -> length()\n",
-          "fn make()->Tensor[i64,2] ! TaskError:\n  return tensor([1,2])\nfn main() ! TaskError:\n  "
+          "fn make()->Tensor[i64,2] ! TaskError:\n  return tensor([1,2])\nfn main() ! TaskError:\n  return "
           "return length(shape(try make()))\n",
           "fn main():\n  return tensor([[1,2],[3,4]]) -> shape() -> length()\n",
-          "fn query(values:[f32]):\n  return map([1,2],fn(x):return x+length(values))\nfn main()->i64:\n  "
+          "fn query(values:[f32]):\n  return map([1,2],fn(x):return x+length(values))\nfn main()->i64:\n  return "
           "return 0\n",
           "fn query(values:Tensor[f64,?,?]):\n  return map([1,2],fn(x):return x+length(shape(values)))\nfn "
           "main()->i64:\n  return 0\n",
@@ -95,7 +95,7 @@ int main() {
     }
     for (auto source :
          {"fn main():\n  return length(1)\n", "fn main():\n  return shape(1)\n", "fn main():\n  return shape([1,2])\n",
-          "fn make()->Tensor[i64,2] ! TaskError:\n  return tensor([1,2])\nfn main() ! TaskError:\n  "
+          "fn make()->Tensor[i64,2] ! TaskError:\n  return tensor([1,2])\nfn main() ! TaskError:\n  return "
           "return length(shape(make()))\n",
           "fn main():\n  return length(tensor([1,2]))\n", "fn main():\n  return length([])\n",
           "fn main():\n  return shape()\n", "fn main():\n  return shape(tensor(7),0)\n",

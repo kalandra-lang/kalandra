@@ -48,7 +48,7 @@ int run(int argc, char **argv) {
     check(bool(command >> name >> operation >> rows >> columns >> epsilon >> deviceEpsilon >>
                std::quoted(file)),
           "oracle request");
-    auto numeric = resolveNumeric(name);
+    auto numeric = resolveNumericStorage(name);
     check(numeric.has_value() && operation <= 2 && rows <= INT64_MAX && columns <= INT64_MAX,
           "oracle type/shape");
     const auto type = *describeNumeric(*numeric);

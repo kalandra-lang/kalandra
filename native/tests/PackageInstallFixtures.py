@@ -73,10 +73,7 @@ app = root / "application space λ"
 app.mkdir()
 manifest = app / "kalandra.toml"
 source = app / "main.k"
-text = ('from "geometry" import Item, next\nfrom "again" import Item as Same\n'
-        'from "telemetry" import compute\nfn identity(item:Item)->Same:\n  return item\n'
-        'fn main()->[i64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n'
-        '  [next(identity(Item {value:10})).value,old]\n')
+text = ('from "geometry" import Item, next\nfrom "again" import Item as Same\nfrom "telemetry" import compute\nfn identity(item:Item)->Same:\n  return item\nfn main()->[i64] ! TaskError:\n  old=try parallel:\n    try await spawn compute(10)\n  return [next(identity(Item {value:10})).value,old]\n')
 source.write_text(text)
 configuration = ("format=1\n[project]\nentry='main.k'\n[dependencies]\n" +
                  request("geometry", geometry, second) + request("again", geometry, second) +

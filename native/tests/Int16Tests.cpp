@@ -41,10 +41,10 @@ int main() {
     }
     for (const auto *value : {"32768", "-32769", "32767+1", "-32768-1", "16384*2", "-(-32768)",
                               "-32768/-1", "1/0", "1.0"})
-      require(!analyze(std::string("fn main()->i16:\n  ") + value + "\n").ok(),
+      require(!analyze(std::string("fn main()->i16:\n  return ") + value + "\n").ok(),
               "invalid signed 16-bit accepted");
     for (const auto *value : {"65536", "-1", "65535+1", "0-1", "32768*2", "-uint16(1)", "1%0"})
-      require(!analyze(std::string("fn main()->u16:\n  ") + value + "\n").ok(),
+      require(!analyze(std::string("fn main()->u16:\n  return ") + value + "\n").ok(),
               "invalid unsigned 16-bit accepted");
     for (const auto *source :
          {"fn main()->i16:\n  value=1\n  return value\n", "fn main()->i16:\n  return i16(32768)\n",

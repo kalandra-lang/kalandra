@@ -13,7 +13,7 @@ static CheckResult analyze(const std::string &text) {
 int main() {
   try {
     const std::string decl =
-        "type Box:\n  data:Data\n  numbers:[int]\ntype Data:\n  flags:[Bool]\n  enabled:Bool\n";
+        "type Box:\n  data:Data\n  numbers:[i64]\ntype Data:\n  flags:[bool]\n  enabled:bool\n";
     for (const auto *body :
          {"fn main()->[bool]:\n  return Box {data:Data "
           "{flags:[true,false],enabled:true},numbers:[1]}.data.flags\n",
@@ -42,7 +42,7 @@ int main() {
 #endif
     }
     for (const auto *body : {"type Bad:\n  values:Tensor[bool,2]\nfn main():\n  return 0\n",
-                             "type Bad:\n  values:[[bool]]\nfn main():\n  0\n",
+                             "type Bad:\n  values:[[bool]]\nfn main():\n  return 0\n",
                              "type Box:\n  values:[bool]\nfn main():\n  return Box {values:[1]}\n",
                              "type Box:\n  values:[bool]\nfn main():\n  return Box {values:true}\n",
                              "type Box:\n  values:[bool]\nfn main():\n  p=Box {values:[true]}\n  return p "

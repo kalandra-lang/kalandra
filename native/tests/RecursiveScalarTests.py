@@ -22,8 +22,8 @@ variants = qualified_variants(variants, a.compiler)
 if sys.platform != 'win32':
     variants.append(('thread-sanitized', '--thread-sanitize',
                      ['-O1', '-g', '-fsanitize=thread', '-fno-omit-frame-pointer']))
-types = {**{s+str(w):'std::'+s+str(w)+'_t' for s in ('i64','u64') for w in (8,16,32,64)},
-         'f32':'f64', 'f64':'double', 'bool':'bool'}
+types = {**{s+str(w):'std::'+('int' if s=='i' else 'uint')+str(w)+'_t' for s in ('i','u') for w in (8,16,32,64)},
+         'f32':'float', 'f64':'double', 'bool':'bool'}
 compilers = [('current', a.compiler)]
 if a.baseline: compilers.insert(0, ('baseline', a.baseline))
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -62,7 +62,7 @@ for numeric,ctype in types.items():
 # narrow value immediately at the foreign call site, in every build mode.
 for numeric in ('i8', 'u8', 'i16', 'u16', 'bool'):
     source = a.output / (numeric + '-abi.k')
-    source.write_text(f'fn identity(value:{numeric})->{numeric}:\n  value\nfn main()->i64:\n  0\n')
+    source.write_text(f'fn identity(value:{numeric})->{numeric}:\n  return value\nfn main()->i64:\n  return 0\n')
     for name, flag, flags in variants:
         binary = a.output / (numeric + '-abi-' + name + '-current' + ('.exe' if sys.platform == 'win32' else ''))
         ir = binary.with_suffix('.ll')

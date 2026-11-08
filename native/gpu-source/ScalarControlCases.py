@@ -8,8 +8,8 @@ def cases():
         'nested-loops': ('fn work(n:i64)->i64:\n  total=0\n  for i in range(n):\n    for j in range(i):\n      if j==3:\n        break\n      if j==1:\n        continue\n      total=total+i+j\n  return total\n', 'work(25)', sum(i+j for i in range(25) for j in range(min(i,3)) if j!=1)),
         'descending-range': ('fn work(n:i64)->i64:\n  total=0\n  for i in range(n,0,-3):\n    total=total+i\n  return total\n', 'work(100)', sum(range(100,0,-3))),
         'zero-iterations': ('fn work(n:i64)->i64:\n  total=19\n  for i in range(n):\n    total=total+i\n  while false:\n    total=0\n  return total\n', 'work(0)', 19),
-        'loop-expression-break': ('fn work(n:i64)->i64:\n  result=for i in range(n):\n    if i==7:\n      break i*6\n  else:\n    9\n  result\n', 'work(100)', 42),
-        'loop-expression-else': ('fn work(n:i64)->i64:\n  result=while n<0:\n    break 2\n  else:\n    42\n  result\n', 'work(0)', 42),
+        'loop-expression-break': ('fn work(n:i64)->i64:\n  result=for i in range(n):\n    if i==7:\n      break i*6\n  else:\n    9\n  return result\n', 'work(100)', 42),
+        'loop-expression-else': ('fn work(n:i64)->i64:\n  result=while n<0:\n    break 2\n  else:\n    42\n  return result\n', 'work(0)', 42),
         'bool-and-conditional-state': ('fn work(n:i64)->i64:\n  i=0\n  enabled=true\n  total=0\n  while i<n:\n    if enabled:\n      total=total+2\n    else:\n      total=total+1\n    enabled=not enabled\n    i=i+1\n  return total\n', 'work(101)', 152),
         'short-circuit': ('fn work(n:i64)->i64:\n  i=0\n  total=0\n  while i<n:\n    if false and 1/(n-n)==0:\n      total=99\n    if true or 1/(n-n)==0:\n      total=total+1\n    i=i+1\n  return total\n', 'work(50)', 50),
         'helper-loop': ('fn inner(n:i64)->i64:\n  total=0\n  for i in range(n):\n    total=total+i\n  return total\nfn work(n:i64)->i64:\n  total=0\n  for i in range(n):\n    total=total+inner(i)\n  return total\n', 'work(12)', sum(sum(range(i)) for i in range(12))),
@@ -18,8 +18,8 @@ def cases():
         'range-overflow-exhaustion': ('fn work(n:i64)->i64:\n  total=0\n  for i in range(n,9223372036854775807,2):\n    total=total+1\n  return total\n', 'work(9223372036854775804)', 2),
     }
     for t in ('i8','i16','i32','i64','u8','u16','u32','u64','f32','f64'):
-        out['numeric-'+t] = (f'fn work(n:i64)->{t}:\n  total:{t}=0\n  for i in range(n):\n    total=total+{t}(1)\n  total\n', 'work(50)', 50)
-        out['capture-'+t] = (f'fn work(n:{t})->{t}:\n  total:{t}=0\n  for i in range(10):\n    total=total+n\n  total\n', f'work({t}(3))', 30)
+        out['numeric-'+t] = (f'fn work(n:i64)->{t}:\n  total:{t}=0\n  for i in range(n):\n    total=total+{t}(1)\n  return total\n', 'work(50)', 50)
+        out['capture-'+t] = (f'fn work(n:{t})->{t}:\n  total:{t}=0\n  for i in range(10):\n    total=total+n\n  return total\n', f'work({t}(3))', 30)
     out.update({
         'record-local-value': ('type Row:\n  value:i64\n  enabled:bool\nfn work(n:i64)->i64:\n  row=Row {value:n,enabled:true}\n  return if row.enabled:\n    row.value+2\n  else:\n    0\n', 'work(40)', 42),
         'record-update-loop': ('type Row:\n  value:i64\n  weight:i64\nfn work(n:i64)->i64:\n  total=0\n  for i in range(n):\n    row=Row {value:i,weight:3}\n    updated=row with {value:row.value+2}\n    total=total+row.value+updated.value*updated.weight\n  return total\n', 'work(100)', sum(i+(i+2)*3 for i in range(100))),

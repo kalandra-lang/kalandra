@@ -42,7 +42,7 @@ cases['bool-input-result'] = ('''fn work(values:[bool])->bool:
   result=true
   for value in values:
     result=result and value
-  result
+  return result
 ''', '  values:[bool]=[true,false,true]\n', 'work(values)', 'bool', False)
 cases['different-lengths-and-aliases'] = ('''fn work(left:[i64],right:[i64],alias:[i64])->i64:
   total=0
@@ -78,7 +78,7 @@ for name,typ,literal,expected in (
     ('negative-zero-f32','f32','-0.0',-0.0),
     ('negative-zero-f64','f64','-0.0',-0.0),
 ):
-    cases[name]=(f'fn work(values:[{typ}])->{typ}:\n  values[0]\n',
+    cases[name]=(f'fn work(values:[{typ}])->{typ}:\n  return values[0]\n',
                  f'  values:[{typ}]=[{literal}]\n','work(values)',typ,expected)
 cases['captured-record-root-through-gc']=('''type Box:
   values:[i64]

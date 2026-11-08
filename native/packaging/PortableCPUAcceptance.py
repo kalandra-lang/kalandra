@@ -40,23 +40,17 @@ def qualify(compiler):
                   "f32": "1.5", "f64": "1.5"}
         rank8_values = "[" * 8 + "1,2" + "]" * 8
         for numeric, value in values.items():
-            cases += [(f"{numeric} scalar", f"fn main()->{numeric}:\n  {value}\n", value),
-                      (f"{numeric} array", f"fn main()->[{numeric}]:\n  [{value},0]\n", f"[{value}, 0]"),
-                      (f"{numeric} tensor", f"fn main()->Tensor[{numeric},2,2]:\n  tensor([[1,2],[3,4]])*2\n",
+            cases += [(f"{numeric} scalar", f'fn main()->{numeric}:\n  return {value}\n', value),
+                      (f"{numeric} array", f'fn main()->[{numeric}]:\n  return [{value},0]\n', f"[{value}, 0]"),
+                      (f"{numeric} tensor", f'fn main()->Tensor[{numeric},2,2]:\n  return tensor([[1,2],[3,4]])*2\n',
                        "tensor([2, 4, 6, 8], [2, 2])"),
-                      (f"{numeric} rank-zero tensor", f"fn main()->Tensor[{numeric}]:\n  tensor(1)*2\n",
+                      (f"{numeric} rank-zero tensor", f'fn main()->Tensor[{numeric}]:\n  return tensor(1)*2\n',
                        "tensor([2], [])"),
-                      (f"{numeric} rank-eight tensor", f"fn main()->Tensor[{numeric},1,1,1,1,1,1,1,2]:\n  tensor({rank8_values})*2\n",
+                      (f"{numeric} rank-eight tensor", f'fn main()->Tensor[{numeric},1,1,1,1,1,1,1,2]:\n  return tensor({rank8_values})*2\n',
                        "tensor([2, 4], [1, 1, 1, 1, 1, 1, 1, 2])"),
-                      (f"{numeric} worker", f"fn echo(value:{numeric})->{numeric}:\n  value\n"
-                       f"fn main()->{numeric} ! TaskError:\n  try parallel:\n"
-                       f"    work=spawn echo({value})\n    first=try await work\n    again=try await work\n"
-                       "    if first==again:again\n    else:0\n", value)]
-            cases.append((f"{numeric} recursive scalar", f"fn tree(v:{numeric},n:i64)->{numeric}:\n"
-                          "  if n==0:v\n  else:tree(v,n-1)+tree(v,n-1)\n"
-                          f"fn main()->{numeric}:\n  tree(1,3)\n", "8"))
-        cases += [("recursive Bool", 'fn tree(v:bool,n:i64)->bool:\n  return if n==0:v\n'
-                   "  else:tree(v,n-1)==tree(v,n-1)\nfn main()->bool:\n  tree(false,7)\n", "true"),
+                      (f"{numeric} worker", f'fn echo(value:{numeric})->{numeric}:\n  return value\nfn main()->{numeric} ! TaskError:\n  return try parallel:\n    work=spawn echo({value})\n    first=try await work\n    again=try await work\n    if first==again:again\n    else:0\n', value)]
+            cases.append((f"{numeric} recursive scalar", f'fn tree(v:{numeric},n:i64)->{numeric}:\n  return if n==0:v\n  else:tree(v,n-1)+tree(v,n-1)\nfn main()->{numeric}:\n  return tree(1,3)\n', "8"))
+        cases += [("recursive Bool", 'fn tree(v:bool,n:i64)->bool:\n  return if n==0:v\n  else:tree(v,n-1)==tree(v,n-1)\nfn main()->bool:\n  return tree(false,7)\n', "true"),
                   ("bool", 'fn main()->bool:\n  return true\n', "true"),
                   ("String", 'fn main()->String:\n  return "é"+"🙂"\n', "é🙂"),
                   ("String array", 'fn main()->[String]:\n  return ["é"+"🙂","retained"]\n', '["é🙂", "retained"]'),
@@ -81,20 +75,7 @@ fn main()->i64 ! TaskError:
       Reading.Missing:0
       Reading.Value {item}:i64(item.tag)+i64(item.amount)+length(item.text)+item.values[0]
 """, "305"),
-                  ("expected-error channel", """error ReadError:
-  Bad:
-    text:String
-fn read()->i64 ! ReadError:
-  fail ReadError.Bad {text:"é"+"🙂"}
-fn work()->i64:
-  read() catch fn(error):
-    return match error:
-      ReadError.Bad {text}:length(text)+40
-fn main()->i64 ! TaskError:
-  return try parallel:
-    result=spawn work()
-    try await result
-""", "42")]
+                  ("expected-error channel", 'error ReadError:\n  Bad:\n    text:String\nfn read()->i64 ! ReadError:\n  fail ReadError.Bad {text:"é"+"🙂"}\nfn work()->i64:\n  return read() catch fn(error):\n    return match error:\n      ReadError.Bad {text}:length(text)+40\nfn main()->i64 ! TaskError:\n  return try parallel:\n    result=spawn work()\n    try await result\n', "42")]
         cases.append(("recursive signed remainder", """fn rem(a:i64,b:i64)->i64:
   return a%b
 fn gcd(a:i64,b:i64)->i64:
@@ -109,19 +90,17 @@ fn main()->[i64]:
             for a, b in ((-1, 0), (0, 0), (1, 0)):
                 expected = "[" + ", ".join(str(v).lower() for v in
                     (a == b, a != b, a < b, a <= b, a > b, a >= b)) + "]"
-                text = (f"fn compare(a:{numeric},b:{numeric})->[bool]:\n"
-                        "  [a==b,a!=b,a<b,a<=b,a>b,a>=b]\n"
-                        f"fn main()->[bool]:\n  compare({a},{b})\n")
+                text = (f'fn compare(a:{numeric},b:{numeric})->[bool]:\n  return [a==b,a!=b,a<b,a<=b,a>b,a>=b]\nfn main()->[bool]:\n  return compare({a},{b})\n')
                 cases.append((f"{numeric} comparisons {a}/{b}", text, expected))
         for numeric in ("f32", "f64"):
             cases += [(f"{numeric} static matrix product", f"""fn main()->{numeric}:
   a:Tensor[{numeric},1,2]=tensor([[2,3]])
   b:Tensor[{numeric},2,1]=tensor([[4],[5]])
-  reduceSum(matmul(a,b))
+  return reduceSum(matmul(a,b))
 """, "23"),
                       (f"{numeric} static fused reduction", f"""fn main()->{numeric}:
   a:Tensor[{numeric},3]=tensor([1,2,3])
-  reduceSum(a*3+1)
+  return reduceSum(a*3+1)
 """, "21")]
         compiled = 0
         for mode, flags in modes:

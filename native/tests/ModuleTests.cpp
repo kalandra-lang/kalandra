@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
     reject("S067", "bad-private.k");
     write("bad-leak.k", "from \"./lib/numbers.k\" import double\nfn main():\n  return helper(1)\n");
     reject("S031", "bad-leak.k");
-    for (auto imports : {"double, double", "double as a, double as a", "double as int", "missing",
+    for (auto imports : {"double, double", "double as a, double as a", "double as i64", "missing",
                          "double as main"}) {
       write("bad-binding.k",
             "from \"./lib/numbers.k\" import " + std::string(imports) + "\nfn main():\n  return 1\n");
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
                         .find((root / "broken.k").string() + ":2:") != std::string::npos,
             "dependency syntax diagnostic lost original file");
     for (auto path : {"numbers.k", "/tmp/numbers.k", "./numbers", "./bad\\t.k"}) {
-      write("bad-path.k", "from \"" + std::string(path) + "\" import double\nfn main():\n  0\n");
+      write("bad-path.k", "from \"" + std::string(path) + "\" import double\nfn main():\n  return 0\n");
       reject("M001", "bad-path.k");
     }
     write("missing.k", "from \"./absent.k\" import double\nfn main():\n  return 0\n");
@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
         check(parse(std::make_shared<SourceFile>("standalone.k", "export fn main():\n  return 1\n"))).ok(),
         "standalone export rejected");
     for (auto source : {"from \"./x.k\" import\n", "from \"./x.k\" import x as\n",
-                        "from \"./x.k\" import x,\n", "export type Point\n  x:int\n"})
+                        "from \"./x.k\" import x,\n", "export type Point\n  x:i64\n"})
       require(!parse(std::make_shared<SourceFile>("invalid.k", source)).ok(),
               "malformed import/export syntax accepted");
     std::cout << "modules: named exports/import aliases, scoped callbacks/helpers, canonical "

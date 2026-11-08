@@ -83,7 +83,7 @@ string(SUBSTRING "${SOURCE}" 0 ${MAIN} FUNCTIONS)
 set(CPU_MAIN "fn main() -> f32 ! TaskError:\n  return try parallel:\n    a: Tensor[f32,2,3] = tensor([[1,2,3],[4,5,6]])\n    work = spawn negative(a)\n    negated = try await work\n    repeated = restored(negated)\n    back = -positive(repeated)\n    reduceSum(back)\n")
 file(WRITE "${OUTPUT_DIR}/cpu-task.k" "${FUNCTIONS}${CPU_MAIN}")
 # General ranked CPU lowering is not restricted to the current rank-one/two GPU subset.
-set(RANK3 "fn main() -> f32:\n  a: Tensor[f32,2,1,2] = tensor([[[1,2]],[[3,4]]])\n  reduceSum(-a)\n")
+set(RANK3 "fn main() -> f32:\n  a: Tensor[f32,2,1,2] = tensor([[[1,2]],[[3,4]]])\n  return reduceSum(-a)\n")
 file(WRITE "${OUTPUT_DIR}/rank3.k" "${RANK3}")
 foreach(FLAG IN ITEMS -O2 --sanitize --thread-sanitize)
   string(REPLACE "--" "" NAME "${FLAG}")

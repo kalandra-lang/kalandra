@@ -58,7 +58,7 @@ fn run(kind:i64,a:i64,b:i64,n:i64)->i64:
                 if kind == 7:mixed(a,n)
                 else:mixed_self(a,n)
 fn main()->i64:
-  run(1,37,7,2)
+  return run(1,37,7,2)
 '''
 FLOAT = '''fn bounce(value:f64,n:i64)->f64:
   return if n == 0:value
@@ -71,20 +71,20 @@ ELIGIBILITY = {
   return if n == 0:a+b+c+d+e+f+g+h+i
   else:recurse(a,b,c,d,e,f,g,h,i,n-1)
 fn main()->i64:
-  recurse(1,2,3,4,5,6,7,8,6,30)
+  return recurse(1,2,3,4,5,6,7,8,6,30)
 ''', '42\n', False),
     'owned-tensor': ('''fn recurse(values:Tensor[i64,?],n:i64)->i64:
   return if n == 0:values[0]
   else:recurse(values,n-1)
 fn main()->i64:
   values:Tensor[i64,1]=tensor([42])
-  recurse(values,30)
+  return recurse(values,30)
 ''', '42\n', False),
     'float-recurrence': ('''fn recurse(value:f64,n:i64)->f64:
   return if n == 0:value
   else:recurse(value*0.5+0.125,n-1)
 fn main()->f64:
-  recurse(2.0,4)
+  return recurse(2.0,4)
 ''', '0.359375\n', True),
 }
 

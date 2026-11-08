@@ -270,7 +270,7 @@ int main(int argc, char **argv) {
       require(found, "error narrowing missing from plan");
       verify(*planned);
     }
-    std::string large = "fn main() -> f32 ! TaskError:\n  try parallel:\n    "
+    std::string large = "fn main() -> f32 ! TaskError:\n  return try parallel:\n    "
                         "data:Tensor[f32,21000]=tensor([";
     for (unsigned i = 0; i < 21000; ++i)
       large += i ? ",1" : "1";

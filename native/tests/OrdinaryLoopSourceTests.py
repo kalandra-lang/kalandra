@@ -15,14 +15,14 @@ variants=qualified_variants(variants,a.compiler)
 results=[]
 for mode,extra,flags,library in variants:
  if windows and mode=='thread-sanitized':continue
- for language,cpp in [('f32','f64'),('f64','double')]:
+ for language,cpp in [('f32','float'),('f64','double')]:
   for fixture in ('finite','scaled','affine','faulting','external','zero'):
    name=mode+'-'+language+'-'+fixture;source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
    scale='0' if fixture=='zero' else '0.5' if fixture=='affine' else '1.015625';initial=f'{language}(x)*{language}({0.015625 if fixture=="scaled" else 0.25})' if fixture in ('finite','scaled','affine','faulting') else 'x';parameter='i64' if fixture in ('finite','scaled','affine','faulting') else language;offset=f'{language}(x)*{language}({0.00390625 if fixture=="scaled" else 0.0625})' if fixture in ('scaled','affine') else f'{language}(0.25)'
-   source.write_text(f'fn iterate(x:{language},offset:{language},rounds:i64)->{language}:\n  if rounds == 0:\n    x\n  else:\n    iterate(x*{language}({scale})+offset,offset,rounds-1)\nfn value(x:{parameter},rounds:i64)->{language}:\n  iterate({initial},{offset},rounds)\nfn main()->{language}:\n  {language}(0)\n')
+   source.write_text(f'fn iterate(x:{language},offset:{language},rounds:i64)->{language}:\n  return if rounds == 0:\n    x\n  else:\n    iterate(x*{language}({scale})+offset,offset,rounds-1)\nfn value(x:{parameter},rounds:i64)->{language}:\n  return iterate({initial},{offset},rounds)\nfn main()->{language}:\n  return {language}(0)\n')
    if fixture=='faulting':
     initial=f'{language}(x)*{language}(0.015625)'
-    source.write_text(f'fn iterate(value:{language},seed:i64,rounds:i64)->{language}:\n  if rounds == 0:\n    value\n  else:\n    iterate(value*{language}(1.015625)+{language}(seed*9223372036854775807)*{language}(0.00390625),seed,rounds-1)\nfn value(x:i64,rounds:i64)->{language}:\n  iterate({initial},x,rounds)\nfn main()->{language}:\n  {language}(0)\n')
+    source.write_text(f'fn iterate(value:{language},seed:i64,rounds:i64)->{language}:\n  return if rounds == 0:\n    value\n  else:\n    iterate(value*{language}(1.015625)+{language}(seed*9223372036854775807)*{language}(0.00390625),seed,rounds-1)\nfn value(x:i64,rounds:i64)->{language}:\n  return iterate({initial},x,rounds)\nfn main()->{language}:\n  return {language}(0)\n')
    run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra]);assert '_mlir_ciface_kalandra_test_entry_ordinary_v1(' in ir.read_text()
    if mode=='optimized' and fixture!='faulting':
     assert 'kalandra.ordinary.countdown' in ir.read_text()
@@ -62,7 +62,7 @@ void test(Input input,I rounds){
  if(!ordinaryAmbiguous(value) && std::memcmp(&before,&fault,sizeof(fault)))std::abort();
  context.settle();if(context.live() || context.allocations()!=context.releases())std::abort();++cases;
 }
-i64 main(){
+int main(){
  constexpr I lo=std::numeric_limits<I>::min();
  for(Input value:std::array<Input,12>{Input(-31),Input(-1),Input(0),Input(1),Input(31),Input(65535),Input(65536),Input(65537),Input(I(1)<<32),Input(-(I(1)<<32)),Input((I(1)<<40)+17),Input(-(I(1)<<40)-17)})
   for(I rounds:std::array<I,12>{0,1,2,16,64,257,50000,65535,65536,lo,lo+1,lo+2})test(value,rounds);

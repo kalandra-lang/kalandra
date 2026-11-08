@@ -62,7 +62,7 @@ int main() {
     // budget instead of relying on those unrelated kernels to reject it.
     std::string wide = "type Wide:\n";
     for (unsigned field = 0; field < 600; ++field)
-      wide += "  field" + std::to_string(field) + ":int\n";
+      wide += "  field" + std::to_string(field) + ":i64\n";
     wide += "fn collect(value:Wide)->[Wide]:\n  return for index in range(1):\n    yield value\nfn "
             "main()->i64:\n  return 0\n";
     auto wideTyped = analyze(wide);

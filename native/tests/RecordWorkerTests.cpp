@@ -18,13 +18,13 @@ int main() {
       const auto source =
           "type Point:\n  x:" + type +
           "\n  valid:bool\n"
-          "fn shift(p:Point)->Point:\n  p with {x:p.x+1}\n"
-          "fn nested(p:Point)->Point ! TaskError:\n  try parallel:\n"
+          "fn shift(p:Point)->Point:\n  return p with {x:p.x+1}\n"
+          "fn nested(p:Point)->Point ! TaskError:\n  return try parallel:\n"
           "    work=spawn shift(p)\n    first=try await work\n    again=try await work\n    again\n"
           "fn main()->" +
           type +
           " ! TaskError:\n  p=try parallel:\n"
-          "    work=spawn nested(Point {x:1,valid:true})\n    try await work\n  p.x\n";
+          "    work=spawn nested(Point {x:1,valid:true})\n    try await work\n  return p.x\n";
       auto result = analyze(source);
       require(result.ok(), "typed record worker rejected: " + type);
       auto planned = continuation::plan(*result.module);
@@ -39,7 +39,7 @@ int main() {
               "record result layout lost");
 #endif
     }
-    const std::string declaration = "type Point:\n  x:int\n  valid:Bool\n";
+    const std::string declaration = "type Point:\n  x:i64\n  valid:bool\n";
     for (auto body :
          {"fn make(x:i64)->Point:\n  return Point {x:10/x,valid:true}\nfn attempt()->Point ! TaskError:\n "
           " return try parallel:\n    try await spawn make(0)\nfn main():\n  p=attempt() catch fn(error): "

@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     configuration = "format=1\n[project]\nentry='main.k'\n[dependencies]\n" + request('geometry', geometry, new) + request('library', library, wrapper)
     manifest.write_text(configuration)
     main = app / 'main.k'
-    good = 'from "geometry" import measure\nfrom "library" import compute\nfn main()->i64:\n  result=compute(10)\n  result\n'
+    good = 'from "geometry" import measure\nfrom "library" import compute\nfn main()->i64:\n  result=compute(10)\n  return result\n'
     # An invalid saved buffer must be replaceable before the root is parsed.
     (app / 'other.k').write_text('from "library" import compute\nfn other()->i64:\n  return compute(1)\n')
     main.write_text(good)

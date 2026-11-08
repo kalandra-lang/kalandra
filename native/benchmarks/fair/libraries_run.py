@@ -49,7 +49,7 @@ def main():
                 text=text.replace('(int(i % 17) - 8) / 8.0','fairA<Float>(i)').replace('(int(i % 13) - 6) / 8.0','fairB<Float>(i)')
                 dest=directory/driver;dest.write_text(text);generated.append(dest)
             for name in ('kernels.k','gpu.k'):
-                dest=directory/name;dest.write_text((old/name).read_text().replace('float64',dtype));generated.append(dest)
+                dest=directory/name;dest.write_text((old/name).read_text().replace('f64',{'float32':'f32','float64':'f64'}[dtype]));generated.append(dest)
             arithmetic='hardware' if dtype=='float32' else 'hardware-with-software-fallback'
             for kind,name in enumerate(NAMES):
                 ir=directory/(name+'.ll');generated.append(ir)

@@ -2,7 +2,7 @@
 def cases():
     result = []
     def scalar(name, helper, call, expected, typ='bool'):
-        cpu = helper+f'fn main()->{typ}:\n  {call}\n'
+        cpu = helper+f'fn main()->{typ}:\n  return {call}\n'
         gpu = helper+f'''fn main()->{typ} ! TaskError:
   return try parallel:
     gpu=devices.gpu()
@@ -17,7 +17,7 @@ def cases():
   while i<n:
     result=not result
     i=i+1
-  result
+  return result
 '''
     scalar('loop-false', helper, 'work(true,17)', False)
     scalar('loop-true', helper, 'work(true,18)', True)
@@ -86,10 +86,10 @@ fn main()->bool ! TaskError:
     cpu=gpu.replace('    gpu=devices.gpu()\n','').replace(' on gpu','').replace(' on devices.cpu()','')
     result.append(('nested-task-bool',cpu,gpu,True,'bool'))
     helper='''fn positive(values:Tensor[f32,?])->bool:
-  reduceSum(values)>f32(0)
+  return reduceSum(values)>f32(0)
 '''
     for name, values, expected in [('tensor-positive','1,2,3',True),('tensor-negative','-1,-2,-3',False)]:
-        cpu=helper+f'fn main()->bool:\n  positive(tensor([{values}]))\n'
+        cpu=helper+f'fn main()->bool:\n  return positive(tensor([{values}]))\n'
         gpu=helper+f'''fn main()->bool ! TaskError:
   return try parallel:
     gpu=devices.gpu()

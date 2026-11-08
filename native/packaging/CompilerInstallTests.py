@@ -53,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
     for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
         for kind, value, expected in cases:
             source = cwd / "main.k"
-            source.write_text(f"fn main() -> {kind}:\n  {value}\n")
+            source.write_text(f'fn main() -> {kind}:\n  return {value}\n')
             executable = cwd / "program"
             run([compiler, source, "-o", executable, "-O2", *mode], cwd)
             assert run([executable], cwd).stdout.strip() == expected

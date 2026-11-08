@@ -36,10 +36,10 @@ int main() {
     for (auto element : {NumericType::Int32, NumericType::UInt32, NumericType::Int64,
                          NumericType::UInt64, NumericType::Float32, NumericType::Float64}) {
       auto name = std::string(describeNumeric(element)->name);
-      accept("fn values(a:" + name + ")->[" + name + "]:\n  [a,a+1]\nfn main()->i64:\n  0\n",
+      accept("fn values(a:" + name + ")->[" + name + "]:\n  [a,a+1]\nfn main()->i64:\n  return 0\n",
              element);
-      accept("fn empty()->[" + name + "]:\n  []\nfn main()->i64:\n  0\n", element);
-      accept("fn values():\n  a=" + name + "(1)\n  [a,a]\nfn main()->i64:\n  0\n", element);
+      accept("fn empty()->[" + name + "]:\n  []\nfn main()->i64:\n  return 0\n", element);
+      accept("fn values():\n  a=" + name + "(1)\n  [a,a]\nfn main()->i64:\n  return 0\n", element);
     }
     accept("fn values()->[f32]:\n  return [1,2,3]\nfn main()->i64:\n  return 0\n", NumericType::Float32);
     accept("fn values()->[f64]:\n  return [1,2.5]\nfn main()->i64:\n  return 0\n", NumericType::Float64);

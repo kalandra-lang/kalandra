@@ -28,7 +28,7 @@ int main() {
          "fn main()->i64:\n  f:fn(i64)->i64=fn(value):\n    adjusted=value+1\n    return adjusted*2\n  "
          "return f(20)\n",
          "fn make(base:i64)->fn(i64)->fn(i64)->i64:\n  return fn(first):\n    subtotal=base+first\n    return "
-         "fn(second):\n      result=subtotal+second\n      return result\nfn main()->i64:\n  "
+         "fn(second):\n      result=subtotal+second\n      return result\nfn main()->i64:\n  return "
          "outer=make(10)\n  inner=outer(20)\n  return inner(12)\n",
          "fn make(offset:i64)->fn(i64)->i64:\n  return fn(value):\n    adjusted=offset+value\n    return if "
          "adjusted>0:adjusted\n    else:0-adjusted\nfn main()->i64:\n  f=make(20)\n  return f(22)\n",
@@ -42,9 +42,9 @@ int main() {
          "{text:text,values:values}\nfn main()->i64:\n  f=make(Row "
          "{text:\"é\"+\"🙂\",values:[10,20]})\n  result=f(9)\n  return "
          "length(result.text)+result.values[0]+result.values[1]+result.values[2]\n",
-         "error E:\n  Bad:\n    value:i64\nfn make(offset:i64)->fn(i64)->i64 ! E:\n  return fn(value):\n  "
+         "error E:\n  Bad:\n    value:i64\nfn make(offset:i64)->fn(i64)->i64 ! E:\n  return fn(value):\n  return "
          "  if value<0:\n      fail E.Bad {value:offset}\n    adjusted=value+offset\n    "
-         "return adjusted\nfn main()->i64:\n  f=make(21)\n  a=f(-1) catch fn(error):\n    return match error:\n  "
+         "return adjusted\nfn main()->i64:\n  f=make(21)\n  a=f(-1) catch fn(error):\n    return match error:\n  return "
          "    E.Bad {value}:value\n  b=f(0) catch fn(error):return 0\n  return a+b\n",
          "error E:\n  Bad:\n    value:i64\nfn checked(value:i64,offset:i64)->i64 ! E:\n  if "
          "value==0:fail E.Bad {value:offset}\n  return value+offset\nfn make(offset:i64)->fn(i64)->i64 ! "
@@ -59,7 +59,7 @@ int main() {
          "return adjusted*2\nfn worker(value:i64)->i64:\n  f=make(1)\n  return f(value)\nfn main()->i64 ! "
          "TaskError:\n  return try parallel:\n    try await spawn worker(20)\n",
          "fn worker(value:i64)->i64:\n  return value*2\nfn make(offset:i64)->fn(i64)->i64:\n  return "
-         "fn(value):\n    adjusted=value+offset\n    return adjusted\nfn main()->i64 ! TaskError:\n  "
+         "fn(value):\n    adjusted=value+offset\n    return adjusted\nfn main()->i64 ! TaskError:\n  return "
          "f=make(10)\n  return try parallel:\n    value=try await spawn worker(16)\n    f(value)\n",
          "fn main()->i64:\n  offset:i64=10\n  f=fn(value:i64):\n    adjusted=value+offset\n    return "
          "adjusted\n  result=map([10,12],f)\n  return result[0]+result[1]\n",
@@ -103,7 +103,7 @@ int main() {
          "parallel:\n    task=spawn worker(9)\n    first=try await task\n    second=try await "
          "task\n    first.values[0]+first.values[1]+second.values[2]+length(second.text)\nfn "
          "main()->i64 ! TaskError:\n  return try run()\n",
-         "error E:\n  Bad:\n    value:i64\nfn make(offset:i64)->fn(i64)->i64 ! E:\n  return fn(value):\n  "
+         "error E:\n  Bad:\n    value:i64\nfn make(offset:i64)->fn(i64)->i64 ! E:\n  return fn(value):\n  return "
          "  if value==0:\n      reason=offset*2\n      fail E.Bad {value:reason}\n    "
          "divisor=value-value\n    return offset/divisor\nfn main()->i64:\n  f=make(21)\n  return f(0) catch "
          "fn(error):\n    return match error:\n      E.Bad {value}:value\n",
@@ -136,14 +136,14 @@ int main() {
           "fn main()->i64:\n  f=fn(value:i64):\n    adjusted:String=value\n    return length(adjusted)\n  "
           "return f(41)\n",
           "fn main()->i64:\n  f=fn(value:i64)->String:\n    adjusted=value+1\n    return adjusted\n  return 0\n",
-          "error E:\n  Bad\nfn checked(value:i64)->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  "
+          "error E:\n  Bad\nfn checked(value:i64)->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  return "
           "f=fn(value:i64):\n    ignored=checked(value)\n    return value\n  return f(42)\n",
           "error E:\n  Bad\nfn main()->i64:\n  f=fn(value:i64)->i64:\n    if value==0:fail E.Bad\n "
           "   return value\n  return f(42)\n",
           "error E:\n  Bad\nfn make()->fn(i64)->i64 ! E:\n  return fn(value):\n    return if value==0:fail "
           "E.Bad\nfn main()->i64:\n  return 0\n",
 
-          "error E:\n  Bad\nfn checked()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  "
+          "error E:\n  Bad\nfn checked()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  return "
           "outcome=checked()\n  f=fn(value:i64):\n    result=outcome\n    return result\n  return 0\n",
           "fn main()->i64:\n  f=fn(value:i64):\n    adjusted=value+1\n  return 42\n",
           "fn main()->i64:\n  f=fn(value:i64):\n  42\n",
@@ -199,7 +199,7 @@ int main() {
     require(analyze(crlf.c_str()).ok(), "CRLF or EOF block termination changed");
     auto mapTree = parse(std::make_shared<SourceFile>(
         "map.k",
-        "error E:\n  Bad\nfn checked()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  "
+        "error E:\n  Bad\nfn checked()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  return "
         "f=fn(value:i64):\n    ignored=checked()\n    return value\n  result=map([42],f)\n  return result[0]\n"));
     require(mapTree.ok(), "direct map block AST fixture rejected");
     ExprId callback = 0;

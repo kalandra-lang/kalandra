@@ -43,20 +43,20 @@ int main() {
     }
     auto refs = lsp::references(syntax(code), *target, true);
     require(refs && refs->size() == count && count == 7, "type occurrences lost");
-    const auto field = code.find("x:int"), label = code.find("x:point"), read = code.find("x+1"),
+    const auto field = code.find("x:i64"), label = code.find("x:point"), read = code.find("x+1"),
                ctor = code.find("x:2");
     for (auto at : {label, read, ctor}) {
       definition(code, at, field);
-      hover(code, at, "x: int64");
+      hover(code, at, "x: i64");
     }
     target = lsp::definition(syntax(code), "types.k", field);
     refs = lsp::references(syntax(code), *target, false);
     require(refs && refs->size() == 3, "field construction/update/read identities differ");
-    target = lsp::definition(syntax(code), "types.k", code.find("x:int", field + 1));
+    target = lsp::definition(syntax(code), "types.k", code.find("x:i64", field + 1));
     refs = lsp::references(syntax(code), *target, false);
     require(refs && refs->empty(), "same-spelled field stole occurrences");
-    hover(code, code.find(":int") + 1, "int: int64");
-    require(!lsp::definition(syntax(code), "types.k", code.find(":int") + 1),
+    hover(code, code.find(":i64") + 1, "i64: i64");
+    require(!lsp::definition(syntax(code), "types.k", code.find(":i64") + 1),
             "invented builtin declaration");
     const std::string nested = "type Point:\n  x:i64\nfn apply(callback:fn(Point)->Point, "
                                "points:[Point])->Point:\n  return callback(points[0])\nfn main():\n  return 0\n";
@@ -66,7 +66,7 @@ int main() {
     require(refs && refs->size() == 4, "nested callable/array/result annotations lost");
     const std::string tensor =
         "fn scale(values:Tensor[f32,?])->Tensor[f32,?]:\n  return values*2\nfn main():\n  return 0\n";
-    hover(tensor, tensor.find("f32"), "float32: float32");
+    hover(tensor, tensor.find("f32"), "f32: f32");
     require(lsp::hoverInfo(syntax(tensor), "types.k", tensor.find("Tensor")).has_value(),
             "missing tensor annotation hover");
     const std::string errors = "error A:\n  Bad\ntype Both=A\nfn work()->i64 ! Both:\n  fail "

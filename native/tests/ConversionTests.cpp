@@ -17,7 +17,7 @@ int main() {
       for (auto destination : {"i8", "u8", "i16", "u16", "i32", "u32", "i64",
                                "u64", "f32", "f64"}) {
         auto typed = analyze("fn convert(value:" + std::string(source) + ") -> " + destination +
-                             ":\n  " + destination + "(value)\nfn main() -> i64:\n  0\n");
+                             ":\n  return " + destination + "(value)\nfn main() -> i64:\n  return 0\n");
         require(typed.ok(), "scalar conversion rejected");
         auto lowered = lowerNative(*typed.module, {}, {}, ArithmeticMode::Software);
         require(bool(lowered), "conversion lowering rejected");
@@ -44,8 +44,8 @@ int main() {
                                "u64", "f32", "f64"})
         for (auto shape : {"", ",?", ",2,?", ",2,0,?"}) {
           auto typed = analyze("fn convert(value:Tensor[" + std::string(source) + shape +
-                               "]) -> Tensor[" + destination + shape + "]:\n  " + destination +
-                               "(value)\nfn main() -> i64:\n  0\n");
+                               "]) -> Tensor[" + destination + shape + "]:\n  return " + destination +
+                               "(value)\nfn main() -> i64:\n  return 0\n");
           require(typed.ok(), "tensor conversion rejected");
           require(bool(lowerNative(*typed.module)), "tensor conversion lowering rejected");
           require(bool(continuation::plan(*typed.module)), "tensor conversion planner rejected");

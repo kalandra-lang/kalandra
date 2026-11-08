@@ -400,7 +400,7 @@ cases['graph-result-application-error-propagation'] = (device_errors + '''
 fn main()->i64 ! TaskError:
   result = parallel:
     try await spawn descend(40) on devices.gpu()
-  result catch fn(error):
+  return result catch fn(error):
     return match error:
       SampleError.Invalid { values }: values[0] + values[1]
       OtherError.Empty: 23
@@ -441,7 +441,7 @@ fn main() -> i64 ! TaskError:
           FaultKind.Arithmetic: 35
           _: 0
       _: 0
-  recovered + fault
+  return recovered + fault
 ''', 42)
 cases['graph-result-application-error-cancels-sibling'] = (device_errors + '''
 fn checkpointed(count: i64) -> i64:

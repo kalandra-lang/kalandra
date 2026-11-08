@@ -57,7 +57,7 @@ def main():
             folder=build/name;folder.mkdir(exist_ok=True);source=folder/'source.k';rust=folder/'reference.rs';ir=folder/'source.ll'
             if name.startswith('array'):
                 width=int(name[5:]);values=','.join('seed' if i==0 else f'seed+{i}' for i in range(width));total='+'.join(f'values[{i}]' for i in range(width))
-                source.write_text(f'fn total(values:[i64],index:i64,acc:i64)->f64:\n  if index == {width}:\n    f64(acc)\n  else:\n    total(values,index+1,acc+values[index])\nfn iterate(values:[i64],rounds:i64)->f64:\n  if rounds == 0:\n    total(values,0,0)\n  else:\n    iterate(map(values,fn(value:i64):(value*13+7)%1000003),rounds-1)\nfn value(seed:i64,rounds:i64)->f64:\n  iterate([{values}],rounds)\nfn main()->f64:\n  value(17,16)\n')
+                source.write_text(f'fn total(values:[i64],index:i64,acc:i64)->f64:\n  return if index == {width}:\n    f64(acc)\n  else:\n    total(values,index+1,acc+values[index])\nfn iterate(values:[i64],rounds:i64)->f64:\n  return if rounds == 0:\n    total(values,0,0)\n  else:\n    iterate(map(values,fn(value:i64):return (value*13+7)%1000003),rounds-1)\nfn value(seed:i64,rounds:i64)->f64:\n  return iterate([{values}],rounds)\nfn main()->f64:\n  return value(17,16)\n')
                 entry='value';defines=[f'-DARRAY_WIDTH={width}',f'-DARRAY_VALUES={values}'];cfg='array';rust.write_text((src/'broad_reference.rs').read_text().replace('ARRAY_VALUES',values))
             else:
                 source.write_text((src/('BroadMixed.k' if name=='euclid_mixed' else 'BroadScalar.k')).read_text());entry=name;defines=['-D'+name.upper()];cfg=name;rust.write_text((src/'broad_reference.rs').read_text())

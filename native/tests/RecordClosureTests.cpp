@@ -16,7 +16,7 @@ int main() {
       const auto type = std::string(element);
       const auto declarations = "type Config:\n  inner:Inner\n  offset:" + type +
                                 "\ntype Inner:\n  values:[" + type + "]\n  bias:Tensor[" + type +
-                                ",2]\n  enabled:Bool\n";
+                                ",2]\n  enabled:bool\n";
       for (auto expression :
            {"map(input,fn(x):x+config.offset+config.offset)", "input -> map(fn(x):x+config.offset)",
             "map(input,fn(x):x+config.inner.values[0]+config.inner.bias[1])",
@@ -24,7 +24,7 @@ int main() {
             "map(input,fn(x):keep(map(input,fn(y):x+y+config.offset),x))"}) {
         auto checked = analyze(declarations + "fn keep(values:[" + type + "],value:" + type +
                                ")->" + type + ":\n  value\nfn mapped(input:[" + type +
-                               "],config:Config):\n  " + expression + "\nfn main()->i64:\n  return 0\n");
+                               "],config:Config):\n  return " + expression + "\nfn main()->i64:\n  return 0\n");
         require(checked.ok(), "valid record closure rejected: " + std::string(expression));
         require(!numericCapabilityError(*checked.module, NumericTarget::Cpu),
                 "CPU capture validator rejected record");
@@ -36,7 +36,7 @@ int main() {
       }
     }
     auto captured = analyze(
-        "type First:\n  x:i64\ntype Second:\n  x:i64\nfn mapped(values:[i64],config:First):\n  "
+        "type First:\n  x:i64\ntype Second:\n  x:i64\nfn mapped(values:[i64],config:First):\n  return "
         "return map(values,fn(x):return x+config.x+config.x)\nfn main()->i64:\n  return 0\n");
     require(captured.ok(), "nominal fixture rejected");
     const auto &map = std::get<ArrayMap>(

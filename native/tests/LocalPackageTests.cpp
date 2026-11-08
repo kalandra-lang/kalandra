@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
   try {
     root = fs::absolute(argv[1]);
     fs::create_directories(root);
-    write("lib/types.k", "export type Row:\n  names:[String]\n  value:int64\n");
+    write("lib/types.k", "export type Row:\n  names:[String]\n  value:i64\n");
     write("base/math.k", "export fn next(n:i64)->i64:\n  return n+1\n");
     write("lib/public.k",
           "export from \"./types.k\" import Row as Item\nfrom \"numbers\" import next\nfn "
@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
     std::vector<ModulePackage> packages = {
         {"library", (root / "lib/public.k").string()},
         {"numbers", fs::relative(root / "base/math.k", fs::current_path()).string()}};
-    auto parsed = load("from \"library\" import Item, update\nfn main()->[String] ! TaskError:\n  "
+    auto parsed = load("from \"library\" import Item, update\nfn main()->[String] ! TaskError:\n  return "
                        "original=Item {names:[\"é\"],value:2}\n  changed=try parallel:\n    try "
                        "await spawn update(original)\n  return changed.names\n",
                        packages);

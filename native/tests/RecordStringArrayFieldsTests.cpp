@@ -17,7 +17,7 @@ int main() {
     for (const auto *body :
          {"fn main()->[String]:\n  return Box {data:Data {names:[],label:\"\"},copy:[]}.data.names\n",
           "fn change(p:Box)->Box:\n  return p with {data:p.data with "
-          "{names:map(p.data.names,fn(text):return text+\"!\")}}\nfn main()->[String] ! TaskError:\n  "
+          "{names:map(p.data.names,fn(text):return text+\"!\")}}\nfn main()->[String] ! TaskError:\n  return "
           "p=Box {data:Data {names:[\"é\"],label:\"\"},copy:[]}\n  changed=try parallel:\n    try "
           "await spawn change(p)\n  return [p.data.names[0],changed.data.names[0]]\n",
           "fn main():\n  p=Box {data:Data {names:[\"a\"],label:\"b\"},copy:[]}\n  "
@@ -42,7 +42,7 @@ int main() {
                                "type Box:\n  names:[String]\nfn main():\n  return Box {names:\"a\"}\n",
                                "type Box:\n  names:[String]\nfn main():\n  p=Box {names:[\"a\"]}\n "
                                " return p with {names:[false]}\n",
-                               "type Box:\n  names:[[String]]\nfn main():\n  0\n",
+                               "type Box:\n  names:[[String]]\nfn main():\n  return 0\n",
                                "type Box:\n  names:Tensor[String,2]\nfn main():\n  return 0\n",
                                "type Box:\n  names:[String]\n  next:Box\nfn main():\n  return 0\n"})
       require(!analyze(source).ok(), "invalid String-array field admitted");

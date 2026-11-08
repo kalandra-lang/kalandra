@@ -20,7 +20,7 @@ int main() {
             input += ",?";
           input += "]";
           auto typed = analyze("fn change(values:" + input + ",rows:" + dim + ",columns:" + dim +
-                               "):\n  reshape(values,[rows,columns])\nfn main()->i64:\n  0\n");
+                               "):\n  reshape(values,[rows,columns])\nfn main()->i64:\n  return 0\n");
           require(typed.ok(), "valid numeric tensor reshape rejected");
           auto id = typed.module->functions[0].result;
           require(std::holds_alternative<TensorReshape>(typed.module->expressions[id].operation),

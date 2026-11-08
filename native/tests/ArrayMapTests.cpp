@@ -16,8 +16,8 @@ int main() {
     for (auto source : {"i32", "u32", "i64", "u64", "f32", "f64"})
       for (auto destination : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
         auto typed = analyze("fn convert(value:" + std::string(source) + ")->" + destination +
-                             ":\n  " + destination + "(value)\nfn mapped(input:[" + source +
-                             "]):\n  input -> map(convert)\nfn main()->i64:\n  0\n");
+                             ":\n  return " + destination + "(value)\nfn mapped(input:[" + source +
+                             "]):\n  return input -> map(convert)\nfn main()->i64:\n  return 0\n");
         require(typed.ok(), "map type-pair rejected");
         auto &fn = typed.module->functions[1];
         const auto &node = typed.module->expressions[fn.result];
@@ -33,7 +33,7 @@ int main() {
 #endif
       }
     for (auto body : {"map([1,2,3],twice)", "[1,2,3] -> map(twice)", "map([],twice)"}) {
-      auto typed = analyze(std::string("fn twice(value:i64)->i64:\n  value*2\nfn mapped():\n  ") +
+      auto typed = analyze(std::string("fn twice(value:i64)->i64:\n  return value*2\nfn mapped():\n  return ") +
                            body + "\nfn main()->i64:\n  return 0\n");
       require(typed.ok(), "map call/pipeline/contextual empty rejected");
       require(dumpTypedIR(*typed.module).find("array.map sequential") != std::string::npos,
@@ -42,11 +42,11 @@ int main() {
     for (auto source : {"i32", "u32", "i64", "u64", "f32", "f64"})
       for (auto destination : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
         auto typed = analyze("fn mapped(input:[" + std::string(source) +
-                             "]):\n  "
-                             "input -> map(fn(value): " +
+                             "]):\n  return "
+                             "input -> map(fn(value): return " +
                              destination +
                              "(value))\n"
-                             "fn main()->i64:\n  0\n");
+                             "fn main()->i64:\n  return 0\n");
         require(typed.ok(), "anonymous map numeric pair rejected");
         require(bool(continuation::plan(*typed.module)), "anonymous map planning failed");
 #ifndef KALANDRA_MAP_FRONTEND_ONLY
@@ -81,11 +81,11 @@ int main() {
 #endif
     }
     for (auto body :
-         {"map([1],fn(): 1)", "map([1],fn(x,y): x+y)", "map([],fn(x): x)", "map([1],fn(x:Bool): 1)",
+         {"map([1],fn(): 1)", "map([1],fn(x,y): x+y)", "map([],fn(x): x)", "map([1],fn(x:bool): 1)",
           "map([1],fn(x): [x])", "map([1],fn(x): missing+x)", "callback=fn(x): x\n  0",
           "map([1],fn(x): try x)", "map([1],fn(x): spawn identity(x))"})
       require(
-          !analyze("fn identity(x:i64)->i64:\n  x\nfn main():\n  " + std::string(body) + "\n").ok(),
+          !analyze("fn identity(x:i64)->i64:\n  return x\nfn main():\n  return " + std::string(body) + "\n").ok(),
           "invalid anonymous callback accepted");
     require(!analyze("fn identity(x:i64)->i64:\n  return x\nfn main() ! TaskError:\n  return try parallel:\n"
                      "    pending=spawn identity(1)\n    map([1],fn(x): return pending)\n")
@@ -135,7 +135,7 @@ int main() {
     for (auto body : {"map([1,2])", "map([1,2],twice,twice)", "map(tensor([1,2]),twice)",
                       "map([1.0,2.0],twice)", "map([1,2],int64)", "map([1,2],missing)",
                       "callback=1\n  map([1,2],callback)", "map([1,2],twice(2))"})
-      require(!analyze(prelude + "fn main():\n  " + body + "\n").ok(), "invalid map accepted");
+      require(!analyze(prelude + "fn main():\n  return " + body + "\n").ok(), "invalid map accepted");
     for (auto callback :
          {"fn transform()->i64:\n  return 1\n", "fn transform(a:i64,b:i64)->i64:\n  return a+b\n",
           "fn transform(a:[i64])->i64:\n  return 1\n", "fn transform(a:i64)->[i64]:\n  return [a]\n",

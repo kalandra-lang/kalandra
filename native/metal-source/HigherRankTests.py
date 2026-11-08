@@ -49,7 +49,7 @@ for rank in range(3, 9):
             for _ in range(rank - 1):
                 literal = "[" + literal + "]"
             dimensions = fixed.replace(",3]", ",0]")
-        source = (f"fn operation(values:{dynamic})->{result}:\n  {body}\n"
+        source = (f'fn operation(values:{dynamic})->{result}:\n  return {body}\n'
                   f"fn main()->{result} ! TaskError:\n  try parallel:\n"
                   "    gpu=devices.gpu()\n"
                   f"    values:{dimensions}=tensor({literal})\n"
@@ -74,16 +74,7 @@ for rank in range(3, 9):
     for _ in range(rank - 2):
         other = "[" + other + "]"
     other_type = "Tensor[f32," + ",".join(["1"] * (rank - 2) + ["3", "1"]) + "]"
-    source = (f"fn identity(values:{dynamic})->{dynamic}:\n  values\n"
-              f"fn add(a:{dynamic},b:{dynamic})->{dynamic}:\n  a+b\n"
-              f"fn main()->{dynamic} ! TaskError:\n  try parallel:\n"
-              "    gpu=devices.gpu()\n"
-              f"    a:{fixed}=tensor({data})\n"
-              f"    b:{other_type}=tensor({other})\n"
-              "    x=try await transfer(identity(a),gpu)\n"
-              "    y=try await transfer(identity(b),gpu)\n"
-              "    result=try await spawn add(x,y) on gpu\n"
-              "    try await transfer(result,devices.cpu())\n")
+    source = (f'fn identity(values:{dynamic})->{dynamic}:\n  return values\nfn add(a:{dynamic},b:{dynamic})->{dynamic}:\n  return a+b\nfn main()->{dynamic} ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    a:{fixed}=tensor({data})\n    b:{other_type}=tensor({other})\n    x=try await transfer(identity(a),gpu)\n    y=try await transfer(identity(b),gpu)\n    result=try await spawn add(x,y) on gpu\n    try await transfer(result,devices.cpu())\n')
     path, destination = args.root / f"rank{rank}-shape.k", args.root / f"rank{rank}-shape"
     path.write_text(source)
     run([args.compiler,"--arithmetic",args.arithmetic, path, *flags, "-o", destination])

@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     fs::create_directories(root);
     write("types.k", "export type Row:\n  names:[String]\n  value:i64\ntype Secret:\n  "
                             "flag:bool\nexport fn make()->Row:\n  return Row {names:[\"é\"],value:2}\n");
-    write("other.k", "export type Row:\n  names:[String]\n  value:int64\n");
+    write("other.k", "export type Row:\n  names:[String]\n  value:i64\n");
     write("wrapper.k", "from \"./types.k\" import Row\nexport type Box:\n  "
                               "row:Row\nexport fn box(row:Row)->Box:\n  return Box {row:row}\n");
     write("alias.k", "from \"./types.k\" import Row as Renamed\n");
@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
           "from \"./types.k\" import Row as with\nfn main():\n  return 0\n",
           "from \"./types.k\" import Row as A, make\nfrom \"./other.k\" import Row "
           "as B\nfn use(value:B)->B:\n  return value\nfn main():\n  return use(make()).value\n",
-          "from \"./types.k\" import make\nfn use(value:Row):\n  return value\nfn main():\n  "
+          "from \"./types.k\" import make\nfn use(value:Row):\n  return value\nfn main():\n  return "
           "return 0\n"}) {
       auto bad = analyze(source);
       require(!bad.ok(), "invalid visibility/identity/collision admitted");
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
     auto parsed = parse(std::make_shared<SourceFile>(
         "export.k", "export type Row:\n  n:i64\nfn main():\n  return 0\n"));
     require(parsed.ok() && parsed.module.records[0].exported, "export flag missing");
-    write("cycle.k", "from \"./main.k\" import Box\nexport type Item:\n  n:int\n");
+    write("cycle.k", "from \"./main.k\" import Box\nexport type Item:\n  n:i64\n");
     auto cycle = analyze(
         "from \"./cycle.k\" import Item\nexport type Box:\n  item:Item\nfn main():\n  return 0\n");
     require(!cycle.ok(), "type-only cycle admitted");

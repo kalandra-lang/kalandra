@@ -31,7 +31,7 @@ for label,expression in [('scalar','relu(2)'),('array','relu([1,2])'),('boolean'
  assert binary.read_bytes()==b'preserve-existing-output',label
 print('ReLU scalar/array/boolean/arity rejection and output preservation passed',flush=True)
 for numeric in types:
- path=a.output/(numeric+'.k');path.write_text(f'fn activate(a:Tensor[{numeric},?])->Tensor[{numeric},?]:\n  relu(a)\nfn main()->i64:\n  0\n')
+ path=a.output/(numeric+'.k');path.write_text(f'fn activate(a:Tensor[{numeric},?])->Tensor[{numeric},?]:\n  return relu(a)\nfn main()->i64:\n  return 0\n')
  for variant,flag,flags in ([] if a.gpu_only else variants):
   binary=a.output/(numeric+'-'+variant);ir=binary.with_suffix('.ll')
   run([compiler,path,'--test-entry','activate','--arithmetic',a.arithmetic,'--emit-llvm',ir,flag,'-o',str(binary)+'-standalone'])
@@ -39,7 +39,7 @@ for numeric in types:
   run([clang,'-std=c++23','-ffp-contract=off','-Wno-override-module','-pthread',*flags,*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),'-DELEMENT='+('UInt'+numeric[1:] if numeric.startswith('u') else 'Int'+numeric[1:] if numeric.startswith('i') else 'Float'+numeric[1:]),root/'native/tests/ReluCpu.cpp',ir,runtime,'-o',binary])
   print(variant+': '+run([binary]).strip(),flush=True)
  if a.gpu:
-  path=a.output/(numeric+'-gpu.k');path.write_text(f'fn activate(a:Tensor[{numeric},?])->Tensor[{numeric},?]:\n  relu(a)\nfn main()->{numeric} ! TaskError:\n  try parallel:\n    values:Tensor[{numeric},3]=tensor([0,2,3])\n    gpu=devices.gpu()\n    a=try await transfer(values,gpu)\n    b=try await spawn activate(a) on gpu\n    c=try await transfer(b,devices.cpu())\n    reduceSum(c)\n')
+  path=a.output/(numeric+'-gpu.k');path.write_text(f'fn activate(a:Tensor[{numeric},?])->Tensor[{numeric},?]:\n  return relu(a)\nfn main()->{numeric} ! TaskError:\n  return try parallel:\n    values:Tensor[{numeric},3]=tensor([0,2,3])\n    gpu=devices.gpu()\n    a=try await transfer(values,gpu)\n    b=try await spawn activate(a) on gpu\n    c=try await transfer(b,devices.cpu())\n    reduceSum(c)\n')
   run([compiler,path,'--target','metal','--arithmetic',a.arithmetic,'-O2','-o',a.output/numeric])
 if a.gpu:
  for variant,_,flags in variants:
@@ -56,14 +56,14 @@ for numeric in ('f32','f64'):
   shape='['+','.join(['1']*(rank-1)+['2'])+']' if rank else '[]'
   values='[-3,2]' if rank else '[-3]'
   typed=f'Tensor[{numeric}{dims}]'
-  body=f'fn activate(a:{typed})->{typed}:\n  relu(a)\n'
+  body=f'fn activate(a:{typed})->{typed}:\n  return relu(a)\n'
   path=a.output/(f'{numeric}-rank{rank}.k')
-  path.write_text(body+f'fn main()->{numeric}:\n  a:{typed}=tensor({values},{shape})\n  reduceSum(activate(a))\n')
+  path.write_text(body+f'fn main()->{numeric}:\n  a:{typed}=tensor({values},{shape})\n  return reduceSum(activate(a))\n')
   binary=path.with_suffix('')
   run([compiler,path,'-O2','-o',binary])
   assert run([binary]).strip()==('2' if rank else '0')
   if a.gpu:
-   path.write_text(body+f'fn main()->{numeric} ! TaskError:\n  try parallel:\n    values:{typed}=tensor({values},{shape})\n    gpu=devices.gpu()\n    a=try await transfer(values,gpu)\n    b=try await spawn activate(a) on gpu\n    c=try await transfer(b,devices.cpu())\n    reduceSum(c)\n')
+   path.write_text(body+f'fn main()->{numeric} ! TaskError:\n  return try parallel:\n    values:{typed}=tensor({values},{shape})\n    gpu=devices.gpu()\n    a=try await transfer(values,gpu)\n    b=try await spawn activate(a) on gpu\n    c=try await transfer(b,devices.cpu())\n    reduceSum(c)\n')
    bundle=a.output/(f'{numeric}-gpu-rank{rank}')
    run([compiler,path,'--target','metal','--arithmetic',a.arithmetic,'-O2','-o',bundle])
    actual=int(run([bundle/'program',bundle]).strip(),16)

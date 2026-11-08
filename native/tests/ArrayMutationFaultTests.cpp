@@ -17,7 +17,7 @@ int main() {
       const auto result = _mlir_ciface_kalandra_test_entry(&input, position, &context);
       const bool valid = position >= 0 && position < 2;
       if (result || context.status() != (valid ? 4 : 5) || context.line() != (valid ? 2 : 4) ||
-          context.column() != 3 || std::memcmp(cells.data(), before.data(), sizeof(cells)) ||
+          context.column() != (valid ? 10 : 3) || std::memcmp(cells.data(), before.data(), sizeof(cells)) ||
           context.allocations())
         throw std::runtime_error(
             "destination bounds/RHS fault order changed or failed RHS wrote storage");

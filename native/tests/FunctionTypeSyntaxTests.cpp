@@ -92,7 +92,7 @@ void signatures() {
               complex.parameters[1].array && complex.parameters[2].tensor &&
               functions[9].parameters.size() == 2,
           "nested parameters or trailing comma consumed the enclosing parameter");
-  require(parsed.module.source->slice(functions[10].parameters[0].type.span) == "(((int)))",
+  require(parsed.module.source->slice(functions[10].parameters[0].type.span) == "(((i64)))",
           "grouped type lost outer span");
   const auto &expressions = functions[11].body;
   require(expressions[0].annotation->function != nullptr, "binding annotation lost callable");
@@ -120,7 +120,7 @@ void limitsAndRecovery() {
       many += ',';
     many += i % 2 ? "String" : "i64";
   }
-  many += ")->int)->int:\n  0\n";
+  many += ")->i64)->i64:\n  0\n";
   auto wide = syntax(many);
   require(wide.ok() &&
               wide.module.functions[0].parameters[0].type.function->parameters.size() == 40,
@@ -142,14 +142,14 @@ void limitsAndRecovery() {
   limits.maxDepth = 1;
   require(has(syntax("fn f()->fn()->i64:\n  return 0\n", limits), "P036"), "type depth boundary accepted");
   for (const auto *text :
-       {"fn f()->fn()->i64 ! A ! B:\n  0\n", "fn f(callback:fn()->fn()->i64 ! A ! B):\n  0\n"})
+       {"fn f()->fn()->i64 ! A ! B:\n  return 0\n", "fn f(callback:fn()->fn()->i64 ! A ! B):\n  return 0\n"})
     require(has(syntax(text), "P006"), "ambiguous double error suffix accepted");
   for (const auto *type :
        {"fn", "fn(i64)", "fn(i64) i64", "fn()->", "fn(,i64)->i64", "fn(i64,,i64)->i64",
         "fn(value:i64)->i64", "fn()->()", "fn()->i64 !", "fn()->i64 ! A | B", "fn()->(i64 ! A)",
         "fn()->i64 ! (A |)", "fn()->i64 ! A ! B", "(fn()->i64,i64)"}) {
     auto malformed =
-        syntax(std::string("fn bad(callback:") + type + "):\n  0\nfn good()->i64:\n  7\n");
+        syntax(std::string("fn bad(callback:") + type + "):\n  0\nfn good()->i64:\n  return 7\n");
     require(!malformed.ok(), "malformed callable type accepted");
     require(std::ranges::any_of(malformed.module.functions,
                                 [&](const auto &function) {

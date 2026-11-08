@@ -1,7 +1,7 @@
 include("${CMAKE_CURRENT_LIST_DIR}/VerifyAdmitted.cmake")
 file(MAKE_DIRECTORY "${OUTPUT_DIR}/src")
 set(ROOT "${OUTPUT_DIR}/src")
-set(OPS "export fn adjust(left:Tensor[f32,?,?], shift:f32, right:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  return -(left + shift) / 2 + right\nexport fn total(left:Tensor[f32,?,?], shift:f32, right:Tensor[f32,?,?])->f32:\n  result=reduceSum(adjust(left,shift,right))\n  result\n")
+set(OPS "export fn adjust(left:Tensor[f32,?,?], shift:f32, right:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  return -(left + shift) / 2 + right\nexport fn total(left:Tensor[f32,?,?], shift:f32, right:Tensor[f32,?,?])->f32:\n  result=reduceSum(adjust(left,shift,right))\n  return result\n")
 if(POST)
   string(REPLACE "  result\n" "  finish(result,shift)\n" OPS "${OPS}")
   string(APPEND OPS "export fn finish(value:f32, shift:f32)->f32:\n  return -(value+shift)/2\n")
@@ -88,7 +88,7 @@ run(imported "${EXPECTED}" 0) # 8.5 + 18 + 27.5 = 54
 file(COPY "${OUTPUT_DIR}/imported/" DESTINATION "${OUTPUT_DIR}/relocated")
 run(relocated "${EXPECTED}" 0)
 # Same source operations explicitly placed in two calls have the same exact scalar bits.
-set(SEPARATE "from \"./operations.k\" import adjust\nfn sum(v:Tensor[f32,?,?])->f32:\n  reduceSum(v)\n${MAIN}")
+set(SEPARATE "from \"./operations.k\" import adjust\nfn sum(v:Tensor[f32,?,?])->f32:\n  return reduceSum(v)\n${MAIN}")
 string(REPLACE "from \"./public.k\" import sum\n" "" SEPARATE "${SEPARATE}")
 string(REPLACE "    work=spawn sum(left,2,right) on gpu" "    adjusted=try await spawn adjust(left,2,right) on gpu\n    work=spawn sum(adjusted) on gpu" SEPARATE "${SEPARATE}")
 if(POST)

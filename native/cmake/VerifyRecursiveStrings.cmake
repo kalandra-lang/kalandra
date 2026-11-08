@@ -13,7 +13,7 @@ COMPILE(returned "${PREFIX}fn make(n:i64)->Texts:\n  return if n==0:Texts.Empty\
 EXPECT(returned "é👩é👩é👩")
 COMPILE(shared "${PREFIX}fn main()->String:\n  tail=Texts.More {text:\"👩\",next:Texts.Empty}\n  left=Texts.More {text:\"a\",next:tail}\n  right=Texts.More {text:\"é\",next:tail}\n  return join(left)+join(right)+join(tail)\n")
 EXPECT(shared "a👩é👩👩")
-COMPILE(empty "${PREFIX}fn main()->String:\n  join(Texts.More {text:\"\",next:Texts.More {text:\"\",next:Texts.Empty}})\n")
+COMPILE(empty "${PREFIX}fn main()->String:\n  return join(Texts.More {text:\"\",next:Texts.More {text:\"\",next:Texts.Empty}})\n")
 EXPECT(empty "")
 COMPILE(mutual [=[type Label:
   text:String
@@ -23,17 +23,17 @@ enum Link:
   More:
     label:Label
 fn labelText(link:Link)->String:
-  match link:
+  return match link:
     Link.End:""
     Link.More {label}:label.text
 fn main()->String:
   original=Label {text:"old",next:Link.End}
   root=Label {text:"root",next:Link.More {label:original}}
   changed=root with {text:"new",next:Link.More {label:original with {text:"é"}}}
-  labelText(root.next)+labelText(changed.next)+root.text+changed.text
+  return labelText(root.next)+labelText(changed.next)+root.text+changed.text
 ]=])
 EXPECT(mutual "oldérootnew")
-COMPILE(operations "${PREFIX}fn tail(items:Texts)->Texts:\n  match items:\n    Texts.Empty:Texts.Empty\n    Texts.More {next}:next\nfn main()->String:\n  text=\"aé👩\"\n  items=Texts.More {text:\"ignore\",next:Texts.More {text:slice(text,1,3)+text[0],next:Texts.Empty}}\n  join(tail(items))\n")
+COMPILE(operations "${PREFIX}fn tail(items:Texts)->Texts:\n  return match items:\n    Texts.Empty:Texts.Empty\n    Texts.More {next}:next\nfn main()->String:\n  text=\"aé👩\"\n  items=Texts.More {text:\"ignore\",next:Texts.More {text:slice(text,1,3)+text[0],next:Texts.Empty}}\n  return join(tail(items))\n")
 EXPECT(operations "é👩a")
 COMPILE(embedded-nul "${PREFIX}fn main()->i64:\n  text=join(Texts.More {text:\"é\\0👩\",next:Texts.Empty})\n  return if text==\"é\\0👩\":byteLength(text)+length(text)\n  else:0\n")
 EXPECT(embedded-nul 10)

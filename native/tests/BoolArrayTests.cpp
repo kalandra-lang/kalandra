@@ -17,13 +17,13 @@ int main() {
           "fn main():\n  return map([1,2],fn(x):return x>1)\n",
           "fn flip(x:bool)->bool:\n  return not x\nfn main():\n  return map([],flip)\n",
           "fn main():\n  return map([],fn(x:bool)->bool:return not x)\n",
-          "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main():\n  "
+          "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main():\n  return "
           "return map([true,false],encode)\n",
           "type Flag:\n  enabled:bool\nfn main():\n  rows=map([true,false],fn(x):return Flag "
           "{enabled:x})\n  return map(rows,fn(row):return row.enabled)\n",
           "fn main()->[bool] ! TaskError:\n  flags=[true,false]\n  return try parallel:\n    try await "
           "spawn map(flags,fn(x):return not x)\n",
-          "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main()->[i64] ! TaskError:\n  "
+          "fn encode(flag:bool)->i64:\n  return if flag:1\n  else:0\nfn main()->[i64] ! TaskError:\n  return "
           "flags=[true,false]\n  return try parallel:\n    try await spawn "
           "map([0,1],fn(i):return encode(flags[i]))\n"}) {
       auto checked = analyze(body);
@@ -49,7 +49,7 @@ int main() {
       require(!analyze(body).ok(), "invalid Bool array admitted: " + std::string(body));
     auto valid = analyze("fn flags(values:[i64])->[bool]:\n  return map(values,fn(x):return x>0)\nfn "
                          "main()->[bool]:\n  return flags([1,2])\n");
-    require(valid.ok() && describeType(valid.module->functions[0].resultType) == "[Bool]",
+    require(valid.ok() && describeType(valid.module->functions[0].resultType) == "[bool]",
             "Bool array type name lost");
     auto mapId = valid.module->functions[0].result;
     for (unsigned mutation = 0; mutation < 6; ++mutation) {

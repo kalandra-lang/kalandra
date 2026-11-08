@@ -19,7 +19,7 @@ int main() {
           input += ",?";
         input += "]";
         auto typed = analyze("fn change(values:" + input + ")->[" + type +
-                             "]:\n  array(values)\nfn main()->i64:\n  0\n");
+                             "]:\n  return array(values)\nfn main()->i64:\n  return 0\n");
         require(typed.ok(), "valid tensor-to-array rejected");
         const auto id = typed.module->functions[0].result;
         const auto &result = typed.module->expressions[id];
@@ -111,12 +111,12 @@ int main() {
     for (const auto &d : resident.diagnostics)
       diagnostic |= d.code == "S026";
     require(!resident.ok() && diagnostic, "resident tensor bypassed array construction gate");
-    for (auto input : {"Tensor[int,2,3]", "Tensor[int,0,?]", "Tensor[int]"}) {
+    for (auto input : {"Tensor[i64,2,3]", "Tensor[i64,0,?]", "Tensor[i64]"}) {
       auto typed = analyze("fn change(values:" + std::string(input) +
-                           "):\n  array(values)\nfn main()->i64:\n  0\n");
+                           "):\n  array(values)\nfn main()->i64:\n  return 0\n");
       require(typed.ok(), "known count program failed");
-      auto expected = std::string(input) == "Tensor[int,2,3]" ? 6
-                      : std::string(input) == "Tensor[int]"   ? 1
+      auto expected = std::string(input) == "Tensor[i64,2,3]" ? 6
+                      : std::string(input) == "Tensor[i64]"   ? 1
                                                               : 0;
       require(typed.module->functions[0].resultType.shape[0].constant == expected,
               "known flattened count lost");

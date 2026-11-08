@@ -71,9 +71,7 @@ for label,value,expected in [('positive','float64(7)',True),('negative','float64
                     'status':'compiled' if a.compile_only else 'executed'})
 for name,body in [('byte-as-bool','work(uint8(1))'),('bool-as-byte','byte(true)')]:
     source=a.root/(name+'.k')
-    source.write_text('fn work(flag:bool)->bool:\n  return flag\nfn byte(n:u8)->u8:\n  return n\n'
-                      'fn main()->i64 ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n'
-                      f'    result=try await spawn {body} on gpu\n    42\n')
+    source.write_text(f'fn work(flag:bool)->bool:\n  return flag\nfn byte(n:u8)->u8:\n  return n\nfn main()->i64 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    result=try await spawn {body} on gpu\n    42\n')
     r=subprocess.run([str(a.compiler),str(source),'--target',a.backend,*flags,'-o',str(a.root/name)],capture_output=True,text=True,timeout=60)
     assert r.returncode and 'bool' in r.stderr and 'u8' in r.stderr,(name,r)
     results.append({'case':name,'status':'type-rejected'})

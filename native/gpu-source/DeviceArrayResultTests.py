@@ -35,7 +35,7 @@ for typ in ('i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64', 
         expected = (False if alias else True) if boolean else (9 if alias else 1)
         body = 'values' if alias else 'copy(values)'
         cases[('alias-' if alias else 'fresh-') + typ] = (
-            f'fn work(values:[{typ}])->[{typ}]:\n  {body}\n',
+            f'fn work(values:[{typ}])->[{typ}]:\n  return {body}\n',
             f'  values:[{typ}]=[{initial}]\n', 'work(values)',
             f'    result[0]={changed}\n    values[0]\n', typ, expected)
 for name, typ, value, expected in (
@@ -45,7 +45,7 @@ for name, typ, value, expected in (
     ('negative-zero-f32', 'f32', '-0.0', -0.0),
     ('negative-zero-f64', 'f64', '-0.0', -0.0),
 ):
-    cases[name] = (f'fn work(values:[{typ}])->[{typ}]:\n  copy(values)\n',
+    cases[name] = (f'fn work(values:[{typ}])->[{typ}]:\n  return copy(values)\n',
                    f'  values:[{typ}]=[{value}]\n', 'work(values)', '    result[0]\n', typ, expected)
 cases['zero-input-filter-generator'] = ('''fn work(n:i64)->[i64]:
   return for i in range(n):

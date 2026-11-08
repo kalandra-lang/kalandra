@@ -14,7 +14,7 @@ int main() {
   try {
     const std::string types =
         "type Both=A | B\ntype Mixed=Both | TaskError\ntype Only=TaskError\n"
-        "error A:\n  Bad:\n    text:String\n    values:[int]\nerror B:\n  Missing\n";
+        "error A:\n  Bad:\n    text:String\n    values:[i64]\nerror B:\n  Missing\n";
     for (const auto *declaration :
          {"type Box:\n  cause:Both\n", "type Box:\n  cause:TaskError\n",
           "type Box:\n  cause:Mixed\n", "type Box:\n  cause:Only\n", "type Box:\n  causes:[Both]\n",

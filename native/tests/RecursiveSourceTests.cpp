@@ -12,7 +12,7 @@ lowerTaskNative(const TypedModule &, std::optional<std::string>,
                 ArithmeticMode = ArithmeticMode::Hardware, const CpuTarget & = {});
 } // namespace kalandra
 using namespace kalandra;
-static const std::string prefix = "enum List:\n  Nil\n  Cons:\n    head:int\n    tail:List\n";
+static const std::string prefix = "enum List:\n  Nil\n  Cons:\n    head:i64\n    tail:List\n";
 static CheckResult analyze(std::string source) {
   return check(parse(std::make_shared<SourceFile>("recursive-source.k", std::move(source))));
 }
@@ -137,8 +137,8 @@ int main(int argc, char **argv) {
               "recursive fallible callable schema rejected");
     }
     auto worker =
-        analyze(prefix + "fn echo(items:List)->List:\n  return items\nfn main()->i64 ! TaskError:\n  "
-                         "item=try parallel:\n    try await spawn echo(List.Nil)\n  return match item:\n  "
+        analyze(prefix + "fn echo(items:List)->List:\n  return items\nfn main()->i64 ! TaskError:\n  return "
+                         "item=try parallel:\n    try await spawn echo(List.Nil)\n  return match item:\n  return "
                          "  List.Nil:42\n    List.Cons {head}:head\n");
     require(worker.ok() && bool(continuation::plan(*worker.module)),
             "recursive source worker rejected");

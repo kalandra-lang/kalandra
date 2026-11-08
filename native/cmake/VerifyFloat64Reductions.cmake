@@ -49,7 +49,7 @@ fn batch(values:Tensor[f64,?]) -> f64 ! TaskError:
 fn probe() -> f64 ! TaskError:
   original:Tensor[f64,2] = tensor([1.0000000000000002,-0.0])
   result = batch(original)
-  recovered = result catch fn(error): reduceSum(original)
+  recovered = result catch fn(error): return reduceSum(original)
   return try parallel:
     work = spawn sum(original)
     first = try await work
@@ -77,9 +77,9 @@ foreach(WORKERS IN ITEMS 1 2 4)
       "${OUTPUT_DIR}/recovery-harness" "${WORKERS}" 4000000000000001 3 0)
   endforeach()
 endforeach()
-COMPILE(tree-order "fn main() -> f64:\n  values:Tensor[f64,4] = tensor([18014398509481984.0,1,-18014398509481984.0,1])\n  reduceSum(values)\n")
+COMPILE(tree-order "fn main() -> f64:\n  values:Tensor[f64,4] = tensor([18014398509481984.0,1,-18014398509481984.0,1])\n  return reduceSum(values)\n")
 EXPECT(tree-order 0)
-COMPILE(empty "fn main() -> f64:\n  values:Tensor[f64,0] = tensor([])\n  reduceSum(values)\n")
+COMPILE(empty "fn main() -> f64:\n  values:Tensor[f64,0] = tensor([])\n  return reduceSum(values)\n")
 EXPECT(empty 0)
 # GPU f64 remains gated; failed compilation preserves artifacts.
 foreach(GATE IN ITEMS metal)

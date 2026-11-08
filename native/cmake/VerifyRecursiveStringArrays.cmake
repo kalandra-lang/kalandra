@@ -5,10 +5,10 @@ set(PREFIX [=[enum Chain:
     names:[String]
     next:Chain
 fn make(n:i64)->Chain:
-  if n==0:Chain.End
+  return if n==0:Chain.End
   else:Chain.Link {names:["é","","👩"],next:make(n-1)}
 fn score(chain:Chain)->i64:
-  match chain:
+  return match chain:
     Chain.End:0
     Chain.Link {names,next}:length(names[0])+length(names[1])+length(names[2])+score(next)
 ]=])
@@ -26,7 +26,7 @@ enum Link:
   More:
     data:Data
 fn head(link:Link)->Data:
-  match link:
+  return match link:
     Link.End:Data {names:[],next:Link.End}
     Link.More {data}:data
 fn main()->[String]:
@@ -35,7 +35,7 @@ fn main()->[String]:
   changed=root with {next:Link.More {data:original with {names:["new","👩"]}}}
   a=head(root.next)
   b=head(changed.next)
-  concat(a.names,b.names)
+  return concat(a.names,b.names)
 ]=])
 EXPECT(mutual "[\"old\", \"é\", \"new\", \"👩\"]")
 COMPILE(empty "${PREFIX}fn main()->[String]:\n  chain=Chain.Link {names:[],next:Chain.End}\n  return match chain:\n    Chain.End:[\"bad\"]\n    Chain.Link {names}:names\n")

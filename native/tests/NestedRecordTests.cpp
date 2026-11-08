@@ -14,20 +14,20 @@ static CheckResult analyze(const std::string &text, SemanticLimits limits = {}) 
 int main() {
   try {
     const std::string declaration =
-        "type Scene:\n  position:Point\n  enabled:Bool\ntype Point:\n  x:int\n  y:int\n";
+        "type Scene:\n  position:Point\n  enabled:bool\ntype Point:\n  x:i64\n  y:i64\n";
     for (auto element : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
       const std::string type(element);
       auto source =
-          "type Envelope:\n  data:Reading\n  generation:int32\ntype Reading:\n  position:Point\n  "
-          "enabled:Bool\ntype Point:\n  x:" +
+          "type Envelope:\n  data:Reading\n  generation:i32\ntype Reading:\n  position:Point\n  "
+          "enabled:bool\ntype Point:\n  x:" +
           type + "\n  y:" + type +
-          "\nfn move(p:Envelope)->Envelope:\n  p with {data:p.data with {position:p.data.position "
-          "with {x:p.data.position.x+10}}}\nfn probe(p:Envelope)->Envelope ! TaskError:\n  try "
+          "\nfn move(p:Envelope)->Envelope:\n  return p with {data:p.data with {position:p.data.position "
+          "with {x:p.data.position.x+10}}}\nfn probe(p:Envelope)->Envelope ! TaskError:\n  return try "
           "parallel:\n    work=spawn move(p)\n    first=try await work\n    again=try await work\n "
           "   again\nfn main()->" +
           type +
           " ! TaskError:\n  original=Envelope {generation:1,data:Reading "
-          "{enabled:true,position:Point {x:2,y:3}}}\n  moved=try probe(original)\n  "
+          "{enabled:true,position:Point {x:2,y:3}}}\n  moved=try probe(original)\n  return "
           "moved.data.position.x+original.data.position.x\n";
       auto result = analyze(source);
       require(result.ok(), "nested worker rejected: " + type);
@@ -60,7 +60,7 @@ int main() {
           "fn main():\n  return Scene {position:Point {x:1,y:2},enabled:true}.position.missing\n"})
       require(!analyze(declaration + body).ok(), "invalid nested construction/update admitted");
     for (auto cycle : {"type A:\n  child:A\n", "type A:\n  child:B\ntype B:\n  child:A\n",
-                       "type Leaf:\n  value:int\ntype A:\n  leaf:Leaf\n  child:B\ntype B:\n  "
+                       "type Leaf:\n  value:i64\ntype A:\n  leaf:Leaf\n  child:B\ntype B:\n  "
                        "child:C\ntype C:\n  child:A\n"}) {
       auto result = analyze(std::string(cycle) + "fn main():\n  return 0\n");
       require(!result.ok() && result.diagnostics[0].code == "S068" &&
@@ -72,7 +72,7 @@ int main() {
     }
     // Reuse of a completed child graph must still count its height and expanded
     // leaves at each embedding, even though type construction itself is cached.
-    std::string chain = "type R0:\n  value:int\n";
+    std::string chain = "type R0:\n  value:i64\n";
     for (unsigned depth = 1; depth <= 128; ++depth) {
       chain += "type R" + std::to_string(depth) + ":\n  child:R" + std::to_string(depth - 1) + "\n";
       if (depth == 2 || depth == 3) {
@@ -83,7 +83,7 @@ int main() {
       }
     }
     require(!analyze(chain + "fn main():\n  return 0\n").ok(), "default nesting resource bound ignored");
-    std::string dag = "type R0:\n  value:int\n";
+    std::string dag = "type R0:\n  value:i64\n";
     for (unsigned depth = 1; depth <= 19; ++depth) {
       const auto child = "R" + std::to_string(depth - 1);
       dag += "type R" + std::to_string(depth) + ":\n  left:" + child + "\n  right:" + child + "\n";

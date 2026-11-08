@@ -41,7 +41,7 @@ int main() {
               "allocation limit/empty semantics changed");
       ValueType type;
       type.element = description.type;
-      require(describeType(type) == description.name, "scalar type lost numeric identity");
+      require(describeType(type) == description.sourceName, "scalar type lost numeric identity");
       type.task = type.fallible = true;
       require(describeType(type) == "task<" + std::string(description.sourceName) + "> ! TaskError",
               "task/error type lost numeric identity");
@@ -69,7 +69,7 @@ int main() {
                   numericReductionAvailable(description.type, NumericTarget::AppleGpu),
               "reduction capability lost numeric identity");
       require(numericScalarArithmeticAvailable(description.type, NumericTarget::Cpu) &&
-                  analyze("fn main() -> " + std::string(description.sourceName) + ":\n  1\n").ok(),
+                  analyze("fn main() -> " + std::string(description.sourceName) + ":\n  return 1\n").ok(),
               "accepted CPU scalar type rejected");
       require(numericScalarArithmeticAvailable(description.type, NumericTarget::AppleGpu),
               "typed GPU arithmetic identity rejected");

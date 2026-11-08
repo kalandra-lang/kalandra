@@ -316,9 +316,7 @@ try:
         request('other', base + '/geometry.git', 'main') +
         request('tagged', base + '/geometry.git', 'release') +
         request('parent', base + '/branch-parent.git', branch_parent))
-    (ref_app / 'main.k').write_text('from "geometry" import next\nfrom "parent" import compute\n'
-        'fn main()->[i64] ! TaskError:\n  try parallel:\n'
-        '    direct=try await spawn next(41)\n    private=try await spawn compute(41)\n    [direct,private]\n')
+    (ref_app / 'main.k').write_text('from "geometry" import next\nfrom "parent" import compute\nfn main()->[i64] ! TaskError:\n  return try parallel:\n    direct=try await spawn next(41)\n    private=try await spawn compute(41)\n    [direct,private]\n')
     run(args.compiler, 'install', '--project', ref_manifest)
     ref_lock = (ref_app / 'kalandra.lock').read_bytes()
     assert tomllib.loads(ref_lock.decode())['roots'][0]['commit'] == first

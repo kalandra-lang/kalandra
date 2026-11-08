@@ -17,7 +17,7 @@ def run(cmd):
  return r.stdout.strip()
 sources={
  'finite':'type Step:\n  value:i64\n  enabled:bool\nfn work(n:i64)->i64:\n  i=0\n  total=0\n  while i<n:\n    i=i+1\n    step=Step {value:i,enabled:true}\n    if step.enabled:\n      total=total+step.value\n  return total\n',
- 'infinite':'fn work(n:i64)->i64:\n  i=0\n  while true:\n    i=i+1\n',
+ 'infinite':'fn work(n:i64)->i64:\n  i=0\n  return while true:\n    i=i+1\n',
  'fault':'fn work(n:i64)->i64:\n  i=0\n  total=0\n  while i<n:\n    total=total+1/(n-n)\n    i=i+1\n  return total\n'}
 for name,helper in sources.items():
  src=a.root/(name+'.k');src.write_text(helper+'fn main()->i64 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    try await spawn work(1000) on gpu\n')

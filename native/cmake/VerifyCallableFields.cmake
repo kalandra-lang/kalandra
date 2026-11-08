@@ -16,10 +16,10 @@ COMPILE(enum [=[enum Choice:
   Some:
     callback:fn(i64)->i64
 fn make(offset:i64)->Choice:
-  Choice.Some {callback:fn(value):offset+value}
+  return Choice.Some {callback:fn(value):return offset+value}
 fn main()->i64:
   choice=make(20)
-  match choice:
+  return match choice:
     Choice.Empty:0
     Choice.Some {callback}:callback(22)
 ]=])
@@ -29,10 +29,10 @@ COMPILE(owned [=[type Config:
 fn make()->Config:
   text="é"+"!"
   values:[i64]=[20,20]
-  Config {apply:fn(value):values[0]+values[1]+length(text)+value}
+  return Config {apply:fn(value):return values[0]+values[1]+length(text)+value}
 fn main()->i64:
   config=make()
-  config.apply(0)
+  return config.apply(0)
 ]=])
 EXPECT(owned 42)
 COMPILE(nested [=[type Config:
@@ -41,21 +41,21 @@ COMPILE(nested [=[type Config:
 type Outer:
   config:Config
 fn make(offset:i64)->Outer:
-  config=Config {apply:fn(value):offset+value,label:"é"}
-  Outer {config:config}
+  config=Config {apply:fn(value):return offset+value,label:"é"}
+  return Outer {config:config}
 fn main()->i64:
   outer=make(20)
-  f=fn(value:i64):outer.config.apply(value)
-  f(22)
+  f=fn(value:i64):return outer.config.apply(value)
+  return f(22)
 ]=])
 EXPECT(nested 42)
 COMPILE(updates [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64:
   offset:i64=20
-  first=Config {apply:fn(value):offset+value}
-  second=first with {apply:fn(value):value*2}
-  first.apply(1)+second.apply(10)+1
+  first=Config {apply:fn(value):return offset+value}
+  second=first with {apply:fn(value):return value*2}
+  return first.apply(1)+second.apply(10)+1
 ]=])
 EXPECT(updates 42)
 COMPILE(fallible [=[error E:
@@ -66,12 +66,12 @@ type Config:
 fn make(offset:i64)->Config:
   callback=fn(value:i64)->i64 ! E:
     if value==0:fail E.Bad {value:offset}
-    value
-  Config {apply:callback}
+    return value
+  return Config {apply:callback}
 fn main()->i64:
   config=make(42)
-  config.apply(0) catch fn(error):
-    match error:
+  return config.apply(0) catch fn(error):
+    return match error:
       E.Bad {value}:value
 ]=])
 EXPECT(fallible 42)
@@ -81,41 +81,41 @@ error E:
   Bad:
     config:Config
 fn raise(offset:i64)->i64 ! E:
-  fail E.Bad {config:Config {apply:fn(value):offset+value}}
+  fail E.Bad {config:Config {apply:fn(value):return offset+value}}
 fn main()->i64:
-  raise(20) catch fn(error):
-    match error:
+  return raise(20) catch fn(error):
+    return match error:
       E.Bad {config}:config.apply(22)
 ]=])
 EXPECT(error-payload 42)
 COMPILE(array [=[type Config:
   apply:fn(i64)->i64
 fn make(offset:i64)->[Config]:
-  [Config {apply:fn(value):offset+value}]
+  return [Config {apply:fn(value):return offset+value}]
 fn main()->i64:
   configs=concat(make(20),make(21))
   selected=slice(configs,0,1)
-  mapped=map(selected,fn(config):config.apply(22))
-  mapped[0]
+  mapped=map(selected,fn(config):return config.apply(22))
+  return mapped[0]
 ]=])
 EXPECT(array 42)
 COMPILE(worker-local [=[type Config:
   apply:fn(i64)->i64
 fn worker(offset:i64)->i64:
-  config=Config {apply:fn(value):offset+value}
-  config.apply(22)
+  config=Config {apply:fn(value):return offset+value}
+  return config.apply(22)
 fn main()->i64 ! TaskError:
-  try parallel:
+  return try parallel:
     try await spawn worker(20)
 ]=])
 EXPECT(worker-local 42)
 COMPILE(coordinator [=[type Config:
   apply:fn(i64)->i64
 fn worker(value:i64)->i64:
-  value
+  return value
 fn main()->i64 ! TaskError:
-  config=Config {apply:fn(value):value*2}
-  try parallel:
+  config=Config {apply:fn(value):return value*2}
+  return try parallel:
     value=try await spawn worker(21)
     config.apply(value)
 ]=])
@@ -124,33 +124,33 @@ COMPILE(array-callback-result [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64:
   maker=fn(offset:i64)->Config:
-    Config {apply:fn(value):value+offset}
+    return Config {apply:fn(value):return value+offset}
   configs=map([20],maker)
-  configs[0].apply(22)
+  return configs[0].apply(22)
 ]=])
 EXPECT(array-callback-result 42)
 COMPILE(higher [=[type Config:
   make:fn(i64)->fn(i64)->i64
 fn main()->i64:
-  config=Config {make:fn(offset):fn(value:i64):value+offset}
-  config.make(20)(22)
+  config=Config {make:fn(offset):return fn(value:i64):return value+offset}
+  return config.make(20)(22)
 ]=])
 EXPECT(higher 42)
 COMPILE(matrix [=[type Config:
   apply:fn(Tensor[i64,2,2])->Tensor[i64,2,2]
 fn main()->i64:
   offset:i64=1
-  config=Config {apply:fn(values):values+offset}
-  reduceSum(config.apply(tensor([[10,10],[10,8]])))
+  config=Config {apply:fn(values):return values+offset}
+  return reduceSum(config.apply(tensor([[10,10],[10,8]])))
 ]=])
 EXPECT(matrix 42)
 COMPILE(pipeline [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64:
-  config=Config {apply:fn(value):value*2}
+  config=Config {apply:fn(value):return value*2}
   first=10 -> config.apply()
   second=11 -> config.apply
-  first+second
+  return first+second
 ]=])
 EXPECT(pipeline 42)
 COMPILE(empty-enum [=[enum Choice:
@@ -159,7 +159,7 @@ COMPILE(empty-enum [=[enum Choice:
     callback:fn(i64)->i64
 fn main()->i64:
   choice=Choice.Empty
-  match choice:
+  return match choice:
     Choice.Empty:42
     Choice.Some {callback}:callback(21)
 ]=])
@@ -170,10 +170,10 @@ COMPILE(enum-signatures [=[enum Choice:
   Text:
     callback:fn(String)->i64
 fn select(flag:bool)->Choice:
-  if flag:Choice.Number {callback:fn(value):value*2}
-  else:Choice.Text {callback:fn(text):length(text)+40}
+  return if flag:Choice.Number {callback:fn(value):return value*2}
+  else:Choice.Text {callback:fn(text):return length(text)+40}
 fn main()->i64:
-  match select(false):
+  return match select(false):
     Choice.Number {callback}:callback(21)
     Choice.Text {callback}:callback("é!")
 ]=])
@@ -187,10 +187,10 @@ error B:
   Missing
 type Both=B | A | B
 fn raise(offset:i64)->i64 ! Both:
-  fail A.Bad {config:Config {apply:fn(value):offset+value}}
+  fail A.Bad {config:Config {apply:fn(value):return offset+value}}
 fn main()->i64:
-  raise(20) catch fn(error):
-    match error:
+  return raise(20) catch fn(error):
+    return match error:
       A.Bad {config}:config.apply(22)
       B.Missing:0
 ]=])
@@ -206,13 +206,13 @@ fn main()->i64:
   offset:i64=42
   factory=fn(blocked:bool)->(fn(i64)->i64 ! E) ! BuildError:
     if blocked:fail BuildError.Disabled
-    fn(value:i64)->i64 ! E:
+    return fn(value:i64)->i64 ! E:
       if value==0:fail E.Bad {value:offset}
-      value
+      return value
   config=Config {make:factory}
-  f=config.make(false) catch fn(error):fn(value:i64)->i64 ! E:value
-  f(0) catch fn(error):
-    match error:
+  f=config.make(false) catch fn(error):return fn(value:i64)->i64 ! E:return value
+  return f(0) catch fn(error):
+    return match error:
       E.Bad {value}:value
 ]=])
 EXPECT(factory-field 42)
@@ -225,10 +225,10 @@ COMPILE(mixed-fields [=[type Config:
 fn main()->i64:
   offset:i64=20
   second=fn(flag:bool)->i64:
-    if flag:1
+    return if flag:1
     else:0
-  config=Config {label:"é!",enabled:true,apply:fn(value):offset+value,values:[19],second:second}
-  config.apply(config.values[0])+config.second(config.enabled)+length(config.label)
+  config=Config {label:"é!",enabled:true,apply:fn(value):return offset+value,values:[19],second:second}
+  return config.apply(config.values[0])+config.second(config.enabled)+length(config.label)
 ]=])
 EXPECT(mixed-fields 42)
 COMPILE(worker-recovery [=[type Config:
@@ -237,13 +237,13 @@ error E:
   Bad:
     config:Config
 fn raise(offset:i64)->i64 ! E:
-  fail E.Bad {config:Config {apply:fn(value):offset+value}}
+  fail E.Bad {config:Config {apply:fn(value):return offset+value}}
 fn worker(offset:i64)->i64:
-  raise(offset) catch fn(error):
-    match error:
+  return raise(offset) catch fn(error):
+    return match error:
       E.Bad {config}:config.apply(22)
 fn main()->i64 ! TaskError:
-  try parallel:
+  return try parallel:
     try await spawn worker(20)
 ]=])
 EXPECT(worker-recovery 42)
@@ -255,29 +255,29 @@ fn make()->Config ! E:
   fail E.Bad
 fn main()->i64:
   offset:i64=20
-  config=make() catch fn(error):Config {apply:fn(value):value+offset}
-  config.apply(22)
+  config=make() catch fn(error):return Config {apply:fn(value):return value+offset}
+  return config.apply(22)
 ]=])
 EXPECT(recovery-result 42)
 COMPILE(selected-field [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64:
   offset:i64=20
-  first=Config {apply:fn(value):value+offset}
-  second=Config {apply:fn(value):value*2}
+  first=Config {apply:fn(value):return value+offset}
+  second=Config {apply:fn(value):return value*2}
   config=if length("é")==1:first
   else:second
   alias=config.apply
-  alias(22)
+  return alias(22)
 ]=])
 EXPECT(selected-field 42)
 COMPILE(string-result [=[type Config:
   apply:fn(String)->String
 fn make(prefix:String)->Config:
-  Config {apply:fn(value):prefix+value}
+  return Config {apply:fn(value):return prefix+value}
 fn main()->i64:
   config=make("é"+"!")
-  length(config.apply("🙂"))+39
+  return length(config.apply("🙂"))+39
 ]=])
 EXPECT(string-result 42)
 COMPILE(direct-error-field [=[error A:
@@ -287,10 +287,10 @@ error B:
   Missing
 type Both=B | A
 fn raise(offset:i64)->i64 ! Both:
-  fail A.Bad {callback:fn(value):offset+value}
+  fail A.Bad {callback:fn(value):return offset+value}
 fn main()->i64:
-  raise(20) catch fn(error):
-    match error:
+  return raise(20) catch fn(error):
+    return match error:
       A.Bad {callback}:callback(22)
       B.Missing:0
 ]=])
@@ -300,12 +300,12 @@ COMPILE(raw-owned [=[type Config:
 fn make()->Config:
   text="é"+"!"
   values:[i64]=[20,20]
-  Config {apply:fn(value):values[0]+values[1]+length(text)+value}
+  return Config {apply:fn(value):return values[0]+values[1]+length(text)+value}
 fn probe(input:i64)->i64:
   config=make()
-  config.apply(input-40)
+  return config.apply(input-40)
 fn main()->i64:
-  probe(40)
+  return probe(40)
 ]=] --test-entry probe)
 EXPECT(raw-owned 42)
 COMPILE(returned-probe [=[type Row:
@@ -315,17 +315,17 @@ type Config:
   apply:fn(i64)->i64
 fn make(offset:i64)->Config:
   row=Row {text:"é"+"!",values:[10,20]}
-  Config {apply:fn(value):row.values[0]+row.values[1]+length(row.text)+offset+value}
+  return Config {apply:fn(value):return row.values[0]+row.values[1]+length(row.text)+offset+value}
 fn main()->i64:
   config=make(10)
-  config.apply(0)
+  return config.apply(0)
 ]=] --test-entry make)
 EXPECT(returned-probe 42)
 COMPILE(raw-fault [=[fn make(base:i64)->Config:
   callback=fn(value:i64):
     adjusted=base+1
     return adjusted/value
-  Config {apply:callback}
+  return Config {apply:callback}
 type Config:
   apply:fn(i64)->i64
 fn probe(input:i64)->i64:
@@ -348,8 +348,8 @@ RUN_OK("${OUTPUT_DIR}/raw-fault-harness")
 file(WRITE "${OUTPUT_DIR}/reject-wrong-parameter.k" [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64:
-  config=Config {apply:fn(value:f64)->f64:value}
-  0
+  config=Config {apply:fn(value:f64)->f64:return value}
+  return 0
 ]=])
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/reject-wrong-parameter.k" -o "${OUTPUT_DIR}/reject-wrong-parameter" RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
 if(NOT "${STATUS}" STREQUAL "1")
@@ -358,8 +358,8 @@ endif()
 file(WRITE "${OUTPUT_DIR}/reject-wrong-result.k" [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64:
-  config=Config {apply:fn(value:i64)->f64:f64(value)}
-  0
+  config=Config {apply:fn(value:i64)->f64:return f64(value)}
+  return 0
 ]=])
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/reject-wrong-result.k" -o "${OUTPUT_DIR}/reject-wrong-result" RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
 if(NOT "${STATUS}" STREQUAL "1")
@@ -370,8 +370,8 @@ file(WRITE "${OUTPUT_DIR}/reject-wrong-channel.k" [=[error E:
 type Config:
   apply:fn(i64)->i64
 fn main()->i64:
-  config=Config {apply:fn(value:i64)->i64 ! E:value}
-  0
+  config=Config {apply:fn(value:i64)->i64 ! E:return value}
+  return 0
 ]=])
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/reject-wrong-channel.k" -o "${OUTPUT_DIR}/reject-wrong-channel" RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
 if(NOT "${STATUS}" STREQUAL "1")
@@ -380,9 +380,9 @@ endif()
 file(WRITE "${OUTPUT_DIR}/reject-wrong-update.k" [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64:
-  config=Config {apply:fn(value):value}
-  updated=config with {apply:fn(value:f64):value}
-  0
+  config=Config {apply:fn(value):return value}
+  updated=config with {apply:fn(value:f64):return value}
+  return 0
 ]=])
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/reject-wrong-update.k" -o "${OUTPUT_DIR}/reject-wrong-update" RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
 if(NOT "${STATUS}" STREQUAL "1")
@@ -403,8 +403,8 @@ file(WRITE "${OUTPUT_DIR}/reject-unhandled.k" [=[error E:
 type Config:
   apply:fn(i64)->i64 ! E
 fn main()->i64:
-  config=Config {apply:fn(value:i64)->i64 ! E:value}
-  config.apply(42)+1
+  config=Config {apply:fn(value:i64)->i64 ! E:return value}
+  return config.apply(42)+1
 ]=])
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/reject-unhandled.k" -o "${OUTPUT_DIR}/reject-unhandled" RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
 if(NOT "${STATUS}" STREQUAL "1")
@@ -414,8 +414,8 @@ file(WRITE "${OUTPUT_DIR}/reject-enum-outside-match.k" [=[enum Choice:
   Some:
     callback:fn(i64)->i64
 fn main()->i64:
-  choice=Choice.Some {callback:fn(value):value}
-  choice.callback(42)
+  choice=Choice.Some {callback:fn(value):return value}
+  return choice.callback(42)
 ]=])
 execute_process(COMMAND "${COMPILER}" "${OUTPUT_DIR}/reject-enum-outside-match.k" -o "${OUTPUT_DIR}/reject-enum-outside-match" RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
 if(NOT "${STATUS}" STREQUAL "1")
@@ -435,7 +435,7 @@ endif()
 file(WRITE "${OUTPUT_DIR}/reject-wrong-shape.k" [=[type Config:
   apply:fn(Tensor[i64,2])->i64
 fn sum(values:Tensor[i64,3])->i64:
-  reduceSum(values)
+  return reduceSum(values)
 fn main()->i64:
   config=Config {apply:sum}
   return 0
@@ -493,10 +493,10 @@ endif()
 COMPILE(supported-worker-argument [=[type Config:
   apply:fn(i64)->i64
 fn worker(config:Config)->i64:
-  config.apply(42)
+  return config.apply(42)
 fn main()->i64 ! TaskError:
-  config=Config {apply:fn(value):value}
-  try parallel:
+  config=Config {apply:fn(value):return value}
+  return try parallel:
     try await spawn worker(config)
 ]=])
 EXPECT(supported-worker-argument 42)
@@ -505,19 +505,19 @@ COMPILE(supported-worker-nested-array [=[type Config:
 type Outer:
   values:[Config]
 fn worker(outer:Outer)->i64:
-  outer.values[0].apply(42)
+  return outer.values[0].apply(42)
 fn main()->i64 ! TaskError:
-  outer=Outer {values:[Config {apply:fn(value):value}]}
-  try parallel:
+  outer=Outer {values:[Config {apply:fn(value):return value}]}
+  return try parallel:
     try await spawn worker(outer)
 ]=])
 EXPECT(supported-worker-nested-array 42)
 COMPILE(supported-worker-result [=[type Config:
   apply:fn(i64)->i64
 fn worker(value:i64)->Config:
-  Config {apply:fn(input):input+value}
+  return Config {apply:fn(input):return input+value}
 fn main()->i64 ! TaskError:
-  try parallel:
+  return try parallel:
     config=try await spawn worker(20)
     config.apply(22)
 ]=])
@@ -537,34 +537,34 @@ EXPECT(supported-worker-error-payload 42)
 COMPILE(supported-worker-map-capture [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64 ! TaskError:
-  config=Config {apply:fn(value):value*2}
-  try parallel:
-    values=try await spawn map([21],fn(value):config.apply(value))
+  config=Config {apply:fn(value):return value*2}
+  return try parallel:
+    values=try await spawn map([21],fn(value):return config.apply(value))
     values[0]
 ]=])
 EXPECT(supported-worker-map-capture 42)
 COMPILE(supported-worker-map-input [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64 ! TaskError:
-  configs=[Config {apply:fn(value):value*2}]
-  try parallel:
-    values=try await spawn map(configs,fn(config):config.apply(21))
+  configs=[Config {apply:fn(value):return value*2}]
+  return try parallel:
+    values=try await spawn map(configs,fn(config):return config.apply(21))
     values[0]
 ]=])
 EXPECT(supported-worker-map-input 42)
 COMPILE(supported-worker-query [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64 ! TaskError:
-  configs=[Config {apply:fn(value):value}]
-  try parallel:
+  configs=[Config {apply:fn(value):return value}]
+  return try parallel:
     try await spawn length(configs)
 ]=])
 EXPECT(supported-worker-query 1)
 COMPILE(supported-worker-slice [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64 ! TaskError:
-  configs=[Config {apply:fn(value):value}]
-  try parallel:
+  configs=[Config {apply:fn(value):return value}]
+  return try parallel:
     values=try await spawn slice(configs,0,1)
     length(values)
 ]=])
@@ -572,8 +572,8 @@ EXPECT(supported-worker-slice 1)
 COMPILE(supported-worker-concat [=[type Config:
   apply:fn(i64)->i64
 fn main()->i64 ! TaskError:
-  configs=[Config {apply:fn(value):value}]
-  try parallel:
+  configs=[Config {apply:fn(value):return value}]
+  return try parallel:
     values=try await spawn concat(configs,configs)
     length(values)
 ]=])

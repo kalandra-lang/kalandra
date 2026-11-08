@@ -81,7 +81,7 @@ fn main()->i64 ! TaskError:
         remote = f'''fn fresh(values:[{numeric}])->[{numeric}]:
   result=sorted(values)
   result[0]={numeric}(7)
-  result
+  return result
 fn remote(values:[{numeric}])->[{numeric}] ! TaskError:
   return try parallel:
     try await spawn fresh(values) on devices.cpu()

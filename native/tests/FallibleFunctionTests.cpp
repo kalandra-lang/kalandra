@@ -110,7 +110,7 @@ void negative() {
         "fn main()->i64:\n  f=checked\n  return f() catch fn(error):return 0\n",
         "fn use(f:fn(i64)->i64 ! Missing)->i64:\n  return 0\nfn main()->i64:\n  return 0\n",
         "fn main()->i64:\n  f=checked\n  result=map([1],f)\n  return result[0]\n",
-        "fn create()->(fn(i64)->i64 ! E) ! E:\n  fail E.Bad {value:42}\nfn main()->i64:\n  "
+        "fn create()->(fn(i64)->i64 ! E) ! E:\n  fail E.Bad {value:42}\nfn main()->i64:\n  return "
         "f=create()\n  return f(1) catch fn(error):return 0\n",
         "fn use(f:fn(i64)->i64 ! E)->i64 ! E:\n  return try f(1)\nfn main()->i64:\n  return use(1) catch "
         "fn(error):return 0\n"}) {

@@ -49,7 +49,7 @@ def main():
         host=(bundle/'host.cpp').read_text()
         assert 'products=std::array<m::MatrixProduct,4>{{{0,1},{3,3},{4,2},{0,5},}}' in host
         cpu_source=build/'cpu.k'
-        cpu_source.write_text((src/'ResidualFfn.k').read_text().split('fn main()')[0]+'fn main() -> f32:\n  0\n')
+        cpu_source.write_text((src/'ResidualFfn.k').read_text().split('fn main()')[0]+'fn main() -> f32:\n  return 0\n')
         flags=['-std=c++23','-O2','-DNDEBUG','-ffp-contract=off','-pthread','-Wno-override-module']
         for name,entry,extra in [('cpu','project',[]),('cpu-dump','cells',['-DDUMP_CELLS'])]:
             ir=build/(name+'.ll')

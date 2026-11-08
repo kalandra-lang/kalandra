@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
     references(code, code.find("Some:", some + 1), 0);
     definition(code, code.find("Choice.Empty") + 7, empty);
     references(code, empty, 1);
-    const auto field = code.find("value:int"), otherField = code.find("value:int", field + 1);
+    const auto field = code.find("value:i64"), otherField = code.find("value:i64", field + 1);
     const auto label = code.find("value:item"), binding = code.find("item}"),
                capture = code.find("item\n");
     definition(code, label, field);
@@ -80,11 +80,11 @@ int main(int argc, char **argv) {
     const auto shorthand = code.find("{value}") + 1, use = code.find("}:value") + 2;
     definition(code, shorthand, shorthand);
     definition(code, use, shorthand);
-    hover(code, shorthand, "value: int64");
+    hover(code, shorthand, "value: i64");
     references(code, shorthand, 1);
     references(code, shorthand, 2, true);
     references(code, otherField, 2); // Includes the shorthand field role and constructor label.
-    const auto outer = code.find("value:int", code.find("fn inspect"));
+    const auto outer = code.find("value:i64", code.find("fn inspect"));
     definition(code, code.find("Empty:value") + 6, outer);
     references(code, outer, 1);
     references(code, other, 2);
@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
       out.close();
       require(bool(out), "fixture write");
     };
-    const std::string library = "export enum Choice:\n  Empty\n  Some:\n    value:int\n";
+    const std::string library = "export enum Choice:\n  Empty\n  Some:\n    value:i64\n";
     write("library.k", library);
     write("facade.k", "export from \"./library.k\" import Choice as PublicChoice\n");
     const std::string caller =
@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
     require(refs && refs->size() == 3, "imported variant references");
     target = lsp::definition(load(), (root / "main.k").string(), caller.find("value:bound"));
     require(target && target->source->path() == (root / "library.k").string() &&
-                target->span.begin == library.find("value:int"),
+                target->span.begin == library.find("value:i64"),
             "imported payload target");
     refs = lsp::references(load(), *target, false);
     require(refs && refs->size() == 2, "imported payload references");

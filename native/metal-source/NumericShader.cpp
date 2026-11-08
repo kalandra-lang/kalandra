@@ -1822,7 +1822,10 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
     roles.push_back(tensorResult   ? InputABI::FirstResultRole + root.resultType.shape.size()
                     : exportResult ? runtime::DeviceArrayWireABI::ExportRole
                                    : 0);
-  if (!root.parameters.empty() || exportResult || callFrames) {
+  // A zero-argument scalar entry can still need heap-backed call frames.
+  // Its sole arena role is zero, which has no encoded role suffix in the
+  // shared runtime kernel-name protocol.
+  if (std::ranges::any_of(roles, [](auto role) { return role != 0; })) {
     name += "_d_";
     for (auto role : roles)
       name += InputABI::encode(role);
@@ -3409,9 +3412,12 @@ emitScalarControlShader(const TypedModule &input, FunctionId function, Arithmeti
       } else if (op.code == C::Branch)
         next =
             arith::SelectOp::create(b, loc, read(op.args.at(0)).value, next, constant(op.jump + 1));
-      else if (op.code == C::Jump)
+      else if (op.code == C::Jump) {
+        chargeAggregate(op.collections.size());
+        for (auto collection : op.collections)
+          store(offsets.at(collection), constant(0));
         next = constant(op.jump + 1);
-      else if (op.code == C::Return)
+      } else if (op.code == C::Return)
         next = emitEntryReturn();
       else if (op.code != C::Label) {
         std::vector<ShaderValue> arguments;

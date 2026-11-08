@@ -12,13 +12,13 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    const std::string record = "type Row:\n  text:[String]\n  values:[int]\n";
+    const std::string record = "type Row:\n  text:[String]\n  values:[i64]\n";
     for (auto element :
          {"i32", "u32", "i64", "u64", "f32", "f64", "bool", "String", "Row"})
       for (auto bound : {"i32", "u32", "i64", "u64"}) {
         auto result =
             analyze(record + "fn part(values:[" + element + "],start:" + bound + ",end:" + bound +
-                    ")->[" + element + "]:\n  slice(values,start,end)\nfn main()->i64:\n  0\n");
+                    ")->[" + element + "]:\n  slice(values,start,end)\nfn main()->i64:\n  return 0\n");
         require(result.ok(), "valid array/bound combination rejected");
         const auto id = result.module->functions[0].result;
         require(std::holds_alternative<ArraySlice>(result.module->expressions[id].operation),

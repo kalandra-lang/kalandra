@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
     require(refs && refs->size() == 7, "imported annotation/constructor references");
     auto field = lsp::definition(syntax(), path, typed.find("{value:") + 1);
     require(field && field->source->path() == (root / "library.k").string() &&
-                field->span.begin == library.find("value:int", library.find("type Box")),
+                field->span.begin == library.find("value:i64", library.find("type Box")),
             "imported update field target");
     write("main.k", "from \"./library.k\" import missing\nfn main():\n  return 0\n");
     require(!lsp::definition(syntax(), path, 27), "invalid import leaked partial navigation");

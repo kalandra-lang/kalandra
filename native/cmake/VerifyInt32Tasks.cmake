@@ -43,7 +43,9 @@ string(REGEX REPLACE "    value\n$" "    real\n" SOURCE "${SOURCE}")
 COMPILE(mixed-float-root "${SOURCE}")
 VERIFY(mixed-float-root 3)
 file(READ "${OUTPUT_DIR}/mixed.ll" MIXED_IR)
-if(NOT MIXED_IR MATCHES "result.scalar.${NUMERIC_TYPE}" OR NOT MIXED_IR MATCHES "value.layout.scalar.${NUMERIC_TYPE}" OR
+string(REGEX REPLACE "^i" "int" NUMERIC_STORAGE_TYPE "${NUMERIC_TYPE}")
+string(REGEX REPLACE "^u" "uint" NUMERIC_STORAGE_TYPE "${NUMERIC_STORAGE_TYPE}")
+if(NOT MIXED_IR MATCHES "result.scalar.${NUMERIC_STORAGE_TYPE}" OR NOT MIXED_IR MATCHES "value.layout.scalar.${NUMERIC_STORAGE_TYPE}" OR
    NOT MIXED_IR MATCHES "value.layout.scalar\"? =" OR NOT MIXED_IR MATCHES "task.frame")
   message(FATAL_ERROR "Mixed numeric frames/packets/layouts lost distinct integer/float identity")
 endif()
@@ -87,7 +89,7 @@ foreach(OP IN ITEMS add sub mul div rem neg)
       KALANDRA_TEST_REPORT_CLEANUP=1 "${OUTPUT_DIR}/${OP}-fault"
       RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
     if(NOT "${STATUS}" STREQUAL "88" OR NOT OUT STREQUAL "" OR
-       NOT ERR MATCHES "TaskError.Fault at source 2:3" OR NOT ERR MATCHES "cleanup: live=0")
+       NOT ERR MATCHES "TaskError.Fault at source 2:10" OR NOT ERR MATCHES "cleanup: live=0")
       message(FATAL_ERROR "Integer task ${OP} fault/source/cleanup: ${STATUS}: ${OUT}${ERR}")
     endif()
   endforeach()

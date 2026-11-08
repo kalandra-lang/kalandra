@@ -145,9 +145,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.finish()
 
     # Placement mode uses the shared checker without accessing GPU hardware.
-    placement = ('fn double(x:f32)->f32:\n  return x*2\n'
-                 "fn main()->f32 ! TaskError:\n  try parallel:\n"
-                 "    try await spawn double(2) on devices.gpu()\n")
+    placement = ('fn double(x:f32)->f32:\n  return x*2\nfn main()->f32 ! TaskError:\n  return try parallel:\n    try await spawn double(2) on devices.gpu()\n')
     for args, expected_error in (((), True), (("--placement",), False)):
         client = Client(*args)
         client.init()
@@ -157,11 +155,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # A CPU-created closure is legal at GPU placement; its captured array stays
     # read-locked through aliases until the task has been awaited.
-    closure = ('fn apply(callback:fn(i64)->i64)->i64:\n  return callback(1)\n'
-               "fn main()->i64 ! TaskError:\n  values=[7,11]\n"
-               "  alias=values\n  callback=fn(n:i64):n+values[0]\n  try parallel:\n"
-               "    pending=spawn apply(callback) on devices.gpu()\n"
-               "    result=try await pending\n    alias[0]=99\n    result\n")
+    closure = ('fn apply(callback:fn(i64)->i64)->i64:\n  return callback(1)\nfn main()->i64 ! TaskError:\n  values=[7,11]\n  alias=values\n  callback=fn(n:i64):return n+values[0]\n  return try parallel:\n    pending=spawn apply(callback) on devices.gpu()\n    result=try await pending\n    alias[0]=99\n    result\n')
     for source, rejected in ((closure, False),
                              (closure.replace('    result=try await pending\n    alias[0]=99',
                                               '    alias[0]=99\n    result=try await pending'), True)):
@@ -176,11 +170,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
         client.finish()
 
     # Local device records use the same typed admission and nominal hover data.
-    device_record = ("type Row:\n  value:i64\n  enabled:bool\n"
-                     "fn work(n:i64)->i64:\n  row=Row {value:n,enabled:true}\n"
-                     "  if row.enabled:row.value\n  else:0\n"
-                     "fn main()->i64 ! TaskError:\n  try parallel:\n"
-                     "    try await spawn work(42) on devices.gpu()\n")
+    device_record = ('type Row:\n  value:i64\n  enabled:bool\nfn work(n:i64)->i64:\n  row=Row {value:n,enabled:true}\n  return if row.enabled:row.value\n  else:0\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn work(42) on devices.gpu()\n')
     client = Client("--placement")
     client.init()
     client.open(main, device_record)
@@ -191,16 +181,8 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # CPU-owned data may coexist with device work; that does not make the
     # recursive/String storage a device value. Checking never probes hardware.
     for owned_record in (
-        'type Message:\n  text:String\nfn make()->Message:\n  return Message {text:"Kalandra"}\n'
-        'fn size(message:Message)->i64:\n  return length(message.text)\n'
-        'fn work(n:i64)->i64:\n  return n\nfn main()->i64 ! TaskError:\n  value=make()\n'
-        '  try parallel:\n    try await spawn work(size(value)) on devices.gpu()\n',
-        'enum Link:\n  End\n  Next:\n    value:i64\n    tail:Link\n'
-        'fn size(link:Link)->i64:\n  return match link:\n    Link.End:0\n'
-        '    Link.Next {value,tail}:value+size(tail)\n'
-        'fn work(n:i64)->i64:\n  n\nfn main()->i64 ! TaskError:\n'
-        '  value=Link.Next {value:42,tail:Link.End}\n  try parallel:\n'
-        '    try await spawn work(size(value)) on devices.gpu()\n',
+        'type Message:\n  text:String\nfn make()->Message:\n  return Message {text:"Kalandra"}\nfn size(message:Message)->i64:\n  return length(message.text)\nfn work(n:i64)->i64:\n  return n\nfn main()->i64 ! TaskError:\n  value=make()\n  return try parallel:\n    try await spawn work(size(value)) on devices.gpu()\n',
+        'enum Link:\n  End\n  Next:\n    value:i64\n    tail:Link\nfn size(link:Link)->i64:\n  return match link:\n    Link.End:0\n    Link.Next {value,tail}:value+size(tail)\nfn work(n:i64)->i64:\n  return n\nfn main()->i64 ! TaskError:\n  value=Link.Next {value:42,tail:Link.End}\n  return try parallel:\n    try await spawn work(size(value)) on devices.gpu()\n',
     ):
         client = Client("--placement")
         client.init()
@@ -215,12 +197,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
 
     # Device-local arrays and ordered collectors share the ordinary array type
     # and access diagnostics. Editor checking never initializes a GPU driver.
-    device_arrays = ("fn work(n:i64)->i64:\n"
-                     "  values=for i in range(n):\n    if i%2==1:\n      yield i\n"
-                     "  snapshot=copy(values)\n"
-                     "  if length(values)>0:\n    values[0]=99\n  length(snapshot)\n"
-                     "fn main()->i64 ! TaskError:\n  try parallel:\n"
-                     "    try await spawn work(10) on devices.gpu()\n")
+    device_arrays = ('fn work(n:i64)->i64:\n  values=for i in range(n):\n    if i%2==1:\n      yield i\n  snapshot=copy(values)\n  if length(values)>0:\n    values[0]=99\n  return length(snapshot)\nfn main()->i64 ! TaskError:\n  return try parallel:\n    try await spawn work(10) on devices.gpu()\n')
     client = Client("--placement")
     client.init()
     client.open(main, device_arrays)
@@ -228,9 +205,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert client.hover(main, 4, 4)["result"]["contents"]["value"] == "snapshot: [i64]"
     client.finish()
 
-    device_boolean = ('fn predicate(flag:bool)->bool:\n  return flag\n'
-                      "fn main()->bool ! TaskError:\n  try parallel:\n"
-                      "    result=try await spawn predicate(true) on devices.gpu()\n    result\n")
+    device_boolean = ('fn predicate(flag:bool)->bool:\n  return flag\nfn main()->bool ! TaskError:\n  return try parallel:\n    result=try await spawn predicate(true) on devices.gpu()\n    result\n')
     client = Client("--placement")
     client.init()
     client.open(main, device_boolean)
@@ -423,10 +398,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     # Enum cases and shorthand pattern tokens retain both field and local roles.
     client = Client()
     client.init()
-    enum = ("enum Signal:\n  Off\n  Sample:\n    value:i64\n"
-            "fn read(signal:Signal)->i64:\n  match signal:\n"
-            "    Signal.Sample {value}:value\n    Signal.Off:0\n"
-            'fn main():\n  return read(Signal.Sample {value:2})\n')
+    enum = ('enum Signal:\n  Off\n  Sample:\n    value:i64\nfn read(signal:Signal)->i64:\n  return match signal:\n    Signal.Sample {value}:value\n    Signal.Off:0\nfn main():\n  return read(Signal.Sample {value:2})\n')
     client.open(main, enum)
     pattern = enum.splitlines()[6]
     case = pattern.index("Sample")
@@ -459,8 +431,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     enum_lib.write_text(enum_text)
     enum_facade = root / "enum-public.k"
     enum_facade.write_text('export from "./enum space#é.k" import Signal as PublicSignal\n')
-    enum_caller = ('from "./enum-public.k" import PublicSignal as S\nfn main()->i64:\n'
-                   '  match S.Sample {value:2}:\n    S.Sample {value:item}:item\n    _:0\n')
+    enum_caller = ('from "./enum-public.k" import PublicSignal as S\nfn main()->i64:\n  return match S.Sample {value:2}:\n    S.Sample {value:item}:item\n    _:0\n')
     client = Client()
     client.init()
     client.open(main, enum_caller)
@@ -784,8 +755,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     pattern_root = root / "rename-patterns"
     pattern_root.mkdir()
     pattern_file = pattern_root / "main.k"
-    pattern_source = ('enum Box:\n  Some:\n    value:i64\nfn read(box:Box)->i64:\n'
-                      '  match box:\n    Box.Some {value}:value\nfn main():\n  read(Box.Some {value:2})\n')
+    pattern_source = ('enum Box:\n  Some:\n    value:i64\nfn read(box:Box)->i64:\n  return match box:\n    Box.Some {value}:value\nfn main():\n  return read(Box.Some {value:2})\n')
     pattern_file.write_text(pattern_source)
     client = Client()
     client.init(rename=True, rootUri=pattern_root.as_uri())
@@ -803,7 +773,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     capture_root = root / "rename-capture"
     capture_root.mkdir()
     capture_file = capture_root/"main.k"
-    capture_source = 'fn main():\n  value=1\n  read=fn(other:i64):return value+other\n  read(2)\n'
+    capture_source = 'fn main():\n  value=1\n  read=fn(other:i64):return value+other\n  return read(2)\n'
     capture_file.write_text(capture_source)
     client = Client()
     client.init(rename=True, rootUri=capture_root.as_uri())
@@ -906,9 +876,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     # Named construction labels add a colon only when absent, without dummy values.
     library.write_text("export type Box:\n  value:i64\n  other:i64\n")
-    text = ('from "./library.k" import Box\n'
-            'fn join(text:String,value:Box):\n  return value\n'
-            'fn main():\n  join("😀", Box { vaSuffix, other:2 })\n')
+    text = ('from "./library.k" import Box\nfn join(text:String,value:Box):\n  value\nfn main():\n  join("😀", Box { vaSuffix, other:2 })\n')
     client.change(document, text, 7)
     client.barrier()
     line = text.splitlines()[4]
@@ -932,9 +900,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.barrier()
     # Pattern labels preserve shorthand and explicit local binder names.
     library.write_text("export enum Choice:\n  Some:\n    value:i64\n    count:i64\n  Other\n")
-    text = ('from "./library.k" import Choice as Pick\n'
-            'fn inspect(p:Pick):\n  return match p:\n    Pick.Some {vaSuffix, count:total}: 0\n'
-            '    Pick.Other: 0\nfn main():\n  0\n')
+    text = ('from "./library.k" import Choice as Pick\nfn inspect(p:Pick):\n  return match p:\n    Pick.Some {vaSuffix, count:total}: 0\n    Pick.Other: 0\nfn main():\n  return 0\n')
     client.change(document, text, 9)
     client.barrier()
     start = text.splitlines()[3].index("vaSuffix")
@@ -1147,8 +1113,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     client.change(call_library, call_library_text, 2)
     client.barrier()
     assert client.completion(signature_document, 3, 13)["result"]["items"][0]["label"] == "earlier"
-    unicode_call = ('fn join(text:String,left:i64,right:i64)->i64:\n  return left+right\n'
-                    'fn main():\n  earlier=2\n  join("😀", ear\n')
+    unicode_call = ('fn join(text:String,left:i64,right:i64)->i64:\n  left+right\nfn main():\n  earlier=2\n  join("😀", ear\n')
     client.change(signature_document, unicode_call, 2)
     client.barrier()
     line = unicode_call.splitlines()[4]
@@ -1170,10 +1135,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     receiver_library.write_text(receiver_text)
     client = Client()
     client.init(signature_offsets=True)
-    member_text = ('from "./higher-order.k" import make as factory\n'
-                   'from "./signature-record.k" import Reading\n'
-                   'fn main():\n  reading=Reading {value:2}\n'
-                   '  unused="😀"\n  factory()(1, reading.vaSuffix)\n')
+    member_text = ('from "./higher-order.k" import make as factory\nfrom "./signature-record.k" import Reading\nfn main():\n  reading=Reading {value:2}\n  unused="😀"\n  return factory()(1, reading.vaSuffix)\n')
     client.open(signature_document, member_text)
     client.barrier()
     line = member_text.splitlines()[5]
@@ -1345,7 +1307,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     assert [item["label"] for item in result["items"]] == ["Failure","Parcel"], result
     client.change(exports_library, exports_text, 2)
     client.barrier()
-    accepted = 'from "./facade-completion.k" import twice as run\nfn main():\n  run(21)\n'
+    accepted = 'from "./facade-completion.k" import twice as run\nfn main():\n  return run(21)\n'
     client.change(signature_document, accepted, 3)
     assert not publications(client.barrier())[signature_document.as_uri()]["diagnostics"]
     assert client.hover(signature_document, 2, 3)["result"] is not None
@@ -1685,8 +1647,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     matrix_library_text = 'export fn read()->Tensor[i64,1,2]:\n  return tensor([1,2],[1,2])\n'
     matrix_library.write_text(matrix_library_text)
     version += 1
-    imported_matrix = ('from "./matrix-signatures.k" import read\nfn main():\n'
-                       '  matmul(read(),tensor([3,4],[2,1]))\n')
+    imported_matrix = ('from "./matrix-signatures.k" import read\nfn main():\n  return matmul(read(),tensor([3,4],[2,1]))\n')
     client.change(signature_document, imported_matrix, version)
     client.barrier()
     cursor = imported_matrix.splitlines()[2].index(',')+1
@@ -1860,8 +1821,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     selector_library = Path(temp) / 'selector-completion.k'
     selector_library_text = 'export fn choose():\n  target=devices.gpu()\n  return 0\n'
     selector_library.write_text(selector_library_text)
-    imported_selector = ('from "./selector-completion.k" import choose\nfn main():\n'
-                         '  target=devices.gSuffix()\n  choose()\n')
+    imported_selector = ('from "./selector-completion.k" import choose\nfn main():\n  target=devices.gSuffix()\n  return choose()\n')
     client.change(signature_document, imported_selector, 7)
     client.barrier()
     assert client.completion(signature_document, 2, imported_selector.splitlines()[2].index('gSuffix')+1)["result"]["items"][0]["label"] == 'gpu'
@@ -2122,7 +2082,7 @@ with tempfile.TemporaryDirectory(dir=ROOT) as temp:
     signature_suffix_library = Path(temp) / 'signature-suffix.k'
     signature_suffix_library_text = ('export type Reading:\n  value:i64\n'
                                      'export fn read():\n  return Reading {value:2}\n'
-                                     'export fn combine(left:i64,right:i64):\n  right\n')
+                                     'export fn combine(left:i64,right:i64):\n  return right\n')
     signature_suffix_library.write_text(signature_suffix_library_text)
     suffix_text = ('# 👩\nfrom "./signature-suffix.k" import read, combine as calculate\n'
                    'fn main():\n  reading=read()\n  calculate(1,reading.vaSuffix\n')

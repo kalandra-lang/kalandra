@@ -10,7 +10,7 @@ CASES = {
       break i*10
   else:
     7
-  result+i
+  return result+i
 ''', '44'),
     'while-zero': ('''fn main()->String:
   return while false:
@@ -202,7 +202,7 @@ fn main()->i64:
   else:
     counter=counter+1
     7
-  result+counter
+  return result+counter
 ''', '8'),
     'tensor-result': ('''fn main()->Tensor[i64,?]:
   return for value in [1]:
@@ -331,7 +331,7 @@ REJECTED = {
     'active-reader': 'fn work(values:[i64])->i64:\n  return values[0]\nfn main()->i64 ! TaskError:\n  values=[1]\n  return try parallel:\n    task=spawn work(values)\n    for i in range(3):\n      if i==1:\n        break\n    values[0]=2\n    try await task\n',
     'range-type': 'fn main()->i64:\n  for i in range(1.5):\n    i+1\n  return 0\n',
     'range-arity': 'fn main()->i64:\n  for i in range():\n    i+1\n  return 0\n',
-    'readonly-break-result': 'fn edit(input:[i64])->i64:\n  result=for i in range(1):\n    break input\n  else:\n    [0]\n  result[0]=1\n  result[0]\nfn main()->i64:\n  return edit([0])\n',
+    'readonly-break-result': 'fn edit(input:[i64])->i64:\n  result=for i in range(1):\n    break input\n  else:\n    [0]\n  result[0]=1\n  return result[0]\nfn main()->i64:\n  return edit([0])\n',
     'readonly-break-binding': 'fn edit(input:[i64])->i64:\n  local=[0]\n  for i in range(3):\n    local=input\n    break\n  local[0]=1\n  return local[0]\nfn main()->i64:\n  return edit([0])\n',
 
 }
@@ -343,7 +343,7 @@ CASES.update({
     for value in range(row):
       if value%2==0:
         yield row*10+value
-  results
+  return results
 ''', '[10, 20, 30, 32]'),
     'yield-while': ('''fn main()->[i64]:
   i=0
@@ -428,7 +428,7 @@ fn main()->i64:
       return for j in range(n):
         yield j
     yield length(callback(i))
-  results[2]
+  return results[2]
 ''', '2'),
     'yield-task': ('''fn identity(x:i64)->i64:
   return x

@@ -33,7 +33,7 @@ int main() {
          "E.Bad {value:42}\n  return value\nfn main()->i64:\n  f=fn(value:i64) ! E:\n    result=try "
          "checked(value)\n    return result+1\n  return f(0) catch fn(error):\n    return match error:\n      E.Bad "
          "{value}:value\n",
-         "error E:\n  Bad:\n    value:i64\nfn main()->i64:\n  f:fn(i64)->i64 ! E=fn(value) ! E:\n  "
+         "error E:\n  Bad:\n    value:i64\nfn main()->i64:\n  f:fn(i64)->i64 ! E=fn(value) ! E:\n  return "
          "  if value==0:fail E.Bad {value:42}\n    return value\n  return f(0) catch fn(error):\n    return match "
          "error:\n      E.Bad {value}:value\n",
          "error E:\n  Bad:\n    value:i64\nerror Other:\n  Bad:\n    text:String\ntype Both=Other "
@@ -41,7 +41,7 @@ int main() {
          "main()->i64:\n  f=fn(value:i64)->i64 ! (E | Other):\n    if value==0:fail Other.Bad "
          "{text:\"é\"+\"!\"}\n    return value\n  result=apply(f) catch fn(error):\n    return match error:\n    "
          "  Other.Bad {text}:length(text)+40\n      E.Bad {value}:value\n  return result\n",
-         "error E:\n  Bad:\n    value:i64\nerror BuildError:\n  Disabled\nfn main()->i64:\n  "
+         "error E:\n  Bad:\n    value:i64\nerror BuildError:\n  Disabled\nfn main()->i64:\n  return "
          "factory=fn(blocked:bool)->(fn(i64)->i64 ! E) ! BuildError:\n    if blocked:fail "
          "BuildError.Disabled\n    offset:i64=21\n    return fn(value:i64)->i64 ! E:\n      if "
          "value==0:fail E.Bad {value:offset}\n      return value+offset\n  f=factory(false) catch "
@@ -67,7 +67,7 @@ int main() {
          "value==0:fail E.Bad {value:21}\n    return value\n  recover=fn(value:i64)->i64:\n    return f(value) "
          "catch fn(error):return 21\n  result=map([0,21],recover)\n  return result[0]+result[1]\n",
          "fn divide(value:i64)->i64:\n  return 1/value\nfn attempt()->i64 ! TaskError:\n  return try parallel:\n "
-         "   try await spawn divide(0)\nfn recover(error:TaskError)->i64:\n  "
+         "   try await spawn divide(0)\nfn recover(error:TaskError)->i64:\n  return "
          "f=fn(cause:TaskError)->i64 ! TaskError:fail cause\n  return f(error) catch fn(cause):\n    return "
          "match cause:\n      TaskError.Fault {kind}:\n        match kind:\n          "
          "FaultKind.Arithmetic:42\n          _:0\n      _:0\nfn main()->i64:\n  return attempt() catch "
@@ -84,7 +84,7 @@ int main() {
          "! ReadError:\n    fail ReadError.Bad {reason:reason,numbers:numbers}\n  return try f()\nfn "
          "main()->i64:\n  f=probe\n  return 0\n",
          "error ReadError:\n  Missing\n  Bad:\n    reason:String\n    numbers:[i64]\nfn "
-         "probe()->i64 ! ReadError:\n  f=fn()->i64 ! ReadError:return 42\n  return try f()\nfn main()->i64:\n  "
+         "probe()->i64 ! ReadError:\n  f=fn()->i64 ! ReadError:return 42\n  return try f()\nfn main()->i64:\n  return "
          "f=probe\n  return 0\n",
          "error ReadError:\n  Missing\n  Bad:\n    reason:String\n    numbers:[i64]\n\n\nfn "
          "divide(value:i64)->i64:\n  return 1/value\nfn probe()->i64 ! ReadError:\n  f=fn(value:i64)->i64 "
@@ -106,7 +106,7 @@ int main() {
          "first+second\nfn main()->i64 ! (E | TaskError):\n  return try run()\n",
          "error E:\n  Bad\nfn main()->i64:\n  f=fn(value:i64) ! E:\n    adjusted=value+1\n    "
          "return adjusted*2\n  return f(20) catch fn(error):return 0\n",
-         "error E:\n  Bad\nerror BuildError:\n  Disabled\nfn main()->i64:\n  "
+         "error E:\n  Bad\nerror BuildError:\n  Disabled\nfn main()->i64:\n  return "
          "factory=fn(blocked:bool)->(fn(i64)->i64 ! E) ! BuildError:\n    if blocked:fail "
          "BuildError.Disabled\n    return fn(value:i64)->i64 ! E:return value\n  f=factory(true) catch "
          "fn(error):return fn(value:i64)->i64 ! E:return value*2\n  return f(21) catch fn(error):return 0\n",
@@ -146,11 +146,11 @@ int main() {
           "type A=B\ntype B=A\nfn main()->i64:\n  f=fn(value:i64)->i64 ! A:return value\n  return 0\n",
           "error E:\n  Bad\nfn main()->[i64]:\n  return map([1],fn(value:i64)->i64 ! E:return value)\n",
           "error E:\n  Bad\nfn main()->[i64]:\n  f=fn(value:i64)->i64 ! E:return value\n  return map([1],f)\n",
-          "error E:\n  Bad\nfn checked(value:i64)->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  "
+          "error E:\n  Bad\nfn checked(value:i64)->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  return "
           "f=fn(value:i64)->i64 ! E:\n    ignored=checked(value)\n    return value\n  return 0\n",
           "error E:\n  Bad\nfn main()->i64:\n  f=fn() ! E:fail E.Bad\n  return 0\n",
           "error E:\n  Bad\nfn main()->i64:\n  f=fn(value)->i64 ! E:return value\n  return 0\n",
-          "error E:\n  Bad\nfn checked()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  "
+          "error E:\n  Bad\nfn checked()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  return "
           "result=checked()\n  f=fn()->i64 ! E:return try result\n  return 0\n",
 
           "fn main()->i64:\n  f=fn()->fn(i64)->i64 ! E ! Other:0\n  0\n",

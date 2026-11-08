@@ -15,7 +15,7 @@ a = p.parse_args()
 a.output.mkdir(parents=True, exist_ok=True)
 root = Path(__file__).resolve().parents[2]
 source = a.output / 'remainder.k'
-source.write_text('fn run(a:i64,b:i64)->i64:\n  return a%b\nfn main()->i64:\n  run(37,7)\n')
+source.write_text('fn run(a:i64,b:i64)->i64:\n  return a%b\nfn main()->i64:\n  return run(37,7)\n')
 variants = [('debug', '-O0', ['-O0']), ('optimized', '-O2', ['-O2']),
             ('sanitized', '--sanitize', ['-O1', '-g', '-fsanitize=address,undefined',
              '-fno-sanitize-recover=all', '-fno-omit-frame-pointer'])]

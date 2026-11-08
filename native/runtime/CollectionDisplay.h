@@ -81,14 +81,14 @@ retainBoolForDisplay(Invocation &context, const cli::CollectionDescriptor &value
   return DisplayCollection{std::move(*lease), data, count};
 }
 inline bool printBoolArray(FILE *stream, const DisplayCollection &value,
-                           std::uint64_t limit = 100) noexcept {
+                           std::uint64_t limit = 100, bool unit = false) noexcept {
   if (std::fputs("[", stream) < 0)
     return false;
   const auto shown = std::min(value.count, limit);
   for (std::uint64_t i = 0; i < shown; ++i) {
     if (i && std::fputs(", ", stream) < 0)
       return false;
-    if (std::fputs(value.data[i] == std::byte{1} ? "true" : "false", stream) < 0)
+    if (std::fputs(unit ? "()" : value.data[i] == std::byte{1} ? "true" : "false", stream) < 0)
       return false;
   }
   if (shown < value.count && std::fputs(shown ? ", ..." : "...", stream) < 0)

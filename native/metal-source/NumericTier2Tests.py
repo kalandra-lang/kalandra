@@ -21,11 +21,11 @@ for name,width in ((n,w) for n,w in zip(names,widths)):
     body=f'{name}({expression})' if case!='empty-fault' else f'amount=7/scale\n  {name}({expression})+amount'
     params+=f',scale:{name}'
     text=f'''fn operation({params})->Tensor[{name},?]:
-  {body}
+  return {body}
 fn increment(value:i32)->i32:
-  value+1
+  return value+1
 fn main()->Tensor[{name},?] ! TaskError:
-  try parallel:
+  return try parallel:
     cpu=spawn increment(0)
     gpu=devices.gpu()
     values:Tensor[{name},{0 if empty else 1}]=tensor({'[]' if empty else '[1]'})

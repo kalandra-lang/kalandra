@@ -63,7 +63,7 @@ assert 'fcmp' in cpu('compare-hardware', comparison, expected='true')
 assert 'fcmp' not in cpu('compare-software', comparison, ('--arithmetic', 'software'), 'true')
 for name, expression in [('nan', 'int32(0.0/0.0)'), ('infinity', 'int32(1.0/0.0)'), ('overflow', 'float32(1.0e100)')]:
     result_type = 'f32' if name == 'overflow' else 'i32'
-    output = compile_source('fault-' + name, f'fn convert(x:f64)->{result_type}:\n  {result_type}(x)\nfn main()->{result_type}:\n  convert(' + ({'nan':'0.0/0.0','infinity':'1.0/0.0','overflow':'1.0e100'}[name]) + ')\n', '-O2')
+    output = compile_source('fault-' + name, f'fn convert(x:f64)->{result_type}:\n  return {result_type}(x)\nfn main()->{result_type}:\n  return convert(' + ({'nan':'0.0/0.0','infinity':'1.0/0.0','overflow':'1.0e100'}[name]) + ')\n', '-O2')
     result = command([output], ok=False)
     assert result.returncode > 0 and 'Arithmetic' in result.stderr, (name, result.stderr)
 # Bad/missing/duplicate policy flags must fail without replacing an existing output.
@@ -77,15 +77,15 @@ for flags in [('--arithmetic', 'unknown'), ('--arithmetic',), ('--arithmetic', '
 matrix = ('fn main()->f32:\n'
           '  a:Tensor[f32,2,3]=tensor([[1,2,3],[4,5,6]])\n'
           '  b:Tensor[f32,3,2]=tensor([[1,2],[3,4],[5,6]])\n'
-          '  reduceSum(matmul(a,b))\n')
+          '  return reduceSum(matmul(a,b))\n')
 for policy in ('optimized', 'fixed-tree'):
     cpu('cpu-matmul-' + policy, matrix, ('-O2', '--matmul-policy', policy), '163')
 print('CPU hardware/software arithmetic, workers, comparisons, checked casts, invalid flags: passed', flush=True)
 
 if args.gpu:
     def gpu_source(element):
-        return (f'fn work(a:Tensor[{element},?])->{element}:\n  reduceSum(((a*3+1)-a)/2)\n'
-                f'fn main()->{element} ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n'
+        return (f'fn work(a:Tensor[{element},?])->{element}:\n  return reduceSum(((a*3+1)-a)/2)\n'
+                f'fn main()->{element} ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n'
                 f'    values:Tensor[{element},3]=tensor([1,2,3])\n'
                 '    resident=try await transfer(values,gpu)\n'
                 '    try await spawn work(resident) on gpu\n')
@@ -112,8 +112,8 @@ if args.gpu:
     # Every integer width must use real Metal floating conversions in both directions.
     for numeric in ('i8', 'u8', 'i16', 'u16', 'i32', 'u32', 'i64', 'u64'):
         value = '2.75' if numeric.startswith('u') else '-2.75'
-        cast = (f'fn work(x:f32)->f32:\n  f32({numeric}(x))\n'
-                f'fn main()->f32 ! TaskError:\n  try parallel:\n    try await spawn work({value}) on devices.gpu()\n')
+        cast = (f'fn work(x:f32)->f32:\n  return f32({numeric}(x))\n'
+                f'fn main()->f32 ! TaskError:\n  return try parallel:\n    try await spawn work({value}) on devices.gpu()\n')
         output = compile_source('metal-cast-' + numeric, cast, '--target', 'metal', '-O2')
         expected = 2 if numeric.startswith('u') else -2
         assert command([output / 'program']).stdout.strip() == struct.pack('>f', expected).hex(), numeric
@@ -121,16 +121,15 @@ if args.gpu:
         assert ('arith.fptoui' if numeric.startswith('u') else 'arith.fptosi') in ir, numeric
         assert ('arith.uitofp' if numeric.startswith('u') else 'arith.sitofp') in ir, numeric
     for numeric, value in (('i8', '128'), ('u8', '-1')):
-        cast = (f'fn work(x:f32)->{numeric}:\n  {numeric}(x)\n'
-                f'fn main()->{numeric} ! TaskError:\n  try parallel:\n    try await spawn work({value}) on devices.gpu()\n')
+        cast = (f'fn work(x:f32)->{numeric}:\n  return {numeric}(x)\n'
+                f'fn main()->{numeric} ! TaskError:\n  return try parallel:\n    try await spawn work({value}) on devices.gpu()\n')
         output = compile_source('metal-cast-fault-' + numeric, cast, '--target', 'metal', '-O2')
         fault = command([output / 'program'], ok=False)
         assert fault.returncode == 1 and 'Metal task failed' in fault.stderr, (numeric, fault.stderr)
     print('Metal hardware float32, explicit float64 fallback, software mode and hardware casts: passed', flush=True)
 
 # Scalar/tensor float32 software mode must not leave vector hardware arithmetic behind.
-vector_source = ('fn multiply(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:\n'
-                 '  matmul(a,b)\nfn main()->f32:\n  0\n')
+vector_source = ('fn multiply(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  return matmul(a,b)\nfn main()->f32:\n  return 0\n')
 ir = cpu('software-vector', vector_source, ('--arithmetic', 'software', '--test-entry', 'multiply'))
 assert not re.search(r'\b(fadd|fsub|fmul|fdiv)\b', ir)
 if args.gpu:
@@ -139,14 +138,7 @@ if args.gpu:
     output = compile_source('metal-compare', comparison, '--target', 'metal', '-O2')
     assert command([output / 'program']).stdout.strip() == '3f800000'
     assert any('arith.cmpf' in p.read_text() for p in output.glob('kernel*.lowered.mlir'))
-    mixed = ('fn narrow(a:Tensor[f32,?])->f32:\n  reduceSum(a*2)\n'
-             'fn wide(a:Tensor[f64,?])->f64:\n  reduceSum(a*2)\n'
-             'fn cpu(a:f64)->f64:\n  return a*2\n'
-             'fn main()->f64 ! TaskError:\n  try parallel:\n    gpu=devices.gpu()\n'
-             '    a:Tensor[f32,1]=tensor([1])\n    b:Tensor[f64,1]=tensor([2])\n'
-             '    x=try await transfer(a,gpu)\n    y=try await transfer(b,gpu)\n'
-             '    p=try await spawn narrow(x) on gpu\n    q=try await spawn wide(y) on gpu\n'
-             '    cpu(q)+float64(p)\n')
+    mixed = ('fn narrow(a:Tensor[f32,?])->f32:\n  return reduceSum(a*2)\nfn wide(a:Tensor[f64,?])->f64:\n  return reduceSum(a*2)\nfn cpu(a:f64)->f64:\n  return a*2\nfn main()->f64 ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n    a:Tensor[f32,1]=tensor([1])\n    b:Tensor[f64,1]=tensor([2])\n    x=try await transfer(a,gpu)\n    y=try await transfer(b,gpu)\n    p=try await spawn narrow(x) on gpu\n    q=try await spawn wide(y) on gpu\n    cpu(q)+f64(p)\n')
     output = compile_source('metal-mixed-fallback', mixed, '--target', 'metal', '-O2', '--arithmetic', 'hardware-with-software-fallback')
     assert command([output / 'program']).stdout.strip() == struct.pack('>d', 10).hex()
     assert 'arith.mulf' in (output / 'kernel0.lowered.mlir').read_text()

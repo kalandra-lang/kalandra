@@ -155,7 +155,7 @@ fn work(n:i64)->i64:
   result=0
   for value in values:
     result=result*13+value
-  result
+  return result
 """, 'work(10)', 'i64', ordered([i*10+j for i in range(10) if i%2 for j in range(2)])),
         'empty-yield': ("""fn work(n:i64)->i64:
   values=for i in range(n):
@@ -174,7 +174,7 @@ fn work(n:i64)->i64:
   result=0
   for value in values:
     result=result*13+value
-  result
+  return result
 """, 'work(20)', 'i64', ordered([1,3])),
         'nested-collectors-gc': ("""fn work(n:i64)->i64:
   values=for i in range(n):
@@ -186,7 +186,7 @@ fn work(n:i64)->i64:
   result=0
   for value in values:
     result=result*13+value
-  result
+  return result
 """, 'work(4)', 'i64', ordered([i*10+j for i in range(4) for j in range(3) if j%2==0])),
         'collector-growth': ("""fn work(n:i64)->i64:
   values=for i in range(n):
@@ -274,7 +274,7 @@ fn work(n:i64)->i64:
   single=[42]
   sort(single)
   result=sorted(single)
-  result[0]+length(copied)
+  return result[0]+length(copied)
 """, 'work(0)', 'i64', 42)
     result['sort-large-checkpointed'] = ("""fn work(n:i64)->i64:
   values=generate(n,fn(i):return n-i)

@@ -10,7 +10,7 @@ fn checked(value:i64)->i64 ! E:
 fn main()->i64:
   offset:i64=21
   result=map([0,21],fn(value):return checked(value) catch fn(error):return offset)
-  result[0]+result[1]
+  return result[0]+result[1]
 ]=])
 EXPECT(inline-capture 42)
 COMPILE(enum [=[enum Choice:
@@ -18,12 +18,12 @@ COMPILE(enum [=[enum Choice:
   Some:
     value:i64
 fn select(choice:Choice)->i64:
-  match choice:
+  return match choice:
     Choice.Empty:20
     Choice.Some {value}:value
 fn main()->i64:
   result=map([Choice.Empty,Choice.Some {value:22}],select)
-  result[0]+result[1]
+  return result[0]+result[1]
 ]=])
 EXPECT(enum 42)
 COMPILE(bool-string [=[enum Choice:
@@ -31,16 +31,16 @@ COMPILE(bool-string [=[enum Choice:
   Some:
     value:i64
 fn select(choice:Choice)->bool:
-  match choice:
+  return match choice:
     Choice.Empty:false
     Choice.Some {value}:value==22
 fn label(value:bool)->String:
-  if value:"é"
+  return if value:"é"
   else:"!"
 fn main()->i64:
   values=map([Choice.Empty,Choice.Some {value:22}],select)
   labels=map(values,label)
-  length(labels[0])+length(labels[1])+40
+  return length(labels[0])+length(labels[1])+40
 ]=])
 EXPECT(bool-string 42)
 COMPILE(owned-record [=[type Row:
@@ -51,14 +51,14 @@ error E:
     row:Row
 fn checked(value:i64)->Row ! E:
   if value==0:fail E.Bad {row:Row {text:"é"+"!",values:[20,20]}}
-  Row {text:"!",values:[value]}
+  return Row {text:"!",values:[value]}
 fn recover(value:i64)->Row:
-  checked(value) catch fn(error):
-    match error:
+  return checked(value) catch fn(error):
+    return match error:
       E.Bad {row}:row
 fn main()->i64:
   rows=map([0,1],recover)
-  rows[0].values[0]+rows[0].values[1]+length(rows[0].text)
+  return rows[0].values[0]+rows[0].values[1]+length(rows[0].text)
 ]=])
 EXPECT(owned-record 42)
 COMPILE(nested [=[enum Choice:
@@ -66,15 +66,15 @@ COMPILE(nested [=[enum Choice:
   Some:
     value:i64
 fn select(choice:Choice)->i64:
-  match choice:
+  return match choice:
     Choice.Empty:10
     Choice.Some {value}:value
 fn batch(value:i64)->i64:
   results=map([Choice.Empty,Choice.Some {value:value}],select)
-  results[0]+results[1]
+  return results[0]+results[1]
 fn main()->i64:
   results=map([10,12],batch)
-  results[0]+results[1]
+  return results[0]+results[1]
 ]=])
 EXPECT(nested 42)
 COMPILE(function-input-output [=[enum Choice:
@@ -82,17 +82,17 @@ COMPILE(function-input-output [=[enum Choice:
   Some:
     value:i64
 fn make(choice:Choice)->fn(i64)->i64:
-  match choice:
-    Choice.Empty:fn(value:i64):value+20
-    Choice.Some {value}:fn(extra:i64):value+extra
+  return match choice:
+    Choice.Empty:fn(value:i64):return value+20
+    Choice.Some {value}:fn(extra:i64):return value+extra
 fn apply(callback:fn(i64)->i64)->i64:
-  match Choice.Empty:
+  return match Choice.Empty:
     Choice.Empty:callback(1)
     Choice.Some {value}:value
 fn main()->i64:
   callbacks=map([Choice.Empty,Choice.Some {value:20}],make)
   results=map(callbacks,apply)
-  results[0]+results[1]
+  return results[0]+results[1]
 ]=])
 EXPECT(function-input-output 42)
 COMPILE(empty [=[error E:
@@ -143,15 +143,15 @@ error E:
   Bad
 fn checked(value:i64)->i64 ! E:
   if value==0:fail E.Bad
-  value
+  return value
 fn probe()->i64:
   input:i64=40
   row=Row {text:"é"+"!",values:[input]}
-  result=map([0,1],fn(value):checked(value) catch fn(error):row.values[0]+length(row.text)-1)
-  result[0]+result[1]
+  result=map([0,1],fn(value):return checked(value) catch fn(error):return row.values[0]+length(row.text)-1)
+  return result[0]+result[1]
 fn main()->i64:
   f=probe
-  probe()
+  return probe()
 ]=] --test-entry probe)
 EXPECT(owned-capture 42)
 foreach(TYPE IN ITEMS i8 u8 i16 u16 i32 u32 i64 u64 f32 f64)
@@ -203,9 +203,9 @@ error E:
 fn checked(value:i64)->i64 ! E:
   fail E.Bad
 fn worker(input:i64)->[Row]:
-  map([input],fn(value):Row {text:"é"+"!",values:[checked(value) catch fn(error):value]})
+  return map([input],fn(value):return Row {text:"é"+"!",values:[checked(value) catch fn(error):return value]})
 fn main()->i64 ! TaskError:
-  try parallel:
+  return try parallel:
     task=spawn worker(40)
     first=try await task
     second=try await task
@@ -217,16 +217,16 @@ COMPILE(try-helper [=[error E:
     value:i64
 fn checked(value:i64)->i64 ! E:
   if value==0:fail E.Bad {value:21}
-  value
+  return value
 fn forwarded(value:i64)->i64 ! E:
-  try checked(value)
+  return try checked(value)
 fn recover(value:i64)->i64:
-  forwarded(value) catch fn(error):
-    match error:
+  return forwarded(value) catch fn(error):
+    return match error:
       E.Bad {value}:value
 fn main()->i64:
   values=map([0,21],recover)
-  values[0]+values[1]
+  return values[0]+values[1]
 ]=])
 EXPECT(try-helper 42)
 COMPILE(captured-functions [=[error E:
@@ -244,10 +244,10 @@ file(WRITE "${OUTPUT_DIR}/service.k" [=[error E:
     value:i64
 fn checked(value:i64)->i64 ! E:
   if value==0:fail E.Bad {value:21}
-  value
+  return value
 export fn recover(value:i64)->i64:
-  checked(value) catch fn(error):
-    match error:
+  return checked(value) catch fn(error):
+    return match error:
       E.Bad {value}:value
 ]=])
 COMPILE(imported [=[from "./service.k" import recover

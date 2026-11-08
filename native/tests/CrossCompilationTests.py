@@ -58,82 +58,32 @@ def program_cases():
                       'i64': '-9223372036854775807', 'u64': '18446744073709551615',
                       'f32': '-1.5', 'f64': '-1.5'}
     for numeric, value in numeric_values.items():
-        cases[numeric] = dict(source=f'fn main()->{numeric}:\n  {value}\n', output=value+'\n')
+        cases[numeric] = dict(source=f'fn main()->{numeric}:\n  return {value}\n', output=value+'\n')
         cases['tensor-' + numeric] = dict(source=(
-            f'fn main()->{numeric}:\n'
-            f'  values: Tensor[{numeric}, 2, 2] = tensor([[1, 2], [3, 4]])\n'
-            '  reduceSum(transpose(matmul(values, values)))\n'), output='54\n')
+            f'fn main()->{numeric}:\n  values: Tensor[{numeric}, 2, 2] = tensor([[1, 2], [3, 4]])\n  return reduceSum(transpose(matmul(values, values)))\n'), output='54\n')
         cases['array-write-' + numeric] = dict(source=(
-            f'fn put(mut values:[{numeric}])->{numeric}:\n'
-            f'  values[1]={numeric}(9)\n  values[1]\n'
-            'fn main()->i64:\n'
-            f'  a=[{numeric}(1),{numeric}(2),{numeric}(3)]\n'
-            '  alias=a\n  snapshot=copy(a)\n  result=put(a)\n'
-            '  int(result)*100+int(alias[1])*10+int(snapshot[1])\n'), output='992\n')
+            f'fn put(mut values:[{numeric}])->{numeric}:\n  values[1]={numeric}(9)\n  return values[1]\nfn main()->i64:\n  a=[{numeric}(1),{numeric}(2),{numeric}(3)]\n  alias=a\n  snapshot=copy(a)\n  result=put(a)\n  return i64(result)*100+i64(alias[1])*10+i64(snapshot[1])\n'), output='992\n')
         cases['array-sort-' + numeric] = dict(source=(
-            f'fn order(mut a:[{numeric}])->[{numeric}]:\n  sort(a)\n'
-            'fn main()->i64:\n'
-            f'  a=[{numeric}(3),{numeric}(1),{numeric}(2)]\n'
-            '  alias=a\n  b=sorted(a)\n'
-            f'  b[0]={numeric}(7)\n  c=order(a)\n'
-            '  int(alias[0])*100+int(c[2])*10+int(b[0])\n'), output='137\n')
+            f'fn order(mut a:[{numeric}])->[{numeric}]:\n  return sort(a)\nfn main()->i64:\n  a=[{numeric}(3),{numeric}(1),{numeric}(2)]\n  alias=a\n  b=sorted(a)\n  b[0]={numeric}(7)\n  c=order(a)\n  return i64(alias[0])*100+i64(c[2])*10+i64(b[0])\n'), output='137\n')
         cases['array-rebind-' + numeric] = dict(source=(
-            'fn main()->i64:\n'
-            f'  a=[{numeric}(3),{numeric}(1),{numeric}(2)]\n'
-            '  saved=a\n  a=sorted(a)\n  i=0\n  while i<8:\n'
-            f'    if i%2==0:\n      a=concat(a,[{numeric}(4)])\n'
-            '    else:\n      a=slice(a,0,3)\n    i=i+1\n'
-            '  int(saved[0])*100+int(a[0])*10+length(a)\n'), output='313\n')
+            f'fn main()->i64:\n  a=[{numeric}(3),{numeric}(1),{numeric}(2)]\n  saved=a\n  a=sorted(a)\n  i=0\n  while i<8:\n    if i%2==0:\n      a=concat(a,[{numeric}(4)])\n    else:\n      a=slice(a,0,3)\n    i=i+1\n  return i64(saved[0])*100+i64(a[0])*10+length(a)\n'), output='313\n')
     cases['array-rebind-capture'] = dict(source=(
-        'fn main()->i64:\n  original=[7,8]\n  offset=2\n'
-        '  f=fn(i:i64)->[i64]:concat(original,[i+offset])\n'
-        '  a=[0]\n  i=0\n  while i<1000:\n    a=f(i)\n    i=i+1\n'
-        '  original[0]+a[2]+length(a)\n'), output='1011\n')
+        'fn main()->i64:\n  original=[7,8]\n  offset=2\n  f=fn(i:i64)->[i64]:return concat(original,[i+offset])\n  a=[0]\n  i=0\n  while i<1000:\n    a=f(i)\n    i=i+1\n  return original[0]+a[2]+length(a)\n'), output='1011\n')
     cases['array-rebind-dispatch'] = dict(source=(
-        'fn first(i:i64)->[i64]:\n  return [i+1]\nfn second(i:i64)->[i64]:\n  return [i+2]\n'
-        'fn bump(mut a:[i64])->i64:\n  a[0]=a[0]+1\n  return a[0]\n'
-        'fn run(flag:bool)->i64:\n  counter=[0]\n  f=if flag:first\n  else:second\n'
-        '  a=[0]\n  a=f(bump(counter))\n  counter[0]*100+a[0]\n'
-        'fn main()->i64:\n  return run(true)+run(false)\n'), output='205\n')
+        'fn first(i:i64)->[i64]:\n  return [i+1]\nfn second(i:i64)->[i64]:\n  return [i+2]\nfn bump(mut a:[i64])->i64:\n  a[0]=a[0]+1\n  return a[0]\nfn run(flag:bool)->i64:\n  counter=[0]\n  f=if flag:first\n  else:second\n  a=[0]\n  a=f(bump(counter))\n  return counter[0]*100+a[0]\nfn main()->i64:\n  return run(true)+run(false)\n'), output='205\n')
     cases['array-rebind-worker'] = dict(source=(
-        'fn work(a:[i64])->[i64]:\n  a=sorted(a)\n  a[0]=9\n  return a\n'
-        'fn main()->i64 ! TaskError:\n  a=[3,1,2]\n  b=try parallel:\n'
-        '    try await spawn work(a)\n  a[0]*100+b[0]\n'), output='309\n')
+        'fn work(a:[i64])->[i64]:\n  a=sorted(a)\n  a[0]=9\n  return a\nfn main()->i64 ! TaskError:\n  a=[3,1,2]\n  b=try parallel:\n    try await spawn work(a)\n  return a[0]*100+b[0]\n'), output='309\n')
     for numeric in ('i64', 'f64'):
         cases['array-rebind-suspended-' + numeric] = dict(source=(
-            f'fn read(a:[{numeric}])->i64:\n  i64(a[0])\n'
-            'fn main()->i64 ! TaskError:\n'
-            f'  a=[{numeric}(7),{numeric}(8)]\n  saved=a\n  i=0\n  total=0\n'
-            '  while i<1000:\n    value=try parallel:\n      old=spawn read(a)\n'
-            f'      a=if i%2==0:[{numeric}(1),{numeric}(2),{numeric}(3)]\n'
-            f'      else:[{numeric}(4)]\n      try await old\n'
-            '    total=total+value\n    i=i+1\n'
-            '  int(saved[0])+total+int(a[0])+length(a)\n'), output='2515\n')
+            f'fn read(a:[{numeric}])->i64:\n  return i64(a[0])\nfn main()->i64 ! TaskError:\n  a=[{numeric}(7),{numeric}(8)]\n  saved=a\n  i=0\n  total=0\n  while i<1000:\n    value=try parallel:\n      old=spawn read(a)\n      a=if i%2==0:[{numeric}(1),{numeric}(2),{numeric}(3)]\n      else:[{numeric}(4)]\n      try await old\n    total=total+value\n    i=i+1\n  return i64(saved[0])+total+i64(a[0])+length(a)\n'), output='2515\n')
     cases['array-rebind-error-capture'] = dict(source=(
-        'type Box:\n  apply:fn(i64)->i64\nerror Stop:\n  Bad:\n    values:[i64]\n'
-        'fn work(ok:bool)->Box ! Stop:\n  a=[7,8]\n  a=[1,2]\n'
-        '  if ok:Box {apply:fn(i:i64):a[0]+i}\n  else:fail Stop.Bad {values:a}\n'
-        'fn main()->i64:\n  good=work(true) catch fn(error):return Box {apply:fn(i:i64):return 0}\n'
-        '  bad=work(false) catch fn(error):\n    match error:\n'
-        '      Stop.Bad {values}:Box {apply:fn(i:i64):values[1]+i}\n'
-        '  good.apply(10)*100+bad.apply(10)\n'), output='1112\n')
+        'type Box:\n  apply:fn(i64)->i64\nerror Stop:\n  Bad:\n    values:[i64]\nfn work(ok:bool)->Box ! Stop:\n  a=[7,8]\n  a=[1,2]\n  return if ok:Box {apply:fn(i:i64):return a[0]+i}\n  else:fail Stop.Bad {values:a}\nfn main()->i64:\n  good=work(true) catch fn(error):return Box {apply:fn(i:i64):return 0}\n  bad=work(false) catch fn(error):\n    return match error:\n      Stop.Bad {values}:Box {apply:fn(i:i64):return values[1]+i}\n  return good.apply(10)*100+bad.apply(10)\n'), output='1112\n')
     cases['array-rebind-repeated-map'] = dict(source=(
-        'fn main()->i64 ! TaskError:\n  a=[7]\n  saved=a\n  i=0\n  total=0\n'
-        '  while i<100:\n    a=try parallelMap([1,2,3,4,5,6,7,8,9],fn(value):value+1)\n'
-        '    total=total+a[8]\n    i=i+1\n  saved[0]+total+length(a)\n'), output='1016\n')
+        'fn main()->i64 ! TaskError:\n  a=[7]\n  saved=a\n  i=0\n  total=0\n  while i<100:\n    a=try parallelMap([1,2,3,4,5,6,7,8,9],fn(value):return value+1)\n    total=total+a[8]\n    i=i+1\n  return saved[0]+total+length(a)\n'), output='1016\n')
     cases['array-rebind-fresh-instance'] = dict(source=(
-        'fn read(a:[i64])->i64:\n  a[0]\nfn main()->i64 ! TaskError:\n'
-        '  a=[3,1,2]\n  i=0\n  total=0\n  while i<1000:\n'
-        '    old=try parallel:\n      task=spawn read(a)\n'
-        '      a=sorted(a)\n      a[0]=9\n      try await task\n'
-        '    total=total+old\n    i=i+1\n  total+a[0]\n'), output='9003\n')
+        'fn read(a:[i64])->i64:\n  return a[0]\nfn main()->i64 ! TaskError:\n  a=[3,1,2]\n  i=0\n  total=0\n  while i<1000:\n    old=try parallel:\n      task=spawn read(a)\n      a=sorted(a)\n      a[0]=9\n      try await task\n    total=total+old\n    i=i+1\n  return total+a[0]\n'), output='9003\n')
     cases['array-rebind-boolean-map'] = dict(source=(
-        'fn main()->i64 ! TaskError:\n  a=[7]\n  i=0\n  total=0\n'
-        '  while i<100:\n    a=[i+1]\n'
-        '    flags=try parallelMap(generate(i%17,fn(j):j),fn(value):value%2==0)\n'
-        '    j=0\n    while j<length(flags):\n'
-        '      if flags[j]:total=total+1\n      j=j+1\n    i=i+1\n'
-        '  total+a[0]\n'), output='516\n')
+        'fn main()->i64 ! TaskError:\n  a=[7]\n  i=0\n  total=0\n  while i<100:\n    a=[i+1]\n    flags=try parallelMap(generate(i%17,fn(j):return j),fn(value):return value%2==0)\n    j=0\n    while j<length(flags):\n      if flags[j]:total=total+1\n      j=j+1\n    i=i+1\n  return total+a[0]\n'), output='516\n')
     for fixture, expected in [('strings', 25), ('callables', 155), ('records', 291),
                               ('empty', 2), ('repeated', 8595), ('errors', 20)]:
         cases['owned-map-builder-' + fixture] = dict(
@@ -146,29 +96,17 @@ def program_cases():
             source=(ROOT / 'native/tests/fixtures/bool-array-rebinding' / (fixture + '.k')).read_text(encoding='utf-8'),
             output=expected + '\n')
     cases['bool-array-sort'] = dict(source=(
-        'fn main()->i64:\n  a=[true,false,true,false]\n  b=sorted(a)\n  c=sort(a)\n'
-        '  if not a[0] and not c[1] and b[2] and b[3]:42\n  else:0\n'), output='42\n')
+        'fn main()->i64:\n  a=[true,false,true,false]\n  b=sorted(a)\n  c=sort(a)\n  return if not a[0] and not c[1] and b[2] and b[3]:42\n  else:0\n'), output='42\n')
     cases['array-sort-task'] = dict(source=(
-        'fn main()->i64 ! TaskError:\n  a=[3,1,2]\n  b=try parallel:\n'
-        '    try await spawn sorted(a)\n  c=sort(b)\n'
-        '  a[0]*100+b[0]*10+c[2]\n'), output='313\n')
+        'fn main()->i64 ! TaskError:\n  a=[3,1,2]\n  b=try parallel:\n    try await spawn sorted(a)\n  c=sort(b)\n  return a[0]*100+b[0]*10+c[2]\n'), output='313\n')
     cases['local-loop-snapshot'] = dict(source=(
-        'fn main()->i64:\n  i=0\n  total=0\n  snapshot=fn()->i64:return i\n'
-        '  while i<1000:\n    total=total+i\n    i=i+1\n  total+snapshot()\n'), output='499500\n')
+        'fn main()->i64:\n  i=0\n  total=0\n  snapshot=fn()->i64:return i\n  while i<1000:\n    total=total+i\n    i=i+1\n  return total+snapshot()\n'), output='499500\n')
     cases['mutating-function-value'] = dict(source=(
-        'fn put(mut a:[i64])->[i64]:\n  a[0]=40\n  return a\n'
-        'fn main()->i64:\n  a=[1,2]\n  alias=a\n'
-        '  f:fn(mut [i64])->[i64]=put\n  result=f(a)\n  result[0]+alias[1]\n'), output='42\n')
+        'fn put(mut a:[i64])->[i64]:\n  a[0]=40\n  return a\nfn main()->i64:\n  a=[1,2]\n  alias=a\n  f:fn(mut [i64])->[i64]=put\n  result=f(a)\n  return result[0]+alias[1]\n'), output='42\n')
     cases['array-write-await'] = dict(source=(
-        'fn read(a:[i64])->i64:\n  return a[0]+10\n'
-        'fn main()->i64 ! TaskError:\n  a=[1,2,3]\n  alias=a\n  try parallel:\n'
-        '    pending=spawn read(a)\n    a[1]=try await pending\n    i=0\n'
-        '    while i<3:\n      a[i]=a[i]+1\n      i=i+1\n'
-        '    alias[0]*100+alias[1]*10+alias[2]\n'), output='324\n')
+        'fn read(a:[i64])->i64:\n  return a[0]+10\nfn main()->i64 ! TaskError:\n  a=[1,2,3]\n  alias=a\n  return try parallel:\n    pending=spawn read(a)\n    a[1]=try await pending\n    i=0\n    while i<3:\n      a[i]=a[i]+1\n      i=i+1\n    alias[0]*100+alias[1]*10+alias[2]\n'), output='324\n')
     cases['bool-array-write-task'] = dict(source=(
-        'fn work()->[bool]:\n  a=[true,false]\n  a[0]=false\n  return a\n'
-        'fn main()->i64 ! TaskError:\n  a=try parallel:\n    try await spawn work()\n'
-        '  a[1]=true\n  if not a[0] and a[1]:42\n  else:0\n'), output='42\n')
+        'fn work()->[bool]:\n  a=[true,false]\n  a[0]=false\n  return a\nfn main()->i64 ! TaskError:\n  a=try parallel:\n    try await spawn work()\n  a[1]=true\n  return if not a[0] and a[1]:42\n  else:0\n'), output='42\n')
     cases['bool'] = dict(source='fn main()->bool:\n  return true\n', output='true\n')
     # Exercise wide normalized Windows tail packets with aliased tensor inputs.
     # Calls are sequential; their outgoing argument areas cannot accumulate.
@@ -176,11 +114,11 @@ def program_cases():
     parameters += [f'a{i}:Tensor[f32,?,?]' for i in range(1, 40)]
     parameters += ['bias:f32']
     wide = 'fn wide('+','.join(parameters)+')->Tensor[f32,?,?]:\n'
-    wide += '  ('+'+'.join(f'a{i}' for i in range(40))+')*scale+bias\n'
+    wide += '  return ('+'+'.join(f'a{i}' for i in range(40))+')*scale+bias\n'
     wide += 'fn main()->f32:\n'
     wide += '  m:Tensor[f32,2,3]=tensor([[1,2,3],[4,5,6]])\n'
     wide += '  v:Tensor[f32,3]=tensor([1,2,3])\n'
-    wide += '  reduceSum(wide(v,m,0.5,'+','.join(['m']*39)+',1))\n'
+    wide += '  return reduceSum(wide(v,m,0.5,'+','.join(['m']*39)+',1))\n'
     cases['wide-tensor-arguments'] = dict(source=wide, output='426\n')
 
     for name, fixture, expected in (
@@ -189,6 +127,8 @@ def program_cases():
         ('resumable', 'resumable-callables/recursive.k', '42\n')):
         cases[name] = dict(source=(ROOT / 'native/tests/fixtures' / fixture).read_text(encoding='utf-8'), output=expected)
     cases['unicode-source'] = dict(source='fn main()->String:\n  return "été λ"\n', output='été λ\n')
+    cases['unit'] = dict(source='fn main()->unit:\n  return\n', output='')
+    cases['unit-task'] = dict(source='fn work()->unit:\n  return ()\nfn main()->unit ! TaskError:\n  return try parallel:\n    try await spawn work()\n', output='')
     cases['fault'] = dict(source='fn crash(n:i64)->i64:\n  return 1/(n-n)\nfn main()->i64:\n  return crash(0)\n',
                          status=86, stderr='ArithmeticFault')
     return cases

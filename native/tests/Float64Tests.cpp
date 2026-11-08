@@ -26,7 +26,7 @@ int main() {
           Literal{"1.7976931348623157e308", 0x7fefffffffffffff},
           Literal{"2.2250738585072014e-308", 0x0010000000000000},
           Literal{"4.9406564584124654e-324", 1}, Literal{"1e-4000", 0}}) {
-      auto typed = analyze(std::string("fn main() -> f64:\n  ") + test.text + "\n");
+      auto typed = analyze(std::string("fn main() -> f64:\n  return ") + test.text + "\n");
       require(typed.ok(), test.text);
       auto value = typed.module->functions[0].result;
       require(typed.module->expressions[value].type.element == NumericType::Float64 &&
@@ -35,7 +35,7 @@ int main() {
               "literal did not round directly to binary64");
     }
     for (auto expr : {"1.5", "-0.0", "+1e0", "1 + 1.5", "1.5 + 1", "-(1 + 1.5)", "(1 + 2) * 1.5"}) {
-      auto typed = analyze(std::string("fn main():\n  x = ") + expr + "\n  x\n");
+      auto typed = analyze(std::string("fn main():\n  x = ") + expr + "\n  return x\n");
       require(typed.ok() && typed.module->functions[0].resultType.element == NumericType::Float64,
               "default floating literal/expression inference failed");
     }

@@ -99,7 +99,7 @@ for numeric in types:
     values=[1,2,3] if numeric.startswith('u') else [-0.0,-3.25,.5] if numeric.startswith('f') else [-3,0,5]
     expected=[x if x>0 else 0 for x in values]
     text=f'''fn work(x:Tensor[{numeric},?,?,?])->Tensor[{numeric},?,?,?]:
-  relu(x)
+  return relu(x)
 fn main()->Tensor[{numeric},?,?,?] ! TaskError:
   return try parallel:
     gpu=devices.gpu()

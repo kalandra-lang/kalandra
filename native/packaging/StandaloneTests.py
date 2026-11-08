@@ -118,11 +118,10 @@ def qualify_prefix(prefix, kind, runtime, build=None, metal_execute=False):
                   ("[i64]", "[1, 2]", "[1, 2]"), ("[String]", '["bundled"]', '["bundled"]')]
         for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
             for returned, body, expected in cases:
-                source.write_text(f"fn main() -> {returned}:\n  {body}\n")
+                source.write_text(f'fn main() -> {returned}:\n  return {body}\n')
                 execute([link, source, "-o", executable, "-O2", *mode])
                 assert execute([executable]).stdout.strip() == expected
-            source.write_text("fn double(value:i64)->i64:\n  value*2\nfn main()->i64 ! TaskError:\n"
-                              "  values=try parallelMap([21],double)\n  values[0]\n")
+            source.write_text('fn double(value:i64)->i64:\n  return value*2\nfn main()->i64 ! TaskError:\n  values=try parallelMap([21],double)\n  return values[0]\n')
             execute([compiler, source, "-o", executable, *mode])
             assert execute([executable]).stdout.strip() == "42"
         # Missing private tools must not silently use the development Clang.

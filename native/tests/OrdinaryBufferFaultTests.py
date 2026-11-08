@@ -31,7 +31,7 @@ extern "C" T _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
 extern "C" T _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::runtime::OrdinaryFault*);
 extern "C" std::int32_t kalandra_ordinary_finish_v1(std::uint64_t,std::int32_t,const kalandra::runtime::OrdinaryFault*) noexcept;
 template<class V> std::uint64_t bits(V value){if constexpr(std::is_floating_point_v<V>)return std::bit_cast<std::uint64_t>(value);else return static_cast<std::uint64_t>(value);}
-i64 main(i64 argc,char **argv){if(argc!=3)return 2;I a=std::strtoll(argv[1],nullptr,10),b=std::strtoll(argv[2],nullptr,10);kalandra::runtime::OrdinaryFault fault{};
+int main(int argc,char **argv){if(argc!=3)return 2;I a=std::strtoll(argv[1],nullptr,10),b=std::strtoll(argv[2],nullptr,10);kalandra::runtime::OrdinaryFault fault{};
 #if defined(DIRECT)
  auto value=_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(a,b);
 #else

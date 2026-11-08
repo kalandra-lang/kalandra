@@ -52,7 +52,7 @@ fn work(n:i64)->i64:
 if a.arrays:
     from DeviceArrayCases import cases, fault_cases
     sources['finite'] = cases()['reclaim-dead-keep-alias'][0]
-    sources['infinite'] = 'fn work(n:i64)->i64:\n  i=0\n  while true:\n    values=[i,n]\n    i=values[0]+1\n'
+    sources['infinite'] = 'fn work(n:i64)->i64:\n  i=0\n  return while true:\n    values=[i,n]\n    i=values[0]+1\n'
     sources['fault'] = fault_cases()['bounds-before-rhs'][0]
 if a.records:
     assert a.arrays and not a.sort, '--records requires --arrays without --sort'

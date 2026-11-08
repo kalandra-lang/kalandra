@@ -26,7 +26,7 @@ int main() {
   try {
     const std::string basic =
         "fn twice(value:i64):\n  return value*2\nfn main():\n  result=twice(21)\n  return result\n";
-    expect(basic, "value*2", "value:int");
+    expect(basic, "value*2", "value:i64");
     expect(basic, "twice(21)", "twice(value");
     expect(basic, "result\n", "result=");
     expect(basic, "twice(value", "twice(value");
@@ -43,10 +43,10 @@ int main() {
     const std::string closure =
         "fn main():\n  offset=1\n  transform=fn(x:i64):return x+offset\n  return transform(2)\n";
     expect(closure, "offset\n", "offset=");
-    expect(closure, "x+offset", "x:int");
+    expect(closure, "x+offset", "x:i64");
     const std::string nested = "fn outer(value:i64):\n  factory=fn():return fn(x:i64):return x+value\n  return "
                                "factory()(2)\nfn main():\n  return outer(1)\n";
-    expect(nested, "value\n", "value:int");
+    expect(nested, "value\n", "value:i64");
     const std::string shadow =
         "fn main()->i64:\n  value=1\n  return if true:\n    value=2\n    value\n  else:\n    value\n";
     expect(shadow, "    value\n", "value=1", 4);
@@ -56,7 +56,7 @@ int main() {
             "outer branch binding was shadowed");
     const std::string record =
         "type Box:\n  value:i64\nfn main():\n  box=Box {value:42}\n  return box.value\n";
-    expect(record, "box.value", "value:int", 4);
+    expect(record, "box.value", "value:i64", 4);
     expect(record, "box.value", "box=", 0);
     const std::string builtin = "fn main():\n  return length([1,2])\n";
     require(check(parse(std::make_shared<SourceFile>("definition.k", builtin))).ok(),

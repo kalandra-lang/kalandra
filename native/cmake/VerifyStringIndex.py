@@ -31,13 +31,13 @@ for case in fixtures['text_cases']:
     for selected in case['indices']:
         vectors.append((case['text'],selected['index'],selected['result']))
 for n,(text,position,expected) in enumerate(vectors):
-    exe=compile('index-'+str(n),'fn pick(text:String,index:i64)->String:\n  text[index]\nfn main()->String:\n  pick('+literal(text)+','+str(position)+')\n')
+    exe=compile('index-'+str(n),'fn pick(text:String,index:i64)->String:\n  return text[index]\nfn main()->String:\n  return pick('+literal(text)+','+str(position)+')\n')
     run([exe],expected.encode()+b'\n')
 for dtype in ['i32','u32','i64','u64']:
-    exe=compile('width-'+dtype,'fn pick(text:String,index:'+dtype+')->String:\n  text[index]\nfn main()->String:\n  pick("aé👩",2)\n')
+    exe=compile('width-'+dtype,'fn pick(text:String,index:'+dtype+')->String:\n  return text[index]\nfn main()->String:\n  return pick("aé👩",2)\n')
     run([exe],'👩\n'.encode())
     for label,position in [('end','3'),('high','4294967295' if dtype=='u32' else '2147483647' if dtype=='i32' else '18446744073709551615' if dtype=='u64' else '9223372036854775807')]+([] if dtype.startswith('u') else [('negative','-1')]):
-        exe=compile('bounds-'+dtype+'-'+label,'fn pick(text:String,index:'+dtype+')->String:\n  text[index]\nfn main()->String:\n  pick("aé👩",'+position+')\n')
+        exe=compile('bounds-'+dtype+'-'+label,'fn pick(text:String,index:'+dtype+')->String:\n  return text[index]\nfn main()->String:\n  return pick("aé👩",'+position+')\n')
         result=subprocess.run([exe],capture_output=True)
         assert result.returncode and not result.stdout and b'BoundsFault' in result.stderr,result
 (output/'pick.k').write_text('export fn pick(text:String,index:u64)->String:\n  return text[index]\n')
@@ -63,7 +63,7 @@ assert result.returncode and not result.stdout and b'ArithmeticFault' in result.
 exe=compile('short-circuit','fn pick(text:String,index:i64)->String:\n  return text[index]\nfn main()->bool:\n  return true or pick("",0)=="x"\n')
 run([exe],b'true\n')
 for n,expr in enumerate(['"é"[1]','""[0]','"a"[-1]','("é"+"x")[2]','"é"[0][1]','"a"[true]','"a"[1.0]','"a"[0,0]']):
-    source=output/f'invalid-{n}.k';source.write_text('fn main():\n  '+expr+'\n')
+    source=output/f'invalid-{n}.k';source.write_text('fn main():\n  return '+expr+'\n')
     paths=[output/'preserved',output/'preserved.ll',output/'preserved.mlir']
     for p in paths:p.write_bytes(b'keep-existing-artifact')
     result=subprocess.run(list(map(str,[compiler,source,'-o',paths[0],'--emit-llvm',paths[1],'--emit-mlir',paths[2],*extra])),capture_output=True)

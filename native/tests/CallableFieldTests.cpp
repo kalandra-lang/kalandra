@@ -30,7 +30,7 @@ int main() {
          "{callback}:callback(22)\n",
          "type Config:\n  apply: fn(i64)->i64\nfn make()->Config:\n  text=\"é\"+\"!\"\n  "
          "values:[i64]=[20,20]\n  return Config "
-         "{apply:fn(value):return values[0]+values[1]+length(text)+value}\nfn main()->i64:\n  "
+         "{apply:fn(value):return values[0]+values[1]+length(text)+value}\nfn main()->i64:\n  return "
          "config=make()\n  return config.apply(0)\n",
          "type Config:\n  apply:fn(i64)->i64\n  label:String\ntype Outer:\n  config:Config\nfn "
          "make(offset:i64)->Outer:\n  config=Config {apply:fn(value):return offset+value,label:\"é\"}\n  return "
@@ -41,7 +41,7 @@ int main() {
          "first.apply(1)+second.apply(10)+1\n",
          "error E:\n  Bad:\n    value:i64\ntype Config:\n  apply:fn(i64)->i64 ! E\nfn "
          "make(offset:i64)->Config:\n  callback=fn(value:i64)->i64 ! E:\n    if value==0:fail "
-         "E.Bad {value:offset}\n    return value\n  return Config {apply:callback}\nfn main()->i64:\n  "
+         "E.Bad {value:offset}\n    return value\n  return Config {apply:callback}\nfn main()->i64:\n  return "
          "config=make(42)\n  return config.apply(0) catch fn(error):\n    return match error:\n      E.Bad "
          "{value}:value\n",
          "type Config:\n  apply:fn(i64)->i64\nerror E:\n  Bad:\n    config:Config\nfn "
@@ -63,13 +63,13 @@ int main() {
          "return configs[0].apply(22)\n",
          "type Config:\n  make:fn(i64)->fn(i64)->i64\nfn main()->i64:\n  config=Config "
          "{make:fn(offset):return fn(value:i64):return value+offset}\n  return config.make(20)(22)\n",
-         "type Config:\n  apply:fn(Tensor[i64,2,2])->Tensor[i64,2,2]\nfn main()->i64:\n  "
+         "type Config:\n  apply:fn(Tensor[i64,2,2])->Tensor[i64,2,2]\nfn main()->i64:\n  return "
          "offset:i64=1\n  config=Config {apply:fn(values):return values+offset}\n  return "
          "reduceSum(config.apply(tensor([[10,10],[10,8]])))\n",
          "type Config:\n  apply:fn(i64)->i64\nfn main()->i64:\n  config=Config "
          "{apply:fn(value):return value*2}\n  first=10 -> config.apply()\n  second=11 -> config.apply\n  "
          "return first+second\n",
-         "enum Choice:\n  Empty\n  Some:\n    callback:fn(i64)->i64\nfn main()->i64:\n  "
+         "enum Choice:\n  Empty\n  Some:\n    callback:fn(i64)->i64\nfn main()->i64:\n  return "
          "choice=Choice.Empty\n  return match choice:\n    Choice.Empty:42\n    Choice.Some "
          "{callback}:callback(21)\n",
          "enum Choice:\n  Number:\n    callback:fn(i64)->i64\n  Text:\n    "
@@ -77,11 +77,11 @@ int main() {
          "{callback:fn(value):return value*2}\n  else:Choice.Text {callback:fn(text):return length(text)+40}\nfn "
          "main()->i64:\n  return match select(false):\n    Choice.Number {callback}:callback(21)\n    "
          "Choice.Text {callback}:callback(\"é!\")\n",
-         "type Config:\n  apply:fn(i64)->i64\nerror A:\n  Bad:\n    config:Config\nerror B:\n  "
+         "type Config:\n  apply:fn(i64)->i64\nerror A:\n  Bad:\n    config:Config\nerror B:\n  return "
          "Missing\ntype Both=B | A | B\nfn raise(offset:i64)->i64 ! Both:\n  fail A.Bad "
          "{config:Config {apply:fn(value):return offset+value}}\nfn main()->i64:\n  return raise(20) catch "
          "fn(error):\n    return match error:\n      A.Bad {config}:config.apply(22)\n      B.Missing:0\n",
-         "error E:\n  Bad:\n    value:i64\nerror BuildError:\n  Disabled\ntype Config:\n  "
+         "error E:\n  Bad:\n    value:i64\nerror BuildError:\n  Disabled\ntype Config:\n  return "
          "make:fn(bool)->(fn(i64)->i64 ! E) ! BuildError\nfn main()->i64:\n  offset:i64=42\n  "
          "factory=fn(blocked:bool)->(fn(i64)->i64 ! E) ! BuildError:\n    if blocked:fail "
          "BuildError.Disabled\n    return fn(value:i64)->i64 ! E:\n      if value==0:fail E.Bad "
@@ -127,7 +127,7 @@ int main() {
           "config.apply(42)\nfn main()->i64 ! TaskError:\n  config=Config "
           "{apply:fn(value):return value}\n  return try parallel:\n    try await spawn worker(config)\n",
           "type Config:\n  apply:fn(i64)->i64\ntype Outer:\n  values:[Config]\nfn "
-          "worker(outer:Outer)->i64:\n  return outer.values[0].apply(42)\nfn main()->i64 ! TaskError:\n  "
+          "worker(outer:Outer)->i64:\n  return outer.values[0].apply(42)\nfn main()->i64 ! TaskError:\n  return "
           "outer=Outer {values:[Config {apply:fn(value):return value}]}\n  return try parallel:\n    try await "
           "spawn worker(outer)\n",
           "type Config:\n  apply:fn(i64)->i64\nfn worker(value:i64)->Config:\n  return Config "
@@ -144,7 +144,7 @@ int main() {
           "type Config:\n  apply:fn(i64)->i64\nfn main()->i64:\n  config=Config "
           "{apply:fn(value):return value}\n  updated=config with {apply:fn(value:f64):return value}\n  return 0\n",
           "type Config:\n  apply:fn(i64)->i64\nfn main()->i64:\n  config=Config {}\n  return 0\n",
-          "error E:\n  Bad\ntype Config:\n  apply:fn(i64)->i64 ! E\nfn main()->i64:\n  "
+          "error E:\n  Bad\ntype Config:\n  apply:fn(i64)->i64 ! E\nfn main()->i64:\n  return "
           "config=Config {apply:fn(value:i64)->i64 ! E:return value}\n  return config.apply(42)+1\n",
           "enum Choice:\n  Some:\n    callback:fn(i64)->i64\nfn main()->i64:\n  choice=Choice.Some "
           "{callback:fn(value):return value}\n  return choice.callback(42)\n",

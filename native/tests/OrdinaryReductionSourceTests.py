@@ -17,7 +17,7 @@ for mode,extra,flags,library in variants:
   for lang,cpp in [('i64','std::int64_t'),('f64','double'),('bool','bool')]:
    name=f'{mode}-{lang}-{width}';source=a.output/(name+'.k');ir=a.output/(name+'.ll');driver=a.output/(name+'.cpp');exe=a.output/(name+('.exe' if windows else ''))
    values=','.join('a' if i%2==0 else 'b' for i in range(width));value='acc' if lang=='i64' else 'acc != 0' if lang=='bool' else 'float64(acc)';main='false' if lang=='bool' else lang+'(0)'
-   source.write_text(f'fn total(values:[i64],index:i64,acc:i64)->{lang}:\n  if index == {width}:\n    {value}\n  else:\n    total(values,index+1,acc+values[index])\nfn value(a:i64,b:i64)->{lang}:\n  total([{values}],0,0)\nfn main()->{lang}:\n  {main}\n')
+   source.write_text(f'fn total(values:[i64],index:i64,acc:i64)->{lang}:\n  return if index == {width}:\n    {value}\n  else:\n    total(values,index+1,acc+values[index])\nfn value(a:i64,b:i64)->{lang}:\n  return total([{values}],0,0)\nfn main()->{lang}:\n  return {main}\n')
    run([a.compiler,source,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra])
    if width>=32:
     assert 'kalandra.ordinary.reduction' in ir.read_text(),name
@@ -36,7 +36,7 @@ using I=std::int64_t;using Result=TYPE;
 extern "C" Result _mlir_ciface_kalandra_test_entry(I,I,kalandra::runtime::Invocation*);
 extern "C" Result _mlir_ciface_kalandra_test_entry_ordinary_direct_v1(I,I);
 extern "C" Result _mlir_ciface_kalandra_test_entry_ordinary_v1(I,I,kalandra::runtime::OrdinaryFault*);
-i64 main(){
+int main(){
  using namespace kalandra::runtime;constexpr I lo=std::numeric_limits<I>::min(),hi=std::numeric_limits<I>::max();
  constexpr I bound=I(1)<<(63-std::bit_width(unsigned(WIDTH-1)));
  std::array<I,22> inputs={-bound-1,-bound,bound-1,bound,lo,lo+1,-4294967297LL,-4294967296LL,-2147483649LL,-2147483648LL,-1,0,1,65535,65536,2147483647LL,2147483648LL,4294967295LL,4294967296LL,1099511627776LL,hi/128,hi};

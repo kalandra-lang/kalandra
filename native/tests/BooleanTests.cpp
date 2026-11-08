@@ -15,7 +15,7 @@ int main() {
     for (auto type : {"i32", "u32", "i64", "u64", "f32", "f64"})
       for (auto op : {"==", "!=", "<", "<=", ">", ">="}) {
         auto typed = analyze("fn compare(a:" + std::string(type) + ",b:" + type +
-                             ") -> Bool:\n  a " + op + " b\nfn main() -> bool:\n  compare(1,2)\n");
+                             ") -> bool:\n  a " + op + " b\nfn main() -> bool:\n  compare(1,2)\n");
         require(typed.ok(), "numeric comparison rejected");
 #ifndef KALANDRA_BOOLEAN_FRONTEND_ONLY
         require(bool(lowerNative(*typed.module)), "numeric comparison did not lower");

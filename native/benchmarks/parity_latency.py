@@ -46,18 +46,7 @@ fn main()->i64 ! TaskError:
     values=try await spawn work({size}) on devices.gpu()
     length(values)+values[0]+values[length(values)-1]
 """
-        tensor = f"""fn work(values:Tensor[i64, ?])->i64:
-  result=0
-  for i in range({size}):
-    result=result+values[i]
-  result
-fn main()->i64 ! TaskError:
-  values=tensor(generate({size},fn(i):i%7))
-  try parallel:
-    gpu=devices.gpu()
-    resident=try await transfer(values,gpu)
-    try await spawn work(resident) on gpu
-"""
+        tensor = f'fn work(values:Tensor[i64, ?])->i64:\n  result=0\n  for i in range({size}):\n    result=result+values[i]\n  return result\nfn main()->i64 ! TaskError:\n  values=tensor(generate({size},fn(i):return i%7))\n  return try parallel:\n    gpu=devices.gpu()\n    resident=try await transfer(values,gpu)\n    try await spawn work(resident) on gpu\n'
         cases = {
             'collection': (collection, (size+2)//3+14+3*((size-1)//3)),
             'tensor': (tensor, sum(i%7 for i in range(size))),

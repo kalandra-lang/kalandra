@@ -15,7 +15,7 @@ int main() {
     for (auto name : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
       const auto t = std::string(name);
       auto result =
-          analyze("type Reading:\n  data:Data\n  enabled:Bool\ntype Data:\n  amount:" + t +
+          analyze("type Reading:\n  data:Data\n  enabled:bool\ntype Data:\n  amount:" + t +
                   "\n  values:[" + t + "]\n  matrix:Tensor[" + t +
                   ",?,?]\nfn choose(flag:bool,rows:[Reading])->[Reading]:\n  if flag: rows\n  "
                   "else: []\nfn total(rows:[Reading])->" +
@@ -84,7 +84,7 @@ int main() {
           "map([1,2],wrap)", "map([1,2],fn(x):Point {x:x,data:[x]})", "map([],move)",
           "map([],fn(p:Point)->Point:p)", "map([Point {x:1,data:[2]}],fn(p):Other {x:p.x})",
           "offset=2\n  map([Point {x:1,data:[2]}],fn(p):p with {x:p.x+offset})"}) {
-      auto mapped = analyze(mapDecl + "fn mapped():\n  " + body + "\nfn main():\n  return 0\n");
+      auto mapped = analyze(mapDecl + "fn mapped():\n  return " + body + "\nfn main():\n  return 0\n");
       require(mapped.ok(), "record map frontend rejected: " + std::string(body));
       require(!numericCapabilityError(*mapped.module, NumericTarget::Cpu),
               "record map capability rejected");
@@ -96,7 +96,7 @@ int main() {
     for (auto body :
          {"map([Other {x:1}],move)", "map([1],move)", "map([Point {x:1,data:[2]}],fn(p:Other):p.x)",
           "map([Point {x:1,data:[2]}],fn(p):p.data)", "map([],fn(p):p.x)"})
-      require(!analyze(mapDecl + "fn main():\n  " + body + "\n").ok(),
+      require(!analyze(mapDecl + "fn main():\n  return " + body + "\n").ok(),
               "invalid record map accepted");
     auto mapped =
         analyze(mapDecl + "fn mapped(rows:[Point]):\n  return map(rows,move)\nfn main():\n  return 0\n");
@@ -124,7 +124,7 @@ int main() {
       require(numericCapabilityError(forged, NumericTarget::Cpu).has_value(),
               "forged record map admitted: " + std::to_string(mutation));
     }
-    const auto decl = std::string("type Point:\n  x:int\ntype Other:\n  x:int\n");
+    const auto decl = std::string("type Point:\n  x:i64\ntype Other:\n  x:i64\n");
     for (auto body :
          {"fn main():\n  return [Point {x:1},Other {x:1}]\n", "fn main():\n  return [Point {x:1},1]\n",
           "fn main():\n  return [Point {x:1}][1].x\n", "fn main():\n  return [Point {x:1}][-1].x\n",
@@ -145,7 +145,7 @@ int main() {
     auto display = analyze(decl + "fn main():\n  return [Point {x:2}]\n");
     require(display.ok() && !lowerNative(*display.module), "record array display silently enabled");
 #endif
-    std::string large = "type R0:\n  x:int\n";
+    std::string large = "type R0:\n  x:i64\n";
     for (unsigned n = 1; n <= 17; ++n)
       large += "type R" + std::to_string(n) + ":\n  left:R" + std::to_string(n - 1) +
                "\n  right:R" + std::to_string(n - 1) + "\n";

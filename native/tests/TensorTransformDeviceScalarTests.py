@@ -13,11 +13,11 @@ def run(command,success=True):
     assert (result.returncode==0)==success,(command,result.returncode,result.stdout,result.stderr)
     return result
 valid='''fn work(x:Tensor[f32,?,?])->Tensor[f32,?,?]:
-  rmsNormRows(x,reduceSum(x*x)+0.00001)
+  return rmsNormRows(x,reduceSum(x*x)+0.00001)
 '''
 cpu='''fn main()->f32:
   x:Tensor[f32,2,3]=tensor([[1,2,3],[4,5,6]])
-  reduceSum(work(x))
+  return reduceSum(work(x))
 '''
 gpu='''fn main()->f32 ! TaskError:
   return try parallel:

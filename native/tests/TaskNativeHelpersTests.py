@@ -153,7 +153,7 @@ fn main()->bool:
 fn main()->{numeric}:
   original=[{numeric}(3),{numeric}(4)]
   result=walk(original,20)
-  result+original[0]
+  return result+original[0]
 ''')
         for policy in (('hardware','software') if numeric.startswith('f') else ('hardware',)):
             binary=executable(mode+'-'+numeric+'-'+policy)

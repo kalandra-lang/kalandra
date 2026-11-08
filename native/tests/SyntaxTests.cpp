@@ -116,8 +116,8 @@ void validTree(const ParseResult &result) {
     span(diagnostic.span);
 }
 void lexerLines() {
-  auto input = source("# π comment\nfn f(\n    a: f32, # continuation\n):\n  # blank "
-                      "body comment\n  return a\n\nfn g():\n    return 2");
+  auto input = source("# π comment\r\nfn f(\r\n    a: f32, # continuation\r\n):\r\n  # blank "
+                      "body comment\r\n  a\r\n\r\nfn g():\r\n    2");
   auto result = lex(input);
   require(result.diagnostics.empty(), "valid CRLF/comment input rejected");
   const auto count = [&](TokenKind kind) {
@@ -127,7 +127,7 @@ void lexerLines() {
           "wrong indentation tokens");
   require(count(TokenKind::Newline) == 4, "continuation created a statement boundary");
   require(result.tokens.back().kind == TokenKind::End, "missing terminal token");
-  require(input->location(input->text().find("a: float32")) ==
+  require(input->location(input->text().find("a: f32")) ==
               std::pair<std::size_t, std::size_t>{3, 5},
           "wrong byte location");
   require(syntax(input->text()).ok(), "valid continuation did not parse");
@@ -189,7 +189,7 @@ void lexerFailures() {
 }
 void precedenceAndSpans() {
   auto result =
-      syntax("fn f(value: f32) -> f32:\n  return value + 2 * -3 -> scale(4) -> finish\n");
+      syntax("fn f(value: f32) -> f32:\n  value + 2 * -3 -> scale(4) -> finish\n");
   require(result.ok(), "precedence example rejected");
   const auto &nodes = result.module.expressions;
   const auto &body = result.module.functions[0].body;
@@ -211,10 +211,10 @@ void precedenceAndSpans() {
               "value + 2 * -3 -> scale(4) -> finish",
           "expression span wrong");
   validTree(result);
-  auto nested = syntax("fn f():\n  return -(factory()(1 + 2)) * 3\n");
+  auto nested = syntax("fn f():\n  -(factory()(1 + 2)) * 3\n");
   require(nested.ok(), "group/call chain rejected");
   validTree(nested);
-  auto associativity = syntax("fn f():\n  return 8 - 3 - 1\n");
+  auto associativity = syntax("fn f():\n  8 - 3 - 1\n");
   auto &root = std::get<BinaryExpr>(
       associativity.module.expressions[associativity.module.functions[0].body[0].expression].value);
   require(std::holds_alternative<BinaryExpr>(associativity.module.expressions[root.left].value),
@@ -223,7 +223,7 @@ void precedenceAndSpans() {
 void typesAndBindings() {
   auto result =
       syntax("fn f(a: Tensor[f32, ?, 3], b: Tensor[f32]) -> Tensor[f32, ?, 2]:\n  x: "
-             "Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6],])\n  return matmul(a, x)\n");
+             "Tensor[f32, 2, 3] = tensor([[1, 2, 3], [4, 5, 6],])\n  matmul(a, x)\n");
   require(result.ok(), "tensor/binding syntax rejected");
   const auto &function = result.module.functions[0];
   const auto &parameter = function.parameters[0].type;
@@ -235,17 +235,17 @@ void typesAndBindings() {
   require(function.parameters[1].type.dimensions.empty(), "rank zero tensor rejected");
   require(function.body[0].binding && function.body[0].annotation, "binding/annotation missing");
   require(!function.body[1].binding, "return expression became a binding");
-  auto noFinalNewline = syntax("fn f():\n  return 1");
+  auto noFinalNewline = syntax("fn f():\n  1");
   require(noFinalNewline.ok(), "EOF did not close the body");
   // Parsing must not impersonate semantic analysis.
-  require(syntax("fn f():\n  x = [[1], [2, 3]]\n  x = missing\n  return x\n").ok(),
+  require(syntax("fn f():\n  x = [[1], [2, 3]]\n  x = missing\n  x\n").ok(),
           "parser performed undeclared type/scope analysis");
   validTree(result);
 }
 void arraysAfterBlocks() {
-  for (const auto *text : {"fn f():\n  result=parallel:\n    1\n  return [result]\n",
-                           "fn f():\n  result=if true:\n    1\n  else:\n    2\n  return [result]\n",
-                           "fn f():\n  result=work() catch fn(error):\n    return 1\n  return [result]\n"}) {
+  for (const auto *text : {"fn f():\n  result=parallel:\n    1\n  [result]\n",
+                           "fn f():\n  result=if true:\n    1\n  else:\n    2\n  [result]\n",
+                           "fn f():\n  result=work() catch fn(error):\n    1\n  [result]\n"}) {
     auto result = syntax(text);
     require(result.ok(), "array after block parsed as a postfix");
     const auto &body = result.module.functions[0].body;
@@ -258,9 +258,9 @@ void arraysAfterBlocks() {
 }
 void anonymousFunctions() {
   auto result = syntax("fn typed(values:[i64]):\n"
-                       "  return map(values,fn(value:i64)->f64: return f64(value))\n"
+                       "  map(values,fn(value:i64)->f64: f64(value))\n"
                        "fn nested(values:[i64]):\n"
-                       "  return map(values,fn(x): return map(values,fn(y): return y+x))\n");
+                       "  map(values,fn(x): map(values,fn(y): y+x))\n");
   require(result.ok(), "anonymous callback syntax rejected");
   validTree(result);
   std::size_t count = 0;
@@ -273,14 +273,13 @@ void anonymousFunctions() {
       ++count;
     }
   require(count == 3, "nested anonymous function nodes lost");
-  require(syntax("fn f():\n  return fn(x): return x\n").ok(),
+  require(syntax("fn f():\n  fn(x): x\n").ok(),
           "parser performed callback-context semantic checking");
 }
 void parserFailuresAndRecovery() {
-  require(syntax("fn f():\n  return \"text\"\n").ok(), "ordinary String literal did not parse");
+  require(syntax("fn f():\n  \"text\"\n").ok(), "ordinary String literal did not parse");
   const std::vector<std::pair<std::string, std::string>> examples{
       {"fn f(x):\n  x\n", "P002"},
-      {"fn f():\n  x = 1\n", "P007"},
       {"fn f():\n  foo(1 2)\n", "P002"},
       {"fn f():\n  foo(x = 1)\n", "P002"},
       {"fn f():\n  1 => x\n", "P010"},
@@ -299,6 +298,8 @@ void parserFailuresAndRecovery() {
     require(!result.ok() && has(result.diagnostics, code), "missing parser diagnostic: " + code);
     validTree(result);
   }
+  require(syntax("fn f():\n  x = 1\n").ok(),
+          "statement-only function body rejected before semantic unit checking");
   auto recovered = syntax("fn first():\n  a =\n  b =\n  1\nfn broken(x):\n  x\nfn last():\n  2\n");
   require(recovered.diagnostics.size() >= 3 && recovered.module.functions.size() == 2,
           "did not recover across statements/functions");
@@ -317,13 +318,13 @@ void parserFailuresAndRecovery() {
 void limitsAndOwnership() {
   auto limits = SyntaxLimits{};
   limits.maxSourceBytes = 4;
-  require(has(syntax("fn f():\n  return 1\n", limits).diagnostics, "L001"), "source limit missing");
+  require(has(syntax("fn f():\n  1\n", limits).diagnostics, "L001"), "source limit missing");
   limits = {};
   limits.maxTokens = 5;
-  require(has(syntax("fn f():\n  return 1\n", limits).diagnostics, "L006"), "token limit missing");
+  require(has(syntax("fn f():\n  1\n", limits).diagnostics, "L006"), "token limit missing");
   limits = {};
   limits.maxNodes = 2;
-  require(has(syntax("fn f():\n  return 1 + 2\n", limits).diagnostics, "P008"), "node limit missing");
+  require(has(syntax("fn f():\n  1 + 2\n", limits).diagnostics, "P008"), "node limit missing");
   limits = {};
   limits.maxDepth = 8;
   require(has(syntax("fn f():\n  " + std::string(20, '(') + "1" + std::string(20, ')'), limits)
@@ -337,7 +338,7 @@ void limitsAndOwnership() {
     indentation += std::string(static_cast<std::size_t>(i), ' ') + "1\n";
   require(has(syntax(indentation, limits).diagnostics, "L007"), "indentation limit missing");
   require(
-      has(syntax("fn f(a: Tensor[f32,1,1,1,1,1,1,1,1,1]):\n  return 1", limits).diagnostics, "P003"),
+      has(syntax("fn f(a: Tensor[f32,1,1,1,1,1,1,1,1,1]):\n  1", limits).diagnostics, "P003"),
       "tensor rank limit missing");
   limits = {};
   limits.maxDiagnostics = 2;
@@ -347,13 +348,13 @@ void limitsAndOwnership() {
   require(!syntax("@", limits).ok(), "zero diagnostic budget accepted invalid source");
   std::weak_ptr<const SourceFile> weak;
   auto held = [&] {
-    auto owned = source("fn f():\n  return 1\n");
+    auto owned = source("fn f():\n  1\n");
     weak = owned;
     return parse(owned);
   }();
   require(!weak.expired() && held.module.source->slice(held.module.functions[0].name) == "f",
           "AST lost source ownership");
-  std::string chain = "fn f():\n  return 1";
+  std::string chain = "fn f():\n  1";
   for (int i = 0; i < 20000; ++i)
     chain += " + 1";
   auto longChain = syntax(std::move(chain));
@@ -362,7 +363,7 @@ void limitsAndOwnership() {
 }
 void placementSyntax() {
   auto result =
-      syntax("fn main():\n  return try parallel:\n    try await spawn project(a, b) on devices.gpu(1)\n");
+      syntax("fn main():\n  try parallel:\n    try await spawn project(a, b) on devices.gpu(1)\n");
   require(result.ok(), "placement syntax failed");
   validTree(result);
   auto &m = result.module;
@@ -403,7 +404,7 @@ void malformedCorpus() {
         text += fragments[state % std::size(fragments)];
         text += ' ';
       }
-      text += "\nfn after():\n  return 0\n";
+      text += "\nfn after():\n  0\n";
     }
     auto result = syntax(std::move(text));
     validTree(result);

@@ -8,6 +8,7 @@ namespace kalandra::cli {
 // Private executable-entry descriptor, not a public library or wire ABI.
 // The active prefix uses [rank sizes][rank strides], as in a ranked memref.
 inline constexpr std::uint64_t stringArrayElement = 0x80000;
+inline constexpr std::uint64_t unitArrayElement = 0x90000;
 inline constexpr std::uint64_t boolArrayElement = 0x70000;
 inline constexpr std::size_t maximumCollectionRank = 128;
 struct CollectionDescriptor {

@@ -53,7 +53,7 @@ int main() {
     completion(prefix + "  not va|\n");
     completion("enum Choice:\n  Yes\n  No\nfn inspect(choice:Choice):\n  value=2\n  match "
                "choice:\n    Choice.Yes: va|\n");
-    completion(prefix + "  map(values,fn(item:int): va|\n");
+    completion(prefix + "  map(values,fn(item:i64): va|\n");
     completion(prefix + "  map(values,\nfn (item:i64): va|\n");
     completion(prefix + "  if false: 0\n  else: va|\n");
     completion(prefix + "  tru|\n", true, "true");
@@ -70,7 +70,7 @@ int main() {
     signature(prefix + "  add(1,2+|\n");
     signature(prefix + "  while value<3:\n    add(1,va|\n");
     signature("fn apply(left:i64,action:fn(i64)->i64)->i64:\n  return action(left)\n" + prefix +
-              "  apply(1,fn(item:int): va|\n");
+              "  apply(1,fn(item:i64): va|\n");
     signature("fn choose(left:i64,right:bool)->i64:\n  return left\n" + prefix +
               "  choose(1,true and va|\n");
     signature(

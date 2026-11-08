@@ -65,10 +65,10 @@ EXPECT(map-named 42)
 COMPILE(fields [=[type Config:
   callbacks:[fn(i64)->i64]
 fn make(offset:i64)->Config:
-  Config {callbacks:[fn(value):value+offset]}
+  return Config {callbacks:[fn(value):return value+offset]}
 fn main()->i64:
   config=make(20)
-  config.callbacks[0](22)
+  return config.callbacks[0](22)
 ]=])
 EXPECT(fields 42)
 COMPILE(enum [=[enum Choice:
@@ -77,8 +77,8 @@ COMPILE(enum [=[enum Choice:
     callbacks:[fn(i64)->i64]
 fn main()->i64:
   offset:i64=20
-  choice=Choice.Some {callbacks:[fn(value):value+offset]}
-  match choice:
+  choice=Choice.Some {callbacks:[fn(value):return value+offset]}
+  return match choice:
     Choice.Empty:0
     Choice.Some {callbacks}:callbacks[0](22)
 ]=])
@@ -89,12 +89,12 @@ COMPILE(fallible [=[error E:
 fn make(offset:i64)->[fn(i64)->i64 ! E]:
   validate=fn(value:i64)->i64 ! E:
     if value==0:fail E.Bad {value:offset}
-    value
-  [validate]
+    return value
+  return [validate]
 fn main()->i64:
   callbacks=make(42)
-  callbacks[0](0) catch fn(error):
-    match error:
+  return callbacks[0](0) catch fn(error):
+    return match error:
       E.Bad {value}:value
 ]=])
 EXPECT(fallible 42)
@@ -102,10 +102,10 @@ COMPILE(error-array [=[error E:
   Bad:
     callbacks:[fn(i64)->i64]
 fn raise(offset:i64)->i64 ! E:
-  fail E.Bad {callbacks:[fn(value):value+offset]}
+  fail E.Bad {callbacks:[fn(value):return value+offset]}
 fn main()->i64:
-  raise(20) catch fn(error):
-    match error:
+  return raise(20) catch fn(error):
+    return match error:
       E.Bad {callbacks}:callbacks[0](22)
 ]=])
 EXPECT(error-array 42)
@@ -122,7 +122,7 @@ EXPECT(indirect 42)
 COMPILE(capture-array [=[fn main()->i64:
   callbacks:[fn(i64)->i64]=[fn(value):return value*2]
   run=fn(value:i64):return callbacks[0](value)
-  run(21)
+  return run(21)
 ]=])
 EXPECT(capture-array 42)
 COMPILE(conditional [=[fn main()->i64:
@@ -181,25 +181,25 @@ COMPILE(worker-recovery [=[error E:
   Bad:
     callbacks:[fn(i64)->i64]
 fn raise(offset:i64)->i64 ! E:
-  fail E.Bad {callbacks:[fn(value):value+offset]}
+  fail E.Bad {callbacks:[fn(value):return value+offset]}
 fn worker(offset:i64)->i64:
-  raise(offset) catch fn(error):
-    match error:
+  return raise(offset) catch fn(error):
+    return match error:
       E.Bad {callbacks}:callbacks[0](22)
 fn main()->i64 ! TaskError:
-  try parallel:
+  return try parallel:
     try await spawn worker(20)
 ]=])
 EXPECT(worker-recovery 42)
 COMPILE(bounds [=[fn worker(index:i64)->i64:
-  callbacks:[fn(i64)->i64]=[fn(value):1/value]
-  callbacks[index](0)
+  callbacks:[fn(i64)->i64]=[fn(value):return 1/value]
+  return callbacks[index](0)
 fn attempt()->i64 ! TaskError:
-  try parallel:
+  return try parallel:
     try await spawn worker(1)
 fn main()->i64:
-  attempt() catch fn(error):
-    match error:
+  return attempt() catch fn(error):
+    return match error:
       TaskError.Fault {kind}:
         match kind:
           FaultKind.Bounds:42
@@ -215,11 +215,11 @@ fn main()->i64:
   failer=fn(value:i64)->i64 ! E:fail E.Bad {value:offset}
   callbacks:[fn(i64)->i64 ! E]=[failer,failer]
   evaluate=fn(callback:fn(i64)->i64 ! E)->i64:
-    callback(0) catch fn(error):
-      match error:
+    return callback(0) catch fn(error):
+      return match error:
         E.Bad {value}:value
   values=map(callbacks,evaluate)
-  values[0]+values[1]
+  return values[0]+values[1]
 ]=])
 EXPECT(fallible-map 42)
 COMPILE(separate-errors [=[error InputError:
@@ -231,13 +231,13 @@ fn make(offset:i64)->[fn(i64)->i64 ! InputError] ! BuildError:
   if offset==0:fail BuildError.Disabled
   callback=fn(value:i64)->i64 ! InputError:
     if value==0:fail InputError.Bad {value:offset}
-    value
-  [callback]
+    return value
+  return [callback]
 fn main()->i64:
   factory=make
-  callbacks=factory(42) catch fn(error):[fn(value:i64)->i64 ! InputError:value]
-  callbacks[0](0) catch fn(error):
-    match error:
+  callbacks=factory(42) catch fn(error):return [fn(value:i64)->i64 ! InputError:return value]
+  return callbacks[0](0) catch fn(error):
+    return match error:
       InputError.Bad {value}:value
 ]=])
 EXPECT(separate-errors 42)
@@ -246,10 +246,10 @@ COMPILE(raw-returned [=[type Row:
   values:[i64]
 fn make(offset:i64)->[fn(i64)->i64]:
   row=Row {text:"é"+"!",values:[10,20]}
-  [fn(value):row.values[0]+row.values[1]+length(row.text)+offset+value,fn(value):offset+value]
+  return [fn(value):return row.values[0]+row.values[1]+length(row.text)+offset+value,fn(value):return offset+value]
 fn main()->i64:
   callbacks=make(10)
-  callbacks[0](0)
+  return callbacks[0](0)
 ]=] --test-entry make)
 EXPECT(raw-returned 42)
 COMPILE(raw-owned [=[fn make()->[fn(i64)->i64]:
@@ -402,10 +402,10 @@ EXPECT(supported-worker-result 42)
 COMPILE(supported-worker-nested-field [=[type Config:
   callbacks:[fn(i64)->i64]
 fn worker(config:Config)->i64:
-  config.callbacks[0](42)
+  return config.callbacks[0](42)
 fn main()->i64 ! TaskError:
-  config=Config {callbacks:[fn(value):value]}
-  try parallel:
+  config=Config {callbacks:[fn(value):return value]}
+  return try parallel:
     try await spawn worker(config)
 ]=])
 EXPECT(supported-worker-nested-field 42)

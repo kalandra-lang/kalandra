@@ -12,8 +12,8 @@ static CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
-    const std::string types = "error A:\n  Missing\n  Bad:\n    text:String\n    values:[int]\n"
-                              "error B:\n  Bad:\n    value:int\nerror C:\n  Last\n"
+    const std::string types = "error A:\n  Missing\n  Bad:\n    text:String\n    values:[i64]\n"
+                              "error B:\n  Bad:\n    value:i64\nerror C:\n  Last\n"
                               "type Both=A | B | A\ntype Reordered=B | A\ntype All=C | Both\n";
     const std::string functions = "fn first()->i64 ! A:\n  fail A.Missing\n"
                                   "fn second()->i64 ! B:\n  fail B.Bad {value:2}\n";

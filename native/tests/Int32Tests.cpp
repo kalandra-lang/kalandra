@@ -13,7 +13,7 @@ int main() {
   try {
     for (const auto *value : {"2147483647", "-2147483648", "+17", "-5 % 2", "5 % -2",
                               "-2147483648 % -1", "(2147483647 - 2) + 1"}) {
-      auto result = analyze(std::string("fn main() -> i32:\n  ") + value + "\n");
+      auto result = analyze(std::string("fn main() -> i32:\n  return ") + value + "\n");
       require(result.ok(), value);
 #ifndef KALANDRA_INT32_FRONTEND_ONLY
       auto lowered = lowerNative(*result.module);
@@ -25,7 +25,7 @@ int main() {
     for (const auto *value : {"2147483648", "-2147483649", "1.0", "1e0", "18446744073709551616",
                               "2147483647 + 1", "-2147483648 - 1", "1073741824 * 2",
                               "-(-2147483648)", "-2147483648 / -1", "3 / 0", "3 % 0"}) {
-      auto result = analyze(std::string("fn main() -> i32:\n  ") + value + "\n");
+      auto result = analyze(std::string("fn main() -> i32:\n  return ") + value + "\n");
       require(!result.ok(), value);
       require(result.diagnostics.front().code == "S051" ||
                   result.diagnostics.front().code == "S052",

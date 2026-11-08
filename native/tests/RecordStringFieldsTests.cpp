@@ -13,7 +13,7 @@ static CheckResult analyze(const std::string &text, SemanticLimits limits = {}) 
 int main() {
   try {
     const std::string decl =
-        "type Inner:\n  text:String\n  count:int\ntype Box:\n  inner:Inner\n  copy:String\n";
+        "type Inner:\n  text:String\n  count:i64\ntype Box:\n  inner:Inner\n  copy:String\n";
     for (const auto *body :
          {"fn echo(box:Box)->Box:\n  return box\nfn main():\n  return echo(Box {inner:Inner "
           "{text:\"é\",count:1},copy:\"\"}).inner.text\n",

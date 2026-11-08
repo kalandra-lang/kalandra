@@ -8,7 +8,7 @@ int main() {
     const bool executes = OPERATION == 1 ? !flag : flag;
     const auto result = _mlir_ciface_kalandra_test_entry(flag, &context);
     if (context.status() != (executes ? 4 : 0) || result != (executes ? false : OPERATION == 1) ||
-        (executes && (context.line() != 2 || context.column() != 3)))
+        (executes && (context.line() != 2 || context.column() != 10)))
       return 1;
     context.settle();
     if (context.live() || context.allocations() != context.releases())

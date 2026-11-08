@@ -1,4 +1,5 @@
 #include "kalandra/Continuation.h"
+#include "NonCompleting.h"
 #include <algorithm>
 #include <limits>
 #include <unordered_map>
@@ -795,6 +796,11 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
          (fn.declaredResult && !sameStorageType(fn.resultType, *fn.declaredResult))))
       return "function changes its returned callable signature";
   }
+  const auto nonCompleting = nonCompletingValues(module);
+  const auto sameResult = [&](const ValueType &type, ValueId value) {
+    return nonCompleting[value] || sameStorageType(completed(type),
+                                                  completed(module.expressions[value].type));
+  };
   for (ValueId id = 0; id < module.expressions.size(); ++id) {
     const auto &expression = module.expressions[id];
     if (const auto *choice = std::get_if<ConditionalOperation>(&expression.operation);
@@ -830,7 +836,8 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
                              module.records[*input.record].fields[read->field].type))
           return "function field read changes its declared signature";
       } else if (const auto *loop = std::get_if<WhileOperation>(&expression.operation)) {
-        if ((!loop->normalResult && !loop->collecting) || loop->exitValues.empty())
+        if ((!loop->normalResult && !loop->collecting && !loop->functionBoundary) ||
+            loop->exitValues.empty())
           return "loop has no function result";
         for (auto result : loop->exitValues)
           if (result >= id ||
@@ -840,27 +847,22 @@ std::optional<std::string> functionValueCapabilityError(const TypedModule &modul
             return "loop changes a function-value signature";
       } else if (const auto *choice = std::get_if<ConditionalOperation>(&expression.operation)) {
         if (choice->trueResult >= id || choice->falseResult >= id ||
-            !sameStorageType(completed(expression.type),
-                             completed(module.expressions[choice->trueResult].type)) ||
-            !sameStorageType(completed(expression.type),
-                             completed(module.expressions[choice->falseResult].type)))
+            !sameResult(expression.type, choice->trueResult) ||
+            !sameResult(expression.type, choice->falseResult))
           return "conditional changes a function-value signature";
       } else if (const auto *group = std::get_if<ParallelOperation>(&expression.operation)) {
         if (group->result >= id ||
-            !sameStorageType(completed(expression.type),
-                             completed(module.expressions[group->result].type)))
+            !sameResult(expression.type, group->result))
           return "parallel group changes a returned function signature";
       } else if (const auto *caught = std::get_if<CatchOperation>(&expression.operation)) {
         if (caught->operand >= id || caught->result >= id ||
             !sameStorageType(completed(expression.type),
                              completed(module.expressions[caught->operand].type)) ||
-            !sameStorageType(completed(expression.type),
-                             completed(module.expressions[caught->result].type)))
+            !sameResult(expression.type, caught->result))
           return "catch changes a returned function signature";
       } else if (const auto *match = std::get_if<MatchOperation>(&expression.operation)) {
         for (const auto &arm : match->cases)
-          if (arm.result >= id || !sameStorageType(completed(expression.type),
-                                                   completed(module.expressions[arm.result].type)))
+          if (arm.result >= id || !sameResult(expression.type, arm.result))
             return "match changes a returned function signature";
       } else if (const auto *task = std::get_if<TaskOperation>(&expression.operation)) {
         if (task->operand >= id)

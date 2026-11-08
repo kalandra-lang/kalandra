@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     }
     if (mode == 5)
       check(failure.kind == TaskFailure::Fault && failure.code == EXPECTED_FAULT &&
-                failure.line == 2 && failure.column == 3 && !published,
+                failure.line == 2 && failure.column == 10 && !published,
             "wrong conversion arithmetic fault/location");
     else if (mode == 1 || mode == 2)
       check(failure.kind == (mode == 1 ? TaskFailure::Cancelled : TaskFailure::DeadlineExceeded),

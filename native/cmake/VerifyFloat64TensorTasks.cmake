@@ -148,7 +148,7 @@ fn main() -> f64:
 file(READ "${SOURCE_DIR}/tests/fixtures/task-float64-tensor-mixed.k" MIXED)
 QUALIFY(mixed "${MIXED}" 1 1)
 file(READ "${OUTPUT_DIR}/mixed.ll" IR)
-foreach(TYPE IN ITEMS f64 u64 i64 u32 i32)
+foreach(TYPE IN ITEMS float64 uint64 int64 uint32 int32)
   if(NOT IR MATCHES "value.layout.tensor.${TYPE}.1" OR NOT IR MATCHES "result.tensor.${TYPE}.1")
     message(FATAL_ERROR "Missing distinct ${TYPE} layout")
   endif()

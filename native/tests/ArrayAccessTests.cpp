@@ -20,22 +20,22 @@ int main() {
     // Repeated source allocation sites denote new backing on each execution.
     // Preserve every old alias and reader while distinguishing the new instance.
     for (const auto *replacement : {"sorted(a)", "copy(a)", "slice(a,0,length(a))", "concat(a,[1])",
-                                    "map(a,fn(x):x)", "generate(length(a),fn(j):j)", "fresh(a)"}) {
+                                    "map(a,fn(x):return x)", "generate(length(a),fn(j):return j)", "fresh(a)"}) {
       for (bool captured : {false, true})
         for (unsigned variant = 0; variant < 3; ++variant) {
           const auto source =
               prefix +
-              "fn fresh(a:[i64])->[i64]:\n  copy(a)\n"
+              "fn fresh(a:[i64])->[i64]:\n  return copy(a)\n"
               "fn main()->i64 ! TaskError:\n  a=[3,1,2]\n  i=0\n  while i<3:\n"
               "    try parallel:\n      saved=a\n" +
-              (captured ? std::string("      f=fn():read(saved)\n      t=spawn f()\n")
+              (captured ? std::string("      f=fn():return read(saved)\n      t=spawn f()\n")
                         : std::string("      t=spawn read(saved)\n")) +
               "      a=" + replacement + "\n" +
               (variant == 2 ? std::string("      u=spawn read(a)\n") : std::string()) +
               (variant == 1 ? std::string("      edit(saved)\n") : std::string("      edit(a)\n")) +
               "      n=try await t\n" +
               (variant == 2 ? std::string("      n+try await u\n") : std::string("      n\n")) +
-              "    i=i+1\n  length(a)\n";
+              "    i=i+1\n  return length(a)\n";
           const auto result = analyze(source);
           require(variant ? !result.ok() &&
                                 std::ranges::any_of(result.diagnostics,

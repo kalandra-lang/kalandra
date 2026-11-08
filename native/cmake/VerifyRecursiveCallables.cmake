@@ -31,7 +31,7 @@ fn descend(n:i64)->i64 ! E:
 fn probe(n:i64)->i64:
   callback=descend
   return callback(n) catch fn(error):
-    match error:
+    return match error:
       E.Bad {text,values}:values[0]+values[1]+length(text)
 fn main()->i64:
   callback=probe
@@ -53,7 +53,7 @@ endforeach()
 set(FIELDS "")
 set(VALUES "")
 foreach(INDEX RANGE 0 511)
-  string(APPEND FIELDS "  f${INDEX}:int\n")
+  string(APPEND FIELDS "  f${INDEX}:i64\n")
   string(APPEND VALUES "f${INDEX}:input+${INDEX},")
 endforeach()
 file(WRITE "${OUTPUT_DIR}/reject-stack.k" "type Large:\n${FIELDS}fn make(input:i64)->Large:\n  Large {${VALUES}}\nfn main()->i64:\n  row=make(0)\n  row.f0\n")

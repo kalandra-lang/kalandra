@@ -9,7 +9,7 @@ def run(args):
  assert r.returncode==0,(args,r.returncode,r.stdout,r.stderr)
  return r.stdout
 for dtype in ('f32','f64'):
- source=a.output/(dtype+'.k');source.write_text(f'fn cells(a:Tensor[{dtype},?,?],b:Tensor[{dtype},?,?])->Tensor[{dtype},?,?]:\n  matmul(a,b)\nfn main()->{dtype}:\n  0\n')
+ source=a.output/(dtype+'.k');source.write_text(f'fn cells(a:Tensor[{dtype},?,?],b:Tensor[{dtype},?,?])->Tensor[{dtype},?,?]:\n  return matmul(a,b)\nfn main()->{dtype}:\n  return 0\n')
  ir=source.with_suffix('.ll');binary=source.with_suffix('')
  run([a.compiler,source,'--arithmetic','hardware','--test-entry','cells','--emit-llvm',ir,'-O2','-o',str(binary)+'-standalone'])
  run([a.clang,'-std=c++23','-O2','-ffp-contract=off','-pthread','-Wno-override-module',*(['-DFLOAT32'] if dtype=='f32' else []),*(['-fms-runtime-lib=static'] if sys.platform=='win32' else []),root/'native/tests/CpuBenchmarkCells.cpp',ir,a.compiler.parent/('kalandra-native-runtime.lib' if sys.platform=='win32' else 'libkalandra-native-runtime.a'),'-o',binary])

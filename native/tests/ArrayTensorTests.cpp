@@ -15,7 +15,7 @@ int main() {
     for (auto type : {"i32", "u32", "i64", "u64", "f32", "f64"}) {
       auto typed = analyze("fn convert(input:[" + std::string(type) +
                            "]):\n  tensor(input)\n"
-                           "fn main()->i64:\n  0\n");
+                           "fn main()->i64:\n  return 0\n");
       require(typed.ok(), "array constructor rejected numeric type");
       const auto &fn = typed.module->functions[0];
       const auto &value = typed.module->expressions[fn.result];

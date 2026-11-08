@@ -12,13 +12,13 @@ static void require(bool value, const std::string &message) {
 }
 int main() {
   try {
-    const std::string prefix = "enum Reading:\n  Missing\n  Value:\n    measurement:float32\n  "
+    const std::string prefix = "enum Reading:\n  Missing\n  Value:\n    measurement:f32\n  "
                                "Invalid:\n    reason:String\n";
     for (const auto &tail :
          {"fn main()->i64:\n  return match Reading.Value {measurement:21.5}:\n    Reading.Missing:0\n    "
           "Reading.Value {measurement:sample}:i64(sample)\n    Reading.Invalid "
           "{reason}:length(reason)\n",
-          "fn main()->i64:\n  value=Reading.Invalid {reason:\"bad\"+\" input\"}\n  return match value:\n  "
+          "fn main()->i64:\n  value=Reading.Invalid {reason:\"bad\"+\" input\"}\n  return match value:\n  return "
           "  Reading.Invalid {reason}:length(reason)\n    _:0\n",
           "fn main()->i64:\n  return match Reading.Missing:\n    _:\n      answer=42\n      answer\n",
           "fn echo(x:Reading)->Reading:\n  return x\nfn main()->i64 ! TaskError:\n  value=try parallel:\n "
@@ -53,8 +53,8 @@ int main() {
       require(bool(lowerNative(*typed.module)), "numeric enum lowering rejected");
 #endif
     }
-    for (const auto &fieldType : {"[int]", "[Bool]", "[String]", "Tensor[float32,2,2]",
-                                  "Tensor[int]", "Tensor[uint64,?,?]", "Reading"}) {
+    for (const auto &fieldType : {"[i64]", "[bool]", "[String]", "Tensor[f32,2,2]",
+                                  "Tensor[i64]", "Tensor[u64,?,?]", "Reading"}) {
       auto typed = analyze(prefix + "enum Envelope:\n  Empty\n  Value:\n    item:" + fieldType +
                            "\nfn main()->i64:\n  return match Envelope.Empty:\n    "
                            "Envelope.Empty:1\n    Envelope.Value:0\n");

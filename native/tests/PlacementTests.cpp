@@ -45,7 +45,7 @@ fn forward(values:Tensor[f32,?]) -> Tensor[f32,?]:
 
 )";
 const std::string start = helpers + R"(fn main() -> f32 ! TaskError:
-  try parallel:
+  return try parallel:
     values:Tensor[f32,3] = tensor([1,2,3])
     cpu=devices.cpu()
     gpu=devices.gpu()
@@ -198,11 +198,11 @@ void contracts() {
 void failures() {
   for (const auto *selector : {"devices.cpu()", "devices.gpu()"}) {
     const std::string target = selector;
-    reject("fn double(value:i64)->i64:\n  value*2\nfn main()->i64 ! TaskError:\n"
+    reject("fn double(value:i64)->i64:\n  return value*2\nfn main()->i64 ! TaskError:\n"
            "  f=double\n  try parallel:\n    try await spawn f(21) on " +
                target + "\n",
            "S074");
-    reject("fn double(value:i64)->i64:\n  value*2\nfn main()->i64 ! TaskError:\n"
+    reject("fn double(value:i64)->i64:\n  return value*2\nfn main()->i64 ! TaskError:\n"
            "  functions=[double]\n  try parallel:\n    try await spawn functions[0](21) on " +
                target + "\n",
            "S074");
@@ -229,7 +229,7 @@ void failures() {
   reject("fn main() -> f32:\n  devices:f32=1\n  gpu=devices.gpu()\n  return 0\n", "S030");
   reject("fn devices() -> f32:\n  return 0\n", "S049");
   reject("fn transfer() -> f32:\n  return 0\n", "S049");
-  reject(start + "    transfer:float32=1\n    try await transfer(values,gpu)\n", "S030");
+  reject(start + "    transfer:f32=1\n    try await transfer(values,gpu)\n", "S030");
   reject("fn main() -> f32 ! TaskError:\n  data:Tensor[f32,1] = tensor([1])\n  return try await "
          "transfer(data,devices.gpu())\n",
          "S037");

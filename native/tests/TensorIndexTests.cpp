@@ -27,8 +27,8 @@ int main() {
               indices += ",";
             indices += name;
           }
-          auto typed = analyze("fn read(" + parameters + ")->" + type + ":\n  values[" + indices +
-                               "]\nfn main()->i64:\n  0\n");
+          auto typed = analyze("fn read(" + parameters + ")->" + type + ":\n  return values[" + indices +
+                               "]\nfn main()->i64:\n  return 0\n");
           require(typed.ok(), "valid tensor read rejected");
           auto id = typed.module->functions[0].result;
           require(std::holds_alternative<TensorIndex>(typed.module->expressions[id].operation),
@@ -82,7 +82,7 @@ int main() {
     }
     for (auto source :
          {"fn main():\n  return tensor([[1,2],[3,4]])[1,0]*2+1\n", "fn main():\n  return tensor(7)[]\n",
-          "fn row()->i64:\n  return 1\nfn column()->u32:\n  return 0\nfn main() ! TaskError:\n  "
+          "fn row()->i64:\n  return 1\nfn column()->u32:\n  return 0\nfn main() ! TaskError:\n  return "
           "values=tensor([[1,2],[3,4]])\n  return try parallel:\n    a=spawn row()\n    b=spawn "
           "column()\n    values[try await a,try await b]\n",
           "fn main():\n  return tensor([1,2])[1,]\n",

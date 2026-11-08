@@ -99,10 +99,10 @@ int main() {
     require(bool(lowerNative(*diagnostic.module)), "owned diagnostic equality lowering failed");
 #endif
     for (const auto *source :
-         {"fn size(value:String)->i64:\n  return length(value)+byteLength(value)\nfn main():\n  "
+         {"fn size(value:String)->i64:\n  return length(value)+byteLength(value)\nfn main():\n  return "
           "return size(\"👩‍💻\")\n",
           "fn main():\n  return \"سلام\" -> length\n", "fn main():\n  return \"سلام\" -> byteLength\n",
-          "fn count(value:i64)->i64:\n  return value+length(\"é\")\nfn main():\n  "
+          "fn count(value:i64)->i64:\n  return value+length(\"é\")\nfn main():\n  return "
           "return [1,2]->map(count)\n"}) {
       auto value = analyze(source);
       require(value.ok(), "valid String length rejected");
@@ -120,7 +120,7 @@ int main() {
           "fn main() ! TaskError:\n  return try parallel:\n    try await spawn length(\"a\")\n"})
       require(!analyze(source).ok(), "invalid String length type, arity or worker admitted");
     for (const auto *query : {"length", "byteLength"}) {
-      auto value = analyze("fn task()->i64 ! TaskError:\n  1\nfn main()->i64:\n  task() catch "
+      auto value = analyze("fn task()->i64 ! TaskError:\n  return 1\nfn main()->i64:\n  task() catch "
                            "fn(error):\n    match error:\n      TaskError.Fault { message }: " +
                            std::string(query) + "(message)\n      _: 0\n");
       require(value.ok(), "owned diagnostic String length rejected");

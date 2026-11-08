@@ -17,11 +17,11 @@ if windows:modes=[mode for mode in modes if mode[0]!='thread-sanitized']
 values=[(0,1),(17,3),(2**63-1,0),(-2**63,0),(2**63-1,1),(-2**63,-1),(-2**63,1),(0,0),(17,-1),(-17,3),(2**63-1,2**63-1)]
 results=[]
 for mode,extra,flags,library in modes:
- for lang,cpp,kind in [('i64','std::int64_t',5),('f32','f64',0),('f64','double',1),('bool','bool',2)]:
+ for lang,cpp,kind in [('i64','std::int64_t',5),('f32','float',0),('f64','double',1),('bool','bool',2)]:
   for op,label in [('+','add'),('/','divide'),('%','remainder')]:
    name=f'{mode}-{lang}-{label}';src=a.output/(name+'.k');ir=a.output/(name+'.ll')
    expression=f'(a{op}b)>0' if lang=='bool' else f'{lang}(a{op}b)'
-   src.write_text(f'fn value(a:i64,b:i64)->{lang}:\n  {expression}\nfn main()->{lang}:\n  {"false" if lang=="bool" else lang+"(0)"}\n')
+   src.write_text(f'fn value(a:i64,b:i64)->{lang}:\n  return {expression}\nfn main()->{lang}:\n  return {"false" if lang=="bool" else lang+"(0)"}\n')
    run([a.compiler,src,'--test-entry','value','--emit-llvm',ir,'-o',a.output/(name+'-standalone'),*extra]);assert '_mlir_ciface_kalandra_test_entry_ordinary_direct_v1(' in ir.read_text(),name
    code=r'''
 #include "FAULT"
@@ -37,7 +37,7 @@ template<class V> std::uint64_t bits(V value){
  if constexpr(std::is_floating_point_v<V>){using U=std::conditional_t<sizeof(V)==4,std::uint32_t,std::uint64_t>;return std::bit_cast<U>(value);}
  else return static_cast<std::uint64_t>(value);
 }
-i64 main(i64 argc,char **argv){
+int main(int argc,char **argv){
  if(argc!=3)return 2;I a=std::strtoll(argv[1],nullptr,10),b=std::strtoll(argv[2],nullptr,10);
  kalandra::runtime::OrdinaryFault fault{};
 #if defined(DIRECT)
@@ -67,7 +67,7 @@ for mode,extra,flags,library in modes:
  for lang in ['i64','f32','f64','bool']:
   for label,inputs in [('add',(2**63-1,1)),('divide',(17,0)),('remainder',(17,0))]:
    name=f'{mode}-{lang}-{label}'
-   text=(a.output/(name+'.k')).read_text().split('fn main()->')[0]+f'fn main()->{lang}:\n  value({inputs[0]},{inputs[1]})\n'
+   text=(a.output/(name+'.k')).read_text().split('fn main()->')[0]+f'fn main()->{lang}:\n  return value({inputs[0]},{inputs[1]})\n'
    source=a.output/(name+'-cli.k');exe=a.output/(name+'-cli'+suffix);source.write_text(text)
    run([a.compiler,source,*extra,'-o',exe])
    env=dict(os.environ,KALANDRA_TEST_REPORT_CLEANUP='1')

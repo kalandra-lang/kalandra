@@ -16,7 +16,7 @@ int main() {
     for (const auto *value : {"9223372036854775807", "-9223372036854775808", "9007199254740993",
                               "+17", "-5 % 2", "5 % -2", "-9223372036854775808 % -1",
                               "3037000499 * 3037000499", "9223372036854775807 * 0"}) {
-      auto checked = analyze(std::string("fn main() -> i64:\n  ") + value + "\n");
+      auto checked = analyze(std::string("fn main() -> i64:\n  return ") + value + "\n");
       require(checked.ok(), value);
 #ifndef KALANDRA_INT64_FRONTEND_ONLY
       auto lowered = lowerNative(*checked.module);
@@ -30,7 +30,7 @@ int main() {
           "9223372036854775807 + 1", "-9223372036854775808 - 1", "-9223372036854775808 * -1",
           "-(-9223372036854775808)", "-9223372036854775808 / -1", "3037000500 * 3037000500",
           "9223372036854775807 * 9223372036854775807", "1 / 0", "1 % 0"}) {
-      auto checked = analyze(std::string("fn main() -> i64:\n  ") + value + "\n");
+      auto checked = analyze(std::string("fn main() -> i64:\n  return ") + value + "\n");
       require(!checked.ok(), value);
       require(checked.diagnostics.front().code == "S051" ||
                   checked.diagnostics.front().code == "S052",

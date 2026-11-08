@@ -186,7 +186,7 @@ class Compiler {
         if (auto *compare = std::get_if<ScalarCompare>(&op))
           requiresDouble |= cpu.expressions[compare->left].type.element == NumericType::Float64;
         if (requiresDouble && backend_ == GpuBackend::Metal)
-          reject(expression.span, "Metal has no hardware float64 arithmetic; explicitly select "
+          reject(expression.span, "Metal has no hardware f64 arithmetic; explicitly select "
                                   "--arithmetic hardware-with-software-fallback or software");
       }
     }
@@ -1687,7 +1687,7 @@ class Compiler {
         arguments += "&*" + local + ",";
       } else {
         if (input.kind != (isBooleanStorage(type) ? Value::Boolean : Value::Scalar))
-          reject(span, "CPU argument requires its declared numeric or Bool type");
+          reject(span, "CPU argument requires its declared numeric or bool type");
         if (!isBooleanStorage(type) && type.element != input.element)
           reject(span, "CPU scalar argument numeric type mismatch");
         arguments += ref(input) + ",";
@@ -2988,7 +2988,7 @@ class Compiler {
       const auto &value = inputs[i];
       const auto &type = cpu.symbols[entryFunction.parameters[i]].type;
       if (!type.tensor && type.builtin != BuiltinValue::Numeric)
-        reject(span, "GPU scalar captures currently require float32; Boolean "
+        reject(span, "GPU scalar captures currently require f32; Boolean "
                      "conditions stay "
                      "internal to helpers");
       const bool tensor = type.tensor;
@@ -3618,7 +3618,7 @@ class Compiler {
     using namespace continuation;
     for (const auto &type : plan.slots)
       if (type.array && type.builtin != BuiltinValue::Numeric && !isBoolArray(type))
-        reject({}, "mixed GPU host continuations require numeric/Bool arrays or a typed "
+        reject({}, "mixed GPU host continuations require numeric/bool arrays or a typed "
                    "aggregate transport");
     std::map<Slot, Value> values;
     std::map<Slot, unsigned> payloadWrites;
@@ -3846,7 +3846,7 @@ class Compiler {
         if (isBooleanStorage(node(op.source).type)) {
           completed(args.at(0), span);
           if (args.at(0).kind != Value::Boolean)
-            reject(span, "Metal host Boolean negation requires Bool");
+            reject(span, "Metal host Boolean negation requires bool");
           field("bool");
           Value value{Value::Boolean, next - 1};
           steps.push_back(ref(value) + "=!" + ref(args.at(0)) + ";\n");
@@ -4070,7 +4070,7 @@ class Compiler {
       case Code::Branch:
         completed(args.at(0), span);
         if (args.at(0).kind != Value::Boolean)
-          reject(span, "Metal host branch requires Bool");
+          reject(span, "Metal host branch requires bool");
         steps.push_back("if(!" + ref(args.at(0)) + "){\n" + jump(op.jump) + "}\n");
         break;
       case Code::Case: {
@@ -4545,7 +4545,7 @@ class Compiler {
           } else {
             if (type.tensor || type.builtin != BuiltinValue::Numeric ||
                 type.element != NumericType::Float32)
-              reject(n.span, "GPU comparisons require float32 scalar operands");
+              reject(n.span, "GPU comparisons require f32 scalar operands");
             auto op = [&](const std::string &code) {
               auto v = temporary();
               instruction << "        " << v << " = arith." << code << "\n";
@@ -5029,7 +5029,7 @@ public:
                !resolveNumeric(text(fn.result->name)) &&
                !isBooleanStorage(placement.functions.at(i).resultType))
         reject(fn.result->span,
-               "mixed source results require numeric scalars, Bool, numeric/Bool arrays "
+               "mixed source results require numeric scalars, bool/unit, numeric/bool/unit arrays "
                "or rank-zero through rank-eight numeric tensors");
       for (std::size_t parameter = 0; parameter < fn.parameters.size(); ++parameter) {
         const auto &p = fn.parameters[parameter];
@@ -5041,7 +5041,7 @@ public:
           tensorType(p.type);
         else if (!resolveNumeric(text(p.type.name)) && !isBooleanStorage(type))
           reject(p.type.span,
-                 "mixed source parameters require numeric scalars, Bool, numeric/Bool arrays "
+                 "mixed source parameters require numeric scalars, bool/unit, numeric/bool/unit arrays "
                  "or rank-zero through rank-eight numeric tensors");
       }
       if (coordinating[i])
@@ -5131,7 +5131,7 @@ public:
         declareCpuFunction(i);
     const auto &fn = syntax.functions[*main];
     if (!fn.parameters.empty() || !fn.result || !fn.taskError)
-      reject(fn.span, "Metal main requires no parameters, a float32 or tensor "
+      reject(fn.span, "Metal main requires no parameters, an f32 or tensor "
                       "result, and ! TaskError");
     const auto &mainType = placement.functions.at(*main).resultType;
     if (mainType.record)
@@ -5139,13 +5139,13 @@ public:
     const bool mainArray = mainType.array;
     const bool mainBoolArray = isBoolArray(mainType);
     if (mainArray && mainType.builtin != BuiltinValue::Numeric && !mainBoolArray)
-      reject(fn.span, "GPU main array results require numeric or Bool elements");
+      reject(fn.span, "GPU main array results require numeric, bool or unit elements");
     bool scalarResult = !mainArray && !fn.result->tensor;
     const bool booleanResult = scalarResult && isBooleanStorage(mainType);
     const bool unitResult = scalarResult && mainType.builtin == BuiltinValue::Unit;
     if (scalarResult && !booleanResult && !resolveNumeric(text(fn.result->name)))
-      reject(fn.span, "Metal main requires float32 or a rank-one through "
-                      "rank-eight float32 tensor");
+      reject(fn.span, "Metal main requires f32 or a rank-one through "
+                      "rank-eight f32 tensor");
     if (!scalarResult && !mainArray)
       tensorType(*fn.result);
     const auto mainElement = booleanResult || mainBoolArray ? NumericType::UInt8 : mainType.element;
@@ -5481,7 +5481,9 @@ void resume(Task &task) {
               "std::printf(\"[\");for(std::uint64_t i=0;i<std::uint64_t(value.sizes[0]);++i){\n"
               "std::uint64_t bits=0;std::memcpy(&bits,retained->data().data()+i*"
            << mainWidth << "," << mainWidth << ");\n";
-      if (mainBoolArray)
+      if (mainType.builtin == BuiltinValue::Unit)
+        host << "if(i)std::printf(\",\");std::printf(\"()\");\n";
+      else if (mainBoolArray)
         host << "if(i)std::printf(\",\");std::printf(\"%s\",bits ? \"true\" : \"false\");\n";
       else
         host << "std::printf(i ? \",%0*llx\" : \"%0*llx\"," << mainWidth * 2

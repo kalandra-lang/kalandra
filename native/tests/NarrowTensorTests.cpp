@@ -20,7 +20,7 @@ int main() {
                   numericTensorConversionAvailable(element, NumericTarget::Cpu),
               "narrow tensor CPU/GPU capability rejected");
       for (const auto &operation : {"a+1", "1-a", "a*2", "a/2", "a%2", "-a", "+a"}) {
-        auto result = analyze("fn operation(a:" + tensor + ")->" + tensor + ":\n  " + operation +
+        auto result = analyze("fn operation(a:" + tensor + ")->" + tensor + ":\n  return " + operation +
                               "\nfn main()->i64:\n  return 0\n");
         require(result.ok(), "narrow tensor arithmetic rejected");
         if (std::string_view(operation) == "a+1")
@@ -35,8 +35,8 @@ int main() {
 #endif
       }
       for (const auto &s :
-           {"fn product(a:" + tensor + ")->" + tensor + ":\n  matmul(a,a)\nfn main()->i64:\n  0\n",
-            "fn f(a:" + tensor + ")->" + type + ":\n  reduceSum(a)\nfn main()->i64:\n  0\n",
+           {"fn product(a:" + tensor + ")->" + tensor + ":\n  matmul(a,a)\nfn main()->i64:\n  return 0\n",
+            "fn f(a:" + tensor + ")->" + type + ":\n  reduceSum(a)\nfn main()->i64:\n  return 0\n",
             "fn main()->Tensor[" + type + ",2,2]:\n  tensor([[1,2],[3,4]])\n",
             "fn main()->Tensor[" + type + ",2,0,3]:\n  tensor([],[2,0,3])\n",
             "fn main()->[" + type + "]:\n  data:[" + type +
@@ -58,12 +58,12 @@ int main() {
 #endif
       }
       for (const auto &s : {"fn f(a:Tensor[" + type + ",?])->" + tensor + ":\n  matmul(a,a)\n",
-                            "fn f(a:" + tensor + ",b:Tensor[int64,?,?])->" + tensor + ":\n  a+b\n",
+                            "fn f(a:" + tensor + ",b:Tensor[i64,?,?])->" + tensor + ":\n  a+b\n",
                             "fn main()->Tensor[" + type + ",2]:\n  tensor([1,2,3])\n"})
         require(!analyze(s).ok(), "unsupported narrow tensor operation admitted: " + s);
-      for (const auto &s : {"fn f(a:" + tensor + ")->Tensor[int64,?,?]:\n  int64(a)\n",
-                            "fn f(a:Tensor[i64,?,?])->" + tensor + ":\n  " + type + "(a)\n",
-                            "fn f(a:" + tensor + ")->" + tensor + ":\n  " + type + "(a)\n"}) {
+      for (const auto &s : {"fn f(a:" + tensor + ")->Tensor[i64,?,?]:\n  i64(a)\n",
+                            "fn f(a:Tensor[i64,?,?])->" + tensor + ":\n  return " + type + "(a)\n",
+                            "fn f(a:" + tensor + ")->" + tensor + ":\n  return " + type + "(a)\n"}) {
         auto result = analyze(s + "fn main()->i64:\n  return 0\n");
         require(result.ok() && !numericCapabilityError(*result.module, NumericTarget::Cpu),
                 "supported narrow tensor cast rejected");

@@ -16,7 +16,7 @@ static CheckResult analyze(const std::string &text) {
 int main(int argc, char **argv) {
   try {
     require(argc == 2, "expected scratch directory");
-    const std::string declaration = "type Point:\n  x: int\n  y: int\n";
+    const std::string declaration = "type Point:\n  x: i64\n  y: i64\n";
     for (auto element : {"i32", "u32", "i64", "u64", "f32", "f64", "bool"}) {
       const std::string type(element), literal = type == "bool" ? "true" : "1";
       auto result = analyze("type Box:\n  value:" + type + "\nfn make(value:" + type +
@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
     for (auto source : {"type Point:\n  x:i64\nfn main():\n  return (Point {x:1} with {}).x\n",
                         "type Point:\n  x:i64\nfn main():\n  p=Point {x:1}\n  q=if true: p with "
                         "{x:2}\n  else: p\n  return q.x+p.x\n",
-                        "type Point:\n  x:i64\nfn project(x:i64):\n  return Point {x:x}.x\nfn main():\n  "
+                        "type Point:\n  x:i64\nfn project(x:i64):\n  return Point {x:x}.x\nfn main():\n  return "
                         "return map([1,2],project)\n",
                         "type Point:\n  x:i64\nfn main():\n  return map([1,2],fn(x):return Point {x:x}.x)\n",
                         "fn main():\n  return Point {x:1}.x\ntype Point:\n  x:i64\n"}) {
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
                       "fn main():\n  return Point {x:i32(1),y:2}\n",
                       "fn main():\n  return Unknown {x:1}\n",
                       "fn main():\n  return Point {x:1,y:2}.z\n",
-                      "fn main():\n  1.x\n",
+                      "fn main():\n  return 1.x\n",
                       "fn main():\n  return 1 with {x:2}\n",
                       "fn main():\n  return Point {x:1,y:2} with {z:3}\n",
                       "fn main():\n  return Point {x:1,y:2} with {x:3,x:4}\n",
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
           "type Bad:\n  x:Tensor[bool,2]\nfn main():\n  return 0\n",
           "type Bad:\n  x:Bad\nfn main():\n  return 0\n", "type Bad:\n  with:i64\nfn main():\n  return 0\n",
           "type Bad:\n  x:Missing\nfn main():\n  return 0\n",
-          "export type Bad\n  x:i64\nfn main():\n  0\n", "type Bad:\n  x:i64\nfn with():\n  return 0\n"})
+          "export type Bad\n  x:i64\nfn main():\n  return 0\n", "type Bad:\n  x:i64\nfn with():\n  return 0\n"})
       require(!analyze(source).ok(), "invalid declaration admitted");
     require(analyze("type Flags:\n  values:[bool]\nfn main():\n  return 0\n").ok(),
             "Bool-array record declaration rejected");

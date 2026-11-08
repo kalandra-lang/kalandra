@@ -19,7 +19,7 @@ int main() {
                   !numericArithmeticAvailable(element, NumericTarget::Cpu) &&
                   !numericCollectionStorageAvailable(element, NumericTarget::AppleGpu),
               "narrow array admission enabled tensor or GPU arithmetic");
-      const std::string declarations = "type Row:\n  enabled:Bool\n  value:" + type +
+      const std::string declarations = "type Row:\n  enabled:bool\n  value:" + type +
                                        "\n  values:[" + type + "]\n  text:String\n";
       for (const auto &source :
            {"fn main()->[" + type + "]:\n  [1,2,3]\n", "fn main()->[" + type + "]:\n  []\n",
@@ -52,11 +52,11 @@ int main() {
       }
       for (const auto &source :
            {"fn multiply(x:Tensor[" + type + ",?])->Tensor[" + type + ",?,?]:\n  matmul(x,x)\n",
-            "fn main():\n  " + type + "([1])\n",
+            "fn main():\n  return " + type + "([1])\n",
             "fn main()->[" + type + "]:\n  values=[1,2]\n  values\n",
             "fn main():\n  values:[" + type + "]=[1,2]\n  values+values\n",
             "fn main():\n  values:[" + type + "]=[1,2]\n  values[2]\n",
-            "fn main():\n  values:[" + type + "]=[1,2]\n  concat(values,[int(1)])\n"})
+            "fn main():\n  values:[" + type + "]=[1,2]\n  concat(values,[i64(1)])\n"})
         require(!analyze(source).ok(), "invalid narrow array program accepted: " + source);
     }
     std::cout << "Narrow arrays/records: four exact element widths, maps, captures, workers, "

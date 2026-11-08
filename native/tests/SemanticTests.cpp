@@ -155,7 +155,7 @@ void taskRecovery() {
   rejected(helper + "fn main() -> f32:\n  result = f() catch fn(error): return 1\n  return error\n", "S016");
   rejected(
       prefix +
-          "      TaskError.Fault { kind }:\n        kind: float32 = 1\n        2\n      _: 3\n",
+          "      TaskError.Fault { kind }:\n        kind: f32 = 1\n        2\n      _: 3\n",
       "S008");
   rejected(helper +
                "fn main() -> f32:\n  return f() catch fn(error):\n    error: f32 = 1\n    return 2\n",
@@ -226,7 +226,7 @@ void literalContexts() {
       {"1e-9999", 0},
       {"3.4028234663852886e38", 0x7f7fffff}};
   for (const auto &[literal, bits] : cases) {
-    auto result = analyze("fn main() -> f32:\n  " + literal + "\n");
+    auto result = analyze("fn main() -> f32:\n  return " + literal + "\n");
     accepted(result);
     require(std::get<Float32Literal>(returned(*result.module, 0).operation).bits == bits,
             "wrong literal rounding");
@@ -419,14 +419,14 @@ void diagnostics() {
     accepted(result);
     validIR(*result.module);
   }
-  auto malformed = analyze("fn f(x):\n  x\n");
+  auto malformed = analyze("fn f(x):\n  return x\n");
   require(!malformed.ok() && !malformed.module && malformed.diagnostics[0].code == "P002",
           "syntax diagnostics were lost");
   auto multiple = analyze("fn f() -> f32:\n  return missing\nfn g() -> f32:\n  return other\n");
   require(!multiple.ok() && multiple.diagnostics.size() == 2,
           "did not report independent function errors");
   require(multiple.source->location(multiple.diagnostics[0].span.begin) ==
-              std::pair<std::size_t, std::size_t>{2, 3},
+              std::pair<std::size_t, std::size_t>{2, 10},
           "semantic location wrong");
 }
 void limitsAndRobustness() {
@@ -464,7 +464,7 @@ void limitsAndRobustness() {
                                         "tensor([x])", "f(x)", "reduceSum(x)"};
   for (int i = 0; i < 500; ++i) {
     state = state * 1664525u + 1013904223u;
-    auto result = analyze("fn f(x: f32) -> f32:\n  " +
+    auto result = analyze("fn f(x: f32) -> f32:\n  return " +
                           std::string(parts[state % std::size(parts)]) + "\n");
     if (result.ok())
       validIR(*result.module);

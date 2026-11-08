@@ -28,7 +28,7 @@ fn main()->f64:
 ''','value',2)}
 for width in (16,32,64,128):
  values=','.join('seed' if i==0 else f'seed+{i}' for i in range(width))
- text=f'fn total(values:[i64],index:i64,acc:i64)->f64:\n  if index == {width}:\n    f64(acc)\n  else:\n    total(values,index+1,acc+values[index])\nfn iterate(values:[i64],rounds:i64)->f64:\n  if rounds == 0:\n    total(values,0,0)\n  else:\n    iterate(map(values,fn(value:i64):(value*13+7)%1000003),rounds-1)\nfn value(seed:i64,rounds:i64)->f64:\n  iterate([{values}],rounds)\nfn main()->f64:\n  value(17,16)\n'
+ text=f'fn total(values:[i64],index:i64,acc:i64)->f64:\n  return if index == {width}:\n    f64(acc)\n  else:\n    total(values,index+1,acc+values[index])\nfn iterate(values:[i64],rounds:i64)->f64:\n  return if rounds == 0:\n    total(values,0,0)\n  else:\n    iterate(map(values,fn(value:i64):return (value*13+7)%1000003),rounds-1)\nfn value(seed:i64,rounds:i64)->f64:\n  return iterate([{values}],rounds)\nfn main()->f64:\n  return value(17,16)\n'
  fixtures['wide'+str(width)]=(text,'value',width+10)
 driver=r'''
 #include "RUNTIME"
@@ -79,7 +79,7 @@ void test(I seed,I rounds,bool independent) {
  }
  context.settle();if(context.live() || context.allocations()!=context.releases())std::abort();++cases;
 }
-i64 main(){
+int main(){
  for(I seed:std::array<I,9>{-31,-1,0,1,17,31,65535,65536,1000004})
   for(I rounds:std::array<I,6>{0,1,2,16,64,257})test(seed,rounds,true);
  for(I seed:std::array<I,4>{std::numeric_limits<I>::min(),std::numeric_limits<I>::max(),std::numeric_limits<I>::max()/13,std::numeric_limits<I>::min()/13})

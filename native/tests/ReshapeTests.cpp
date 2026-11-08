@@ -16,7 +16,7 @@ int main() {
       for (auto dimension : {"i32", "u32", "i64", "u64"}) {
         auto typed = analyze("fn reshape(values:[" + std::string(type) + "],rows:" + dimension +
                              ",columns:" + dimension +
-                             "):\n  tensor(values,[rows,columns])\nfn main()->i64:\n  0\n");
+                             "):\n  tensor(values,[rows,columns])\nfn main()->i64:\n  return 0\n");
         require(typed.ok(), "numeric/dimension type pair rejected");
         const auto &node = typed.module->expressions[typed.module->functions[0].result];
         const auto &op = std::get<ArrayToTensor>(node.operation);

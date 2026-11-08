@@ -103,6 +103,88 @@ fn main() -> i64:
     return 22
   return value + 22
 ''', '42\n'),
+    'handler-forwarded-error': ('''error FirstError:
+  Bad
+error SecondError:
+  Bad
+fn first() -> i64 ! FirstError:
+  fail FirstError.Bad
+fn second() -> i64 ! SecondError:
+  fail SecondError.Bad
+fn recover(flag: bool) -> i64 ! SecondError:
+  return first() catch fn(error):
+    if flag:
+      return second()
+    return 1
+fn main() -> i64:
+  value = recover(true) catch fn(error):
+    return 42
+  return value
+''', '42\n'),
+    'handler-fail-only': ('''error FirstError:
+  Bad
+error SecondError:
+  Bad
+fn first() -> i64 ! FirstError:
+  fail FirstError.Bad
+fn recover() -> i64 ! SecondError:
+  return first() catch fn(error):
+    fail SecondError.Bad
+fn main() -> i64:
+  return recover() catch fn(error):
+    return 42
+''', '42\n'),
+    'owned-record-and-closure': ('''type Box:
+  text: String
+  values: [i64]
+fn make(flag: bool) -> Box:
+  if flag:
+    return Box { text: "hi" + "!", values: [20, 22] }
+  return Box { text: "no", values: [0, 0] }
+fn factory(flag: bool) -> fn(i64) -> i64:
+  offset = 20
+  if flag:
+    return fn(value: i64) -> i64: return value + offset
+  return fn(value: i64) -> i64: return value
+fn text(flag: bool) -> String:
+  if flag:
+    return "a" + "bc"
+  return ""
+fn main() -> i64:
+  box = make(true)
+  callback = factory(true)
+  return box.values[0] + box.values[1] + length(box.text) + length(text(true)) + callback(16)
+''', '84\n'),
+    'owned-tensor': ('''fn values(flag: bool) -> Tensor[i64,?,?]:
+  if flag:
+    return tensor([[20, 22]])
+  return tensor([[0, 0]])
+fn main() -> i64:
+  return reduceSum(values(true))
+''', '42\n'),
+    'owned-error-return': ('''error InputError:
+  Bad
+fn values(flag: bool) -> [i64] ! InputError:
+  if flag:
+    return [20, 22]
+  fail InputError.Bad
+fn main() -> i64:
+  values = values(true) catch fn(error): return [0, 0]
+  return values[0] + values[1]
+''', '42\n'),
+    'unit-array-entry': ('fn main() -> [unit]:\n  return [(), ()]\n', '[(), ()]\n'),
+    'callable-expression-exit': ('''fn choose(flag: bool) -> fn(i64) -> i64:
+  callback = if flag:
+    return fn(value: i64) -> i64: return value + 40
+  else:
+    fn(value: i64) -> i64: return value + 20
+  return callback
+fn main() -> i64:
+  first = choose(true)
+  second = choose(false)
+  return first(1) + second(1)
+''', '62\n'),
+    'returned-callable-task': ('fn choose(flag: bool) -> fn(i64) -> i64:\n  callback = if flag:\n    return fn(value: i64) -> i64: return value + 40\n  else:\n    fn(value: i64) -> i64: return value + 20\n  return callback\nfn apply(callback: fn(i64) -> i64) -> i64:\n  return callback(1)\nfn main() -> i64 ! TaskError:\n  return try parallel:\n    first = spawn apply(choose(true))\n    second = spawn apply(choose(false))\n    a = try await first\n    b = try await second\n    a + b\n', '62\n'),
     'unit-values': ('''type Box:
   done: unit
 fn identity(value: unit) -> unit:
@@ -123,6 +205,17 @@ fn main() -> i64 ! TaskError:
     if observed == ():
       return 42
     return 0
+''', '42\n'),
+    'parallel-owned-exit': ('''fn work() -> [i64]:
+  return [20, 22]
+fn values() -> [i64] ! TaskError:
+  try parallel:
+    task = spawn work()
+    result = try await task
+    return result
+fn main() -> i64 ! TaskError:
+  result = try values()
+  return result[0] + result[1]
 ''', '42\n'),
     'error-only': ('''error InputError:
   Bad
@@ -160,6 +253,20 @@ for name, (source, expected) in cases.items():
             assert (result.returncode, result.stdout, result.stderr) == (0, expected, ''), (
                 name, optimization, workers, result)
 
+uncaught = root / 'uncaught-unit.k'
+uncaught.write_text('''error InputError:
+  Bad
+fn main() -> unit ! InputError:
+  fail InputError.Bad
+''')
+for optimization in ('-O0', '-O2'):
+    binary = root / 'uncaught-unit.exe'
+    built = subprocess.run([args.compiler, str(uncaught), optimization, '-o', str(binary)],
+                           text=True, capture_output=True, timeout=120)
+    assert built.returncode == 0, built.stderr
+    result = subprocess.run([str(binary)], text=True, capture_output=True, timeout=30)
+    assert result.returncode == 89 and not result.stdout and result.stderr.strip() == 'InputError.Bad', result
+
 rejected = {
     'missing-return': 'fn main() -> i64:\n  42\n',
     'partial-return': 'fn main() -> i64:\n  if true:\n    return 42\n',
@@ -167,6 +274,19 @@ rejected = {
     'wrong-return': 'fn main() -> i64:\n  return true\n',
     'bare-numeric-return': 'fn main() -> i64:\n  return\n',
     'unit-value-discard': 'fn main() -> unit:\n  42\n',
+    'unobserved-exit': '''fn work() -> i64:
+  return 1
+fn choose(flag: bool) -> i64 ! TaskError:
+  return try parallel:
+    task = spawn work()
+    if flag:
+      return 42
+    value = try await task
+    value
+fn main() -> i64 ! TaskError:
+  return try choose(true)
+''',
+    'immutable-parameter': 'fn bad(value: String) -> String:\n  value = "new"\n  return value\n',
     'unit-as-condition': 'fn main() -> i64:\n  return if ():\n    1\n  else:\n    0\n',
 }
 for old in ('int', 'uint', 'float', 'int32', 'uint32', 'float32', 'Bool'):

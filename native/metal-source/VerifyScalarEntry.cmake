@@ -27,7 +27,7 @@ if(NOT STATUS EQUAL 0 OR NOT OUT STREQUAL "[41180000,41380000,41580000]\n")
 endif()
 string(FIND "${SOURCE}" "fn main()" MAIN)
 string(SUBSTRING "${SOURCE}" 0 ${MAIN} FUNCTIONS)
-file(WRITE "${OUTPUT_DIR}/cpu.k" "${FUNCTIONS}fn main() -> f32:\n  values: Tensor[f32,3] = tensor([1,2,3])\n  reduceSum(affine(0.5,values,2))\n")
+file(WRITE "${OUTPUT_DIR}/cpu.k" "${FUNCTIONS}fn main() -> f32:\n  values: Tensor[f32,3] = tensor([1,2,3])\n  return reduceSum(affine(0.5,values,2))\n")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/cpu.k" -o "${OUTPUT_DIR}/cpu" -O2
   RESULT_VARIABLE STATUS ERROR_VARIABLE ERROR)
 if(NOT STATUS EQUAL 0)

@@ -124,7 +124,7 @@ string(REPLACE "Tensor[float32, 2, 2] = tensor([[1, 2], [3, 4]])" "Tensor[float3
 compile(shape-fault "${SHAPE_FN}${BAD_MAIN}")
 run(shape-fault "" 1)
 # Compare a separately scheduled map/matmul/post sequence and unchanged primitive source.
-set(SEPARATE "fn shift(a:Tensor[f32,?,?],s:f32)->Tensor[f32,?,?]:\n  a+s\nfn adjust(b:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  b-1\nfn plain(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  matmul(a,b)\nfn finish(a:Tensor[f32,?,?],bias:Tensor[f32,?,?],s:f32)->Tensor[f32,?,?]:\n  (a+bias)*s\n${MAIN}")
+set(SEPARATE "fn shift(a:Tensor[f32,?,?],s:f32)->Tensor[f32,?,?]:\n  return a+s\nfn adjust(b:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  return b-1\nfn plain(a:Tensor[f32,?,?],b:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  return matmul(a,b)\nfn finish(a:Tensor[f32,?,?],bias:Tensor[f32,?,?],s:f32)->Tensor[f32,?,?]:\n  return (a+bias)*s\n${MAIN}")
 string(REPLACE "    work = spawn project(a, offset, 2, b) on gpu" "    left = try await spawn shift(a,2) on gpu\n    right = try await spawn adjust(b) on gpu\n    product = try await spawn plain(left,right) on gpu\n    work = spawn finish(product,offset,2) on gpu" SEPARATE "${SEPARATE}")
 compile(separate "${SEPARATE}")
 run(separate "[42680000,42a80000,42c40000,430e0000]\n" 0)

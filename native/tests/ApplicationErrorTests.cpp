@@ -13,7 +13,7 @@ static CheckResult analyze(const std::string &text) {
 int main() {
   try {
     const std::string decl =
-        "error InputError:\n  Empty\n  Bad:\n    count:int\n    reason:String\n"
+        "error InputError:\n  Empty\n  Bad:\n    count:i64\n    reason:String\n"
         "enum Ordinary:\n  Empty\nerror OtherError:\n  Bad\n";
     auto inferred = analyze(decl + "fn checked(x:i64) ! InputError:\n  return x+1\n"
                                    "fn main()->i64 ! InputError:\n  return try checked(1)\n");
@@ -56,9 +56,9 @@ int main() {
           "fn main()->i64 ! InputError:\n  fail Ordinary.Empty\n",
           "fn main()->i64 ! InputError:\n  fail OtherError.Bad\n",
           "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64:\n  return try bad()\n",
-          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64 ! OtherError:\n  "
+          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64 ! OtherError:\n  return "
           "return try bad()\n",
-          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64:\n  "
+          "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64:\n  return "
           "ignored=bad()\n  return 42\n",
           "fn bad()->i64 ! InputError:\n  fail InputError.Empty\nfn main()->i64:\n  return bad() catch "
           "fn(error):\n    return match error:\n      InputError.Bad:0\n",
@@ -69,7 +69,7 @@ int main() {
           "fn main()->i64 ! InputError:\n  result=if true:\n    fail InputError.Empty\n  return 1\n",
           "fn main()->i64 ! InputError:\n  return if true:\n    fail InputError.Empty\n",
           "fn main()->i64 ! InputError:\n  if 1:\n    fail InputError.Empty\n  return 1\n",
-          "fn main()->i64 ! InputError | TaskError:\n  1\n"})
+          "fn main()->i64 ! InputError | TaskError:\n  return 1\n"})
       require(!analyze(decl + body).ok(),
               "invalid/unsupported error program admitted: " + std::string(body));
     auto valid = analyze(decl + "fn get()->i64 ! InputError:\n  fail InputError.Empty\n"

@@ -16,7 +16,7 @@ int main() {
          {"i32", "u32", "i64", "u64", "f32", "f64", "bool", "String", "Row"}) {
       auto result = analyze(
           std::string("type Row:\n  texts:[String]\n  values:[i64]\nfn join(a:[") + element +
-          "],b:[" + element + "])->[" + element + "]:\n  concat(a,b)\nfn main()->i64:\n  0\n");
+          "],b:[" + element + "])->[" + element + "]:\n  concat(a,b)\nfn main()->i64:\n  return 0\n");
       require(result.ok(), "array concat type rejected");
       require(dumpTypedIR(*result.module).find("array.concat checked") != std::string::npos,
               "concat IR missing");

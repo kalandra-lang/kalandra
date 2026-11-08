@@ -40,10 +40,10 @@ int main() {
     }
     for (const auto *value :
          {"128", "-129", "127+1", "-128-1", "64*2", "-(-128)", "-128/-1", "1/0", "1.0"})
-      require(!analyze(std::string("fn main()->i8:\n  ") + value + "\n").ok(),
+      require(!analyze(std::string("fn main()->i8:\n  return ") + value + "\n").ok(),
               "invalid signed byte accepted");
     for (const auto *value : {"256", "-1", "255+1", "0-1", "128*2", "-uint8(1)", "1%0"})
-      require(!analyze(std::string("fn main()->u8:\n  ") + value + "\n").ok(),
+      require(!analyze(std::string("fn main()->u8:\n  return ") + value + "\n").ok(),
               "invalid unsigned byte accepted");
     for (const auto *source :
          {"fn main()->i8:\n  value=1\n  return value\n", "fn main()->i8:\n  return i8(128)\n",

@@ -2,12 +2,12 @@ include("${CMAKE_CURRENT_LIST_DIR}/Float64Driver.cmake")
 set(PREFIX "enum List:\n  Nil\n  Cons:\n    head:i64\n    tail:List\n")
 set(SUM "fn sum(items:List)->i64:\n  return match items:\n    List.Nil:0\n    List.Cons {head,tail}:head+sum(tail)\n")
 foreach(TYPE IN ITEMS i8 u8 i16 u16 i32 u32 i64 u64 f32 f64)
-  COMPILE("list-${TYPE}" "enum List:\n  Nil\n  Cons:\n    head:${TYPE}\n    tail:List\nfn sum(items:List)->${TYPE}:\n  match items:\n    List.Nil:0\n    List.Cons {head,tail}:head+sum(tail)\nfn main()->i64:\n  items=List.Cons {head:1,tail:List.Cons {head:2,tail:List.Nil}}\n  i64(sum(items))\n")
+  COMPILE("list-${TYPE}" "enum List:\n  Nil\n  Cons:\n    head:${TYPE}\n    tail:List\nfn sum(items:List)->${TYPE}:\n  return match items:\n    List.Nil:0\n    List.Cons {head,tail}:head+sum(tail)\nfn main()->i64:\n  items=List.Cons {head:1,tail:List.Cons {head:2,tail:List.Nil}}\n  return i64(sum(items))\n")
   EXPECT("list-${TYPE}" 3)
 endforeach()
-COMPILE(bool-list "enum List:\n  Nil\n  Cons:\n    head:bool\n    tail:List\nfn any(items:List)->bool:\n  match items:\n    List.Nil:false\n    List.Cons {head,tail}:head or any(tail)\nfn main()->bool:\n  any(List.Cons {head:false,tail:List.Cons {head:true,tail:List.Nil}})\n")
+COMPILE(bool-list "enum List:\n  Nil\n  Cons:\n    head:bool\n    tail:List\nfn any(items:List)->bool:\n  return match items:\n    List.Nil:false\n    List.Cons {head,tail}:head or any(tail)\nfn main()->bool:\n  return any(List.Cons {head:false,tail:List.Cons {head:true,tail:List.Nil}})\n")
 EXPECT(bool-list true)
-COMPILE(returned "${PREFIX}${SUM}fn make(n:i64)->List:\n  if n==0:List.Nil\n  else:List.Cons {head:n,tail:make(n-1)}\nfn main()->i64:\n  items=make(32)\n  sum(items)\n")
+COMPILE(returned "${PREFIX}${SUM}fn make(n:i64)->List:\n  return if n==0:List.Nil\n  else:List.Cons {head:n,tail:make(n-1)}\nfn main()->i64:\n  items=make(32)\n  return sum(items)\n")
 EXPECT(returned 528)
 COMPILE(mutual [=[type Node:
   value:i64
@@ -26,20 +26,20 @@ fn main()->i64:
   b=match changed.next:
     Link.End:0
     Link.More {node}:node.value
-  a+b+outer.value+changed.value
+  return a+b+outer.value+changed.value
 ]=])
 EXPECT(mutual 127)
-COMPILE(shared "${PREFIX}${SUM}fn main()->i64:\n  tail=List.Cons {head:3,tail:List.Nil}\n  left=List.Cons {head:10,tail:tail}\n  right=List.Cons {head:20,tail:tail}\n  sum(left)+sum(right)+sum(tail)\n")
+COMPILE(shared "${PREFIX}${SUM}fn main()->i64:\n  tail=List.Cons {head:3,tail:List.Nil}\n  left=List.Cons {head:10,tail:tail}\n  right=List.Cons {head:20,tail:tail}\n  return sum(left)+sum(right)+sum(tail)\n")
 EXPECT(shared 39)
 COMPILE(fallback "${PREFIX}fn bad(x:i64)->i64:\n  return 1/x\nfn main()->i64:\n  item=List.Cons {head:42,tail:List.Nil}\n  return match item:\n    List.Nil:bad(0)\n    _:42\n")
 EXPECT(fallback 42)
-COMPILE(branch-return "${PREFIX}${SUM}fn select(n:i64)->List:\n  if n==0:List.Nil\n  else:List.Cons {head:42,tail:List.Nil}\nfn main()->i64:\n  sum(select(1))+sum(select(0))\n")
+COMPILE(branch-return "${PREFIX}${SUM}fn select(n:i64)->List:\n  return if n==0:List.Nil\n  else:List.Cons {head:42,tail:List.Nil}\nfn main()->i64:\n  return sum(select(1))+sum(select(0))\n")
 EXPECT(branch-return 42)
 COMPILE(uint64-bits "enum List:\n  Nil\n  Cons:\n    head:u64\n    tail:List\nfn main()->u64:\n  return match List.Cons {head:18446744073709551615,tail:List.Nil}:\n    List.Nil:0\n    List.Cons {head}:head\n")
 EXPECT(uint64-bits 18446744073709551615)
 COMPILE(float64-bits "enum List:\n  Nil\n  Cons:\n    head:f64\n    tail:List\nfn head(items:List)->f64:\n  return match items:\n    List.Nil:0\n    List.Cons {head}:head\nfn main()->bool:\n  return head(List.Cons {head:1.0000000000000002,tail:List.Nil})==1.0000000000000002\n")
 EXPECT(float64-bits true)
-file(WRITE "${OUTPUT_DIR}/model.k" "export enum List:\n  Nil\n  Cons:\n    head:int\n    tail:List\n")
+file(WRITE "${OUTPUT_DIR}/model.k" "export enum List:\n  Nil\n  Cons:\n    head:i64\n    tail:List\n")
 COMPILE(imported "from \"./model.k\" import List as L\nfn main()->i64:\n  return match L.Cons {head:42,tail:L.Nil}:\n    L.Nil:0\n    L.Cons {head}:head\n")
 EXPECT(imported 42)
 COMPILE(match-return "${PREFIX}${SUM}fn tail(items:List)->List:
@@ -66,13 +66,13 @@ enum Maybe:
   Some:
     item:Item
 fn score(item:Item)->i64:
-  match item:
+  return match item:
     Item.Value {next}:
       match next:
         Maybe.None:42
         Maybe.Some {item}:score(item)
 fn main()->i64:
-  score(Item.Value {next:Maybe.None})
+  return score(Item.Value {next:Maybe.None})
 ]=])
 EXPECT(single-case 42)
 COMPILE(binary-tree [=[enum Tree:
@@ -83,14 +83,14 @@ COMPILE(binary-tree [=[enum Tree:
     left:Tree
     right:Tree
 fn sum(tree:Tree)->i64:
-  match tree:
+  return match tree:
     Tree.Empty:0
     Tree.Leaf {value}:value
     Tree.Branch {left,right}:sum(left)+sum(right)
 fn main()->i64:
   shared=Tree.Branch {left:Tree.Leaf {value:1},right:Tree.Leaf {value:2}}
   root=Tree.Branch {left:shared,right:shared}
-  sum(root)
+  return sum(root)
 ]=])
 EXPECT(binary-tree 6)
 COMPILE(fault "${PREFIX}fn bad(x:i64)->i64:\n  return 1/x\nfn main()->i64:\n  item=List.Cons {head:1,tail:List.Nil}\n  return match item:\n    List.Nil:0\n    List.Cons:bad(0)\n")

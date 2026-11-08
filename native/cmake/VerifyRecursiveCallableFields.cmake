@@ -9,15 +9,15 @@ fn run(chain:Chain,value:i64)->i64:
     Chain.End:0
     Chain.Link {apply,next}:apply(value)+run(next,value)
 ]=])
-COMPILE(named "${PREFIX}fn double(x:i64)->i64:\n  return x*2\nfn main()->i64:\n  inner=Chain.Link {apply:double,next:Chain.End}\n  root=Chain.Link {apply:double,next:inner}\n  run(root,7)\n")
+COMPILE(named "${PREFIX}fn double(x:i64)->i64:\n  return x*2\nfn main()->i64:\n  inner=Chain.Link {apply:double,next:Chain.End}\n  root=Chain.Link {apply:double,next:inner}\n  return run(root,7)\n")
 EXPECT(named 28)
-COMPILE(returned "${PREFIX}fn make(offset:i64)->Chain:\n  return Chain.Link {apply:fn(value):return value+offset,next:Chain.End}\nfn main()->i64:\n  inner=make(20)\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  run(root,11)\n")
+COMPILE(returned "${PREFIX}fn make(offset:i64)->Chain:\n  return Chain.Link {apply:fn(value):return value+offset,next:Chain.End}\nfn main()->i64:\n  inner=make(20)\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  return run(root,11)\n")
 EXPECT(returned 42)
-COMPILE(owned "${PREFIX}fn make(text:String,values:[i64],names:[String],flags:[bool])->Chain:\n  return Chain.Link {apply:fn(value):\n    return if flags[0]:value+length(text)+values[0]+length(names[0])\n    else:0\n  ,next:Chain.End}\nfn main()->i64:\n  inner=make(\"é\",[20],[\"👩\"],[true])\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  run(root,10)\n")
+COMPILE(owned "${PREFIX}fn make(text:String,values:[i64],names:[String],flags:[bool])->Chain:\n  return Chain.Link {apply:fn(value):\n    return if flags[0]:value+length(text)+values[0]+length(names[0])\n    else:0\n  ,next:Chain.End}\nfn main()->i64:\n  inner=make(\"é\",[20],[\"👩\"],[true])\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  return run(root,10)\n")
 EXPECT(owned 42)
-COMPILE(nested "${PREFIX}fn adder(offset:i64)->fn(i64)->i64:\n  return fn(value):return value+offset\nfn make(offset:i64)->Chain:\n  add=adder(offset)\n  return Chain.Link {apply:fn(value):return add(value)+1,next:Chain.End}\nfn main()->i64:\n  inner=make(20)\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  run(root,10)\n")
+COMPILE(nested "${PREFIX}fn adder(offset:i64)->fn(i64)->i64:\n  return fn(value):return value+offset\nfn make(offset:i64)->Chain:\n  add=adder(offset)\n  return Chain.Link {apply:fn(value):return add(value)+1,next:Chain.End}\nfn main()->i64:\n  inner=make(20)\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  return run(root,10)\n")
 EXPECT(nested 41)
-COMPILE(record-capture "${PREFIX}enum Values:\n  Nil\n  Cons:\n    value:i64\n    next:Values\nfn sum(values:Values)->i64:\n  match values:\n    Values.Nil:0\n    Values.Cons {value,next}:value+sum(next)\nfn make(values:Values)->Chain:\n  Chain.Link {apply:fn(value):value+sum(values),next:Chain.End}\nfn main()->i64:\n  inner=make(Values.Cons {value:20,next:Values.Cons {value:2,next:Values.Nil}})\n  root=Chain.Link {apply:fn(value):value,next:inner}\n  run(root,10)\n")
+COMPILE(record-capture "${PREFIX}enum Values:\n  Nil\n  Cons:\n    value:i64\n    next:Values\nfn sum(values:Values)->i64:\n  return match values:\n    Values.Nil:0\n    Values.Cons {value,next}:value+sum(next)\nfn make(values:Values)->Chain:\n  return Chain.Link {apply:fn(value):return value+sum(values),next:Chain.End}\nfn main()->i64:\n  inner=make(Values.Cons {value:20,next:Values.Cons {value:2,next:Values.Nil}})\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  return run(root,10)\n")
 EXPECT(record-capture 42)
 COMPILE(update [=[type Node:
   apply:fn(i64)->i64
@@ -27,12 +27,12 @@ enum Link:
   More:
     node:Node
 fn make(offset:i64)->Node:
-  Node {apply:fn(value):value+offset,next:Link.End}
+  return Node {apply:fn(value):return value+offset,next:Link.End}
 fn main()->i64:
   original=make(20)
-  changed=original with {apply:fn(value):value*2}
-  root=Node {apply:fn(value):value,next:Link.More {node:changed}}
-  match root.next:
+  changed=original with {apply:fn(value):return value*2}
+  root=Node {apply:fn(value):return value,next:Link.More {node:changed}}
+  return match root.next:
     Link.End:0
     Link.More {node}:original.apply(10)+node.apply(6)
 ]=])
@@ -48,16 +48,16 @@ enum Link:
   More:
     node:Node
 fn read(node:Node)->i64:
-  node.value
+  return node.value
 fn main()->i64:
   inner=Node {value:42,apply:read,next:Link.End}
   root=Node {value:0,apply:read,next:Link.More {node:inner}}
-  match root.next:
+  return match root.next:
     Link.End:0
     Link.More {node}:node.apply(node)
 ]=])
 EXPECT(nominal 42)
-COMPILE(tensor-capture "${PREFIX}fn make(weights:Tensor[i64,2,2])->Chain:\n  return Chain.Link {apply:fn(value):return value+reduceSum(weights),next:Chain.End}\nfn main()->i64:\n  inner=make(tensor([[5,6],[5,6]]))\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  run(root,10)\n")
+COMPILE(tensor-capture "${PREFIX}fn make(weights:Tensor[i64,2,2])->Chain:\n  return Chain.Link {apply:fn(value):return value+reduceSum(weights),next:Chain.End}\nfn main()->i64:\n  inner=make(tensor([[5,6],[5,6]]))\n  root=Chain.Link {apply:fn(value):return value,next:inner}\n  return run(root,10)\n")
 EXPECT(tensor-capture 42)
 COMPILE(record-result [=[enum Values:
   Nil
@@ -70,16 +70,16 @@ enum Chain:
     get:fn()->Values
     next:Chain
 fn getter(values:Values)->fn()->Values:
-  fn():values
+  return fn():return values
 fn sum(values:Values)->i64:
-  match values:
+  return match values:
     Values.Nil:0
     Values.Cons {value,next}:value+sum(next)
 fn main()->i64:
   values=Values.Cons {value:20,next:Values.Cons {value:22,next:Values.Nil}}
   inner=Chain.More {get:getter(values),next:Chain.End}
   outer=Chain.More {get:getter(Values.Nil),next:inner}
-  match outer:
+  return match outer:
     Chain.End:0
     Chain.More {next}:
       match next:
@@ -87,7 +87,7 @@ fn main()->i64:
         Chain.More {get}:sum(get())
 ]=])
 EXPECT(record-result 42)
-COMPILE(fault "${PREFIX}fn make(zero:i64)->Chain:\n  return Chain.Link {apply:fn(value):return value/zero,next:Chain.End}\nfn main()->i64:\n  root=Chain.Link {apply:fn(value):return value,next:make(0)}\n  run(root,1)\n")
+COMPILE(fault "${PREFIX}fn make(zero:i64)->Chain:\n  return Chain.Link {apply:fn(value):return value/zero,next:Chain.End}\nfn main()->i64:\n  root=Chain.Link {apply:fn(value):return value,next:make(0)}\n  return run(root,1)\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_REPORT_CLEANUP=1 "${OUTPUT_DIR}/fault"
   RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
 if(NOT "${STATUS}" STREQUAL "86" OR NOT OUT STREQUAL "" OR

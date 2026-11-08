@@ -31,22 +31,22 @@ for case in fixtures['text_cases']:
     for selected in case['slices']:
         vectors.append((case['text'],selected['start'],selected['end'],selected['result']))
 for n,(text,start,end,expected) in enumerate(vectors):
-    exe=compile('slice-'+str(n),'fn cut(text:String,start:i64,end:i64)->String:\n  slice(text,start,end)\nfn main()->String:\n  cut('+literal(text)+','+str(start)+','+str(end)+')\n')
+    exe=compile('slice-'+str(n),'fn cut(text:String,start:i64,end:i64)->String:\n  return slice(text,start,end)\nfn main()->String:\n  return cut('+literal(text)+','+str(start)+','+str(end)+')\n')
     run([exe],expected.encode()+b'\n')
 widths=['i32','u32','i64','u64']
 functions=[];checks=[]
 for a in widths:
     for b in widths:
         name='cut_'+a+'_'+b
-        functions.append('fn '+name+'(text:String,start:'+a+',end:'+b+')->String:\n  slice(text,start,end)\n')
+        functions.append('fn '+name+'(text:String,start:'+a+',end:'+b+')->String:\n  return slice(text,start,end)\n')
         checks.append(name+'("aé👩",1,3)=="é👩"')
-exe=compile('mixed-widths',''.join(functions)+'fn main()->bool:\n  '+' and '.join(checks)+'\n')
+exe=compile('mixed-widths',''.join(functions)+'fn main()->bool:\n  return '+' and '.join(checks)+'\n')
 run([exe],b'true\n')
 for dtype in widths:
     cases=[('reversed','2','1'),('past-end','0','4'),('high-start','4294967295' if dtype=='u32' else '2147483647' if dtype=='i32' else '18446744073709551615' if dtype=='u64' else '9223372036854775807','3')]
     if not dtype.startswith('u'):cases.append(('negative-end','0','-1'))
     for label,start,end in cases:
-        exe=compile('bounds-'+dtype+'-'+label,'fn cut(text:String,start:'+dtype+',end:'+dtype+')->String:\n  slice(text,start,end)\nfn main()->String:\n  cut("aé👩",'+start+','+end+')\n')
+        exe=compile('bounds-'+dtype+'-'+label,'fn cut(text:String,start:'+dtype+',end:'+dtype+')->String:\n  return slice(text,start,end)\nfn main()->String:\n  return cut("aé👩",'+start+','+end+')\n')
         result=subprocess.run([exe],capture_output=True)
         assert result.returncode and not result.stdout and b'BoundsFault' in result.stderr,result
 (output/'cut.k').write_text('export fn cut(text:String,start:u32,end:i64)->String:\n  return slice(text,start,end)\n')
@@ -69,7 +69,7 @@ run([exe],'é👩\n'.encode())
 result=subprocess.run([exe],capture_output=True,env=dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT='5'))
 assert not result.returncode and result.stdout=='é👩\n'.encode() and not result.stderr,result
 for name,start in [('source-fault','bad(0)'),('start-fault','good()')]:
-    source='fn bad(value:i64)->String:\n  fault=1/value\n  "a"\nfn good()->String:\n  "a"\nfn start()->i64:\n  fault=1/zero()\n  0\nfn zero()->i64:\n  0\nfn end()->i64:\n  ignored="end"\n  1\nfn main()->String:\n  slice('+start+',start(),end())\n'
+    source='fn bad(value:i64)->String:\n  fault=1/value\n  return "a"\nfn good()->String:\n  return "a"\nfn start()->i64:\n  fault=1/zero()\n  return 0\nfn zero()->i64:\n  return 0\nfn end()->i64:\n  ignored="end"\n  return 1\nfn main()->String:\n  return slice('+start+',start(),end())\n'
     exe=compile(name,source)
     result=subprocess.run([exe],capture_output=True,env=dict(os.environ,KALANDRA_TEST_FAIL_ALLOC_AT='1' if name=='source-fault' else '2'))
     assert result.returncode and not result.stdout and b'ArithmeticFault' in result.stderr,result
@@ -77,7 +77,7 @@ for name,start in [('source-fault','bad(0)'),('start-fault','good()')]:
 exe=compile('short-circuit','fn cut(text:String,start:i64,end:i64)->String:\n  return slice(text,start,end)\nfn main()->bool:\n  return true or cut("a",2,1)=="x"\n')
 run([exe],b'true\n')
 for n,expr in enumerate(['slice("abc",2,1)','slice("é",0,2)','slice("a",-1,1)','slice("a",0,-1)','slice("",1,1)','slice("a",0,0)[0]','slice()','slice("a",0)','slice("a",0,1,1)','slice(tensor([1,2]),0,1)','slice("a",true,1)','slice("a",0,1.0)']):
-    source=output/f'invalid-{n}.k';source.write_text('fn main():\n  '+expr+'\n')
+    source=output/f'invalid-{n}.k';source.write_text('fn main():\n  return '+expr+'\n')
     paths=[output/'preserved',output/'preserved.ll',output/'preserved.mlir']
     for p in paths:p.write_bytes(b'keep-existing-artifact')
     result=subprocess.run(list(map(str,[compiler,source,'-o',paths[0],'--emit-llvm',paths[1],'--emit-mlir',paths[2],*extra])),capture_output=True)

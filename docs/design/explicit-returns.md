@@ -38,3 +38,41 @@ formatting, editor tooling, documentation, and qualification harnesses.
 Backend ABI identities, numerical precision, and C++/shader type names
 retain their existing meanings. Entry-point output and process status are
 the subject of a separate proposal.
+
+## Lowering and ownership
+
+The checker gives each function and catch handler a lexical return scope,
+independent of the nearest source loop. Return values are checked against the
+function's result context. Every exiting path must discharge its pending error
+and child-observation obligations before later statements can affect those
+obligations.
+
+A single terminal return uses the existing function result directly. Early
+returns use a constant-true control-flow boundary and transfers to its result
+slot. This reuses the established CPU and device continuation machinery for
+group settlement, failure precedence and ownership. Transfers release abandoned
+array collectors and close the structured groups they leave.
+
+Branches that return, fail or continue elsewhere have no value at their normal
+join. The checker joins the success types of completing branches and retains
+error channels from every branch. Executable-IR validation independently derives this
+control-flow property. A literal-true loop without a break targeting that loop
+also cannot finish normally.
+
+The semantic identity of unit is distinct from bool. Physical value layouts use
+a canonical zero bit or byte for unit, including function parameters and owned
+array elements. Conditions require bool. Unit entry adapters check failures and
+resource settlement before successful process completion.
+
+Numeric source spellings are separate from storage labels in kernel resources
+and runtime metadata. The public resolver accepts only the new source names.
+Resource tooling resolves storage labels through a separate internal resolver.
+
+CLI collection metadata distinguishes unit arrays from bool arrays even though
+both use byte storage. Unit arrays display `()` elements and scalar unit entries
+produce no output. The GPU wire representation continues to use the checked
+boolean storage carrier; source types remain distinct.
+
+Callable validation accepts the explicit return values of function boundaries
+and ignores non-completing branches at expression joins. It continues to compare
+the signatures of every branch that can actually produce a callable value.

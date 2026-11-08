@@ -37,11 +37,11 @@ function(EXPECT NAME EXPECTED)
 endfunction()
 set(PREFIX "enum List:\n  Nil\n  Cons:\n    head:i64\n    tail:List\n")
 set(SUM "fn sum(items:List)->i64:\n  return match items:\n    List.Nil:0\n    List.Cons {head,tail}:head+sum(tail)\n")
-COMPILE(shared "${PREFIX}${SUM}fn main()->i64:\n  tail=List.Cons {head:3,tail:List.Nil}\n  left=List.Cons {head:10,tail:tail}\n  right=List.Cons {head:20,tail:tail}\n  sum(left)+sum(right)+sum(tail)\n")
+COMPILE(shared "${PREFIX}${SUM}fn main()->i64:\n  tail=List.Cons {head:3,tail:List.Nil}\n  left=List.Cons {head:10,tail:tail}\n  right=List.Cons {head:20,tail:tail}\n  return sum(left)+sum(right)+sum(tail)\n")
 EXPECT(shared 39)
-COMPILE(returned "${PREFIX}${SUM}fn make(n:i64)->List:\n  if n==0:List.Nil\n  else:List.Cons {head:n,tail:make(n-1)}\nfn main()->i64:\n  sum(make(32))\n")
+COMPILE(returned "${PREFIX}${SUM}fn make(n:i64)->List:\n  return if n==0:List.Nil\n  else:List.Cons {head:n,tail:make(n-1)}\nfn main()->i64:\n  return sum(make(32))\n")
 EXPECT(returned 528)
-COMPILE(match-return "${PREFIX}${SUM}fn tail(items:List)->List:\n  match items:\n    List.Nil:List.Nil\n    List.Cons {tail}:tail\nfn main()->i64:\n  sum(tail(List.Cons {head:10,tail:List.Cons {head:42,tail:List.Nil}}))\n")
+COMPILE(match-return "${PREFIX}${SUM}fn tail(items:List)->List:\n  return match items:\n    List.Nil:List.Nil\n    List.Cons {tail}:tail\nfn main()->i64:\n  return sum(tail(List.Cons {head:10,tail:List.Cons {head:42,tail:List.Nil}}))\n")
 EXPECT(match-return 42)
 COMPILE(owned [=[enum Chain:
   End
@@ -50,7 +50,7 @@ COMPILE(owned [=[enum Chain:
     values:[i64]
     next:Chain
 fn inspect(chain:Chain)->i64:
-  match chain:
+  return match chain:
     Chain.End:0
     Chain.More {text,values,next}:length(text)+values[0]+inspect(next)
 fn main()->i64:
@@ -74,10 +74,10 @@ COMPILE(callable [=[enum Chain:
     apply:fn(i64)->i64
     next:Chain
 fn make(text:String)->Chain:
-  Chain.More {apply:fn(value:i64):value+length(text),next:Chain.End}
+  return Chain.More {apply:fn(value:i64):return value+length(text),next:Chain.End}
 fn main()->i64:
   chain=make("é")
-  match chain:
+  return match chain:
     Chain.End:0
     Chain.More {apply}:apply(41)
 ]=])
@@ -88,10 +88,10 @@ COMPILE(function-array [=[enum Chain:
     callbacks:[fn(i64)->i64]
     next:Chain
 fn make(offset:i64)->Chain:
-  add=fn(value:i64):value+offset
-  Chain.More {callbacks:[add,add],next:Chain.End}
+  add=fn(value:i64):return value+offset
+  return Chain.More {callbacks:[add,add],next:Chain.End}
 fn main()->i64:
-  match make(20):
+  return match make(20):
     Chain.End:0
     Chain.More {callbacks}:callbacks[0](1)+callbacks[1](1)
 ]=])

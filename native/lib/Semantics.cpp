@@ -1349,8 +1349,11 @@ private:
     const auto &body = syntax_.functions[id].body;
     prepareBindings(frame, body);
     std::vector<TypedStatement> statements;
+    std::unordered_set<std::string> parameters;
+    for (auto parameter : output_.functions[id].parameters)
+      parameters.insert(output_.symbols[parameter].name);
     auto result = functionSuite(frame, body, output_.functions[id].declaredResult, statements,
-                                syntax_.functions[id].span);
+                                syntax_.functions[id].span, parameters);
     output_.functions[id].body = std::move(statements);
     if (!result)
       success = false;
@@ -2999,6 +3002,12 @@ private:
         }
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
+        if (!output_.symbols[*symbol].reassignable) {
+          if (auto known = intConstants_.find(*value); known != intConstants_.end())
+            intBindings_[*symbol] = known->second;
+          if (auto known = floatConstants_.find(*value); known != floatConstants_.end())
+            floatBindings_.insert_or_assign(*symbol, known->second);
+        }
       }
       statements.push_back({statement.span, symbol, *value});
       result = value;
@@ -3069,6 +3078,7 @@ private:
     scope.results.push_back(*value);
     if (actual.fallible)
       frame.tasks->handled.insert(actual.identity);
+    finishBranch(scope.before, frame, *value, span);
     scope.transfers = true;
     frame.stopped = true;
     ValueType marker;
@@ -3078,7 +3088,8 @@ private:
   std::optional<ValueId> functionSuite(Frame &frame, const std::vector<Statement> &body,
                                        std::optional<ValueType> context,
                                        std::vector<TypedStatement> &statements, SourceSpan span,
-                                       const std::unordered_set<std::string> &introduced = {}) {
+                                       const std::unordered_set<std::string> &introduced = {},
+                                       bool inferErrorChannel = false) {
     auto scope =
         std::make_shared<LoopScope>(LoopScope{nextLoop_++, *frame.tasks, true, context, {}});
     frame.returns = scope;
@@ -3120,6 +3131,11 @@ private:
         ValueType unit;
         unit.builtin = BuiltinValue::Unit;
         auto resultType = context.value_or(unit);
+        if (inferErrorChannel) {
+          resultType.fallible = false;
+          resultType.errorRecord.reset();
+          resultType.identity = 0;
+        }
         if (!joinErrors(resultType, node(*completed).type, span))
           return {};
         output_.expressions[*completed].type = resultType;
@@ -3130,6 +3146,11 @@ private:
       return {};
     }
     auto resultType = context.value_or(node(scope->results.front()).type);
+    if (inferErrorChannel) {
+      resultType.fallible = false;
+      resultType.errorRecord.reset();
+      resultType.identity = 0;
+    }
     for (auto result : scope->results)
       if (!joinErrors(resultType, node(result).type, span))
         return {};
@@ -3623,6 +3644,12 @@ private:
         }
         if (auto known = stringCounts_.find(*value); known != stringCounts_.end())
           stringBindings_[*symbol] = known->second;
+        if (!output_.symbols[*symbol].reassignable) {
+          if (auto known = intConstants_.find(*value); known != intConstants_.end())
+            intBindings_[*symbol] = known->second;
+          if (auto known = floatConstants_.find(*value); known != floatConstants_.end())
+            floatBindings_.insert_or_assign(*symbol, known->second);
+        }
       }
       statements.push_back({statement.span, symbol, *value});
       result = value;
@@ -3665,7 +3692,9 @@ private:
     nested.locals[name(handler.parameter)] = symbol;
     std::vector<TypedStatement> body;
     auto handlerContext = resultType;
-    handlerContext.fallible = false;
+    // Handler returns can forward a new error channel; infer it from actual
+    // return values rather than retaining the error being recovered.
+    handlerContext.fallible = true;
     handlerContext.errorRecord.reset();
     handlerContext.identity = 0;
     // The success path's inferred extent is not a constraint on a fallback.
@@ -3676,7 +3705,8 @@ private:
       for (auto &dimension : handlerContext.shape)
         dimension = dynamic();
     auto result =
-        functionSuite(nested, handler.body, handlerContext, body, span, {name(handler.parameter)});
+        functionSuite(nested, handler.body, handlerContext, body, span, {name(handler.parameter)},
+                      true);
     if (!result)
       return {};
     finishBranch(before, nested, *result, span);

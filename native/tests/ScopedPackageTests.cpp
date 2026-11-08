@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     fs::create_directories(root);
     for (int version : {1, 2}) {
       const auto dir = "geometry" + std::to_string(version);
-      write(dir + "/types.k", "export type Item:\n  value:int64\n");
+      write(dir + "/types.k", "export type Item:\n  value:i64\n");
       write(dir + "/public.k", "export from \"./types.k\" import Item\n"
                                "export fn next(item:Item)->Item:\n  item with {value:item.value+" +
                                    std::to_string(version) + "}\n");
@@ -176,11 +176,11 @@ int main(int argc, char **argv) {
     write("telemetry/public.k", telemetry);
     // Physical overlays apply to every instance, without collapsing owner identity.
     std::vector<SourceOverlay> overlays = {
-        {(root / "geometry1/types.k").string(), "export type Item:\n  value:int64\n"}};
+        {(root / "geometry1/types.k").string(), "export type Item:\n  value:i64\n"}};
     require(check(load(graph, {}, overlays)).ok(), "scoped overlay failed");
     write("geometry1/public.k", "export from \"./unsaved.k\" import Item\nexport fn "
                                 "next(item:Item)->Item:\n  return item with {value:item.value+1}\n");
-    overlays = {{(root / "geometry1/unsaved.k").string(), "export type Item:\n  value:int64\n"}};
+    overlays = {{(root / "geometry1/unsaved.k").string(), "export type Item:\n  value:i64\n"}};
     require(check(load(graph, {}, overlays)).ok(), "unsaved package overlay failed");
     fs::remove(root / "geometry1/unsaved.k", error);
     write("geometry1/public.k",

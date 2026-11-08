@@ -12,10 +12,10 @@ set(PREFIX [=[enum Chain:
     text:String
     next:Chain
 fn make(n:i64)->Chain:
-  if n==0:Chain.End
+  return if n==0:Chain.End
   else:Chain.Link {values:[n,n+1],flags:[true,false],text:"é",next:make(n-1)}
 fn sum(chain:Chain)->i64:
-  match chain:
+  return match chain:
     Chain.End:0
     Chain.Link {values,flags,text,next}:
       if flags[0]:values[0]+values[1]+length(text)+sum(next)
@@ -36,7 +36,7 @@ enum Link:
   More:
     data:Data
 fn head(link:Link)->Data:
-  match link:
+  return match link:
     Link.End:Data {values:[],flags:[],next:Link.End}
     Link.More {data}:data
 fn main()->[i64]:
@@ -45,7 +45,7 @@ fn main()->[i64]:
   changed=root with {next:Link.More {data:original with {values:[30,40]}}}
   a=head(root.next)
   b=head(changed.next)
-  concat(a.values,b.values)
+  return concat(a.values,b.values)
 ]=])
 EXPECT(mutual "[10, 20, 30, 40]")
 COMPILE(inactive "${PREFIX}fn main()->i64:\n  return sum(Chain.End)\n")

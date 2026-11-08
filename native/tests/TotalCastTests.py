@@ -38,7 +38,7 @@ def main():
         for source, destination in ([] if a.tensor_only else pairs):
             name = f'{variant}-{source}-{destination}'
             path = a.output / (name + '.k')
-            path.write_text(f'fn convert(value:{source})->{destination}:\n  {destination}(value)\nfn main()->i64:\n  0\n')
+            path.write_text(f'fn convert(value:{source})->{destination}:\n  return {destination}(value)\nfn main()->i64:\n  return 0\n')
             binary = a.output / name
             ir = binary.with_suffix('.ll')
             policy = 'hardware-with-software-fallback' if variant == 'sanitized' else 'hardware'
@@ -60,7 +60,7 @@ def main():
                 name = f'{variant}-tensor-{source}-{destination}-{rank}'
                 path = a.output / (name + '.k')
                 shape = ',?' * rank
-                path.write_text(f'fn convert(value:Tensor[{source}{shape}])->Tensor[{destination}{shape}]:\n  {destination}(value)\nfn main()->i64:\n  0\n')
+                path.write_text(f'fn convert(value:Tensor[{source}{shape}])->Tensor[{destination}{shape}]:\n  return {destination}(value)\nfn main()->i64:\n  return 0\n')
                 binary = a.output / name
                 ir = binary.with_suffix('.ll')
                 run([a.compiler, path, '--test-entry', 'convert', flag, '--emit-llvm', ir,
