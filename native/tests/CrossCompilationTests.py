@@ -354,7 +354,8 @@ def build(a):
         assert digest(binary) == digest(a.output / documented_output), 'Non-reproducible documentation recipe'
         records.append(dict(file=binary.name, sha256=digest(binary), case=dict(output='1144\n')))
     # Misconfigured targets must preserve every requested output.
-    source = a.output / 'int64.k'
+    source = a.output / 'toolchain-probe.k'
+    source.write_text('fn main()->i64:\n  return 42\n', encoding='utf-8')
     protected = a.output / 'protected'
     protected.write_text('keep executable', encoding='utf-8')
     protected_ir = a.output / 'protected.ll'
