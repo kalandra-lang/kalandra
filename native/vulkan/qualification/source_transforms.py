@@ -27,7 +27,7 @@ else:
 def run(command,**kwargs):
     return subprocess.run(list(map(str,command)),text=True,capture_output=True,timeout=180,**kwargs)
 
-types=[('f32','f','I'),('f64','d','Q')]+[(('u' if u else '')+'i64'+str(w),'','B' if w==8 else 'H' if w==16 else 'I' if w==32 else 'Q') for w in (8,16,32,64) for u in (False,True)]
+types=[('f32','f','I'),('f64','d','Q')]+[(('u' if u else 'i')+str(w),'','B' if w==8 else 'H' if w==16 else 'I' if w==32 else 'Q') for w in (8,16,32,64) for u in (False,True)]
 cases=[]
 for name,fmt,wire in types:
     for mode in ('hardware','software'):
