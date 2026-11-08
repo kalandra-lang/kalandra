@@ -16,9 +16,9 @@ function(build_run NAME CONTENT EXPECTED)
   endforeach()
 endfunction()
 build_run(siblings "${SOURCE}" "42700000\n")
-string(REPLACE "fn main() -> f32 ! TaskError:\n  try parallel:"
+string(REPLACE "fn main() -> f32 ! TaskError:\n  return try parallel:"
   "fn main() -> f32 ! TaskError:\n  outcome = parallel:" RECOVERED "${SOURCE}")
-string(REPLACE "\nfn compute(" "\n  outcome catch fn(error):\n    match error:\n      TaskError.Fault {kind:cause, message:detail}:\n        match cause:\n          FaultKind.Shape: 42\n          _: 99\n      _: 99\n\nfn compute(" RECOVERED "${RECOVERED}")
+string(REPLACE "\nfn compute(" "\n  return outcome catch fn(error):\n    return match error:\n      TaskError.Fault {kind:cause, message:detail}:\n        match cause:\n          FaultKind.Shape: 42\n          _: 99\n      _: 99\n\nfn compute(" RECOVERED "${RECOVERED}")
 build_run(recovery-success "${RECOVERED}" "42700000\n")
 string(REPLACE "values:Tensor[f32,3] = tensor([1,2,3])"
   "values:Tensor[f32,2] = tensor([1,2])" FAILED "${RECOVERED}")

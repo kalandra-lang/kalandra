@@ -11,6 +11,29 @@ args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 
 cases = {
+    'handler-scalar-snapshot': ('''error E:
+  Bad
+fn failer()->i64 ! E:
+  fail E.Bad
+fn work()->i64:
+  value=20
+  result=failer() catch fn(error):
+    for i in range(2):
+      value=value+1
+    return value
+  return value+result
+''', 'i64', False, 42),
+    'handler-array-snapshot': ('''error E:
+  Bad
+fn failer()->i64 ! E:
+  fail E.Bad
+fn work()->i64:
+  values=[20]
+  result=failer() catch fn(error):
+    values=map(values,fn(item):return item+2)
+    return values[0]
+  return values[0]+result
+''', 'i64', False, 42),
     'loop-exit': ('''fn work() -> i64:
   for i in range(10):
     if i == 7:

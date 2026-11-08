@@ -53,7 +53,7 @@ build_run(vector "${FUNCTIONS}${VECTOR_HELPER}${VECTOR_MAIN}" "[3f800000,4000000
 set(EMPTY_MAIN "fn main() -> f32 ! TaskError:\n  return try parallel:\n    values: Tensor[f32,0,3] = tensor([], [0, 3])\n    weights: Tensor[f32,3,2] = tensor([[1,2],[3,4],[5,6]])\n    gpu = devices.gpu()\n    input = try await transfer(values,gpu)\n    resident = try await spawn scale(input,1) on gpu\n    host = try await transfer(resident,devices.cpu())\n    result = matmul(-(host + values) / 2, weights)\n    reduceSum(result) + -reduceSum(+host)\n")
 build_run(empty "${FUNCTIONS}${EMPTY_MAIN}" "00000000\n" --sanitize)
 # Keep all four arithmetic operations and unary signs in a scalar expression after GPU readback.
-set(PREAMBLE "fn main() -> f32 ! TaskError:\n  try parallel:\n    values: Tensor[f32,1,1] = tensor([[1]])\n    gpu = devices.gpu()\n    input = try await transfer(values,gpu)\n    resident = try await spawn scale(input,1) on gpu\n    host = try await transfer(resident,devices.cpu())\n")
+set(PREAMBLE "fn main() -> f32 ! TaskError:\n  return try parallel:\n    values: Tensor[f32,1,1] = tensor([[1]])\n    gpu = devices.gpu()\n    input = try await transfer(values,gpu)\n    resident = try await spawn scale(input,1) on gpu\n    host = try await transfer(resident,devices.cpu())\n")
 build_run(signed-zero "${FUNCTIONS}${PREAMBLE}    tiny: f32 = 1.401298464324817e-45\n    zero = tiny / 2\n    -zero\n" "80000000\n" --sanitize)
 build_run(nan "${FUNCTIONS}${PREAMBLE}    zero = reduceSum(host) - 1\n    zero / zero\n" "7fc00000\n" --sanitize)
 # Scalar division and multiplication by its rounded reciprocal remain distinct.

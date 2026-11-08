@@ -1184,7 +1184,8 @@ private:
   }
   // Discover writes before checking any initializer/condition. A binding that
   // changes later must not supply a constant to checks on an earlier read.
-  void prepareBindings(Frame &frame, const std::vector<Statement> &body) {
+  void prepareBindings(Frame &frame, const std::vector<Statement> &body,
+                       bool updateSymbols = true) {
     auto written = std::make_shared<std::unordered_set<std::string>>();
     std::unordered_set<std::string> visible;
     for (const Frame *scope = &frame; scope;) {
@@ -1240,8 +1241,9 @@ private:
           [&](const auto &op) {
             using T = std::decay_t<decltype(op)>;
             if constexpr (!std::is_same_v<T, LambdaExpr>) {
-              if constexpr (requires { op.body; })
-                statements(op.body);
+              if constexpr (!std::is_same_v<T, CatchExpr>)
+                if constexpr (requires { op.body; })
+                  statements(op.body);
               if constexpr (std::is_same_v<T, WhileExpr> || std::is_same_v<T, ForExpr>)
                 statements(op.whenDone);
               if constexpr (std::is_same_v<T, ForExpr>)
@@ -1298,7 +1300,8 @@ private:
     }
     frame.writtenNames = std::move(written);
     for (const auto &[label, symbol] : frame.locals)
-      if (frame.writtenNames->contains(label) && localBinding(output_.symbols[symbol].type)) {
+      if (updateSymbols && frame.writtenNames->contains(label) &&
+          localBinding(output_.symbols[symbol].type)) {
         output_.symbols[symbol].reassignable = true;
         output_.symbols[symbol].type = bindingType(output_.symbols[symbol].type);
       }
@@ -3743,6 +3746,8 @@ private:
     nested.handlerErrorRecord = std::make_shared<std::optional<std::size_t>>();
     nested.handlerDepth = nested.groups.size();
     nested.conditional = true;
+    nested.loop.reset();
+    nested.collection.reset();
     ValueType errorType;
     if (resultType.errorRecord)
       errorType = recordType(*resultType.errorRecord);
@@ -3752,6 +3757,33 @@ private:
     output_.symbols.push_back(
         {name(handler.parameter), errorType, handler.parameter, frame.function, true});
     nested.locals[name(handler.parameter)] = symbol;
+    // A handler is a lexical function boundary. Its scalar/array rebindings
+    // update private value snapshots, never the caller's symbol storage.
+    prepareBindings(nested, handler.body, false);
+    std::vector<TypedStatement> snapshots;
+    std::vector<std::string> written(nested.writtenNames->begin(), nested.writtenNames->end());
+    std::sort(written.begin(), written.end());
+    for (const auto &label : written) {
+      if (label == name(handler.parameter))
+        continue;
+      const auto visible = visibleScalar(nested, label);
+      if (!visible)
+        continue;
+      const auto origin = lookupSymbol(nested, output_.symbols[*visible].declaration);
+      if (!origin)
+        return {};
+      const auto captured = output_.symbols[*origin];
+      auto type = bindingType(captured.type);
+      auto value = add(nested, captured.type, span, SymbolRead{*origin});
+      if (!value)
+        return {};
+      const auto local = output_.symbols.size();
+      output_.symbols.push_back({label, type, captured.declaration, frame.function, false,
+                                 captured.definition.value_or(captured.declaration)});
+      output_.symbols.back().reassignable = true;
+      nested.locals[label] = local;
+      snapshots.push_back({span, local, *value});
+    }
     std::vector<TypedStatement> body;
     auto handlerContext = resultType;
     // Handler returns can forward a new error channel; infer it from actual
@@ -3770,6 +3802,7 @@ private:
                                 {name(handler.parameter)}, true);
     if (!result)
       return {};
+    body.insert(body.begin(), snapshots.begin(), snapshots.end());
     finishBranch(before, nested, *result, span);
     const auto handlerType = node(*result).type;
     if (resultType.device != handlerType.device) {

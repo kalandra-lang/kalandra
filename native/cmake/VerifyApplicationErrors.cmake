@@ -39,7 +39,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_REPORT_CLEANUP=1
 if(NOT "${STATUS}" STREQUAL "86" OR NOT OUT STREQUAL "" OR NOT ERR MATCHES "ArithmeticFault" OR NOT ERR MATCHES "cleanup: live=0")
   message(FATAL_ERROR "Application catch swallowed a checked fault or leaked: ${STATUS}: ${OUT}${ERR}")
 endif()
-foreach(SUCCESS IN ITEMS int i8 u8 i16 u16 i32 u32 i64 u64 f32 f64 bool String "[int]" "[bool]" "[String]" "Tensor[int,1,2]")
+foreach(SUCCESS IN ITEMS i8 u8 i16 u16 i32 u32 i64 u64 f32 f64 bool unit String "[unit]" "[i64]" "[bool]" "[String]" "Tensor[i64,1,2]")
   string(MAKE_C_IDENTIFIER "${SUCCESS}" NAME)
   COMPILE("unhandled-${NAME}" "error ReadError:\n  Bad:\n    reason:String\nfn main()->${SUCCESS} ! ReadError:\n  fail ReadError.Bad {reason:\"é\"+\"🙂\"}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env KALANDRA_TEST_REPORT_CLEANUP=1 "${OUTPUT_DIR}/unhandled-${NAME}"

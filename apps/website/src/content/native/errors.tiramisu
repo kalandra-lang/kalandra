@@ -21,6 +21,8 @@ fn main() -> i64:
 
 This returns 1: the handler turns the rejected -1 into its positive counterpart. An early validation guard may omit else when its body ends in fail. catch receives the actual error family and must produce the original success type, or propagate through another declared channel. Payload bindings belong to their match branch.
 
+A catch handler is a function boundary: its return ends only the handler. Rebinding a captured value changes a private local binding and cannot reassign the caller’s binding. Shared array storage still follows the usual access rules. break, continue and yield cannot target a loop outside the handler.
+
 h2 { "Propagate through a helper" }
 
 codeblock { language = kalandra, """error InputError:

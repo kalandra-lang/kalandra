@@ -14,6 +14,50 @@ root = Path(args.output)
 root.mkdir(parents=True, exist_ok=True)
 
 cases = {
+    'handler-scalar-snapshot': ('''error E:
+  Bad
+fn failer()->i64 ! E:
+  fail E.Bad
+fn work()->i64:
+  value=20
+  result=failer() catch fn(error):
+    for i in range(2):
+      value=value+1
+    return value
+  return value+result
+fn main()->i64:
+  return work()
+''', '42\n'),
+    'handler-array-snapshot': ('''error E:
+  Bad
+fn failer()->i64 ! E:
+  fail E.Bad
+fn work()->i64:
+  values=[20]
+  result=failer() catch fn(error):
+    values=map(values,fn(item):return item+2)
+    return values[0]
+  return values[0]+result
+fn main()->i64:
+  return work()
+''', '42\n'),
+    'handler-closure-snapshot': ('''error E:
+  Bad
+fn failer()->i64 ! E:
+  fail E.Bad
+fn make()->fn()->i64:
+  value=20
+  return fn():
+    result=failer() catch fn(error):
+      value=value+2
+      return value
+    return value+result
+fn work()->i64:
+  callback=make()
+  return callback()
+fn main()->i64:
+  return work()
+''', '42\n'),
     'conditional-expression': ('''fn main() -> i64:
   x = 42
   return if x > 10:
@@ -356,9 +400,9 @@ for name, (source, expected) in cases.items():
             assert (result.returncode, result.stdout, result.stderr) == (0, expected, ''), (
                 name, optimization, workers, result)
 
-# Retaining a recovered or tail-selected callable must not publish partial
-# captures when allocation fails; every retained owner must settle.
-for captured_case in ('error-carried-closure-task', 'tail-owned-callable'):
+# Owned callable results and handler-local array snapshots must not publish
+# partial values when allocation fails; every retained owner must settle.
+for captured_case in ('error-carried-closure-task', 'tail-owned-callable', 'handler-array-snapshot'):
     failed_allocations = successful_allocations = 0
     for allocation in range(1, 49):
         environment = dict(os.environ, KALANDRA_WORKERS='4',
@@ -403,6 +447,8 @@ for optimization in ('-O0', '-O2'):
     assert result.returncode == 86 and not result.stdout and 'ArithmeticFault' in result.stderr, result
 
 rejected = {
+    'handler-break-boundary': 'error E:\n  Bad\nfn failer()->i64 ! E:\n  fail E.Bad\nfn main()->i64:\n  for i in range(1):\n    value=failer() catch fn(error):\n      break\n    value\n  return 42\n',
+    'handler-yield-boundary': 'error E:\n  Bad\nfn failer()->i64 ! E:\n  fail E.Bad\nfn main()->[i64]:\n  return for i in range(1):\n    value=failer() catch fn(error):\n      yield 1\n      return 0\n    yield value\n',
     'constant-zero': 'fn main() -> i64:\n  zero = 0\n  return 1 / zero\n',
     'missing-return': 'fn main() -> i64:\n  42\n',
     'partial-return': 'fn main() -> i64:\n  if true:\n    return 42\n',
@@ -455,7 +501,8 @@ for name, source in rejected.items():
         'unreachable': 'S076', 'wrong-return': 'S010', 'bare-numeric-return': 'S010',
         'unit-value-discard': 'S079', 'unobserved-exit': 'S038',
         'tail-return-unobserved-task': 'S038', 'tail-return-type-mismatch': 'S010',
-        'immutable-parameter': 'S008',
+        'immutable-parameter': 'S008', 'handler-break-boundary': 'S076',
+        'handler-yield-boundary': 'S076',
         'unit-as-condition': 'S057',
     }[name])
     assert f'error[{expected_code}]' in result.stderr, (name, result.stderr)
