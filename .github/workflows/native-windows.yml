@@ -91,6 +91,10 @@ jobs:
           -DKALANDRA_BUILD_METAL_RUNTIME=OFF -DKALANDRA_BUILD_METAL_PROOF=OFF
       - name: Build native CPU toolchain
         run: cmake --build build/windows --target native-cpu-toolchain kalandra kalandra-task-core-optimized -j2 -- -k 0
+      - name: Qualify explicit returns and primitive types
+        run: |
+          python native/tests/ExplicitReturnTests.py --compiler build/windows/native/kalandra.exe --checker build/windows/native/kalandra-check.exe --output build/windows/explicit-returns
+          if ($LASTEXITCODE -ne 0) { throw 'Explicit return qualification failed' }
       - name: Qualify opaque synchronous task ownership
         run: |
           & "$env:KALANDRA_LLVM_ROOT/bin/clang++.exe" -std=c++23 -O2 -fms-runtime-lib=static native/tests/ClosedTaskTests.cpp build/windows/native/kalandra-task-core-optimized.lib -o build/windows/closed-task-tests.exe

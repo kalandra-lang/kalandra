@@ -320,6 +320,25 @@ fn main() -> i64:
   return choose(true) + choose(false)
 ''', '43\n')
 
+cases['tail-owned-callable'] = ('''fn choose(flag: bool) -> fn(i64) -> i64:
+  values = [20, 22]
+  return if flag:
+    return fn(index: i64): return values[index]
+  else:
+    return fn(index: i64): return values[1 - index]
+fn apply(callback: fn(i64) -> i64) -> i64:
+  return callback(0)
+fn main() -> i64 ! TaskError:
+  first = choose(true)
+  second = choose(false)
+  return try parallel:
+    left = spawn apply(first)
+    right = spawn apply(second)
+    a = try await left
+    b = try await right
+    a + b
+''', '42\n')
+
 for name, (source, expected) in cases.items():
     path = root / (name + '.k')
     path.write_text(source)
@@ -335,24 +354,26 @@ for name, (source, expected) in cases.items():
             assert (result.returncode, result.stdout, result.stderr) == (0, expected, ''), (
                 name, optimization, workers, result)
 
-# Recovery must not publish a partial callable when retaining its capture fails.
-failed_allocations = successful_allocations = 0
-for allocation in range(1, 49):
-    environment = dict(os.environ, KALANDRA_WORKERS='4',
-                       KALANDRA_TEST_FAIL_ALLOC_AT=str(allocation),
-                       KALANDRA_TEST_REPORT_CLEANUP='1')
-    result = subprocess.run([str(root / 'error-carried-closure-task.exe')], env=environment,
-                            text=True, capture_output=True, timeout=30)
-    if result.returncode == 0:
-        assert result.stdout == '42\n' and not result.stderr, (allocation, result)
-        successful_allocations += 1
-    else:
-        assert result.returncode in (86, 88) and not result.stdout, (allocation, result)
-        assert 'AllocationFault' in result.stderr or 'TaskError.Fault' in result.stderr, result
-        cleanup = re.search(r'cleanup: live=(\d+) allocations=(\d+) releases=(\d+)', result.stderr)
-        assert cleanup and cleanup[1] == '0' and cleanup[2] == cleanup[3], result.stderr
-        failed_allocations += 1
-assert failed_allocations and successful_allocations, (failed_allocations, successful_allocations)
+# Retaining a recovered or tail-selected callable must not publish partial
+# captures when allocation fails; every retained owner must settle.
+for captured_case in ('error-carried-closure-task', 'tail-owned-callable'):
+    failed_allocations = successful_allocations = 0
+    for allocation in range(1, 49):
+        environment = dict(os.environ, KALANDRA_WORKERS='4',
+                           KALANDRA_TEST_FAIL_ALLOC_AT=str(allocation),
+                           KALANDRA_TEST_REPORT_CLEANUP='1')
+        result = subprocess.run([str(root / (captured_case + '.exe'))], env=environment,
+                                text=True, capture_output=True, timeout=30)
+        if result.returncode == 0:
+            assert result.stdout == '42\n' and not result.stderr, (allocation, result)
+            successful_allocations += 1
+        else:
+            assert result.returncode in (86, 88) and not result.stdout, (allocation, result)
+            assert 'AllocationFault' in result.stderr or 'TaskError.Fault' in result.stderr, result
+            cleanup = re.search(r'cleanup: live=(\d+) allocations=(\d+) releases=(\d+)', result.stderr)
+            assert cleanup and cleanup[1] == '0' and cleanup[2] == cleanup[3], result.stderr
+            failed_allocations += 1
+    assert failed_allocations and successful_allocations, (failed_allocations, successful_allocations)
 
 uncaught = root / 'uncaught-unit.k'
 uncaught.write_text('''error InputError:
@@ -409,6 +430,14 @@ fn main() -> i64 ! TaskError:
     else:
       try await task
 ''',
+    'tail-return-type-mismatch': '''fn choose(flag: bool) -> i64:
+  return if flag:
+    return ()
+  else:
+    return 42
+fn main() -> i64:
+  return choose(true)
+''',
     'immutable-parameter': 'fn bad(value: String) -> String:\n  value = "new"\n  return value\n',
     'unit-as-condition': 'fn main() -> i64:\n  return if ():\n    1\n  else:\n    0\n',
 }
@@ -423,7 +452,8 @@ for name, source in rejected.items():
         'constant-zero': 'S052', 'missing-return': 'S079', 'partial-return': 'S079',
         'unreachable': 'S076', 'wrong-return': 'S010', 'bare-numeric-return': 'S010',
         'unit-value-discard': 'S079', 'unobserved-exit': 'S038',
-        'tail-return-unobserved-task': 'S038', 'immutable-parameter': 'S008',
+        'tail-return-unobserved-task': 'S038', 'tail-return-type-mismatch': 'S010',
+        'immutable-parameter': 'S008',
         'unit-as-condition': 'S057',
     }[name])
     assert f'error[{expected_code}]' in result.stderr, (name, result.stderr)
