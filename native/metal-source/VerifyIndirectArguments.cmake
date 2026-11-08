@@ -62,7 +62,7 @@ if(NOT STATUS EQUAL 0 OR NOT OUT STREQUAL EXPECTED)
 endif()
 # The last contributing tensor still participates in every-axis shape checking.
 string(REPLACE "    dm = try await transfer(m, gpu)"
-  "    dm = try await transfer(m, gpu)\n    n: Tensor[float32, 3, 2] = tensor([[1, 2], [3, 4], [5, 6]])\n    dn = try await transfer(n, gpu)" BAD "${SOURCE}")
+  "    dm = try await transfer(m, gpu)\n    n: Tensor[f32, 3, 2] = tensor([[1, 2], [3, 4], [5, 6]])\n    dn = try await transfer(n, gpu)" BAD "${SOURCE}")
 string(REPLACE "dm, dm, 1) on gpu" "dm, dn, 1) on gpu" BAD "${BAD}")
 file(WRITE "${OUTPUT_DIR}/bad.k" "${BAD}")
 file(MAKE_DIRECTORY "${OUTPUT_DIR}/bad")

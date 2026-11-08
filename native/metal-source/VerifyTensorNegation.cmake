@@ -51,8 +51,8 @@ if(NOT STATUS EQUAL 0 OR NOT OUT STREQUAL EXPECTED)
   message(FATAL_ERROR "Relocated unary bundle failed: ${STATUS}: ${OUT} ${ERROR}")
 endif()
 # Fixed mismatches are diagnosed transactionally; dynamic mismatches fail before reads.
-string(REPLACE "Tensor[float32, 2, 3] = tensor([[7, 8, 9], [10, 11, 12]])"
-  "Tensor[float32, 3, 2] = tensor([[7, 8], [9, 10], [11, 12]])" BAD "${SOURCE}")
+string(REPLACE "Tensor[f32, 2, 3] = tensor([[7, 8, 9], [10, 11, 12]])"
+  "Tensor[f32, 3, 2] = tensor([[7, 8], [9, 10], [11, 12]])" BAD "${SOURCE}")
 file(WRITE "${OUTPUT_DIR}/bad.k" "${BAD}")
 file(MAKE_DIRECTORY "${OUTPUT_DIR}/bad")
 file(WRITE "${OUTPUT_DIR}/bad/host.cpp" "sentinel")

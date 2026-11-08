@@ -1,6 +1,7 @@
 """Exercise lexical returns, unit completion, and rejected legacy spellings."""
 import argparse
 import os
+import re
 from pathlib import Path
 import subprocess
 
@@ -227,6 +228,34 @@ fn main() -> i64:
   observed = failOnly() catch fn(error): return ()
   return reject() catch fn(error): return 42
 ''', '42\n'),
+    'fallible-factory-recovery': ('''error E:
+  Bad
+error BuildError:
+  Disabled
+fn main()->i64:
+  factory=fn(blocked:bool)->(fn(i64)->i64 ! E) ! BuildError:
+    if blocked:fail BuildError.Disabled
+    return fn(value:i64)->i64 ! E:return value
+  f=factory(true) catch fn(error):return fn(value:i64)->i64 ! E:return value*2
+  return f(21) catch fn(error):return 0
+''', '42\n'),
+    'error-carried-closure-task': ('''error BuildError:
+  Disabled:
+    recover: fn(i64) -> i64
+fn make(blocked: bool) -> (fn(i64) -> i64) ! BuildError:
+  values = [20, 22]
+  if blocked:
+    fail BuildError.Disabled { recover: fn(delta: i64): return values[0] + values[1] + delta }
+  return fn(value: i64): return value
+fn apply(callback: fn(i64) -> i64) -> i64:
+  return callback(0)
+fn main() -> i64 ! TaskError:
+  callback = make(true) catch fn(error):
+    return match error:
+      BuildError.Disabled { recover }: recover
+  return try parallel:
+    try await spawn apply(callback)
+''', '42\n'),
     'handler-loop-channel': ('''error InputError:
   Bad
 fn reject() -> i64 ! InputError:
@@ -295,6 +324,25 @@ for name, (source, expected) in cases.items():
                                     capture_output=True, timeout=30)
             assert (result.returncode, result.stdout, result.stderr) == (0, expected, ''), (
                 name, optimization, workers, result)
+
+# Recovery must not publish a partial callable when retaining its capture fails.
+failed_allocations = successful_allocations = 0
+for allocation in range(1, 49):
+    environment = dict(os.environ, KALANDRA_WORKERS='4',
+                       KALANDRA_TEST_FAIL_ALLOC_AT=str(allocation),
+                       KALANDRA_TEST_REPORT_CLEANUP='1')
+    result = subprocess.run([str(root / 'error-carried-closure-task.exe')], env=environment,
+                            text=True, capture_output=True, timeout=30)
+    if result.returncode == 0:
+        assert result.stdout == '42\n' and not result.stderr, (allocation, result)
+        successful_allocations += 1
+    else:
+        assert result.returncode in (86, 88) and not result.stdout, (allocation, result)
+        assert 'AllocationFault' in result.stderr or 'TaskError.Fault' in result.stderr, result
+        cleanup = re.search(r'cleanup: live=(\d+) allocations=(\d+) releases=(\d+)', result.stderr)
+        assert cleanup and cleanup[1] == '0' and cleanup[2] == cleanup[3], result.stderr
+        failed_allocations += 1
+assert failed_allocations and successful_allocations, (failed_allocations, successful_allocations)
 
 uncaught = root / 'uncaught-unit.k'
 uncaught.write_text('''error InputError:

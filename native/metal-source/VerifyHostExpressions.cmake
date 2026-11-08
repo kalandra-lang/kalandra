@@ -54,7 +54,7 @@ set(EMPTY_MAIN "fn main() -> f32 ! TaskError:\n  return try parallel:\n    value
 build_run(empty "${FUNCTIONS}${EMPTY_MAIN}" "00000000\n" --sanitize)
 # Keep all four arithmetic operations and unary signs in a scalar expression after GPU readback.
 set(PREAMBLE "fn main() -> f32 ! TaskError:\n  try parallel:\n    values: Tensor[f32,1,1] = tensor([[1]])\n    gpu = devices.gpu()\n    input = try await transfer(values,gpu)\n    resident = try await spawn scale(input,1) on gpu\n    host = try await transfer(resident,devices.cpu())\n")
-build_run(signed-zero "${FUNCTIONS}${PREAMBLE}    tiny: float32 = 1.401298464324817e-45\n    zero = tiny / 2\n    -zero\n" "80000000\n" --sanitize)
+build_run(signed-zero "${FUNCTIONS}${PREAMBLE}    tiny: f32 = 1.401298464324817e-45\n    zero = tiny / 2\n    -zero\n" "80000000\n" --sanitize)
 build_run(nan "${FUNCTIONS}${PREAMBLE}    zero = reduceSum(host) - 1\n    zero / zero\n" "7fc00000\n" --sanitize)
 # Scalar division and multiplication by its rounded reciprocal remain distinct.
 build_run(rounding "${FUNCTIONS}${PREAMBLE}    value = reduceSum(host) * 5\n    (value / 3) - (value * (1 / 3))\n" "b4000000\n" --sanitize)
@@ -79,8 +79,8 @@ string(REPLACE "projected = matmul(+host, weights)" "projected = matmul(host)" B
 reject(arity "${BAD}" "S027")
 string(REPLACE "centered = -(projected - 1)" "centered = projected % 2" BAD "${SOURCE}")
 reject(remainder "${BAD}" "S019")
-string(REPLACE "weights: Tensor[float32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])"
-  "weights: Tensor[float32, 2, 3] = tensor([[1, 0, 0], [0, 1, 1]])" BAD "${SOURCE}")
+string(REPLACE "weights: Tensor[f32, 3, 2] = tensor([[1, 0], [0, 1], [1, 1]])"
+  "weights: Tensor[f32, 2, 3] = tensor([[1, 0, 0], [0, 1, 1]])" BAD "${SOURCE}")
 # Remove the round trip here so the compiler knows both matmul shapes.
 string(REPLACE "matmul(+host, weights)" "matmul(+(left + left), weights)" BAD "${BAD}")
 reject(static-matmul "${BAD}" "S029")
@@ -104,5 +104,5 @@ endforeach()
 set(SHAPES "fn main() -> Tensor[f32,2,3] ! TaskError:\n  return try parallel:\n    a: Tensor[f32,2,3] = tensor([[1,2,3],[4,5,6]])\n    b: Tensor[f32,3,2] = tensor([[1,2],[3,4],[5,6]])\n    gpu = devices.gpu()\n    input = try await transfer(a,gpu)\n    resident = try await spawn scale(input,1) on gpu\n    host = try await transfer(resident,devices.cpu())\n    (a + a) + b\n")
 reject(axis-mismatch "${FUNCTIONS}${SHAPES}" "S011")
 string(REPLACE "    (a + a) + b" "    a + vector" BAD "${SHAPES}")
-string(REPLACE "    gpu = devices.gpu()" "    vector: Tensor[float32,6] = tensor([1,2,3,4,5,6])\n    gpu = devices.gpu()" BAD "${BAD}")
+string(REPLACE "    gpu = devices.gpu()" "    vector: Tensor[f32,6] = tensor([1,2,3,4,5,6])\n    gpu = devices.gpu()" BAD "${BAD}")
 reject(rank-mismatch "${FUNCTIONS}${BAD}" "equal ranks")

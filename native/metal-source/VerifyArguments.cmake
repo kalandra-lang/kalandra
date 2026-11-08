@@ -65,7 +65,7 @@ function(reject NAME CONTENT DIAGNOSTIC)
     message(FATAL_ERROR "${NAME}: missing transactional diagnostic ${STATUS}: ${ERROR}")
   endif()
 endfunction()
-string(REPLACE "t28: Tensor[float32, ?])" "t28: Tensor[float32, ?], t29: Tensor[float32, ?])" BAD "${SOURCE}")
+string(REPLACE "t28: Tensor[f32, ?])" "t28: Tensor[f32, ?], t29: Tensor[f32, ?])" BAD "${SOURCE}")
 string(REPLACE "vectorResult) on gpu" "vectorResult, vectorResult) on gpu" BAD "${BAD}")
 string(REPLACE "t27 + t28\n" "t27 + t28 + t29\n" BAD "${BAD}")
 file(WRITE "${OUTPUT_DIR}/thirty.k" "${BAD}")
@@ -83,14 +83,14 @@ if(NOT THIRTY MATCHES "kernel2.binding_layout=argument_buffer_tier2")
   message(FATAL_ERROR "Thirty-input program did not use argument buffers")
 endif()
 string(REPLACE "    local = blend(a, 1, b, 1, c, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)" "    local = remote" GPU_ONLY "${SOURCE}")
-string(REPLACE "Tensor[float32, 2, 3] = tensor([[2, 3, 4], [5, 6, 7]])"
-  "Tensor[float32, 3, 2] = tensor([[2, 3], [4, 5], [6, 7]])" BAD "${GPU_ONLY}")
+string(REPLACE "Tensor[f32, 2, 3] = tensor([[2, 3, 4], [5, 6, 7]])"
+  "Tensor[f32, 3, 2] = tensor([[2, 3], [4, 5], [6, 7]])" BAD "${GPU_ONLY}")
 reject(third-shape "${BAD}" "S033")
 string(REPLACE "spawn blend(da, 1, db, 1, dc," "spawn blend(da, 1, db, 1, c," BAD "${SOURCE}")
 reject(third-residency "${BAD}" "S047")
 set(FORWARD "fn forward(values: Tensor[f32, ?, ?]) -> Tensor[f32, ?, ?]:\n  return values\n\n")
-string(REPLACE "Tensor[float32, 2, 3] = tensor([[2, 3, 4], [5, 6, 7]])"
-  "Tensor[float32, 3, 2] = tensor([[2, 3], [4, 5], [6, 7]])" BAD "${GPU_ONLY}")
+string(REPLACE "Tensor[f32, 2, 3] = tensor([[2, 3, 4], [5, 6, 7]])"
+  "Tensor[f32, 3, 2] = tensor([[2, 3], [4, 5], [6, 7]])" BAD "${GPU_ONLY}")
 string(REPLACE "transfer(c, gpu)" "transfer(forward(c), gpu)" BAD "${BAD}")
 file(WRITE "${OUTPUT_DIR}/dynamic.k" "${FORWARD}${BAD}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/dynamic.k" --target metal -o "${OUTPUT_DIR}/dynamic" --sanitize

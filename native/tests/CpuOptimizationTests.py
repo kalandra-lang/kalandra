@@ -74,7 +74,7 @@ for numeric in (() if args.matrices_only else ('f32', 'f64')):
         run([compiler, path, '-O2', '-o', output])
         assert run([output]).strip() == expected
     path = args.output / f'{numeric}-long.k'
-    path.write_text(f'fn f(a:Tensor[{numeric},?])->{numeric}:\n  reduceSum(a' + '+1'*40 + f')\nfn main()->{numeric}:\n  f(tensor([1,2,3]))\n')
+    path.write_text(f'fn f(a:Tensor[{numeric},?])->{numeric}:\n  return reduceSum(a' + '+1'*40 + f')\nfn main()->{numeric}:\n  return f(tensor([1,2,3]))\n')
     run([compiler, path, '-O2', '-o', path.with_suffix('')])
     assert run([path.with_suffix('')]).strip() == '126'
 if not args.matrices_only:

@@ -5,11 +5,11 @@ Native Apple GPU programs can share functions across files. Imports, aliases, ex
 `math.k`:
 
 ```kalandra
-fn factor() -> float32:
-  2
+fn factor() -> f32:
+  return 2
 
-export fn scale(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
-  values * factor()
+export fn scale(values: Tensor[f32, ?]) -> Tensor[f32, ?]:
+  return values * factor()
 ```
 
 `main.k`:
@@ -17,9 +17,9 @@ export fn scale(values: Tensor[float32, ?]) -> Tensor[float32, ?]:
 ```kalandra
 from "./math.k" import scale
 
-fn main() -> float32 ! TaskError:
-  try parallel:
-    values: Tensor[float32, 3] = tensor([1, 2, 3])
+fn main() -> f32 ! TaskError:
+  return try parallel:
+    values: Tensor[f32, 3] = tensor([1, 2, 3])
     gpu = devices.gpu()
     input = try await transfer(values, gpu)
     result = try await spawn scale(input) on gpu

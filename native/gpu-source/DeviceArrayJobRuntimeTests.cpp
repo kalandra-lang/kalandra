@@ -273,18 +273,18 @@ int main(int argc, char **argv) {
 #endif
     auto runtime = take(g::Runtime::create(options), "create physical runtime");
     const std::filesystem::path root(argv[1]);
-    type<NumericType::Int8>(*runtime, root, "int8");
-    type<NumericType::Int16>(*runtime, root, "int16");
-    type<NumericType::Int32>(*runtime, root, "int32");
-    type<NumericType::Int64>(*runtime, root, "int64");
-    type<NumericType::UInt8>(*runtime, root, "uint8");
-    type<NumericType::UInt16>(*runtime, root, "uint16");
-    type<NumericType::UInt32>(*runtime, root, "uint32");
-    type<NumericType::UInt64>(*runtime, root, "uint64");
-    type<NumericType::Float32>(*runtime, root, "float32");
-    type<NumericType::Float64>(*runtime, root, "float64");
-    type<NumericType::UInt8, true>(*runtime, root, "Bool");
-    auto program = prepare(*runtime, root / "fresh-int64");
+    type<NumericType::Int8>(*runtime, root, "i8");
+    type<NumericType::Int16>(*runtime, root, "i16");
+    type<NumericType::Int32>(*runtime, root, "i32");
+    type<NumericType::Int64>(*runtime, root, "i64");
+    type<NumericType::UInt8>(*runtime, root, "u8");
+    type<NumericType::UInt16>(*runtime, root, "u16");
+    type<NumericType::UInt32>(*runtime, root, "u32");
+    type<NumericType::UInt64>(*runtime, root, "u64");
+    type<NumericType::Float32>(*runtime, root, "f32");
+    type<NumericType::Float64>(*runtime, root, "f64");
+    type<NumericType::UInt8, true>(*runtime, root, "bool");
+    auto program = prepare(*runtime, root / "fresh-i64");
     for (bool deadline : {false, true}) {
       for (unsigned step : {1u, 2u})
         run<NumericType::Int64>(*runtime, program, 17000, false, 1, 1, Stop::Pack, step, deadline);

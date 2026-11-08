@@ -84,3 +84,15 @@ branches. Loop results join the channels of their break and normal-completion
 values. A return with a non-completing operand discharges that operand's error
 identity, preserving replacement-error propagation without inventing a host
 TaskError channel in otherwise device-compatible functions.
+
+Invocation frames preserve a fallible callable's declared application-error
+carrier while copying its success or error payload. Strict ordinary callable
+transport remains separate. Recovery therefore retains captured backing even
+when a factory returns an error containing a closure. Allocation-failure tests
+check that unsuccessful copies publish no partial result and release backing.
+This does not change cancellation or fault precedence.
+
+Large generated GPU control closures use lossless run spelling for repeated
+capture types in entry names. Type identity and ordering remain part of the name;
+short signatures keep their existing spelling. This avoids exceeding CUDA's
+existing artifact name bound without expanding resource limits.

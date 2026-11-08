@@ -142,9 +142,9 @@ negatives = {
 }
 for name, (returned, read) in negatives.items():
     source = a.root / (name + '.k')
-    source.write_text('fn work(values:[i64])->[i64]:\n  ' + returned +
+    source.write_text('fn work(values:[i64])->[i64]:\n  return ' + returned +
                       '\nfn reader(values:[i64])->i64:\n  return values[0]\n' +
-                      'fn main()->i64 ! TaskError:\n  values:[i64]=[1,2,3]\n  try parallel:\n' +
+                      'fn main()->i64 ! TaskError:\n  values:[i64]=[1,2,3]\n  return try parallel:\n' +
                       '    gpu=devices.gpu()\n    result=try await spawn work(values) on gpu\n' +
                       '    alias=result\n    pending=spawn reader(' + read + ')\n' +
                       '    alias[0]=7\n    try await pending\n')

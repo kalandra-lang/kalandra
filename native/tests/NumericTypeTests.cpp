@@ -1,6 +1,7 @@
 #include "../metal/Metal.h"
 #include "kalandra/Backend.h"
 #include "kalandra/Continuation.h"
+#include "kalandra/NumericKernelName.h"
 #include <iostream>
 #include <set>
 #include <stdexcept>
@@ -21,6 +22,15 @@ CheckResult analyze(const std::string &text) {
 }
 int main() {
   try {
+    std::vector<NumericType> captures(150, NumericType::Int64);
+    const auto compact = numericKernelName(NumericType::UInt64, {}, captures);
+    require(compact.size() < 128 && compact.ends_with("_s_r150d"),
+            "large repeated capture signature did not retain a bounded lossless name");
+    captures.back() = NumericType::UInt64;
+    const auto changed = numericKernelName(NumericType::UInt64, {}, captures);
+    std::swap(captures.front(), captures.back());
+    require(changed != compact && changed != numericKernelName(NumericType::UInt64, {}, captures),
+            "compact capture signature lost element identity or ordering");
     std::set<std::string_view> names;
     std::set<NumericType> identities;
     for (auto description : numericTypes) {
@@ -69,7 +79,8 @@ int main() {
                   numericReductionAvailable(description.type, NumericTarget::AppleGpu),
               "reduction capability lost numeric identity");
       require(numericScalarArithmeticAvailable(description.type, NumericTarget::Cpu) &&
-                  analyze("fn main() -> " + std::string(description.sourceName) + ":\n  return 1\n").ok(),
+                  analyze("fn main() -> " + std::string(description.sourceName) + ":\n  return 1\n")
+                      .ok(),
               "accepted CPU scalar type rejected");
       require(numericScalarArithmeticAvailable(description.type, NumericTarget::AppleGpu),
               "typed GPU arithmetic identity rejected");

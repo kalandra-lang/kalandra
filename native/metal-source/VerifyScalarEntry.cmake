@@ -57,7 +57,7 @@ string(REPLACE "spawn scale(uploaded, factor)" "spawn scale(factor, uploaded)" B
 reject(types "${BAD}")
 string(REPLACE "spawn scale(uploaded, factor)" "spawn scale(values, factor)" BAD "${SOURCE}")
 reject(residency "${BAD}")
-string(REPLACE "h: float32)" "h: float32, i: float32)" BAD "${SOURCE}")
+string(REPLACE "h: f32)" "h: f32, i: f32)" BAD "${SOURCE}")
 string(REPLACE "copied, 1, 1, 1, 1, 1, 1, 1, 1)" "copied, 1, 1, 1, 1, 1, 1, 1, 1, 1)" BAD "${BAD}")
 file(WRITE "${OUTPUT_DIR}/nine-scalars.k" "${BAD}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/nine-scalars.k" --target metal

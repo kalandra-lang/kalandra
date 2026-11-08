@@ -77,6 +77,6 @@ if(DEFINED VARIANT)
   run(relocated "[3e2aaaab,3eaaaaab,3f000000]\n" 0)
 else()
   # Branches with numerical primitives must not be speculated into a graph.
-  string(REPLACE "  denominator = choose(total, threshold)" "  denominator:float32=if total>threshold:\n    reduceSum(values)\n  else:\n    threshold" BAD "${SOURCE}")
+  string(REPLACE "  denominator = choose(total, threshold)" "  denominator:f32=if total>threshold:\n    reduceSum(values)\n  else:\n    threshold" BAD "${SOURCE}")
   admit_case(branch-reduction "${BAD}")
 endif()

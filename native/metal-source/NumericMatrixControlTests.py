@@ -26,7 +26,8 @@ def check(name,width,label,a,b,expected,total=False,fault=False,columns=None,exp
     literal_b=f'tensor({b})' if b else f'tensor([],[0,{n}])'
     result=name if total else f'Tensor[{name},?,?]'
     if total: expression='reduceSum('+expression+')'
-    source=(f'fn operation(a:Tensor[{name},?,?],b:Tensor[{name},?,?])->{result}:\n  return {expression}\n'
+    expression = expression.replace('\n  if ', '\n  return if ') if '\n' in expression else 'return ' + expression
+    source=(f'fn operation(a:Tensor[{name},?,?],b:Tensor[{name},?,?])->{result}:\n  {expression}\n'
             f'fn main()->{result} ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n'
             f'    a:Tensor[{name},{m},{k}]={literal_a}\n    b:Tensor[{name},{k},{n}]={literal_b}\n'
             '    x=try await transfer(a,gpu)\n    y=try await transfer(b,gpu)\n'

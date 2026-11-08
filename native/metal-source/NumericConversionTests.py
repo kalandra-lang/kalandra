@@ -39,7 +39,7 @@ def check(source,target,kind='map',fault=False):
         construction=(f'    values:Tensor[{source},{dimensions}]=tensor({literal})\n'
                       '    resident=try await transfer(values,gpu)\n')
         arguments='resident,'+('1e40' if fault else '1')
-    text=(f'fn operation({argument})->{result}:\n'+''.join('  '+line+'\n' for line in body.splitlines())+
+    text=(f'fn operation({argument})->{result}:\n'+''.join('  '+('return ' if i == len(body.splitlines())-1 else '')+line+'\n' for i,line in enumerate(body.splitlines()))+
           f'fn main()->{result} ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n'+construction+
           f'    work=spawn operation({arguments}) on gpu\n    answer=try await work\n'+
           ('    answer\n' if scalar else '    try await transfer(answer,devices.cpu())\n'))

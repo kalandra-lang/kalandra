@@ -18,10 +18,10 @@ for name,width in ((n,w) for n,w in zip(names,widths)):
     empty=case!='values'
     params=','.join(f'a{i}:Tensor[{name},?]' for i in range(30))
     expression='+'.join(f'a{i}' for i in range(30))
-    body=f'{name}({expression})' if case!='empty-fault' else f'amount=7/scale\n  {name}({expression})+amount'
+    body=f'return {name}({expression})' if case!='empty-fault' else f'amount=7/scale\n  return {name}({expression})+amount'
     params+=f',scale:{name}'
     text=f'''fn operation({params})->Tensor[{name},?]:
-  return {body}
+  {body}
 fn increment(value:i32)->i32:
   return value+1
 fn main()->Tensor[{name},?] ! TaskError:

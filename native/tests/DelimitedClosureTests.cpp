@@ -61,8 +61,10 @@ int main() {
       if (entry.path().stem() == "hero") {
         hero = text;
         const auto &body = syntax.module.functions[0].body;
-        const auto &call =
-            std::get<CallExpr>(syntax.module.expressions[body.back().expression].value);
+        const auto &returned =
+            std::get<ReturnExpr>(syntax.module.expressions[body.back().expression].value);
+        require(returned.value.has_value(), "map return lost its operand");
+        const auto &call = std::get<CallExpr>(syntax.module.expressions[*returned.value].value);
         const auto &expression = syntax.module.expressions[call.arguments[1]];
         const auto &lambda = std::get<LambdaExpr>(expression.value);
         require(lambda.body.size() == 2 && lambda.body[0].binding && !lambda.body[1].binding,
@@ -72,9 +74,11 @@ int main() {
                     expression.span.end <
                         syntax.module.expressions[body.back().expression].span.end,
                 "anonymous body span consumed the closing call");
-        require(std::holds_alternative<ConditionalExpr>(
-                    syntax.module.expressions[lambda.body[1].expression].value),
-                "nested conditional escaped its callback");
+        const auto &callbackReturn =
+            std::get<ReturnExpr>(syntax.module.expressions[lambda.body[1].expression].value);
+        require(callbackReturn.value && std::holds_alternative<ConditionalExpr>(
+                                            syntax.module.expressions[*callbackReturn.value].value),
+                "nested conditional escaped its callback return");
         require(std::ranges::any_of(result.module->functions,
                                     [](const auto &fn) { return fn.captureCount == 1; }),
                 "inline callback lost its lexical capture");
@@ -94,9 +98,10 @@ int main() {
       require(check(parse(source(crlf))).ok(), "CRLF changed suite termination");
     }
     require(programs == 24 && !hero.empty() && !nested.empty(), "missing fixture catalog");
+    require(check(parse(source("fn main():\n  return map([1],fn(v):\n    result=v+1\n  )\n"))).ok(),
+            "statement-ending unit callback rejected");
     for (const auto &[text, code] : std::vector<std::pair<std::string, std::string>>{
              {"fn main():\n  map([1],fn(v):\n  )\n", "P002"},
-             {"fn main():\n  return map([1],fn(v):\n    result=v+1\n  )\n", "P007"},
              {"fn main():\n  return map([1],fn(v):\n    return if v>0:\n      v\n  )\n", "P007"},
              {"fn main():\n  map([1],fn(v):\n    v)\n", "L016"},
              {"fn main():\n  map([1],fn(v):\n    v\n    )\n", "L016"},
@@ -107,9 +112,13 @@ int main() {
       const auto result = parse(source(text));
       require(!result.ok() && has(result.diagnostics, code), "suite diagnostic changed");
     }
-    require(!check(parse(source("fn main()->i64:\n  result=map([1],fn(v):\n    hidden=v+1\n    return hidden\n  )\n  return hidden\n"))).ok(),
+    require(!check(parse(source("fn main()->i64:\n  result=map([1],fn(v):\n    hidden=v+1\n    "
+                                "return hidden\n  )\n  return hidden\n")))
+                 .ok(),
             "callback-local declaration escaped its scope");
-    require(check(parse(source("fn main()->i64:\n  result=map([1],fn(v):\n    v=v+1\n    return v\n  )\n  return result[0]\n"))).ok(),
+    require(check(parse(source("fn main()->i64:\n  result=map([1],fn(v):\n    v=v+1\n    return "
+                               "v\n  )\n  return result[0]\n")))
+                .ok(),
             "private scalar callback parameter could not be reassigned");
     SyntaxLimits limits;
     limits.maxTokens = 16;

@@ -1410,18 +1410,17 @@ private:
                                  nullptr, "frame.value.layout." + name);
     frameLayouts[name] = result;
     Function *successCopy;
-    // Keep the strict transport cache separate. In particular, requesting a
-    // fallible frame slot must not make a plain function packet accept errors.
+    // Keep frame copies separate from the strict transport cache. Fallible
+    // slots must retain their declared application errors without making a
+    // plain function packet accept an error instead of a callable value.
     if (!type.task &&
         (type.builtin == BuiltinValue::Function || containsFunctionStorage(planner.input, type))) {
-      auto strict = type;
-      strict.fallible = false;
       successCopy =
           function("frame.value.success." + name, boolean, {pointer, pointer, pointer, pointer});
       if (type.builtin == BuiltinValue::Function && !type.tensor)
-        emitFunctionCopy(strict, successCopy);
+        emitFunctionCopy(type, successCopy);
       else
-        emitAggregateCopy(strict, successCopy);
+        emitAggregateCopy(type, successCopy);
     } else {
       auto *base = layout(type);
       successCopy = llvm::cast<Function>(base->getInitializer()->getOperand(3));

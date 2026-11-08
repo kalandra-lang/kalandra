@@ -19,7 +19,8 @@ int main(int argc, char **argv) {
     fs::create_directories(root);
     const auto main = (root / "main.k").string();
     const auto lib = (root / "café.k").string();
-    const std::string caller = "from \"./café.k\" import value\nfn main()->i64:\n  return value()\n";
+    const std::string caller =
+        "from \"./café.k\" import value\nfn main()->i64:\n  return value()\n";
     const std::string good = "export fn value()->i64:\n  return 42\n";
     std::ofstream(main) << caller;
     std::ofstream(lib) << good;
@@ -38,7 +39,8 @@ int main(int argc, char **argv) {
     require(analyze({}).ok(), "disk baseline failed");
     std::vector<SourceOverlay> overlays{{lib, "export fn value()->String:\n  return \"😀é\"\n"}};
     require(!analyze(overlays).ok(), "unsaved export signature did not recheck importer");
-    overlays.push_back({main, "from \"./café.k\" import value\nfn main()->String:\n  return value()\n"});
+    overlays.push_back(
+        {main, "from \"./café.k\" import value\nfn main()->String:\n  return value()\n"});
     auto snapshot = analyze(overlays);
     require(snapshot.ok(), "multiple unsaved buffers did not compose");
     overlays.clear();
@@ -55,7 +57,7 @@ int main(int argc, char **argv) {
     auto broken = analyze(overlays);
     auto json = renderDiagnosticsJson(broken.source.get(), broken.diagnostics);
     require(!broken.ok() && json.find("café.k") != std::string::npos &&
-                json.find("\"character\":10") != std::string::npos,
+                json.find("\"character\":17") != std::string::npos,
             "unsaved dependency lost original Unicode position");
     overlays = {{main, "from \"./new/sub.k\" import value\nfn main()->i64:\n  return value()\n"},
                 {(root / "new/sub.k").string(), good}};
@@ -79,8 +81,9 @@ int main(int argc, char **argv) {
     rejects(overlays, "M006");
     overlays = {{(root / "alias.k").string(), "export fn value()->i64:\n  return missing\n"}};
     rejects(overlays, "S016");
-    overlays = {{main, "from \"./café.k\" import value\nexport fn main()->i64:\n  return value()\n"},
-                {lib, "from \"./main.k\" import main\nexport fn value()->i64:\n  return main()\n"}};
+    overlays = {
+        {main, "from \"./café.k\" import value\nexport fn main()->i64:\n  return value()\n"},
+        {lib, "from \"./main.k\" import main\nexport fn value()->i64:\n  return main()\n"}};
     rejects(overlays, "M003");
     rejects(overlays, "M004", {}, ModuleLimits{1, 32});
     rejects(overlays, "M004", {}, ModuleLimits{128, 0});

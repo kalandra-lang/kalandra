@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra metal install ") as temporary:
         assert digest(prefix / name) == expected
     assert names == {str(p.relative_to(prefix)) for p in prefix.rglob("*") if p.is_file()} - {"SHA256SUMS"}
     resources = prefix / "lib/kalandra/native"
-    assert len(list(resources.glob("*.a"))) == 35
+    assert len(list(resources.glob("*.a"))) == 38
     metadata = json.loads((prefix / "share/kalandra-native-metal/toolchain.json").read_text())
     verify_package_version(prefix)
     assert metadata["format"] == 1 and metadata["configuration"] == config

@@ -32,7 +32,7 @@ file(WRITE "${ROOT}/input.txt" "fn main()->String:\n  return \"😀é\" + missin
 query(1 "${ROOT}/input.txt" --stdin "${ROOT}/new.k")
 string(JSON CHARACTER GET "${RESPONSE}" diagnostics 0 range start character)
 string(JSON FILE GET "${RESPONSE}" diagnostics 0 file)
-if(NOT CHARACTER EQUAL 10 OR NOT FILE STREQUAL "${ROOT}/new.k")
+if(NOT CHARACTER EQUAL 17 OR NOT FILE STREQUAL "${ROOT}/new.k")
   message(FATAL_ERROR "Unsaved source lost its filename/range: ${RESPONSE}")
 endif()
 file(WRITE "${ROOT}/input.txt" "")

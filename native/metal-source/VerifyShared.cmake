@@ -50,7 +50,7 @@ build_run(cpu-only-operation "${CPU_ONLY}" metal "[41300000,41c80000,422c0000]")
 message(STATUS "Shared helper CPU/GPU calls, CPU tasks, ranked loops and tensor type preservation passed")
 
 set(MISMATCH "fn forward(values: Tensor[f32, ?]) -> Tensor[f32, ?]:\n  return values\n${SOURCE}")
-string(REPLACE "    local = combine(left, right)" "    smaller: Tensor[float32, 2] = tensor([4,5])\n    local = combine(forward(left), forward(smaller))" MISMATCH "${MISMATCH}")
+string(REPLACE "    local = combine(left, right)" "    smaller: Tensor[f32, 2] = tensor([4,5])\n    local = combine(forward(left), forward(smaller))" MISMATCH "${MISMATCH}")
 file(WRITE "${OUTPUT_DIR}/shape-fault.k" "${MISMATCH}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/shape-fault.k" --target metal -o "${OUTPUT_DIR}/shape-fault" -O2
   RESULT_VARIABLE STATUS OUTPUT_VARIABLE OUT ERROR_VARIABLE ERROR)

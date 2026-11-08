@@ -79,8 +79,8 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     # must not be mistaken for the application's float32 geometry version.
     client.open(wrapper_source, library_text)
     client.barrier()
-    assert client.definition(wrapper_source, 2, 4)['result']['uri'] == old_source.as_uri()
-    assert 'i64' in str(client.hover(wrapper_source, 2, 4)['result'])
+    assert client.definition(wrapper_source, 2, 11)['result']['uri'] == old_source.as_uri()
+    assert 'i64' in str(client.hover(wrapper_source, 2, 11)['result'])
     assert client.definition(main, 0, 25)['result']['uri'] == new_source.as_uri()
     refs = client.references(main, 3, 10, True)['result']
     assert {v['uri'] for v in refs} == {main.as_uri(), (app / 'other.k').as_uri(), wrapper_source.as_uri()}, refs
@@ -89,11 +89,11 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     local = client.rename(main, 3, 3, 'answer')['result']['documentChanges']
     assert len(local) == 1 and local[0]['textDocument']['uri'] == main.as_uri(), local
     assert client.formatting(wrapper_source)['result'] == []
-    client.change(main, good.replace('  result\n', '  comp\n'), 2)
+    client.change(main, good.replace('  return result\n', '  return comp\n'), 2)
     client.barrier()
-    names = client.completion(main, 4, 6)['result']['items']
+    names = client.completion(main, 4, 13)['result']['items']
     assert [item['label'] for item in names] == ['compute'], names
-    client.change(main, good.replace('  result\n', '  measure(10)\n'), 3)
+    client.change(main, good.replace('  return result\n', '  return measure(10)\n'), 3)
     errors = publications(client.barrier())[main.as_uri()]['diagnostics']
     assert errors, 'application must use float32 signature, not private int64 version'
     client.change(main, good, 4)
@@ -106,7 +106,7 @@ with tempfile.TemporaryDirectory(dir=destination) as temporary:
     client.change(main, good, 6)
     client.barrier()
     # Structural queries retain scoped package versions and never edit the cache.
-    unfinished = good.replace('  result\n', '  compute(1+resSuffix\n')
+    unfinished = good.replace('  return result\n', '  return compute(1+resSuffix\n')
     client.change(main, unfinished, 7)
     assert any(d['code']=='L005' for d in publications(client.barrier())[main.as_uri()]['diagnostics'])
     cursor=unfinished.splitlines()[4].index('resSuffix')+3

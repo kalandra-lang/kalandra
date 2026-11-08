@@ -50,7 +50,7 @@ string(JSON LINE GET "${RESPONSE}" diagnostics 0 range start line)
 string(JSON CHARACTER GET "${RESPONSE}" diagnostics 0 range start character)
 string(JSON END GET "${RESPONSE}" diagnostics 0 range end character)
 string(JSON FILE GET "${RESPONSE}" diagnostics 0 file)
-if(NOT BYTE EQUAL 34 OR NOT LINE EQUAL 1 OR NOT CHARACTER EQUAL 10 OR NOT END EQUAL 17 OR
+if(NOT BYTE EQUAL 41 OR NOT LINE EQUAL 1 OR NOT CHARACTER EQUAL 17 OR NOT END EQUAL 24 OR
     NOT FILE STREQUAL "${ROOT}/quote\"é.k")
   message(FATAL_ERROR "Unicode byte/UTF-16/file mapping incorrect: ${RESPONSE}")
 endif()

@@ -50,7 +50,7 @@ for rank in range(3, 9):
                 literal = "[" + literal + "]"
             dimensions = fixed.replace(",3]", ",0]")
         source = (f'fn operation(values:{dynamic})->{result}:\n  return {body}\n'
-                  f"fn main()->{result} ! TaskError:\n  try parallel:\n"
+                  f"fn main()->{result} ! TaskError:\n  return try parallel:\n"
                   "    gpu=devices.gpu()\n"
                   f"    values:{dimensions}=tensor({literal})\n"
                   "    resident=try await transfer(values,gpu)\n"

@@ -37,11 +37,12 @@ int main(int argc, char **argv) {
     return 2;
   root = fs::absolute(argv[1]);
   try {
-    write("lib/numbers.k",
-          "fn helper(value:i64):\n  return value*2\nexport fn double(value:i64):\n  return helper(value)\n");
-    write("lib/math.k", "from \"./numbers.k\" import double as twice\n"
-                        "fn helper(value:i64):\n  return value+1\nexport fn total(value:i64):\n  return "
-                        "twice(value)+helper(value)\n");
+    write("lib/numbers.k", "fn helper(value:i64):\n  return value*2\nexport fn "
+                           "double(value:i64):\n  return helper(value)\n");
+    write("lib/math.k",
+          "from \"./numbers.k\" import double as twice\n"
+          "fn helper(value:i64):\n  return value+1\nexport fn total(value:i64):\n  return "
+          "twice(value)+helper(value)\n");
     write("main.k", "from \"./lib/math.k\" import total\n"
                     "from \"./lib/numbers.k\" import double as twice, double as other\n"
                     "fn helper(value:i64):\n  return value+100\nfn main():\n"
@@ -66,8 +67,9 @@ int main(int argc, char **argv) {
     std::error_code error;
     fs::remove(root / "alias.k", error);
     fs::create_symlink(root / "lib/numbers.k", root / "alias.k");
-    write("alias-main.k", "from \"./alias.k\" import double as a\n"
-                          "from \"./lib/numbers.k\" import double as b\nfn main():\n  return a(1)+b(2)\n");
+    write("alias-main.k",
+          "from \"./alias.k\" import double as a\n"
+          "from \"./lib/numbers.k\" import double as b\nfn main():\n  return a(1)+b(2)\n");
     auto aliased = loadModules((root / "alias-main.k").string());
     require(bool(aliased) && aliased->ok() && aliased->module.source->parts().size() == 2,
             "canonical source identity lost");
@@ -76,7 +78,8 @@ int main(int argc, char **argv) {
           "from \"../lib/numbers.k\" import double\nfn main():\n  return double(3)\n");
     require(analyze("nested/parent-main.k").ok(), "parent-relative module path failed");
     write("café.k", "export fn increment(value:i64):\n  return value+1\n");
-    write("unicode-main.k", "from \"./café.k\" import increment\nfn main():\n  return increment(1)\n");
+    write("unicode-main.k",
+          "from \"./café.k\" import increment\nfn main():\n  return increment(1)\n");
     require(analyze("unicode-main.k").ok(), "UTF-8 module path failed");
     for (auto limits : {ModuleLimits{1, 32}, ModuleLimits{128, 0}}) {
       auto limited = analyze("main.k", {}, limits);
@@ -96,28 +99,32 @@ int main(int argc, char **argv) {
     require(!analyze("main.k", syntax).ok(), "aggregate token limit bypassed");
     // Cached subgraphs must still respect depth through a longer diamond path.
     write("shared-leaf.k", "export fn leaf():\n  return 1\n");
-    write("shared.k", "from \"./shared-leaf.k\" import leaf\nexport fn shared():\n  return leaf()\n");
+    write("shared.k",
+          "from \"./shared-leaf.k\" import leaf\nexport fn shared():\n  return leaf()\n");
     write("deep.k", "from \"./shared.k\" import shared\nexport fn deep():\n  return shared()\n");
     write("deep-main.k", "from \"./shared.k\" import shared\nfrom "
                          "\"./deep.k\" import deep\nfn main():\n  return deep()\n");
     require(!analyze("deep-main.k", {}, {128, 2}).ok(), "cached subgraph bypassed depth bound");
-    write("bad-private.k", "from \"./lib/numbers.k\" import helper\nfn main():\n  return helper(1)\n");
+    write("bad-private.k",
+          "from \"./lib/numbers.k\" import helper\nfn main():\n  return helper(1)\n");
     reject("S067", "bad-private.k");
     write("bad-leak.k", "from \"./lib/numbers.k\" import double\nfn main():\n  return helper(1)\n");
     reject("S031", "bad-leak.k");
     for (auto imports : {"double, double", "double as a, double as a", "double as i64", "missing",
                          "double as main"}) {
-      write("bad-binding.k",
-            "from \"./lib/numbers.k\" import " + std::string(imports) + "\nfn main():\n  return 1\n");
+      write("bad-binding.k", "from \"./lib/numbers.k\" import " + std::string(imports) +
+                                 "\nfn main():\n  return 1\n");
       require(!analyze("bad-binding.k").ok(), "invalid import binding admitted");
     }
     write("reexport.k", "from \"./lib/numbers.k\" import double\n");
-    write("bad-reexport.k", "from \"./reexport.k\" import double\nfn main():\n  return double(1)\n");
+    write("bad-reexport.k",
+          "from \"./reexport.k\" import double\nfn main():\n  return double(1)\n");
     reject("S067", "bad-reexport.k");
     write("bad-type.k",
           "from \"./lib/numbers.k\" import double\nfn main():\n  return double(f32(1))\n");
     reject("S010", "bad-type.k");
-    write("shape-library.k", "export fn four(values:Tensor[i64,2,2]):\n  return reduceSum(values)\n");
+    write("shape-library.k",
+          "export fn four(values:Tensor[i64,2,2]):\n  return reduceSum(values)\n");
     write("bad-shape.k",
           "from \"./shape-library.k\" import four\nfn main():\n  return four(tensor([[1,2,3]]))\n");
     reject("S011", "bad-shape.k");
@@ -126,7 +133,7 @@ int main(int argc, char **argv) {
     auto broken = analyze("bad-diagnostic.k");
     require(!broken.ok(), "broken dependency admitted");
     auto rendered = renderDiagnostic(*broken.source, broken.diagnostics[0]);
-    require(rendered.find((root / "broken.k").string() + ":2:3:") != std::string::npos &&
+    require(rendered.find((root / "broken.k").string() + ":2:10:") != std::string::npos &&
                 rendered.find("missing(value)") != std::string::npos,
             "dependency semantic diagnostic lost original file/line/excerpt");
     write("broken.k", "export fn bad(value:i64):\n  tensor([1,2)\n");
@@ -136,7 +143,8 @@ int main(int argc, char **argv) {
                         .find((root / "broken.k").string() + ":2:") != std::string::npos,
             "dependency syntax diagnostic lost original file");
     for (auto path : {"numbers.k", "/tmp/numbers.k", "./numbers", "./bad\\t.k"}) {
-      write("bad-path.k", "from \"" + std::string(path) + "\" import double\nfn main():\n  return 0\n");
+      write("bad-path.k",
+            "from \"" + std::string(path) + "\" import double\nfn main():\n  return 0\n");
       reject("M001", "bad-path.k");
     }
     write("missing.k", "from \"./absent.k\" import double\nfn main():\n  return 0\n");
@@ -171,9 +179,10 @@ int main(int argc, char **argv) {
     write("old-import.k", "from \"./old.kalandra\" import main\nfn main():\n  return 0\n");
     reject("M001", "old-import.k");
     // Standalone exports keep existing source offsets and work without a loader.
-    require(
-        check(parse(std::make_shared<SourceFile>("standalone.k", "export fn main():\n  return 1\n"))).ok(),
-        "standalone export rejected");
+    require(check(parse(std::make_shared<SourceFile>("standalone.k",
+                                                     "export fn main():\n  return 1\n")))
+                .ok(),
+            "standalone export rejected");
     for (auto source : {"from \"./x.k\" import\n", "from \"./x.k\" import x as\n",
                         "from \"./x.k\" import x,\n", "export type Point\n  x:i64\n"})
       require(!parse(std::make_shared<SourceFile>("invalid.k", source)).ok(),

@@ -51,7 +51,7 @@ int main() {
                 "failed synchronous call published a partial outcome");
       } else {
 #ifdef KALANDRA_EXPECT_FAULT
-        require(context.status() == 4 && context.line() == 9 && context.column() == 3,
+        require(context.status() == 4 && context.line() == 9 && context.column() == 10,
                 "synchronous indirect fault lost its original source location");
 #else
         require(context.status() == 0 && result.failure.kind == TaskFailure::None,

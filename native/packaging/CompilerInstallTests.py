@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
         expected, name = line.split("  ", 1)
         assert (prefix / name).resolve().is_relative_to(prefix.resolve())
         assert digest(prefix / name) == expected
-    assert len(list((prefix / "lib/kalandra/native").glob("*.a"))) == 30
+    assert len(list((prefix / "lib/kalandra/native").glob("*.a"))) == 33
     assert not (prefix / "bin/kalandrac").exists()
     compiler = cwd / "compiler symlink"
     compiler.symlink_to(prefix / "bin/kalandra")
@@ -48,7 +48,7 @@ with tempfile.TemporaryDirectory(prefix="kalandra cpu install ") as temporary:
     assert run([cwd / "starter program"], cwd).stdout.strip() == "[2, 4, 6]"
     cases = [(kind, "42", "42") for kind in ("i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64")]
     cases += [("f32", "1.5", "1.5"), ("f64", "1.5", "1.5"),
-              ("bool", "true", "true"), ("String", '"hello"', "hello")]
+              ("unit", "()", ""), ("bool", "true", "true"), ("String", '"hello"', "hello")]
     # Every result-entry family and all three runtime variants must link after relocation.
     for mode in ([], ["--sanitize"], ["--thread-sanitize"]):
         for kind, value, expected in cases:

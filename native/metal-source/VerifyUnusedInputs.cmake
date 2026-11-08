@@ -42,7 +42,7 @@ endforeach()
 # Keep compiled source contracts, even when a discarded operation is eliminated on device.
 string(REPLACE "    local = compute(m, a, m, b, 1)" "" GPU_ONLY "${SOURCE}")
 string(REPLACE "    dm = try await transfer(m, gpu)"
-  "    dm = try await transfer(m, gpu)\n    n: Tensor[float32, 1, 4] = tensor([[7, 8, 9, 10]])\n    dn = try await transfer(n, gpu)"
+  "    dm = try await transfer(m, gpu)\n    n: Tensor[f32, 1, 4] = tensor([[7, 8, 9, 10]])\n    dn = try await transfer(n, gpu)"
   BAD "${GPU_ONLY}")
 string(REPLACE "compute(dm, chosen, dm, db, 1)" "compute(dm, chosen, dn, db, 1)" BAD "${BAD}")
 function(reject NAME CONTENT EXPECTED)
@@ -62,8 +62,8 @@ string(REPLACE "transfer(n, gpu)" "transfer(forward(n), gpu)" DYNAMIC "${BAD}")
 foreach(EMPTY IN ITEMS no yes)
   set(CONTENT "${DYNAMIC}")
   if(EMPTY STREQUAL "yes")
-    string(REPLACE "Tensor[float32, 3] = tensor([1, 2, 3])" "Tensor[float32, 0] = tensor([])" CONTENT "${CONTENT}")
-    string(REPLACE "Tensor[float32, 3] = tensor([4, 5, 6])" "Tensor[float32, 0] = tensor([])" CONTENT "${CONTENT}")
+    string(REPLACE "Tensor[f32, 3] = tensor([1, 2, 3])" "Tensor[f32, 0] = tensor([])" CONTENT "${CONTENT}")
+    string(REPLACE "Tensor[f32, 3] = tensor([4, 5, 6])" "Tensor[f32, 0] = tensor([])" CONTENT "${CONTENT}")
     string(REPLACE "fn main() -> Tensor[f32, 3]" "fn main() -> Tensor[f32, 0]" CONTENT "${CONTENT}")
   endif()
   file(WRITE "${OUTPUT_DIR}/dynamic-${EMPTY}.k" "${CONTENT}")

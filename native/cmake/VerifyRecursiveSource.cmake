@@ -43,19 +43,19 @@ file(WRITE "${OUTPUT_DIR}/model.k" "export enum List:\n  Nil\n  Cons:\n    head:
 COMPILE(imported "from \"./model.k\" import List as L\nfn main()->i64:\n  return match L.Cons {head:42,tail:L.Nil}:\n    L.Nil:0\n    L.Cons {head}:head\n")
 EXPECT(imported 42)
 COMPILE(match-return "${PREFIX}${SUM}fn tail(items:List)->List:
-  match items:
+  return match items:
     List.Nil:List.Nil
     List.Cons {tail}:tail
-fn main()->int:
-  sum(tail(List.Cons {head:10,tail:List.Cons {head:42,tail:List.Nil}}))
+fn main()->i64:
+  return sum(tail(List.Cons {head:10,tail:List.Cons {head:42,tail:List.Nil}}))
 ")
 EXPECT(match-return 42)
-COMPILE(match-array "${PREFIX}fn values(items:List)->[int]:
-  match items:
+COMPILE(match-array "${PREFIX}fn values(items:List)->[i64]:
+  return match items:
     List.Nil:[]
     List.Cons {head}:[head,head+1]
-fn main()->[int]:
-  values(List.Cons {head:42,tail:List.Nil})
+fn main()->[i64]:
+  return values(List.Cons {head:42,tail:List.Nil})
 ")
 EXPECT(match-array "[42, 43]")
 COMPILE(single-case [=[enum Item:

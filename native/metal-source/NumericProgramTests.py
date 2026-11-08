@@ -30,8 +30,12 @@ def check(name,case,body,expected,*,rank=1,scale=0,empty=False,tensor=False,extr
     other_literal='[4,5]'
     for _ in range(rank-1):other_literal='['+other_literal+']'
     setup=(f'    other:Tensor[{name},{other_dimensions}]=tensor({other_literal})\n    second=try await transfer(other,gpu)\n') if extra else ''
+    body_lines = body.splitlines()
+    final = max(i for i, line in enumerate(body_lines) if line and not line[0].isspace() and not line.startswith("else:"))
+    if not body_lines[final].startswith(('return ', 'fail ')):
+        body_lines[final] = 'return ' + body_lines[final]
     source=(prefix+f'fn operation(values:Tensor[{name},{shape}],scale:{name}{param})->{result}:\n'+
-            ''.join('  '+line+'\n' for line in body.splitlines())+
+            ''.join('  '+line+'\n' for line in body_lines)+
             f'fn main()->{result} ! TaskError:\n  return try parallel:\n    gpu=devices.gpu()\n'
             f'    values:Tensor[{name},{dimensions}]=tensor({literal})\n    resident=try await transfer(values,gpu)\n'+setup+
             f'    answer=try await spawn operation(resident,{scale}{",second" if extra else ""}) on gpu\n'+

@@ -64,18 +64,19 @@ int main(int argc, char **argv) {
         "fn main()->i64:\n  value=0\n  while value<3:\n    value=value+1\n  return value\n";
     Fixture mutation(base, "mutable-local", {{"main.k", mutableLocal}});
     auto renamed = mutation.success("main.k", mutableLocal.find("value=value"), "counter");
-    require(
-        renamed["main.k"] ==
-            "fn main()->i64:\n  counter=0\n  while counter<3:\n    counter=counter+1\n  return counter\n",
-        "rename includes mutable declaration, writes and reads");
-    const std::string local = "fn main():\n  value=1\n  read=fn():return value\n  return read()+value\n";
+    require(renamed["main.k"] == "fn main()->i64:\n  counter=0\n  while counter<3:\n    "
+                                 "counter=counter+1\n  return counter\n",
+            "rename includes mutable declaration, writes and reads");
+    const std::string local =
+        "fn main():\n  value=1\n  read=fn():return value\n  return read()+value\n";
     Fixture locals(base, "locals", {{"main.k", local}});
     auto prepared = locals.plan("main.k", local.find("value"), std::nullopt);
     require(prepared && prepared->selection && prepared->placeholder == "value" &&
                 prepared->edits.empty(),
             "prepare rename");
     auto result = locals.success("main.k", local.find("value"), "amount");
-    require(result["main.k"] == "fn main():\n  amount=1\n  read=fn():return amount\n  return read()+amount\n",
+    require(result["main.k"] ==
+                "fn main():\n  amount=1\n  read=fn():return amount\n  return read()+amount\n",
             "captured local edits");
     auto noChange = locals.plan("main.k", local.find("value"), "value");
     require(noChange && noChange->edits.empty(), "same-name rename");
@@ -85,13 +86,13 @@ int main(int argc, char **argv) {
     for (auto name : {"", "fn", "f32", "main", "_", "9name", "a b", "é"})
       require(!lsp::validRenameName(name), "invalid name admitted");
     require(lsp::validRenameName("_value2"), "valid identifier rejected");
-    const std::string keywordBinding =
-        "error Input:\n  Bad\nfn inspect(error:i64)->i64:\n  return error\nfn main():\n  return inspect(1)\n";
+    const std::string keywordBinding = "error Input:\n  Bad\nfn inspect(error:i64)->i64:\n  return "
+                                       "error\nfn main():\n  return inspect(1)\n";
     Fixture keywordName(base, "keyword-binding", {{"main.k", keywordBinding}});
     result = keywordName.success("main.k", keywordBinding.find("error:i64"), "problem");
     require(result["main.k"].find("error Input:") != std::string::npos &&
                 result["main.k"].find("inspect(problem:i64)") != std::string::npos &&
-                result["main.k"].find("  problem\n") != std::string::npos,
+                result["main.k"].find("  return problem\n") != std::string::npos,
             "keyword spelling confused a lexical binding");
     Fixture collision(base, "collision",
                       {{"main.k", "fn main():\n  value=1\n  other=2\n  return value+other\n"}});
@@ -103,14 +104,15 @@ int main(int argc, char **argv) {
     auto failed = captures.plan("main.k", capture.find("value"), "other");
     require(!failed && failed.error().find("resolution") != std::string::npos,
             "silent capture admitted");
-    const std::string reverse = "fn outer(other:i64)->i64:\n  read=fn():\n    value=1\n    "
-                                "return value+other\n  return read()\nfn main():\n  return outer(2)\n";
+    const std::string reverse =
+        "fn outer(other:i64)->i64:\n  read=fn():\n    value=1\n    "
+        "return value+other\n  return read()\nfn main():\n  return outer(2)\n";
     Fixture reverseCapture(base, "reverse-capture", {{"main.k", reverse}});
     require(!reverseCapture.plan("main.k", reverse.find("value"), "other"),
             "capture of unrelated reference admitted");
-    const std::string pattern =
-        "enum Box:\n  Some:\n    value:i64\nfn read(box:Box)->i64:\n  return match box:\n    Box.Some "
-        "{value}:value\nfn main():\n  return read(Box.Some {value:2})\n";
+    const std::string pattern = "enum Box:\n  Some:\n    value:i64\nfn read(box:Box)->i64:\n  "
+                                "return match box:\n    Box.Some "
+                                "{value}:value\nfn main():\n  return read(Box.Some {value:2})\n";
     Fixture patterns(base, "patterns", {{"main.k", pattern}});
     result = patterns.success("main.k", pattern.find("value:i64"), "amount");
     require(result["main.k"].find("{amount:value}:value") != std::string::npos &&
@@ -207,8 +209,8 @@ int main(int argc, char **argv) {
     auto acrossFiles = manyFiles.plan("lib.k", library.find("scale"), "amplify");
     require(acrossFiles && acrossFiles->edits.size() == 261,
             "workspace rename incorrectly used a single graph overlay budget");
-    const std::string grouped =
-        "fn double(value:i64):\n  return value*2\nfn main():\n  transform=(double)\n  return transform(2)\n";
+    const std::string grouped = "fn double(value:i64):\n  return value*2\nfn main():\n  "
+                                "transform=(double)\n  return transform(2)\n";
     Fixture unmapped(base, "unmapped", {{"main.k", grouped}});
     failed = unmapped.plan("main.k", grouped.find("double"), "twice");
     require(!failed && failed.error().find("unmapped") != std::string::npos,
