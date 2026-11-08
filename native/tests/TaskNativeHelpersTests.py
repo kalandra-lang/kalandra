@@ -165,7 +165,7 @@ fn main()->{numeric}:
 source=a.output/'large-helper.k'
 lines=['fn large(x:i64)->i64:','  value0=0']
 lines += [f'  value{i}=value{i-1}+x/(x+{i})' for i in range(1,241)]
-lines += ['  value240','fn main()->i64 ! TaskError:','  try parallel:',
+lines += ['  return value240','fn main()->i64 ! TaskError:','  return try parallel:',
           '    try await spawn large(1)']
 source.write_text('\n'.join(lines)+'\n')
 binary=executable('large-helper')
