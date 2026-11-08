@@ -14,7 +14,7 @@ foreach(WORKERS IN ITEMS 1 2 4)
   endif()
 endforeach()
 # An unused scalar retains its declared contract without requiring a resource binding.
-string(REPLACE "  values * factor" "  values" UNUSED "${SOURCE}")
+string(REPLACE "  return values * factor" "  return values" UNUSED "${SOURCE}")
 file(WRITE "${OUTPUT_DIR}/unused.k" "${UNUSED}")
 execute_process(COMMAND "${COMPILER}" --arithmetic software "${OUTPUT_DIR}/unused.k" --target metal -o "${OUTPUT_DIR}/unused" -O2
   RESULT_VARIABLE STATUS ERROR_VARIABLE ERROR)

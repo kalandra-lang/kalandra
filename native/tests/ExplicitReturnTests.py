@@ -310,6 +310,16 @@ fn main() -> unit:
   return natural()
 ''', ''),
 }
+cases['non-tail-return-operand'] = ('''fn choose(flag: bool) -> i64:
+  value = if flag:
+    return 20
+  else:
+    1
+  return value + 22
+fn main() -> i64:
+  return choose(true) + choose(false)
+''', '43\n')
+
 for name, (source, expected) in cases.items():
     path = root / (name + '.k')
     path.write_text(source)
@@ -389,6 +399,16 @@ fn choose(flag: bool) -> i64 ! TaskError:
 fn main() -> i64 ! TaskError:
   return try choose(true)
 ''',
+    'tail-return-unobserved-task': '''fn work() -> i64:
+  return 1
+fn main() -> i64 ! TaskError:
+  return try parallel:
+    task = spawn work()
+    return if true:
+      return 42
+    else:
+      try await task
+''',
     'immutable-parameter': 'fn bad(value: String) -> String:\n  value = "new"\n  return value\n',
     'unit-as-condition': 'fn main() -> i64:\n  return if ():\n    1\n  else:\n    0\n',
 }
@@ -399,6 +419,12 @@ for name, source in rejected.items():
     path.write_text(source)
     result = subprocess.run([args.checker, str(path)], text=True, capture_output=True, timeout=30)
     assert result.returncode != 0, (name, result.stdout)
-    if name == 'constant-zero':
-        assert 'S052' in result.stderr, result.stderr
+    expected_code = ('S003' if name.startswith('old-') else {
+        'constant-zero': 'S052', 'missing-return': 'S079', 'partial-return': 'S079',
+        'unreachable': 'S076', 'wrong-return': 'S010', 'bare-numeric-return': 'S010',
+        'unit-value-discard': 'S079', 'unobserved-exit': 'S038',
+        'tail-return-unobserved-task': 'S038', 'immutable-parameter': 'S008',
+        'unit-as-condition': 'S057',
+    }[name])
+    assert f'error[{expected_code}]' in result.stderr, (name, result.stderr)
 print(f'{len(cases)} executable cases and {len(rejected)} rejected cases passed')

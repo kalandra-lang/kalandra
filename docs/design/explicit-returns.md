@@ -96,3 +96,11 @@ Large generated GPU control closures use lossless run spelling for repeated
 capture types in entry names. Type identity and ordering remain part of the name;
 short signatures keep their existing spelling. This avoids exceeding CUDA's
 existing artifact name bound without expanding resource limits.
+
+Tail returns inside an already-returned conditional or match are normalized to
+ordinary arm values before typing. Only final arm expressions are eligible;
+normalization does not pass through operators, loops, calls, lambdas or catch
+handlers. This preserves lexical exits and skipped work while keeping numerical
+primitives visible to the GPU stage planner. The traversal is bounded by the
+parsed expression graph, and unobserved-task checks still apply at the branch
+and function boundaries.

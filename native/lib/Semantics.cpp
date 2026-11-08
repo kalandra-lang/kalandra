@@ -71,9 +71,51 @@ class Checker {
     std::vector<ExprId> leaves;
   };
 
+  void normalizeTailReturns() {
+    // A return in the final arm of an already-returned conditional/match has
+    // no further work to skip. Keep this value flow ordinary so typed numeric
+    // stages remain visible instead of requiring a synthetic control loop.
+    // Never descend through operators, loops, calls, lambdas or catch handlers:
+    // their surrounding work or lexical return boundary can differ.
+    std::vector<ExprId> pending;
+    std::vector<bool> visited(syntax_.expressions.size());
+    for (const auto &expr : syntax_.expressions)
+      if (const auto *exit = std::get_if<ReturnExpr>(&expr.value); exit && exit->value)
+        pending.push_back(*exit->value);
+    const auto tail = [&](const std::vector<Statement> &body) {
+      if (!body.empty() && !body.back().binding)
+        pending.push_back(body.back().expression);
+    };
+    while (!pending.empty()) {
+      const auto id = pending.back();
+      pending.pop_back();
+      if (visited[id])
+        continue;
+      visited[id] = true;
+      auto &expr = syntax_.expressions[id];
+      while (const auto *exit = std::get_if<ReturnExpr>(&expr.value)) {
+        if (!exit->value) {
+          expr.value = UnitExpr{};
+          break;
+        }
+        const auto operand = *exit->value;
+        visited[operand] = true;
+        expr = syntax_.expressions[operand];
+      }
+      if (const auto *choice = std::get_if<ConditionalExpr>(&expr.value)) {
+        tail(choice->whenTrue);
+        tail(choice->whenFalse);
+      } else if (const auto *match = std::get_if<MatchExpr>(&expr.value)) {
+        for (const auto &arm : match->arms)
+          tail(arm.body);
+      }
+    }
+  }
+
 public:
   Checker(Module syntax, SemanticLimits limits, CheckOptions options)
       : syntax_(std::move(syntax)), limits_(limits), options_(options) {
+    normalizeTailReturns();
     output_.source = syntax_.source;
     output_.functions.resize(syntax_.functions.size());
     states_.resize(syntax_.functions.size(), State::Unseen);
@@ -1407,7 +1449,8 @@ private:
     }
     if constexpr (std::is_same_v<Operation, StringLiteral>) {
       std::uint64_t count = 0;
-      validateUtf8(operation.value, [] { return true; }, &count);
+      validateUtf8(
+          operation.value, [] { return true; }, &count);
       stringCounts_[id] = count;
     } else if constexpr (std::is_same_v<Operation, StringSlice>) {
       auto a = intConstants_.find(operation.start), b = intConstants_.find(operation.end);
@@ -3079,9 +3122,10 @@ private:
     if (options_.placement && actual.tensor &&
         ((!scope.handler && actual.device) ||
          (scope.handler && scope.context && actual.device != scope.context->device))) {
-      error("S047", scope.handler
-                        ? "catch branches require matching residency and GPU index; transfer explicitly"
-                        : "function results require an explicit transfer to devices.cpu()",
+      error("S047",
+            scope.handler
+                ? "catch branches require matching residency and GPU index; transfer explicitly"
+                : "function results require an explicit transfer to devices.cpu()",
             span);
       return {};
     }
@@ -3722,9 +3766,8 @@ private:
     else
       for (auto &dimension : handlerContext.shape)
         dimension = dynamic();
-    auto result =
-        functionSuite(nested, handler.body, handlerContext, body, span, {name(handler.parameter)},
-                      true);
+    auto result = functionSuite(nested, handler.body, handlerContext, body, span,
+                                {name(handler.parameter)}, true);
     if (!result)
       return {};
     finishBranch(before, nested, *result, span);

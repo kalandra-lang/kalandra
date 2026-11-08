@@ -110,7 +110,7 @@ if(POST)
   run(empty-post "bf800000\n" 0)
   # Reuse one reduced binding twice; this is not two independent reductions.
   string(REPLACE "-(reduceSum(values)+bias)/2" "reduceSum(values)" REUSED "${DIRECT}")
-  string(REPLACE "  reduceSum(values)" "  subtotal=reduceSum(values)\n  subtotal*subtotal+bias" REUSED "${REUSED}")
+  string(REPLACE "  return reduceSum(values)" "  subtotal=reduceSum(values)\n  return subtotal*subtotal+bias" REUSED "${REUSED}")
   compile(reused-post "${REUSED}")
   run(reused-post "42180000\n" 0)
 endif()

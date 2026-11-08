@@ -90,7 +90,7 @@ foreach(SIDE IN ITEMS left right)
   file(WRITE "${ROOT}/operations.k" "${ONE}")
   compile(${SIDE} "${MAIN}")
 endforeach()
-string(REPLACE "  finish(product, bias, scale)" "  product" PURE "${OPS}")
+string(REPLACE "  return finish(product, bias, scale)" "  return product" PURE "${OPS}")
 file(WRITE "${ROOT}/operations.k" "${PURE}")
 compile(no-post "${MAIN}")
 # Repeated/reordered helper arguments and two different maps of the same matrix.

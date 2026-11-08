@@ -104,6 +104,7 @@ fn work() -> i64:
 ''', 'unit', False, None),
 }
 
+programs = {}
 for name, (worker, result_type, owned, expected) in cases.items():
     main = f'''fn main() -> {result_type} ! TaskError:
   return try parallel:
@@ -111,8 +112,24 @@ for name, (worker, result_type, owned, expected) in cases.items():
     result = try await spawn work() on gpu
 '''
     main += ('    result[0] + result[1]\n' if owned else '    result\n')
+    programs[name] = (worker + main, expected)
+programs['tensor-tail-return'] = ('''fn total(values: Tensor[i64, 2], flag: bool) -> i64:
+  return if flag:
+    return reduceSum(values)
+  else:
+    return reduceSum(values * 2)
+fn main() -> i64 ! TaskError:
+  return try parallel:
+    gpu = devices.gpu()
+    values: Tensor[i64, 2] = tensor([20, 22])
+    resident = try await transfer(values, gpu)
+    try await spawn total(resident, true) on gpu
+''', 42)
+programs['tensor-tail-return-false'] = (
+    programs['tensor-tail-return'][0].replace('total(resident, true)', 'total(resident, false)'), 84)
+for name, (source, expected) in programs.items():
     path = args.output / (name + '.k')
-    path.write_text(worker + main)
+    path.write_text(source)
     for optimization in ('-O0', '-O2'):
         bundle = args.output / (name + optimization)
         compiled = subprocess.run([args.compiler, path, '--target', args.target,
@@ -129,4 +146,4 @@ for name, (worker, result_type, owned, expected) in cases.items():
         else:
             assert int(executed.stdout.strip(), 16) == expected, (name, executed.stdout)
     print(name + ': passed', flush=True)
-print(f'{len(cases)} physical {args.target} return/unit cases passed')
+print(f'{len(programs)} physical {args.target} return/unit cases passed')

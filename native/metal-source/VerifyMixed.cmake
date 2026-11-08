@@ -25,7 +25,7 @@ string(REPLACE "[4, 5, 6]" "[]" EMPTY "${EMPTY}")
 build_run(empty "${EMPTY}" "00000000" FALSE)
 # A CPU helper's dynamic tensor is checked against a fixed-shape callee at runtime.
 set(FAULT "fn exact(values: Tensor[f32, 4]) -> f32:\n  return reduceSum(values)\n\n${SOURCE}")
-string(REPLACE "  reduceSum(values)\n\nfn finish" "  exact(values)\n\nfn finish" FAULT "${FAULT}")
+string(REPLACE "  return reduceSum(values)\n\nfn finish" "  return exact(values)\n\nfn finish" FAULT "${FAULT}")
 # Move the first CPU call after the GPU download so the fault crosses both boundaries.
 string(REPLACE "    baseline = total(left)\n" "" FAULT "${FAULT}")
 string(REPLACE "finish(total(host), baseline)" "total(host)" FAULT "${FAULT}")

@@ -71,7 +71,7 @@ compile(sum "${SUM}")
 # Dynamic operands need unconditional equality contracts, independently per side.
 string(REPLACE "Tensor[f32, 2, 3]" "Tensor[f32, ?, ?]" DYNAMIC "${SOURCE}")
 string(REPLACE "Tensor[f32, 3, 2]" "Tensor[f32, ?, ?]" DYNAMIC "${DYNAMIC}")
-string(REPLACE "  if factor > 1:" "  aligned = a + b + c\n  if factor > 1:" DYNAMIC "${DYNAMIC}")
+string(REPLACE "  return if factor > 1:" "  aligned = a + b + c\n  return if factor > 1:" DYNAMIC "${DYNAMIC}")
 string(REPLACE "  right = if factor > 0:" "  aligned = x + y\n  right = if factor > 0:" DYNAMIC "${DYNAMIC}")
 compile(dynamic "${DYNAMIC}")
 set(FORWARD "fn forward(a:Tensor[f32,?,?])->Tensor[f32,?,?]:\n  return a\n")
